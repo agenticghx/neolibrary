@@ -21,15 +21,14 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M4 (c) · full-text search** across books and (later) notes. The
-   `sections.search` column (a Postgres full-text index) already exists.
-   Build a search page `/search?q=` with results grouped by book, each
-   showing the paragraph with the match highlighted and linking into the
-   reader at that paragraph's CFI (`/books/[id]/read?at=<cfi>`, which the
-   reader must accept). Playwright: search a phrase from a fixture book,
-   then open the result at the right place. Then tick M4 in `docs/done.md`
-   (Samuel's real-book verdict is recorded as "awaiting", not blocking).
-   PDF reading (pdf.js) is still to do, in its own PR.
+1. **M4 (d) · reader themes and PDF reading**, then tick M4:
+   (1) A theme picker in the reader's Aa panel: Auto (follows the device),
+   Paper (light), Sepia, Night (dark). Define token sets for each in
+   `app/tokens.css` (keep the contrast test covering every set) and read
+   colours from the reader element. (2) Read PDFs in the reader with pdf.js
+   (`pdfjs-dist`) through foliate-js's `pdf.js` adapter, or a simple page
+   viewer if that is too fragile; extract PDF text into `sections` for
+   search. Playwright: open the Descartes fixture PDF and turn a page.
 2. Then M5, M6, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -79,6 +78,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:05 · Claude (cloud) · M4 (c): full-text search
+- **Done:** `/search` (new "Search" item in the nav) searches the text of every book on the user's shelf, using Postgres' built-in full-text search on `sections.search`. It supports words (matching word forms: "travelling" finds "travel"), "exact phrases" and -excluded words. Results are grouped by book, show the chapter and the paragraph with matches marked (`ts_headline`, marked with control characters so book text can never inject markup), and link into the reader at that paragraph (`/books/<id>/read?at=<cfi>`; the reader now accepts `at`).
+- **Key paths:** `lib/library/search.ts`, `app/(app)/search/`, `app/(reader)/books/[id]/read/page.tsx`, `e2e/reader.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `103 passed`; `npx playwright test` → `103 passed (1.3m)`, including: search `"singular ferocity"` → 1 passage in *Jekyll and Hyde*, chapter "The Carew Murder Case", both words marked; clicking opens the reader in that chapter, and that paragraph's CFI lies inside the visible range the reader reports (compared with foliate-js's CFI code; a chapter-1 paragraph correctly does not). All reference screenshots regenerated (the nav gained "Search").
+- **Known issues / blockers:** Notes are not searchable yet (they arrive in M5; add them to search then). The reader's theme picker and PDF reading are still to do (M4 (d)).
+- **Exact next steps:** M4 (d), per "Exact next steps".
 
 ### 2026-10-04 04:45 · Claude (cloud) · M4 (b): section model with stable ids and CFIs
 - **Done:** `lib/library/sections.ts` splits every EPUB, in reading order, into chapters (one per chapter file, labelled from the contents), sections (headings inside a chapter) and paragraphs (leaf text blocks). Each gets a stable id built from the chapter path, its position and a hash of its text, so the same file always gives the same ids. Each also gets an EPUB CFI, written the way foliate-js writes them. New table `sections` (migration `0006_sections`, with a reverse step) holds the text plus a generated full-text search column, ready for M4 (c). Sections are built at upload and backfilled at server start for EPUBs uploaded earlier. Fixed a contents-label bug found along the way: labels with inline markup came out scrambled ("Mr. Search forHyde"); the contents are now read with a DOM parser (linkedom).

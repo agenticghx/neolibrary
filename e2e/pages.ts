@@ -12,6 +12,7 @@ export const pages: PageCase[] = [
   { name: "book-wanted", path: "/", signedIn: true, click: "The Grid (not owned)" },
   { name: "shelf-empty", path: "/shelf", signedIn: true },
   { name: "data", path: "/data", signedIn: true },
+  { name: "search", path: "/search", signedIn: true },
   { name: "invites", path: "/admin/invites", signedIn: true },
   { name: "design", path: "/design", signedIn: true },
 ];

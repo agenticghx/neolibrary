@@ -3,4 +3,6 @@ declare module "foliate-js/view.js";
 declare module "foliate-js/epubcfi.js" {
   export function parse(cfi: string): unknown[] & { shift(): unknown };
   export function toElement(doc: Document, parts: unknown): Node;
+  export function compare(a: string, b: string): number;
+  export function collapse(cfi: string, toEnd?: boolean): string;
 }
