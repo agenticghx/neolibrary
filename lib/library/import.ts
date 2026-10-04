@@ -4,6 +4,7 @@ import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { readBook } from "./ebook";
 import { normaliseTitle } from "./paths";
+import { buildSections } from "./sections-store";
 
 export type ImportResult =
   | { status: "added" | "attached"; bookId: string; title: string }
@@ -67,6 +68,7 @@ export async function importBook(
       updatedAt: new Date(),
     })
     .where(eq(books.id, bookId));
+  if (info.type === "epub") await buildSections(db, bookId, file.bytes, info.toc);
   return { status: wanted ? "attached" : "added", bookId, title: wanted?.title ?? info.title };
 }
 

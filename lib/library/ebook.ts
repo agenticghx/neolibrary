@@ -1,5 +1,6 @@
 import { strFromU8, unzipSync } from "fflate";
 import { XMLParser } from "fast-xml-parser";
+import { DOMParser } from "linkedom";
 import { PDFDocument } from "pdf-lib";
 
 /**
@@ -36,7 +37,7 @@ const xml = new XMLParser({
   attributeNamePrefix: "@",
   removeNSPrefix: true,
   textNodeName: "#text",
-  isArray: (name) => ["item", "itemref", "meta", "creator", "title", "li", "navPoint", "EncryptedData", "rootfile", "reference"].includes(name),
+  isArray: (name) => ["item", "itemref", "meta", "creator", "title", "EncryptedData", "rootfile", "reference"].includes(name),
 });
 
 const text = (v: unknown): string => {
@@ -130,56 +131,40 @@ export function parseEpub(bytes: Uint8Array): BookInfo {
   };
 }
 
+// Contents are read with a DOM parser: the label must keep its words in order
+// even when part of it is marked up (e.g. "Search for <abbr>Mr.</abbr> Hyde").
+type Node_ = { localName?: string; tagName: string; children: ArrayLike<Node_>; textContent: string | null; getAttribute(n: string): string | null };
+const local = (n: Node_) => (n.localName ?? n.tagName).toLowerCase().replace(/^.*:/, "");
+const kids = (n: Node_, name: string) => Array.from(n.children).filter((c) => local(c) === name);
+const descendants = (n: Node_, name: string): Node_[] =>
+  Array.from(n.children).flatMap((c) => (local(c) === name ? [c] : []).concat(descendants(c, name)));
+
 function parseNav(source: string, navPath: string): TocEntry[] {
-  const doc = xml.parse(source);
-  const navs = findAll(doc, "nav");
-  const tocNav = navs.find((n) => String(n["@type"] ?? "").includes("toc")) ?? navs[0];
-  const walk = (ol: Record<string, unknown> | undefined): TocEntry[] =>
-    ((ol?.li as Record<string, unknown>[] | undefined) ?? []).map((li) => {
-      const a = li.a as Record<string, unknown> | undefined;
-      const label = clean(flatText(a ?? li.span));
-      return { label, href: a ? resolve(navPath, String(a["@href"] ?? "")) + hash(String(a["@href"] ?? "")) : "", children: walk(li.ol as Record<string, unknown>) };
+  const root = new DOMParser().parseFromString(source, "text/xml").documentElement as unknown as Node_;
+  if (!root) return [];
+  const navs = descendants(root, "nav");
+  const tocNav = navs.find((n) => (n.getAttribute("epub:type") ?? n.getAttribute("type") ?? "").includes("toc")) ?? navs[0];
+  const walk = (ol: Node_ | undefined): TocEntry[] =>
+    (ol ? kids(ol, "li") : []).map((li) => {
+      const a = kids(li, "a")[0] ?? kids(li, "span")[0];
+      const href = a && local(a) === "a" ? a.getAttribute("href") ?? "" : "";
+      return { label: clean(a?.textContent ?? ""), href: href ? resolve(navPath, href) + hash(href) : "", children: walk(kids(li, "ol")[0]) };
     });
-  return tocNav ? walk(tocNav.ol as Record<string, unknown>) : [];
+  return tocNav ? walk(kids(tocNav, "ol")[0]) : [];
 }
 
 function parseNcx(source: string, ncxPath: string): TocEntry[] {
-  const doc = xml.parse(source);
-  const walk = (points: Record<string, unknown>[] | undefined): TocEntry[] =>
-    (points ?? []).map((p) => {
-      const src = String((p.content as Record<string, string>)?.["@src"] ?? "");
-      return {
-        label: clean(text((p.navLabel as Record<string, unknown>)?.text)),
-        href: resolve(ncxPath, src) + hash(src),
-        children: walk(p.navPoint as Record<string, unknown>[]),
-      };
+  const root = new DOMParser().parseFromString(source, "text/xml").documentElement as unknown as Node_;
+  const navMap = root ? descendants(root, "navMap")[0] ?? descendants(root, "navmap")[0] : undefined;
+  const walk = (parent: Node_ | undefined): TocEntry[] =>
+    (parent ? kids(parent, "navpoint") : []).map((p) => {
+      const src = kids(p, "content")[0]?.getAttribute("src") ?? "";
+      return { label: clean(kids(p, "navlabel")[0]?.textContent ?? ""), href: resolve(ncxPath, src) + hash(src), children: walk(p) };
     });
-  return walk(doc?.ncx?.navMap?.navPoint);
+  return walk(navMap);
 }
 
 const hash = (href: string) => (href.includes("#") ? href.slice(href.indexOf("#")) : "");
-
-function flatText(node: unknown): string {
-  if (node == null) return "";
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(flatText).join(" ");
-  if (typeof node === "object")
-    return Object.entries(node as Record<string, unknown>)
-      .filter(([k]) => !k.startsWith("@"))
-      .map(([, v]) => flatText(v))
-      .join(" ");
-  return "";
-}
-
-function findAll(node: unknown, name: string, out: Record<string, unknown>[] = []): Record<string, unknown>[] {
-  if (node && typeof node === "object") {
-    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
-      if (k === name) for (const n of Array.isArray(v) ? v : [v]) out.push(n as Record<string, unknown>);
-      else if (!k.startsWith("@")) findAll(v, name, out);
-    }
-  }
-  return out;
-}
 
 export async function parsePdf(bytes: Uint8Array, fileName: string): Promise<BookInfo> {
   let doc: PDFDocument;

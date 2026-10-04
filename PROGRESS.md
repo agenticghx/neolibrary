@@ -21,16 +21,15 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M4 (b) · section model**: split each book into sections (chapter →
-   section → paragraph) with stable ids. Derive each id from the chapter
-   file path plus the paragraph's position and a hash of its text, so the
-   same file always gives the same ids. Store the text in Postgres (new
-   tables, with a reverse migration), build it at upload time, and backfill
-   books uploaded earlier. Unit test: re-importing the same file gives the
-   same ids. Then **M4 (c) · full-text search** across books (Postgres
-   `tsvector`), with a search page; Playwright finds a phrase in a fixture
-   book. Then tick M4 ("real-book check" is Samuel's verdict, not blocking).
-   PDF reading (pdf.js) is still to do: either in M4 (b)/(c) or its own PR.
+1. **M4 (c) · full-text search** across books and (later) notes. The
+   `sections.search` column (a Postgres full-text index) already exists.
+   Build a search page `/search?q=` with results grouped by book, each
+   showing the paragraph with the match highlighted and linking into the
+   reader at that paragraph's CFI (`/books/[id]/read?at=<cfi>`, which the
+   reader must accept). Playwright: search a phrase from a fixture book,
+   then open the result at the right place. Then tick M4 in `docs/done.md`
+   (Samuel's real-book verdict is recorded as "awaiting", not blocking).
+   PDF reading (pdf.js) is still to do, in its own PR.
 2. Then M5, M6, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -80,6 +79,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 04:45 · Claude (cloud) · M4 (b): section model with stable ids and CFIs
+- **Done:** `lib/library/sections.ts` splits every EPUB, in reading order, into chapters (one per chapter file, labelled from the contents), sections (headings inside a chapter) and paragraphs (leaf text blocks). Each gets a stable id built from the chapter path, its position and a hash of its text, so the same file always gives the same ids. Each also gets an EPUB CFI, written the way foliate-js writes them. New table `sections` (migration `0006_sections`, with a reverse step) holds the text plus a generated full-text search column, ready for M4 (c). Sections are built at upload and backfilled at server start for EPUBs uploaded earlier. Fixed a contents-label bug found along the way: labels with inline markup came out scrambled ("Mr. Search forHyde"); the contents are now read with a DOM parser (linkedom).
+- **Key paths:** `lib/library/sections.ts`, `lib/library/sections-store.ts`, `db/migrations/0006_sections.*`, `lib/library/ebook.ts` (contents parsing), `instrumentation.ts` (backfill)
+- **Commands that worked:** Vitest: library tests `93 passed`. Includes: *Jekyll and Hyde* gives over 200 paragraphs in order; re-extraction gives identical ids; **every 7th paragraph's CFI, resolved with foliate-js's own `epubcfi.js`, returns exactly that paragraph's text**; rebuild and backfill keep the ids. `npx playwright test` → `94 passed (1.3m)`.
+- **Known issues / blockers:** Front matter (titlepage, imprint, colophon) is included as chapters; the AI features may want to skip it. PDFs have no sections yet (needs pdf.js text extraction). Sections are derived from the file, so they are not in the library export; they rebuild from the file.
+- **Exact next steps:** M4 (c), per "Exact next steps".
 
 ### 2026-10-04 04:20 · Claude (cloud) · M4 (a): the reader (foliate-js), reading position, security policy
 - **Done:** A Content Security Policy (a browser rule listing which scripts may run) on every page, set in `proxy.ts`. Only Next.js's own scripts, carrying a per-request nonce, may run; books open in `blob:` frames that inherit the policy, so scripts inside a book are blocked (foliate-js requires this). The reader at `/books/[id]/read` (EPUB) uses foliate-js 1.0.1 (MIT): Pages or Scroll layout, text size, line spacing, typeface (Serif, Sans or the book's own), contents panel, side buttons and arrow keys to turn pages, and chapter plus progress at the foot. Book pages get the app's colours (read from the design tokens at run time) and fonts (copied to `public/fonts/`, OFL). The position (EPUB CFI, a standard address for a spot in a book) and progress are saved while reading (`PUT /api/books/[id]/position`) and restored on reopen; settings are kept on the device. Migration `0005_reading` adds `books.position`, with a reverse step; the position is also in the library export (ground rule 7). Book pages got a "Read" / "Continue reading" button.

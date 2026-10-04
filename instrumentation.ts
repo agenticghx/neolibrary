@@ -9,4 +9,12 @@ export async function register() {
   if ((await userCount(db)) === 0) {
     console.log(`\n  Neolibrary setup: open /setup and enter this code to create the owner account: ${setupCode()}\n`);
   }
+  // Books uploaded before the section model existed get their sections now.
+  const { backfillSections } = await import("./lib/library/sections-store");
+  const { getStorage } = await import("./lib/storage");
+  const built = await backfillSections(db, await getStorage()).catch((e) => {
+    console.error("Section backfill failed", e);
+    return 0;
+  });
+  if (built) console.log(`  Built sections for ${built} book(s).`);
 }
