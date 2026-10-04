@@ -69,7 +69,7 @@ deployed Railway URL.
 - [x] **M4** Reader, section model with stable ids, reopen at the same spot, full-text search (PRs #8–#11; real-book verdict awaiting Samuel)
 - [x] **M5** Highlights, bookmarks, notes; Markdown + W3C export; export → wipe → import identical (PRs #12–#14)
 - [x] **M6** Rewrite with versions + provenance, STE mode with TypeScript checker matching `ste_check.py`, prerequisites, question bank, cross-book links (fake Claude) (PRs #15–#21)
-- [ ] **M7** Provider-neutral audio tracks, word highlight follows timings, cost estimate + caps (fake voice)
+- [x] **M7** Provider-neutral audio tracks, word highlight follows timings, cost estimate + caps (fake voice) (PRs #22–#24)
 - [ ] **M8** Voice notes with transcripts, stickers, handwriting saved and redrawn
 - [ ] **M9** Wikimedia image search + generated-image fallback, pinned image cards (fakes)
 - [ ] **M10** Reading time and words-per-minute from a scripted session; own trends

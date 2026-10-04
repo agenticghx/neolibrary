@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { listInvites } from "@/lib/auth/service";
 import { requireAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -21,6 +22,12 @@ export default async function InvitesPage() {
       <h1 className={styles.title}>Invite people</h1>
       <p className={styles.lede}>
         Nobody can sign up on their own. Make a link for each person you trust; they choose their own password.
+      </p>
+      <p className={styles.lede}>
+        <Link href="/admin/costs" className={styles.costsLink}>
+          Spending this month
+        </Link>{" "}
+        on Claude and ElevenLabs, against the caps.
       </p>
       <InviteForm />
       <section aria-labelledby="sent" className={styles.list}>
