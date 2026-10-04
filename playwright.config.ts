@@ -1,8 +1,10 @@
 import { defineConfig } from "@playwright/test";
+import { ADMIN_STATE, SETUP_CODE } from "./e2e/pages";
 
 const port = Number(process.env.PORT ?? 3100);
 const phone = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
 const desktop = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 };
+const looks = { testMatch: /(visual|a11y)\.spec\.ts/, dependencies: ["setup"] };
 
 export default defineConfig({
   testDir: "e2e",
@@ -22,15 +24,27 @@ export default defineConfig({
   },
   use: { baseURL: `http://127.0.0.1:${port}`, browserName: "chromium", trace: "retain-on-failure" },
   projects: [
-    { name: "desktop-light", use: { ...desktop, colorScheme: "light" } },
-    { name: "desktop-dark", use: { ...desktop, colorScheme: "dark" } },
-    { name: "phone-light", use: { ...phone, colorScheme: "light" } },
-    { name: "phone-dark", use: { ...phone, colorScheme: "dark" } },
+    // 1. Create the owner account and save its session.
+    { name: "setup", testMatch: /auth\.setup\.ts/, use: { ...desktop } },
+    // 2. Screenshots + accessibility, before any test adds data to the pages.
+    { name: "desktop-light", ...looks, use: { ...desktop, colorScheme: "light", storageState: ADMIN_STATE } },
+    { name: "desktop-dark", ...looks, use: { ...desktop, colorScheme: "dark", storageState: ADMIN_STATE } },
+    { name: "phone-light", ...looks, use: { ...phone, colorScheme: "light", storageState: ADMIN_STATE } },
+    { name: "phone-dark", ...looks, use: { ...phone, colorScheme: "dark", storageState: ADMIN_STATE } },
+    // 3. Behaviour: access rules, invitations, sign-in.
+    {
+      name: "flows",
+      testMatch: /flows\.spec\.ts/,
+      dependencies: ["desktop-light", "desktop-dark", "phone-light", "phone-dark"],
+      use: { ...desktop },
+    },
   ],
   webServer: {
-    command: `npm run build && npx next start -p ${port}`,
+    // A fresh in-process database (PGlite) for every run.
+    command: `rm -rf .data/e2e && npm run build && npx next start -p ${port}`,
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    env: { PGLITE_DIR: ".data/e2e", FILES_DIR: ".data/e2e-files", SETUP_CODE },
   },
 });

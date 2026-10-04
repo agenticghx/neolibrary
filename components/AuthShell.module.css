@@ -1,0 +1,46 @@
+.room {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  background-image: radial-gradient(ellipse 70% 55% at 50% 30%, var(--paper-raised), var(--paper) 70%);
+}
+
+.panel {
+  width: 100%;
+  max-width: 24rem;
+  display: grid;
+  gap: var(--space-6);
+}
+
+.brand {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+}
+
+.mark {
+  display: inline-flex;
+  margin-bottom: var(--space-2);
+  color: var(--ink-900);
+}
+
+.wordmark {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-medium);
+}
+
+.tagline {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title {
+  text-align: center;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-regular);
+}

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Cover } from "@/components/Cover";
-import { Mark } from "@/components/Mark";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Design system" };
@@ -30,17 +29,7 @@ const scale = [
 
 export default function DesignPage() {
   return (
-    <div className={styles.page}>
-      <header className={styles.bar}>
-        <span className={styles.brand}>
-          <Mark size={26} />
-          <span className={styles.wordmark}>Neolibrary</span>
-        </span>
-        <nav aria-label="Main" className={styles.nav}>
-          <span>Paths</span>
-          <span>Notes</span>
-        </nav>
-      </header>
+    <div>
 
       <main className={styles.main}>
         <div className={styles.intro}>

@@ -64,7 +64,7 @@ milestone is done". Live boxes: tick when the check passes against the
 deployed Railway URL.
 
 - [x] **M1** Skeleton, design system, CI, screenshot grid, auto-merge (PRs #1, #2)
-- [ ] **M2** Invite-only accounts; a logged-out visitor gets nothing (pages, API, files)
+- [x] **M2** Invite-only accounts; a logged-out visitor gets nothing (pages, API, files)
 - [ ] **M3** Bookshelf + study Paths; Hidden Machinery Path seeded; upload attaches to a wanted book
 - [ ] **M4** Reader, section model with stable ids, reopen at the same spot, full-text search
 - [ ] **M5** Highlights, bookmarks, notes; Markdown + W3C export; export → wipe → import identical

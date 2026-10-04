@@ -55,6 +55,17 @@
   line-height: var(--leading-tight);
   font-weight: var(--weight-medium);
   text-wrap: balance;
+  overflow-wrap: break-word;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.long {
+  font-size: var(--text-md);
+}
+
+.veryLong {
+  font-size: var(--text-sm);
 }
 
 .slot {
@@ -78,5 +89,10 @@
 
   .title {
     font-size: var(--text-md);
+  }
+
+  .long,
+  .veryLong {
+    font-size: var(--text-xs);
   }
 }
