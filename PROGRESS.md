@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M10 (reading stats).
+next_action: Read docs/handoff.md, then finish M10 (a) by applying docs/handoff/m10a-reading-stats-wip.patch (green at handoff), then M10 (b), (c), M11, M12.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -20,31 +20,30 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 ## Exact next steps
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
+**Start with `docs/handoff.md`** (written 2026-10-04 for the laptop session
+taking over): where the work stands, the plan for every remaining
+milestone, the commands, and the lessons and gotchas so far.
 
-1. **M10 · Reading stats**, next unticked box in `docs/done.md`.
-   Suggested PRs: (a) **Measure honestly**: in the reader, count *active*
-   reading time only: pause when the tab is hidden (`visibilitychange`), when
-   there is no input and no page turn for a while (for example 2 minutes),
-   and while reading aloud plays (that is listening). Send reading sessions
-   to the server in small batches (book, start, end, active seconds, words
-   read). Words read = the words of the paragraphs that were on screen
-   (from the section model and the reader's visible range), counted once
-   per paragraph per session. New table (migration with a reverse step),
-   in the library export round trip. Words per minute = words / active
-   minutes. Done when (plan): a test with a scripted reading session
-   produces the expected words-per-minute number: a unit test on the maths,
-   plus a Playwright test that turns pages with a controlled clock
-   (`page.clock`) and checks the number on the stats page.
-   (b) **Your own trend first**: a stats page (`/stats`, add to
-   `e2e/pages.ts`; linked from the shelf or the book page, the phone nav is
-   full) with speed by book, by pillar, and N vs E books (from the Path's
-   slots), time read per week. A comparison with a published adult average
-   only with a cited source on the page (do not invent a number); if no
-   source can be verified offline, leave the comparison out and say so.
-   (c) **Simple, honest suggestions**, e.g. "your speed drops sharply in
-   chapter 4; try the prerequisites panel", computed from per-chapter
-   speed, not generic tips. Then tick M10.
-2. Then M11 and M12, per `docs/done.md`.
+1. **The M9 (c) + handoff PR** (branch `claude/magical-bardeen-fpwlg1`). If
+   it is still open, make its checks green; the auto-merge Action merges it
+   once CI passes. (The real-Postgres CI job, PR #32, is already merged.)
+2. **M10 (a) · Measure honestly** is built and was green at handoff, but
+   saved as a patch, not committed: `docs/handoff/m10a-reading-stats-wip.patch`.
+   From an up-to-date `main`: `git checkout -b m10-reading-stats`,
+   `git apply docs/handoff/m10a-reading-stats-wip.patch`, delete the patch
+   file, `npm ci`, `npm run check`, `npx playwright test`, check
+   `e2e/__screenshots__/stats-*` by eye, Log entry, PR. Contents and design
+   are in `docs/handoff.md` §3.
+3. **M10 (b) · Your own trend first**: `/stats` grows speed by book, by
+   pillar, and N vs E books (from the Path's slots), and time read per week.
+   A comparison with a published adult average only with a cited source on
+   the page (do not invent a number); if no source can be verified, leave
+   it out and say so.
+4. **M10 (c) · Simple, honest suggestions** from per-chapter speed (needs
+   the chapter of each page in the sitting), e.g. "your speed drops sharply
+   in chapter 4; try the prerequisites panel". Then tick M10.
+5. **M11** (API tokens, agent API, MCP server) and **M12** (offline PWA and
+   sync), then the live checks: plans in `docs/handoff.md` §4.
 
 ## Waiting on Samuel
 
@@ -117,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 10:15 UTC · Claude (cloud) · Handoff to the laptop session; M10 (a) saved as a patch
+- **Done:** Samuel is moving the work to his laptop, so this session wrote everything the next session needs into the repo. **`docs/handoff.md`** (for the next Claude session) covers: where things stand (main has M1 to M9 (b) and the real-Postgres CI job; this branch adds M9 (c)); the loop and the commands that work; what M10 (a) contains and how to finish it; plans for M10 (b), (c), M11 and M12; and about thirty lessons and gotchas learned while building (PGlite vs real Postgres, migration reverse steps that keep data, Next.js route files, byte ranges for audio, the Playwright project chain, foliate's closed shadow DOM, the font and contrast checks, badge margins, network blocks in the cloud, never guessing PR numbers). **M10 (a) "Measure honestly"** (active reading time, words read, words per minute, the `reading_sessions` table with a reverse step, in the export round trip, a `/stats` page, a Playwright test with a controlled clock) is built and passed every check, but it is saved as **`docs/handoff/m10a-reading-stats-wip.patch`** rather than committed: this PR already holds M9 (c), and one step per PR is the rule. `CLAUDE.md` now points new sessions at `docs/handoff.md`.
+- **Key paths:** `docs/handoff.md`, `docs/handoff/m10a-reading-stats-wip.patch`, `PROGRESS.md`, `CLAUDE.md`
+- **Commands that worked:** with the patch applied: `npx playwright test` → `148 passed (3.1m)` (the stats test included: 1 min on page 1, page turn, 1 min on page 2, 5 idle min; about 180 active seconds, 2 pages, words = both pages, `/stats` shows the same words per minute); `npm run check` → lint and types clean, `Tests 212 passed | 2 skipped (214)`. Then the patch was taken out of the working tree, and `git apply --check docs/handoff/m10a-reading-stats-wip.patch` → applies cleanly to this branch.
+- **Known issues / blockers:** The first M10 (a) browser run counted 517 words instead of both pages (foliate reports the first page again after layout); fixed by keeping each page's latest count, then green. The stats reference screenshots were made in the cloud container; check them by eye on the laptop before merging.
+- **Exact next steps:** See "Exact next steps": merge the M9 (c) + handoff PR, apply the M10 (a) patch on `m10-reading-stats`, then M10 (b), (c), M11, M12.
 
 ### 2026-10-04 09:45 UTC · Claude (cloud) · M9 (c): pin a picture to a passage; M9 ticked
 - **Done:** When See it is opened from a selection, every picture (Commons results and a generated picture) has **"Pin to the passage"**. A pinned picture is an **annotation of kind `image`** (migration `0015_pinned_pictures`). Its reverse step turns pins into notes naming the picture, author, licence and link, or "Generated picture: …", so going back keeps the credit. It holds the picture: for Commons the links, title, credit, licence and licence link; for generated pictures the stored file and subject. Before storing, the server **only accepts pictures it can trust** (`lib/library/pinned.ts`): image links must be on `upload.wikimedia.org` (or the test images), pages must be https, and a generated picture must be the reader's own stored file. In the book the passage is tinted sage with a **picture badge in the right margin**; **clicking the passage opens a pop-up card** ("Pinned picture": the quote, the large picture, credit · licence · Source, or the "Generated image" label). The Notes panel lists "Pinned picture" with the thumbnail and credit. Generated pictures come with a short-lived signed link, like voice notes. Exports: library JSON (`picture`), Markdown ("Picture: Silicon wafer, by Ada, CC BY-SA 4.0 (link)" or "Generated picture: …"), W3C (motivation `describing` plus a `neolibrary:picture` extra, checked again on import). The real-Postgres test now also pins a picture. **M9 ticked** in `docs/done.md`.
