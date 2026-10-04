@@ -110,7 +110,7 @@ export default async function ShelfPage({
       <footer className={styles.data}>
         <p>
           Your library is yours: <a href="/api/export">download it as a file</a> (books, paths, collections) or{" "}
-          <Link href="/data">bring one back</Link>.
+          <Link href="/data">bring one back</Link>. How you read: <Link href="/stats">your reading stats</Link>.
         </p>
       </footer>
     </main>

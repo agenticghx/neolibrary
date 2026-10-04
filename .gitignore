@@ -33,3 +33,7 @@ e2e/.auth/
 
 # Copied from node_modules at build time (scripts/copy-pdfjs.mjs)
 /public/pdfjs/
+
+# Python bytecode (prompts/ste has a checker script)
+__pycache__/
+*.pyc

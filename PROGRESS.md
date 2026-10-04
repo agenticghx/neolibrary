@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read docs/handoff.md, then finish M10 (a) by applying docs/handoff/m10a-reading-stats-wip.patch (green at handoff), then M10 (b), (c), M11, M12.
+next_action: Merge the M10 (a) PR once CI is green, then build M10 (b) (your own trend on /stats)
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -116,6 +116,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 10:10 UTC · Claude (laptop) · M10 (a) verified in the browser; PR opened
+- **Done:** Finished verifying M10 (a) "Measure honestly" on branch `m10-reading-stats`. Browser tests now pass on the laptop. Looked at `e2e/__screenshots__/stats-*` by eye: heading, the honest-counting explanation and the "Nothing yet" line, readable in light and dark, no overflow. Removed a Python bytecode file (`prompts/ste/__pycache__/…pyc`) that the WIP commit picked up by accident, and added `__pycache__/` and `*.pyc` to `.gitignore`.
+- **Key paths:** `lib/library/reading-stats.ts`, `app/(reader)/books/[id]/read/useReadingTracker.ts`, `app/(app)/stats/page.tsx`, `db/migrations/0016_reading_sessions.*`, `e2e/stats.spec.ts`, `.gitignore`
+- **Commands that worked:** `npx playwright test --ignore-snapshots` → `148 passed (1.4m)`; `npm run check` → `Tests 212 passed | 2 skipped (214)`, lint and types clean.
+- **Known issues / blockers:** The Playwright browser download stalled inside the laptop sandbox (a stuck install from the paused session also held a lock file). Fix that worked: download `chromium-headless-shell-mac-arm64.zip` (build 1194) with `curl`, unzip it into `~/Library/Caches/ms-playwright/chromium_headless_shell-1194`, and add the empty marker files `INSTALLATION_COMPLETE` and `DEPENDENCIES_VALIDATED`. On macOS run browser tests with `--ignore-snapshots`; CI (Linux) does the pixel comparison.
+- **Exact next steps:** Merge the M10 (a) PR when CI is green, then M10 (b) per "Exact next steps".
+
+### 2026-10-04 09:15 UTC · Claude (laptop) · Paused M10 (a) mid-verification (Samuel switching Claude account)
+- **Done:** Read `docs/handoff.md`. PR #33 (M9 (c) + handoff) was already merged. Branch `m10-reading-stats` from `origin/main` (`9a779de`); applied `docs/handoff/m10a-reading-stats-wip.patch` (clean) and removed the patch file. Verified on the laptop: `npm run check` → lint and types clean, `Tests 212 passed | 2 skipped (214)` (same as the handoff); `TEST_DATABASE_URL=… npm run test:postgres` against a local embedded Postgres → `Tests 2 passed (2)`. Browser tests NOT yet run here (the run was stopped while building when the session paused).
+- **Key paths:** branch `m10-reading-stats` (pushed, no PR yet); `lib/library/reading-stats.ts`, `app/(reader)/books/[id]/read/useReadingTracker.ts`, `app/(app)/stats/page.tsx`, `db/migrations/0016_reading_sessions.*`, `e2e/stats.spec.ts`
+- **Commands that worked:** `git checkout -B m10-reading-stats origin/main && git apply docs/handoff/m10a-reading-stats-wip.patch && git rm docs/handoff/m10a-reading-stats-wip.patch`; `npm ci`; `npm run check`; local real Postgres: `npx` script using the `embedded-postgres` npm package (in a scratch folder, not the repo), then `TEST_DATABASE_URL=postgres://postgres:pw@localhost:54330/postgres npm run test:postgres`
+- **Known issues / blockers:** On macOS, reference screenshots (made on Linux) will not match pixel-for-pixel; run `npx playwright test --ignore-snapshots` locally and let CI (Linux) do the pixel comparison. Live site still runs `d5ac52f` (no auto-deploy; Railway's GitHub app lacks repo access).
+- **Exact next steps:** 1) `git checkout m10-reading-stats && npm ci && npx playwright test --ignore-snapshots` (about 3–6 min). 2) Look at `e2e/__screenshots__/stats-*` by eye. 3) Open the PR (auto-merge merges when CI is green). 4) Redeploy with `railway up --service web --ci` and check `/api/health` and `/stats` (sign-in redirect). 5) Continue M10 (b), (c), then M11, M12 per `docs/handoff.md` §3–4.
 
 ### 2026-10-04 10:15 UTC · Claude (cloud) · Handoff to the laptop session; M10 (a) saved as a patch
 - **Done:** Samuel is moving the work to his laptop, so this session wrote everything the next session needs into the repo. **`docs/handoff.md`** (for the next Claude session) covers: where things stand (main has M1 to M9 (b) and the real-Postgres CI job; this branch adds M9 (c)); the loop and the commands that work; what M10 (a) contains and how to finish it; plans for M10 (b), (c), M11 and M12; and about thirty lessons and gotchas learned while building (PGlite vs real Postgres, migration reverse steps that keep data, Next.js route files, byte ranges for audio, the Playwright project chain, foliate's closed shadow DOM, the font and contrast checks, badge margins, network blocks in the cloud, never guessing PR numbers). **M10 (a) "Measure honestly"** (active reading time, words read, words per minute, the `reading_sessions` table with a reverse step, in the export round trip, a `/stats` page, a Playwright test with a controlled clock) is built and passed every check, but it is saved as **`docs/handoff/m10a-reading-stats-wip.patch`** rather than committed: this PR already holds M9 (c), and one step per PR is the rule. `CLAUDE.md` now points new sessions at `docs/handoff.md`.
