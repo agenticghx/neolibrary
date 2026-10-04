@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (f), question bank.
+next_action: Sessions loop through docs/done.md on their own; next is M6 (g), cross-book links, then M7.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -25,20 +25,18 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
    `docs/done.md`. Read the `claude-api` skill before writing Claude code
    (model ids, SDK). Everything goes behind an interface with a **fake** used
    in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   PRs (a)–(e) are done (see Log): plumbing, rewrite, STE, "What do I need
-   to know?", STE reading preference. Remaining:
-   (f) **Question bank** per chapter: recall, understanding and application
-   questions (structured output, like `lib/library/prerequisites.ts`; written
-   in the reader's style from `getStyles`, with the STE badge when STE),
-   answers hidden until clicked, mark right or wrong (store marks
-   append-only in a new table with a migration and reverse step; include
-   them in the library export round trip), and a "needs a re-read" list of
-   chapters with wrong answers (on the book page). (g) **Cross-book links**:
-   when a passage covers an idea highlighted in another book, show it in the
-   margin (start with full-text search over the user's highlights from
-   other books; no AI needed for a first version). Then tick M6 in
-   `docs/done.md` (the real-call and Samuel's-verdict parts are listed under
-   Waiting on Samuel).
+   PRs (a)–(f) are done (see Log): plumbing, rewrite, STE, "What do I need
+   to know?", STE reading preference, question bank. Remaining:
+   (g) **Cross-book links**: when a passage covers an idea the reader
+   highlighted in another book, show it in the margin ("you highlighted this
+   idea in *Material World*, ch. 4"). First version without AI: for the
+   paragraphs on the current page, full-text search (`websearch_to_tsquery`
+   or `plainto_tsquery` over the quote and note text) against the reader's
+   highlights and notes in *other* books, ranked; show the best few in a
+   small "Elsewhere in your library" list in the Notes panel or the margin,
+   linking to that book at that highlight (`/books/<id>/read?at=<cfi>`).
+   Then tick M6 in `docs/done.md` (the real-call and Samuel's-verdict parts
+   are already listed under Waiting on Samuel) and move to M7.
 2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -92,6 +90,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:25 UTC · Claude (cloud) · M6 (f): question bank per chapter
+- **Done:** From "What do I need to know?", a link **"Test yourself on this chapter ›"** opens a **question bank**: nine questions (three recall, three understanding, three application) with short model answers, asked once per chapter with structured output (`prompts/questions.md`). They are written in the reader's AI style (plain or STE, with the STE badge) and stored with provenance like every AI answer. **Answers stay hidden** until "Show answer"; then "I got it right" / "I got it wrong". A running score reads "1 right · 1 wrong · 7 to go". **Marks are append-only:** a new table `question_marks` (migration `0010_question_marks`, with a reverse step); marking again adds a row and the latest counts. Marks are in the library export round trip. The **book page** has a new **"Needs a re-read"** list: chapters with a question whose latest mark is wrong ("Search for Mr. Hyde · 1 of 2 wrong"). Each links into the reader at the chapter's first paragraph. "New questions" makes a fresh set on purpose. The chapter text and style code from (d) is now shared (`chapterText`, `styleInstruction`, `steScore` in `lib/library/prerequisites.ts`).
+- **Key paths:** `lib/library/questions.ts`, `prompts/questions.md`, `db/migrations/0010_question_marks.*`, `app/api/books/[id]/questions/{route.ts,marks/route.ts}`, `app/(reader)/books/[id]/read/QuestionsPanel.tsx`, `app/(app)/books/[id]/page.tsx`, `lib/library/export.ts`, `e2e/ai.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `172 passed`, including: one call per chapter and style, nine questions in kind order, re-served without a call; an STE bank is separate and scored; four marks stored (nothing overwritten), the latest counts, and only the chapter with a wrong latest mark needs a re-read; marks on someone else's or a missing question are refused; marks survive export → wipe → import. `npx playwright test` → `118 passed (2.1m)`, including: Make questions → 9 items, Recall first and Application last, STE badge, answers hidden; Show answer → wrong → "0 right · 1 wrong · 8 to go"; another → right → "1 right · 1 wrong · 7 to go"; after a reload the marks are kept and answers hidden again; the book page lists "Search for Mr. Hyde · 1 of 2 wrong" and the link opens the reader in that chapter; a bad mark → 400; axe clean. **Bugs found and fixed:** the re-read link first pointed at the chapter's own address, which the reader cannot open (it now uses the first paragraph); and the new link in the panel was 4.42:1 contrast in dark mode (now ink with an accent underline). Screenshots `screenshots/reader-questions-*` checked by eye.
+- **Known issues / blockers:** Marks attach to one question set; "New questions" starts a fresh score (old marks still count for the re-read list). No real Claude call yet (no key).
+- **Exact next steps:** M6 (g), per "Exact next steps".
 
 ### 2026-10-04 05:10 UTC · Claude (cloud) · M6 (e): STE as a reading preference for AI explanations
 - **Done:** The reader's settings panel (Aa) has a new **AI explanations** choice: Plain, STE light, STE (Standard) or STE strict. It applies to all books, and an **"Only for this book"** box gives a book its own choice. Stored with migration `0009_ai_style` (reverse step drops the columns): `users.ai_style` (default `plain`) and `books.ai_style` (empty = follow the reader's choice). New route `GET/PUT /api/books/<id>/ai-style`. "What do I need to know?" is written in the chosen style. For STE, `prompts/ste-style.md` adds the STE skill and substitution list at that strictness, and the panel shows the **STE badge** (the checker's full-STE score on the explanations). Each style is stored as its own answer, so switching back re-serves the earlier one for free. The panel heading names the style ("Search for Mr. Hyde · STE, Strict (full STE)"). The settings and each book's choice are in the library export round trip. The STE rewrite now loads the skill through the same helper (`lib/ai/ste-prompt.ts`); its fingerprint is unchanged.

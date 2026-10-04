@@ -605,6 +605,75 @@
   font-size: var(--text-sm);
 }
 
+.backLink {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.score {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.questions {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.question {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.questionType {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.answer {
+  padding-left: var(--space-3);
+  border-left: var(--border-hair) solid var(--machine-rule);
+  font-size: var(--text-sm);
+}
+
+.markRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.markButton {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--machine-rule);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--machine-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.markButton[aria-pressed="true"] {
+  border-color: var(--machine-rule);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+}
+
 .concepts {
   display: grid;
   gap: var(--space-3);

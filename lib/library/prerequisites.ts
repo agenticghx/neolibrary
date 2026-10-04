@@ -74,8 +74,8 @@ export async function chapterFor(db: Db, ownerId: string, bookId: string, at: { 
   return row;
 }
 
-async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Chapter, style: Style): Promise<GenerationRequest> {
-  const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+/** The chapter's text (headings and paragraphs), capped so the cost has a known ceiling. */
+export async function chapterText(db: Db, bookId: string, chapter: Chapter) {
   const parts = await db
     .select({ kind: sections.kind, label: sections.label, text: sections.text })
     .from(sections)
@@ -86,9 +86,34 @@ async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Ch
     .join("\n\n")
     .slice(0, MAX_CHARS);
   if (!text.trim()) throw new PrerequisitesError("This chapter has no text to read.");
-  const file = await readPrompt("prerequisites");
+  return text;
+}
+
+/** How AI explanations are worded: plain English, or STE at a strictness (with Samuel's skill). */
+export async function styleInstruction(style: Style) {
   const strictness = styleStrictness(style);
-  const instruction = strictness ? await steStyleInstruction(strictness) : "Write in plain, precise English.";
+  return {
+    text: strictness ? await steStyleInstruction(strictness) : "Write in plain, precise English.",
+    promptSuffix: strictness ? " + ste-style + ste/SKILL + ste/substitutions" : "",
+  };
+}
+
+/** Scores machine-written text in an STE style with the checker (full-STE score); null for plain English. */
+export function steScore(style: Style, texts: string[]) {
+  if (style === "plain" || !texts.length) return null;
+  const r = steCheck(texts.join("\n\n"));
+  return { score: r.compliance, errors: r.errors, warnings: r.warnings };
+}
+
+export async function bookLine(db: Db, bookId: string) {
+  const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  return book.author ? `${book.title}, by ${book.author}` : book.title;
+}
+
+async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Chapter, style: Style): Promise<GenerationRequest> {
+  const text = await chapterText(db, bookId, chapter);
+  const file = await readPrompt("prerequisites");
+  const instruction = await styleInstruction(style);
   const { system, user } = splitPrompt(file);
   return {
     ownerId,
@@ -96,11 +121,11 @@ async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Ch
     sectionId: chapter.id,
     kind: "prerequisites",
     options: { style },
-    promptName: strictness ? "prerequisites + ste-style + ste/SKILL + ste/substitutions" : "prerequisites",
-    promptHash: sha256(`${file}\n\n${instruction}`),
+    promptName: `prerequisites${instruction.promptSuffix}`,
+    promptHash: sha256(`${file}\n\n${instruction.text}`),
     input: text,
-    system: fill(system, { style: instruction }),
-    prompt: fill(user, { book: book.author ? `${book.title}, by ${book.author}` : book.title, chapter: chapter.label, text }),
+    system: fill(system, { style: instruction.text }),
+    prompt: fill(user, { book: await bookLine(db, bookId), chapter: chapter.label, text }),
     maxTokens: MAX_TOKENS,
     effort: "medium",
     schema: SCHEMA,
@@ -134,8 +159,7 @@ export function viewPrerequisites(g: Generation): PrerequisitesView {
     // Not JSON (should not happen with structured output): show nothing rather than garbage.
   }
   const style = (g.options?.style as Style | undefined) ?? "plain";
-  const r = style !== "plain" && concepts.length ? steCheck(concepts.map((c) => c.explanation).join("\n\n")) : null;
-  return { ...g, style, concepts, ste: r ? { score: r.compliance, errors: r.errors, warnings: r.warnings } : null };
+  return { ...g, style, concepts, ste: steScore(style, concepts.map((c) => c.explanation)) };
 }
 
 export async function needToKnow(

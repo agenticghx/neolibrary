@@ -197,3 +197,20 @@ export const generations = pgTable("generations", {
   output: text("output").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const questionMarks = pgTable("question_marks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  chapterId: text("chapter_id").notNull(),
+  generationId: uuid("generation_id")
+    .notNull()
+    .references(() => generations.id, { onDelete: "cascade" }),
+  questionIndex: integer("question_index").notNull(),
+  correct: boolean("correct").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

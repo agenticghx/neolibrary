@@ -8,6 +8,7 @@ import type { Annotation, Color } from "@/lib/library/annotations";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
+import { QuestionsPanel } from "./QuestionsPanel";
 import { RewritePanel } from "./RewritePanel";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings } from "./settings";
@@ -87,7 +88,7 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions">("none");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
@@ -344,10 +345,10 @@ export function Reader(props: {
           <button
             type="button"
             className={styles.tool}
-            aria-expanded={panel === "know"}
+            aria-expanded={panel === "know" || panel === "questions"}
             aria-label="What do I need to know?"
-            title="What do I need to know?"
-            onClick={() => setPanel(panel === "know" ? "none" : "know")}
+            title="What do I need to know? Test yourself"
+            onClick={() => setPanel(panel === "know" || panel === "questions" ? "none" : "know")}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -447,7 +448,12 @@ export function Reader(props: {
         />
       ) : null}
 
-      {panel === "know" && where.cfi ? <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} /> : null}
+      {panel === "know" && where.cfi ? (
+        <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onQuestions={() => setPanel("questions")} />
+      ) : null}
+      {panel === "questions" && where.cfi ? (
+        <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onBack={() => setPanel("know")} />
+      ) : null}
 
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 
