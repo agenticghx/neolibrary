@@ -114,6 +114,14 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 08:30 UTC · Claude (laptop) · Fix: migrations failed on real Postgres, so the live site returned 500
+- **Done:** First Railway deploy (laptop `railway up` of `5f62bd9`; the repo can't be connected yet because Railway's GitHub app has no access to the private repo) built, but every page returned 500: `UNSAFE_TRANSACTION: Only use sql.begin, sql.reserved or max: 1`. Cause: `migrateUp`/`migrateDown` sent `BEGIN; … COMMIT;` through `client.unsafe` on a pooled postgres.js client, which postgres.js refuses. PGlite (tests) allows it, so CI never saw it. Fix: `RawSql.transaction(sql)` (postgres.js `sql.begin`, PGlite `transaction`), used by both. Domain made: https://web-production-f27a0e.up.railway.app
+- **Key paths:** `lib/db/client.ts`, `lib/db/migrate.ts`
+- **Commands that worked:** throwaway database on a real Postgres (embedded-postgres, local): old code → `UNSAFE_TRANSACTION`; fixed code → `migrations: 14; up 14; down 14; up again 14`. `npm run check` → lint and types clean, `Test Files 38 passed`, `Tests 195 passed`.
+- **Known issues / blockers:** CI tests only PGlite, so production-only database bugs can slip through. Railway auto-deploy needs Samuel to give Railway's GitHub app access to `sahuno/neolibrary`.
+- **Exact next steps:** 1) Next cloud session: add a CI job that runs migrations (and a smoke test) against a real Postgres service container. 2) Redeploy after this merges and confirm `/api/health` is 200.
+
+
 ### 2026-10-04 08:35 UTC · Claude (cloud) · M9 (a): see it, pictures from Wikimedia Commons
 - **Done:** Selecting text now offers **See it**, which opens a panel searching pictures of the selection (the search box can be changed). Results come from **Wikimedia Commons** through the MediaWiki API (`lib/images/search.ts`: generator search in the File namespace, image info with a 480 px thumbnail, licence, licence link, artist and title; no key; a descriptive User-Agent as Wikimedia asks). Each card shows the picture, its title, and **credit · licence (linked) · Source** (the Commons file page). Credits are reduced to plain text, because Commons returns bits of HTML. Commons cannot be reached from the cloud container, so the adapter is tested against a stand-in API (exact request, ordering, skipping non-images and missing thumbnails, errors). The browser tests use a fake (`FakeImageSearch`) whose three wafer pictures are small SVGs in `public/fake-images/`. The page's security policy now allows pictures from `upload.wikimedia.org` (and nowhere else new). New route `GET /api/images/search?q=` (signed-in only).
 - **Key paths:** `lib/images/search.ts`, `app/api/images/search/route.ts`, `app/(reader)/books/[id]/read/{ImagesPanel,SelectionBar,Reader}.tsx`, `proxy.ts` (`img-src`), `public/fake-images/`, `e2e/images.spec.ts`, `playwright.config.ts` (project `images`), `package.json` (`openai` 7.27.0 added for step (b))
