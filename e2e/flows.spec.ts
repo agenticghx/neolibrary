@@ -20,7 +20,7 @@ test.describe("a logged-out visitor gets nothing", () => {
       await expect(page).toHaveURL(/\/sign-in(\?next=.*)?$/);
       expect(res?.status()).toBe(200);
       await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
-      await expect(page.getByText("Good to see you")).toHaveCount(0);
+      await expect(page.getByText("Hidden Machinery")).toHaveCount(0);
       await ctx.close();
     });
   }
@@ -82,6 +82,10 @@ test.describe("signed in", () => {
     await guest.getByRole("button", { name: "Join the library" }).click();
     await expect(guest.getByRole("heading", { name: "Good to see you, Ada" })).toBeVisible();
 
+    // A new reader starts with an empty library and can add the starter path.
+    await guest.getByRole("button", { name: "Add this path" }).click();
+    await expect(guest.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
+
     // Readers cannot reach admin pages.
     expect((await guest.goto("/admin/invites"))?.status()).toBe(404);
 
@@ -98,7 +102,7 @@ test.describe("signed in", () => {
     await expect(guest.getByLabel("Email address")).toHaveValue("ada@example.com");
     await guest.getByLabel("Password").fill("analytical engine");
     await guest.getByRole("button", { name: "Sign in" }).click();
-    await expect(guest.getByRole("heading", { name: "Good to see you, Ada" })).toBeVisible();
+    await expect(guest.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
 
     // The same link cannot be used again.
     const ctx2 = await freshContext(browser);

@@ -7,7 +7,9 @@ import { createRateLimiter } from "@/lib/auth/rate-limit";
 import { acceptInvite, authenticate, AuthError, createFirstAdmin, normaliseEmail } from "@/lib/auth/service";
 import { safeNext, startSession } from "@/lib/auth/session";
 import { checkSetupCode } from "@/lib/auth/setup-code";
+import { hiddenMachinery } from "@/data/paths/hidden-machinery";
 import { getDb } from "@/lib/db";
+import { seedPath } from "@/lib/library/paths";
 
 const limiter = createRateLimiter(10, 15 * 60_000);
 const field = (data: FormData, name: string) => String(data.get(name) ?? "");
@@ -45,11 +47,14 @@ export async function setupAction(_: FormState, data: FormData): Promise<FormSta
   if (!limiter.allow(`setup:${await clientAddress()}`)) return { error: "Too many attempts. Wait 15 minutes." };
   if (!checkSetupCode(field(data, "code"))) return { error: "That setup code is not right. It is in the server log." };
   const result = await attempt(async () => {
-    const user = await createFirstAdmin(await getDb(), {
+    const db = await getDb();
+    const user = await createFirstAdmin(db, {
       email: field(data, "email"),
       name: field(data, "name"),
       password: field(data, "password"),
     });
+    // The owner's first shelf is their own reading list.
+    await seedPath(db, user.id, hiddenMachinery);
     await startSession(user.id);
   });
   if (result.error) return result;

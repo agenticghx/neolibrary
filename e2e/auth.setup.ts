@@ -16,6 +16,6 @@ setup("create the owner account", async ({ page }) => {
     await page.getByLabel("Password").fill(ADMIN.password);
     await page.getByRole("button", { name: "Sign in" }).click();
   }
-  await expect(page.getByRole("heading", { name: /Good to see you, Samuel/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
   await page.context().storageState({ path: ADMIN_STATE });
 });

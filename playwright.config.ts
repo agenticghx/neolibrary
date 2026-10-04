@@ -34,7 +34,7 @@ export default defineConfig({
     // 3. Behaviour: access rules, invitations, sign-in.
     {
       name: "flows",
-      testMatch: /flows\.spec\.ts/,
+      testMatch: /(flows|paths)\.spec\.ts/,
       dependencies: ["desktop-light", "desktop-dark", "phone-light", "phone-dark"],
       use: { ...desktop },
     },

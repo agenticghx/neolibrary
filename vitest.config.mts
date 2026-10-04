@@ -7,5 +7,8 @@ export default defineConfig({
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**", "e2e/**", ".next/**"],
     environment: "node",
+    // Database tests start a fresh in-process Postgres each; give them time.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

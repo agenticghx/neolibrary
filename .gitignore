@@ -4,8 +4,8 @@
 !.env.example
 
 # Book files: never commit (copyright). Public-domain test books go in fixtures/ only.
-books/
-uploads/
+/books/
+/uploads/
 *.epub
 *.pdf
 *.mobi

@@ -83,7 +83,7 @@ jobs:
           retention-days: 14
 
       - name: Publish screenshots to the ci-screenshots branch
-        if: always() && github.event_name == 'pull_request' && hashFiles('screenshots/*.png') != ''
+        if: always() && github.event_name == 'pull_request' && (hashFiles('screenshots/*.png') != '' || hashFiles('test-results/**/*-diff.png') != '')
         env:
           GH_TOKEN: ${{ github.token }}
           DEST: pr-${{ github.event.number }}/${{ github.event.pull_request.head.sha }}
@@ -98,7 +98,12 @@ jobs:
           for attempt in 1 2 3; do
             if git fetch -q --depth 1 origin ci-screenshots; then git checkout -q -B ci-screenshots FETCH_HEAD; else git checkout -q --orphan ci-screenshots; fi
             mkdir -p "$DEST"
-            cp "$GITHUB_WORKSPACE"/screenshots/*.png "$DEST"/
+            cp "$GITHUB_WORKSPACE"/screenshots/*.png "$DEST"/ 2>/dev/null || true
+            # Failed screenshot comparisons: expected / actual / diff, so a
+            # session without access to CI artifacts can see what changed.
+            (cd "$GITHUB_WORKSPACE" && find test-results -name '*-actual.png' -o -name '*-expected.png' -o -name '*-diff.png') | while read -r f; do
+              d="$DEST/failures/$(basename "$(dirname "$f")")"; mkdir -p "$d"; cp "$GITHUB_WORKSPACE/$f" "$d/"
+            done
             git add "$DEST"
             git commit -q -m "Screenshots for $DEST" || true
             if git push -q origin ci-screenshots; then exit 0; fi
