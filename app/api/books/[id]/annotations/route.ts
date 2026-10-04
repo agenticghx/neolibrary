@@ -1,6 +1,6 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { AnnotationError, createAnnotation, listAnnotations } from "@/lib/library/annotations";
+import { AnnotationError, createAnnotation, createAnnotationOnce, listAnnotations } from "@/lib/library/annotations";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
 
@@ -27,14 +27,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
 }
 
-/** Adds a highlight, bookmark or note: { kind, cfi?, quote?, color?, body? }. Voice notes have their own route. */
+/**
+ * Adds a highlight, bookmark or note: { kind, cfi?, quote?, color?, body?, id? }. Voice notes have their own route.
+ * With an `id` (chosen by the browser, e.g. for a note made offline), sending it again returns the stored one (200).
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   try {
     if (body?.kind === "voice") return Response.json({ error: "Send voice notes to /voice-notes." }, { status: 400 });
-    const a = await createAnnotation(await getDb(), user.id, { ...body, bookId: (await params).id });
+    const { id, ...input } = body ?? {};
+    const bookId = (await params).id;
+    if (id !== undefined) {
+      const once = await createAnnotationOnce(await getDb(), user.id, id, { ...input, bookId });
+      return Response.json(once.annotation, { status: once.created ? 201 : 200 });
+    }
+    const a = await createAnnotation(await getDb(), user.id, { ...input, bookId });
     return Response.json(a, { status: 201 });
   } catch (e) {
     if (e instanceof AnnotationError) return Response.json({ error: e.message }, { status: 400 });

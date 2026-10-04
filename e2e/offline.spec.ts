@@ -116,3 +116,81 @@ test("the sign-in page removes downloaded books from the device", async ({ brows
   await expect.poll(() => page.evaluate(() => caches.has("neolibrary-offline-books-v1"))).toBe(false);
   await context.close();
 });
+
+/** Selects the start of a paragraph on the page the reader is showing; returns the selected text. */
+async function selectOnPage(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { lastLocation: { range: Range }; renderer: { getContents(): { doc: Document }[] } };
+    const shown = view.lastLocation.range;
+    for (const { doc } of view.renderer.getContents()) {
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const text = n.nodeValue ?? "";
+        if (text.trim().length < 60 || !shown.intersectsNode(n)) continue;
+        const start = text.search(/\S/);
+        const end = text.indexOf(" ", start + 25);
+        const r = doc.createRange();
+        r.setStart(n, start);
+        r.setEnd(n, end);
+        doc.getSelection()!.removeAllRanges();
+        doc.getSelection()!.addRange(r);
+        return text.slice(start, end);
+      }
+    }
+    throw new Error("no paragraph on this page");
+  });
+}
+
+// M12 "Done when": with the network off, a downloaded book opens and a new
+// highlight is saved, then appears on the server when the network returns.
+test("a highlight made offline is kept on the device and reaches the server when the network returns", async ({ page, context, playwright }) => {
+  const frankenstein = await bookId(page, "Frankenstein");
+  const server = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: ADMIN_STATE });
+  const onServer = async () =>
+    ((await (await server.get(`/api/books/${frankenstein}/annotations`)).json()).annotations as { id: string; quote: { exact: string } }[]);
+
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByTestId("offline").getByRole("button", { name: "Download for offline" }).click();
+  await expect(page.getByTestId("offline").getByRole("status")).toBeVisible();
+  const before = (await onServer()).length;
+
+  await context.setOffline(true);
+  await context.route("**/*", (route) => route.abort("internetdisconnected"));
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => visibleText(page)).not.toBe("");
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const count = Number(/\((\d+)\)/.exec((await notesButton.textContent()) ?? "")?.[1] ?? 0);
+
+  const phrase = await selectOnPage(page);
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Highlight in Sky" }).click();
+  await expect(notesButton).toHaveText(`Notes (${count + 1})`);
+  await notesButton.click();
+  const item = page.getByTestId("notes").getByRole("listitem").filter({ hasText: phrase });
+  await expect(item.getByTestId("note-pending")).toHaveText("On this device · syncs when you are back online");
+  await page.screenshot({ path: "screenshots/reader-offline-note.png" });
+
+  // Still offline, after a reload: still there, and the server does not have it yet.
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(notesButton).toHaveText(`Notes (${count + 1})`);
+  expect((await onServer()).some((a) => a.quote.exact === phrase)).toBe(false);
+
+  // Network back: it is sent by itself, once.
+  await context.unrouteAll();
+  await context.setOffline(false);
+  await expect.poll(async () => (await onServer()).filter((a) => a.quote.exact === phrase).length, { timeout: 15_000 }).toBe(1);
+  expect((await onServer()).length).toBe(before + 1);
+  await notesButton.click();
+  await expect(page.getByTestId("notes").getByRole("listitem").filter({ hasText: phrase }).getByTestId("note-pending")).toHaveCount(0);
+  // Opening the book again sends nothing twice.
+  await page.reload();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(notesButton).toHaveText(`Notes (${count + 1})`);
+  expect((await onServer()).filter((a) => a.quote.exact === phrase).length).toBe(1);
+  await server.dispose();
+});

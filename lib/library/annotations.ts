@@ -41,6 +41,8 @@ export type Annotation = {
   picture: PinnedPicture | null;
   /** Added by an AI agent through the agent API (M11): the token's name. Null when the reader wrote it. */
   agent: string | null;
+  /** In the browser only: made offline, waiting in the outbox to be sent (M12). */
+  pending?: boolean;
   createdAt: string; // first version
   updatedAt: string; // latest version
 };
@@ -198,6 +200,23 @@ export async function createAnnotation(
     })
     .returning();
   return toAnnotation(row, row);
+}
+
+/**
+ * Creates an annotation with an id the browser chose (M12: notes made offline
+ * are sent again when the network returns). Sending the same one twice is
+ * harmless: if that id already exists for this reader, the current version is
+ * returned and nothing is added. An id that belongs to someone else is refused.
+ */
+export async function createAnnotationOnce(db: Db, ownerId: string, id: unknown, input: Parameters<typeof createAnnotation>[2], now = new Date()) {
+  if (typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new AnnotationError("Bad annotation id.");
+  const [existing] = await db.select({ ownerId: annotations.ownerId }).from(annotations).where(eq(annotations.annotationId, id)).limit(1);
+  if (existing) {
+    if (existing.ownerId !== ownerId) throw new AnnotationError("That annotation id is already taken.");
+    const rows = await versions(db, ownerId, id);
+    return { annotation: toAnnotation(rows[0], rows.at(-1)!), created: false }; // versions() lists newest first
+  }
+  return { annotation: await createAnnotation(db, ownerId, input, now, id.toLowerCase()), created: true };
 }
 
 /** A note on a pillar or a whole path (ground rule 4: notes can attach to a Path or a Pillar). */

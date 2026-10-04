@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M12 (a) PR, then build M12 (b) offline notes (IndexedDB outbox, client ids accepted idempotently)
+next_action: Land the M12 (b) PR, deploy M12 with a backup, tick the live health/sign-in box; then only Samuel-only items remain
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,16 +24,18 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M12 (a) PR** (branch `m12-offline`): make its checks green (no
-   reference screenshots should change); auto-merge lands it.
-2. **M12 (b) · Offline notes:** an outbox in IndexedDB for highlights and
-   notes made offline, sent when the network returns. The browser's
-   annotations route must accept a client-chosen id and, if that id already
-   exists for the reader, return it (200) instead of failing, so a resend is
-   harmless (model: `importAnnotations`' skip). Creates only; edits and
-   deletes offline come later. Playwright: offline as in `e2e/offline.spec.ts`
-   (offline mode plus `context.route` aborting everything), make a highlight,
-   network back, the server has it. Then tick M12 and deploy (backup first).
+1. **M12 (b) PR** (branch `m12-offline-notes`): make its checks green; no
+   reference screenshots change. Auto-merge lands it. That completes M12 and
+   every milestone box in `docs/done.md`.
+2. **Deploy M12** (laptop): no migration in M12, but take the backup anyway
+   (recipe in the 2026-10-04 11:40 entry), then `railway up --service web --ci`.
+   Check `/api/health`, `/sign-in` (200), `/manifest.webmanifest` (200,
+   `application/manifest+json`) and `/sw.js` (200, `no-cache`), then tick the
+   live box "Railway URL serves /api/health and /sign-in" with that output.
+3. **Then only Samuel's items remain** (see "Waiting on Samuel"): signing in
+   and inviting someone, real Claude and ElevenLabs calls on his own books,
+   and his verdicts. Say so plainly at the top of this file, as `docs/done.md`
+   asks.
 3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
    back up first, then `railway up --service web --ci`. The backup recipe
    that worked is in the 2026-10-04 11:40 Log entry.
@@ -105,6 +107,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 14:30 UTC · Claude (laptop) · M12 (b): notes made offline sync when the network returns; M12 ticked
+- **Done:** PR #41 (M12 (a)) merged with all four checks green; its offline test passed on CI's Linux too. M12 (b) on `m12-offline-notes`: **highlights, notes, stickers and bookmarks made with no network are kept on the device and sent when it returns.** The reader gives each new annotation an id itself. If saving fails because there is no network (the request never reached a server), it goes into an **outbox in IndexedDB** (`lib/outbox.ts`, the browser's own database), is drawn in the book at once, and is listed in Notes with **"On this device · syncs when you are back online"**. It stays across reloads. It is sent, oldest first, when the browser says it is back online, when a book's notes load, and every 30 s while anything waits. On the server, `createAnnotationOnce` (`lib/library/annotations.ts`) stores a browser-chosen id once: sending it again returns the stored (or since edited) version with 200 instead of adding a copy, and an id that belongs to someone else is refused. The annotations route uses it whenever a request carries an `id`. Removing a note that is still waiting just takes it out of the outbox. Editing waits until it is sent (the Edit button is hidden meanwhile). Pictures and drawings still need the network. **M12 ticked** in `docs/done.md`, so every milestone box is now ticked.
+- **Key paths:** `lib/outbox.ts`, `lib/library/annotations.ts` (`createAnnotationOnce`, `pending`), `app/api/books/[id]/annotations/route.ts`, `app/(reader)/books/[id]/read/{Reader,NotesPanel}.tsx`, `e2e/offline.spec.ts`, `lib/library/annotations.test.ts`, `lib/db/postgres.test.ts`
+- **Commands that worked:** `npm run check` → `Tests 232 passed | 2 skipped (234)` (once-only ids: sent twice gives one note; after an edit a late resend returns the edited version; another reader's id refused; a malformed id refused); `TEST_DATABASE_URL=… npm run test:postgres` → `Tests 2 passed (2)`; `npx playwright test --ignore-snapshots` → `166 passed (1.6m)`, **twice in a row**. **M12 "Done when" in the browser:** download Frankenstein, then offline mode plus every request refused; the book opens; a paragraph is selected and highlighted in sky; Notes goes up by one and the item says "On this device · syncs when you are back online"; after an offline reload it is still there; a separate signed-in client confirms the server does not have it; network back on, the server then has it **exactly once** (total +1); the waiting label is gone, and reopening the book sends nothing twice. Screenshot `screenshots/reader-offline-note.png` checked by eye.
+- **Known issues / blockers:** Offline edits and deletes of notes the server already has are not queued (they show the usual "not saved" error offline); creates were the M12 "Done when". If the server refuses a waiting note when it is sent (for example the book was deleted meanwhile), it is dropped from the outbox rather than retried forever.
+- **Exact next steps:** Land this PR, deploy M12 (backup first), tick the live health/sign-in box, then report that only Samuel's items remain.
 
 ### 2026-10-04 13:55 UTC · Claude (laptop) · M11 deployed; M12 (a): installable app, books readable offline
 - **Done:** PR #40 merged on green, so **M11 is done**. **Deployed M11** (`0b7ba58`) after a backup: `~/Backups/neolibrary/prod-before-0018-20261004T1153Z.sql` (78,853 bytes), restore-checked (exit 0; 17 migrations, 1 user, 126 books). Live checks: health 200; `/api/agent/me` and `POST /api/agent/mcp` without a token give `401` with `www-authenticate: Bearer realm="neolibrary"` and the JSON explanation; `/agents` redirects to sign-in; the database has 19 migrations and the data is intact (1 user, 126 books). **M12 (a)** on `m12-offline`: a **web app manifest** (`app/manifest.ts`: name, standalone display, paper colours, 192/512 PNG icons made from `app/icon.svg` by `scripts/make-icons.mjs`) and a **hand-written service worker** (`public/sw.js`, served with `no-cache`, registered from the root layout in production). It always asks the network first. When the network fails it answers only from what the reader downloaded (reader page, book file matched by path because the signed link expires, notes) and the app's own files; audio and anything with a byte range pass straight through. **"Download for offline"** is in the reader's settings ("Aa" → Offline), for EPUBs: it caches the book file, its notes, the app files the open reader loaded, then the page. The setting then says "Available offline on this device. Signing out removes it" and offers **Remove download**. The sign-in page empties the offline caches, so downloads do not outlive a sign-out. `proxy.ts` lets `/manifest.webmanifest`, `/sw.js` and `/icons/` through without a session (browsers fetch them without cookies).

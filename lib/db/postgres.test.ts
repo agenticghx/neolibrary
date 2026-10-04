@@ -5,7 +5,7 @@ import { FakeModel } from "@/lib/ai/fake";
 import { createFirstAdmin } from "@/lib/auth/service";
 import { createApiToken, revokeApiToken, userForApiToken } from "@/lib/auth/tokens";
 import { agentAddNote, agentBooks, agentNotes, agentSearch } from "@/lib/agent/library";
-import { createAnnotation, listAnnotations } from "@/lib/library/annotations";
+import { createAnnotation, createAnnotationOnce, listAnnotations } from "@/lib/library/annotations";
 import { speakPassage } from "@/lib/library/audio";
 import { costReport } from "@/lib/library/costs";
 import { crossLinks } from "@/lib/library/crosslinks";
@@ -151,6 +151,12 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
       kinds: [{ kind: "E", activeSeconds: 120, words: 480, books: 1, wpm: 240 }],
     });
     expect(await statsByWeek(db, ownerId, now)).toEqual([{ weekStart: "2026-10-12", activeSeconds: 120, words: 480, sessions: 1, wpm: 240 }]);
+
+    // A note made offline, sent twice (M12): stored once.
+    const offlineId = "cccccccc-0000-4000-8000-000000000001";
+    expect((await createAnnotationOnce(db, ownerId, offlineId, { kind: "note", bookId: jekyll, body: "Offline." })).created).toBe(true);
+    expect((await createAnnotationOnce(db, ownerId, offlineId, { kind: "note", bookId: jekyll, body: "Offline." })).created).toBe(false);
+    expect((await listAnnotations(db, ownerId, jekyll)).filter((a) => a.id === offlineId)).toHaveLength(1);
 
     // API tokens (M11): hash lookup, "last used" throttle, revoke.
     const made = await createApiToken(db, ownerId, "agent");
