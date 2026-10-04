@@ -121,6 +121,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 15:45 · Claude (laptop) · Plan: read-along on PDFs is real work
+- **Done:** Skill test round 1 finished (6 runs): with the skill 95% of checks passed, without it 54%; 4.4 min against 12.9 min on average. The no-skill Kuhn run found that Listen is switched off for PDF books; confirmed in `Reader.tsx` (`disabled={… || props.fileType === "pdf"}`). Added to `docs/readalong-plan.md` step 4 as its own item, plus a lag measurement to settle in step 1.
+- **Key paths:** `docs/readalong-plan.md`; `~/.claude/skills/readalong-audio-workspace/iteration-1/benchmark.md`
+- **Commands that worked:** `python3 -m scripts.aggregate_benchmark <workspace>/iteration-1 --skill-name readalong-audio` → `With Skill: 95.3% … Without Skill: 53.7% … Delta: +0.42`.
+- **Known issues / blockers:** Reading Kuhn along needs PDF support in the player (or an EPUB of the book).
+- **Exact next steps:** As in `docs/readalong-plan.md`.
+
 ### 2026-10-04 15:30 · Claude (laptop) · Read-along for your own audiobooks: skill built, plan written
 - **Done:** Samuel wants to upload an audiobook made anywhere (with its scripts) and read along in Neolibrary. Built a reusable skill, `readalong-audio` (`~/.claude/skills/readalong-audio/`, outside the repo). It makes a "read-along package" (format `neolibrary-readalong/1`): audio, scripts, word timings measured from the audio by forced alignment (a speech model marks where each known word starts), a transcript check of what was actually said, and where each paragraph is in the book. It also keeps a voice library (82 voices, no default until Samuel picks) and a $3 spending cap on paid voices. Measured: aligner word starts within 0.037 s of ElevenLabs' own timings for 90% of words; Kuhn ch. 10 (45 min) aligned in 20 s. Kuhn's supplied timings are estimates, and its scripts contain about 500 unread words in ch. 10 alone. `kuhn-ssr-audiobook.m4b` is damaged; the "fixed" file is good. Tested: ElevenLabs, Kyutai 1.6B, Kyutai Pocket work; OpenAI refused (no API credit); Muse waits on Samuel. Skill test round 1 ran (3 prompts, with and without the skill). Full plan with done-when checks: `docs/readalong-plan.md`.
 - **Key paths:** `docs/readalong-plan.md`; `~/.claude/skills/readalong-audio/`; `~/.local/share/readalong/` (venv, voices, `spend.jsonl`); test results `~/.claude/skills/readalong-audio-workspace/iteration-1/`
