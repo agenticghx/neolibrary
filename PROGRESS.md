@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read-along plan (docs/readalong-plan.md) step 1, skill round 2; version 1 otherwise waits only on Samuel.
+next_action: Finish S6 (corrected Kuhn scripts), then M13 (a) in docs/plan.md; skills K1–K3 planned in docs/readalong-plan.md.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -40,7 +40,7 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
    Postgres), then `railway up --service web --ci`, then check
    `/api/health` and `/sign-in`.
 5. Worth doing later: a rate limit on `/api/agent/*`.
-6. **Read-along with your own audiobooks:** follow `docs/readalong-plan.md` (steps 1–5, each with a done-when check; Samuel's items S1–S6 are listed there).
+6. **Read-along with your own audiobooks:** M13 in `docs/plan.md` (approved 2026-10-04), steps (a)–(f); background, the skill work and skills K1–K3 in `docs/readalong-plan.md`.
 
 ## Waiting on Samuel
 
@@ -120,6 +120,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 16:10 · Claude (laptop) · M13 approved and planned; skills planned; Kuhn scripts being corrected
+- **Done:** Samuel approved the importer (S5) and correcting the Kuhn scripts (S6). Wrote **M13 · Read along with your own audiobooks** into `docs/plan.md`: six steps (a)–(f): read and check a package, match words to the app's paragraphs, upload and store (migration for audio offsets; signed upload because the Kuhn audio is 201 MB and books are capped at 200 MB), play EPUB, play PDF (Listen is off for PDFs today), go live. Answered Samuel's question about the reading levels: the STE levels use his STE skill pasted into the prompt (copy identical to the original today, but not kept in step); "Plain" has no skill. Planned three skills in `docs/readalong-plan.md`: K1 `plain-english`, K2 keep STE in step, K3 `book-chapters` (for `claude -p`). S6: the skill's `check_script.py` now lists every difference with its place in the script (skipped, added, misread, written); new `fix_script.py` makes corrected copies with a changes list; a check of all 17 Kuhn chapters is running on the laptop.
+- **Key paths:** `docs/plan.md` (M13), `docs/readalong-plan.md`, `~/.claude/skills/readalong-audio/scripts/{check_script,fix_script}.py`, `~/.local/share/readalong/work/kuhn-checks/`
+- **Commands that worked:** `check_script.py frank-pocket.wav frank.txt out.json` → `match 97.5%; … 1 misread` ("panes" heard as "pains": a sound-alike, so misread words are listed for checking by ear, never changed automatically).
+- **Known issues / blockers:** none.
+- **Exact next steps:** finish S6 (corrected Kuhn scripts + changes list, to `~/projects/sandbox/`, originals untouched); then M13 (a).
 
 ### 2026-10-04 15:45 · Claude (laptop) · Plan: read-along on PDFs is real work
 - **Done:** Skill test round 1 finished (6 runs): with the skill 95% of checks passed, without it 54%; 4.4 min against 12.9 min on average. The no-skill Kuhn run found that Listen is switched off for PDF books; confirmed in `Reader.tsx` (`disabled={… || props.fileType === "pdf"}`). Added to `docs/readalong-plan.md` step 4 as its own item, plus a lag measurement to settle in step 1.
