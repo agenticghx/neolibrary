@@ -119,6 +119,12 @@ highlight.
 - **App bar** (`app/(app)/layout.tsx`): mark + wordmark on the left; Library,
   Invite (admins only) and Sign out on the right, in quiet ink.
 
+- **Reader** (`app/(reader)/books/[id]/read/`): full-screen, its own quiet
+  bar (mark, title · author, Contents, Aa), a single 680px text column, page
+  turns at the sides, chapter + progress at the foot. Book pages get the app's
+  colours (read from the tokens at run time) and fonts (`public/fonts/`);
+  settings: Pages/Scroll, text size, line spacing, Serif/Sans/Book's own.
+
 ## How the look is checked
 
 | Check | Where | Fails when |

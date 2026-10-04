@@ -41,6 +41,22 @@
   font-size: var(--text-lg);
 }
 
+.read {
+  justify-self: start;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.read:hover {
+  background-color: var(--accent-strong);
+  color: var(--on-accent);
+}
+
 .places {
   margin: 0;
   padding: 0;
