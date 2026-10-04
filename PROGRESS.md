@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (g), cross-book links, then M7.
+next_action: Sessions loop through docs/done.md on their own; next is M7 (audio tracks, fake voice).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,28 +21,40 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M6 · AI understanding tools (Claude)**, next unticked box in
-   `docs/done.md`. Read the `claude-api` skill before writing Claude code
-   (model ids, SDK). Everything goes behind an interface with a **fake** used
-   in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   PRs (a)–(f) are done (see Log): plumbing, rewrite, STE, "What do I need
-   to know?", STE reading preference, question bank. Remaining:
-   (g) **Cross-book links**: when a passage covers an idea the reader
-   highlighted in another book, show it in the margin ("you highlighted this
-   idea in *Material World*, ch. 4"). First version without AI: for the
-   paragraphs on the current page, full-text search (`websearch_to_tsquery`
-   or `plainto_tsquery` over the quote and note text) against the reader's
-   highlights and notes in *other* books, ranked; show the best few in a
-   small "Elsewhere in your library" list in the Notes panel or the margin,
-   linking to that book at that highlight (`/books/<id>/read?at=<cfi>`).
-   Then tick M6 in `docs/done.md` (the real-call and Samuel's-verdict parts
-   are already listed under Waiting on Samuel) and move to M7.
-2. Then M7, M8, … in order, per `docs/done.md`.
+1. **M7 · Listen and read (ElevenLabs)**, next unticked box in
+   `docs/done.md`. Everything behind an interface with a **fake voice** used
+   in all tests (ground rule 3). Suggested PRs: (a) an **audio track** model
+   that does not depend on one provider (migration with a reverse step):
+   a track belongs to a book section (chapter), has a provider, voice,
+   storage key for the audio file, duration and **word timings**
+   (character or word start/end times), plus provenance and cost like
+   `generations`; a `SpeechModel` interface with `ElevenLabsSpeech` (check
+   ElevenLabs' current text-to-speech-with-timestamps API and model names
+   when building; key `ELEVENLABS_API_KEY`, already on Railway) and a
+   `FakeSpeech` that returns a short silent or tone WAV made in code with
+   evenly spread word timings; audio stored in the bucket via `lib/storage`;
+   made one section at a time on first play and re-served after; per-book
+   and per-month caps for ElevenLabs (it bills per character) with an
+   estimate shown first (reuse the cap logic in `lib/ai/generate.ts`,
+   generalised by provider), and include tracks in the export.
+   (b) The player in the reader: play/pause, voice picker, speed, and the
+   **word highlight following the timing data** (foliate overlay or a
+   highlight on the current word's range); Playwright proves the highlight
+   moves with the fake's timings. (c) A running cost counter on an admin
+   page.
+2. Then M8, M9, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
 
+- **M6 real calls and verdict** (after `ANTHROPIC_API_KEY` is on Railway
+  `web`): on the live site, try one of each AI feature on one of your own
+  books: a rewrite, an STE rewrite, "What do I need to know?", the question
+  bank. Then say in a GitHub issue (title "M6 verdict") whether they help,
+  and paste or describe one answer of each. Spending stops at $5 per book
+  and $20 per month unless you set `AI_CAP_PER_BOOK_USD` /
+  `AI_CAP_PER_MONTH_USD`.
 - **Real-book check for M4** (any time after the deploy): read one of your
   own DRM-free books on the live site for a while and say in a GitHub issue
   (title "M4 verdict") whether the reader is good enough, and what bothers
@@ -90,6 +102,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:40 UTC · Claude (cloud) · M6 (g): cross-book links; M6 ticked
+- **Done:** When the page you are reading shares ideas with a highlight or note you made **in another book**, the reader's footer says **"1 link to your other books"**. It opens **"Elsewhere in your library"**: the book and chapter, your quote, your note, and "Open in <book>", which opens that book at that highlight. No AI is involved. Postgres reduces the page and each highlight (quote plus note) to word stems in English, without common words such as "will" and "the". A highlight matches when it shares at least two stems with the page and at least a third of its first nine. The best five are shown, with the latest version of each annotation; hidden ones and highlights from the same book are left out. The lookup runs 0.6 s after the page settles, only when the visible text changed. **M6 ticked** in `docs/done.md`. Its live parts (one real call per feature, Samuel's verdict) are listed under Waiting on Samuel.
+- **Key paths:** `lib/library/crosslinks.ts`, `app/api/books/[id]/crosslinks/route.ts`, `app/(reader)/books/[id]/read/{CrossLinksPanel,Reader}.tsx`, `e2e/ai.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `175 passed`, including: a note in *Frankenstein* ("A will, a lawyer and a locked safe, as with Utterson.") matches a Jekyll page about Utterson, a lawyer, opening his safe (3 shared stems), with book, chapter, place and quote; the same book, a one-word overlap and a hidden note do not match; an edit that adds shared ideas makes it match (latest version counts); the matching rule's edge cases (the first full run failed the font check on a "→" in a code comment; replaced). `npx playwright test` → `119 passed (2.1m)`, including: add that note in *Frankenstein* in the browser → open the Jekyll page → "1 link to your other books" → the panel shows Frankenstein, the quote and the note → "Open in Frankenstein" opens that book at the passage; unrelated text and the note's own book give no links; axe clean. Screenshots `screenshots/reader-crosslinks-*` checked by eye. (My first negative check was wrong: the "rugged countenance" page also mentions Utterson and the lawyer, so it rightly matched; the test now uses text with nothing in common.)
+- **Known issues / blockers:** Matching is by shared words, not meaning, so a paraphrase with different words is missed; an AI or embedding pass could come later. Links appear for highlights and notes on passages, not for notes on whole books, pillars or paths.
+- **Exact next steps:** M7, per "Exact next steps".
 
 ### 2026-10-04 05:25 UTC · Claude (cloud) · M6 (f): question bank per chapter
 - **Done:** From "What do I need to know?", a link **"Test yourself on this chapter ›"** opens a **question bank**: nine questions (three recall, three understanding, three application) with short model answers, asked once per chapter with structured output (`prompts/questions.md`). They are written in the reader's AI style (plain or STE, with the STE badge) and stored with provenance like every AI answer. **Answers stay hidden** until "Show answer"; then "I got it right" / "I got it wrong". A running score reads "1 right · 1 wrong · 7 to go". **Marks are append-only:** a new table `question_marks` (migration `0010_question_marks`, with a reverse step); marking again adds a row and the latest counts. Marks are in the library export round trip. The **book page** has a new **"Needs a re-read"** list: chapters with a question whose latest mark is wrong ("Search for Mr. Hyde · 1 of 2 wrong"). Each links into the reader at the chapter's first paragraph. "New questions" makes a fresh set on purpose. The chapter text and style code from (d) is now shared (`chapterText`, `styleInstruction`, `steScore` in `lib/library/prerequisites.ts`).

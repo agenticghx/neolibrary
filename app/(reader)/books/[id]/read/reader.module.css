@@ -119,13 +119,34 @@
 }
 
 .chapter {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.chapterName {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .percent {
   text-align: right;
+}
+
+.linksButton {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-700);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .progress {
