@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Finish M10 (a) on branch m10-reading-stats: run browser tests, open the PR (see newest Log entry)
+next_action: Merge the M10 (a) PR once CI is green, then build M10 (b) (your own trend on /stats)
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -116,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 10:10 UTC · Claude (laptop) · M10 (a) verified in the browser; PR opened
+- **Done:** Finished verifying M10 (a) "Measure honestly" on branch `m10-reading-stats`. Browser tests now pass on the laptop. Looked at `e2e/__screenshots__/stats-*` by eye: heading, the honest-counting explanation and the "Nothing yet" line, readable in light and dark, no overflow. Removed a Python bytecode file (`prompts/ste/__pycache__/…pyc`) that the WIP commit picked up by accident, and added `__pycache__/` and `*.pyc` to `.gitignore`.
+- **Key paths:** `lib/library/reading-stats.ts`, `app/(reader)/books/[id]/read/useReadingTracker.ts`, `app/(app)/stats/page.tsx`, `db/migrations/0016_reading_sessions.*`, `e2e/stats.spec.ts`, `.gitignore`
+- **Commands that worked:** `npx playwright test --ignore-snapshots` → `148 passed (1.4m)`; `npm run check` → `Tests 212 passed | 2 skipped (214)`, lint and types clean.
+- **Known issues / blockers:** The Playwright browser download stalled inside the laptop sandbox (a stuck install from the paused session also held a lock file). Fix that worked: download `chromium-headless-shell-mac-arm64.zip` (build 1194) with `curl`, unzip it into `~/Library/Caches/ms-playwright/chromium_headless_shell-1194`, and add the empty marker files `INSTALLATION_COMPLETE` and `DEPENDENCIES_VALIDATED`. On macOS run browser tests with `--ignore-snapshots`; CI (Linux) does the pixel comparison.
+- **Exact next steps:** Merge the M10 (a) PR when CI is green, then M10 (b) per "Exact next steps".
 
 ### 2026-10-04 09:15 UTC · Claude (laptop) · Paused M10 (a) mid-verification (Samuel switching Claude account)
 - **Done:** Read `docs/handoff.md`. PR #33 (M9 (c) + handoff) was already merged. Branch `m10-reading-stats` from `origin/main` (`9a779de`); applied `docs/handoff/m10a-reading-stats-wip.patch` (clean) and removed the patch file. Verified on the laptop: `npm run check` → lint and types clean, `Tests 212 passed | 2 skipped (214)` (same as the handoff); `TEST_DATABASE_URL=… npm run test:postgres` against a local embedded Postgres → `Tests 2 passed (2)`. Browser tests NOT yet run here (the run was stopped while building when the session paused).
