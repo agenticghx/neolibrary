@@ -62,7 +62,7 @@ export type LibraryExport = {
     id: string;
     annotationId: string;
     version: number;
-    kind: "highlight" | "bookmark" | "note" | "voice" | "sticker";
+    kind: "highlight" | "bookmark" | "note" | "voice" | "sticker" | "drawing";
     targetType: "passage" | "book" | "pillar" | "path";
     bookId: string | null;
     targetId: string | null;
@@ -76,6 +76,8 @@ export type LibraryExport = {
     transcript?: string;
     /** Stickers (added in M8). */
     sticker?: string | null;
+    /** Handwritten notes (added in M8): strokes on the 600 × 300 pad. */
+    drawing?: { width: number; height: number; strokes: number[][] } | null;
     deleted: boolean;
     createdAt: string;
   }[];
@@ -238,6 +240,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       audio: a.audioKey ? { key: a.audioKey, mime: a.audioMime, durationMs: a.durationMs } : null,
       transcript: a.transcript,
       sticker: a.sticker,
+      drawing: a.strokes,
       deleted: a.deleted,
       createdAt: a.createdAt.toISOString(),
     })),
@@ -397,6 +400,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         durationMs: a.audio?.durationMs ?? null,
         transcript: a.transcript ?? "",
         sticker: a.sticker ?? null,
+        strokes: a.drawing ?? null,
         deleted: a.deleted,
         createdAt: new Date(a.createdAt),
       });

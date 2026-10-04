@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Color } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { DrawingPad } from "./DrawingPad";
 import { StickerIcon } from "@/components/StickerIcon";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import styles from "./reader.module.css";
@@ -28,6 +29,7 @@ export function SelectionBar({
   onRewrite,
   onVoiceNote,
   onSticker,
+  onDrawing,
   onClose,
 }: {
   bookId: string;
@@ -39,11 +41,13 @@ export function SelectionBar({
   onRewrite: () => void;
   onVoiceNote: (audio: Blob, durationMs: number) => Promise<void>;
   onSticker: (sticker: Sticker) => Promise<void>;
+  onDrawing: (strokes: number[][]) => Promise<void>;
   onClose: () => void;
 }) {
   const [noting, setNoting] = useState(false);
   const [recording, setRecording] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
   const preview = selection.exact.length > 90 ? `${selection.exact.slice(0, 90)}…` : selection.exact;
@@ -51,7 +55,9 @@ export function SelectionBar({
   return (
     <div className={styles.selectionBar} role="toolbar" aria-label="Selected text">
       <p className={styles.selectionQuote}>“{preview}”</p>
-      {recording ? (
+      {drawing ? (
+        <DrawingPad onSave={onDrawing} onBack={() => setDrawing(false)} />
+      ) : recording ? (
         <VoiceRecorder onSave={onVoiceNote} onBack={() => setRecording(false)} />
       ) : picking ? (
         <div className={styles.selectionActions} role="group" aria-label="Stickers">
@@ -119,6 +125,9 @@ export function SelectionBar({
           </button>
           <button type="button" className={styles.tool} onClick={() => setPicking(true)}>
             Sticker
+          </button>
+          <button type="button" className={styles.tool} onClick={() => setDrawing(true)}>
+            Draw
           </button>
           <button type="button" className={styles.tool} onClick={onRewrite}>
             Rewrite
