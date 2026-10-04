@@ -7,7 +7,8 @@ engineer.
 ## Start of every session
 
 1. Read `PROGRESS.md` and resume from "Exact next steps". Do not ask Samuel
-   to repeat what it says.
+   to repeat what it says. Read `docs/handoff.md` too: the plans for the
+   remaining milestones, and the lessons and gotchas earlier sessions hit.
 1a. Read `docs/done.md`: it defines when a milestone and version 1 are done,
    and the loop to follow. Samuel is not watching (2026-10-04): work alone,
    implement → verify → merge → loop, and never stop for something only

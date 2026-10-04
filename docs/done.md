@@ -71,7 +71,7 @@ deployed Railway URL.
 - [x] **M6** Rewrite with versions + provenance, STE mode with TypeScript checker matching `ste_check.py`, prerequisites, question bank, cross-book links (fake Claude) (PRs #15–#21)
 - [x] **M7** Provider-neutral audio tracks, word highlight follows timings, cost estimate + caps (fake voice) (PRs #22–#24)
 - [x] **M8** Voice notes with transcripts, stickers, handwriting saved and redrawn (PRs #25–#27)
-- [ ] **M9** Wikimedia image search + generated-image fallback, pinned image cards (fakes)
+- [x] **M9** Wikimedia image search + generated-image fallback, pinned image cards (fakes) (PRs #28, #30 and the M9 (c) PR)
 - [ ] **M10** Reading time and words-per-minute from a scripted session; own trends
 - [ ] **M11** Token-protected API + MCP server; a test agent lists books and adds a note
 - [ ] **M12** Installable offline app; offline highlight syncs when the network returns

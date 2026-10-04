@@ -12,6 +12,8 @@ import { AiStyleSetting } from "./AiStyleSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ListenBar } from "./ListenBar";
 import { ImagesPanel } from "./ImagesPanel";
+import { PictureCard } from "./PictureCard";
+import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
@@ -143,8 +145,9 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images" | "picture">("none");
   const [imagesFor, setImagesFor] = useState("");
+  const [imagesAt, setImagesAt] = useState<PendingSelection | null>(null);
   const [links, setLinks] = useState<CrossLink[]>([]);
   const [listening, setListening] = useState(false);
   const whereCfi = useRef<string | null>(props.initialCfi);
@@ -235,7 +238,7 @@ export function Reader(props: {
         notesRef.current = loaded;
         setNotes(loaded);
         v.addEventListener("create-overlay", () => {
-          for (const a of notesRef.current) if (["highlight", "sticker", "drawing"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
+          for (const a of notesRef.current) if (["highlight", "sticker", "drawing", "image"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
         });
         v.addEventListener("draw-annotation", (e: Event) => {
           const { draw, annotation, range } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string }; range: Range | null }>)
@@ -245,6 +248,10 @@ export function Reader(props: {
           if (a?.kind === "sticker" && a.sticker) {
             const fill = cs.getPropertyValue(`--mark-${STICKERS[a.sticker].color}`).trim();
             draw(drawBadge(STICKERS[a.sticker].paths, fill, cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null), {});
+            return;
+          }
+          if (a?.kind === "image") {
+            draw(drawBadge(PICTURE_PATHS, cs.getPropertyValue("--mark-sage").trim(), cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null, "right"), {});
             return;
           }
           if (a?.kind === "drawing") {
@@ -258,7 +265,7 @@ export function Reader(props: {
           const a = notesRef.current.find((x) => x.cfi === (e as CustomEvent<{ value: string }>).detail.value);
           if (a) {
             setActiveId(a.id);
-            setPanel("notes");
+            setPanel(a.kind === "image" ? "picture" : "notes");
           }
         });
         root.current!.className = readerClass(initial);
@@ -380,6 +387,20 @@ export function Reader(props: {
     await reload();
     await view.current?.addAnnotation({ value: a.cfi! });
   };
+
+  const pinPicture = async (picture: PinnedPicture) => {
+    if (!imagesAt) return;
+    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
+      kind: "image",
+      cfi: imagesAt.cfi,
+      quote: { exact: imagesAt.exact, prefix: imagesAt.prefix, suffix: imagesAt.suffix },
+      picture,
+    });
+    await reload();
+    await view.current?.addAnnotation({ value: a.cfi! });
+  };
+
+  const activePicture = notes.find((a) => a.id === activeId && a.kind === "image") as (Annotation & { pictureUrl?: string }) | undefined;
 
   const saveDrawing = async (strokes: number[][]) => {
     if (!selection) return;
@@ -634,6 +655,7 @@ export function Reader(props: {
           onDrawing={saveDrawing}
           onImages={() => {
             setImagesFor(selection.exact.slice(0, 80));
+            setImagesAt(selection);
             clearSelection();
             setPanel("images");
           }}
@@ -672,7 +694,13 @@ export function Reader(props: {
 
       {panel === "links" ? <CrossLinksPanel links={links} /> : null}
 
-      {panel === "images" ? <ImagesPanel key={imagesFor} bookId={props.bookId} initialQuery={imagesFor} /> : null}
+      {panel === "images" ? (
+        <ImagesPanel key={imagesFor} bookId={props.bookId} initialQuery={imagesFor} onPin={imagesAt ? pinPicture : undefined} />
+      ) : null}
+
+      {panel === "picture" && activePicture?.picture ? (
+        <PictureCard picture={activePicture.picture} url={activePicture.pictureUrl} quote={activePicture.quote.exact} />
+      ) : null}
 
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 

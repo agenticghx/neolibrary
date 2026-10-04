@@ -6,6 +6,7 @@ import type { Annotation } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
 import { StickerIcon } from "@/components/StickerIcon";
 import { DrawingPreview } from "./DrawingPad";
+import { PictureView } from "./PictureCard";
 import { STICKERS } from "@/lib/library/stickers";
 import styles from "./reader.module.css";
 
@@ -26,7 +27,7 @@ export function NotesPanel({
   title: string;
   author: string;
   themeEl: () => Element | null;
-  items: (Annotation & { audioUrl?: string })[];
+  items: (Annotation & { audioUrl?: string; pictureUrl?: string })[];
   activeId: string | null;
   onGo: (a: Annotation) => void;
   onSave: (a: Annotation, body: string) => Promise<void>;
@@ -86,6 +87,8 @@ export function NotesPanel({
                     ? `Sticker · ${STICKERS[a.sticker].label}`
                     : a.drawing
                       ? "Handwritten note"
+                      : a.picture
+                        ? "Pinned picture"
                   : a.kind === "voice"
                     ? "Voice note"
                     : a.kind === "note"
@@ -96,6 +99,7 @@ export function NotesPanel({
               </p>
               {a.quote.exact ? <blockquote className={styles.noteQuote}>{a.quote.exact}</blockquote> : null}
               {a.drawing ? <DrawingPreview strokes={a.drawing.strokes} /> : null}
+              {a.picture ? <PictureView picture={a.picture} url={a.pictureUrl} /> : null}
               {a.voice ? (
                 <div className={styles.voiceNote}>
                   {a.audioUrl ? <audio controls preload="none" src={a.audioUrl} className={styles.voicePlayer} aria-label="Play the voice note" /> : null}

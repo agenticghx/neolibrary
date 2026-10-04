@@ -2,17 +2,27 @@
 
 import { useEffect, useState } from "react";
 import type { ImageResult } from "@/lib/images/search";
+import type { PinnedPicture } from "@/lib/library/pinned";
 import styles from "./reader.module.css";
 
 /**
  * "See it" (M9): pictures of a word or phrase from Wikimedia Commons, each
  * with its credit and licence on the card.
  */
-type Picture = { id: string; subject: string; url: string; model: string; costUsd: number; createdAt: string };
+type Picture = { id: string; subject: string; key: string; url: string; model: string; costUsd: number; createdAt: string };
 
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function ImagesPanel({ bookId, initialQuery }: { bookId: string; initialQuery: string }) {
+export function ImagesPanel({
+  bookId,
+  initialQuery,
+  onPin,
+}: {
+  bookId: string;
+  initialQuery: string;
+  /** Pins a picture to the passage the panel was opened from (absent when there is none). */
+  onPin?: (picture: PinnedPicture) => Promise<void>;
+}) {
   const [query, setQuery] = useState(initialQuery);
   const [searched, setSearched] = useState(initialQuery);
   const [results, setResults] = useState<ImageResult[] | null>(null);
@@ -20,6 +30,32 @@ export function ImagesPanel({ bookId, initialQuery }: { bookId: string; initialQ
   const [picture, setPicture] = useState<{ picture: Picture | null; estimate: number | null } | null>(null);
   const [making, setMaking] = useState(false);
   const [pictureError, setPictureError] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  const pin = async (id: string, picture: PinnedPicture) => {
+    if (!onPin) return;
+    setPinError(null);
+    try {
+      await onPin(picture);
+      setPinned(id);
+    } catch (e) {
+      setPinError((e as Error).message);
+    }
+  };
+
+  const pinButton = (id: string, picture: PinnedPicture) =>
+    onPin ? (
+      pinned === id ? (
+        <p className={styles.pinnedNote} role="status">
+          Pinned to the passage
+        </p>
+      ) : (
+        <button type="button" className={styles.tool} onClick={() => void pin(id, picture)} disabled={pinned !== null}>
+          Pin to the passage
+        </button>
+      )
+    ) : null;
 
   useEffect(() => {
     let live = true;
@@ -116,6 +152,16 @@ export function ImagesPanel({ bookId, initialQuery }: { bookId: string; initialQ
                   Source
                 </a>
               </p>
+              {pinButton(r.id, {
+                source: "wikimedia",
+                title: r.title,
+                thumbUrl: r.thumbUrl,
+                imageUrl: r.imageUrl,
+                pageUrl: r.pageUrl,
+                credit: r.credit,
+                licence: r.licence,
+                licenceUrl: r.licenceUrl,
+              })}
             </li>
           ))}
         </ul>
@@ -128,6 +174,7 @@ export function ImagesPanel({ bookId, initialQuery }: { bookId: string; initialQ
           <p className={styles.provenance}>
             {picture.picture.model} · {when(picture.picture.createdAt)} · ${picture.picture.costUsd.toFixed(2)}
           </p>
+          {pinButton(picture.picture.id, { source: "generated", key: picture.picture.key, subject: picture.picture.subject, model: picture.picture.model })}
         </aside>
       ) : picture && results ? (
         <div className={styles.makePicture}>
@@ -147,6 +194,11 @@ export function ImagesPanel({ bookId, initialQuery }: { bookId: string; initialQ
             </p>
           ) : null}
         </div>
+      ) : null}
+      {pinError ? (
+        <p className={styles.formError} role="alert">
+          {pinError}
+        </p>
       ) : null}
     </section>
   );
