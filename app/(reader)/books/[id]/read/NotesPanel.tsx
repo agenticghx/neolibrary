@@ -97,6 +97,11 @@ export function NotesPanel({
                         ? "Highlight and note"
                         : "Highlight"}
               </p>
+              {a.pending ? (
+                <p className={styles.hint} data-testid="note-pending">
+                  On this device · syncs when you are back online
+                </p>
+              ) : null}
               {a.agent ? (
                 <p className={styles.machineLabel} data-testid="note-agent">
                   Added by agent · {a.agent}
@@ -145,7 +150,7 @@ export function NotesPanel({
                     Go to
                   </button>
                 ) : null}
-                {editing !== a.id && a.kind !== "bookmark" ? (
+                {editing !== a.id && a.kind !== "bookmark" && !a.pending ? (
                   <button
                     type="button"
                     className={styles.tool}

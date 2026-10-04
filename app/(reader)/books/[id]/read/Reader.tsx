@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
-import type { Annotation, Color } from "@/lib/library/annotations";
+import type { Annotation, Color, Kind } from "@/lib/library/annotations";
+import { addToOutbox, flushOutbox, isOffline, outboxFor, removeFromOutbox } from "@/lib/outbox";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
@@ -133,6 +134,9 @@ function themeColors(el: Element, s: ReaderSettings) {
   return colors;
 }
 
+/** Fired once a book's notes have loaded: send what waits in the outbox (M12). */
+const SYNC_EVENT = "neolibrary:sync-notes";
+
 export function Reader(props: {
   bookId: string;
   title: string;
@@ -244,6 +248,8 @@ export function Reader(props: {
         const loaded: Annotation[] = (await (await fetch(`/api/books/${props.bookId}/annotations`)).json()).annotations ?? [];
         notesRef.current = loaded;
         setNotes(loaded);
+        // Send anything made offline earlier, and show what is still waiting (see the sync effect below).
+        window.dispatchEvent(new Event(SYNC_EVENT));
         v.addEventListener("create-overlay", () => {
           for (const a of notesRef.current) if (["highlight", "sticker", "drawing", "image"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
         });
@@ -366,7 +372,85 @@ export function Reader(props: {
     return res.status === 204 ? null : res.json();
   };
 
-  const reload = async () => setAll((await api(`/api/books/${props.bookId}/annotations`, "GET")).annotations);
+  /** How a note made offline looks until the server has it (M12). */
+  const localAnnotation = (id: string, body: Record<string, unknown>, savedAt = new Date().toISOString()): Annotation => {
+    const q = (body.quote ?? {}) as { exact?: string; prefix?: string; suffix?: string };
+    return {
+      id,
+      version: 1,
+      kind: body.kind as Kind,
+      targetType: body.cfi ? "passage" : "book",
+      bookId: props.bookId,
+      targetId: null,
+      sectionId: null,
+      cfi: (body.cfi as string | undefined) ?? null,
+      quote: { exact: q.exact ?? "", prefix: q.prefix ?? "", suffix: q.suffix ?? "" },
+      color: body.kind === "highlight" ? ((body.color as Color | undefined) ?? "sage") : null,
+      body: String(body.body ?? ""),
+      voice: null,
+      sticker: (body.sticker as Sticker | undefined) ?? null,
+      drawing: null,
+      picture: null,
+      agent: null,
+      createdAt: savedAt,
+      updatedAt: savedAt,
+      pending: true,
+    };
+  };
+
+  /** The book's notes from the server (or the offline copy), plus any still waiting in the outbox. */
+  const reload = async () => {
+    let server: Annotation[] | null = null;
+    try {
+      server = (await api(`/api/books/${props.bookId}/annotations`, "GET")).annotations;
+    } catch (e) {
+      if (!isOffline(e)) throw e;
+    }
+    const waiting = await outboxFor(props.bookId).catch(() => []);
+    const base = server ?? notesRef.current.filter((a) => !a.pending);
+    const known = new Set(base.map((a) => a.id));
+    setAll([...base, ...waiting.filter((w) => !known.has(w.id)).map((w) => localAnnotation(w.id, w.body, w.savedAt))]);
+  };
+
+  /**
+   * Adds a highlight, note, sticker or bookmark with an id chosen here. With
+   * no network it waits in the outbox and shows at once; it is sent when the
+   * network returns (M12).
+   */
+  const create = async (body: Record<string, unknown>): Promise<Annotation> => {
+    const id = crypto.randomUUID();
+    try {
+      return await api(`/api/books/${props.bookId}/annotations`, "POST", { ...body, id });
+    } catch (e) {
+      if (!isOffline(e)) throw e;
+      await addToOutbox({ id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
+      return localAnnotation(id, body);
+    }
+  };
+
+  const reloadRef = useRef(reload);
+  useEffect(() => {
+    reloadRef.current = reload;
+  });
+
+  // Send notes made offline: when the page opens, when the network returns, and every 30 s while any wait.
+  useEffect(() => {
+    const sync = async () => {
+      await flushOutbox().catch(() => ({ sent: 0 }));
+      await reloadRef.current().catch(() => {});
+    };
+    const online = () => void sync();
+    window.addEventListener("online", online);
+    window.addEventListener(SYNC_EVENT, online);
+    const timer = setInterval(() => {
+      if (notesRef.current.some((a) => a.pending)) void sync();
+    }, 30_000);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener(SYNC_EVENT, online);
+      clearInterval(timer);
+    };
+  }, []);
 
   const clearSelection = () => {
     selectionDoc.current?.getSelection()?.removeAllRanges();
@@ -379,7 +463,7 @@ export function Reader(props: {
     // new while this is being saved, and that must not be wiped.
     const picked = selection;
     clearSelection();
-    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
+    const a: Annotation = await create({
       kind: "highlight",
       cfi: picked.cfi,
       quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
@@ -394,7 +478,7 @@ export function Reader(props: {
     if (!selection) return;
     const picked = selection;
     clearSelection();
-    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
+    const a: Annotation = await create({
       kind: "sticker",
       cfi: picked.cfi,
       quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
@@ -457,13 +541,15 @@ export function Reader(props: {
   };
 
   const removeNote = async (a: Annotation) => {
-    await api(`/api/annotations/${a.id}`, "DELETE");
+    // Not sent yet: it only exists on this device.
+    if (a.pending) await removeFromOutbox(a.id);
+    else await api(`/api/annotations/${a.id}`, "DELETE");
     if (a.kind === "highlight" && a.cfi) await view.current?.deleteAnnotation({ value: a.cfi });
     await reload();
   };
 
   const addBookNote = async (body: string) => {
-    await api(`/api/books/${props.bookId}/annotations`, "POST", { kind: "note", body });
+    await create({ kind: "note", body });
     await reload();
   };
 
@@ -479,9 +565,10 @@ export function Reader(props: {
 
   const toggleBookmark = async () => {
     if (!where.cfi) return;
-    if (bookmarkHere) await api(`/api/annotations/${bookmarkHere.id}`, "DELETE");
+    if (bookmarkHere?.pending) await removeFromOutbox(bookmarkHere.id);
+    else if (bookmarkHere) await api(`/api/annotations/${bookmarkHere.id}`, "DELETE");
     else
-      await api(`/api/books/${props.bookId}/annotations`, "POST", {
+      await create({
         kind: "bookmark",
         cfi: CFI.collapse(where.cfi),
         quote: { exact: visibleText.current.slice(0, 160) || where.chapter },

@@ -4,7 +4,7 @@ import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
-import { createAnnotation, deleteAnnotation, history, listAnnotations, updateAnnotation } from "./annotations";
+import { createAnnotation, createAnnotationOnce, deleteAnnotation, history, listAnnotations, updateAnnotation } from "./annotations";
 import { importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -106,5 +106,23 @@ describe("notes on paths and pillars", () => {
     const { token } = await createInvite(database.db, admin);
     const other = await acceptInvite(database.db, token, { email: "r2@example.com", name: "R", password: "long enough pw" });
     await expect(createAnnotation(database.db, other.id, { kind: "note", targetType: "pillar", targetId: semis.id, body: "x" })).rejects.toThrow("Not found");
+  });
+
+  it("a note with a browser-chosen id is stored once, however often it is sent (offline sync)", async () => {
+    const id = "0f6a2b4c-1111-4222-8333-444455556666";
+    const input = { kind: "note", bookId, body: "Written on the train." };
+    const first = await createAnnotationOnce(database.db, ownerId, id, input);
+    expect(first).toMatchObject({ created: true, annotation: { id, body: "Written on the train." } });
+    const again = await createAnnotationOnce(database.db, ownerId, id.toUpperCase(), input);
+    expect(again).toMatchObject({ created: false, annotation: { id, body: "Written on the train." } });
+    expect((await listAnnotations(database.db, ownerId, bookId)).filter((a) => a.id === id)).toHaveLength(1);
+    // After an edit, a late resend returns the edited version and changes nothing.
+    await updateAnnotation(database.db, ownerId, id, { body: "Edited later." });
+    expect((await createAnnotationOnce(database.db, ownerId, id, input)).annotation).toMatchObject({ body: "Edited later.", version: 2 });
+
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "x@example.com", name: "X", password: "long enough pw" })).id;
+    await expect(createAnnotationOnce(database.db, other, id, input)).rejects.toThrow("already taken");
+    await expect(createAnnotationOnce(database.db, ownerId, "not-a-uuid", input)).rejects.toThrow("Bad annotation id.");
   });
 });
