@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land and deploy the read-aloud highlight fix; otherwise version 1 waits only on Samuel (keys, verdicts).
+next_action: Version 1 waits only on Samuel (keys, verdicts).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -53,6 +53,7 @@ Never blocks the loop. Newest first.
   offline** in the reader (**Aa** → Offline), so a book opens with no
   internet and notes made offline sync later.
 
+- **Read-aloud highlight fixed** (live since 2026-10-04 16:55 UTC): replay the Frankenstein ch. V paragraph and say whether the highlight now keeps time with the voice.
 - **M7 real narration** (after the Railway deploy; `ELEVENLABS_API_KEY` is
   already on `web`): open one of your books on the live site, press
   **Listen** in the footer, play one paragraph, and say in a GitHub issue
@@ -116,6 +117,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 16:55 UTC · Claude (laptop) · Read-aloud highlight fix deployed
+- **Done:** PR #53 merged with all four checks green (rebased over ledger PR #52, keeping both entries). On CI both new tests passed: `✓ [safari] … the read-aloud highlight lands on every word in order, on time`, `✓ [audio] … while playing, the highlight lands on every word…`, `173 passed (6.5m)`. Deployed `4d3fbf6` after a backup (`~/Backups/neolibrary/prod-before-listen-sync-20261004T1650Z.sql`, 1,124,103 bytes; restore exit 0 into a throwaway local Postgres 18; 1 user, 129 books, 10 audio tracks). Railway deployment `638f205f` SUCCESS.
+- **Key paths:** `PROGRESS.md`
+- **Commands that worked:** `/api/health` → 200, `/sign-in` → 200. In the running container, the chunk with "Stop reading aloud" contains the new `requestAnimationFrame` loop. Restore check: `embedded-postgres@18.4.0-beta.17` in the scratchpad (port 54330); `npm i embedded-postgres@18` fails (no such version). The earlier note "1 user, 3 books with files" counted only books with files; the table has 129 rows (126 wanted placeholders + 3 classics).
+- **Known issues / blockers:** Only Samuel's ear can judge the live MP3 in Safari (see the 19:40 entry).
+- **Exact next steps:** As in "Exact next steps".
 
 ### 2026-10-04 19:40 UTC · Claude (laptop) · Fix: read-aloud highlight lagged and skipped words
 - **Done:** Samuel (Safari, Frankenstein ch. V) said the word highlight did not keep up with the voice. **Checked the data first:** all 10 saved tracks in production have every word timed, in order, with no drift (e.g. "toils." 3.68–4.38 s, then a pause before "With"), so ElevenLabs' timings were fine. **Root cause:** the player moved the highlight only on the audio's `timeupdate` event, which the browser fires about every quarter second (measured: median 266 ms in Chrome's engine, 250 ms in Safari's), while many words last less than that. So the highlight lagged and skipped short words. **Fix:** while playing, the player checks the audio clock on every frame (each screen redraw, about 60 times a second); `timeupdate` stays as the fallback for background tabs. A guard stops one page turn being asked for twice before the page has moved.
