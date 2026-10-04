@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
+import { safeUnzip, ZipError } from "./zipread";
 
 /**
  * Read-along packages (M13): an audiobook made outside the app, with the
@@ -73,12 +74,25 @@ export class PackageError extends Error {}
 
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
+/**
+ * Limits on what a package zip may unpack to, checked from the zip's own
+ * table of contents before anything is unpacked (lib/readalong/zipread.ts:
+ * a crafted "zip bomb" can claim or produce gigabytes). A package's scripts
+ * and timings are a few MB even for a long book; a .zip may hold the audio
+ * too (up to the 50 MB the page sends in one request), so allow some more.
+ */
+export const MAX_UNPACKED_BYTES = 120 * 1024 * 1024;
+export const MAX_ENTRIES = 5000;
+
 /** Unzips a package. The zip may hold the files at its root or inside one folder. */
 export function readPackageZip(zip: Uint8Array): Record<string, Uint8Array> {
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(zip);
-  } catch {
+    files = safeUnzip(zip, { maxUnpacked: MAX_UNPACKED_BYTES, maxEntries: MAX_ENTRIES });
+  } catch (e) {
+    if (e instanceof ZipError && e.message !== "not a zip" && e.message !== "broken directory") {
+      throw new PackageError("This zip unpacks to more than a read-along package can hold, or uses a kind of zip that is not supported.");
+    }
     throw new PackageError("This is not a zip file.");
   }
   const names = Object.keys(files).filter((n) => !n.endsWith("/"));

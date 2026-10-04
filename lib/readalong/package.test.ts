@@ -123,4 +123,27 @@ describe("read-along packages", () => {
     expect(typescriptVerdict(fixed).ok).toBe(true);
     expect(pythonVerdict(fixed).ok).toBe(true);
   });
+
+  it("refuses a zip whose entries claim to unpack to more than a package can hold (a zip bomb), before unpacking", () => {
+    const zip = zipSync({ "manifest.json": strToU8("{}"), "timings/01.json": new Uint8Array(1000) });
+    // Rewrite the declared size of an entry in the zip's central directory to about 2 GB.
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    for (let i = 0; i + 4 <= zip.byteLength; i++) {
+      if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, 0x7fffffff, true);
+    }
+    expect(() => readPackageZip(zip)).toThrow("This zip unpacks to more than a read-along package can hold");
+  });
+
+  it("refuses stored entries that overlap inside the zip (the same bytes unpacked again and again)", () => {
+    const zip = zipSync({ "manifest.json": strToU8("{}"), "a.bin": new Uint8Array(100_000) }, { level: 0 });
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    // Point every central-directory entry at the same data and claim it is large and stored.
+    for (let i = 0; i + 4 <= zip.byteLength; i++) {
+      if (view.getUint32(i, true) === 0x02014b50) {
+        view.setUint32(i + 20, 150_000, true); // packed size larger than the whole zip
+        view.setUint32(i + 24, 150_000, true);
+      }
+    }
+    expect(() => readPackageZip(zip)).toThrow("This zip unpacks to more than a read-along package can hold");
+  });
 });

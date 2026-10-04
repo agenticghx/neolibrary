@@ -26,10 +26,20 @@ export interface Storage {
   abortUpload(key: string, uploadId: string): Promise<void>;
 }
 
-/** Shared by the two non-bucket storages: parts are numbered from 1 and must all be present. */
-function checkParts(parts: { part: number }[], have: number[]) {
+/**
+ * The bucket (S3) refuses to join parts when any part but the last is under
+ * 5 MB. The two non-bucket storages apply the same rule (LocalStorage by
+ * default, so browser tests and laptop runs behave like production).
+ */
+export const MIN_PART_BYTES = 5 * 1024 * 1024;
+
+/** Shared by the two non-bucket storages: parts are numbered from 1, all present, and big enough. */
+function checkParts(parts: { part: number }[], have: number[], sizeOf: (part: number) => number, minPartBytes: number) {
   const want = parts.map((p) => p.part);
   if (!want.length || want.some((p, i) => p !== i + 1) || want.some((p) => !have.includes(p))) throw new Error("Upload parts are missing or out of order");
+  if (want.slice(0, -1).some((p) => sizeOf(p) < minPartBytes)) {
+    throw Object.assign(new Error("EntityTooSmall: a part before the last is smaller than the minimum"), { name: "EntityTooSmall" });
+  }
 }
 
 export function assertSafeKey(key: string) {
@@ -37,6 +47,7 @@ export function assertSafeKey(key: string) {
 }
 
 export class MemoryStorage implements Storage {
+  constructor(private opts: { minPartBytes?: number } = {}) {}
   private files = new Map<string, { data: Uint8Array; contentType: string }>();
   async put(key: string, data: Uint8Array, contentType: string) {
     assertSafeKey(key);
@@ -73,7 +84,7 @@ export class MemoryStorage implements Storage {
   async finishUpload(key: string, uploadId: string, parts: { part: number; tag: string }[]) {
     const u = this.uploads.get(uploadId);
     if (!u || u.key !== key) throw new Error("Unknown upload");
-    checkParts(parts, [...u.parts.keys()]);
+    checkParts(parts, [...u.parts.keys()], (p) => u.parts.get(p)?.byteLength ?? 0, this.opts.minPartBytes ?? 0);
     const chunks = parts.map((p) => u.parts.get(p.part)!);
     const all = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
     let at = 0;
@@ -90,7 +101,10 @@ export class MemoryStorage implements Storage {
 }
 
 export class LocalStorage implements Storage {
-  constructor(private root: string) {}
+  constructor(
+    private root: string,
+    private opts: { minPartBytes?: number } = {},
+  ) {}
   private file(key: string) {
     assertSafeKey(key);
     return path.join(this.root, key);
@@ -163,7 +177,9 @@ export class LocalStorage implements Storage {
     const meta = await this.upload(key, uploadId);
     const dir = this.uploadDir(uploadId);
     const have = (await readdir(dir)).filter((n) => n.endsWith(".part")).map((n) => Number(n.slice(0, -5)));
-    checkParts(parts, have);
+    const sizes = new Map<number, number>();
+    for (const p of have) sizes.set(p, (await stat(path.join(dir, `${p}.part`))).size);
+    checkParts(parts, have, (p) => sizes.get(p) ?? 0, this.opts.minPartBytes ?? MIN_PART_BYTES);
     const f = this.file(key);
     await mkdir(path.dirname(f), { recursive: true });
     await writeFile(f, new Uint8Array());

@@ -63,7 +63,8 @@ export function Cover({
         face
       )}
       {owned && progress !== undefined && progress > 0 ? (
-        <span className={styles.progress} aria-label={`${Math.round(progress * 100)}% read`}>
+        // role="img": a plain span may not carry a label (axe: aria-prohibited-attr), so screen readers skipped it.
+        <span className={styles.progress} role="img" aria-label={`${Math.round(progress * 100)}% read`}>
           <span className={styles.progressFill} data-progress={Math.round(progress * 20) * 5} />
         </span>
       ) : null}

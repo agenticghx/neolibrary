@@ -10,6 +10,8 @@ import { NotesExport, NotesImport } from "@/components/NotesExport";
 import { listAnnotations } from "@/lib/library/annotations";
 import { needsReread } from "@/lib/library/questions";
 import { collectionsForBook } from "@/lib/library/shelf";
+import { listImports } from "@/lib/readalong/importer";
+import { AudiobookUpload } from "./AudiobookUpload";
 import { toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
 
@@ -26,6 +28,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const inCollections = owned ? await collectionsForBook(await getDb(), user.id, book.id) : [];
   const marks = await listAnnotations(await getDb(), user.id, book.id);
   const reread = owned ? await needsReread(await getDb(), user.id, book.id) : [];
+  // M13: uploaded read-along audiobooks, only for a book whose file is here.
+  const audiobooks = owned && book.fileType ? await listImports(await getDb(), user.id, book.id) : [];
   const count = (k: string) => marks.filter((a) => a.kind === k).length;
   const firstKind = places[0]?.kind;
 
@@ -141,6 +145,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               </ul>
             </section>
           ) : null}
+          {owned && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} fileType={book.fileType} /> : null}
           <p className={styles.status}>
             {owned
               ? `${Math.round(book.progress * 100)}% read`

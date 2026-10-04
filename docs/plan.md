@@ -373,9 +373,12 @@ Choices *(Claude, 2026-10-04; Samuel can overrule)*:
 - **The app matches words to its own paragraphs**, on the server, from the
   package's script words and book map. The laptop never needs the app's
   paragraph splitter.
-- **Large audio goes straight to the bucket** (a signed upload link), not
-  through the web server: the Kuhn audio is 201 MB and books are capped at
-  200 MB.
+- **Large audio goes in 8 MB parts** through the app to the bucket's own
+  multipart upload (decided in (c1), 2026-10-04, instead of a signed upload
+  link straight to the bucket: that would need the bucket to accept browser
+  uploads from this site, which Railway's bucket settings were not checked
+  for). No request carries more than 8 MB of audio, and the bucket joins the
+  parts.
 - **Tests never use a real audiobook**: a tiny package is built in test code
   (a tone WAV with known word times), like the fake voice in M7.
 
@@ -390,11 +393,15 @@ Steps (one PR each):
   paragraph `[startMs, endMs, from, to]` timings. Words marked `not_spoken`
   and spoken headings that are not in the book are left out. Report coverage
   (share of each paragraph's words that got a time).
-- **(c) Upload and store**: migration for the audio offsets; signed upload of
-  the audio to the bucket; `POST /api/books/:id/readalong` with the rest of
+- **(c) Upload and store**: migration for the audio offsets; the audio sent
+  in 8 MB parts through the app to the bucket's multipart upload;
+  `POST /api/books/:id/readalong` with the rest of
   the package; rows with `source = 'upload'`; importing again replaces the
-  old import; only the book's owner. Shows "Your audiobook" as a voice.
-- **(d) Play it (EPUB)**: Listen prefers the uploaded audiobook when there is
+  old import; only the book's owner. (Done as (c1) storage, (c2) API, (c3)
+  the "Your audiobook" section on the book page. Offering "Your audiobook" as
+  a voice in Listen moved to (d).)
+- **(d) Play it (EPUB)** (detailed plan, checked by skeptic agents:
+  `docs/m13-player-plan.md`): Listen prefers the uploaded audiobook when there is
   one; continuous playback across paragraphs; the frame-by-frame highlight
   from the 2026-10-04 fix; `not_spoken` words never highlighted.
 - **(e) Play it (PDF)**: today Listen is switched off for PDFs

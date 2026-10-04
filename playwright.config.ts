@@ -77,6 +77,8 @@ export default defineConfig({
     { name: "offline", testMatch: /offline\.spec\.ts/, dependencies: ["agents"], use: { ...desktop } },
     // 14. Read-along audiobooks the reader uploads (M13), last: it changes a book's read-aloud audio.
     { name: "readalong", testMatch: /readalong\.spec\.ts/, dependencies: ["offline"], use: { ...desktop } },
+    // 15. The same in Safari's engine (WebKit): Samuel reads in Safari, and folder picking differs by engine.
+    { name: "readalong-safari", testMatch: /readalong\.spec\.ts/, dependencies: ["readalong"], use: { ...desktop, browserName: "webkit" } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

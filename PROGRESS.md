@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M13 (c2) is in the working tree, uncommitted. Open the PR once the full check and the readalong browser test pass, then (d) play it in an EPUB. S6 and skills K1–K3 still open.
+next_action: Proxy body-limit fix and EPUB unzip limits (see 2026-10-04 21:30 Log), then a dedicated session for M13 (d)/(e) players from docs/m13-player-plan.md.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -46,7 +46,7 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
 
 Never blocks the loop. Newest first.
 
-- **Read-along with your own audiobooks** (from 2026-10-04): items S1–S6 in `docs/readalong-plan.md`: make the Muse clip, add OpenAI API credit (or drop it), pick a default voice, review the skill test results, OK the importer milestone.
+- **Read-along with your own audiobooks** (from 2026-10-04): items S1–S4 in `docs/readalong-plan.md`: make the Muse clip, add OpenAI API credit (or drop it), pick a default voice, review the skill test results. New: in Railway's bucket settings, a rule that aborts incomplete multipart uploads after a few days, if Railway offers one (abandoned uploads are otherwise cleared only when you start another upload).
 
 - **New on the live site since you last looked** (nothing to do, just so you
   know): **Reading stats** (`/stats`, from the shelf footer) with your trend
@@ -120,6 +120,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 21:30 · Claude (laptop) · M13 (c3): "Your audiobook" on the book page (upload with progress), reviewed by agents
+- **Done:** The book page of a book you own now has a **"Your audiobook"** section. Choose the read-along folder (made on the laptop by the `readalong-audio` skill) or, on phones, a .zip of it (up to 50 MB). The browser zips only the files the manifest names, checks every audio file's fingerprint on the computer first (8 MB at a time, `lib/readalong/sha256.ts`), sends the audio in 8 MB parts with a progress bar (the screen reader hears the steps, not every part), then the server checks it all and makes the read-aloud tracks. Cancel, Remove, Replace, and unfinished uploads (shown honestly, removable) are handled; focus returns to the section; copy says plainly that playing it comes in the next update (and for PDFs after EPUBs). Built in three rounds with workflows: 5 readers mapped the code first; 4 reviewers found 24 problems, 2 skeptics each confirmed 21; I fixed them; 4 checkers plus a critic found 11 more gaps and 4 problems my fixes caused; all fixed. Notable fixes: a **zip bomb** guard (own zip reader with zlib capped at each entry's declared size, `lib/readalong/zipread.ts`); the finish step runs once (a database claim) and a lost answer is recovered by asking, not by finishing twice; 503s from the hosting retried; request bodies read with a hard limit even without a length (`lib/readalong/http.ts`); local storage now enforces the bucket's 5 MB minimum part size. Also fixed an old accessibility bug: the cover's "62% read" bar was a labelled `<span>` that screen readers ignored (`components/Cover.tsx`, `role="img"`). Docs: `docs/m13-player-plan.md` (the (d)/(e) plan, checked by skeptics in Chromium and WebKit) and `docs/plan.md` M13 now match what was built.
+- **Key paths:** `app/(app)/books/[id]/{AudiobookUpload.tsx,page.tsx,page.module.css}`, `lib/readalong/{upload-client,sha256,zipread,http,importer,package}.ts` (+ tests), `lib/storage/index.ts`, `components/Cover.tsx`, `types/webkitdirectory.d.ts`, `e2e/readalong.spec.ts`, `playwright.config.ts` (project `readalong-safari`), `docs/m13-player-plan.md`, `docs/plan.md`
+- **Commands that worked:** `npm run check` → `Tests 313 passed | 2 skipped (315)`; `npx playwright test --ignore-snapshots` → `183 passed (2.3m)` (the read-along tests run in Chrome and Safari's engine). Every new safety check was proved by a "mutation" run: undo the fix, see a named test fail, restore (17 such runs, all caught). WebKit could not hold (page.route) requests from a page controlled by the offline service worker, so `e2e/readalong.spec.ts` blocks the service worker. Screenshots checked by eye: `screenshots/book-audiobook-*` and `book-audiobook-sending-*` (phone and desktop, light and dark, Chrome and Safari).
+- **Known issues / blockers:** (1) **The next deploy runs migration 0020 at startup: back up first.** (2) The real Railway bucket has not been tried with multipart uploads or ranged reads, and the finish step (re-reading every audio byte) has not been timed there: both are in `docs/m13-player-plan.md` "Before the first deploy". (3) `proxyClientMaxBodySize` (raised to 210 MB in #63) applies before the sign-in check, so even a signed-out request can make the server hold up to 210 MB: next PR sends the upload routes around the proxy and puts the 10 MB default back. (4) EPUB uploads still unzip with fflate without size limits (`lib/library/ebook.ts`, `sections.ts`): a zip bomb risk for book uploads; to fix with `safeUnzip`. (5) No resume after a failed upload (the page says so).
+- **Exact next steps:** (a) the proxy PR above; (b) the EPUB unzip limits; (c) a dedicated session for M13 (d) EPUB player and (e) PDF player, starting from `docs/m13-player-plan.md`.
 
 ### 2026-10-04 18:30 · Claude (laptop) · Fix: uploads over 10 MB arrived cut short (books too)
 - **Done:** While building the audiobook upload page, a reader agent found that Next.js runs `proxy.ts` (the sign-in check) before every request and by default passes on at most **10 MB** of a request body, cutting the rest off silently (`proxyClientMaxBodySize`, default 10485760). Proved it: a 12 MB read-along package zip arrived as "This is not a zip file", and a 12 MB EPUB upload failed too. So **book uploads over 10 MB have failed since M3**, although the shelf allows 200 MB. Fix: `experimental.proxyClientMaxBodySize` = 210 MB in `next.config.ts` (just above the 200 MB book and package limits). Also removed a doubled full stop in the importer's "not a read-along package" message.

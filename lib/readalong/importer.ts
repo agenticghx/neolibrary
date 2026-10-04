@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, ne, or } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, readalongImports, type ReadalongAudio, type ReadalongPending } from "@/lib/db/schema";
 import { getSections } from "@/lib/library/sections-store";
@@ -25,8 +25,14 @@ export class ReadalongError extends Error {}
 /** Parts are 8 MB (the bucket needs at least 5 MB per part, except the last). */
 export const PART_BYTES = 8 * 1024 * 1024;
 export const MAX_PART_BYTES = 16 * 1024 * 1024;
-/** The zip without its audio: scripts and timings, a few MB even for a long book. */
-export const MAX_ZIP_BYTES = 200 * 1024 * 1024;
+/** At most this many audio files per package (one per chapter is the most a book needs). */
+export const MAX_AUDIO_FILES = 300;
+/**
+ * The package zip sent in one request: scripts and timings (a few MB even for
+ * a long book), or a small package with its audio inside (the page's .zip
+ * route, for phones). Larger audio goes in 8 MB parts.
+ */
+export const MAX_ZIP_BYTES = 50 * 1024 * 1024;
 
 const MIME: Record<string, string> = {
   ".m4b": "audio/mp4",
@@ -67,6 +73,8 @@ export type ImportSummary = {
   report: { chapters: { n: number; title: string; spokenWords: number; matchedWords: number }[]; paragraphs: number };
   /** Audio files still to be sent in parts. */
   waitingFor: string[];
+  /** The last step is running on the server right now. */
+  beingFinished: boolean;
 };
 
 type Row = typeof readalongImports.$inferSelect;
@@ -79,9 +87,12 @@ const summary = (r: Row): ImportSummary => ({
   voice: r.voice,
   madeWith: r.madeWith,
   createdAt: r.createdAt.toISOString(),
-  finishedAt: r.finishedAt?.toISOString() ?? null,
+  // finished_at also marks "being finished" while still uploading; report it only once ready.
+  finishedAt: r.status === "ready" ? (r.finishedAt?.toISOString() ?? null) : null,
   report: r.report,
   waitingFor: r.status === "ready" ? [] : r.audio.filter((a) => a.uploadId).map((a) => a.file),
+  // Someone is finishing it right now (claimed within the last 15 minutes).
+  beingFinished: r.status === "uploading" && r.finishedAt !== null && r.finishedAt.getTime() > Date.now() - 15 * 60 * 1000,
 });
 
 async function ownedBook(db: Db, ownerId: string, bookId: string) {
@@ -102,7 +113,7 @@ async function ownedImport(db: Db, ownerId: string, bookId: string, importId: st
 export async function startImport(db: Db, storage: Storage, ownerId: string, bookId: string, zip: Uint8Array): Promise<ImportSummary> {
   const book = await ownedBook(db, ownerId, bookId);
   if (!book.fileKey) throw new ReadalongError("This book has no file to read along with.");
-  if (zip.byteLength > MAX_ZIP_BYTES) throw new ReadalongError("The package is too large to send in one piece; leave the audio out of the zip and send it in parts.");
+  if (zip.byteLength > MAX_ZIP_BYTES) throw new ReadalongError("The package is too large to send in one piece (over 50 MB); choose its folder instead, so the audio goes in parts.");
   let files: Record<string, Uint8Array>;
   let pkg;
   try {
@@ -124,6 +135,9 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
   const match = matchToParagraphs(pkg, paragraphs);
   if (!match.paragraphs.length) throw new ReadalongError("None of this package's words were found in this book.");
 
+  // One file per chapter is the most a package needs; a long list only opens uploads.
+  if (pkg.manifest.audio.length > MAX_AUDIO_FILES) throw new ReadalongError(`A package may have at most ${MAX_AUDIO_FILES} audio files.`);
+  await sweepAbandoned(db, storage, ownerId);
   const id = randomUUID();
   const audio: ReadalongAudio[] = [];
   for (const [i, a] of pkg.manifest.audio.entries()) {
@@ -174,25 +188,63 @@ export async function finishImport(
 ): Promise<ImportSummary> {
   const row = await ownedImport(db, ownerId, bookId, importId);
   if (row.status === "ready") return summary(row);
+  // Only one finish at a time: it is slow (every audio file is re-read to
+  // check it), and a second one (a browser retrying after a lost answer)
+  // must not join the same parts again. `finished_at` marks "being finished"
+  // until the status becomes ready; a claim older than 15 minutes is
+  // abandoned and may be taken over.
+  const stale = new Date(Date.now() - 15 * 60 * 1000);
+  const claimed = await db
+    .update(readalongImports)
+    .set({ finishedAt: new Date() })
+    .where(
+      and(
+        eq(readalongImports.id, importId),
+        eq(readalongImports.status, "uploading"),
+        or(isNull(readalongImports.finishedAt), lt(readalongImports.finishedAt, stale)),
+      ),
+    )
+    .returning({ id: readalongImports.id });
+  if (!claimed.length) throw new ReadalongError("This upload is already being finished. Wait a moment, then reload the page.");
+  try {
+    return await finishClaimed(db, storage, ownerId, bookId, row, parts);
+  } catch (e) {
+    await db.update(readalongImports).set({ finishedAt: null }).where(and(eq(readalongImports.id, importId), eq(readalongImports.status, "uploading")));
+    throw e;
+  }
+}
+
+async function finishClaimed(
+  db: Db,
+  storage: Storage,
+  ownerId: string,
+  bookId: string,
+  row: Row,
+  parts: Record<string, { part: number; tag: string }[]>,
+): Promise<ImportSummary> {
+  const importId = row.id;
   // Join each file sent in parts, then check every file against the package.
   for (const a of row.audio.filter((x) => x.uploadId)) {
     const p = parts[a.file];
     if (!p?.length) throw new ReadalongError(`The parts of ${a.file} were not listed.`);
     try {
       await storage.finishUpload(a.key, a.uploadId!, [...p].sort((x, y) => x.part - y.part));
-    } catch {
-      throw new ReadalongError(`${a.file} could not be put together: a part is missing. Send it again.`);
+    } catch (e) {
+      const why = String((e as Error)?.name ?? "") + String((e as Error)?.message ?? "");
+      if (/EntityTooSmall|too small/i.test(why)) {
+        throw new ReadalongError(`${a.file} could not be put together: a part before the last is smaller than 5 MB (the storage's minimum).`);
+      }
+      throw new ReadalongError(`${a.file} could not be put together: a part is missing. Choose the folder again to start over.`);
     }
   }
   for (const a of row.audio) {
     if ((await storedSha256(storage, a.key)) !== a.sha256) {
-      await storage.delete(a.key);
-      const restarted = await storage.startUpload(a.key, a.mime);
-      await db
-        .update(readalongImports)
-        .set({ audio: row.audio.map((x) => (x.file === a.file ? { ...x, uploadId: restarted } : x)) })
-        .where(eq(readalongImports.id, importId));
-      throw new ReadalongError(`${a.file} is not the audio this package was made with (its fingerprint differs). Send that file again.`);
+      // Nothing is kept: half-restarting one file left the others' finished
+      // uploads unusable. The reader makes the package again and starts over.
+      await deleteImport(db, storage, ownerId, bookId, importId);
+      throw new ReadalongError(
+        `${a.file} did not arrive intact (its fingerprint differs from the package's). Nothing was kept: choose the folder again; if this happens again, make the package again.`,
+      );
     }
   }
 
@@ -234,8 +286,34 @@ export async function finishImport(
       .set({ status: "ready", pending: null, finishedAt: now, audio: row.audio.map((a) => ({ ...a, uploadId: null })) })
       .where(eq(readalongImports.id, importId));
   });
-  for (const o of older) for (const a of o.audio) await storage.delete(a.key).catch(() => {});
+  for (const o of older) {
+    for (const a of o.audio) {
+      // An unfinished upload's parts sit in the bucket until cancelled.
+      if (a.uploadId) await storage.abortUpload(a.key, a.uploadId).catch(() => {});
+      await storage.delete(a.key).catch(() => {});
+    }
+  }
   return summary(await ownedImport(db, ownerId, bookId, importId));
+}
+
+/** Unfinished uploads older than this are cancelled (their parts would otherwise stay in the bucket). */
+export const ABANDONED_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
+/** Cancels this reader's uploads that were started more than two days ago and never finished, on any book. */
+async function sweepAbandoned(db: Db, storage: Storage, ownerId: string) {
+  const old = await db
+    .select({ id: readalongImports.id, bookId: readalongImports.bookId })
+    .from(readalongImports)
+    .where(
+      and(
+        eq(readalongImports.ownerId, ownerId),
+        eq(readalongImports.status, "uploading"),
+        lt(readalongImports.createdAt, new Date(Date.now() - ABANDONED_AFTER_MS)),
+        // not one that is being finished right now (claimed in the last 15 minutes)
+        or(isNull(readalongImports.finishedAt), lt(readalongImports.finishedAt, new Date(Date.now() - 15 * 60 * 1000))),
+      ),
+    );
+  for (const o of old) await deleteImport(db, storage, ownerId, o.bookId, o.id).catch(() => {});
 }
 
 export async function listImports(db: Db, ownerId: string, bookId: string) {
