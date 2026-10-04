@@ -1,0 +1,25 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+
+# Book files: never commit (copyright). Public-domain test books go in fixtures/ only.
+books/
+uploads/
+*.epub
+*.pdf
+*.mobi
+*.azw3
+!fixtures/**
+
+# Build output and dependencies
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+
+# Claude Code local state
+.claude/scheduled_tasks.lock
