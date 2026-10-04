@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // Mirrors db/migrations. The SQL files are the source of truth for the layout;
 // this file gives TypeScript the same shape for queries.
@@ -171,5 +171,27 @@ export const annotations = pgTable("annotations", {
   color: text("color"),
   body: text("body").notNull().default(""),
   deleted: boolean("deleted").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const generations = pgTable("generations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
+  sectionId: text("section_id"),
+  kind: text("kind").notNull(),
+  options: jsonb("options").$type<Record<string, string>>().notNull().default({}),
+  cacheKey: text("cache_key").notNull(),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  promptName: text("prompt_name").notNull(),
+  promptHash: text("prompt_hash").notNull(),
+  inputHash: text("input_hash").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costUsd: doublePrecision("cost_usd").notNull().default(0),
+  output: text("output").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

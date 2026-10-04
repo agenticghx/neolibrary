@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hiddenMachinery } from "@/data/paths/hidden-machinery";
+import { FakeModel } from "@/lib/ai/fake";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
@@ -10,6 +11,8 @@ import { exportLibrary, importLibrary, wipeLibrary } from "./export";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
 import { savePosition } from "./reading";
+import { rewriteParagraph } from "./rewrite";
+import { getSections } from "./sections-store";
 import { createCollection, listShelf, setInCollection } from "./shelf";
 
 let database: Database;
@@ -35,6 +38,8 @@ describe("library export (ground rule 7)", () => {
     await updateAnnotation(database.db, ownerId, note.id, { body: "Second" });
     const gone = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Hidden later" });
     await deleteAnnotation(database.db, ownerId, gone.id);
+    const [paragraph] = (await getSections(database.db, ownerId, bookId)).filter((x) => x.kind === "paragraph");
+    await rewriteParagraph(database.db, new FakeModel(), ownerId, { bookId, sectionId: paragraph.id, level: "plain" });
 
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.length).toBeGreaterThan(100);
@@ -46,11 +51,14 @@ describe("library export (ground rule 7)", () => {
       ["Hidden later", 1, false],
       ["Hidden later", 2, true],
     ]);
+    expect(before.generations).toEqual([
+      expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
+    ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
 
     await wipeLibrary(database.db, ownerId);
     const empty = await exportLibrary(database.db, ownerId);
-    expect([empty.books, empty.paths, empty.collections, empty.annotations]).toEqual([[], [], [], []]);
+    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations]).toEqual([[], [], [], [], []]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));

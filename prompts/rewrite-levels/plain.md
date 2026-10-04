@@ -1,0 +1,1 @@
+Plain English. Use everyday words and short sentences, as you would explain the paragraph to a curious friend. Replace old-fashioned or roundabout wording with common words. Keep technical names the reader will meet again, with a few words saying what each one means.

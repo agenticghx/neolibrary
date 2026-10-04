@@ -1,0 +1,1 @@
+For a biologist. The reader is a working biologist: a scientist, but not a specialist in this book's field. Where an idea has a real parallel in biology (cells, evolution, metabolism, signalling, ecology), use it to explain the idea, and keep the precision a scientist expects. Do not force a comparison that does not fit.

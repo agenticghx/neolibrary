@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (AI understanding tools, fake Claude).
+next_action: Sessions loop through docs/done.md on their own; next is M6 (b), rewrite in the reader.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -25,18 +25,21 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
    `docs/done.md`. Read the `claude-api` skill before writing Claude code
    (model ids, SDK). Everything goes behind an interface with a **fake** used
    in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   Suggested PRs: (a) the AI plumbing: `lib/ai/` with a `TextModel`
-   interface, `ClaudeModel` (Anthropic SDK, key from `ANTHROPIC_API_KEY`)
-   and `FakeModel`; prompts as files in `prompts/`; a `generations` table
-   storing every output with provenance (model, prompt-file hash, input-text
-   hash, time, tokens, cost) and re-serving it without a second call (ground
-   rule 5); spending caps from env (`AI_CAP_PER_BOOK_USD` default 5,
-   `AI_CAP_PER_MONTH_USD` default 20) with a cost estimate shown first
-   (ground rule 8). (b) Rewrite a paragraph at a level, with versions you can
-   flip between, shown visibly as machine-written. (c) STE mode: port
-   `prompts/ste/ste_check.py` to TypeScript with tests giving identical
-   results on the same inputs; STE badge. (d) "What do I need to know?" per
-   section; question bank; cross-book links.
+   PR (a), the AI plumbing, is done (see Log). Remaining PRs:
+   (b) **Rewrite in the reader:** an API route (`/api/books/<id>/rewrites`:
+   GET lists versions for a section plus the cost estimate; POST rewrites or
+   re-serves, `fresh` for "Try again") on top of `rewriteParagraph` in
+   `lib/library/rewrite.ts`; in the reader, a "Rewrite" action on a paragraph
+   (from the selection bar: the section under the selection) with the four
+   levels and the estimate, versions you can flip between, styled as
+   machine-written with the `--machine-*` tokens and a provenance line
+   (model, date, cost). e2e with `AI_FAKE=1` (already in the Playwright
+   webServer env): rewrite, reload, the version is re-served. Screenshots.
+   (c) STE mode: port `prompts/ste/ste_check.py` to TypeScript with tests
+   giving identical results on the same inputs; STE as a fifth level with the
+   strictness dial; badge "STE 92%". (d) "What do I need to know?" per
+   section; question bank; cross-book links. All use `generate()` in
+   `lib/ai/generate.ts`, which stores, re-serves and enforces the caps.
 2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -90,6 +93,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 04:30 UTC · Claude (cloud) · M6 (a): AI plumbing (fake Claude, stored answers with provenance, spending caps)
+- **Done:** `lib/ai/` holds the text-AI interface (`TextModel`). `ClaudeModel` calls the Claude API with the Anthropic SDK (the current Claude Opus model, set in `lib/ai/claude.ts`; adaptive thinking; an effort level per task; Anthropic's server-side fallback, which re-runs a declined request on another model, with the model that actually answered recorded). `FakeModel` answers instantly, costs nothing and counts its calls. All tests use the fake; the browser tests get it through `AI_FAKE=1`. With no `ANTHROPIC_API_KEY` the app says "AI is not set up yet" instead of making answers up. Prompts are files: `prompts/rewrite.md` plus one instruction per level in `prompts/rewrite-levels/` (plain English, for a biologist, add missing background, shorter). A new `generations` table (migration `0008_generations`, with a reverse step) stores every machine-written text with its provenance (ground rule 5): provider, the model that answered, prompt name, sha256 fingerprints of the prompt files and of the input text, tokens, cost in dollars and time. `generate()` re-serves a stored answer for the same request without a second call, and two identical requests at the same moment share one call. "Try again" (`fresh`) adds a new version; nothing is overwritten. **Spending caps** (ground rule 8): before any call, the estimated cost plus this month's spending (all readers, one key) must stay under `AI_CAP_PER_MONTH_USD` (default $20) and the book's spending under `AI_CAP_PER_BOOK_USD` (default $5); otherwise nothing is called and the reader is told which cap was hit. Stored answers are free, so they are served even at the cap. `rewriteParagraph()` in `lib/library/rewrite.ts` is the first user (server side only; the reader button is PR (b)). Generations are in the library export, and the export → wipe → import test covers them (ground rule 7).
+- **Key paths:** `lib/ai/{model,claude,fake,prompts,generate,index}.ts`, `lib/library/rewrite.ts`, `prompts/rewrite.md`, `prompts/rewrite-levels/`, `db/migrations/0008_generations.*`, `lib/library/export.ts`, `.env.example`
+- **Commands that worked:** `npm run check` → lint and types clean, Vitest `26 files, 151 passed`. These tests include: **the fake is called once and the second identical request returns the stored rewrite (`reused: true`, still 1 call)** with provenance (`model: "fake"`, prompt hash = sha256 of the two prompt files, input hash = sha256 of the paragraph, tokens, cost > 0); levels and "Try again" kept as three versions, the book text unchanged; another reader's identical request is a separate call (rewrites are private); the per-book and monthly caps stop the call (0 calls made) and the monthly one resets on the 1st; `ClaudeModel` against a stand-in API sends exactly the configured model, `anthropic-beta: server-side-fallback-2026-07-01`, `fallbacks: "default"`, adaptive thinking and `effort: low`, and reports refusals, cut-off answers and a refused key in plain words.
+- **Known issues / blockers:** No real Claude call yet: no `ANTHROPIC_API_KEY` exists (Waiting on Samuel). Prices are written in `lib/ai/model.ts` ($4 / $20 per million tokens for the current model); an unknown model is charged at $10 / $50 so the cap errs on the safe side. The cost estimate counts about four characters per token.
+- **Exact next steps:** M6 (b), per "Exact next steps".
 
 ### 2026-10-04 06:55 · Claude (cloud) · M5 (c): share a passage; notes on Paths and Pillars; M5 ticked
 - **Done:** **Share** from the selection bar and from each highlight in the Notes panel. "Copy link" copies a reader link to that passage (`/books/<id>/read?at=<cfi>`, for signed-in readers). "Image card" draws the quote with title and author on a 1200×630 canvas in the app's fonts and the reader's theme colours (`lib/reader/quote-card.ts`) and downloads it as a PNG. **Notes on a Pillar and on the whole Path** (ground rule 4): a quiet "Add note" under each pillar and under the Path's description, using server actions; the `annotations` table already had `target_type` path/pillar, and `createAnnotation` now accepts them (only your own path or pillar). They are in the library export (all annotations are) and in note search (labelled with the pillar's or path's name). M5 ticked in `docs/done.md`.
