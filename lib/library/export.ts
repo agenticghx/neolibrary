@@ -31,6 +31,8 @@ export type LibraryExport = {
     toc: unknown[];
     pageCount: number | null;
     progress: number;
+    /** Reading position (EPUB CFI); added in M4, absent in older exports. */
+    position?: string | null;
     lastOpenedAt: string | null;
     createdAt: string;
     updatedAt: string;
@@ -96,6 +98,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         toc: b.toc,
         pageCount: b.pageCount,
         progress: b.progress,
+        position: b.position,
         lastOpenedAt: iso(b.lastOpenedAt),
         createdAt: b.createdAt.toISOString(),
         updatedAt: b.updatedAt.toISOString(),
@@ -171,6 +174,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         toc: b.toc as never,
         pageCount: b.pageCount,
         progress: b.progress,
+        position: b.position ?? null,
         lastOpenedAt: date(b.lastOpenedAt),
         createdAt: new Date(b.createdAt),
         updatedAt: new Date(b.updatedAt),

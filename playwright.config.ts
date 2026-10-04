@@ -40,6 +40,8 @@ export default defineConfig({
     },
     // 4. Uploads change the shelf and the path, so they run last.
     { name: "uploads", testMatch: /uploads\.spec\.ts/, dependencies: ["flows"], use: { ...desktop } },
+    // 5. The reader opens a book uploaded in step 4.
+    { name: "reader", testMatch: /reader\.spec\.ts/, dependencies: ["uploads"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

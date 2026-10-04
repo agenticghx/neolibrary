@@ -21,17 +21,16 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M4 · reader and the anchor model** (next unticked box in
-   `docs/done.md`). Suggested PRs: (a) foliate-js reader page
-   `/books/[id]/read`: paginated and scroll modes, font, size, line spacing,
-   themes, table of contents; position saved per user (EPUB CFI, a standard
-   address for a spot in an EPUB) and restored on reload; progress updates
-   `books.progress`. (b) Section model: split each book into sections
-   (chapter → section → paragraph) with stable ids, text stored in Postgres;
-   unit test that re-importing the same file gives the same ids. (c)
-   Full-text search across books (Postgres full-text search). Check
-   foliate-js's licence and how to bundle it (it is plain ES modules, not
-   on npm in the usual way).
+1. **M4 (b) · section model**: split each book into sections (chapter →
+   section → paragraph) with stable ids. Derive each id from the chapter
+   file path plus the paragraph's position and a hash of its text, so the
+   same file always gives the same ids. Store the text in Postgres (new
+   tables, with a reverse migration), build it at upload time, and backfill
+   books uploaded earlier. Unit test: re-importing the same file gives the
+   same ids. Then **M4 (c) · full-text search** across books (Postgres
+   `tsvector`), with a search page; Playwright finds a phrase in a fixture
+   book. Then tick M4 ("real-book check" is Samuel's verdict, not blocking).
+   PDF reading (pdf.js) is still to do: either in M4 (b)/(c) or its own PR.
 2. Then M5, M6, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -81,6 +80,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 04:20 · Claude (cloud) · M4 (a): the reader (foliate-js), reading position, security policy
+- **Done:** A Content Security Policy (a browser rule listing which scripts may run) on every page, set in `proxy.ts`. Only Next.js's own scripts, carrying a per-request nonce, may run; books open in `blob:` frames that inherit the policy, so scripts inside a book are blocked (foliate-js requires this). The reader at `/books/[id]/read` (EPUB) uses foliate-js 1.0.1 (MIT): Pages or Scroll layout, text size, line spacing, typeface (Serif, Sans or the book's own), contents panel, side buttons and arrow keys to turn pages, and chapter plus progress at the foot. Book pages get the app's colours (read from the design tokens at run time) and fonts (copied to `public/fonts/`, OFL). The position (EPUB CFI, a standard address for a spot in a book) and progress are saved while reading (`PUT /api/books/[id]/position`) and restored on reopen; settings are kept on the device. Migration `0005_reading` adds `books.position`, with a reverse step; the position is also in the library export (ground rule 7). Book pages got a "Read" / "Continue reading" button.
+- **Key paths:** `proxy.ts`, `app/(reader)/`, `app/(reader)/books/[id]/read/{Reader.tsx,settings.ts,reader.module.css}`, `app/api/books/[id]/position/route.ts`, `lib/library/reading.ts`, `public/fonts/`, `e2e/reader.spec.ts`, `lib/library/test-epub.ts`
+- **Commands that worked:** `npm run check` → Vitest passing; `npx playwright test` → `94 passed (1.2m)`, including: open *Jekyll and Hyde*, turn 4 pages, text size 120%, wait until the server has the position, reload → same CFI start and size still 120%; contents jump to "Search for Mr. Hyde"; switch to Scroll; axe on the reader shows no violations. **Script safety:** an EPUB with `<script>` and `onerror` that rename the page fails to run. Checked by turning the policy off once: the test then fails with title "pwned", so it really detects scripts.
+- **Known issues / blockers:** PDFs cannot be read in the app yet (foliate's PDF support needs pdf.js). Reader screenshots are saved for the PR grid but not compared pixel-for-pixel (book text renders inside a frame). The browser warns that the book frame allows both scripts and same-origin; that is foliate's documented setting, and the policy is what blocks scripts.
+- **Exact next steps:** M4 (b), per "Exact next steps".
 
 ### 2026-10-04 03:45 · Claude (cloud) · M3 (c): shelf search, sort, collections, progress; library export/import
 - **Done:** Shelf search (title or author, case-insensitive; `%` and `_` treated literally) and sort (recent, title, author, progress), both kept in the address bar so a view can be bookmarked. Collections are user-made groups of books: create on the shelf, add or remove from each book's page, filter the shelf by collection, delete. They use new tables `collections` and `collection_books` (migration `0004_collections`, with a reverse step). Each book on the shelf shows Unread / N% read / Finished. **Ground rule 7, which M3 (a)/(b) had missed:** `lib/library/export.ts` exports the whole library (books, paths with pillars and slots, collections) as one JSON file (`/api/export`, "Download your library"). Import (`/api/import`, the new "Your data" page at `/data`) works only into an empty library, so nothing is overwritten. A unit test runs export → wipe → import and checks the second export is identical. The browser's file button is styled with the app font (a system font would differ between machines). All reference screenshots were regenerated from scratch. M3 ticked in `docs/done.md`.

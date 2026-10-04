@@ -63,6 +63,7 @@ export const books = pgTable("books", {
   toc: jsonb("toc").$type<{ label: string; href: string; children: unknown[] }[]>().notNull().default([]),
   pageCount: integer("page_count"),
   progress: real("progress").notNull().default(0),
+  position: text("position"),
   lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

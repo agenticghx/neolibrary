@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { exportLibrary, importLibrary, wipeLibrary } from "./export";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
+import { savePosition } from "./reading";
 import { createCollection, listShelf, setInCollection } from "./shelf";
 
 let database: Database;
@@ -28,10 +29,12 @@ describe("library export (ground rule 7)", () => {
     const { bookId } = await importBook(database.db, storage, ownerId, { name: "tm.epub", bytes: file });
     const c = await createCollection(database.db, ownerId, "Time travel");
     await setInCollection(database.db, ownerId, c.id, bookId, true);
+    await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/8!/4/2/1:0)", fraction: 0.25 });
 
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.length).toBeGreaterThan(100);
     expect(before.paths[0].pillars.length).toBe(hiddenMachinery.pillars.length);
+    expect(before.books.find((b) => b.id === bookId)).toMatchObject({ position: "epubcfi(/6/8!/4/2/1:0)", progress: 0.25 });
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
 
     await wipeLibrary(database.db, ownerId);
