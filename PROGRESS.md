@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M7 (b), the player with the word highlight.
+next_action: Sessions loop through docs/done.md on their own; next is M7 (c), the cost counter, then M8.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -22,27 +22,17 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
 1. **M7 · Listen and read (ElevenLabs)**, next unticked box in
-   `docs/done.md`. PR (a), audio tracks and the voice interface, is done
-   (see Log). Remaining:
-   (b) **The player in the reader**: a "Listen" button in the top bar opens
-   a player bar (play/pause, voice picker from `GET /api/books/<id>/audio`,
-   speed 0.75–2×, the cost before the first play). It plays the paragraph
-   at the reading position, then asks for the next one (`passage.nextId`)
-   and keeps going, turning pages to follow. **Word highlight:** on each
-   `timeupdate`, find the word with `wordAt(track.words, ms)` and highlight
-   its range inside the book frame. Use the CSS Custom Highlight API in the
-   frame's document (`CSS.highlights.set("nl-spoken", new Highlight(range))`
-   plus a `::highlight(nl-spoken)` rule in `bookCss` using
-   `--highlight-active`). Find the paragraph element from its CFI (foliate
-   `view.resolveCFI` or `CFI.toElement`) and map the word's character
-   offsets (in whitespace-collapsed text) to text-node positions.
-   Playwright: with the fake voice, set `audio.currentTime` to a known time
-   and check the highlighted text is the word the fake's timings put there
-   (0.03 s per character). Screenshots.
-   (c) A running **cost counter on an admin page** (`/admin/costs`: this
-   month's spending per provider, text and voice, against the caps, with
-   the per-book split); add it to `e2e/pages.ts`. Then tick M7 (the real
-   narrated section on the live site goes under Waiting on Samuel).
+   `docs/done.md`. PRs (a) audio tracks and (b) the player with the word
+   highlight are done (see Log). Remaining: (c) a running **cost counter on
+   an admin page** (`/admin/costs`, admin only, linked from the Invite page
+   so the phone nav does not grow): this month's spending per provider
+   (`spending()` in `lib/ai/generate.ts`, text and voice) against the caps
+   (`capsFromEnv(env, "AI" | "VOICE")`), and a per-book split for the month
+   (sum `generations.cost_usd` and `audio_tracks.cost_usd` grouped by book).
+   Add it to `e2e/pages.ts` (screenshots and accessibility) and a Playwright
+   check that the numbers match what the AI and audio tests spent. Then tick
+   M7 in `docs/done.md`, and add "one real section narrated on the live
+   site" under Waiting on Samuel.
 2. Then M8, M9, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -103,6 +93,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 06:40 UTC · Claude (cloud) · M7 (b): the read-aloud player with the word highlight
+- **Done:** A **Listen** button in the reader's footer (the top bar is full on phones) opens a player bar with Play/Pause, a **voice picker** (from the account, or the fake's two voices in tests), **speed** (0.75–2×) and a line that says either "Saved audio: free to play." or what the paragraph costs before it is made. It reads the paragraph at the reading position. When it ends, it fetches or makes the next paragraph and keeps going. Pages turn to follow the voice. **Word highlight:** on each time update (and on seeking) it finds the word being spoken from the track's timings and highlights it **inside the book's own frame**. It uses the browser's built-in text-highlight feature (CSS Custom Highlight API, colour `--highlight-active`), so the book's text is not changed. Character offsets in the paragraph's collapsed text are mapped back to the page's text nodes (`lib/reader/text-range.ts`), so words split by markup (e.g. "<b>bach</b>elor") still work. Closing the bar clears the highlight. PDFs get no Listen button yet. **Bugs found and fixed while testing:** (1) **the file route now serves byte ranges** (HTTP 206, `Accept-Ranges`, `Content-Length`). Without them Chromium sometimes treated the audio as an endless stream, which made the test flaky (about 1 run in 3), and would have broken seeking for real; after the fix, 4 full runs in a row were green. (2) Switching back to a voice whose audio was saved showed a cost; it now asks for the saved track. (3) After a voice change the button could still say "Pause" for a moment; it now resets at once.
+- **Key paths:** `app/(reader)/books/[id]/read/{ListenBar,Reader}.tsx`, `app/(reader)/books/[id]/read/settings.ts` (`::highlight(nl-spoken)`), `lib/reader/text-range.ts`, `lib/http-range.ts`, `app/api/files/[...key]/route.ts`, `e2e/audio.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `186 passed` (adds the word-offset mapping across inline markup and odd whitespace, and the byte-range parser). `npx playwright test` → `122 passed (2.4m)`, run 4 times in a row, all green. The browser test, with the fake voice (0.03 s per character): Listen → "Saved audio: free to play." → Play → seek to 0.6 s → the bar and the frame's highlight both say **"Utterson"** (character 18 starts at 0.54 s); seek to 1.0 s → **"home"** (0.96 s); switching voice shows the cost; at the end of the paragraph the next one is made (201) and plays, and its highlighted word matches the bar; speed 1.5 applies to the audio; closing clears the highlight. The audio link answers `Range: bytes=0-3` with 206 and "RIFF". Screenshots `screenshots/reader-listen-*` checked by eye (the close button first wrapped onto its own line; it now sits in the corner).
+- **Known issues / blockers:** No real ElevenLabs call yet (the cloud session cannot reach ElevenLabs; first real narration on the live site). PDFs cannot be read aloud yet. Long paragraphs turn the page when the spoken word passes the end of the visible page, which assumes paginated layout (in scroll layout the view does not scroll to follow).
+- **Exact next steps:** M7 (c), per "Exact next steps".
 
 ### 2026-10-04 05:50 UTC · Claude (cloud) · M7 (a): audio tracks, voice interface (ElevenLabs + fake), voice caps
 - **Done:** `lib/speech/` holds the voice interface (`SpeechModel`). `ElevenLabsSpeech` uses ElevenLabs' official SDK (`@elevenlabs/elevenlabs-js` 2.70.0). It calls text-to-speech "with timestamps" (model `eleven_multilingual_v2`, MP3), which returns audio plus the time of every character, and passes the paragraphs either side so joined clips sound continuous. Its voice list comes from the account, with two ready-made voices (George, Rachel) if that fails. ElevenLabs' site and API are blocked from the cloud container, so the request shape was taken from the SDK, and a test checks the exact request it sends. `FakeSpeech` makes a real WAV file in code: a soft tone, 0.03 s per character, every character evenly timed. A new **`audio_tracks`** table (migration `0011_audio_tracks`, with a reverse step) does not depend on one provider: source `tts` or later `upload`. Each track has provider, model, voice, input fingerprint, characters, cost, the audio file's storage key, duration and **word timings** (start and end in ms, plus where each word is in the paragraph). Audio is made **one paragraph at a time** when asked for, stored under `audio/<owner>/…` (only the owner can fetch it, through the existing signed file links), and **re-served after**: the same paragraph, voice and model is never paid for twice, and two identical requests at once share one call. **Caps:** the spending check now counts text and voice per provider; voice has its own caps, `VOICE_CAP_PER_BOOK_USD` and `VOICE_CAP_PER_MONTH_USD` (default $5 and $20). The cost is estimated from the character count at `ELEVENLABS_USD_PER_1K_CHARS` (default $0.30, cautious; set it to the real plan's price). Route `GET/POST /api/books/<id>/audio`. Tracks are in the library export round trip.
