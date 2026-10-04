@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav aria-label="Main" className={styles.nav}>
           <Link href="/">Path</Link>
           <Link href="/shelf">Shelf</Link>
+          <Link href="/search">Search</Link>
           {user.role === "admin" ? <Link href="/admin/invites">Invite</Link> : null}
           <form action={signOutAction}>
             <button type="submit" className={styles.signOut}>

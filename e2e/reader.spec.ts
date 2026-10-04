@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import * as CFI from "foliate-js/epubcfi.js";
 import { readableEpub } from "../lib/library/test-epub";
 import { ADMIN_STATE } from "./pages";
 
@@ -107,4 +108,37 @@ test("the reader is accessible, and looks right on phone and desktop, light and 
       await page.screenshot({ path: `screenshots/reader-${name}-${scheme}.png` });
     }
   }
+});
+
+// M4 "Done when" (part): search finds a phrase in a fixture book.
+test("search finds a phrase and opens the reader at that paragraph", async ({ page }) => {
+  await page.goto("/search");
+  await page.getByRole("searchbox", { name: "Search inside your books" }).fill('"singular ferocity"');
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByRole("status")).toHaveText(/^1 passage in 1 book\.$/);
+  const book = page.getByRole("region", { name: /The Strange Case of Dr\. Jekyll and Mr\. Hyde/ });
+  const hit = book.getByRole("link").first();
+  await expect(hit).toContainText("The Carew Murder Case");
+  await expect(hit.locator("mark")).toHaveText(["singular", "ferocity"]);
+
+  const target = decodeURIComponent((await hit.getAttribute("href"))!.split("?at=")[1]);
+  await hit.click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.locator("footer").getByText("The Carew Murder Case")).toBeVisible();
+  // The paragraph is on the page in front of the reader: its address lies inside
+  // the visible range the reader reports (compared with foliate-js's own CFI code;
+  // the book frame itself is closed to tests).
+  const visible = (await reader(page).getAttribute("data-cfi"))!;
+  const paragraphStart = target.replace(/\)$/, "/1:0)");
+  expect(CFI.compare(paragraphStart, CFI.collapse(visible))).toBeGreaterThanOrEqual(0);
+  expect(CFI.compare(paragraphStart, CFI.collapse(visible, true))).toBeLessThanOrEqual(0);
+
+  // ...and a paragraph from chapter 1 is not (so the check above can fail).
+  await page.goto(`/search?q=${encodeURIComponent('"rugged countenance"')}`);
+  const other = decodeURIComponent((await page.getByRole("link").filter({ hasText: "rugged" }).getAttribute("href"))!.split("?at=")[1]);
+  expect(CFI.compare(other.replace(/\)$/, "/1:0)"), CFI.collapse(visible))).toBeLessThan(0);
+
+  // Nothing matches: a clear message, no results.
+  await page.goto("/search?q=xylophone+zeppelin");
+  await expect(page.getByRole("status")).toHaveText("Nothing in your books matches “xylophone zeppelin”.");
 });
