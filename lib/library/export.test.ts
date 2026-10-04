@@ -69,6 +69,7 @@ describe("library export (ground rule 7)", () => {
       activeSeconds: 300,
       words: 1250,
       pages: 4,
+      chapters: [{ key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 300, words: 1250 }],
     });
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
@@ -95,7 +96,15 @@ describe("library export (ground rule 7)", () => {
     ]);
     expect(before.audioTracks).toEqual([expect.objectContaining({ id: track.track.id, voice: "fake-ben", audioKey: track.track.audioKey })]);
     expect(before.audioTracks![0].words).toEqual(track.track.words);
-    expect(before.readingSessions).toEqual([expect.objectContaining({ bookId, activeSeconds: 300, words: 1250, pages: 4 })]);
+    expect(before.readingSessions).toEqual([
+      expect.objectContaining({
+        bookId,
+        activeSeconds: 300,
+        words: 1250,
+        pages: 4,
+        chapters: [{ key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 300, words: 1250 }],
+      }),
+    ]);
     expect(before.settings).toEqual({ aiStyle: "ste-standard" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
     expect(before.generations).toEqual([

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M10 (b) PR (regenerate stats-* reference screenshots from CI), then build M10 (c) per-chapter suggestions
+next_action: Land the M10 (c) PR, redeploy from the laptop (back up the database first), then start M11 (API tokens)
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,14 +24,13 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M10 (b) PR** (branch `m10-trend`): if still open, make its checks green.
-   The first CI run is expected to fail only on the four `stats-*` reference
-   screenshots (the empty page gained the cited comparison box). Download the
-   `playwright-report` artifact, look at each `test-results/**/stats-*-actual.png`,
-   copy them over `e2e/__screenshots__/stats-*.png`, push. Then auto-merge.
-2. **M10 (c) · Simple, honest suggestions** from per-chapter speed (needs
-   the chapter of each page in the sitting), e.g. "your speed drops sharply
-   in chapter 4; try the prerequisites panel". Then tick M10.
+1. **M10 (c) PR** (branch `m10-suggestions`): if still open, make its checks
+   green; auto-merge lands it. That completes M10 (ticked in `docs/done.md`).
+2. **Redeploy (laptop only, with a backup first)**: the live site still runs
+   `d5ac52f`. Migrations 0016 and 0017 will run on the next deploy. First take
+   a backup of the Railway Postgres (Railway → Postgres → Backups, or
+   `pg_dump` through `railway connect`), then `railway up --service web --ci`,
+   then check `/api/health` and that `/stats` redirects to sign-in.
 3. **M11** (API tokens, agent API, MCP server) and **M12** (offline PWA and
    sync), then the live checks: plans in `docs/handoff.md` §4.
 
@@ -106,6 +105,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 11:20 UTC · Claude (laptop) · M10 (c): per-chapter speed and simple, honest suggestions; M10 ticked
+- **Done:** PR #35 (M10 (b)) merged with all four checks green, after committing the four `stats-*` reference screenshots that CI rendered on Linux (looked at each first). M10 (c) on `m10-suggestions`: the reader now also splits each sitting's active time and page words **by the chapter on screen** (foliate's contents entry: its link as the key, its title, and how far into the book it starts). Stored as a `chapters` list on `reading_sessions` (migration `0017_reading_chapters`, which adds a column; its reverse step drops only that column and the sitting totals stay). The server checks the list (known fields only, numbers capped at the sitting's totals, at most 500 chapters), and a late, smaller report never replaces a newer split. It is part of the export round trip. `/stats` has a new **Suggestions** section. In a book with at least three chapters that each have two minutes or more of countable reading, a chapter read at under 60% of that book's usual (median) chapter speed is named, e.g. "In The Time Machine, your speed drops sharply in Chapter 4: 100 words per minute, against your usual 250 in this book. Try *What do I need to know?* in the reader for the background this chapter assumes." Otherwise it says honestly why there are none. The rule is printed under it. **M10 ticked** in `docs/done.md`.
+- **Key paths:** `db/migrations/0017_reading_chapters.*`, `lib/db/schema.ts` (`ChapterReading`), `lib/library/reading-stats.ts` (`cleanChapters`, `chapterStatsByBook`, `suggestionsFrom`), `app/(reader)/books/[id]/read/{useReadingTracker.ts,Reader.tsx}`, `app/api/books/[id]/reading/route.ts`, `app/(app)/stats/page.{tsx,module.css}`, `lib/library/export.ts`, `e2e/stats.spec.ts`
+- **Commands that worked:** `npm run check` → `Tests 217 passed | 2 skipped (219)`; `TEST_DATABASE_URL=postgres://postgres:pw@localhost:54330/postgres npm run test:postgres` → `Tests 2 passed (2)` (migration 0017 up, down, up; the chapter split stored and a late report not replacing it, through postgres.js); `npx playwright test --ignore-snapshots` → `150 passed (1.4m)`. In the browser, the scripted Time Machine sitting's chapter split adds up to the sitting (same words; time within a second per chapter). A sitting sent with a slow chapter 4 shows the suggestion sentence above, with a link to the book. Axe is clean in all four looks; `screenshots/stats-suggestion-*` checked by eye.
+- **Known issues / blockers:** PDFs without a table of contents give no chapter split (no suggestions for them). The chapter speed uses the same rule as overall speed (each chapter piece of a sitting needs a minute or more at no more than 1,000 wpm). Migration 0017 must have a database backup before it runs in production (next deploy; see Exact next steps).
+- **Exact next steps:** Land this PR; redeploy from the laptop with a backup first; then M11 (API tokens, agent API, MCP server) per `docs/handoff.md` §4.
 
 ### 2026-10-04 10:45 UTC · Claude (laptop) · M10 (b): your own trend first, and a cited average
 - **Done:** PR #34 (M10 (a)) merged with all four checks green. M10 (b) built on `m10-trend`: `/stats` now shows, in order, **Week by week** (time with a bar, words, words per minute; weeks start Monday UTC; weeks with no reading between kept as 0 min), **By pillar** (with the Path's name; a book in two pillars counts in both), **N and E books** (N = narrative, read first; E = engineering), **By book**, then a secondary **For comparison** box: adults reading English silently average 238 wpm for non-fiction (most 175 to 300) and 260 for fiction (most 200 to 320), with the caveat that it is not the same measurement, cited as Brysbaert (2019), *Journal of Memory and Language* 109, 104047, doi:10.1016/j.jml.2019.104047. The numbers were read from page 1 of the paper itself (the abstract), not from a summary. Looking at the screenshots by eye exposed a dishonest number: the week showed **1970 wpm**, because earlier tests flicked through Jekyll (8,417 words in seconds). New rule, stated on the page: **speed counts only sittings of a minute or more at no more than 1,000 wpm**; flicking adds to words read but not to speed. Also: The Grid test upload is now a small readable EPUB (it was a stub the reader could not open), so the stats test can read it.

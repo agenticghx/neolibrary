@@ -259,4 +259,8 @@ export const readingSessions = pgTable("reading_sessions", {
   activeSeconds: integer("active_seconds").notNull().default(0),
   words: integer("words").notNull().default(0),
   pages: integer("pages").notNull().default(0),
+  chapters: jsonb("chapters").$type<ChapterReading[]>().notNull().default([]),
 });
+
+/** Time and words of one sitting inside one chapter (M10 (c)). */
+export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };

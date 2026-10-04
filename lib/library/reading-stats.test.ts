@@ -6,7 +6,7 @@ import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
-import { countsForSpeed, recordReading, statsByBook, statsByPathSlot, statsByWeek, weekStart, wordsPerMinute } from "./reading-stats";
+import { chapterStatsByBook, cleanChapters, countsForSpeed, recordReading, suggestionsFrom, statsByBook, statsByPathSlot, statsByWeek, weekStart, wordsPerMinute } from "./reading-stats";
 
 let database: Database;
 let ownerId: string;
@@ -124,5 +124,63 @@ describe("reading statistics (M10)", () => {
     // All the words count; speed is 480 words in 2 minutes, from the one real sitting.
     expect((await statsByBook(database.db, ownerId))[0]).toMatchObject({ activeSeconds: 260, words: 13480, sessions: 3, wpm: 240 });
     expect((await statsByWeek(database.db, ownerId, new Date(at)))[0]).toMatchObject({ activeSeconds: 260, words: 13480, sessions: 3, wpm: 240 });
+  });
+
+  it("checks the chapter split: known fields, sane numbers, never more than the sitting", () => {
+    expect(
+      cleanChapters(
+        [
+          { key: "c1.xhtml", label: "  Chapter\n One ", position: 0.1, activeSeconds: 90, words: 300, extra: "x" },
+          { key: "c1.xhtml", label: "duplicate", position: 0.2, activeSeconds: 5, words: 5 },
+          { key: "", label: "no key" },
+          "nonsense",
+          { key: "c2.xhtml", label: 7, position: 9, activeSeconds: 1e9, words: -3 },
+        ],
+        120,
+        500,
+      ),
+    ).toEqual([
+      { key: "c1.xhtml", label: "Chapter One", position: 0.1, activeSeconds: 90, words: 300 },
+      { key: "c2.xhtml", label: "", position: 1, activeSeconds: 120, words: 0 },
+    ]);
+    expect(cleanChapters("x", 1, 1)).toEqual([]);
+  });
+
+  it("per-chapter speed across sittings; a chapter read much slower than usual gets a suggestion", async () => {
+    const ch = (n: number, activeSeconds: number, words: number) => ({ key: `c${n}.xhtml`, label: `Chapter ${n}`, position: n / 10, activeSeconds, words });
+    const at = "2026-10-04T09:00:00Z";
+    // Sitting 1: chapters 1 and 2 at 250 wpm. Sitting 2: chapter 3 at 250, chapter 4 at 100.
+    await recordReading(database.db, ownerId, { sessionId: s1, bookId: tm, startedAt: at, activeSeconds: 360, words: 1500, pages: 6, chapters: [ch(1, 180, 750), ch(2, 180, 750)] });
+    await recordReading(database.db, ownerId, {
+      sessionId: s2,
+      bookId: tm,
+      startedAt: at,
+      activeSeconds: 420,
+      words: 1050,
+      pages: 5,
+      chapters: [ch(4, 240, 400), ch(3, 180, 750)],
+    });
+    // A late report of sitting 2 with less time does not replace its chapter split.
+    await recordReading(database.db, ownerId, { sessionId: s2, bookId: tm, startedAt: at, activeSeconds: 60, words: 100, pages: 1, chapters: [ch(4, 60, 100)] });
+    // Chapter 5: a flick (10 s) and a short read (90 s): under two minutes of countable reading, so left out.
+    const s3 = "aaaaaaaa-0000-4000-8000-000000000003";
+    await recordReading(database.db, ownerId, { sessionId: s3, bookId: tm, startedAt: at, activeSeconds: 100, words: 3300, pages: 9, chapters: [{ ...ch(5, 10, 3000) }, { ...ch(6, 90, 300) }] });
+    const books = await chapterStatsByBook(database.db, ownerId);
+    expect(books).toEqual([
+      {
+        bookId: tm,
+        title: "The Time Machine",
+        chapters: [
+          { key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 180, words: 750, wpm: 250 },
+          { key: "c2.xhtml", label: "Chapter 2", position: 0.2, activeSeconds: 180, words: 750, wpm: 250 },
+          { key: "c3.xhtml", label: "Chapter 3", position: 0.3, activeSeconds: 180, words: 750, wpm: 250 },
+          { key: "c4.xhtml", label: "Chapter 4", position: 0.4, activeSeconds: 240, words: 400, wpm: 100 },
+        ],
+      },
+    ]);
+    expect(suggestionsFrom(books)).toEqual([{ bookId: tm, title: "The Time Machine", chapter: "Chapter 4", chapterWpm: 100, usualWpm: 250 }]);
+    // Steady reading, or too few chapters, suggests nothing.
+    expect(suggestionsFrom([{ ...books[0], chapters: books[0].chapters.slice(0, 3) }])).toEqual([]);
+    expect(suggestionsFrom([{ ...books[0], chapters: books[0].chapters.slice(2) }])).toEqual([]);
   });
 });

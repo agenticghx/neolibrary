@@ -10,6 +10,8 @@ import { ADMIN_STATE } from "./pages";
 test.use({ storageState: ADMIN_STATE });
 test.describe.configure({ mode: "serial" });
 
+type Chapter = { key: string; label: string; position: number; activeSeconds: number; words: number };
+
 /** Words on the page the reader is showing, counted the same way as the app (collapsed whitespace). */
 const pageWords = (page: Page) =>
   page.evaluate(() => {
@@ -49,6 +51,14 @@ test("a scripted reading session gives the expected words per minute; idle time 
   expect(s.activeSeconds).toBeLessThanOrEqual(183);
   expect(s.pages).toBe(2);
   expect(s.words).toBe(first + second);
+  // M10 (c): the same sitting split by chapter adds up to the whole.
+  const chapters = ((await (await page.request.get("/api/export")).json()).readingSessions as (Session & { chapters: Chapter[] })[]).find(
+    (x) => x.bookId === bookId,
+  )!.chapters;
+  expect(chapters.length).toBeGreaterThanOrEqual(1);
+  expect(chapters.every((c) => c.key && c.label)).toBe(true);
+  expect(chapters.reduce((n, c) => n + c.words, 0)).toBe(s.words);
+  expect(Math.abs(chapters.reduce((n, c) => n + c.activeSeconds, 0) - s.activeSeconds)).toBeLessThanOrEqual(chapters.length);
 
   await page.goto("/stats");
   const row = page.getByTestId("stats-books").getByRole("row").filter({ hasText: "The Time Machine" });
@@ -102,6 +112,40 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
       expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: `screenshots/stats-trend-${name}-${scheme}.png`, fullPage: true });
+    }
+  }
+});
+
+// M10 (c): a sitting whose chapter 4 went at well under the usual speed gives
+// a suggestion naming that chapter. The sitting is sent the way the reader
+// sends it (the first test checks the reader's own chapter split).
+test("a chapter read much slower than usual gets a simple suggestion", async ({ page }) => {
+  type Row = { id: string; title: string };
+  const tm = ((await (await page.request.get("/api/export")).json()).books as Row[]).find((b) => b.title === "The Time Machine")!;
+  const ch = (n: number, activeSeconds: number, words: number) => ({ key: `ch${n}.xhtml`, label: `Chapter ${n}`, position: n / 20, activeSeconds, words });
+  const chapters = [ch(1, 180, 750), ch(2, 180, 750), ch(3, 180, 750), ch(4, 240, 400)];
+  const sent = await page.request.post(`/api/books/${tm.id}/reading`, {
+    data: { sessionId: crypto.randomUUID(), startedAt: new Date().toISOString(), activeSeconds: 780, words: 2650, pages: 10, chapters },
+  });
+  expect(sent.status()).toBe(204);
+  await page.goto("/stats");
+  const box = page.getByTestId("stats-suggestions");
+  // (The first test's real sitting adds one more chapter of this book; the usual speed, the middle value, stays 250.)
+  await expect(box.getByRole("listitem").filter({ hasText: "Chapter 4" })).toContainText(
+    "In The Time Machine, your speed drops sharply in Chapter 4: 100 words per minute, against your usual 250 in this book.",
+  );
+  await expect(box.getByRole("link", { name: "The Time Machine" })).toHaveAttribute("href", `/books/${tm.id}/read`);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(box).toBeVisible();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await box.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `screenshots/stats-suggestion-${name}-${scheme}.png` });
     }
   }
 });
