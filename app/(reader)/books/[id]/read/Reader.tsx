@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
 import type { Annotation, Color } from "@/lib/library/annotations";
+import type { CrossLink } from "@/lib/library/crosslinks";
 import { AiStyleSetting } from "./AiStyleSetting";
+import { CrossLinksPanel } from "./CrossLinksPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -88,7 +90,9 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links">("none");
+  const [links, setLinks] = useState<CrossLink[]>([]);
+  const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
@@ -116,6 +120,25 @@ export function Reader(props: {
         body: JSON.stringify({ cfi: loc.cfi, fraction: loc.fraction }),
         keepalive,
       }).catch(() => {});
+    },
+    [props.bookId],
+  );
+
+  // Highlights in other books that share this page's ideas (cross-book links).
+  const lookForLinks = useCallback(
+    (text: string) => {
+      if (!text || text === linkedText.current) return;
+      linkedText.current = text;
+      void fetch(`/api/books/${props.bookId}/crosslinks`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text }),
+      })
+        .then((r) => (r.ok ? r.json() : { links: [] }))
+        .then((b: { links: CrossLink[] }) => {
+          if (linkedText.current === text) setLinks(b.links);
+        })
+        .catch(() => {});
     },
     [props.bookId],
   );
@@ -180,7 +203,10 @@ export function Reader(props: {
           visibleText.current = clean(d.range?.toString() ?? "");
           pending.current = d;
           if (timer.current) clearTimeout(timer.current);
-          timer.current = setTimeout(() => flush(), 600);
+          timer.current = setTimeout(() => {
+            flush();
+            lookForLinks(visibleText.current);
+          }, 600);
         });
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
@@ -211,7 +237,7 @@ export function Reader(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks]);
 
   // Re-style when settings or the colour scheme change.
   useEffect(() => {
@@ -405,7 +431,19 @@ export function Reader(props: {
       </div>
 
       <footer className={styles.foot}>
-        <span className={styles.chapter}>{where.chapter}</span>
+        <span className={styles.chapter}>
+          <span className={styles.chapterName}>{where.chapter}</span>
+          {links.length ? (
+            <button
+              type="button"
+              className={styles.linksButton}
+              aria-expanded={panel === "links"}
+              onClick={() => setPanel(panel === "links" ? "none" : "links")}
+            >
+              {links.length === 1 ? "1 link to your other books" : `${links.length} links to your other books`}
+            </button>
+          ) : null}
+        </span>
         <span className={styles.progress} aria-hidden="true">
           <span className={styles.progressFill} data-progress={Math.round(where.fraction * 50) * 2} />
         </span>
@@ -454,6 +492,8 @@ export function Reader(props: {
       {panel === "questions" && where.cfi ? (
         <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onBack={() => setPanel("know")} />
       ) : null}
+
+      {panel === "links" ? <CrossLinksPanel links={links} /> : null}
 
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 

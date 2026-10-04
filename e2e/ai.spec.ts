@@ -13,9 +13,9 @@ const reader = (page: Page) => page.getByTestId("reader");
 const panel = (page: Page) => page.getByRole("region", { name: "Rewrite" });
 const rewrite = (page: Page) => page.getByTestId("rewrite");
 
-async function openAtPhrase(page: Page, phrase: string) {
+async function openAtPhrase(page: Page, phrase: string, book: RegExp = /The Strange Case/) {
   await page.goto(`/search?q=${encodeURIComponent(`"${phrase}"`)}`);
-  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: phrase.split(" ")[0] }).first().click();
+  await page.getByRole("region", { name: book }).getByRole("link").filter({ hasText: phrase.split(" ")[0] }).first().click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
 }
 
@@ -277,7 +277,45 @@ test("question bank: answers hidden until asked, marks kept, and wrong answers f
   expect(bad.status()).toBe(400);
 });
 
-test("the rewrite, need-to-know, settings and question panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
+test("cross-book links: a page that shares ideas with a note in another book says so, and links there", async ({ page }) => {
+  // A note in Frankenstein about a will, a lawyer and a safe…
+  await openAtPhrase(page, "You will rejoice to hear", /Frankenstein/);
+  const frankenstein = bookIdOf(page);
+  await selectPhrase(page, "You will rejoice to hear");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Add note" }).click();
+  await bar.getByLabel("Your note").fill("A will, a lawyer and a locked safe, as with Utterson.");
+  await bar.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByRole("button", { name: /^Notes/ })).toHaveText("Notes (1)");
+
+  // …is linked from the Jekyll page where Utterson, a lawyer, opens his safe and reads the will.
+  await openAtPhrase(page, "lover of the sane and customary");
+  const button = page.getByRole("button", { name: "1 link to your other books" });
+  await expect(button).toBeVisible();
+  await button.click();
+  const panel = page.getByRole("region", { name: "Elsewhere in your library" });
+  const item = page.getByTestId("crosslinks").locator("li");
+  await expect(item).toHaveCount(1);
+  await expect(item).toContainText("Frankenstein");
+  await expect(item).toContainText("“You will rejoice to hear”");
+  await expect(item).toContainText("A will, a lawyer and a locked safe, as with Utterson.");
+  await panel.getByRole("link", { name: "Open in Frankenstein" }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  expect(bookIdOf(page)).toBe(frankenstein);
+  const text = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    return view.renderer.getContents().map(({ doc }) => doc.body.textContent).join(" ");
+  });
+  expect(text).toContain("You will rejoice to hear");
+
+  // Text with nothing in common links to nothing; a note is never linked from its own book.
+  const none = await page.request.post(`/api/books/${frankenstein}/crosslinks`, { data: { text: "Engines, gears and the price of steel." } });
+  expect((await none.json()).links).toEqual([]);
+  const own = await page.request.post(`/api/books/${frankenstein}/crosslinks`, { data: { text: "Utterson the lawyer opened his safe." } });
+  expect((await own.json()).links.map((l: { bookId: string }) => l.bookId)).not.toContain(frankenstein);
+});
+
+test("the AI and cross-book panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
@@ -310,6 +348,12 @@ test("the rewrite, need-to-know, settings and question panels are accessible, an
       const qs = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(qs.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       await page.screenshot({ path: `screenshots/reader-questions-${name}-${scheme}.png` });
+
+      await page.getByRole("button", { name: "1 link to your other books" }).click();
+      await expect(page.getByTestId("crosslinks")).toBeVisible();
+      const cl = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(cl.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-crosslinks-${name}-${scheme}.png` });
     }
   }
 });
