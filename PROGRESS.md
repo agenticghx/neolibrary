@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M1 skeleton PR once CI is green; Samuel connects Railway `web` to the repo and turns on auto-merge + branch protection.
+next_action: Merge the auto-merge fix PR once CI is green; Samuel connects Railway `web` to the repo and turns on branch protection.
 blockers: Railway deploy and auto-merge need Samuel's clicks in Railway/GitHub settings (see Exact next steps).
 updated: 2026-10-04
 shared_copy: none
@@ -19,19 +19,19 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-1. **(Cloud session)** M1 skeleton PR (branch `claude/magical-bardeen-fpwlg1`):
-   watch CI. If the screenshot comparison fails on GitHub only (machine
-   rendering differences), download the `playwright-report` artifact,
-   compare, and either regenerate the reference images on CI or raise the
-   allowance in `playwright.config.ts` slightly; never just delete them.
-   Merge when every check is green.
+1. **(Cloud session)** M1 skeleton is merged (PR #1, merged too early by the
+   old auto-merge). Get the auto-merge fix PR green and merge it. If the
+   screenshot comparison fails on GitHub only (machine rendering
+   differences), download the `playwright-report` artifact, compare, and
+   regenerate the reference images to match CI or raise the allowance in
+   `playwright.config.ts` slightly; never just delete them. (On PR #1 the
+   cloud-made references matched CI exactly.)
 2. **(Samuel, ~5 minutes, now that the app builds)**:
    - Railway: open service `web` → Settings → Source → connect
      `sahuno/neolibrary`, branch `main`. Then Settings → Networking →
      "Generate domain". Paste the URL into the Log. Railway reads
      `railway.json` (build `npm run build`, start `npm run start`, health
      check `/api/health`).
-   - GitHub repo → Settings → General → tick **Allow auto-merge**.
    - GitHub repo → Settings → Branches → add a rule for `main`: require a
      pull request and require these checks: `Lint, types, unit tests`,
      `PR hygiene (PROGRESS.md Log entry)`,
@@ -68,6 +68,13 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 02:20 · Claude (cloud) · Fixed auto-merge: it merged PR #1 before CI finished
+- **Done:** PR #1 (M1 skeleton) was merged by `github-actions[bot]` 9 seconds after it opened, before the browser tests finished. Cause: "Allow auto-merge" is already on but `main` has no required checks yet, and `gh pr merge --auto` then merges at once. Rewrote `.github/workflows/auto-merge.yml` to wait for the CI workflow itself (`workflow_run`), and to merge only if CI passed on the PR's latest commit (`--match-head-commit`). This holds even without branch protection. Because GitHub runs `workflow_run` workflows from main's copy, this fix PR is merged by hand once green.
+- **Key paths:** `.github/workflows/auto-merge.yml`, `PROGRESS.md`
+- **Commands that worked:** GitHub API: PR #1 `merged_by: github-actions[bot]`, `created_at 01:57:44Z`, `merged_at 01:57:53Z`; CI run 37169580122 on that commit: `Lint, types, unit tests` success, `PR hygiene` success, browser tests still running at merge time.
+- **Known issues / blockers:** main received M1 before its browser tests finished, but they then passed on that same commit (job `Browser tests (screenshots + accessibility)` → success at 01:59:13Z; screenshots match the references made in the cloud container), so main is green on every check. Branch protection on `main` is still needed (Samuel) as a second lock.
+- **Exact next steps:** see "Exact next steps".
 
 ### 2026-10-04 02:10 · Claude (cloud) · M1 skeleton: Next.js app, design tokens, CI, screenshot grid, auto-merge
 - **Done:** Built the M1 skeleton on `claude/magical-bardeen-fpwlg1`. Next.js 16 + TypeScript app with a plain sign-in page (`/sign-in`, `/` redirects there; the button stays disabled until M2) and a design-system sample page (`/design`) showing the reading style, a highlight, the spoken-word mark, machine-written text, covers, type, colours and buttons. Wrote `docs/design.md` and `app/tokens.css` (light + dark, from the Codex prototypes; Samuel's refs not yet in). Checks: ESLint; stylelint rule that rejects colours, sizes and spacing not taken from tokens (proved by `lib/token-guard.test.ts`); contrast test of every token pair in both themes; Vitest; Playwright screenshot comparison (2 pages × phone/desktop × light/dark) and axe-core accessibility. GitHub Actions: `ci.yml` (checks, PR hygiene = new Log entry required, browser tests, screenshot grid comment via a `ci-screenshots` branch) and `auto-merge.yml`. `railway.json` + `/api/health` for deploy. Not done: Railway deploy (needs Samuel to connect the repo) and the "Railway URL loads" part of M1's Done-when.
