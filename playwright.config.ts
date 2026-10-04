@@ -63,6 +63,8 @@ export default defineConfig({
     { name: "images", testMatch: /images\.spec\.ts/, dependencies: ["notes"], use: { ...desktop } },
     // 11. Reading statistics (controlled clock).
     { name: "stats", testMatch: /stats\.spec\.ts/, dependencies: ["images"], use: { ...desktop } },
+    // 12. Agents: API tokens (M11).
+    { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

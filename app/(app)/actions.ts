@@ -7,6 +7,7 @@ import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
 import { seedPath } from "@/lib/library/paths";
 import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
 import { STARTER_PATHS } from "@/lib/library/seed";
+import { createApiToken, revokeApiToken, TokenError } from "@/lib/auth/tokens";
 import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
 
@@ -81,4 +82,28 @@ export async function removeNoteAction(data: FormData) {
   const user = await requireUser();
   await deleteAnnotation(await getDb(), user.id, String(data.get("id")));
   revalidatePath("/");
+}
+
+export type TokenState = { error: string | null; token: string | null };
+
+export async function createTokenAction(_: TokenState, data: FormData): Promise<TokenState> {
+  const user = await requireUser();
+  try {
+    const { token } = await createApiToken(await getDb(), user.id, String(data.get("name") ?? ""));
+    revalidatePath("/agents");
+    return { error: null, token };
+  } catch (e) {
+    if (e instanceof TokenError) return { error: e.message, token: null };
+    throw e;
+  }
+}
+
+export async function revokeTokenAction(data: FormData) {
+  const user = await requireUser();
+  try {
+    await revokeApiToken(await getDb(), user.id, String(data.get("id") ?? ""));
+  } catch (e) {
+    if (!(e instanceof TokenError)) throw e;
+  }
+  revalidatePath("/agents");
 }
