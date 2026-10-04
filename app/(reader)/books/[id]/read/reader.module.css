@@ -15,9 +15,10 @@
   border-bottom: var(--border-hair) solid var(--rule);
 }
 
-.brand {
-  display: inline-flex;
-  color: var(--ink-900);
+.lead {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
 }
 
 .title {
@@ -65,6 +66,13 @@
   border-color: var(--rule);
   background-color: var(--paper-sunken);
   color: var(--ink-900);
+}
+
+/* The back arrow and contents icon on the left of the top bar. */
+.leadTool {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
 }
 
 .stage {
@@ -292,6 +300,12 @@
 .progressFill[data-progress="98"] { width: 98%; }
 .progressFill[data-progress="100"] { width: 100%; }
 
+/* Contents opens from the left, next to its button (as in Kindle). */
+.panelLeft {
+  right: auto;
+  left: var(--space-4);
+}
+
 .panel {
   position: fixed;
   top: var(--space-8);
@@ -409,6 +423,13 @@
 
 .tocItem:hover {
   color: var(--accent);
+}
+
+/* The chapter being read: bold, with an accent mark on its left. */
+.tocItem[aria-current="true"] {
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--accent);
+  font-weight: var(--weight-medium);
 }
 
 /* Selection bar: appears above the foot while text is selected */
