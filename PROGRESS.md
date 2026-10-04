@@ -3,8 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M12 (b) PR, deploy M12 with a backup, tick the live health/sign-in box; then only Samuel-only items remain
-blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
+next_action: All milestones merged and deployed; version 1 waits only on Samuel (sign in, keys, verdicts). See Waiting on Samuel.
+blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
 ---
@@ -19,26 +19,29 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
-**Start with `docs/handoff.md`** (written 2026-10-04 for the laptop session
-taking over): where the work stands, the plan for every remaining
-milestone, the commands, and the lessons and gotchas so far.
+**Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
+deployed, and the live site passes its health and sign-in check. Version 1
+now waits only on Samuel** (the items under "Waiting on Samuel" below):
+signing in and inviting someone, real Claude and ElevenLabs calls on his own
+books, and his verdicts for M4 and M6. Nothing else is blocked.
 
-1. **M12 (b) PR** (branch `m12-offline-notes`): make its checks green; no
-   reference screenshots change. Auto-merge lands it. That completes M12 and
-   every milestone box in `docs/done.md`.
-2. **Deploy M12** (laptop): no migration in M12, but take the backup anyway
-   (recipe in the 2026-10-04 11:40 entry), then `railway up --service web --ci`.
-   Check `/api/health`, `/sign-in` (200), `/manifest.webmanifest` (200,
-   `application/manifest+json`) and `/sw.js` (200, `no-cache`), then tick the
-   live box "Railway URL serves /api/health and /sign-in" with that output.
-3. **Then only Samuel's items remain** (see "Waiting on Samuel"): signing in
-   and inviting someone, real Claude and ElevenLabs calls on his own books,
-   and his verdicts. Say so plainly at the top of this file, as `docs/done.md`
-   asks.
+The goal and the loop are in `docs/done.md`; lessons and gotchas are in
+`docs/handoff.md` §5 and in this Log.
+
+1. **When Samuel adds `ANTHROPIC_API_KEY`** (Railway → `web`): sign in as him
+   only if he asks; otherwise wait for his "M6 verdict" issue and paste one
+   real answer per M6 feature into the Log, then tick that live box.
+2. **When his verdict issues arrive** ("M4 verdict", "M6 verdict", "M7
+   verdict"): record each in the Log, fix what he flags (one PR per fix),
+   and tick the matching live boxes.
 3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
-   back up first, then `railway up --service web --ci`. The backup recipe
-   that worked is in the 2026-10-04 11:40 Log entry.
+   back up first (recipe in the 2026-10-04 11:40 entry: `pg_dump` inside the
+   Postgres container through `ssh.railway.com`, restore-check into a local
+   Postgres), then `railway up --service web --ci`, then check
+   `/api/health` and `/sign-in`.
+4. Worth doing next if there is time, smallest first: offline edits and
+   deletes in the outbox; PDFs offline (`/pdfjs/` files); a rate limit on
+   `/api/agent/*`; CI's real-Postgres job already matches production (18).
 
 ## Waiting on Samuel
 
@@ -107,6 +110,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 14:50 UTC · Claude (laptop) · M12 merged and deployed; every milestone done; live health check ticked
+- **Done:** PR #42 (M12 (b)) merged with all four checks green, so **M12 is done and all twelve milestone boxes in `docs/done.md` are ticked** (on `main`). **Deployed** `c916909` after a backup: `~/Backups/neolibrary/prod-before-m12-20261004T1242Z.sql` (80,376 bytes), restore-checked (exit 0; 19 migrations, 1 user, 126 books). Live checks pass, so the live box "Railway URL serves `/api/health` and `/sign-in`" is ticked. Railway `web` has `ELEVENLABS_API_KEY` and the storage keys, but no `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY` and no price settings (variable *names* listed, no values read), so the remaining live boxes wait on Samuel exactly as listed. Rewrote "Exact next steps" to say plainly that version 1 now waits only on Samuel.
+- **Key paths:** `docs/done.md` (live box), `PROGRESS.md`
+- **Commands that worked:** `curl -s -w ' %{http_code}' $B/api/health` → `{"status":"ok","service":"neolibrary","commit":null} 200`; `curl -s -o /dev/null -w '%{http_code}' $B/sign-in` → `200`; `curl -sD - $B/manifest.webmanifest` → `HTTP/2 200`, `content-type: application/manifest+json`; `curl -sD - $B/sw.js` → `HTTP/2 200`, `cache-control: no-cache, no-store, must-revalidate`; `$B/icons/icon-512.png` → `200 image/png` (with `B=https://web-production-f27a0e.up.railway.app`).
+- **Known issues / blockers:** Only Samuel's items remain (see "Waiting on Samuel"). Railway auto-deploy is still not connected, so each merge needs a laptop deploy.
+- **Exact next steps:** See "Exact next steps": wait for Samuel's keys and verdicts; follow-ups listed there if time allows.
 
 ### 2026-10-04 14:30 UTC · Claude (laptop) · M12 (b): notes made offline sync when the network returns; M12 ticked
 - **Done:** PR #41 (M12 (a)) merged with all four checks green; its offline test passed on CI's Linux too. M12 (b) on `m12-offline-notes`: **highlights, notes, stickers and bookmarks made with no network are kept on the device and sent when it returns.** The reader gives each new annotation an id itself. If saving fails because there is no network (the request never reached a server), it goes into an **outbox in IndexedDB** (`lib/outbox.ts`, the browser's own database), is drawn in the book at once, and is listed in Notes with **"On this device · syncs when you are back online"**. It stays across reloads. It is sent, oldest first, when the browser says it is back online, when a book's notes load, and every 30 s while anything waits. On the server, `createAnnotationOnce` (`lib/library/annotations.ts`) stores a browser-chosen id once: sending it again returns the stored (or since edited) version with 200 instead of adding a copy, and an id that belongs to someone else is refused. The annotations route uses it whenever a request carries an `id`. Removing a note that is still waiting just takes it out of the outbox. Editing waits until it is sent (the Edit button is hidden meanwhile). Pictures and drawings still need the network. **M12 ticked** in `docs/done.md`, so every milestone box is now ticked.
