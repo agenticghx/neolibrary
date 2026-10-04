@@ -20,7 +20,7 @@ export type FixtureChapter = {
   paragraphs: string[];
   /** Words (by index in the chapter) the narrator skipped. */
   notSpoken?: number[];
-  /** Where each paragraph is in the book (index into the book's paragraphs), or null if not in the book. */
+  /** For each paragraph, the book chapter (EPUB spine index) it is in, or null if it is not in the book. */
   inBook?: (number | null)[];
 };
 
