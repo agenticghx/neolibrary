@@ -121,6 +121,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 16:56 · Claude (laptop) · K2: keep the STE skill copy in step with the original
+- **Done:** Added `scripts/sync-ste.mjs` (copies the 4 STE skill files from Samuel's original into `prompts/ste/`, prints which changed; `STE_SKILL_DIR` overrides the source) and `lib/ai/ste-sync.test.ts` (fails if a copy differs, telling the reader to run the script; skipped where the original folder is absent, e.g. GitHub). Ran the sync: all 4 files already matched, so the original has not changed since the 2026-10-03 copy. README in `prompts/ste/` explains both.
+- **Key paths:** `scripts/sync-ste.mjs`, `lib/ai/ste-sync.test.ts`, `prompts/ste/README.md`
+- **Commands that worked:** `node scripts/sync-ste.mjs` → `All 4 files already match the original.`; `npx vitest run lib/ai` → `Tests  21 passed (21)`; `STE_SKILL_DIR=/nonexistent npx vitest run lib/ai/ste-sync` → `Tests  4 skipped (4)`.
+- **Known issues / blockers:** None. The check only protects Samuel's laptop runs; CI cannot see the original.
+- **Exact next steps:** Merge the K2 PR once checks are green; continue with K3 / M13 (c3).
+
 ### 2026-10-04 17:40 · Claude (laptop) · M13 (c2): import a read-along package (database change + API)
 - **Done:** Migration 0020 (with a reverse step): a `readalong_imports` table (one row per uploaded package: status uploading/ready, manifest, match report, audio files, timings waiting for the audio) and three columns on `audio_tracks` (`audio_start_ms`, `audio_end_ms`: the stretch of a longer file a track plays; `import_id`). `lib/readalong/importer.ts`: `startImport` checks the zip, checks it was made from this very book file (sha256), places its words on the book's paragraphs, stores small audio at once or starts a part upload; `putAudioPart`; `finishImport` joins the parts, checks every audio file's fingerprint (read 8 MB at a time), then makes one read-aloud track per paragraph; a finished import replaces the book's earlier one; `deleteImport` removes tracks and audio files. API: `GET/POST /api/books/:id/readalong`, `PUT …/:importId/parts?file=&part=`, `POST …/:importId/finish`, `DELETE …/:importId`. Export and restore now carry imports and the new columns (round-trip test extended).
 - **Key paths:** `db/migrations/0020_readalong_imports.{up,down}.sql`, `lib/db/schema.ts`, `lib/readalong/{importer,http}.ts`, `lib/readalong/importer.test.ts`, `app/api/books/[id]/readalong/**`, `lib/library/export.ts` (+ test), `e2e/readalong.spec.ts`, `playwright.config.ts` (project `readalong`, last)
