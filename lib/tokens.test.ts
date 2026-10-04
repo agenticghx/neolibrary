@@ -8,6 +8,11 @@ const css = readFileSync(new URL("../app/tokens.css", import.meta.url), "utf8");
 const darkStart = css.indexOf("@media (prefers-color-scheme: dark)");
 const light = parseColorTokens(css.slice(0, darkStart));
 const dark = { ...light, ...parseColorTokens(css.slice(darkStart, css.indexOf("@media (prefers-reduced-motion"))) };
+const themeBlock = (name: string) => {
+  const start = css.indexOf(`.theme-${name} {`);
+  return parseColorTokens(css.slice(start, css.indexOf("}", start)));
+};
+const themes = { paper: themeBlock("paper"), sepia: themeBlock("sepia"), night: themeBlock("night") };
 
 const pairs: [fg: string, bg: string, min: number][] = [
   ["ink-900", "paper", 7],
@@ -32,6 +37,7 @@ const pairs: [fg: string, bg: string, min: number][] = [
 describe.each([
   ["light", light],
   ["dark", dark],
+  ["sepia", themes.sepia],
 ])("%s theme colour tokens", (_name, tokens) => {
   it.each(pairs)("%s on %s reaches %s:1", (fg, bg, min) => {
     expect(tokens[fg], `missing --${fg}`).toBeDefined();
@@ -44,5 +50,16 @@ describe("prototype palette", () => {
   it("keeps the agreed core colours", () => {
     expect([light.paper, light["ink-900"], light.accent]).toEqual(["#f3ede1", "#243239", "#376963"]);
     expect([dark.paper, dark["ink-900"], dark.accent]).toEqual(["#1b282f", "#e7ddc9", "#6b9f95"]);
+  });
+});
+
+describe("explicit reader themes", () => {
+  it("Paper and Night repeat the light and dark values exactly", () => {
+    expect(themes.paper).toEqual(light);
+    expect(themes.night).toEqual(dark);
+  });
+
+  it("Sepia defines every colour the other themes do", () => {
+    expect(Object.keys(themes.sepia).sort()).toEqual(Object.keys(light).sort());
   });
 });

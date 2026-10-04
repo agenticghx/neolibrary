@@ -123,7 +123,11 @@ highlight.
   bar (mark, title · author, Contents, Aa), a single 680px text column, page
   turns at the sides, chapter + progress at the foot. Book pages get the app's
   colours (read from the tokens at run time) and fonts (`public/fonts/`);
-  settings: Pages/Scroll, text size, line spacing, Serif/Sans/Book's own.
+  settings: Pages/Scroll, text size, line spacing, Serif/Sans/Book's own,
+  and theme (Auto, Paper, Sepia, Night). Themes are token sets in
+  `app/tokens.css` (`.theme-paper`, `.theme-sepia`, `.theme-night`); Paper and
+  Night must equal the light and dark values, Sepia passes the same contrast
+  checks. PDFs show one centred page at a time (pdf.js).
 
 ## How the look is checked
 

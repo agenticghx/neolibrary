@@ -142,3 +142,58 @@ test("search finds a phrase and opens the reader at that paragraph", async ({ pa
   await page.goto("/search?q=xylophone+zeppelin");
   await expect(page.getByRole("status")).toHaveText("Nothing in your books matches “xylophone zeppelin”.");
 });
+
+// M4 (d): themes and PDFs.
+
+test("the theme picker recolours the reader (Sepia), and Auto follows the device", async ({ page }) => {
+  await openJekyll(page);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Sepia" }).click();
+  await expect(reader(page)).toHaveClass(/theme-sepia/);
+  await expect(reader(page)).toHaveCSS("background-color", "rgb(243, 234, 214)");
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveClass(/theme-sepia/);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Auto" }).click();
+  await expect(reader(page)).not.toHaveClass(/theme-/);
+  await expect(reader(page)).toHaveCSS("background-color", "rgb(243, 237, 225)");
+});
+
+test("a PDF opens in the reader, turns pages, and its text is searchable", async ({ page }) => {
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  doc.setTitle("Discourse on the Method");
+  doc.setAuthor("René Descartes");
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  const lines = [
+    "Good sense is, of all things among men, the most equally distributed.",
+    "The diversity of our opinions does not arise from some being endowed with a larger share of reason.",
+    "It is not enough to have a vigorous mind; the prime requisite is rightly to apply it.",
+  ];
+  lines.forEach((text, i) => {
+    const p = doc.addPage([612, 792]);
+    p.drawText(`Part ${i + 1}`, { x: 72, y: 700, size: 18, font });
+    p.drawText(text, { x: 72, y: 660, size: 11, font });
+  });
+  await page.goto("/shelf");
+  await page.getByLabel("Choose files").setInputFiles({ name: "discourse.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your shelf")).toBeVisible();
+
+  await page.getByTestId("shelf").getByRole("link", { name: /^Discourse on the Method/ }).click();
+  await expect(page.getByText(/PDF · 3 pages/)).toBeVisible();
+  await page.getByRole("link", { name: "Read", exact: true }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByText("This is a PDF")).toBeVisible();
+
+  await page.goto(`/search?q=${encodeURIComponent('"vigorous mind"')}`);
+  const hit = page.getByRole("region", { name: /Discourse on the Method/ }).getByRole("link").first();
+  await expect(hit).toContainText("Page 3");
+  await hit.click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
+});

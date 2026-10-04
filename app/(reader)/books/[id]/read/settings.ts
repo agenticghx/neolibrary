@@ -4,9 +4,10 @@ export type ReaderSettings = {
   size: number; // percent of the book's base size
   spacing: "compact" | "normal" | "loose";
   face: "serif" | "sans" | "book";
+  theme: "auto" | "paper" | "sepia" | "night";
 };
 
-export const DEFAULT_SETTINGS: ReaderSettings = { flow: "paginated", size: 100, spacing: "normal", face: "serif" };
+export const DEFAULT_SETTINGS: ReaderSettings = { flow: "paginated", size: 100, spacing: "normal", face: "serif", theme: "auto" };
 export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
 const KEY = "neolibrary.reader.v1";
@@ -19,6 +20,7 @@ export function loadSettings(): ReaderSettings {
       size: SIZES.includes(raw.size) ? raw.size : 100,
       spacing: raw.spacing in SPACING ? raw.spacing : "normal",
       face: ["serif", "sans", "book"].includes(raw.face) ? raw.face : "serif",
+      theme: ["auto", "paper", "sepia", "night"].includes(raw.theme) ? raw.theme : "auto",
     };
   } catch {
     return DEFAULT_SETTINGS;
