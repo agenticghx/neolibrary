@@ -42,7 +42,7 @@ export async function migrateUp(raw: RawSql, dir?: string): Promise<string[]> {
   const ran: string[] = [];
   for (const m of await loadMigrations(dir)) {
     if (done.has(m.id)) continue;
-    await raw.exec(`BEGIN;\n${m.up}\nINSERT INTO _migrations (id) VALUES ('${m.id}');\nCOMMIT;`);
+    await raw.transaction(`${m.up}\nINSERT INTO _migrations (id) VALUES ('${m.id}');`);
     ran.push(m.id);
   }
   return ran;
@@ -56,7 +56,7 @@ export async function migrateDown(raw: RawSql, steps = 1, dir?: string): Promise
   for (const id of done) {
     const m = all.get(id);
     if (!m) throw new Error(`Cannot reverse ${id}: migration file missing`);
-    await raw.exec(`BEGIN;\n${m.down}\nDELETE FROM _migrations WHERE id = '${id}';\nCOMMIT;`);
+    await raw.transaction(`${m.down}\nDELETE FROM _migrations WHERE id = '${id}';`);
   }
   return done;
 }
