@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
 import type { Annotation, Color } from "@/lib/library/annotations";
+import { AiStyleSetting } from "./AiStyleSetting";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { RewritePanel } from "./RewritePanel";
@@ -527,6 +528,11 @@ export function Reader(props: {
             />
           </fieldset>
           <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
+          <AiStyleSetting bookId={props.bookId} />
+          <p className={styles.hint}>
+            STE is Simplified Technical English: one meaning per word, short sentences. It applies to &ldquo;What do I need to
+            know?&rdquo; and other AI explanations; rewrites choose their own level.
+          </p>
         </section>
       ) : null}
     </div>

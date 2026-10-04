@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (e), STE as a reading preference.
+next_action: Sessions loop through docs/done.md on their own; next is M6 (f), question bank.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -25,26 +25,20 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
    `docs/done.md`. Read the `claude-api` skill before writing Claude code
    (model ids, SDK). Everything goes behind an interface with a **fake** used
    in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   PRs (a) plumbing, (b) rewrite, (c) STE and (d) "What do I need to
-   know?" are done (see Log). Remaining:
-   (e) **STE as a reading preference** for every AI explanation: a user
-   setting ("Explain in: Plain English / STE Light / Standard / Strict"),
-   changeable per book. Store it with a migration (with a reverse step):
-   `users.ai_style` (default `plain`) and `books.ai_style` (null = follow the
-   user). Include both in the library export round trip. A small
-   `/settings` page (add it to `e2e/pages.ts` for screenshots) plus a
-   per-book control in the What-do-I-need-to-know panel. Applied by
-   replacing `{{style}}` in `prompts/prerequisites.md` (now "Write in plain,
-   precise English.") with an STE instruction that includes the skill, and
-   adding the style to the request options so each style is stored
-   separately; show the STE badge on STE explanations.
+   PRs (a)–(e) are done (see Log): plumbing, rewrite, STE, "What do I need
+   to know?", STE reading preference. Remaining:
    (f) **Question bank** per chapter: recall, understanding and application
-   questions (structured output, like prerequisites), answers hidden until
-   clicked, mark right or wrong (stored append-only, exported), and a "needs
-   a re-read" list of chapters. (g) **Cross-book links**: when a passage
-   covers an idea highlighted in another book, show it in the margin (start
-   with full-text search over the user's highlights from other books; no AI
-   needed for a first version). Then tick M6 in `docs/done.md`.
+   questions (structured output, like `lib/library/prerequisites.ts`; written
+   in the reader's style from `getStyles`, with the STE badge when STE),
+   answers hidden until clicked, mark right or wrong (store marks
+   append-only in a new table with a migration and reverse step; include
+   them in the library export round trip), and a "needs a re-read" list of
+   chapters with wrong answers (on the book page). (g) **Cross-book links**:
+   when a passage covers an idea highlighted in another book, show it in the
+   margin (start with full-text search over the user's highlights from
+   other books; no AI needed for a first version). Then tick M6 in
+   `docs/done.md` (the real-call and Samuel's-verdict parts are listed under
+   Waiting on Samuel).
 2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -98,6 +92,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:10 UTC · Claude (cloud) · M6 (e): STE as a reading preference for AI explanations
+- **Done:** The reader's settings panel (Aa) has a new **AI explanations** choice: Plain, STE light, STE (Standard) or STE strict. It applies to all books, and an **"Only for this book"** box gives a book its own choice. Stored with migration `0009_ai_style` (reverse step drops the columns): `users.ai_style` (default `plain`) and `books.ai_style` (empty = follow the reader's choice). New route `GET/PUT /api/books/<id>/ai-style`. "What do I need to know?" is written in the chosen style. For STE, `prompts/ste-style.md` adds the STE skill and substitution list at that strictness, and the panel shows the **STE badge** (the checker's full-STE score on the explanations). Each style is stored as its own answer, so switching back re-serves the earlier one for free. The panel heading names the style ("Search for Mr. Hyde · STE, Strict (full STE)"). The settings and each book's choice are in the library export round trip. The STE rewrite now loads the skill through the same helper (`lib/ai/ste-prompt.ts`); its fingerprint is unchanged.
+- **Key paths:** `db/migrations/0009_ai_style.*`, `lib/library/ai-style.ts`, `lib/library/levels.ts` (`STYLES`), `lib/ai/ste-prompt.ts`, `prompts/ste-style.md`, `lib/library/prerequisites.ts`, `app/api/books/[id]/ai-style/route.ts`, `app/(reader)/books/[id]/read/{AiStyleSetting,NeedToKnowPanel,Reader}.tsx`, `lib/library/export.ts`
+- **Commands that worked:** `npm run check` → Vitest `168 passed`. These include: default plain; STE strict for all books → the request carries the skill at "Strict (full STE)" and the answer has `style: ste-strict` with the checker's score; "this book only: plain" → a separate answer; clearing it → the STE answer is re-served (still 2 calls); setting for all books clears the book's own choice; bad input is refused; the export holds `settings.aiStyle` and each book's `aiStyle`, and they come back after wipe → import. `npx playwright test` → `117 passed (1.9m)`, including: Aa → STE strict → the panel says "STE, Strict (full STE)" → Show me → badge "STE …% (full-STE score)"; tick "Only for this book" → Plain → the two earlier plain answers come back ("Latest of 2 answers", no badge); untick → STE strict again, still so after a reload; a bad style → 400; axe clean on the settings panel. Screenshots `screenshots/reader-settings-*` and `reader-need-to-know-*` checked by eye.
+- **Known issues / blockers:** The setting lives in the reader's settings panel, not on a separate app-wide settings page: the phone navigation has no room for another link. No real Claude call yet (no key).
+- **Exact next steps:** M6 (f), per "Exact next steps".
 
 ### 2026-10-04 05:00 UTC · Claude (cloud) · M6 (d): "What do I need to know?" per chapter
 - **Done:** A new button in the reader's top bar (a circled question mark, labelled "What do I need to know?") opens a panel for the chapter being read. "Show me (about $0.02)" sends the whole chapter (capped at 60,000 characters, about 15,000 tokens, so the cost has a known ceiling) with `prompts/prerequisites.md`. It asks for **structured output**, meaning JSON that must match a schema: 3–7 concepts the chapter assumes, each with a name, at most two sentences of explanation and a search phrase. The panel lists them in the machine-written style. Each has a "Read more" link to a Wikipedia search (opens in a new tab), and the provenance line sits underneath. The answer is stored per chapter and shown again for free; "Try again" adds a new answer. The text interface gained an optional `schema` (sent as `output_config.format`); the fake answers with made-up concepts. On phones the top bar was tightened so the title still shows next to the extra button.

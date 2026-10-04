@@ -6,6 +6,8 @@ import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
+import { steCheck } from "@/lib/ai/ste";
+import { getStyles, setStyle } from "./ai-style";
 import { chapterFor, listNeedToKnow, needToKnow, SCHEMA, viewPrerequisites } from "./prerequisites";
 import { getSections } from "./sections-store";
 
@@ -85,5 +87,50 @@ describe('"What do I need to know?" (M6)', () => {
       "not found",
     );
     expect(model.calls).toHaveLength(0);
+  });
+});
+
+describe("STE as a reading preference for AI explanations (M6)", () => {
+  it("is plain English by default, set once for all books, and changeable per book", async () => {
+    expect(await getStyles(database.db, ownerId, bookId)).toEqual({ user: "plain", book: null, effective: "plain" });
+    const model = new FakeModel();
+    const carew = chapter("The Carew Murder Case");
+
+    await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-strict" });
+    const ste = await needToKnow(database.db, model, ownerId, { bookId, chapterId: carew.id });
+    expect(model.calls[0].system).toContain("at this strictness level: Strict (full STE)");
+    expect(model.calls[0].system).toContain("Choose the strictness level first"); // the STE skill
+    expect(model.calls[0].system).not.toContain("Write in plain, precise English.");
+    expect(ste.generation).toMatchObject({ style: "ste-strict", options: { style: "ste-strict" } });
+    expect(ste.generation.provenance.promptName).toBe("prerequisites + ste-style + ste/SKILL + ste/substitutions");
+    const text = ste.generation.concepts.map((c) => c.explanation).join("\n\n");
+    expect(ste.generation.ste).toEqual({ score: steCheck(text).compliance, errors: steCheck(text).errors, warnings: steCheck(text).warnings });
+
+    // This book only: plain English. A separate answer.
+    expect(await setStyle(database.db, ownerId, bookId, { scope: "book", style: "plain" })).toEqual({ user: "ste-strict", book: "plain", effective: "plain" });
+    const plain = await needToKnow(database.db, model, ownerId, { bookId, chapterId: carew.id });
+    expect(plain.reused).toBe(false);
+    expect(plain.generation.ste).toBeNull();
+    expect(model.calls[1].system).toContain("Write in plain, precise English.");
+
+    // Back to following the reader's setting: the stored STE answer is re-served.
+    await setStyle(database.db, ownerId, bookId, { scope: "book", style: null });
+    const back = await needToKnow(database.db, model, ownerId, { bookId, chapterId: carew.id });
+    expect(back.reused).toBe(true);
+    expect(back.generation.id).toBe(ste.generation.id);
+    expect(model.calls).toHaveLength(2);
+  });
+
+  it("setting it for all books clears this book's own choice; bad input is refused", async () => {
+    await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-light" });
+    expect(await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" })).toEqual({
+      user: "ste-standard",
+      book: null,
+      effective: "ste-standard",
+    });
+    await expect(setStyle(database.db, ownerId, bookId, { scope: "all", style: null })).rejects.toThrow("Choose one of");
+    await expect(setStyle(database.db, ownerId, bookId, { scope: "all", style: "baby" })).rejects.toThrow("Choose one of");
+    await expect(setStyle(database.db, ownerId, bookId, { scope: "everyone", style: "plain" })).rejects.toThrow("Scope");
+    await expect(getStyles(database.db, "00000000-0000-0000-0000-000000000000", bookId)).rejects.toThrow("Book not found");
   });
 });

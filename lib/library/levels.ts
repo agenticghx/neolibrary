@@ -27,3 +27,15 @@ export function strictnessFrom(v: unknown): Strictness | null {
   if (!Number.isFinite(n) || n < 0 || n > 100) return null;
   return n >= 90 ? "strict" : n >= 70 ? "standard" : "light";
 }
+
+/** The style AI explanations are written in: plain English, or STE at a strictness. */
+export const STYLES = {
+  plain: "Plain English",
+  "ste-light": "STE, Light",
+  "ste-standard": "STE, Standard (≈80%)",
+  "ste-strict": "STE, Strict (full STE)",
+} as const;
+export type Style = keyof typeof STYLES;
+export const isStyle = (v: unknown): v is Style => typeof v === "string" && Object.hasOwn(STYLES, v);
+/** The STE strictness of a style, or null for plain English. */
+export const styleStrictness = (s: Style): Strictness | null => (s === "plain" ? null : (s.slice(4) as Strictness));

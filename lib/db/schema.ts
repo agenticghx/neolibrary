@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   role: text("role", { enum: ["admin", "reader"] }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   disabledAt: timestamp("disabled_at", { withTimezone: true }),
+  aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }).notNull().default("plain"),
 });
 
 export const sessions = pgTable("sessions", {
@@ -68,6 +69,7 @@ export const books = pgTable("books", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }),
 });
 
 export const paths = pgTable("paths", {

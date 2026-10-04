@@ -3,6 +3,7 @@ import { generate, listGenerations, estimateCost, type Caps, type Generation, ty
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import { steCheck } from "@/lib/ai/ste";
+import { steSkill } from "@/lib/ai/ste-prompt";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { sectionForCfi } from "./annotations";
@@ -66,8 +67,7 @@ async function buildRequest(
 
   if (level === "ste") {
     const file = await readPrompt("ste-rewrite");
-    const skill = (await readPrompt("ste/SKILL")).replace(/^---\n[\s\S]*?\n---\n/, "").trim();
-    const substitutions = (await readPrompt("ste/substitutions")).trim();
+    const { skill, substitutions } = await steSkill();
     const { system, user } = splitPrompt(file);
     return {
       ...common,

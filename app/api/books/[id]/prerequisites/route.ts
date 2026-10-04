@@ -3,6 +3,7 @@ import { aiIsFake, getTextModel } from "@/lib/ai/index";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { getStyles } from "@/lib/library/ai-style";
 import { chapterFor, estimateNeedToKnow, listNeedToKnow, needToKnow, PrerequisitesError } from "@/lib/library/prerequisites";
 import { isCfi } from "@/lib/library/reading";
 
@@ -37,7 +38,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
-    return Response.json({ chapter, versions, estimate, fake: aiIsFake() });
+    const { effective: style } = await getStyles(db, user.id, bookId);
+    return Response.json({ chapter, versions, style, estimate, fake: aiIsFake() });
   } catch (e) {
     return errorResponse(e);
   }

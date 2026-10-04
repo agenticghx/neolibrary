@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, collectionBooks, collections, generations, paths, pillars, slots } from "@/lib/db/schema";
+import { annotations, books, collectionBooks, collections, generations, paths, pillars, slots, users } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -34,6 +34,8 @@ export type LibraryExport = {
     progress: number;
     /** Reading position (EPUB CFI); added in M4, absent in older exports. */
     position?: string | null;
+    /** This book's style for AI explanations (null = the reader's setting); added in M6. */
+    aiStyle?: "plain" | "ste-light" | "ste-standard" | "ste-strict" | null;
     lastOpenedAt: string | null;
     createdAt: string;
     updatedAt: string;
@@ -72,6 +74,8 @@ export type LibraryExport = {
     deleted: boolean;
     createdAt: string;
   }[];
+  /** The reader's settings (added in M6). */
+  settings?: { aiStyle: "plain" | "ste-light" | "ste-standard" | "ste-strict" };
   /** Machine-written text (rewrites, …) with its provenance (added in M6). */
   generations?: {
     id: string;
@@ -127,10 +131,13 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .where(eq(generations.ownerId, ownerId))
     .orderBy(asc(generations.createdAt), asc(generations.id));
 
+  const [settings] = await db.select({ aiStyle: users.aiStyle }).from(users).where(eq(users.id, ownerId));
+
   return {
     format: EXPORT_FORMAT,
     version: EXPORT_VERSION,
     exportedAt: now.toISOString(),
+    settings: { aiStyle: settings?.aiStyle ?? "plain" },
     books: bookRows
       .filter((b) => !b.deletedAt)
       .map((b) => ({
@@ -148,6 +155,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         pageCount: b.pageCount,
         progress: b.progress,
         position: b.position,
+        aiStyle: b.aiStyle,
         lastOpenedAt: iso(b.lastOpenedAt),
         createdAt: b.createdAt.toISOString(),
         updatedAt: b.updatedAt.toISOString(),
@@ -240,6 +248,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
   if (x.version > EXPORT_VERSION) throw new ExportFormatError("This export is from a newer version of Neolibrary.");
   const date = (s: string | null) => (s ? new Date(s) : null);
   await db.transaction(async (tx) => {
+    if (x.settings?.aiStyle) await tx.update(users).set({ aiStyle: x.settings.aiStyle }).where(eq(users.id, ownerId));
     for (const b of x.books) {
       await tx.insert(books).values({
         id: b.id,
@@ -260,6 +269,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         pageCount: b.pageCount,
         progress: b.progress,
         position: b.position ?? null,
+        aiStyle: b.aiStyle ?? null,
         lastOpenedAt: date(b.lastOpenedAt),
         createdAt: new Date(b.createdAt),
         updatedAt: new Date(b.updatedAt),
