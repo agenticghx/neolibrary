@@ -166,6 +166,112 @@
   font-size: var(--text-sm);
 }
 
+/* M13 (c3): "Your audiobook". Reuses the shelf's picker look (.pick) and the
+   costs page's progress bar (.meter); Remove is a quiet button, never red. */
+.audiobook {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.audiobookTitle {
+  font-family: var(--font-serif);
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+
+.audiobookChapters {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.audiobookChapters summary {
+  cursor: pointer;
+}
+
+.audiobookChapters ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  overflow-wrap: anywhere;
+}
+
+.audiobookActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.quiet {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.quiet:disabled {
+  cursor: progress;
+}
+
+.quiet:hover:not(:disabled) {
+  border-color: var(--ink-500);
+}
+
+.audiobookPick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.pick {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-serif);
+  cursor: pointer;
+}
+
+.pick:hover {
+  background-color: var(--accent-strong);
+}
+
+.pickQuiet {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.pick:focus-within,
+.pickQuiet:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.pickBusy {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+.audiobookProgress {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.meter {
+  width: 100%;
+  height: var(--space-2);
+  accent-color: var(--accent);
+}
+
 @media (width <= 48rem) {
   .main {
     padding: var(--space-5) var(--space-4) var(--space-8);

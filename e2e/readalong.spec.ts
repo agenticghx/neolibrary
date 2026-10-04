@@ -10,6 +10,8 @@ import { ADMIN_STATE } from "./pages";
 // is built in code from the same Jekyll and Hyde file the uploads test added.
 
 test.use({ storageState: ADMIN_STATE });
+// One after another: every test here changes the same book's audiobook.
+test.describe.configure({ mode: "serial" });
 
 const BOOK = new Uint8Array(readFileSync("fixtures/books/stevenson-jekyll-and-hyde.epub"));
 
@@ -103,4 +105,89 @@ test("a book file larger than 10 MB uploads whole", async ({ page }) => {
   const body = await res.json();
   expect(body.results?.[0] ?? body).toMatchObject({ file: "padded-jekyll.epub" });
   expect(["added", "attached", "duplicate"]).toContain((body.results?.[0] ?? body).status);
+});
+
+// M13 (c3): the "Your audiobook" section on the book's page.
+test("the book page takes a read-along folder, shows each step and the result, looks right, and removes it", async ({ page }) => {
+  const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const AxeBuilder = (await import("@axe-core/playwright")).default;
+
+  await page.goto("/shelf");
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
+  const paragraphs = extractSections(BOOK).filter((s) => s.kind === "paragraph").slice(10, 14);
+  const { files, zip } = buildPackage({
+    bookBytes: BOOK,
+    title: "Jekyll test reading",
+    chapters: [{ title: "Story of the Door", paragraphs: ["Chapter One.", ...paragraphs.map((p) => p.text)], inBook: [null, ...paragraphs.map((p) => p.chapterIndex)] }],
+  });
+  // The folder the readalong-audio skill would have made, written to disk.
+  const root = path.join(await mkdtemp(path.join(tmpdir(), "readalong-")), "jekyll-readalong");
+  for (const [name, bytes] of Object.entries(files)) {
+    await mkdir(path.dirname(path.join(root, name)), { recursive: true });
+    await writeFile(path.join(root, name), bytes);
+  }
+
+  await page.goto(`/books/${bookId}`);
+  const section = page.getByRole("region", { name: "Your audiobook" });
+  await expect(section).toContainText("Add an audiobook of this book and read along");
+  const empty = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(empty.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.html).join(" | ")}`)).toEqual([]);
+
+  // Record every status line the reader sees.
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { seen: string[] }).seen = seen;
+    new MutationObserver(() => {
+      const t = document.querySelector('[data-testid="audiobook-status"]')?.textContent ?? "";
+      if (t && seen.at(-1) !== t) seen.push(t);
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+  const folder = section.getByLabel("Choose the read-along folder");
+  await expect(folder).toHaveAttribute("webkitdirectory", "");
+  await folder.setInputFiles(root);
+  await expect(section.getByTestId("audiobook-status")).toContainText("Done.");
+  await expect(section).toContainText("Ready · added");
+  await expect(section.getByTestId("audiobook-placed")).toContainText(/[\d,]+ of [\d,]+ spoken words placed on the page \(\d+%\) in 1 chapter\./);
+  const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+  expect(seen[0]).toBe("Checking the package against this book…");
+  expect(seen.some((s) => /^Sending the audio: \d+ of \d+ MB$/.test(s))).toBe(true);
+  expect(seen).toContain("Checking the audio and saving the timings…");
+  expect(seen.at(-1)).toBe("Done.");
+
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await section.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: `screenshots/book-audiobook-${name}-${scheme}.png`, fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // A package made from another file of the book is refused in plain words.
+  const other = buildPackage({ bookBytes: new Uint8Array([1, 2, 3]), chapters: [{ title: "x", paragraphs: [paragraphs[0].text], inBook: [paragraphs[0].chapterIndex] }] });
+  await section.getByLabel("or a .zip of it").setInputFiles({ name: "other.zip", mimeType: "application/zip", buffer: Buffer.from(other.zip()) });
+  await expect(section.getByRole("alert")).toContainText("made from a different file of this book");
+  await expect(section).toContainText("Ready · added"); // the good one is still there
+
+  // Remove it; the section is back to its empty state.
+  await section.getByRole("button", { name: "Remove Jekyll test reading" }).click();
+  await expect(section).toContainText("Add an audiobook of this book and read along");
+  await expect(section).not.toContainText("Ready · added");
+
+  // The .zip route (for phones): a small package with its audio inside.
+  await section.getByLabel("or a .zip of it").setInputFiles({ name: "jekyll-readalong.zip", mimeType: "application/zip", buffer: Buffer.from(zip()) });
+  await expect(section).toContainText("Ready · added");
+  await section.getByRole("button", { name: "Remove Jekyll test reading" }).click();
+  await expect(section).not.toContainText("Ready · added");
+  expect((await (await page.request.get(`/api/books/${bookId}/readalong`)).json()).imports).toEqual([]);
 });
