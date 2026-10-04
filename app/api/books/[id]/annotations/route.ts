@@ -14,10 +14,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!/^[0-9a-f-]{36}$/i.test(bookId)) return Response.json({ annotations: [] });
   const db = await getDb();
   const list = await listAnnotations(db, user.id, bookId);
-  // Voice notes come with a short-lived link to their recording.
-  const secret = list.some((a) => a.voice) ? await serverSecret(db, "file-links") : "";
+  // Voice notes and generated pictures come with short-lived links to their files.
+  const secret = list.some((a) => a.voice || a.picture?.source === "generated") ? await serverSecret(db, "file-links") : "";
   return Response.json({
-    annotations: list.map((a) => (a.voice ? { ...a, audioUrl: signFileUrl(secret, a.voice.audioKey) } : a)),
+    annotations: list.map((a) =>
+      a.voice
+        ? { ...a, audioUrl: signFileUrl(secret, a.voice.audioKey) }
+        : a.picture?.source === "generated"
+          ? { ...a, pictureUrl: signFileUrl(secret, a.picture.key) }
+          : a,
+    ),
   });
 }
 

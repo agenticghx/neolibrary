@@ -89,6 +89,57 @@ test("no good picture: make one with AI, labelled as generated, paid once and sh
   await expect(panel.getByRole("button", { name: /^Make a picture/ })).toHaveCount(0);
 });
 
+test("pin a picture to a passage: it survives a reload, with its credit, and opens from the passage", async ({ page }) => {
+  await openReader(page);
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const before = Number(/\((\d+)\)/.exec((await notesButton.textContent()) ?? "")?.[1] ?? 0);
+  const panel = await seeIt(page, "the clock of the neighbouring church");
+  await panel.getByLabel("Search pictures").fill("silicon wafer");
+  await panel.getByRole("button", { name: "Search" }).click();
+  const first = panel.getByTestId("image-results").locator("li").first();
+  await first.getByRole("button", { name: "Pin to the passage" }).click();
+  await expect(first.getByRole("status")).toHaveText("Pinned to the passage");
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+
+  await page.reload();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+  await notesButton.click();
+  const item = page.getByTestId("notes").locator("li").filter({ hasText: "Pinned picture" });
+  await expect(item).toHaveCount(1);
+  await expect(item).toContainText("the clock of the neighbouring church");
+  await expect(item).toContainText("Silicon wafer 1 (test image) · Test photographer 1 · CC BY-SA 4.0 · Source");
+  const img = item.getByRole("img", { name: "Silicon wafer 1 (test image)" });
+  await img.scrollIntoViewIfNeeded();
+  expect(await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(480);
+
+  // Clicking the passage in the book opens the picture's card.
+  await notesButton.click();
+  const point = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const i = n.nodeValue!.indexOf("neighbouring church");
+        if (i < 0) continue;
+        const r = doc.createRange();
+        r.setStart(n, i);
+        r.setEnd(n, i + 5);
+        const box = r.getBoundingClientRect();
+        const frame = (doc.defaultView!.frameElement as HTMLElement).getBoundingClientRect();
+        return { x: frame.left + box.left + box.width / 2, y: frame.top + box.top + box.height / 2 };
+      }
+    }
+    return null;
+  });
+  expect(point).not.toBeNull();
+  await page.mouse.click(point!.x, point!.y);
+  const card = page.getByRole("region", { name: "Pinned picture" });
+  await expect(card).toContainText("the clock of the neighbouring church");
+  await expect(card).toContainText("Test photographer 1");
+  await page.screenshot({ path: "screenshots/reader-pinned-picture.png" });
+});
+
 test("the see-it panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {

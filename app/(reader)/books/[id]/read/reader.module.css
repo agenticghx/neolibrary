@@ -863,6 +863,17 @@
   text-decoration-color: var(--accent);
 }
 
+.pinned {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.pinnedNote {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
 .makePicture {
   display: grid;
   gap: var(--space-2);

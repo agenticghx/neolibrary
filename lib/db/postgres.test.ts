@@ -91,7 +91,22 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
     await createAnnotation(db, ownerId, { kind: "sticker", bookId: jekyll, ...at, sticker: "question" });
     await createAnnotation(db, ownerId, { kind: "drawing", bookId: jekyll, ...at, drawing: { strokes: [[1, 2, 30, 40]] } });
     await createVoiceNote(db, storage, new FakeTranscriber(), ownerId, { bookId: jekyll, ...at, audio: wav(1), mime: "audio/wav", durationMs: 1000 });
-    expect((await listAnnotations(db, ownerId, jekyll)).map((a) => a.kind).sort()).toEqual(["drawing", "highlight", "sticker", "voice"]);
+    await createAnnotation(db, ownerId, {
+      kind: "image",
+      bookId: jekyll,
+      ...at,
+      picture: {
+        source: "wikimedia",
+        title: "Gas lamp",
+        thumbUrl: "https://upload.wikimedia.org/a/b/480px-Lamp.jpg",
+        imageUrl: "https://upload.wikimedia.org/a/b/Lamp.jpg",
+        pageUrl: "https://commons.wikimedia.org/wiki/File:Lamp.jpg",
+        credit: "Ada",
+        licence: "CC0",
+        licenceUrl: null,
+      },
+    });
+    expect((await listAnnotations(db, ownerId, jekyll)).map((a) => a.kind).sort()).toEqual(["drawing", "highlight", "image", "sticker", "voice"]);
     expect((await searchNotes(db, ownerId, "transcript")).length).toBe(1);
 
     // Stored AI answers and audio, with spending counted per provider.

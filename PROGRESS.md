@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M9 (c), pin a picture to a passage.
+next_action: Sessions loop through docs/done.md on their own; next is M10 (reading stats).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,26 +21,30 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M9 · See it (images)**, next unticked box in `docs/done.md`.
-   PRs (a) image search and (b) generated pictures are done (see Log).
-   Remaining: (c) **Pin a picture to a passage**: in the See-it panel, a
-   "Pin to the passage" button on each result card and on the generated
-   picture. The panel needs the selection's place (pass `selection.cfi`
-   and quote from `Reader.tsx` with the query). Store an annotation of
-   kind `image` (migration with a reverse step; extend the kind CHECK like
-   `0014_drawings`, down step: notes saying "Picture: <title>, <credit>,
-   <licence>") with a jsonb column holding the picture: for Commons the
-   thumb/image/page URLs, title, credit, licence and licence URL; for
-   generated, the storage key (`images/<owner>/…`) and "Generated image".
-   Show it from a margin marker (`drawBadge` in `Reader.tsx`; right margin
-   is taken by drawings, so for example stack it below, or reuse the left
-   side under stickers) that opens a pop-up card, and in the Notes panel
-   (thumbnail, credit, licence, "Generated image" label; generated ones
-   need a signed URL like voice notes in the annotations route). Export it
-   (library JSON; Markdown "Picture: …, credit, licence"; W3C body plus a
-   `neolibrary:image` extra). Done when (plan): a pinned image survives
-   reload. Then tick M9.
-2. Then M10, M11, M12, per `docs/done.md`.
+1. **M10 · Reading stats**, next unticked box in `docs/done.md`.
+   Suggested PRs: (a) **Measure honestly**: in the reader, count *active*
+   reading time only: pause when the tab is hidden (`visibilitychange`), when
+   there is no input and no page turn for a while (for example 2 minutes),
+   and while reading aloud plays (that is listening). Send reading sessions
+   to the server in small batches (book, start, end, active seconds, words
+   read). Words read = the words of the paragraphs that were on screen
+   (from the section model and the reader's visible range), counted once
+   per paragraph per session. New table (migration with a reverse step),
+   in the library export round trip. Words per minute = words / active
+   minutes. Done when (plan): a test with a scripted reading session
+   produces the expected words-per-minute number: a unit test on the maths,
+   plus a Playwright test that turns pages with a controlled clock
+   (`page.clock`) and checks the number on the stats page.
+   (b) **Your own trend first**: a stats page (`/stats`, add to
+   `e2e/pages.ts`; linked from the shelf or the book page, the phone nav is
+   full) with speed by book, by pillar, and N vs E books (from the Path's
+   slots), time read per week. A comparison with a published adult average
+   only with a cited source on the page (do not invent a number); if no
+   source can be verified offline, leave the comparison out and say so.
+   (c) **Simple, honest suggestions**, e.g. "your speed drops sharply in
+   chapter 4; try the prerequisites panel", computed from per-chapter
+   speed, not generic tips. Then tick M10.
+2. Then M11 and M12, per `docs/done.md`.
 
 ## Waiting on Samuel
 
@@ -64,15 +68,19 @@ Never blocks the loop. Newest first.
   own DRM-free books on the live site for a while and say in a GitHub issue
   (title "M4 verdict") whether the reader is good enough, and what bothers
   you.
-- **Owner account** (after the Railway deploy, about 2 minutes): open
-  `https://<railway-url>/setup`. The setup code is in Railway → `web` →
+- **Owner account** (now, about 2 minutes): open
+  `https://web-production-f27a0e.up.railway.app/setup`. The setup code is in Railway → `web` →
   Deployments → View logs (line "Neolibrary setup: …"), or set your own as
   the variable `SETUP_CODE` on `web`. Then invite people from "Invite".
-- **Railway deploy** (about 3 minutes): Railway → project `neolibrary` →
-  service `web` → Settings → Source → connect `sahuno/neolibrary`, branch
-  `main`; then Settings → Networking → "Generate domain". Railway reads
-  `railway.json`. Paste the URL anywhere a session will see it (e.g. a
-  GitHub issue titled "Railway URL").
+- **Railway auto-deploy** (about 2 minutes): the app is live at
+  https://web-production-f27a0e.up.railway.app (first deployed from the
+  laptop with `railway up`; see issue #31), but merges to `main` are not
+  deployed until Railway's GitHub app can see this private repo: GitHub →
+  Settings → Applications → Railway → Configure → give it access to
+  `sahuno/neolibrary`; then in Railway connect the `web` service to the
+  repo, branch `main`. Until then, a laptop session must redeploy by hand.
+  (Cloud sessions cannot reach the live site to check it: blocked by the
+  network policy.)
 - **Branch protection** (optional second lock): GitHub → Settings →
   Branches → rule for `main` requiring `Lint, types, unit tests`,
   `PR hygiene (PROGRESS.md Log entry)`,
@@ -109,6 +117,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 09:45 UTC · Claude (cloud) · M9 (c): pin a picture to a passage; M9 ticked
+- **Done:** When See it is opened from a selection, every picture (Commons results and a generated picture) has **"Pin to the passage"**. A pinned picture is an **annotation of kind `image`** (migration `0015_pinned_pictures`). Its reverse step turns pins into notes naming the picture, author, licence and link, or "Generated picture: …", so going back keeps the credit. It holds the picture: for Commons the links, title, credit, licence and licence link; for generated pictures the stored file and subject. Before storing, the server **only accepts pictures it can trust** (`lib/library/pinned.ts`): image links must be on `upload.wikimedia.org` (or the test images), pages must be https, and a generated picture must be the reader's own stored file. In the book the passage is tinted sage with a **picture badge in the right margin**; **clicking the passage opens a pop-up card** ("Pinned picture": the quote, the large picture, credit · licence · Source, or the "Generated image" label). The Notes panel lists "Pinned picture" with the thumbnail and credit. Generated pictures come with a short-lived signed link, like voice notes. Exports: library JSON (`picture`), Markdown ("Picture: Silicon wafer, by Ada, CC BY-SA 4.0 (link)" or "Generated picture: …"), W3C (motivation `describing` plus a `neolibrary:picture` extra, checked again on import). The real-Postgres test now also pins a picture. **M9 ticked** in `docs/done.md`.
+- **Key paths:** `lib/library/pinned.ts`, `db/migrations/0015_pinned_pictures.*`, `lib/library/{annotations,annotation-formats,export}.ts`, `app/api/books/[id]/annotations/route.ts`, `app/(reader)/books/[id]/read/{PictureCard,ImagesPanel,NotesPanel,Reader}.tsx`, `e2e/images.spec.ts`, `lib/db/postgres.test.ts`
+- **Commands that worked:** `npm run check` → Vitest `209 passed | 2 skipped` (the 2 are the real-Postgres tests, run separately). These include: a Commons pin listed with credit and licence, in Markdown, W3C and the library export; W3C export → hide → import keeps it; a generated pin by its stored file; links from other sites, `javascript:` and http pages refused, other readers' files refused. `TEST_DATABASE_URL=… npm run test:postgres` → `2 passed` (migration 0015 up and down on Postgres 16; a pinned picture in the end-to-end run). `npx playwright test` → `139 passed (3.1m)`. The browser test: select "the clock of the neighbouring church" → See it → "silicon wafer" → Pin to the passage → "Pinned to the passage", Notes +1; **after a reload** the Notes panel shows "Pinned picture" with "Silicon wafer 1 (test image) · Test photographer 1 · CC BY-SA 4.0 · Source" and the picture loads; **clicking the passage in the book opens the card**. Checked by eye (`screenshots/reader-pinned-picture.png`).
+- **Known issues / blockers:** A pinned picture and a handwritten note on the same first line share the right-margin spot (the overlay has room for one badge per side). No real Commons or OpenAI call yet (blocked from the cloud container; first real use on the live site).
+- **Exact next steps:** M10, per "Exact next steps".
 
 ### 2026-10-04 09:30 UTC · Claude (cloud) · CI: real Postgres checks (migrations and data layer)
 - **Done:** As the laptop session asked after the first deploy, CI has a new job, **"Real Postgres (migrations, data layer)"**. It starts a Postgres 16 service container and runs `npm run test:postgres` (`lib/db/postgres.test.ts`) through **postgres.js, the database library production uses**. Every other test uses PGlite (Postgres inside Node), which is how the `UNSAFE_TRANSACTION` bug that made every live page a 500 slipped through. The test makes its own throwaway database, then: (1) runs **every migration up, all the way down, and up again**; (2) runs the library **end to end**: two books imported (sections and the generated full-text column), full-text search, a highlight, sticker, drawing and voice note (jsonb, arrays, booleans), stored AI answers (re-served), a question bank, read-aloud audio, cross-book links (array overlap), the cost report, and **export → wipe → import giving back an identical library**. The CI command insists on `TEST_DATABASE_URL` and fails loudly without it. In ordinary `npm test` runs without a Postgres the two tests are reported as skipped; they always run in the CI job. Locally they run against any Postgres you can create databases on (the cloud container has Postgres 16; started under the `postgres` user's home).
