@@ -4,7 +4,7 @@ import path from "node:path";
 /**
  * Where big files (books, covers, audio) live. Ground rule 3: an interface
  * with a fake. MemoryStorage is the test fake; LocalStorage keeps files on
- * disk for development; the S3 bucket implementation arrives with uploads (M3).
+ * disk for development and browser tests; S3Storage (./s3.ts) is the bucket.
  */
 export interface Storage {
   put(key: string, data: Uint8Array, contentType: string): Promise<void>;
@@ -60,7 +60,15 @@ export class LocalStorage implements Storage {
 
 const g = globalThis as unknown as { __neolibraryStorage?: Storage };
 
-export function getStorage(): Storage {
-  g.__neolibraryStorage ??= new LocalStorage(process.env.FILES_DIR ?? path.join(process.cwd(), ".data", "files"));
+/** The bucket when S3_BUCKET is set (production); otherwise files on local disk. */
+export async function getStorage(): Promise<Storage> {
+  if (!g.__neolibraryStorage) {
+    if (process.env.S3_BUCKET) {
+      const { S3Storage } = await import("./s3");
+      g.__neolibraryStorage = new S3Storage(process.env.S3_BUCKET, process.env);
+    } else {
+      g.__neolibraryStorage = new LocalStorage(process.env.FILES_DIR ?? path.join(process.cwd(), ".data", "files"));
+    }
+  }
   return g.__neolibraryStorage;
 }

@@ -1,0 +1,2 @@
+ALTER TABLE books DROP COLUMN page_count;
+ALTER TABLE books DROP COLUMN toc;

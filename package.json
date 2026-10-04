@@ -17,11 +17,15 @@
     "check": "npm run lint && npm run typecheck && npm run test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1146.0",
     "@electric-sql/pglite": "0.5.8",
     "@fontsource-variable/source-sans-3": "5.3.0",
     "@fontsource-variable/source-serif-4": "5.3.0",
     "drizzle-orm": "0.45.3",
+    "fast-xml-parser": "5.11.2",
+    "fflate": "0.8.3",
     "next": "16.3.8",
+    "pdf-lib": "1.17.1",
     "postgres": "3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0"

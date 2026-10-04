@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
@@ -66,7 +66,7 @@ export async function seedPath(db: Db, ownerId: string, seed: SeedPath): Promise
 export type SlotView = {
   id: string;
   kind: SlotKind;
-  book: Pick<Book, "id" | "title" | "author" | "progress" | "unverified"> & { owned: boolean };
+  book: Pick<Book, "id" | "title" | "author" | "progress" | "unverified"> & { owned: boolean; coverUrl: string | null };
 };
 
 export type PillarView = {
@@ -120,7 +120,12 @@ export async function listPaths(db: Db, ownerId: string) {
     .orderBy(asc(paths.createdAt));
 }
 
-export async function getPathView(db: Db, ownerId: string, slug: string): Promise<PathView | null> {
+export async function getPathView(
+  db: Db,
+  ownerId: string,
+  slug: string,
+  signCover: (key: string | null) => string | null = () => null,
+): Promise<PathView | null> {
   const [path] = await db
     .select()
     .from(paths)
@@ -158,6 +163,7 @@ export async function getPathView(db: Db, ownerId: string, slug: string): Promis
           progress: r.book.progress,
           unverified: r.book.unverified,
           owned: r.book.fileKey !== null,
+          coverUrl: signCover(r.book.coverKey),
         },
       }));
     if (p.group !== "master" && p.group !== "suggested") number += 1;
@@ -201,4 +207,13 @@ export async function getBook(db: Db, ownerId: string, id: string) {
     .innerJoin(paths, eq(paths.id, pillars.pathId))
     .where(eq(slots.bookId, book.id));
   return { book, owned: book.fileKey !== null, places };
+}
+
+/** The user's books that have a file, newest first. */
+export async function listShelf(db: Db, ownerId: string) {
+  return db
+    .select()
+    .from(books)
+    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey)))
+    .orderBy(desc(books.updatedAt));
 }

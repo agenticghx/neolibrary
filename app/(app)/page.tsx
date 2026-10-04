@@ -3,6 +3,7 @@ import { Cover } from "@/components/Cover";
 import { PathView } from "@/components/PathView";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { coverSigner } from "@/lib/library/covers";
 import { getPathView, listPaths } from "@/lib/library/paths";
 import { STARTER_PATHS } from "@/lib/library/seed";
 import { addPathAction } from "./actions";
@@ -15,7 +16,7 @@ export default async function HomePage() {
   const user = await requireUser();
   const db = await getDb();
   const [first] = await listPaths(db, user.id);
-  const path = first ? await getPathView(db, user.id, first.slug) : null;
+  const path = first ? await getPathView(db, user.id, first.slug, await coverSigner()) : null;
 
   if (path) {
     return (
