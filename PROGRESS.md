@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the free-classics PR (CI screenshots for shelf-empty), deploy, confirm Samuel can read
+next_action: Samuel: press "Add three free classics" on the shelf (live now); otherwise version 1 waits only on Samuel (sign in, keys, verdicts).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -116,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 17:20 UTC · Claude (laptop) · Free classics button deployed
+- **Done:** PR #47 merged with all four checks green (after committing CI's four `shelf-empty` screenshots, each checked by eye). Deployed `4fd1259` after a backup (`~/Backups/neolibrary/prod-before-samples-*.sql`, restore exit 0, 1 user, 126 books). Railway deployment `faae30d3` SUCCESS.
+- **Key paths:** `PROGRESS.md`
+- **Commands that worked:** `curl $B/api/health` → 200; `/sign-in` → 200. Inside the running container (`ssh <web-ssh-id>@ssh.railway.com`), the built server chunk contains "Add three free classics", and `/app/fixtures/books` has the 4 fixture files. `railway up --ci` printed nothing after the deploy succeeded and had to be stopped; check `railway deployment list --service web` instead of waiting on it.
+- **Known issues / blockers:** Samuel still needs to press the button (and may drag his own Descartes PDF onto the shelf; it is a copyrighted Oxford edition, so it stays out of git).
+- **Exact next steps:** As in "Exact next steps".
 
 ### 2026-10-04 16:40 UTC · Claude (laptop) · "Add three free classics" on an empty shelf (Samuel could not read anything)
 - **Done:** Samuel signed in and found nothing to read: the live library had **0 books with files** (the 126 entries are the Path's "wanted" placeholders). Checked `demo/books/`: it holds one file, `Descartes_1641Meditations.pdf`, which is the **Oxford World's Classics edition** (ISBN 9780192806963, a modern copyrighted translation). So it may go in Samuel's private library (he uploads it himself) but must not be bundled or committed (ground rule 1). Added an **"Add three free classics" button on the empty shelf**: *Frankenstein*, *Jekyll and Hyde* and *The Time Machine*, the Standard Ebooks editions already in `fixtures/books` (US public domain, CC0; `fixtures/README.md`), imported for that reader from the server's own copy. Pressing it twice adds nothing.
