@@ -1,10 +1,11 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, collectionBooks, collections, paths, pillars, slots } from "@/lib/db/schema";
+import { annotations, books, collectionBooks, collections, generations, paths, pillars, slots } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
- * collections, and every version of every annotation) can be exported as one
+ * collections, every version of every annotation, and every machine-written
+ * text with its provenance) can be exported as one
  * JSON file and imported back. Book files themselves stay in storage; the
  * export records their keys and names.
  */
@@ -71,6 +72,25 @@ export type LibraryExport = {
     deleted: boolean;
     createdAt: string;
   }[];
+  /** Machine-written text (rewrites, …) with its provenance (added in M6). */
+  generations?: {
+    id: string;
+    bookId: string | null;
+    sectionId: string | null;
+    kind: string;
+    options: Record<string, string>;
+    cacheKey: string;
+    provider: string;
+    model: string;
+    promptName: string;
+    promptHash: string;
+    inputHash: string;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+    output: string;
+    createdAt: string;
+  }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -100,6 +120,12 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(annotations)
     .where(eq(annotations.ownerId, ownerId))
     .orderBy(asc(annotations.createdAt), asc(annotations.annotationId), asc(annotations.version));
+
+  const generationRows = await db
+    .select()
+    .from(generations)
+    .where(eq(generations.ownerId, ownerId))
+    .orderBy(asc(generations.createdAt), asc(generations.id));
 
   return {
     format: EXPORT_FORMAT,
@@ -168,6 +194,24 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       deleted: a.deleted,
       createdAt: a.createdAt.toISOString(),
     })),
+    generations: generationRows.map((g) => ({
+      id: g.id,
+      bookId: g.bookId,
+      sectionId: g.sectionId,
+      kind: g.kind,
+      options: g.options,
+      cacheKey: g.cacheKey,
+      provider: g.provider,
+      model: g.model,
+      promptName: g.promptName,
+      promptHash: g.promptHash,
+      inputHash: g.inputHash,
+      inputTokens: g.inputTokens,
+      outputTokens: g.outputTokens,
+      costUsd: g.costUsd,
+      output: g.output,
+      createdAt: g.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -177,6 +221,7 @@ export class ExportFormatError extends Error {}
 export async function wipeLibrary(db: Db, ownerId: string) {
   await db.transaction(async (tx) => {
     await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
+    await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
     await tx.delete(books).where(eq(books.ownerId, ownerId));
@@ -272,6 +317,9 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         deleted: a.deleted,
         createdAt: new Date(a.createdAt),
       });
+    }
+    for (const g of x.generations ?? []) {
+      await tx.insert(generations).values({ ...g, ownerId, createdAt: new Date(g.createdAt) });
     }
   });
 }

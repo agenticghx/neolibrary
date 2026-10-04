@@ -1,0 +1,1 @@
+Add missing background. Keep close to the author's wording, and add what a newcomer is missing: who or what is named, terms the author assumes the reader knows, and the historical or technical context. Put each piece of added background in square brackets, so the reader can see what the author did not write.
