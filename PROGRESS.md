@@ -21,15 +21,15 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M3 · bookshelf and study paths** (next unticked box in `docs/done.md`).
-   Suggested order, one PR each: (a) data model for books, Paths → Pillars →
-   slots, plus the seed file made from `docs/reading-lists/hidden-machinery.md`
-   and the Path view; (b) EPUB/PDF upload to storage (add the S3 bucket
-   implementation of `lib/storage` using the `S3_*` variables, with
-   MemoryStorage in tests), metadata + cover extraction, attaching an upload
-   to a wanted book; (c) shelf polish: sorting, search, collections, book
-   detail page. Fixture books: public-domain only (Standard Ebooks / Project
-   Gutenberg) under `fixtures/`.
+1. **M3 · bookshelf and study paths.** Step (a), the data model, seed and
+   Path view, is done. Next: (b) EPUB/PDF upload to storage. Add the S3
+   bucket implementation of `lib/storage` using the `S3_*` variables, with
+   MemoryStorage in tests. Pull out the title, author, cover and table of
+   contents. Attach an upload to a wanted book when the title matches (use
+   `normaliseTitle` in `lib/library/paths.ts`). Then (c) shelf polish:
+   all-books view with sorting, search, collections and progress. Fixture
+   books: public-domain only (Standard Ebooks / Project Gutenberg) under
+   `fixtures/`.
 2. Then M4, M5, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -79,6 +79,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 02:50 · Claude (cloud) · M3 (a): study Paths, Hidden Machinery seed, Path view
+- **Done:** New tables `books`, `paths`, `pillars`, `slots` (migration `0002_library`, with a reverse step). Every row belongs to one user, so each person sees only their own library. `data/paths/hidden-machinery.ts` holds the reading list as data: Deedy's 18 pillars, 2 finance pillars, 9 blindspots, the reader suggestions, 3 agent-suggestion pillars (marked "not catalog-checked") and the master key last. A test checks it against the markdown list. `seedPath` adds a Path once per user and reuses a book the user already has with the same title (titles compared without case, punctuation or subtitle). The owner's Path is added at setup; other readers get an "Add this path" button. The home page is now the Path view: pillar columns, N then E covers, extras folded away, unowned books dimmed, a pillar track, "You are here", and the master key set apart at the end. Each book has a page saying where it sits in the Path. Cover gained a small size, links, a progress bar and a "current" ring.
+- **Key paths:** `db/migrations/0002_library.*`, `data/paths/`, `lib/library/paths.ts`, `components/PathView.tsx`, `components/Cover.tsx`, `app/(app)/page.tsx`, `app/(app)/books/[id]/`, `e2e/paths.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `70 passed`; `npx playwright test` → `66 passed (50.5s)`. These include the Path showing every pillar title in reading-list order, N before E in each pillar, the master key after all pillars, "You are here" on pillar 01, agent suggestions labelled, and another user's book id giving 404.
+- **Known issues / blockers:** The Path page is long (29 pillars); collapsing groups may help later. The test timeout was raised to 30 seconds because each database test starts its own in-process Postgres.
+- **Exact next steps:** M3 (b) upload, per "Exact next steps".
 
 ### 2026-10-04 02:25 · Claude (cloud) · M2: invite-only accounts
 - **Done:** Postgres through Drizzle (a TypeScript layer for database queries), with PGlite (Postgres running inside Node) when `DATABASE_URL` is absent, so tests and CI need no database server. Hand-written migrations (scripts that change the database layout), each with a `.down.sql` reverse step, run at server start (`instrumentation.ts`). Accounts: no public sign-up. The owner account is created once at `/setup` with a one-time code (from `SETUP_CODE`, or printed in the server log); everyone else joins through a single-use, 7-day invite link that only an admin can make. Passwords use scrypt hashes; sessions are random tokens in an httpOnly cookie, and the database stores only their hash. Sign-in is rate-limited. Every page and API sits behind a two-step gate: `proxy.ts` checks the cookie is present, then pages and routes check the session against the database. File links are short-lived and signed (HMAC, 5 minutes) and also need a signed-in user; the signing key is generated and kept in the database, so no new variable is needed. Storage interface with a memory fake (S3 comes in M3). Pages: sign-in, setup, invitation, home, invite management; `/design` moved behind login. Fixed a React 19 behaviour that wiped the email field after a wrong password. Covers now shrink long titles instead of overflowing.

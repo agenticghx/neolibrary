@@ -2,13 +2,17 @@
  * Pages covered by the screenshot and accessibility checks. Add new pages here.
  * `signedIn: false` pages are checked as a logged-out visitor.
  */
-export const pages = [
+export type PageCase = { name: string; path: string; signedIn: boolean; click?: string };
+
+/** `click`: after opening `path`, follow the link with this accessible name. */
+export const pages: PageCase[] = [
   { name: "sign-in", path: "/sign-in", signedIn: false },
   { name: "invite-closed", path: "/invite/not-a-real-invite", signedIn: false },
-  { name: "home", path: "/", signedIn: true },
+  { name: "path", path: "/", signedIn: true },
+  { name: "book-wanted", path: "/", signedIn: true, click: "The Grid (not owned)" },
   { name: "invites", path: "/admin/invites", signedIn: true },
   { name: "design", path: "/design", signedIn: true },
-] as const;
+];
 
 export const ADMIN = { name: "Samuel Example", email: "owner@example.com", password: "a long test password" };
 export const SETUP_CODE = "e2e-setup-code";
