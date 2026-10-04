@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M10 (c) PR, redeploy from the laptop (back up the database first), then start M11 (API tokens)
+next_action: Build M11 (a) personal API tokens on branch m11-api-tokens (plan in docs/handoff.md section 4)
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,15 +24,17 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M10 (c) PR** (branch `m10-suggestions`): if still open, make its checks
-   green; auto-merge lands it. That completes M10 (ticked in `docs/done.md`).
-2. **Redeploy (laptop only, with a backup first)**: the live site still runs
-   `d5ac52f`. Migrations 0016 and 0017 will run on the next deploy. First take
-   a backup of the Railway Postgres (Railway → Postgres → Backups, or
-   `pg_dump` through `railway connect`), then `railway up --service web --ci`,
-   then check `/api/health` and that `/stats` redirects to sign-in.
-3. **M11** (API tokens, agent API, MCP server) and **M12** (offline PWA and
-   sync), then the live checks: plans in `docs/handoff.md` §4.
+1. **M11 (a) · Personal API tokens** (branch `m11-api-tokens`): plan in
+   `docs/handoff.md` §4. An `api_tokens` table (sha256 hash, name, created,
+   last used, revoked; migration with a reverse step), create/revoke on a
+   settings page with the token shown once, a Bearer helper, and `proxy.ts`
+   letting `/api/agent/*` through on a Bearer header (test the signed-out path).
+2. **M11 (b)** agent API, **M11 (c)** MCP server (check
+   `npm view @modelcontextprotocol/sdk version` and its README before
+   choosing the transport), then **M12** (offline PWA and sync).
+3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
+   back up first, then `railway up --service web --ci`. The backup recipe
+   that worked is in the 2026-10-04 11:40 Log entry.
 
 ## Waiting on Samuel
 
@@ -56,10 +58,6 @@ Never blocks the loop. Newest first.
   own DRM-free books on the live site for a while and say in a GitHub issue
   (title "M4 verdict") whether the reader is good enough, and what bothers
   you.
-- **Owner account** (now, about 2 minutes): open
-  `https://web-production-f27a0e.up.railway.app/setup`. The setup code is in Railway → `web` →
-  Deployments → View logs (line "Neolibrary setup: …"), or set your own as
-  the variable `SETUP_CODE` on `web`. Then invite people from "Invite".
 - **Railway auto-deploy** (about 2 minutes): the app is live at
   https://web-production-f27a0e.up.railway.app (first deployed from the
   laptop with `railway up`; see issue #31), but merges to `main` are not
@@ -105,6 +103,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 11:40 UTC · Claude (laptop) · M10 merged and deployed (database backed up first)
+- **Done:** PR #36 (M10 (c)) merged with all four checks green, so **M10 is done** (#34, #35, #36). Deployed `main` (`9be5296`) to Railway from the laptop. **Backup first**, as the rule requires (migrations 0016 and 0017 ran on this deploy): the database has no public address (correct; not opened), and Railway's agent cannot make volume backups. So `pg_dump` ran inside the Postgres container through Railway's SSH gateway and was streamed to the laptop: `~/Backups/neolibrary/prod-before-0016-20261004T1058Z.sql` (76,826 bytes; not in git). **The restore was checked** into a throwaway local Postgres: exit 0, `users` 1, `books` 126, the same as production. After the deploy: health 200, `/stats` redirects to sign-in (the M10 page is live), the database has 17 migrations applied and the data is intact (1 user, 126 books), and `reading_sessions.chapters` exists. Production runs **Postgres 18.6**, so CI's real-Postgres job now uses `postgres:18` (it was 16). The owner account exists (`/setup` now redirects to sign-in), so that item is removed from Waiting on Samuel.
+- **Key paths:** `.github/workflows/ci.yml` (job `postgres`), `PROGRESS.md`, backup at `~/Backups/neolibrary/`
+- **Commands that worked:** backup: `brew install libpq` (pg_dump 18.6, for the local restore check); the SSH host is the one `railway ssh config --service Postgres --dry-run` prints (`ssh.railway.com`, user = the service's SSH id). Then `ssh -o UserKnownHostsFile=<scratch>/known_hosts -o StrictHostKeyChecking=accept-new <id>@ssh.railway.com 'pg_dump --no-owner -U "$PGUSER" -d "$PGDATABASE"' < /dev/null > prod-before-….sql` (host key `SHA256:+S1xg92FrnHz6pY3bpkmh1OGtWQGNANXilPzlxA7B1g`). Restore check: `psql <local>/restorecheck -v ON_ERROR_STOP=1 -f prod-before-….sql` → exit 0. Deploy: `git checkout main && git pull --ff-only && railway up --service web --ci` → "Deploy complete". Checks: `curl $B/api/health` → `{"status":"ok",…} 200`; `curl $B/stats` → `307 -> /sign-in?next=%2Fstats`; `psql … -c "select count(*) from _migrations"` → 17.
+- **Known issues / blockers:** `railway ssh` itself failed host-key checking (plain `ssh` with a scratch known_hosts file worked). `/api/health` reports `commit: null` (Railway's commit variable is empty for CLI uploads), so the deployed version is confirmed by behaviour (the `/stats` route and migration count), not by a hash. Auto-deploy still waits on Samuel.
+- **Exact next steps:** M11 (a) personal API tokens, per "Exact next steps".
 
 ### 2026-10-04 11:20 UTC · Claude (laptop) · M10 (c): per-chapter speed and simple, honest suggestions; M10 ticked
 - **Done:** PR #35 (M10 (b)) merged with all four checks green, after committing the four `stats-*` reference screenshots that CI rendered on Linux (looked at each first). M10 (c) on `m10-suggestions`: the reader now also splits each sitting's active time and page words **by the chapter on screen** (foliate's contents entry: its link as the key, its title, and how far into the book it starts). Stored as a `chapters` list on `reading_sessions` (migration `0017_reading_chapters`, which adds a column; its reverse step drops only that column and the sitting totals stay). The server checks the list (known fields only, numbers capped at the sitting's totals, at most 500 chapters), and a late, smaller report never replaces a newer split. It is part of the export round trip. `/stats` has a new **Suggestions** section. In a book with at least three chapters that each have two minutes or more of countable reading, a chapter read at under 60% of that book's usual (median) chapter speed is named, e.g. "In The Time Machine, your speed drops sharply in Chapter 4: 100 words per minute, against your usual 250 in this book. Try *What do I need to know?* in the reader for the background this chapter assumes." Otherwise it says honestly why there are none. The rule is printed under it. **M10 ticked** in `docs/done.md`.
