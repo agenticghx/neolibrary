@@ -1,4 +1,5 @@
 import { zipSync } from "fflate";
+import { sha256OfBlob } from "./sha256";
 
 /**
  * M13 (c3): sending a read-along package from the browser.
@@ -12,8 +13,9 @@ import { zipSync } from "fflate";
  * audiobook; then the import is finished. A .zip of the package (up to
  * 200 MB) is accepted too, for browsers that cannot pick a folder (phones).
  *
- * No browser APIs beyond fetch, Blob and crypto.subtle, so it runs in tests
- * under Node.
+ * No browser APIs beyond fetch and Blob, so it runs in tests under Node.
+ * Fingerprints are computed 8 MB at a time (sha256.ts), never holding a
+ * whole audiobook in memory.
  */
 export type PickedFile = { path: string; blob: Blob };
 
@@ -105,11 +107,6 @@ export async function splitPackage(files: PickedFile[]) {
   return { rest, audio, fingerprints };
 }
 
-async function sha256(blob: Blob) {
-  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 async function zipOf(files: PickedFile[]) {
   const entries: Record<string, Uint8Array> = {};
   for (const f of files) entries[f.path] = new Uint8Array(await f.blob.arrayBuffer());
@@ -172,7 +169,8 @@ export async function uploadPackage(
     progress({ stage: "fingerprints", totalBytes: [...audio.values()].reduce((n, b) => n + b.size, 0) });
     for (const [file, blob] of audio) {
       stopIfCancelled();
-      if ((await sha256(blob)) !== split.fingerprints.get(file)) {
+      const print = await sha256OfBlob(blob, 8 * 1024 * 1024, opts.signal).catch(() => stopIfCancelled());
+      if (print !== split.fingerprints.get(file)) {
         throw new UploadError(`${file} is not the audio this package was made with (its fingerprint differs). Make the package again with the readalong-audio skill.`);
       }
     }

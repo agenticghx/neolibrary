@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
+import { eq } from "drizzle-orm";
 import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
-import { audioTracks } from "@/lib/db/schema";
+import { audioTracks, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { importBook } from "@/lib/library/import";
 import { getSections } from "@/lib/library/sections-store";
@@ -80,16 +81,39 @@ describe("importing a read-along package (M13)", () => {
     expect((await listImports(database.db, ownerId, bookId)).map((i) => i.status)).toEqual(["ready"]);
   });
 
-  it("refuses audio that is not the file the package was made with, and lets it be sent again", async () => {
+  it("refuses audio that is not the file the package was made with, keeping nothing", async () => {
     const { files } = pkgFor(5, 2);
     const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
     const wrong = files["audio/01.wav"].slice();
     wrong[200] ^= 1;
     const p = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, wrong);
-    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] })).rejects.toThrow("is not the audio this package was made with");
+    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] })).rejects.toThrow(
+      "audio/01.wav is not the audio this package was made with (its fingerprint differs). Nothing was kept: make the package again, then choose its folder.",
+    );
     expect(await tracks()).toEqual([]);
-    const again = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, files["audio/01.wav"]);
-    expect((await finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [again] })).status).toBe("ready");
+    expect(await listImports(database.db, ownerId, bookId)).toEqual([]);
+    // Starting over with the right audio works.
+    expect((await startImport(database.db, storage, ownerId, bookId, pkgFor(5, 2).zip())).status).toBe("ready");
+  });
+
+  it("with several audio files, one wrong file means nothing is kept, and no file is left in storage", async () => {
+    const read = paragraphs.slice(5, 9);
+    const { files } = buildPackage({
+      bookBytes,
+      chapters: [
+        { title: "A", paragraphs: read.slice(0, 2).map((p) => p.text), inBook: read.slice(0, 2).map((p) => p.chapterIndex) },
+        { title: "B", paragraphs: read.slice(2).map((p) => p.text), inBook: read.slice(2).map((p) => p.chapterIndex) },
+      ],
+    });
+    const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    expect(s.waitingFor).toEqual(["audio/01.wav", "audio/02.wav"]);
+    const good = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, files["audio/01.wav"]);
+    const wrong = files["audio/02.wav"].slice();
+    wrong[300] ^= 1;
+    const bad = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/02.wav", 1, wrong);
+    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [good], "audio/02.wav": [bad] })).rejects.toThrow("audio/02.wav is not the audio");
+    expect(await listImports(database.db, ownerId, bookId)).toEqual([]);
+    for (const n of [1, 2]) expect(await storage.stat(`audio/${ownerId}/${bookId}/readalong-${s.id}-${n}.wav`)).toBeNull();
   });
 
   it("refuses a package made from another file of the book, a broken package, and someone else's book", async () => {
@@ -129,15 +153,23 @@ describe("importing a read-along package (M13)", () => {
     expect((await finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] })).status).toBe("ready");
   });
 
-  it("a finish that fails releases the upload, so it can be finished after the file is sent again", async () => {
+  it("a finish that fails releases the upload, so it can be finished once the parts are listed", async () => {
     const { files } = pkgFor(5, 1);
     const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
-    const wrong = files["audio/01.wav"].slice();
-    wrong[100] ^= 1;
-    const bad = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, wrong);
-    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [bad] })).rejects.toThrow("is not the audio");
     const good = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, files["audio/01.wav"]);
+    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, {})).rejects.toThrow("The parts of audio/01.wav were not listed.");
     expect((await finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [good] })).status).toBe("ready");
+  });
+
+  it("uploads left unfinished for more than two days are cancelled when the reader starts another", async () => {
+    const { files } = pkgFor(5, 1);
+    const old = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    await database.db
+      .update(readalongImports)
+      .set({ createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) })
+      .where(eq(readalongImports.id, old.id));
+    const recent = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    expect((await listImports(database.db, ownerId, bookId)).map((i) => i.id)).toEqual([recent.id]);
   });
 
   it("replacing an unfinished upload cancels its parts in storage", async () => {

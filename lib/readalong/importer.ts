@@ -128,6 +128,7 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
 
   // One file per chapter is the most a package needs; a long list only opens uploads.
   if (pkg.manifest.audio.length > MAX_AUDIO_FILES) throw new ReadalongError(`A package may have at most ${MAX_AUDIO_FILES} audio files.`);
+  await sweepAbandoned(db, storage, ownerId);
   const id = randomUUID();
   const audio: ReadalongAudio[] = [];
   for (const [i, a] of pkg.manifest.audio.entries()) {
@@ -225,13 +226,12 @@ async function finishClaimed(
   }
   for (const a of row.audio) {
     if ((await storedSha256(storage, a.key)) !== a.sha256) {
-      await storage.delete(a.key);
-      const restarted = await storage.startUpload(a.key, a.mime);
-      await db
-        .update(readalongImports)
-        .set({ audio: row.audio.map((x) => (x.file === a.file ? { ...x, uploadId: restarted } : x)) })
-        .where(eq(readalongImports.id, importId));
-      throw new ReadalongError(`${a.file} is not the audio this package was made with (its fingerprint differs). Send that file again.`);
+      // Nothing is kept: half-restarting one file left the others' finished
+      // uploads unusable. The reader makes the package again and starts over.
+      await deleteImport(db, storage, ownerId, bookId, importId);
+      throw new ReadalongError(
+        `${a.file} is not the audio this package was made with (its fingerprint differs). Nothing was kept: make the package again, then choose its folder.`,
+      );
     }
   }
 
@@ -281,6 +281,18 @@ async function finishClaimed(
     }
   }
   return summary(await ownedImport(db, ownerId, bookId, importId));
+}
+
+/** Unfinished uploads older than this are cancelled (their parts would otherwise stay in the bucket). */
+export const ABANDONED_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+
+/** Cancels this reader's uploads that were started more than two days ago and never finished, on any book. */
+async function sweepAbandoned(db: Db, storage: Storage, ownerId: string) {
+  const old = await db
+    .select({ id: readalongImports.id, bookId: readalongImports.bookId })
+    .from(readalongImports)
+    .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.status, "uploading"), lt(readalongImports.createdAt, new Date(Date.now() - ABANDONED_AFTER_MS))));
+  for (const o of old) await deleteImport(db, storage, ownerId, o.bookId, o.id).catch(() => {});
 }
 
 export async function listImports(db: Db, ownerId: string, bookId: string) {
