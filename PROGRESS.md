@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel creates the Claude cloud environment and adds design refs; then a cloud session starts M1.
-blockers: Claude cloud environment not set up yet (M0).
-updated: 2026-10-03
+next_action: Merge the M1 skeleton PR once CI is green; Samuel connects Railway `web` to the repo and turns on auto-merge + branch protection.
+blockers: Railway deploy and auto-merge need Samuel's clicks in Railway/GitHub settings (see Exact next steps).
+updated: 2026-10-04
 shared_copy: none
 ---
 
@@ -19,28 +19,31 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-1. ~~Put the project on GitHub as a private repo~~ (done 2026-10-03:
-   `github.com/sahuno/neolibrary`).
-2. ~~Railway~~ (done 2026-10-03): project `neolibrary`
-   (https://railway.com/project/25f1488d-3bb6-401c-9b6b-35d08bd93756) with
-   `Postgres`, bucket `neolibrary-files` (US East), and an empty service `web`
-   that already has `DATABASE_URL`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`,
-   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_URL_STYLE`,
-   `ELEVENLABS_API_KEY`. The app must use exactly these names.
-3. **(Samuel)** Claude cloud environment (steps given in chat 2026-10-03):
-   install the Claude GitHub App on `sahuno/neolibrary`
-   (https://github.com/apps/claude), create an environment at
-   https://claude.ai/code with network access "Trusted", no variables, and
-   setup script `[ -f package.json ] && npm ci && npx playwright install chromium || true`.
-   Still to do:
-   - Put 5–10 screenshots you love and 3 you dislike in `docs/design/refs/`
-     (Codex prototypes in `docs/design/prototypes/` are proposals to react to).
-4. **(Samuel, later)** `ANTHROPIC_API_KEY` on Railway `web` before M6;
-   `OPENAI_API_KEY` before M9. Not needed to start.
-5. **(Cloud session)** M1 in `docs/plan.md`: Next.js skeleton, tests, CI,
-   `docs/design.md`, deploy. Connect the repo to the Railway `web` service
-   only once the app builds (connecting earlier makes every push a failed
-   build). After M1 merges: turn on branch protection for `main`.
+1. **(Cloud session)** M1 skeleton PR (branch `claude/magical-bardeen-fpwlg1`):
+   watch CI. If the screenshot comparison fails on GitHub only (machine
+   rendering differences), download the `playwright-report` artifact,
+   compare, and either regenerate the reference images on CI or raise the
+   allowance in `playwright.config.ts` slightly; never just delete them.
+   Merge when every check is green.
+2. **(Samuel, ~5 minutes, now that the app builds)**:
+   - Railway: open service `web` → Settings → Source → connect
+     `sahuno/neolibrary`, branch `main`. Then Settings → Networking →
+     "Generate domain". Paste the URL into the Log. Railway reads
+     `railway.json` (build `npm run build`, start `npm run start`, health
+     check `/api/health`).
+   - GitHub repo → Settings → General → tick **Allow auto-merge**.
+   - GitHub repo → Settings → Branches → add a rule for `main`: require a
+     pull request and require these checks: `Lint, types, unit tests`,
+     `PR hygiene (PROGRESS.md Log entry)`,
+     `Browser tests (screenshots + accessibility)`.
+3. **(Cloud session)** Finish M1: open `https://<railway-url>/api/health`
+   and `/sign-in`, paste the output into the Log, confirm the screenshot
+   grid comment appeared on the PR, then mark M1 done.
+4. **(Samuel, any time)** Put 5–10 screenshots you love and 3 you dislike
+   in `docs/design/refs/`, one line each on why. `docs/design.md` gets
+   revised from them.
+5. **(Samuel, later)** `ANTHROPIC_API_KEY` on Railway `web` before M6;
+   `OPENAI_API_KEY` before M9.
 6. **(Cloud session)** M2: invite-only accounts.
 
 ## Open unknowns
@@ -48,7 +51,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 | # | Question | Owner | Decide by | Status |
 |---|---|---|---|---|
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? (Default applies until set: sessions add a cost counter in M6/M7 and stop generating audio/images above a limit Samuel sets in an environment variable.) | Samuel | before M6 | open |
-| 2 | Can a cloud session merge its own PR? Claude Code docs (via claude-code-guide, 2026-10-03) say merging needs GitHub; plan answer: auto-merge GitHub Action in M1. Also check whether sessions may push branches named `m<N>-…` or only their own `claude/…` branch, and whether Playwright's browser download is allowed under "Trusted" network access. | first M1 session | during M1 | open |
+| 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Still to learn: whether the session's GitHub tools can merge a PR directly. | first M1 session | during M1 | partly answered |
 
 ## Decisions
 
@@ -65,6 +68,13 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 02:10 · Claude (cloud) · M1 skeleton: Next.js app, design tokens, CI, screenshot grid, auto-merge
+- **Done:** Built the M1 skeleton on `claude/magical-bardeen-fpwlg1`. Next.js 16 + TypeScript app with a plain sign-in page (`/sign-in`, `/` redirects there; the button stays disabled until M2) and a design-system sample page (`/design`) showing the reading style, a highlight, the spoken-word mark, machine-written text, covers, type, colours and buttons. Wrote `docs/design.md` and `app/tokens.css` (light + dark, from the Codex prototypes; Samuel's refs not yet in). Checks: ESLint; stylelint rule that rejects colours, sizes and spacing not taken from tokens (proved by `lib/token-guard.test.ts`); contrast test of every token pair in both themes; Vitest; Playwright screenshot comparison (2 pages × phone/desktop × light/dark) and axe-core accessibility. GitHub Actions: `ci.yml` (checks, PR hygiene = new Log entry required, browser tests, screenshot grid comment via a `ci-screenshots` branch) and `auto-merge.yml`. `railway.json` + `/api/health` for deploy. Not done: Railway deploy (needs Samuel to connect the repo) and the "Railway URL loads" part of M1's Done-when.
+- **Key paths:** `app/tokens.css`, `app/sign-in/`, `app/design/`, `components/Cover.tsx`, `components/Mark.tsx`, `docs/design.md`, `stylelint.config.mjs`, `lib/tokens.test.ts`, `e2e/`, `e2e/__screenshots__/`, `.github/workflows/ci.yml`, `.github/workflows/auto-merge.yml`, `scripts/check-pr-hygiene.mjs`, `railway.json`, `.env.example`
+- **Commands that worked:** `npm run check` → lint clean, `tsc` clean, Vitest `41 passed`; `npx playwright test` → `24 passed (19.0s)`; changing `--accent` on purpose made `toHaveScreenshot` fail on both pages (`17162 pixels (ratio 0.02 …) are different`), restoring it passed again; `npx next build` → routes `/`, `/sign-in`, `/design`, `/api/health`.
+- **Known issues / blockers:** Reference screenshots were made in this cloud container; GitHub's runner may draw text slightly differently (allowance 0.2% of pixels), so the first CI run may need new reference images. The grid comment links to images on the `ci-screenshots` branch; in a private repo they show only to people signed in to GitHub with access. The auto-merge Action does nothing until Samuel turns on "Allow auto-merge" and branch protection. Fonts are Source Serif 4 / Source Sans 3 (my pick, open licence); Samuel can overrule.
+- **Exact next steps:** see "Exact next steps" 1–3.
 
 ### 2026-10-03 21:55 · Claude (laptop) · Pushed prototypes/STE; cloud-environment steps; auto-merge plan
 - **Done:** Committed and pushed `155bdc5`. Got cloud-session setup steps from Claude Code docs (claude-code-guide agent; doc URLs: code.claude.com/docs/en/web-quickstart.md, cloud-environments.md, claude-code-on-the-web.md, routines.md). The docs say sessions can open but not merge PRs, so M1 now includes an auto-merge GitHub Action; CLAUDE.md notes it. New open unknown 2 for M1 to verify.
