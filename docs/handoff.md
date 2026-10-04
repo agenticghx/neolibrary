@@ -141,11 +141,13 @@ Useful commands:
 
 ## 4. Plans for the rest
 
-> **Update 2026-10-04 (laptop session): M11 is done and deployed** (PRs #38,
-> #39, #40: tokens on the Agent access page, the agent API under
-> `/api/agent/*`, the MCP server at `/api/agent/mcp`). M12 (a) (installable,
-> downloaded books open offline) is in progress; see `PROGRESS.md`. Read the
-> Playwright offline gotcha in its Log before testing anything offline.
+> **Update 2026-10-04 (laptop session): M11 and M12 are done and deployed;
+> all twelve milestones are complete.** M11: PRs #38, #39, #40 (tokens on the
+> Agent access page, the agent API under `/api/agent/*`, the MCP server at
+> `/api/agent/mcp`). M12: PRs #41, #42 (manifest and service worker,
+> "Download for offline", an IndexedDB outbox for notes made offline).
+> Version 1 now waits only on Samuel; see `PROGRESS.md`. The plans below are
+> kept for the record.
 
 **M11 · Agents can use it** (plan: "a test agent, using a token, lists books
 and adds a note that shows up in the reader"):
@@ -255,7 +257,31 @@ network returns):
   names, dates) on those pages.
 - The PR screenshot grid shows any `screenshots/<name>-<desktop|phone>-<light|dark>.png`.
 
+- **Offline tests:** `context.setOffline(true)` does not reach service
+  workers on its own, so a worker's fetches still get through and an
+  "offline" test passes while proving nothing. `playwright.config.ts` sets
+  `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` so it does, but even then
+  the worker's network came back after a page navigation. So
+  `e2e/offline.spec.ts` also aborts every request with
+  `context.route("**/*", …)`, which that setting makes apply to the worker's
+  requests too. Prove "offline" in each test: a page fetch of `/api/health`
+  must fail, and so must a worker fetch of an uncached `/_next/static/` file.
+- **Reference screenshots on the Mac:** they are rendered on Linux. Run
+  `npx playwright test --ignore-snapshots` locally; when a page in
+  `e2e/pages.ts` changes, let CI fail once, download the `playwright-report`
+  artifact (`gh run download <run> -n playwright-report`), look at each
+  `test-results/visual-…/<name>-actual.png`, copy them to
+  `e2e/__screenshots__/<name>-<look>.png` and push.
+
 **Process**
+- **Auto-merge only takes branches named `m…` or `claude/…`**
+  (`.github/workflows/auto-merge.yml`). Any other name (e.g. `deploy-…`)
+  stays open even when green; merge it yourself if every check passed.
+- **Deploys with a backup** (laptop): `pg_dump` runs inside Railway's
+  Postgres container through `ssh <service-ssh-id>@ssh.railway.com` (the id
+  comes from `railway ssh config --service Postgres --dry-run`), streamed to
+  `~/Backups/neolibrary/`, then restore-checked into a local Postgres. The
+  database has no public address on purpose; do not open one.
 - Network from the cloud container: npm and GitHub work. Anthropic,
   ElevenLabs, Wikimedia, OpenAI and the Railway site are blocked. So
   adapters are written from the official SDKs' type definitions (in

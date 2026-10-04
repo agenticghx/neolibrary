@@ -47,6 +47,14 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
 
 Never blocks the loop. Newest first.
 
+- **New on the live site since you last looked** (nothing to do, just so you
+  know): **Reading stats** (`/stats`, from the shelf footer) with your trend
+  and per-chapter suggestions; **Agent access** (from *Your data*) to make a
+  token and connect Claude to your library (the page shows the exact
+  `claude mcp add …` command with the live address); and **Download for
+  offline** in the reader (**Aa** → Offline), so a book opens with no
+  internet and notes made offline sync later.
+
 - **M7 real narration** (after the Railway deploy; `ELEVENLABS_API_KEY` is
   already on `web`): open one of your books on the live site, press
   **Listen** in the footer, play one paragraph, and say in a GitHub issue
@@ -112,7 +120,7 @@ Never blocks the loop. Newest first.
 ## Log
 
 ### 2026-10-04 14:50 UTC · Claude (laptop) · M12 merged and deployed; every milestone done; live health check ticked
-- **Done:** PR #42 (M12 (b)) merged with all four checks green, so **M12 is done and all twelve milestone boxes in `docs/done.md` are ticked** (on `main`). **Deployed** `c916909` after a backup: `~/Backups/neolibrary/prod-before-m12-20261004T1242Z.sql` (80,376 bytes), restore-checked (exit 0; 19 migrations, 1 user, 126 books). Live checks pass, so the live box "Railway URL serves `/api/health` and `/sign-in`" is ticked. Railway `web` has `ELEVENLABS_API_KEY` and the storage keys, but no `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY` and no price settings (variable *names* listed, no values read), so the remaining live boxes wait on Samuel exactly as listed. Rewrote "Exact next steps" to say plainly that version 1 now waits only on Samuel.
+- **Done:** PR #42 (M12 (b)) merged with all four checks green, so **M12 is done and all twelve milestone boxes in `docs/done.md` are ticked** (on `main`). **Deployed** `c916909` after a backup: `~/Backups/neolibrary/prod-before-m12-20261004T1242Z.sql` (80,376 bytes), restore-checked (exit 0; 19 migrations, 1 user, 126 books). Live checks pass, so the live box "Railway URL serves `/api/health` and `/sign-in`" is ticked. Railway `web` has `ELEVENLABS_API_KEY` and the storage keys, but no `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY` and no price settings (variable *names* listed, no values read), so the remaining live boxes wait on Samuel exactly as listed. Rewrote "Exact next steps" to say plainly that version 1 now waits only on Samuel. This ledger PR changes documentation only; the running site is `c916909`. Updated `docs/handoff.md` (§4 note: all milestones done; §5: the offline-test and screenshot gotchas, the auto-merge branch names, the backup recipe).
 - **Key paths:** `docs/done.md` (live box), `PROGRESS.md`
 - **Commands that worked:** `curl -s -w ' %{http_code}' $B/api/health` → `{"status":"ok","service":"neolibrary","commit":null} 200`; `curl -s -o /dev/null -w '%{http_code}' $B/sign-in` → `200`; `curl -sD - $B/manifest.webmanifest` → `HTTP/2 200`, `content-type: application/manifest+json`; `curl -sD - $B/sw.js` → `HTTP/2 200`, `cache-control: no-cache, no-store, must-revalidate`; `$B/icons/icon-512.png` → `200 image/png` (with `B=https://web-production-f27a0e.up.railway.app`).
 - **Known issues / blockers:** Only Samuel's items remain (see "Waiting on Samuel"). Railway auto-deploy is still not connected, so each merge needs a laptop deploy.
