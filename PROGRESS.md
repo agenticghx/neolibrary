@@ -121,6 +121,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 18:30 · Claude (laptop) · Fix: uploads over 10 MB arrived cut short (books too)
+- **Done:** While building the audiobook upload page, a reader agent found that Next.js runs `proxy.ts` (the sign-in check) before every request and by default passes on at most **10 MB** of a request body, cutting the rest off silently (`proxyClientMaxBodySize`, default 10485760). Proved it: a 12 MB read-along package zip arrived as "This is not a zip file", and a 12 MB EPUB upload failed too. So **book uploads over 10 MB have failed since M3**, although the shelf allows 200 MB. Fix: `experimental.proxyClientMaxBodySize` = 210 MB in `next.config.ts` (just above the 200 MB book and package limits). Also removed a doubled full stop in the importer's "not a read-along package" message.
+- **Key paths:** `next.config.ts`, `lib/readalong/importer.ts`, `e2e/readalong.spec.ts` (two new tests: a 12 MB package zip with the audio inside, a 12 MB padded EPUB)
+- **Commands that worked:** before the fix, `npx playwright test --project=readalong --ignore-snapshots` → `2 failed` ("This is not a read-along package: This is not a zip file.."); after → `173 passed (1.8m)`. `npm run check` → `Tests 270 passed | 2 skipped (272)`.
+- **Known issues / blockers:** The proxy now holds up to 210 MB of a request in memory, as the book route already did for the file itself. Large audio still goes in 8 MB parts.
+- **Exact next steps:** Deploy with the next release (it fixes the live site's book uploads over 10 MB); continue M13 (c3).
+
 ### 2026-10-04 16:56 · Claude (laptop) · K2: keep the STE skill copy in step with the original
 - **Done:** Added `scripts/sync-ste.mjs` (copies the 4 STE skill files from Samuel's original into `prompts/ste/`, prints which changed; `STE_SKILL_DIR` overrides the source) and `lib/ai/ste-sync.test.ts` (fails if a copy differs, telling the reader to run the script; skipped where the original folder is absent, e.g. GitHub). Ran the sync: all 4 files already matched, so the original has not changed since the 2026-10-03 copy. README in `prompts/ste/` explains both.
 - **Key paths:** `scripts/sync-ste.mjs`, `lib/ai/ste-sync.test.ts`, `prompts/ste/README.md`

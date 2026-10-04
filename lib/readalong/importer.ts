@@ -109,7 +109,7 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
     files = readPackageZip(zip);
     pkg = parsePackage(files);
   } catch (e) {
-    if (e instanceof PackageError) throw new ReadalongError(`This is not a read-along package: ${e.message}.`);
+    if (e instanceof PackageError) throw new ReadalongError(`This is not a read-along package: ${e.message.replace(/\.$/, "")}.`);
     throw e;
   }
   const inZip = Object.fromEntries(Object.entries(files).filter(([n]) => pkg.manifest.audio.some((a) => a.file === n)));
