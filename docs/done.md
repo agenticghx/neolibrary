@@ -73,7 +73,7 @@ deployed Railway URL.
 - [x] **M8** Voice notes with transcripts, stickers, handwriting saved and redrawn (PRs #25–#27)
 - [x] **M9** Wikimedia image search + generated-image fallback, pinned image cards (fakes) (PRs #28, #30 and the M9 (c) PR)
 - [x] **M10** Reading time and words-per-minute from a scripted session; own trends; per-chapter suggestions (PRs #34, #35 and the M10 (c) PR)
-- [ ] **M11** Token-protected API + MCP server; a test agent lists books and adds a note
+- [x] **M11** Token-protected API + MCP server; a test agent lists books and adds a note (PRs #38, #39 and the M11 (c) PR)
 - [ ] **M12** Installable offline app; offline highlight syncs when the network returns
 
 Live (needs the waiting items):

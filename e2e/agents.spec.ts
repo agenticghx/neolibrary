@@ -1,4 +1,6 @@
 import { mkdir } from "node:fs/promises";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { ADMIN, ADMIN_STATE } from "./pages";
@@ -140,4 +142,45 @@ test("an agent with a token lists books, searches, adds a note, and the reader s
       await page.screenshot({ path: `screenshots/reader-agent-note-${name}-${scheme}.png` });
     }
   }
+});
+
+// M11 (c): the same, through the MCP server, as an MCP client (like Claude) would.
+test("an MCP client with a token uses the four tools, and its note shows up in the reader", async ({ page }) => {
+  const base = test.info().project.use.baseURL!;
+  const connect = async (token?: string) => {
+    const client = new Client({ name: "e2e-agent", version: "1.0.0" });
+    const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
+    await client.connect(new StreamableHTTPClientTransport(new URL("/api/agent/mcp", base), { requestInit: { headers } }));
+    return client;
+  };
+  // No token, or a fake one: the server refuses to talk.
+  await expect(connect()).rejects.toThrow(/401|token/i);
+  await expect(connect("nl_not-a-real-token")).rejects.toThrow(/401|token/i);
+
+  await page.goto("/agents");
+  await expect(page.getByTestId("mcp-url")).toHaveValue(new URL("/api/agent/mcp", base).href);
+  await page.getByLabel("Which agent is it for?").fill("MCP agent");
+  await page.getByRole("button", { name: "Make a token" }).click();
+  const client = await connect(await page.getByTestId("new-token").inputValue());
+  const text = async (name: string, args: Record<string, unknown>) => {
+    const r = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    expect(r.isError ?? false).toBe(false);
+    return JSON.parse(r.content[0].text);
+  };
+  expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual(["add_note", "get_notes", "list_books", "search_text"]);
+  const { books } = await text("list_books", { query: "wells" });
+  expect(books.map((b: { title: string }) => b.title)).toEqual(["The Time Machine"]);
+  const tm = books[0].id as string;
+  const { results } = await text("search_text", { query: '"recondite matter"', limit: 5 });
+  const hit = results.find((r: { bookId: string }) => r.bookId === tm);
+  const { note } = await text("add_note", { bookId: tm, text: "The Time Traveller begins his explanation here.", sectionId: hit.sectionId });
+  expect(note).toMatchObject({ addedByAgent: "MCP agent", sectionId: hit.sectionId });
+  expect((await text("get_notes", { bookId: tm })).notes).toContainEqual(expect.objectContaining({ id: note.id, addedByAgent: "MCP agent" }));
+  await client.close();
+
+  await page.goto(`/books/${tm}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const item = page.getByTestId("notes").getByRole("listitem").filter({ hasText: "The Time Traveller begins his explanation here." });
+  await expect(item.getByTestId("note-agent")).toHaveText("Added by agent · MCP agent");
 });
