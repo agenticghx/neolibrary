@@ -40,18 +40,29 @@ describe("the cost counter (M7)", () => {
     expect(report.services).toEqual([
       expect.objectContaining({ provider: "anthropic", calls: 2, capUsd: 20, perBookCapUsd: 5 }),
       expect.objectContaining({ provider: "elevenlabs", calls: 1, capUsd: 20, perBookCapUsd: 5 }),
+      expect.objectContaining({ provider: "openai", calls: 0, spentUsd: 0, capUsd: 20, perBookCapUsd: 5 }),
     ]);
     expect(report.services[0].spentUsd).toBeCloseTo(r1.generation.provenance.costUsd + r2.generation.provenance.costUsd);
     expect(report.services[1].spentUsd).toBeCloseTo(t1.track.costUsd);
-    expect(report.books).toEqual([{ bookId: mine, title: "The Strange Case of Dr. Jekyll and Mr. Hyde", ai: r1.generation.provenance.costUsd, voice: t1.track.costUsd }]);
-    expect(report.others.ai).toBeCloseTo(r2.generation.provenance.costUsd);
-    expect(report.others.voice).toBe(0);
+    expect(report.books).toEqual([
+      {
+        bookId: mine,
+        title: "The Strange Case of Dr. Jekyll and Mr. Hyde",
+        byProvider: { anthropic: r1.generation.provenance.costUsd, elevenlabs: t1.track.costUsd },
+      },
+    ]);
+    expect(report.others).toEqual({ anthropic: r2.generation.provenance.costUsd });
 
     // Next month starts from nothing; caps follow the settings.
-    const next = await costReport(database.db, adminId, new Date(Date.UTC(2099, 0, 15)), { AI_CAP_PER_MONTH_USD: "50", VOICE_CAP_PER_MONTH_USD: "7.5" });
+    const next = await costReport(database.db, adminId, new Date(Date.UTC(2099, 0, 15)), {
+      AI_CAP_PER_MONTH_USD: "50",
+      VOICE_CAP_PER_MONTH_USD: "7.5",
+      IMAGE_CAP_PER_MONTH_USD: "3",
+    });
     expect(next.services.map((s) => [s.spentUsd, s.calls, s.capUsd])).toEqual([
       [0, 0, 50],
       [0, 0, 7.5],
+      [0, 0, 3],
     ]);
     expect(next.books).toEqual([]);
   });

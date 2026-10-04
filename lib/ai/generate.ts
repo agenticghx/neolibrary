@@ -17,8 +17,8 @@ import { sha256 } from "./prompts";
  */
 export type Caps = { perBookUsd: number; perMonthUsd: number };
 
-/** Caps from settings: AI_CAP_… for text AI, VOICE_CAP_… for reading aloud. $5 per book and $20 per month unless set. */
-export function capsFromEnv(env: Record<string, string | undefined> = process.env, prefix: "AI" | "VOICE" = "AI"): Caps {
+/** Caps from settings: AI_CAP_… for text AI, VOICE_CAP_… for voice, IMAGE_CAP_… for pictures. $5 per book and $20 per month unless set. */
+export function capsFromEnv(env: Record<string, string | undefined> = process.env, prefix: "AI" | "VOICE" | "IMAGE" = "AI"): Caps {
   const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : d);
   return { perBookUsd: num(env[`${prefix}_CAP_PER_BOOK_USD`], 5), perMonthUsd: num(env[`${prefix}_CAP_PER_MONTH_USD`], 20) };
 }
@@ -117,7 +117,7 @@ export async function spending(db: Db, provider: string, bookId: string | null, 
 /** Throws if spending `estimate` more would pass a cap. */
 export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
   const spent = await spending(db, provider, bookId, now);
-  const env = label === "AI" ? "AI" : "VOICE";
+  const env = label === "AI" ? "AI" : label === "image" ? "IMAGE" : "VOICE";
   if (spent.month + estimate > caps.perMonthUsd) {
     throw new SpendingCapReached(
       `This month's ${label} spending cap (${usd(caps.perMonthUsd)}) has been reached (${usd(spent.month)} spent). It resets on the 1st, or the owner can raise ${env}_CAP_PER_MONTH_USD.`,

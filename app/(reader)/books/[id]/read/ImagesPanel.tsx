@@ -8,11 +8,18 @@ import styles from "./reader.module.css";
  * "See it" (M9): pictures of a word or phrase from Wikimedia Commons, each
  * with its credit and licence on the card.
  */
-export function ImagesPanel({ initialQuery }: { initialQuery: string }) {
+type Picture = { id: string; subject: string; url: string; model: string; costUsd: number; createdAt: string };
+
+const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+export function ImagesPanel({ bookId, initialQuery }: { bookId: string; initialQuery: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [searched, setSearched] = useState(initialQuery);
   const [results, setResults] = useState<ImageResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [picture, setPicture] = useState<{ picture: Picture | null; estimate: number | null } | null>(null);
+  const [making, setMaking] = useState(false);
+  const [pictureError, setPictureError] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -29,10 +36,34 @@ export function ImagesPanel({ initialQuery }: { initialQuery: string }) {
         }
       })
       .catch(() => live && setError("Images could not be found."));
+    // A picture already made for this subject, and what making one would cost.
+    fetch(`/api/books/${bookId}/pictures?${new URLSearchParams({ subject: searched })}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => live && setPicture(body))
+      .catch(() => {});
     return () => {
       live = false;
     };
-  }, [searched]);
+  }, [searched, bookId]);
+
+  const make = async () => {
+    setMaking(true);
+    setPictureError(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/pictures`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subject: searched }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "The picture could not be made.");
+      setPicture((p) => ({ estimate: p?.estimate ?? null, picture: body.picture }));
+    } catch (e) {
+      setPictureError((e as Error).message);
+    } finally {
+      setMaking(false);
+    }
+  };
 
   return (
     <section className={styles.panel} aria-label="See it">
@@ -88,6 +119,34 @@ export function ImagesPanel({ initialQuery }: { initialQuery: string }) {
             </li>
           ))}
         </ul>
+      ) : null}
+      {picture?.picture ? (
+        <aside className={styles.machine} aria-label="Generated image" data-testid="generated-picture">
+          <p className={styles.machineLabel}>Generated image · made by AI, not a photograph</p>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a stored picture behind a signed link */}
+          <img src={picture.picture.url} alt={`Generated picture of ${picture.picture.subject}`} className={styles.imageThumb} />
+          <p className={styles.provenance}>
+            {picture.picture.model} · {when(picture.picture.createdAt)} · ${picture.picture.costUsd.toFixed(2)}
+          </p>
+        </aside>
+      ) : picture && results ? (
+        <div className={styles.makePicture}>
+          <p className={styles.hint}>No good picture? Make one with AI. It is labelled as generated wherever it appears.</p>
+          {picture.estimate === null ? (
+            <p className={styles.hint}>Making pictures is not set up yet: the owner needs to add an OpenAI API key.</p>
+          ) : (
+            <div className={styles.noteActions}>
+              <button type="button" className={styles.primaryTool} disabled={making} onClick={() => void make()}>
+                {making ? "Making the picture…" : `Make a picture of “${searched}” (about $${picture.estimate.toFixed(2)})`}
+              </button>
+            </div>
+          )}
+          {pictureError ? (
+            <p className={styles.formError} role="alert">
+              {pictureError}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );
