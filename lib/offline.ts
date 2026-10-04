@@ -3,7 +3,7 @@
  * into the caches the service worker (public/sw.js) answers from when the
  * network is gone: the reader page, the book file (by path, since its signed
  * link expires), the book's notes, and the app's own files that the open
- * reader page has loaded. Cache names must match public/sw.js.
+ * reader page has loaded (for a PDF, all of the PDF viewer's files too). Cache names must match public/sw.js.
  */
 export const BOOKS = "neolibrary-offline-books-v1";
 export const ASSETS = "neolibrary-offline-assets-v1";
@@ -32,7 +32,14 @@ function loadedAssets() {
   });
 }
 
-export async function downloadForOffline(bookId: string, fileUrl: string) {
+/** pdf.js, which shows PDF books: every file of it (about 5 MB, kept once per device). */
+async function pdfViewerFiles(): Promise<string[]> {
+  const res = await fetch("/pdfjs/files.json", { cache: "no-store" });
+  if (!res.ok) throw new Error("Could not download the PDF viewer.");
+  return ((await res.json()) as string[]).map((f) => absolute(`/pdfjs/${f.split("/").map(encodeURIComponent).join("/")}`));
+}
+
+export async function downloadForOffline(bookId: string, fileUrl: string, fileType: "epub" | "pdf" = "epub") {
   const books = await caches.open(BOOKS);
   const assets = await caches.open(ASSETS);
   const get = async (url: string) => {
@@ -43,7 +50,12 @@ export async function downloadForOffline(bookId: string, fileUrl: string) {
   const file = new URL(fileUrl, location.origin);
   await books.put(file.origin + file.pathname, await get(fileUrl));
   await books.put(absolute(`/api/books/${bookId}/annotations`), await get(`/api/books/${bookId}/annotations`));
-  await Promise.all(loadedAssets().map(async (u) => assets.put(u, await get(u))));
+  const appFiles = loadedAssets();
+  if (fileType === "pdf") {
+    // Already kept for another PDF: skip those.
+    for (const u of await pdfViewerFiles()) if (!(await assets.match(u))) appFiles.push(u);
+  }
+  await Promise.all([...new Set(appFiles)].map(async (u) => assets.put(u, await get(u))));
   // The page last: its presence means "downloaded".
   await books.put(absolute(readerPath(bookId)), await get(readerPath(bookId)));
 }

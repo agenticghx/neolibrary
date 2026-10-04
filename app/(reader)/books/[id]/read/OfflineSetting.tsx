@@ -7,7 +7,7 @@ import styles from "./reader.module.css";
 type State = "checking" | "online-only" | "working" | "downloaded" | "unsupported";
 
 /** "Download for offline" (M12): keeps this book, its notes and the reader on this device. */
-export function OfflineSetting({ bookId, fileUrl }: { bookId: string; fileUrl: string }) {
+export function OfflineSetting({ bookId, fileUrl, fileType }: { bookId: string; fileUrl: string; fileType: "epub" | "pdf" }) {
   const [state, setState] = useState<State>("checking");
   const [error, setError] = useState<string | null>(null);
 
@@ -50,12 +50,15 @@ export function OfflineSetting({ bookId, fileUrl }: { bookId: string; fileUrl: s
         </>
       ) : (
         <>
-          <p className={styles.hint}>Keep this book on this device to read it with no internet.</p>
+          <p className={styles.hint}>
+            Keep this book on this device to read it with no internet.
+            {fileType === "pdf" ? " The first PDF also keeps the PDF viewer (about 5 MB)." : ""}
+          </p>
           <button
             type="button"
             className={styles.primaryTool}
             disabled={state === "working"}
-            onClick={() => void run(() => downloadForOffline(bookId, fileUrl), "downloaded", "online-only")}
+            onClick={() => void run(() => downloadForOffline(bookId, fileUrl, fileType), "downloaded", "online-only")}
           >
             {state === "working" ? "Downloading…" : "Download for offline"}
           </button>

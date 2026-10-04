@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the offline edits PR, build PDFs offline, deploy both with a backup first
+next_action: Land the PDFs-offline PR, then deploy both offline fixes with a backup first
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -39,9 +39,9 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
    Postgres container through `ssh.railway.com`, restore-check into a local
    Postgres), then `railway up --service web --ci`, then check
    `/api/health` and `/sign-in`.
-4. In progress (Samuel asked, 2026-10-04): offline edits and removals
-   (branch `m12-offline-edits`, PR open), then PDFs offline (branch
-   `m12-offline-pdf`). Deploy after both (backup first).
+4. In progress (Samuel asked, 2026-10-04): offline edits and removals are
+   merged (#44); PDFs offline is on branch `m12-offline-pdf` (PR open).
+   Deploy after it merges (backup first).
 5. Worth doing later: a rate limit on `/api/agent/*`.
 
 ## Waiting on Samuel
@@ -119,6 +119,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 15:50 UTC · Claude (laptop) · PDFs readable offline (Samuel's request)
+- **Done:** PR #44 (offline edits and removals) merged with all four checks green. Second gap: **PDF books can now be downloaded for offline.** pdf.js, the PDF viewer, loads its worker, standard fonts and character maps from `/pdfjs/`, some only when a later page needs them. So `scripts/copy-pdfjs.mjs` (run before every build) now also writes `public/pdfjs/files.json`, listing all 186 files. For a PDF, "Download for offline" keeps every file on that list (about 4.7 MB, once per device; files already kept for another PDF are skipped), plus the page, the PDF and its notes as for EPUBs. The setting now shows for PDFs, with the note "The first PDF also keeps the PDF viewer (about 5 MB)". The service worker already answered `/pdfjs/` from the cache when offline.
+- **Key paths:** `scripts/copy-pdfjs.mjs`, `lib/offline.ts` (`pdfViewerFiles`), `app/(reader)/books/[id]/read/{OfflineSetting,Reader}.tsx`, `e2e/offline.spec.ts`
+- **Commands that worked:** `node scripts/copy-pdfjs.mjs` → `public/pdfjs/files.json lists 186 files`; `npm run check` → `Tests 233 passed | 2 skipped (235)`; `npx playwright test --ignore-snapshots` → `168 passed (1.6m)`, twice. The new browser test downloads the uploaded "Discourse on the Method" PDF and checks that **all 186 viewer files are in the device cache**. It then turns the network off (offline mode plus every request refused) and loads the page in full. The PDF opens at its saved page, turns to page 3 (not shown in this browser before), and that page's text ("vigorous mind") is there. The page, the PDF file and `/pdfjs/pdf.worker.min.mjs` were each tried on the network, refused, and served from the device.
+- **Known issues / blockers:** None new. Deploy pending (laptop, backup first).
+- **Exact next steps:** Land this PR, deploy (backup first), check live.
 
 ### 2026-10-04 15:20 UTC · Claude (laptop) · Offline edits and removals of notes (Samuel's request)
 - **Done:** Samuel asked to fix the two offline gaps. This is the first: **editing or removing a note while offline** now works like creating one. On the server, an edit (`PATCH /api/annotations/:id` with `changeId`) or removal (`DELETE …?changeId=`) may carry a browser-chosen id, which becomes the new version row's id (every version already has its own id, so **no migration**). Sending the same change again adds nothing and returns the note as it stands; a change id used on another note, or not a uuid, is refused. In the browser, the outbox (`lib/outbox.ts`) holds three kinds of item: create, edit and remove, sent in the order they were made. While offline, an edited note shows its new text with "On this device · syncs when you are back online", and a removed one disappears; both survive a reload. Editing or removing a note that was itself made offline just changes or drops the waiting item. The Edit button is no longer hidden for waiting notes. The reader remembers in memory which notes were made offline, so ordinary saves still go straight to the server with no extra step. An older test (`annotations.spec.ts`, reads history right after Save) failed when an extra database lookup came first; I removed the delay rather than loosen that test.
