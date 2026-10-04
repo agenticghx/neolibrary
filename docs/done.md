@@ -78,7 +78,7 @@ deployed Railway URL.
 
 Live (needs the waiting items):
 
-- [ ] Railway URL serves `/api/health` and `/sign-in`
+- [x] Railway URL serves `/api/health` and `/sign-in` (checked 2026-10-04 after the M12 deploy; output in the PROGRESS.md Log)
 - [ ] Samuel can sign in on the live site and invite someone
 - [ ] One real Claude call per M6 feature pasted into the Log
 - [ ] One real section narrated by ElevenLabs and played on the live site
