@@ -4,6 +4,7 @@ import "@fontsource-variable/source-serif-4/opsz-italic.css";
 import "@fontsource-variable/source-sans-3/wght.css";
 import "./tokens.css";
 import "./globals.css";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 export const metadata: Metadata = {
   title: { default: "Neolibrary", template: "%s · Neolibrary" },
@@ -21,7 +22,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }

@@ -1,6 +1,12 @@
 import { defineConfig } from "@playwright/test";
 import { ADMIN_STATE, SETUP_CODE } from "./e2e/pages";
 
+// Without this, Playwright's offline mode (context.setOffline) does not reach
+// service workers: a worker's own fetches still get through, so an "offline"
+// test would pass while proving nothing (checked 2026-10-04 with Playwright
+// 1.56.1). With it, they fail like a real network outage.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= "1";
+
 const port = Number(process.env.PORT ?? 3100);
 const phone = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
 const desktop = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 };
@@ -65,6 +71,8 @@ export default defineConfig({
     { name: "stats", testMatch: /stats\.spec\.ts/, dependencies: ["images"], use: { ...desktop } },
     // 12. Agents: API tokens (M11).
     { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
+    // 13. Offline (M12): service worker, download for offline.
+    { name: "offline", testMatch: /offline\.spec\.ts/, dependencies: ["agents"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ActionForm, Field } from "@/components/ActionForm";
 import { AuthShell } from "@/components/AuthShell";
+import { ClearOffline } from "@/components/ClearOffline";
 import styles from "@/components/forms.module.css";
 import { currentUser, safeNext } from "@/lib/auth/session";
 import { signInAction } from "../actions";
@@ -19,6 +20,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         <Field label="Password" name="password" type="password" autoComplete="current-password" />
       </ActionForm>
       <p className={styles.note}>New here? Use the invitation link you were sent.</p>
+      <ClearOffline />
     </AuthShell>
   );
 }

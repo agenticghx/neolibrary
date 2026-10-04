@@ -13,7 +13,7 @@ import { agentUnauthorised } from "@/lib/auth/agent-401";
 //    carry this request's nonce) may run. Books can contain JavaScript; the
 //    reader shows them in blob: frames, which inherit this policy, so their
 //    scripts are blocked (foliate-js requires this).
-const PUBLIC = [/^\/sign-in$/, /^\/setup$/, /^\/invite\/[^/]+$/, /^\/api\/health$/];
+const PUBLIC = [/^\/sign-in$/, /^\/setup$/, /^\/invite\/[^/]+$/, /^\/api\/health$/, /^\/sw\.js$/, /^\/manifest\.webmanifest$/];
 
 export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV === "development") {
   return [
@@ -63,5 +63,5 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|fonts/).*)"],
+  matcher: ["/((?!_next/static|_next/image|icon.svg|icons/|favicon.ico|fonts/).*)"],
 };
