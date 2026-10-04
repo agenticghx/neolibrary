@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M11 (b) PR, then build M11 (c) the MCP server on the same agent functions
+next_action: Land the M11 (c) PR (CI-rendered agents-* screenshots), deploy M11 with a backup first, then start M12 offline
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,16 +24,19 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M11 (b) PR** (branch `m11-agent-api`): make its checks green; no
-   reference screenshots change (only the reader's Notes panel, which is not
-   in `e2e/pages.ts`). Auto-merge lands it.
-2. **M11 (c) MCP server** (the standard plug for AI agents): run
-   `npm view @modelcontextprotocol/sdk version` and read its README in
-   `node_modules` before choosing the transport. Tools `list_books`,
-   `search_text`, `get_notes`, `add_note` wrapping `lib/agent/library.ts`
-   (the same functions the HTTP agent API uses), authenticated with the same
-   Bearer token. Then tick M11 and go on to **M12** (offline PWA and sync).
-3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
+1. **M11 (c) PR** (branch `m11-mcp`): the first CI run should fail only on
+   the four `agents-*` reference screenshots (the page gained "Connect an
+   agent"). Take CI's images from the `playwright-report` artifact, look at
+   each, copy to `e2e/__screenshots__/`, push; auto-merge lands it. M11 is then done.
+2. **Deploy M11** (laptop): back up the database first (recipe in the
+   2026-10-04 11:40 entry), then `railway up --service web --ci`. Migrations
+   0018 and 0019 run. Check `/api/health`, and that `/api/agent/me` without a
+   token answers 401 JSON.
+3. **M12 · Read anywhere (offline)**: plan in `docs/handoff.md` §4 (web app
+   manifest, a small hand-written service worker, "Download for offline",
+   an IndexedDB outbox for notes made offline, Playwright with
+   `context.setOffline`).
+4. **Every deploy** (laptop only, until Railway auto-deploy is connected):
    back up first, then `railway up --service web --ci`. The backup recipe
    that worked is in the 2026-10-04 11:40 Log entry.
 
@@ -104,6 +107,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 13:25 UTC · Claude (laptop) · M11 (c): the MCP server; M11 ticked
+- **Done:** PR #39 (M11 (b)) merged with all four checks green. M11 (c) on `m11-mcp`: an **MCP server** (MCP is the Model Context Protocol, the standard way AI agents such as Claude plug into tools) at **`/api/agent/mcp`**. It uses the official TypeScript SDK `@modelcontextprotocol/sdk` 1.32.0 (the current version, checked with `npm view`; `zod` 4.6.5 added as its required companion) and its "web standard" Streamable HTTP transport in **stateless** mode: every request builds a server for the token's user and nothing is kept between requests, so it works on any number of app instances; answers are JSON. Four tools wrap `lib/agent/library.ts`: `list_books`, `search_text`, `get_notes`, `add_note`. Each has a description and input schema written for a model; read-only tools say so. Mistakes come back as readable tool errors ("Book not found.", "Use a sectionId from a search result"). It sits behind the same Bearer token gate, and notes it adds carry the token's name. The **Agent access** page now has "Connect an agent": the MCP address, built from the site's own host, and the Claude Code command `claude mcp add --transport http neolibrary <address> --header "Authorization: Bearer YOUR_TOKEN"` (syntax checked with `claude mcp add --help`). **M11 ticked** in `docs/done.md`.
+- **Key paths:** `lib/agent/mcp.ts`, `lib/agent/mcp.test.ts`, `app/api/agent/mcp/route.ts`, `app/(app)/agents/page.tsx`, `e2e/agents.spec.ts`, `package.json` (`@modelcontextprotocol/sdk`, `zod`)
+- **Commands that worked:** `npm run check` → `Tests 231 passed | 2 skipped (233)` (MCP over the SDK's in-memory link: the four tools and their schemas, the full list, search, add and read flow with provenance, errors explained); `npx playwright test --ignore-snapshots` → `162 passed (1.5m)`. **Over real HTTP**, the SDK's own client (`StreamableHTTPClientTransport`) cannot connect without a token or with a fake one (401). With a token made in the UI it lists the four tools, `list_books {query:"wells"}` gives The Time Machine, `search_text '"recondite matter"'` finds the paragraph, and `add_note` on it returns `addedByAgent: "MCP agent"`, which `get_notes` reads back. The reader's Notes panel then shows "Added by agent · MCP agent". `screenshots/agents-tokens-*` checked by eye (the command now wraps in a text box on phones).
+- **Known issues / blockers:** Claude Desktop's own "custom connector" screen expects OAuth sign-in rather than a header, so the page gives the Claude Code command; any MCP client that can send a header works. M11 is not deployed yet (next step, with a backup first).
+- **Exact next steps:** Land this PR (CI screenshots), deploy with a backup, then M12.
 
 ### 2026-10-04 12:55 UTC · Claude (laptop) · M11 (b): the agent API, with agent notes marked in the reader
 - **Done:** PR #38 (M11 (a)) merged with all four checks green, after committing the eight CI-rendered `agents-*`/`data-*` reference screenshots (each looked at first). M11 (b) on `m11-agent-api`: with a token, an agent can now **list books** (`GET /api/agent/books?q=`), **search the text** (`GET /api/agent/search?q=&limit=`, matches wrapped in `**…**`, each with a `sectionId`), **read notes** (`GET /api/agent/books/:id/notes`) and **add a note** (`POST /api/agent/books/:id/notes` with `{ text, sectionId? }`). With a `sectionId` the note is a sky-blue highlight over that whole paragraph; without one it is a note on the book. The logic lives in `lib/agent/library.ts`, so the MCP server in (c) reuses it. **Provenance (ground rule 5):** every agent note records the token's name (migration `0019_annotation_agent` adds `annotations.agent`). Its reverse step writes "(Added by agent: name)" into the note text before dropping the column, and a test proves it. The Notes panel shows **"Added by agent · name"** with the note in the dashed machine style. Markdown adds "(Added by agent: name)", W3C uses the standard `creator: { type: "Software", name }`, and the library export carries `agent`; all three round-trip. The browser's own annotation route cannot set `agent` (it is a separate server-only argument). Two bugs found on the way: (1) `sectionForCfi` filed a note made from a paragraph's own CFI under the *previous* paragraph (an element CFI was compared as if it pointed before the paragraph); fixed by comparing both sides as "first character". (2) foliate does not draw a highlight for a bare paragraph CFI, so agent notes store a range over the paragraph (`…,/178/1:0,/179:0`), and it now draws (checked by eye).
