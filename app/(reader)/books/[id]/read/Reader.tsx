@@ -164,6 +164,8 @@ export function Reader(props: {
     trackerRef.current = tracker;
   });
   const whereCfi = useRef<string | null>(props.initialCfi);
+  /** Read aloud asked for the next page and it has not arrived yet. */
+  const turning = useRef(false);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
@@ -295,6 +297,7 @@ export function Reader(props: {
           const d = (e as CustomEvent<Relocate>).detail;
           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
           whereCfi.current = d.cfi;
+          turning.current = false;
           visibleText.current = clean(d.range?.toString() ?? "");
           const label = d.tocItem?.label?.trim() ?? "";
           const chapterKey = d.tocItem?.href ?? label;
@@ -642,7 +645,10 @@ export function Reader(props: {
     const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
     const visible = whereCfi.current;
-    if (visible && CFI.compare(v.getCFI(index, range), CFI.collapse(visible, true)) > 0) void v.next();
+    if (visible && !turning.current && CFI.compare(v.getCFI(index, range), CFI.collapse(visible, true)) > 0) {
+      turning.current = true;
+      void v.next();
+    }
     return range.toString();
   };
 

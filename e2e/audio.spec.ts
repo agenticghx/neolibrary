@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectHighlightKeepsUp } from "./listen";
 import { ADMIN_STATE } from "./pages";
 
 // M7 (a): reading aloud through the API, with the fake voice (AI_FAKE=1 in
@@ -131,6 +132,16 @@ test("the player reads aloud, highlights the word the timings say, and reads on 
   await bar.getByRole("button", { name: "Stop reading aloud" }).click();
   await expect(bar).toHaveCount(0);
   expect(await spoken(page)).toBeNull();
+});
+
+// Samuel (2026-10-04): the highlight did not keep up with the voice.
+test("while playing, the highlight lands on every word in order, on time", async ({ page }) => {
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Saved audio: free to play.");
+  await expectHighlightKeepsUp(page, "That evening, Mr. Utterson came home to his bachelor house in sombre spirits and sat down to dinner without relish.");
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
 });
 
 test("the player is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectHighlightKeepsUp } from "./listen";
 import { ADMIN_STATE } from "./pages";
 
 // The reader in Safari's engine (WebKit). On 2026-10-04 books never opened in
@@ -34,4 +35,16 @@ test("an EPUB opens in Safari, shows its text and turns pages", async ({ page })
 test("a PDF opens in Safari", async ({ page }) => {
   await page.goto(`/books/${await bookId(page, "Discourse on the Method")}/read`);
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+});
+
+// Samuel (2026-10-04, in Safari): the read-aloud highlight did not keep up
+// with the voice. Chapter V of Frankenstein, the paragraph he was listening to.
+test("in Safari, the read-aloud highlight lands on every word in order, on time", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"instruments of life around me"')}`);
+  await page.getByRole("region", { name: /Frankenstein/ }).getByRole("link").filter({ hasText: "instruments" }).first().click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
+  await expectHighlightKeepsUp(page, "It was on a dreary night of November, that I beheld the accomplishment of my toils. With an anxiety that almost amounted to agony,");
 });
