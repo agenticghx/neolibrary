@@ -23,8 +23,21 @@ export class FakeModel implements TextModel {
 function fakeAnswer(req: TextRequest) {
   const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   const task = /^Task: (.+)$/m.exec(req.prompt)?.[1] ?? "answer";
+  if (req.schema) return JSON.stringify(fakeConcepts(text));
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
   const answer = `Fake ${task.toLowerCase()}: ${sentences.slice(0, 2).join(" ").replace(/\s+/g, " ").trim()}`;
   // STE answers carry a notes section, like the real prompt asks for.
   return /STE/.test(task) ? `${answer}\n---notes---\n- The test AI chose no meanings; this note shows where real ones go.` : answer;
+}
+
+/** Prerequisites: the first few capitalised words of the text, as made-up concepts. */
+function fakeConcepts(text: string) {
+  const names = [...new Set(text.match(/\b[A-Z][a-z]{3,}\b/g) ?? [])].slice(0, 3);
+  return {
+    concepts: names.map((name) => ({
+      name,
+      explanation: `A made-up explanation of ${name} from the test AI. The real one comes from Claude.`,
+      read_more: name,
+    })),
+  };
 }

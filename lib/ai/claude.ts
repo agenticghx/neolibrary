@@ -29,7 +29,7 @@ export class ClaudeModel implements TextModel {
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
         thinking: { type: "adaptive", display: "omitted" },
-        output_config: { effort: req.effort },
+        output_config: req.schema ? { effort: req.effort, format: { type: "json_schema", schema: req.schema } } : { effort: req.effort },
         system: req.system,
         messages: [{ role: "user", content: req.prompt }],
       });

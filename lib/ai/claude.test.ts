@@ -50,6 +50,14 @@ describe("ClaudeModel", () => {
     });
   });
 
+  it("asks for structured output (JSON matching a schema) when given one", async () => {
+    const api = fakeApi(message({ content: [{ type: "text", text: '{"concepts":[]}' }] }));
+    const schema = { type: "object", properties: { concepts: { type: "array" } }, required: ["concepts"], additionalProperties: false };
+    const out = await new ClaudeModel(KEY, undefined, { fetch: api.fetch }).generate({ ...req, effort: "medium", schema });
+    expect(out.text).toBe('{"concepts":[]}');
+    expect(api.requests[0].body.output_config).toEqual({ effort: "medium", format: { type: "json_schema", schema } });
+  });
+
   it("records the model that actually answered when a fallback stepped in", async () => {
     const api = fakeApi(message({ model: "claude-opus-4-8" }));
     const out = await new ClaudeModel(KEY, undefined, { fetch: api.fetch }).generate(req);
