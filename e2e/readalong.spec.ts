@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { zipSync } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 import { extractSections } from "@/lib/library/sections";
 import { buildPackage } from "@/lib/readalong/fixture";
 import { ADMIN_STATE } from "./pages";
@@ -65,4 +65,42 @@ test("an audiobook package is uploaded in parts, checked, and becomes read-aloud
   const after = await (await page.request.get("/api/export")).json();
   expect(after.audioTracks.filter((t: { importId: string | null }) => t.importId === imp.id)).toEqual([]);
   expect((await (await page.request.get(`/api/books/${bookId}/readalong`)).json()).imports).toEqual([]);
+});
+
+// Next.js runs proxy.ts (the sign-in gatekeeper) on every request, and by
+// default it passes on at most 10 MB of a request body. A package zip with
+// its audio inside can be larger, so this sends one of about 12 MB.
+test("a package .zip larger than 10 MB, audio inside, arrives whole", async ({ page }) => {
+  await page.goto("/shelf");
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
+  const paragraphs = extractSections(BOOK).filter((s) => s.kind === "paragraph").slice(40, 140);
+  const { files } = buildPackage({
+    bookBytes: BOOK,
+    chapters: [{ title: "Long", paragraphs: paragraphs.map((p) => p.text), inBook: paragraphs.map((p) => p.chapterIndex) }],
+  });
+  const zip = zipSync(files, { level: 0 });
+  expect(zip.byteLength).toBeGreaterThan(10 * 1024 * 1024 + 1);
+  const res = await page.request.post(`/api/books/${bookId}/readalong`, { data: Buffer.from(zip), headers: { "content-type": "application/zip" } });
+  const body = await res.json();
+  expect(body.error ?? null).toBeNull();
+  expect(res.status()).toBe(201);
+  expect(body.import.status).toBe("ready");
+  expect((await page.request.delete(`/api/books/${bookId}/readalong/${body.import.id}`)).status()).toBe(204);
+});
+
+// The same 10 MB cut applied to book uploads (the shelf allows books up to
+// 200 MB): a 12 MB EPUB, the Jekyll and Hyde file padded with an unused file.
+test("a book file larger than 10 MB uploads whole", async ({ page }) => {
+  await page.goto("/shelf");
+  const padded = unzipSync(BOOK);
+  padded["OEBPS/padding.bin"] = Uint8Array.from({ length: 12 * 1024 * 1024 }, (_, i) => (i * 2654435761) >>> 24);
+  const epub = zipSync(padded, { level: 0 });
+  expect(epub.byteLength).toBeGreaterThan(10 * 1024 * 1024 + 1);
+  const res = await page.request.post("/api/books", {
+    multipart: { files: { name: "padded-jekyll.epub", mimeType: "application/epub+zip", buffer: Buffer.from(epub) } },
+  });
+  const body = await res.json();
+  expect(body.results?.[0] ?? body).toMatchObject({ file: "padded-jekyll.epub" });
+  expect(["added", "attached", "duplicate"]).toContain((body.results?.[0] ?? body).status);
 });
