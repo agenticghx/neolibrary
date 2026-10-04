@@ -11,6 +11,7 @@ import { PEN_PATHS } from "@/lib/library/drawings";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ListenBar } from "./ListenBar";
+import { useReadingTracker } from "./useReadingTracker";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
@@ -150,6 +151,11 @@ export function Reader(props: {
   const [imagesAt, setImagesAt] = useState<PendingSelection | null>(null);
   const [links, setLinks] = useState<CrossLink[]>([]);
   const [listening, setListening] = useState(false);
+  const tracker = useReadingTracker(props.bookId, listening);
+  const trackerRef = useRef(tracker);
+  useEffect(() => {
+    trackerRef.current = tracker;
+  });
   const whereCfi = useRef<string | null>(props.initialCfi);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
@@ -276,6 +282,7 @@ export function Reader(props: {
           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
           whereCfi.current = d.cfi;
           visibleText.current = clean(d.range?.toString() ?? "");
+          trackerRef.current.onPage(CFI.collapse(d.cfi), visibleText.current);
           pending.current = d;
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => {
@@ -286,6 +293,8 @@ export function Reader(props: {
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
           doc.addEventListener("keydown", onKey);
+          doc.addEventListener("keydown", () => trackerRef.current.onActivity());
+          doc.addEventListener("pointerdown", () => trackerRef.current.onActivity());
           // A text selection opens the selection bar (highlight, note, copy).
           let t: ReturnType<typeof setTimeout> | null = null;
           doc.addEventListener("selectionchange", () => {

@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, collectionBooks, collections, generations, paths, pillars, questionMarks, slots, users } from "@/lib/db/schema";
+import { annotations, audioTracks, books, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -125,6 +125,8 @@ export type LibraryExport = {
     words: [number, number, number, number][];
     createdAt: string;
   }[];
+  /** Reading sittings for the statistics (added in M10). */
+  readingSessions?: { id: string; bookId: string; startedAt: string; endedAt: string; activeSeconds: number; words: number; pages: number }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -171,6 +173,11 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(audioTracks)
     .where(eq(audioTracks.ownerId, ownerId))
     .orderBy(asc(audioTracks.createdAt), asc(audioTracks.id));
+  const sessionRows = await db
+    .select()
+    .from(readingSessions)
+    .where(eq(readingSessions.ownerId, ownerId))
+    .orderBy(asc(readingSessions.startedAt), asc(readingSessions.id));
   const [settings] = await db.select({ aiStyle: users.aiStyle }).from(users).where(eq(users.id, ownerId));
 
   return {
@@ -292,6 +299,15 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       words: t.words,
       createdAt: t.createdAt.toISOString(),
     })),
+    readingSessions: sessionRows.map((r) => ({
+      id: r.id,
+      bookId: r.bookId,
+      startedAt: r.startedAt.toISOString(),
+      endedAt: r.endedAt.toISOString(),
+      activeSeconds: r.activeSeconds,
+      words: r.words,
+      pages: r.pages,
+    })),
   };
 }
 
@@ -303,6 +319,7 @@ export async function wipeLibrary(db: Db, ownerId: string) {
     await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
     await tx.delete(questionMarks).where(eq(questionMarks.ownerId, ownerId));
     await tx.delete(audioTracks).where(eq(audioTracks.ownerId, ownerId));
+    await tx.delete(readingSessions).where(eq(readingSessions.ownerId, ownerId));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
@@ -417,6 +434,9 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     }
     for (const t of x.audioTracks ?? []) {
       await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt) });
+    }
+    for (const r of x.readingSessions ?? []) {
+      await tx.insert(readingSessions).values({ ...r, ownerId, startedAt: new Date(r.startedAt), endedAt: new Date(r.endedAt) });
     }
   });
 }
