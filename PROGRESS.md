@@ -24,7 +24,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
    screenshot comparison fails on GitHub only (machine rendering
    differences), download the `playwright-report` artifact, compare, and
    regenerate the reference images to match CI or raise the allowance in
-   `playwright.config.ts` slightly; never just delete them.
+   `playwright.config.ts` slightly; never just delete them. (On PR #1 the
+   cloud-made references matched CI exactly.)
 2. **(Samuel, ~5 minutes, now that the app builds)**:
    - Railway: open service `web` → Settings → Source → connect
      `sahuno/neolibrary`, branch `main`. Then Settings → Networking →
@@ -72,7 +73,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 - **Done:** PR #1 (M1 skeleton) was merged by `github-actions[bot]` 9 seconds after it opened, before the browser tests finished. Cause: "Allow auto-merge" is already on but `main` has no required checks yet, and `gh pr merge --auto` then merges at once. Rewrote `.github/workflows/auto-merge.yml` to wait for the CI workflow itself (`workflow_run`), and to merge only if CI passed on the PR's latest commit (`--match-head-commit`). This holds even without branch protection. Because GitHub runs `workflow_run` workflows from main's copy, this fix PR is merged by hand once green.
 - **Key paths:** `.github/workflows/auto-merge.yml`, `PROGRESS.md`
 - **Commands that worked:** GitHub API: PR #1 `merged_by: github-actions[bot]`, `created_at 01:57:44Z`, `merged_at 01:57:53Z`; CI run 37169580122 on that commit: `Lint, types, unit tests` success, `PR hygiene` success, browser tests still running at merge time.
-- **Known issues / blockers:** main received M1 before its browser tests finished; their result is in the next entry or this PR. Branch protection on `main` is still needed (Samuel) as a second lock.
+- **Known issues / blockers:** main received M1 before its browser tests finished, but they then passed on that same commit (job `Browser tests (screenshots + accessibility)` → success at 01:59:13Z; screenshots match the references made in the cloud container), so main is green on every check. Branch protection on `main` is still needed (Samuel) as a second lock.
 - **Exact next steps:** see "Exact next steps".
 
 ### 2026-10-04 02:10 · Claude (cloud) · M1 skeleton: Next.js app, design tokens, CI, screenshot grid, auto-merge
