@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { statsByBook, statsByPathSlot, statsByWeek, type GroupStats } from "@/lib/library/reading-stats";
+import {
+  CHAPTERS_NEEDED,
+  chapterStatsByBook,
+  statsByBook,
+  statsByPathSlot,
+  statsByWeek,
+  suggestionsFrom,
+  type GroupStats,
+} from "@/lib/library/reading-stats";
 import styles from "../admin/invites/page.module.css";
 import own from "./page.module.css";
 
@@ -50,7 +58,13 @@ export default async function StatsPage() {
   const user = await requireUser();
   const db = await getDb();
   const books = await statsByBook(db, user.id);
-  const [weeks, { pillars, kinds }] = await Promise.all([statsByWeek(db, user.id), statsByPathSlot(db, user.id, books)]);
+  const [weeks, { pillars, kinds }, chapterBooks] = await Promise.all([
+    statsByWeek(db, user.id),
+    statsByPathSlot(db, user.id, books),
+    chapterStatsByBook(db, user.id),
+  ]);
+  const suggestions = suggestionsFrom(chapterBooks);
+  const measured = chapterBooks.filter((b) => b.chapters.length >= CHAPTERS_NEEDED).length;
   const longest = Math.max(1, ...weeks.map((w) => w.activeSeconds));
   return (
     <main className={styles.main}>
@@ -92,6 +106,33 @@ export default async function StatsPage() {
                 ))}
               </tbody>
             </table>
+          </section>
+
+          <section aria-labelledby="suggestions" className={styles.list} data-testid="stats-suggestions">
+            <h2 id="suggestions" className={styles.listTitle}>
+              Suggestions
+            </h2>
+            {suggestions.length > 0 ? (
+              <ul className={own.suggestions}>
+                {suggestions.map((x) => (
+                  <li key={`${x.bookId}-${x.chapterKey}`}>
+                    In <Link href={`/books/${x.bookId}/read`}>{x.title}</Link>, your speed drops sharply in{" "}
+                    <strong>{x.chapter}</strong>: {x.chapterWpm} words per minute, against your usual {x.usualWpm} in this
+                    book. Try <em>What do I need to know?</em> in the reader for the background this chapter assumes.
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.empty}>
+                {measured > 0
+                  ? "None for now: your speed is steady across the chapters you have read."
+                  : "None yet. They appear once a book has three chapters with two minutes or more of reading each."}
+              </p>
+            )}
+            <p className={own.note}>
+              A suggestion names a chapter you read at under 60% of your usual speed in that book (the middle value of its
+              chapters), counting only chapters with two minutes or more of reading.
+            </p>
           </section>
 
           <section aria-labelledby="by-pillar" className={styles.list}>

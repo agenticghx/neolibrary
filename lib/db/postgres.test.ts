@@ -11,7 +11,7 @@ import { exportLibrary, importLibrary, wipeLibrary } from "@/lib/library/export"
 import { importBook } from "@/lib/library/import";
 import { seedPath } from "@/lib/library/paths";
 import { questionBank } from "@/lib/library/questions";
-import { recordReading, statsByBook, statsByPathSlot, statsByWeek } from "@/lib/library/reading-stats";
+import { chapterStatsByBook, recordReading, statsByBook, statsByPathSlot, statsByWeek } from "@/lib/library/reading-stats";
 import { rewriteParagraph } from "@/lib/library/rewrite";
 import { searchLibrary, searchNotes } from "@/lib/library/search";
 import { getSections } from "@/lib/library/sections-store";
@@ -131,7 +131,11 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
     const sitting = "bbbbbbbb-0000-4000-8000-000000000001";
     const now = new Date("2026-10-14T12:00:00Z");
     await recordReading(db, ownerId, { sessionId: sitting, bookId: jekyll, startedAt: "2026-10-12T09:00:00Z", activeSeconds: 60, words: 200, pages: 1 }, now);
-    await recordReading(db, ownerId, { sessionId: sitting, bookId: jekyll, startedAt: "2026-10-12T09:00:00Z", activeSeconds: 120, words: 480, pages: 2 }, now);
+    const piece = { key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 120, words: 480 };
+    await recordReading(db, ownerId, { sessionId: sitting, bookId: jekyll, startedAt: "2026-10-12T09:00:00Z", activeSeconds: 120, words: 480, pages: 2, chapters: [piece] }, now);
+    // A late, smaller report keeps the stored chapter split (the jsonb case expression).
+    await recordReading(db, ownerId, { sessionId: sitting, bookId: jekyll, startedAt: "2026-10-12T09:00:00Z", activeSeconds: 60, words: 200, pages: 1, chapters: [] }, now);
+    expect((await chapterStatsByBook(db, ownerId))[0].chapters).toEqual([{ ...piece, wpm: 240 }]);
     expect(await statsByBook(db, ownerId)).toEqual([expect.objectContaining({ bookId: jekyll, activeSeconds: 120, words: 480, sessions: 1, wpm: 240 })]);
     await seedPath(db, ownerId, {
       slug: "pg",

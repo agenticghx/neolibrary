@@ -39,7 +39,7 @@ type FoliateView = HTMLElement & {
   addAnnotation(a: { value: string }): Promise<unknown>;
   deleteAnnotation(a: { value: string }): Promise<unknown>;
 };
-type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string }; range?: Range };
+type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string; href?: string }; range?: Range };
 type DrawFn = (rects: unknown, opts?: unknown) => SVGElement;
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -282,7 +282,13 @@ export function Reader(props: {
           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
           whereCfi.current = d.cfi;
           visibleText.current = clean(d.range?.toString() ?? "");
-          trackerRef.current.onPage(CFI.collapse(d.cfi), visibleText.current);
+          const label = d.tocItem?.label?.trim() ?? "";
+          const chapterKey = d.tocItem?.href ?? label;
+          trackerRef.current.onPage(
+            CFI.collapse(d.cfi),
+            visibleText.current,
+            chapterKey ? { key: chapterKey, label, position: d.fraction } : undefined,
+          );
           pending.current = d;
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => {

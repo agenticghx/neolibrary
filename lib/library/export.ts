@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users } from "@/lib/db/schema";
+import { annotations, audioTracks, books, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users, type ChapterReading } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -126,7 +126,16 @@ export type LibraryExport = {
     createdAt: string;
   }[];
   /** Reading sittings for the statistics (added in M10). */
-  readingSessions?: { id: string; bookId: string; startedAt: string; endedAt: string; activeSeconds: number; words: number; pages: number }[];
+  readingSessions?: {
+    id: string;
+    bookId: string;
+    startedAt: string;
+    endedAt: string;
+    activeSeconds: number;
+    words: number;
+    pages: number;
+    chapters?: ChapterReading[];
+  }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -307,6 +316,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       activeSeconds: r.activeSeconds,
       words: r.words,
       pages: r.pages,
+      chapters: r.chapters,
     })),
   };
 }
@@ -436,7 +446,9 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt) });
     }
     for (const r of x.readingSessions ?? []) {
-      await tx.insert(readingSessions).values({ ...r, ownerId, startedAt: new Date(r.startedAt), endedAt: new Date(r.endedAt) });
+      await tx
+        .insert(readingSessions)
+        .values({ ...r, ownerId, startedAt: new Date(r.startedAt), endedAt: new Date(r.endedAt), chapters: r.chapters ?? [] });
     }
   });
 }
