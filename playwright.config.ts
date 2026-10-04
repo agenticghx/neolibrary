@@ -42,6 +42,8 @@ export default defineConfig({
     { name: "uploads", testMatch: /uploads\.spec\.ts/, dependencies: ["flows"], use: { ...desktop } },
     // 5. The reader opens a book uploaded in step 4.
     { name: "reader", testMatch: /reader\.spec\.ts/, dependencies: ["uploads"], use: { ...desktop } },
+    // 6. Highlights, notes and bookmarks in a book the reader tests opened.
+    { name: "annotations", testMatch: /annotations\.spec\.ts/, dependencies: ["reader"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

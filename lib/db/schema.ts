@@ -151,3 +151,25 @@ export const sections = pgTable(
   },
   (t) => [primaryKey({ columns: [t.bookId, t.id] })],
 );
+
+export const annotations = pgTable("annotations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  annotationId: uuid("annotation_id").notNull(),
+  version: integer("version").notNull(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["highlight", "bookmark", "note"] }).notNull(),
+  targetType: text("target_type", { enum: ["passage", "book", "pillar", "path"] }).notNull(),
+  bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
+  targetId: uuid("target_id"),
+  sectionId: text("section_id"),
+  cfi: text("cfi"),
+  quoteExact: text("quote_exact").notNull().default(""),
+  quotePrefix: text("quote_prefix").notNull().default(""),
+  quoteSuffix: text("quote_suffix").notNull().default(""),
+  color: text("color"),
+  body: text("body").notNull().default(""),
+  deleted: boolean("deleted").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

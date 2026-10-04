@@ -5,6 +5,7 @@ import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { readFileSync } from "node:fs";
+import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from "./annotations";
 import { exportLibrary, importLibrary, wipeLibrary } from "./export";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
@@ -30,20 +31,31 @@ describe("library export (ground rule 7)", () => {
     const c = await createCollection(database.db, ownerId, "Time travel");
     await setInCollection(database.db, ownerId, c.id, bookId, true);
     await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/8!/4/2/1:0)", fraction: 0.25 });
+    const note = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "First" });
+    await updateAnnotation(database.db, ownerId, note.id, { body: "Second" });
+    const gone = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Hidden later" });
+    await deleteAnnotation(database.db, ownerId, gone.id);
 
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.length).toBeGreaterThan(100);
     expect(before.paths[0].pillars.length).toBe(hiddenMachinery.pillars.length);
     expect(before.books.find((b) => b.id === bookId)).toMatchObject({ position: "epubcfi(/6/8!/4/2/1:0)", progress: 0.25 });
+    expect(before.annotations!.map((a) => [a.body, a.version, a.deleted])).toEqual([
+      ["First", 1, false],
+      ["Second", 2, false],
+      ["Hidden later", 1, false],
+      ["Hidden later", 2, true],
+    ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
 
     await wipeLibrary(database.db, ownerId);
     const empty = await exportLibrary(database.db, ownerId);
-    expect([empty.books, empty.paths, empty.collections]).toEqual([[], [], []]);
+    expect([empty.books, empty.paths, empty.collections, empty.annotations]).toEqual([[], [], [], []]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));
     expect((await listShelf(database.db, ownerId, { collectionId: c.id })).map((b) => b.title)).toEqual(["The Time Machine"]);
+    expect((await listAnnotations(database.db, ownerId, bookId)).map((a) => a.body)).toEqual(["Second"]);
   });
 
   it("refuses files that are not a library export", async () => {

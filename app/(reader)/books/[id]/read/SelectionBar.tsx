@@ -1,0 +1,98 @@
+"use client";
+
+import { useState } from "react";
+import type { Color } from "@/lib/library/annotations";
+import styles from "./reader.module.css";
+
+export type PendingSelection = { cfi: string; exact: string; prefix: string; suffix: string };
+
+const COLORS: { value: Color; label: string }[] = [
+  { value: "sage", label: "Sage" },
+  { value: "amber", label: "Amber" },
+  { value: "rose", label: "Rose" },
+  { value: "sky", label: "Sky" },
+];
+
+/** Appears while text is selected in the book: highlight, add a note, or copy. */
+export function SelectionBar({
+  selection,
+  title,
+  author,
+  onHighlight,
+  onClose,
+}: {
+  selection: PendingSelection;
+  title: string;
+  author: string;
+  onHighlight: (color: Color, body: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [noting, setNoting] = useState(false);
+  const [body, setBody] = useState("");
+  const [copied, setCopied] = useState(false);
+  const preview = selection.exact.length > 90 ? `${selection.exact.slice(0, 90)}…` : selection.exact;
+
+  return (
+    <div className={styles.selectionBar} role="toolbar" aria-label="Selected text">
+      <p className={styles.selectionQuote}>“{preview}”</p>
+      {noting ? (
+        <form
+          className={styles.noteForm}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await onHighlight("sage", body);
+          }}
+        >
+          <label htmlFor="note-body" className="visually-hidden">
+            Your note
+          </label>
+          <textarea
+            id="note-body"
+            className={styles.noteInput}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="What are you thinking?"
+            rows={3}
+            autoFocus
+          />
+          <div className={styles.noteActions}>
+            <button type="button" className={styles.tool} onClick={() => setNoting(false)}>
+              Back
+            </button>
+            <button type="submit" className={styles.primaryTool} disabled={!body.trim()}>
+              Save note
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className={styles.selectionActions}>
+          {COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              className={`${styles.swatch} ${styles[`mark_${c.value}`]}`}
+              aria-label={`Highlight in ${c.label}`}
+              onClick={() => void onHighlight(c.value, "")}
+            />
+          ))}
+          <button type="button" className={styles.tool} onClick={() => setNoting(true)}>
+            Add note
+          </button>
+          <button
+            type="button"
+            className={styles.tool}
+            onClick={async () => {
+              await navigator.clipboard?.writeText(`“${selection.exact}”\n— ${title}${author ? `, ${author}` : ""}`).catch(() => {});
+              setCopied(true);
+            }}
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+          <button type="button" className={styles.tool} aria-label="Close" onClick={onClose}>
+            ×
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
