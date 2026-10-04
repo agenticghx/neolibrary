@@ -141,6 +141,12 @@ Useful commands:
 
 ## 4. Plans for the rest
 
+> **Update 2026-10-04 (laptop session): M11 is done and deployed** (PRs #38,
+> #39, #40: tokens on the Agent access page, the agent API under
+> `/api/agent/*`, the MCP server at `/api/agent/mcp`). M12 (a) (installable,
+> downloaded books open offline) is in progress; see `PROGRESS.md`. Read the
+> Playwright offline gotcha in its Log before testing anything offline.
+
 **M11 · Agents can use it** (plan: "a test agent, using a token, lists books
 and adds a note that shows up in the reader"):
 - (a) **Personal API tokens.** A `api_tokens` table holding a sha256 hash of

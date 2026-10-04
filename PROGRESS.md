@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M11 (c) PR (CI-rendered agents-* screenshots), deploy M11 with a backup first, then start M12 offline
+next_action: Land the M12 (a) PR, then build M12 (b) offline notes (IndexedDB outbox, client ids accepted idempotently)
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,19 +24,17 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M11 (c) PR** (branch `m11-mcp`): the first CI run should fail only on
-   the four `agents-*` reference screenshots (the page gained "Connect an
-   agent"). Take CI's images from the `playwright-report` artifact, look at
-   each, copy to `e2e/__screenshots__/`, push; auto-merge lands it. M11 is then done.
-2. **Deploy M11** (laptop): back up the database first (recipe in the
-   2026-10-04 11:40 entry), then `railway up --service web --ci`. Migrations
-   0018 and 0019 run. Check `/api/health`, and that `/api/agent/me` without a
-   token answers 401 JSON.
-3. **M12 · Read anywhere (offline)**: plan in `docs/handoff.md` §4 (web app
-   manifest, a small hand-written service worker, "Download for offline",
-   an IndexedDB outbox for notes made offline, Playwright with
-   `context.setOffline`).
-4. **Every deploy** (laptop only, until Railway auto-deploy is connected):
+1. **M12 (a) PR** (branch `m12-offline`): make its checks green (no
+   reference screenshots should change); auto-merge lands it.
+2. **M12 (b) · Offline notes:** an outbox in IndexedDB for highlights and
+   notes made offline, sent when the network returns. The browser's
+   annotations route must accept a client-chosen id and, if that id already
+   exists for the reader, return it (200) instead of failing, so a resend is
+   harmless (model: `importAnnotations`' skip). Creates only; edits and
+   deletes offline come later. Playwright: offline as in `e2e/offline.spec.ts`
+   (offline mode plus `context.route` aborting everything), make a highlight,
+   network back, the server has it. Then tick M12 and deploy (backup first).
+3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
    back up first, then `railway up --service web --ci`. The backup recipe
    that worked is in the 2026-10-04 11:40 Log entry.
 
@@ -107,6 +105,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 13:55 UTC · Claude (laptop) · M11 deployed; M12 (a): installable app, books readable offline
+- **Done:** PR #40 merged on green, so **M11 is done**. **Deployed M11** (`0b7ba58`) after a backup: `~/Backups/neolibrary/prod-before-0018-20261004T1153Z.sql` (78,853 bytes), restore-checked (exit 0; 17 migrations, 1 user, 126 books). Live checks: health 200; `/api/agent/me` and `POST /api/agent/mcp` without a token give `401` with `www-authenticate: Bearer realm="neolibrary"` and the JSON explanation; `/agents` redirects to sign-in; the database has 19 migrations and the data is intact (1 user, 126 books). **M12 (a)** on `m12-offline`: a **web app manifest** (`app/manifest.ts`: name, standalone display, paper colours, 192/512 PNG icons made from `app/icon.svg` by `scripts/make-icons.mjs`) and a **hand-written service worker** (`public/sw.js`, served with `no-cache`, registered from the root layout in production). It always asks the network first. When the network fails it answers only from what the reader downloaded (reader page, book file matched by path because the signed link expires, notes) and the app's own files; audio and anything with a byte range pass straight through. **"Download for offline"** is in the reader's settings ("Aa" → Offline), for EPUBs: it caches the book file, its notes, the app files the open reader loaded, then the page. The setting then says "Available offline on this device. Signing out removes it" and offers **Remove download**. The sign-in page empties the offline caches, so downloads do not outlive a sign-out. `proxy.ts` lets `/manifest.webmanifest`, `/sw.js` and `/icons/` through without a session (browsers fetch them without cookies).
+- **Key paths:** `public/sw.js`, `lib/offline.ts`, `app/manifest.ts`, `public/icons/`, `scripts/make-icons.mjs`, `components/{ServiceWorker,ClearOffline}.tsx`, `app/layout.tsx`, `app/(public)/sign-in/page.tsx`, `app/(reader)/books/[id]/read/{OfflineSetting,Reader}.tsx`, `next.config.ts` (`/sw.js` headers), `proxy.ts`, `playwright.config.ts`, `e2e/offline.spec.ts`
+- **Commands that worked:** `npm run check` → `Tests 231 passed | 2 skipped (233)`; `npx playwright test --ignore-snapshots` → `165 passed (1.6m)` (the whole suite now runs with the service worker installed). The offline test: the manifest is served as `application/manifest+json` with 200, and the icons and `sw.js` (`no-cache`) load without signing in; the worker controls the reader; Download → "Available offline…"; then **offline mode plus every request refused** (`context.route` aborting all); a page `fetch('/api/health')` fails and a worker fetch of an uncached file fails; a **full page load of the downloaded book opens it** (navigation `transferSize` 0, reader ready, text on screen); the requests the worker tried for its page, book file and notes were all refused, so they came from the device; a book not downloaded does not open; Remove download empties the cache; a signed-out visit to /sign-in deletes the offline caches. Axe clean; `screenshots/reader-offline-*` checked by eye (moved Offline below the STE note after looking).
+- **Known issues / blockers:** **Playwright gotcha (cost an hour):** `context.setOffline(true)` does NOT reach service workers by default, so a worker's fetches still got through and an "offline" test passed while proving nothing. `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` (now set in `playwright.config.ts`) makes it apply, but it still lapsed after a page navigation, so the test also aborts every request with `context.route`, which with that setting catches the worker's requests too. PDFs are not offline yet (they need `/pdfjs/` files; the setting is shown for EPUBs only). The install prompt itself cannot be shown in a headless test; installability rests on the manifest, icons, https and the worker, which are all checked. Notes made offline are M12 (b).
+- **Exact next steps:** Land this PR, then M12 (b) offline notes.
 
 ### 2026-10-04 13:25 UTC · Claude (laptop) · M11 (c): the MCP server; M11 ticked
 - **Done:** PR #39 (M11 (b)) merged with all four checks green. M11 (c) on `m11-mcp`: an **MCP server** (MCP is the Model Context Protocol, the standard way AI agents such as Claude plug into tools) at **`/api/agent/mcp`**. It uses the official TypeScript SDK `@modelcontextprotocol/sdk` 1.32.0 (the current version, checked with `npm view`; `zod` 4.6.5 added as its required companion) and its "web standard" Streamable HTTP transport in **stateless** mode: every request builds a server for the token's user and nothing is kept between requests, so it works on any number of app instances; answers are JSON. Four tools wrap `lib/agent/library.ts`: `list_books`, `search_text`, `get_notes`, `add_note`. Each has a description and input schema written for a model; read-only tools say so. Mistakes come back as readable tool errors ("Book not found.", "Use a sectionId from a search result"). It sits behind the same Bearer token gate, and notes it adds carry the token's name. The **Agent access** page now has "Connect an agent": the MCP address, built from the site's own host, and the Claude Code command `claude mcp add --transport http neolibrary <address> --header "Authorization: Bearer YOUR_TOKEN"` (syntax checked with `claude mcp add --help`). **M11 ticked** in `docs/done.md`.

@@ -9,6 +9,7 @@ import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
 import { AiStyleSetting } from "./AiStyleSetting";
+import { OfflineSetting } from "./OfflineSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
@@ -801,6 +802,7 @@ export function Reader(props: {
             STE is Simplified Technical English: one meaning per word, short sentences. It applies to &ldquo;What do I need to
             know?&rdquo; and other AI explanations; rewrites choose their own level.
           </p>
+          {props.fileType === "epub" ? <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} /> : null}
         </section>
       ) : null}
     </div>
