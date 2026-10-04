@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the Safari reader fix, deploy, ask Samuel to reload a book in Safari
+next_action: Samuel: reload a book in Safari (fix is live); otherwise version 1 waits only on Samuel (keys, verdicts).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -116,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 18:35 UTC · Claude (laptop) · Safari fix deployed
+- **Done:** PR #49 merged with all four checks green; on CI's Linux WebKit both Safari tests passed (`✓ [safari] … an EPUB opens in Safari…`, `✓ [safari] … a PDF opens in Safari`, `170 passed (5.3m)`). It first conflicted with ledger PR #48 in `PROGRESS.md` (GitHub runs no checks on a conflicting PR); rebased, keeping both entries. Deployed `1101c8e` after a backup (`~/Backups/neolibrary/prod-before-safari-*.sql`, restore exit 0; 1 user, **3 books with files**: Samuel used the free-classics button). Railway deployment `383c798b` SUCCESS.
+- **Key paths:** `PROGRESS.md`
+- **Commands that worked:** `curl -sD - $B/sign-in | grep -o "frame-ancestors '[a-z]*'"` → `frame-ancestors 'self'`; `/api/health` → 200.
+- **Known issues / blockers:** Waiting for Samuel to confirm a book opens in Safari.
+- **Exact next steps:** As in "Exact next steps".
 
 ### 2026-10-04 18:20 UTC · Claude (laptop) · Fix: books never opened in Safari ("Opening the book…" forever)
 - **Done:** Samuel's reader stalled at "Opening the book…". **Diagnosis:** Railway's request log showed the server was fine (the book file 200 in 0.4 s, notes fetched afterwards, reading-time reports arriving), and the browser was **Safari 27** (`AppleWebKit/605.1.15 … Version/27.0 Safari`). Every browser test ran in Chrome. Reproduced in Playwright's WebKit: the console said `Refused to load blob:… because it does not appear in the frame-ancestors directive of the Content Security Policy`, then `null is not an object (evaluating 'e.head')`. **Root cause:** the reader shows each chapter in a `blob:` frame, which inherits the page's security policy; `frame-ancestors 'none'` ("never show this inside a frame") made WebKit refuse the reader's *own* chapter frames (Chrome does not apply it there). The error is thrown inside foliate's frame handling, where the reader cannot catch it, so the screen waited forever. **Fix:** `frame-ancestors 'self'` in `proxy.ts` (only this site may frame its pages, so other sites are still blocked). **Guards:** (1) the reader now gives up after 30 s and shows "This book could not be opened" instead of hanging; (2) a new Playwright project `safari` (WebKit) opens an EPUB (text shows, next page works, no security-policy errors) and the PDF, and CI now installs WebKit; (3) `lib/csp.test.ts` checks the rule. **Proof the test catches it:** with `'none'` put back, both Safari tests fail with "loading"; with `'self'` they pass.
