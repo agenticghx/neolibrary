@@ -59,6 +59,8 @@ export default defineConfig({
         launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
       },
     },
+    // 10. Pictures (fake image search).
+    { name: "images", testMatch: /images\.spec\.ts/, dependencies: ["notes"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

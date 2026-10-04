@@ -30,6 +30,7 @@ export function SelectionBar({
   onVoiceNote,
   onSticker,
   onDrawing,
+  onImages,
   onClose,
 }: {
   bookId: string;
@@ -42,6 +43,7 @@ export function SelectionBar({
   onVoiceNote: (audio: Blob, durationMs: number) => Promise<void>;
   onSticker: (sticker: Sticker) => Promise<void>;
   onDrawing: (strokes: number[][]) => Promise<void>;
+  onImages: () => void;
   onClose: () => void;
 }) {
   const [noting, setNoting] = useState(false);
@@ -128,6 +130,9 @@ export function SelectionBar({
           </button>
           <button type="button" className={styles.tool} onClick={() => setDrawing(true)}>
             Draw
+          </button>
+          <button type="button" className={styles.tool} onClick={onImages}>
+            See it
           </button>
           <button type="button" className={styles.tool} onClick={onRewrite}>
             Rewrite

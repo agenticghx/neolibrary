@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M9 (images).
+next_action: Sessions loop through docs/done.md on their own; next is M9 (b), generated images.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -22,31 +22,30 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
 1. **M9 · See it (images)**, next unticked box in `docs/done.md`.
-   Everything behind interfaces with fakes (ground rule 3). Suggested PRs:
-   (a) **Image search**: an `ImageSearch` interface with a Wikimedia
-   Commons provider (the MediaWiki API, `commons.wikimedia.org/w/api.php`
-   with `generator=search`, `prop=imageinfo`, `iiprop=url|extmetadata`
-   for licence and credit; no key; send a descriptive User-Agent as
-   Wikimedia asks) and a fake returning fixed results for "silicon wafer"
-   (thumbnail URLs served from `public/` test images, so CSP `img-src` and
-   tests stay offline). Check whether the cloud session can reach
-   commons.wikimedia.org (curl); if not, test only against the fake and
-   a stand-in fetch, as with ElevenLabs. Results show credit and licence.
-   (b) **Generated image fallback**: an `ImageGenerator` interface with
-   OpenAI (check the current image model name when building; key
-   `OPENAI_API_KEY`, Waiting on Samuel) and a fake that makes a small PNG in
-   code; cost estimate first and caps (`IMAGE_CAP_…`, extend `capsFromEnv`),
-   provenance in `generations`-like storage, image file in the bucket;
-   labelled "Generated image" everywhere. (c) **Pin an image to a passage**:
-   an annotation of kind `image` (migration with a reverse step, extend the
-   kind CHECK like `0014_drawings`) holding the image source (Commons URL +
-   credit + licence, or the stored generated file), shown as a pop-up card
-   from a small marker in the margin (reuse `drawBadge` in `Reader.tsx`)
-   and in the Notes panel; exported (library JSON; Markdown/W3C with the
-   credit). Done when (plan): searching "silicon wafer" against the fake
-   returns results; a pinned image survives reload. Images from outside
-   need `img-src` in the CSP (`proxy.ts`): allow `upload.wikimedia.org`
-   only.
+   PR (a), image search, is done (see Log). Remaining:
+   (b) **Generated image fallback**: an `ImageGenerator` interface in
+   `lib/images/` with `OpenAIImages` (the `openai` SDK 7.27.0 is installed;
+   its type list names `gpt-image-2` as the current stable model; GPT image
+   models return base64 PNG in `data[0].b64_json`; key `OPENAI_API_KEY`,
+   Waiting on Samuel) and a fake that makes a small PNG in code (or reuse a
+   test SVG). A "Make a picture" button in the See-it panel, offered after
+   the search results, shows the cost first (`OPENAI_IMAGE_USD`, a cautious
+   default such as $0.20 per image), checks caps (`IMAGE_CAP_PER_BOOK_USD`,
+   `IMAGE_CAP_PER_MONTH_USD`; extend `capsFromEnv` with prefix "IMAGE" and
+   the cost page's SERVICES), stores the file in the bucket under the owner
+   (`images/<owner>/…`; add `images` to `fileOwner`) with provenance (a
+   `generations` row of kind `image`: prompt file `prompts/image.md`, model,
+   cost, output = storage key), re-serves the same request without paying
+   again, and labels it "Generated image" everywhere. Test the adapter
+   against a stand-in fetch like `lib/ai/claude.test.ts`.
+   (c) **Pin an image to a passage**: an annotation of kind `image`
+   (migration with a reverse step, extend the kind CHECK like
+   `0014_drawings`) holding the picked image (Commons: URLs, title, credit,
+   licence, page; generated: storage key + "Generated image"). Shown from a
+   margin marker (`drawBadge` in `Reader.tsx`, e.g. right margin like
+   drawings) that opens a pop-up card, and in the Notes panel; exported
+   (library JSON; Markdown/W3C with the credit and licence). Done when
+   (plan): a pinned image survives reload. Then tick M9.
 2. Then M10, M11, M12, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -114,6 +113,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 08:35 UTC · Claude (cloud) · M9 (a): see it, pictures from Wikimedia Commons
+- **Done:** Selecting text now offers **See it**, which opens a panel searching pictures of the selection (the search box can be changed). Results come from **Wikimedia Commons** through the MediaWiki API (`lib/images/search.ts`: generator search in the File namespace, image info with a 480 px thumbnail, licence, licence link, artist and title; no key; a descriptive User-Agent as Wikimedia asks). Each card shows the picture, its title, and **credit · licence (linked) · Source** (the Commons file page). Credits are reduced to plain text, because Commons returns bits of HTML. Commons cannot be reached from the cloud container, so the adapter is tested against a stand-in API (exact request, ordering, skipping non-images and missing thumbnails, errors). The browser tests use a fake (`FakeImageSearch`) whose three wafer pictures are small SVGs in `public/fake-images/`. The page's security policy now allows pictures from `upload.wikimedia.org` (and nowhere else new). New route `GET /api/images/search?q=` (signed-in only).
+- **Key paths:** `lib/images/search.ts`, `app/api/images/search/route.ts`, `app/(reader)/books/[id]/read/{ImagesPanel,SelectionBar,Reader}.tsx`, `proxy.ts` (`img-src`), `public/fake-images/`, `e2e/images.spec.ts`, `playwright.config.ts` (project `images`), `package.json` (`openai` 7.27.0 added for step (b))
+- **Commands that worked:** `npm run check` → Vitest `199 passed` (the first run failed the font check on a "→" in a code comment; replaced). `npx playwright test` → `137 passed (3.0m)`, including: select "a candle" → See it → "No pictures found for “a candle”." → search **"silicon wafer"** → **3 results**, the first "Silicon wafer 1 (test image)" with "Test photographer 1 · CC BY-SA 4.0 · Source" (the licence links to creativecommons.org), the second "Public domain"; the picture loads (natural width 480, so the security policy allows it); the API returns 3 results; signed-out → 401; axe clean in all four looks. Screenshots `screenshots/reader-see-it-*` checked by eye.
+- **Known issues / blockers:** No real Commons search has run yet (blocked from the cloud container; first real search on the live site). Results are not cached; Commons is free.
+- **Exact next steps:** M9 (b), per "Exact next steps".
 
 ### 2026-10-04 08:10 UTC · Claude (cloud) · M8 (c): handwritten notes; M8 ticked
 - **Done:** Selecting text now offers **Draw**, which opens a drawing pad for stylus, finger or mouse (pointer events, `touch-action: none`), with Undo, Clear, Back and **Save drawing**. Strokes are kept in pad units (600 × 300) as whole-number point lists, so a handwritten note redraws the same on any screen (`lib/library/drawings.ts`). It is saved as an **annotation of kind `drawing`** (migration `0014_drawings`). Its reverse step turns drawings into notes saying "Handwritten note (n strokes)", so going back keeps a trace. So drawings are append-only and soft-deleted like the rest. The Notes panel redraws the note as an SVG preview. In the book, the passage is tinted and a **pen badge sits in the right margin** (stickers stay in the left margin, so both fit on one line). Exports: library JSON (`drawing`), Markdown and W3C ("Handwritten note (2 strokes)"; W3C carries the strokes as `neolibrary:drawing`, so a W3C round trip keeps the drawing). Points are clamped to the pad, and oversized drawings (more than 300 strokes or 20,000 points) are refused. **M8 ticked** in `docs/done.md`.
