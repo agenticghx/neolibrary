@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M7 (audio tracks, fake voice).
+next_action: Sessions loop through docs/done.md on their own; next is M7 (b), the player with the word highlight.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -22,26 +22,27 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
 1. **M7 · Listen and read (ElevenLabs)**, next unticked box in
-   `docs/done.md`. Everything behind an interface with a **fake voice** used
-   in all tests (ground rule 3). Suggested PRs: (a) an **audio track** model
-   that does not depend on one provider (migration with a reverse step):
-   a track belongs to a book section (chapter), has a provider, voice,
-   storage key for the audio file, duration and **word timings**
-   (character or word start/end times), plus provenance and cost like
-   `generations`; a `SpeechModel` interface with `ElevenLabsSpeech` (check
-   ElevenLabs' current text-to-speech-with-timestamps API and model names
-   when building; key `ELEVENLABS_API_KEY`, already on Railway) and a
-   `FakeSpeech` that returns a short silent or tone WAV made in code with
-   evenly spread word timings; audio stored in the bucket via `lib/storage`;
-   made one section at a time on first play and re-served after; per-book
-   and per-month caps for ElevenLabs (it bills per character) with an
-   estimate shown first (reuse the cap logic in `lib/ai/generate.ts`,
-   generalised by provider), and include tracks in the export.
-   (b) The player in the reader: play/pause, voice picker, speed, and the
-   **word highlight following the timing data** (foliate overlay or a
-   highlight on the current word's range); Playwright proves the highlight
-   moves with the fake's timings. (c) A running cost counter on an admin
-   page.
+   `docs/done.md`. PR (a), audio tracks and the voice interface, is done
+   (see Log). Remaining:
+   (b) **The player in the reader**: a "Listen" button in the top bar opens
+   a player bar (play/pause, voice picker from `GET /api/books/<id>/audio`,
+   speed 0.75–2×, the cost before the first play). It plays the paragraph
+   at the reading position, then asks for the next one (`passage.nextId`)
+   and keeps going, turning pages to follow. **Word highlight:** on each
+   `timeupdate`, find the word with `wordAt(track.words, ms)` and highlight
+   its range inside the book frame. Use the CSS Custom Highlight API in the
+   frame's document (`CSS.highlights.set("nl-spoken", new Highlight(range))`
+   plus a `::highlight(nl-spoken)` rule in `bookCss` using
+   `--highlight-active`). Find the paragraph element from its CFI (foliate
+   `view.resolveCFI` or `CFI.toElement`) and map the word's character
+   offsets (in whitespace-collapsed text) to text-node positions.
+   Playwright: with the fake voice, set `audio.currentTime` to a known time
+   and check the highlighted text is the word the fake's timings put there
+   (0.03 s per character). Screenshots.
+   (c) A running **cost counter on an admin page** (`/admin/costs`: this
+   month's spending per provider, text and voice, against the caps, with
+   the per-book split); add it to `e2e/pages.ts`. Then tick M7 (the real
+   narrated section on the live site goes under Waiting on Samuel).
 2. Then M8, M9, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -102,6 +103,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:50 UTC · Claude (cloud) · M7 (a): audio tracks, voice interface (ElevenLabs + fake), voice caps
+- **Done:** `lib/speech/` holds the voice interface (`SpeechModel`). `ElevenLabsSpeech` uses ElevenLabs' official SDK (`@elevenlabs/elevenlabs-js` 2.70.0). It calls text-to-speech "with timestamps" (model `eleven_multilingual_v2`, MP3), which returns audio plus the time of every character, and passes the paragraphs either side so joined clips sound continuous. Its voice list comes from the account, with two ready-made voices (George, Rachel) if that fails. ElevenLabs' site and API are blocked from the cloud container, so the request shape was taken from the SDK, and a test checks the exact request it sends. `FakeSpeech` makes a real WAV file in code: a soft tone, 0.03 s per character, every character evenly timed. A new **`audio_tracks`** table (migration `0011_audio_tracks`, with a reverse step) does not depend on one provider: source `tts` or later `upload`. Each track has provider, model, voice, input fingerprint, characters, cost, the audio file's storage key, duration and **word timings** (start and end in ms, plus where each word is in the paragraph). Audio is made **one paragraph at a time** when asked for, stored under `audio/<owner>/…` (only the owner can fetch it, through the existing signed file links), and **re-served after**: the same paragraph, voice and model is never paid for twice, and two identical requests at once share one call. **Caps:** the spending check now counts text and voice per provider; voice has its own caps, `VOICE_CAP_PER_BOOK_USD` and `VOICE_CAP_PER_MONTH_USD` (default $5 and $20). The cost is estimated from the character count at `ELEVENLABS_USD_PER_1K_CHARS` (default $0.30, cautious; set it to the real plan's price). Route `GET/POST /api/books/<id>/audio`. Tracks are in the library export round trip.
+- **Key paths:** `lib/speech/{model,elevenlabs,fake,timings,index}.ts`, `lib/library/audio.ts`, `db/migrations/0011_audio_tracks.*`, `lib/ai/generate.ts` (`spending`, `checkCaps`), `app/api/books/[id]/audio/route.ts`, `lib/library/export.ts`, `e2e/audio.spec.ts`, `.env.example`
+- **Commands that worked:** `npm run check` → Vitest `184 passed`, including: a paragraph's track made once (1 call), stored as a WAV under the owner, with one timing per word pointing at that word and times matching the fake's 0.03 s per character; asked again → re-served (still 1 call); another voice → another track; reading position → paragraph (and on from a chapter's top or a heading), with the next paragraph; voice caps stop before calling, and voice spending is counted for `elevenlabs` and not for `anthropic`; unknown voices and other readers' books refused; two requests at once → one call; `ElevenLabsSpeech` against a stand-in API sends `POST /v1/text-to-speech/<voice>/with-timestamps?output_format=mp3_44100_128` with `xi-api-key` and `{ text, model_id: "eleven_multilingual_v2", next_text }`, lists voices, and explains a refused key; tracks survive export → wipe → import. `npx playwright test` → `120 passed (2.6m)`, including the audio API end to end: voices, estimate, 201 then 200 (re-served), the audio link returns `audio/wav` starting "RIFF", signed-out → 401, unknown voice → 400.
+- **Known issues / blockers:** No player yet (PR (b)). No real ElevenLabs call yet: the key is on Railway but the cloud session cannot reach ElevenLabs (network policy), so the first real narration happens on the live site. The file route sends whole files (no byte ranges); fine for paragraph-sized clips.
+- **Exact next steps:** M7 (b), per "Exact next steps".
 
 ### 2026-10-04 05:40 UTC · Claude (cloud) · M6 (g): cross-book links; M6 ticked
 - **Done:** When the page you are reading shares ideas with a highlight or note you made **in another book**, the reader's footer says **"1 link to your other books"**. It opens **"Elsewhere in your library"**: the book and chapter, your quote, your note, and "Open in <book>", which opens that book at that highlight. No AI is involved. Postgres reduces the page and each highlight (quote plus note) to word stems in English, without common words such as "will" and "the". A highlight matches when it shares at least two stems with the page and at least a third of its first nine. The best five are shown, with the latest version of each annotation; hidden ones and highlights from the same book are left out. The lookup runs 0.6 s after the page settles, only when the visible text changed. **M6 ticked** in `docs/done.md`. Its live parts (one real call per feature, Samuel's verdict) are listed under Waiting on Samuel.

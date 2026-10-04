@@ -214,3 +214,27 @@ export const questionMarks = pgTable("question_marks", {
   correct: boolean("correct").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const audioTracks = pgTable("audio_tracks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  sectionId: text("section_id").notNull(),
+  source: text("source", { enum: ["tts", "upload"] }).notNull(),
+  provider: text("provider"),
+  model: text("model"),
+  voice: text("voice").notNull(),
+  cacheKey: text("cache_key").notNull(),
+  inputHash: text("input_hash").notNull(),
+  characters: integer("characters").notNull().default(0),
+  costUsd: doublePrecision("cost_usd").notNull().default(0),
+  audioKey: text("audio_key").notNull(),
+  mime: text("mime").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  words: jsonb("words").$type<[number, number, number, number][]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

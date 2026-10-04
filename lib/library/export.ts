@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, collectionBooks, collections, generations, paths, pillars, questionMarks, slots, users } from "@/lib/db/schema";
+import { annotations, audioTracks, books, collectionBooks, collections, generations, paths, pillars, questionMarks, slots, users } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -97,6 +97,25 @@ export type LibraryExport = {
   }[];
   /** Every right/wrong mark on question-bank questions (added in M6; append-only). */
   questionMarks?: { id: string; bookId: string; chapterId: string; generationId: string; questionIndex: number; correct: boolean; createdAt: string }[];
+  /** Read-aloud audio tracks with word timings and provenance (added in M7). The audio files stay in storage, like book files. */
+  audioTracks?: {
+    id: string;
+    bookId: string;
+    sectionId: string;
+    source: "tts" | "upload";
+    provider: string | null;
+    model: string | null;
+    voice: string;
+    cacheKey: string;
+    inputHash: string;
+    characters: number;
+    costUsd: number;
+    audioKey: string;
+    mime: string;
+    durationMs: number;
+    words: [number, number, number, number][];
+    createdAt: string;
+  }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -138,6 +157,11 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(questionMarks)
     .where(eq(questionMarks.ownerId, ownerId))
     .orderBy(asc(questionMarks.createdAt), asc(questionMarks.id));
+  const trackRows = await db
+    .select()
+    .from(audioTracks)
+    .where(eq(audioTracks.ownerId, ownerId))
+    .orderBy(asc(audioTracks.createdAt), asc(audioTracks.id));
   const [settings] = await db.select({ aiStyle: users.aiStyle }).from(users).where(eq(users.id, ownerId));
 
   return {
@@ -236,6 +260,24 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       correct: m.correct,
       createdAt: m.createdAt.toISOString(),
     })),
+    audioTracks: trackRows.map((t) => ({
+      id: t.id,
+      bookId: t.bookId,
+      sectionId: t.sectionId,
+      source: t.source,
+      provider: t.provider,
+      model: t.model,
+      voice: t.voice,
+      cacheKey: t.cacheKey,
+      inputHash: t.inputHash,
+      characters: t.characters,
+      costUsd: t.costUsd,
+      audioKey: t.audioKey,
+      mime: t.mime,
+      durationMs: t.durationMs,
+      words: t.words,
+      createdAt: t.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -246,6 +288,7 @@ export async function wipeLibrary(db: Db, ownerId: string) {
   await db.transaction(async (tx) => {
     await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
     await tx.delete(questionMarks).where(eq(questionMarks.ownerId, ownerId));
+    await tx.delete(audioTracks).where(eq(audioTracks.ownerId, ownerId));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
@@ -350,6 +393,9 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     }
     for (const m of x.questionMarks ?? []) {
       await tx.insert(questionMarks).values({ ...m, ownerId, createdAt: new Date(m.createdAt) });
+    }
+    for (const t of x.audioTracks ?? []) {
+      await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt) });
     }
   });
 }
