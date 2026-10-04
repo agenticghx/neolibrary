@@ -1,0 +1,106 @@
+.room {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  background-image: radial-gradient(ellipse 70% 55% at 50% 30%, var(--paper-raised), var(--paper) 70%);
+}
+
+.panel {
+  width: 100%;
+  max-width: 24rem;
+  display: grid;
+  gap: var(--space-6);
+}
+
+.brand {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+}
+
+.mark {
+  display: inline-flex;
+  margin-bottom: var(--space-2);
+  color: var(--ink-900);
+}
+
+.wordmark {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-medium);
+}
+
+.tagline {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title {
+  text-align: center;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-regular);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--ink-700);
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-md);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.input::placeholder {
+  color: var(--ink-500);
+}
+
+.input:hover {
+  border-color: var(--ink-500);
+}
+
+.button {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.button:hover:not(:disabled) {
+  background-color: var(--accent-strong);
+}
+
+.note {
+  text-align: center;
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}

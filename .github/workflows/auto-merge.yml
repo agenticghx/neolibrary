@@ -1,0 +1,33 @@
+# Turns on GitHub's auto-merge for pull requests opened by Claude sessions, so
+# they merge by themselves once every required check is green (Samuel's
+# self-merge decision; see CLAUDE.md). Needs two repo settings done once by
+# Samuel: "Allow auto-merge", and branch protection on main with the CI checks
+# required. Without them this workflow only prints a warning.
+name: Auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (startsWith(github.head_ref, 'claude/') || startsWith(github.head_ref, 'm'))
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.html_url }}
+        run: |
+          if gh pr merge --auto --squash "$PR"; then
+            echo "Auto-merge enabled for $PR"
+          else
+            echo "::warning::Could not enable auto-merge. Turn on 'Allow auto-merge' and branch protection for main in the repo settings."
+          fi

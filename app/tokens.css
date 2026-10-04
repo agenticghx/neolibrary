@@ -1,0 +1,130 @@
+/*
+ * Neolibrary design tokens. The single source of every colour, type size,
+ * spacing step, radius, shadow and motion value. Explained in docs/design.md.
+ * Other CSS files may only use these through var(--…) (enforced by stylelint).
+ * Contrast of each text/background pair is checked in lib/tokens.test.ts.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Type faces */
+  --font-serif: "Source Serif 4 Variable", "Iowan Old Style", "Palatino Linotype", georgia, serif;
+  --font-sans: "Source Sans 3 Variable", "Segoe UI", "Helvetica Neue", arial, sans-serif;
+
+  /* Type scale: ratio 1.25 (major third) around a 20px reading size */
+  --text-xs: 0.8125rem;   /* 13px  tiny labels, letter-spaced caps */
+  --text-sm: 0.9375rem;   /* 15px  UI labels, captions */
+  --text-md: 1.0625rem;   /* 17px  UI body, buttons, inputs */
+  --text-read: 1.25rem;   /* 20px  book text on desktop */
+  --text-read-phone: 1.125rem; /* 18px book text on phones */
+  --text-lg: 1.5625rem;   /* 25px  section titles */
+  --text-xl: 1.953rem;    /* 31px */
+  --text-2xl: 2.441rem;   /* 39px  page titles */
+  --text-3xl: 3.052rem;   /* 49px  display */
+
+  --leading-tight: 1.15;  /* headings */
+  --leading-ui: 1.4;      /* labels and controls */
+  --leading-read: 1.6;    /* long reading */
+  --measure-read: 66ch;   /* reading line length (characters) */
+  --tracking-caps: 0.08em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Spacing scale: 4px steps that grow */
+  --space-0: 0.125rem;  /* 2px */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.5rem;    /* 24px */
+  --space-6: 2rem;      /* 32px */
+  --space-7: 3rem;      /* 48px */
+  --space-8: 4rem;      /* 64px */
+  --space-9: 6rem;      /* 96px */
+
+  /* Radii and borders */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  --border-hair: 1px;
+
+  /* Motion: quiet and short. Zeroed when the reader asks for reduced motion. */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 360ms;
+
+  --z-raised: 10;
+  --z-overlay: 100;
+
+  /* Light theme colours: warm paper, deep ink, oxidised teal */
+  --paper: #f3ede1;          /* page background */
+  --paper-raised: #faf6ee;   /* cards, popovers */
+  --paper-sunken: #e9e1d1;   /* wells, collapsed panels */
+  --ink-900: #243239;        /* main text */
+  --ink-700: #3c4b52;        /* secondary text */
+  --ink-500: #5a676c;        /* quiet labels (still AA on paper) */
+  --rule: #d6ccba;           /* hairlines and dividers */
+  --accent: #376963;         /* links, primary buttons, progress */
+  --accent-strong: #2a524d;  /* hover/pressed */
+  --on-accent: #faf6ee;      /* text on accent */
+  --highlight: #cfe0d8;      /* highlighted passage background */
+  --highlight-active: #9cc4b6; /* the word being spoken */
+  --focus-ring: #2a524d;
+
+  /* Machine-written text (ground rule 5): always visibly different */
+  --machine-ink: #3c4b52;
+  --machine-bg: #ece6f0;
+  --machine-rule: #7a6a8c;
+
+  /* Typographic book covers */
+  --cover-navy: #22384a;
+  --cover-green: #2e5a50;
+  --cover-ink: #f0e8d8;
+  --cover-unowned: #d9d3c7;
+  --cover-unowned-ink: #4a5458;
+
+  --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
+  --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1b282f;
+    --paper-raised: #22323a;
+    --paper-sunken: #152026;
+    --ink-900: #e7ddc9;
+    --ink-700: #cdc3b0;
+    --ink-500: #a49d8e;
+    --rule: #34454d;
+    --accent: #6b9f95;
+    --accent-strong: #8bbab0;
+    --on-accent: #12201f;
+    --highlight: #2c4743;
+    --highlight-active: #3f6a63;
+    --focus-ring: #8bbab0;
+    --machine-ink: #d3c9b6;
+    --machine-bg: #2a2a3a;
+    --machine-rule: #a796bb;
+    --cover-navy: #2a4459;
+    --cover-green: #346659;
+    --cover-ink: #f0e8d8;
+    --cover-unowned: #2b3a41;
+    --cover-unowned-ink: #b5ad9e;
+    --shadow-cover: 0 1px 1px #0000004d, 0 8px 18px #00000059, 0 20px 34px -14px #00000073;
+    --shadow-raised: 0 1px 2px #0000004d, 0 10px 28px -10px #0006;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}
