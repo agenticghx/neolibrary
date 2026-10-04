@@ -929,7 +929,7 @@ export function Reader(props: {
             STE is Simplified Technical English: one meaning per word, short sentences. It applies to &ldquo;What do I need to
             know?&rdquo; and other AI explanations; rewrites choose their own level.
           </p>
-          {props.fileType === "epub" ? <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} /> : null}
+          <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
         </section>
       ) : null}
     </div>

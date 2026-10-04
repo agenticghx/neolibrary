@@ -248,3 +248,58 @@ test("a note edited and a note removed offline are changed on the server when th
   expect(await versions(drop.id)).toBe(2);
   await server.dispose();
 });
+
+// PDF books too: the PDF viewer's files are kept with the first PDF downloaded.
+test("a PDF downloaded for offline opens with the network off, pages and all", async ({ page, context }) => {
+  const discourse = await bookId(page, "Discourse on the Method");
+  await page.goto(`/books/${discourse}/read`);
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const offline = page.getByTestId("offline");
+  await expect(offline).toContainText("The first PDF also keeps the PDF viewer");
+  await offline.getByRole("button", { name: "Download for offline" }).click();
+  await expect(offline.getByRole("status")).toHaveText("Available offline on this device. Signing out removes it.", { timeout: 30_000 });
+  // Every file of the viewer is on the device, not only those page 1 needed.
+  const kept = await page.evaluate(async () => {
+    const files = (await (await fetch("/pdfjs/files.json")).json()) as string[];
+    const cache = await caches.open("neolibrary-offline-assets-v1");
+    let n = 0;
+    for (const f of files) if (await cache.match(new URL(`/pdfjs/${f}`, location.origin).href)) n += 1;
+    return { n, of: files.length };
+  });
+  expect(kept.n).toBe(kept.of);
+
+  await context.setOffline(true);
+  const refused: string[] = [];
+  await context.route("**/*", (route) => {
+    refused.push(new URL(route.request().url()).pathname);
+    return route.abort("internetdisconnected");
+  });
+  expect(await page.evaluate(() => fetch("/api/health", { cache: "no-store" }).then(() => "reached", () => "failed"))).toBe("failed");
+  await page.goto(`/books/${discourse}/read`);
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // It opens at the saved page; turn to page 3 (not shown in this browser before going offline): it renders too.
+  for (let i = 0; i < 3 && !/^epubcfi\(\/6\/6/.test((await reader.getAttribute("data-cfi")) ?? ""); i++) {
+    const at = await reader.getAttribute("data-cfi");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect(reader).not.toHaveAttribute("data-cfi", at ?? "");
+  }
+  await expect(reader).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
+  // The page's text layer (what search and selection use) is there too.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+        return view.renderer.getContents().map((c) => c.doc.body?.textContent ?? "").join(" ");
+      }),
+    )
+    .toContain("vigorous mind");
+  // The page, the PDF file and the viewer's worker were asked of the network, refused, and came from the device.
+  expect(refused).toContain(`/books/${discourse}/read`);
+  expect(refused.some((p) => p.startsWith("/api/files/books/") && p.endsWith(`${discourse}.pdf`))).toBe(true);
+  expect(refused).toContain("/pdfjs/pdf.worker.min.mjs");
+  await context.unrouteAll();
+  await context.setOffline(false);
+});
