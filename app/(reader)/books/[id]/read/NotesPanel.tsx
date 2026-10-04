@@ -150,7 +150,7 @@ export function NotesPanel({
                     Go to
                   </button>
                 ) : null}
-                {editing !== a.id && a.kind !== "bookmark" && !a.pending ? (
+                {editing !== a.id && a.kind !== "bookmark" ? (
                   <button
                     type="button"
                     className={styles.tool}

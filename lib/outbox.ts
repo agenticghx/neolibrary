@@ -1,11 +1,26 @@
 /**
  * The outbox for notes made offline (M12), in the browser's own database
- * (IndexedDB). A highlight, note, sticker or bookmark that cannot reach the
- * server waits here with the id the browser gave it, and is sent when the
- * network returns. Annotations are only ever added (ground rule 9) and the
+ * (IndexedDB). A new highlight, note, sticker or bookmark, or an edit or
+ * removal, that cannot reach the server waits here with the id the browser
+ * gave it, and is sent when the network returns, in the order it was made. Annotations are only ever added (ground rule 9) and the
  * server stores an id once, so sending one twice is harmless.
  */
-export type OutboxItem = { id: string; bookId: string; body: Record<string, unknown>; savedAt: string };
+/**
+ * - create: a new annotation; `id` is its id, `body` what to POST.
+ * - edit: a change to `annotationId` (`body` = { body?, color? }); `id` is the change's id.
+ * - remove: hides `annotationId`; `id` is the change's id.
+ * Items saved before edits existed have no `op` and are creates.
+ */
+export type OutboxItem = {
+  id: string;
+  op?: "create" | "edit" | "remove";
+  annotationId?: string;
+  bookId: string;
+  body: Record<string, unknown>;
+  savedAt: string;
+};
+
+export const opOf = (i: OutboxItem) => i.op ?? "create";
 
 const DB = "neolibrary-offline";
 const STORE = "outbox";
@@ -44,8 +59,8 @@ export async function outboxFor(bookId?: string): Promise<OutboxItem[]> {
 export const isOffline = (e: unknown) => e instanceof TypeError;
 
 /**
- * Sends everything waiting, oldest first. A note the server accepts (201) or
- * already has (200) leaves the outbox; one it refuses (4xx) leaves too, since
+ * Sends everything waiting, oldest first. A change the server accepts (or
+ * already has) leaves the outbox; one it refuses (4xx) leaves too, since
  * sending it again cannot help; on a network failure it stops and keeps the rest.
  * Returns how many were sent.
  */
@@ -55,11 +70,21 @@ export async function flushOutbox(): Promise<{ sent: number; refused: number }> 
   for (const item of await outboxFor()) {
     let res: Response;
     try {
-      res = await fetch(`/api/books/${item.bookId}/annotations`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...item.body, id: item.id }),
-      });
+      const op = opOf(item);
+      res =
+        op === "create"
+          ? await fetch(`/api/books/${item.bookId}/annotations`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ ...item.body, id: item.id }),
+            })
+          : op === "edit"
+            ? await fetch(`/api/annotations/${item.annotationId}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ ...item.body, changeId: item.id }),
+              })
+            : await fetch(`/api/annotations/${item.annotationId}?changeId=${item.id}`, { method: "DELETE" });
     } catch {
       break;
     }
