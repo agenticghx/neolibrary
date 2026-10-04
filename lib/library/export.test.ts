@@ -23,6 +23,8 @@ import { markQuestion, questionBank } from "./questions";
 import { rewriteParagraph } from "./rewrite";
 import { getSections } from "./sections-store";
 import { createCollection, listShelf, setInCollection } from "./shelf";
+import { buildPackage } from "@/lib/readalong/fixture";
+import { startImport } from "@/lib/readalong/importer";
 
 let database: Database;
 let ownerId: string;
@@ -54,6 +56,15 @@ describe("library export (ground rule 7)", () => {
     await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: false });
     await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: true });
     const track = await speakPassage(database.db, storage, new FakeSpeech(), ownerId, { bookId, sectionId: paragraph.id, voice: "fake-ben" });
+    // M13: an uploaded read-along audiobook for two paragraphs.
+    const later = (await getSections(database.db, ownerId, bookId)).filter((x) => x.kind === "paragraph").slice(10, 12);
+    const audiobook = await startImport(
+      database.db,
+      storage,
+      ownerId,
+      bookId,
+      buildPackage({ bookBytes: file, chapters: [{ title: "Ch", paragraphs: later.map((x) => x.text), inBook: later.map((x) => x.chapterIndex) }] }).zip(),
+    );
     const voice = await createVoiceNote(database.db, storage, new FakeTranscriber(), ownerId, {
       bookId,
       cfi: paragraph.cfi.replace(/\)$/, "/1:0)"),
@@ -94,8 +105,13 @@ describe("library export (ground rule 7)", () => {
       [0, false],
       [0, true],
     ]);
-    expect(before.audioTracks).toEqual([expect.objectContaining({ id: track.track.id, voice: "fake-ben", audioKey: track.track.audioKey })]);
+    expect(before.audioTracks).toEqual([
+      expect.objectContaining({ id: track.track.id, voice: "fake-ben", audioKey: track.track.audioKey, importId: null }),
+      expect.objectContaining({ source: "upload", importId: audiobook.id, audioStartMs: expect.any(Number) }),
+      expect.objectContaining({ source: "upload", importId: audiobook.id, audioStartMs: expect.any(Number) }),
+    ]);
     expect(before.audioTracks![0].words).toEqual(track.track.words);
+    expect(before.readalongImports).toEqual([expect.objectContaining({ id: audiobook.id, bookId, status: "ready", pending: null })]);
     expect(before.readingSessions).toEqual([
       expect.objectContaining({
         bookId,
@@ -117,7 +133,7 @@ describe("library export (ground rule 7)", () => {
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
-    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readingSessions]).toEqual([[], [], [], [], [], [], [], []]);
+    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions]).toEqual([[], [], [], [], [], [], [], [], []]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));

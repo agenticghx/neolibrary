@@ -259,7 +259,36 @@ export const audioTracks = pgTable("audio_tracks", {
   durationMs: integer("duration_ms").notNull(),
   words: jsonb("words").$type<[number, number, number, number][]>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** M13: an uploaded track plays this stretch of a longer file; its word times are then in that file. */
+  audioStartMs: integer("audio_start_ms"),
+  audioEndMs: integer("audio_end_ms"),
+  importId: uuid("import_id").references(() => readalongImports.id, { onDelete: "cascade" }),
 });
+
+/** M13: one uploaded read-along package (see db/migrations/0020_readalong_imports.up.sql). */
+export const readalongImports = pgTable("readalong_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["uploading", "ready"] }).notNull(),
+  title: text("title"),
+  voice: text("voice"),
+  madeWith: text("made_with"),
+  manifest: jsonb("manifest").$type<unknown>().notNull(),
+  report: jsonb("report").$type<ReadalongReport>().notNull(),
+  audio: jsonb("audio").$type<ReadalongAudio[]>().notNull(),
+  pending: jsonb("pending").$type<ReadalongPending[] | null>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+});
+
+export type ReadalongReport = { chapters: { n: number; title: string; spokenWords: number; matchedWords: number }[]; paragraphs: number };
+export type ReadalongAudio = { file: string; key: string; sha256: string; seconds: number; mime: string; uploadId: string | null };
+export type ReadalongPending = { sectionId: string; audio: string; startMs: number; endMs: number; words: [number, number, number, number][] };
 
 export const readingSessions = pgTable("reading_sessions", {
   id: uuid("id").primaryKey(),

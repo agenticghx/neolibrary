@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users, type ChapterReading } from "@/lib/db/schema";
+import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users, type ChapterReading } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -126,6 +126,25 @@ export type LibraryExport = {
     durationMs: number;
     words: [number, number, number, number][];
     createdAt: string;
+    /** M13: an uploaded track's stretch of its (longer) audio file, and its import. */
+    audioStartMs?: number | null;
+    audioEndMs?: number | null;
+    importId?: string | null;
+  }[];
+  /** Uploaded read-along audiobooks (added in M13). Their audio files stay in storage, like book files. */
+  readalongImports?: {
+    id: string;
+    bookId: string;
+    status: "uploading" | "ready";
+    title: string | null;
+    voice: string | null;
+    madeWith: string | null;
+    manifest: unknown;
+    report: (typeof readalongImports.$inferSelect)["report"];
+    audio: (typeof readalongImports.$inferSelect)["audio"];
+    pending: (typeof readalongImports.$inferSelect)["pending"];
+    createdAt: string;
+    finishedAt: string | null;
   }[];
   /** Reading sittings for the statistics (added in M10). */
   readingSessions?: {
@@ -179,6 +198,11 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(questionMarks)
     .where(eq(questionMarks.ownerId, ownerId))
     .orderBy(asc(questionMarks.createdAt), asc(questionMarks.id));
+  const importRows = await db
+    .select()
+    .from(readalongImports)
+    .where(eq(readalongImports.ownerId, ownerId))
+    .orderBy(asc(readalongImports.createdAt), asc(readalongImports.id));
   const trackRows = await db
     .select()
     .from(audioTracks)
@@ -310,6 +334,23 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       durationMs: t.durationMs,
       words: t.words,
       createdAt: t.createdAt.toISOString(),
+      audioStartMs: t.audioStartMs,
+      audioEndMs: t.audioEndMs,
+      importId: t.importId,
+    })),
+    readalongImports: importRows.map((r) => ({
+      id: r.id,
+      bookId: r.bookId,
+      status: r.status,
+      title: r.title,
+      voice: r.voice,
+      madeWith: r.madeWith,
+      manifest: r.manifest,
+      report: r.report,
+      audio: r.audio,
+      pending: r.pending,
+      createdAt: r.createdAt.toISOString(),
+      finishedAt: r.finishedAt?.toISOString() ?? null,
     })),
     readingSessions: sessionRows.map((r) => ({
       id: r.id,
@@ -332,6 +373,7 @@ export async function wipeLibrary(db: Db, ownerId: string) {
     await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
     await tx.delete(questionMarks).where(eq(questionMarks.ownerId, ownerId));
     await tx.delete(audioTracks).where(eq(audioTracks.ownerId, ownerId));
+    await tx.delete(readalongImports).where(eq(readalongImports.ownerId, ownerId));
     await tx.delete(readingSessions).where(eq(readingSessions.ownerId, ownerId));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
@@ -445,6 +487,10 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     }
     for (const m of x.questionMarks ?? []) {
       await tx.insert(questionMarks).values({ ...m, ownerId, createdAt: new Date(m.createdAt) });
+    }
+    // Imports before tracks: an uploaded track points at its import.
+    for (const r of x.readalongImports ?? []) {
+      await tx.insert(readalongImports).values({ ...r, ownerId, createdAt: new Date(r.createdAt), finishedAt: r.finishedAt ? new Date(r.finishedAt) : null });
     }
     for (const t of x.audioTracks ?? []) {
       await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt) });

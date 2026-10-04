@@ -75,6 +75,8 @@ export default defineConfig({
     { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
     // 13. Offline (M12): service worker, download for offline.
     { name: "offline", testMatch: /offline\.spec\.ts/, dependencies: ["agents"], use: { ...desktop } },
+    // 14. Read-along audiobooks the reader uploads (M13), last: it changes a book's read-aloud audio.
+    { name: "readalong", testMatch: /readalong\.spec\.ts/, dependencies: ["offline"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.
