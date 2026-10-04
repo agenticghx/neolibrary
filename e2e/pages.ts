@@ -14,6 +14,7 @@ export const pages: PageCase[] = [
   { name: "data", path: "/data", signedIn: true },
   { name: "search", path: "/search", signedIn: true },
   { name: "invites", path: "/admin/invites", signedIn: true },
+  { name: "costs", path: "/admin/costs", signedIn: true },
   { name: "design", path: "/design", signedIn: true },
 ];
 

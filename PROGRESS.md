@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M7 (c), the cost counter, then M8.
+next_action: Sessions loop through docs/done.md on their own; next is M8 (voice notes, stickers, handwriting).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,24 +21,40 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M7 · Listen and read (ElevenLabs)**, next unticked box in
-   `docs/done.md`. PRs (a) audio tracks and (b) the player with the word
-   highlight are done (see Log). Remaining: (c) a running **cost counter on
-   an admin page** (`/admin/costs`, admin only, linked from the Invite page
-   so the phone nav does not grow): this month's spending per provider
-   (`spending()` in `lib/ai/generate.ts`, text and voice) against the caps
-   (`capsFromEnv(env, "AI" | "VOICE")`), and a per-book split for the month
-   (sum `generations.cost_usd` and `audio_tracks.cost_usd` grouped by book).
-   Add it to `e2e/pages.ts` (screenshots and accessibility) and a Playwright
-   check that the numbers match what the AI and audio tests spent. Then tick
-   M7 in `docs/done.md`, and add "one real section narrated on the live
-   site" under Waiting on Samuel.
-2. Then M8, M9, … in order, per `docs/done.md`.
+1. **M8 · Thinking-out-loud notes**, next unticked box in `docs/done.md`.
+   Suggested PRs: (a) **voice notes** on a passage: record in the browser
+   (MediaRecorder; Playwright can use Chromium's fake microphone,
+   `--use-fake-device-for-media-stream` and
+   `--use-fake-ui-for-media-stream`, or upload a test audio file), store the
+   audio in the bucket under the owner (like `audio/…`), and turn it into
+   text so it is searchable: a `Transcriber` interface with ElevenLabs
+   speech-to-text (`client.speechToText.convert` in the SDK already
+   installed; check the model id there) and a fake that returns fixed text;
+   cost and caps through `checkCaps` with the voice caps. A voice note is an
+   annotation (append-only, ground rule 9) of a new kind `voice` with the
+   audio key and transcript (migration with a reverse step); it shows in the
+   Notes panel with a player, its transcript is in note search and in the
+   exports (Markdown and W3C: transcript as the body; library JSON: all
+   fields). (b) **Stickers** on passages: a small fixed set (e.g. ★ ? ! ✓ ⚑
+   drawn as SVG, not emoji, so screenshots match everywhere), stored as
+   annotations of kind `sticker`, drawn in the margin. (c) **Handwriting**
+   last: a drawing layer (pointer events on a canvas over the page),
+   strokes saved as JSON point lists on a passage annotation, redrawn after
+   reload; Playwright draws a scripted stroke. Done when (plan): voice note
+   and sticker survive a reload; a scripted stroke is saved and redrawn.
+2. Then M9, M10, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
 
+- **M7 real narration** (after the Railway deploy; `ELEVENLABS_API_KEY` is
+  already on `web`): open one of your books on the live site, press
+  **Listen** in the footer, play one paragraph, and say in a GitHub issue
+  (title "M7 verdict") whether the voice and the word highlight are good.
+  Set `ELEVENLABS_USD_PER_1K_CHARS` to your plan's real price per 1,000
+  characters so the estimates and caps are right (default $0.30). The
+  admin page "Spending this month" (linked from Invite) shows what it cost.
 - **M6 real calls and verdict** (after `ANTHROPIC_API_KEY` is on Railway
   `web`): on the live site, try one of each AI feature on one of your own
   books: a rewrite, an STE rewrite, "What do I need to know?", the question
@@ -93,6 +109,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 06:50 UTC · Claude (cloud) · M7 (c): the running cost counter; M7 ticked
+- **Done:** A new admin page **"Spending this month"** (`/admin/costs`, admin only, linked from the Invite page because the phone navigation has no room) shows, for each paid service (Claude for text, ElevenLabs for voice): what it has cost since the 1st for everyone, against its monthly cap; a bar; how many paid requests; the per-book cap; and the names of the settings that change the caps. Below, a **split by book** for this month. Only the admin's own books are named; other readers' spending is one line, because books are private (ground rule 6). The page is in `e2e/pages.ts`, so it has reference screenshots and an accessibility check. The Invite page's references were regenerated for the new link. **M7 ticked** in `docs/done.md`. The live part (one real narrated paragraph) is under Waiting on Samuel, with a reminder to set `ELEVENLABS_USD_PER_1K_CHARS` to the real plan price.
+- **Key paths:** `lib/library/costs.ts`, `app/(app)/admin/costs/`, `app/(app)/admin/invites/page.tsx`, `e2e/pages.ts`, `e2e/audio.spec.ts`, `e2e/__screenshots__/{costs,invites}-*`
+- **Commands that worked:** `npm run check` → Vitest `187 passed`, including: two rewrites (one by another reader) and one paragraph of audio give text = the two rewrites' costs and voice = the track's cost, 2 and 1 paid requests, the admin's book named with both amounts, the other reader's rewrite in "Other readers' books"; next month starts at zero; caps follow the settings. `npx playwright test --update-snapshots`, then `npx playwright test` → `131 passed (2.4m)`. Only `costs-*` (new) and `invites-*` (new link) reference images changed. The browser check after the AI and audio tests: Invite → "Spending this month" → text and voice both above $0, "of $20.00", a non-zero request count, and *Jekyll and Hyde* listed with text and voice amounts above $0.00. The setting names first showed in the browser's monospace font, which is not bundled and could differ on another machine; they now use the bundled sans font.
+- **Known issues / blockers:** Costs are what the app records (its price list and the character price setting), not the providers' invoices.
+- **Exact next steps:** M8, per "Exact next steps".
 
 ### 2026-10-04 06:40 UTC · Claude (cloud) · M7 (b): the read-aloud player with the word highlight
 - **Done:** A **Listen** button in the reader's footer (the top bar is full on phones) opens a player bar with Play/Pause, a **voice picker** (from the account, or the fake's two voices in tests), **speed** (0.75–2×) and a line that says either "Saved audio: free to play." or what the paragraph costs before it is made. It reads the paragraph at the reading position. When it ends, it fetches or makes the next paragraph and keeps going. Pages turn to follow the voice. **Word highlight:** on each time update (and on seeking) it finds the word being spoken from the track's timings and highlights it **inside the book's own frame**. It uses the browser's built-in text-highlight feature (CSS Custom Highlight API, colour `--highlight-active`), so the book's text is not changed. Character offsets in the paragraph's collapsed text are mapped back to the page's text nodes (`lib/reader/text-range.ts`), so words split by markup (e.g. "<b>bach</b>elor") still work. Closing the bar clears the highlight. PDFs get no Listen button yet. **Bugs found and fixed while testing:** (1) **the file route now serves byte ranges** (HTTP 206, `Accept-Ranges`, `Content-Length`). Without them Chromium sometimes treated the audio as an endless stream, which made the test flaky (about 1 run in 3), and would have broken seeking for real; after the fix, 4 full runs in a row were green. (2) Switching back to a voice whose audio was saved showed a cost; it now asks for the saved track. (3) After a voice change the button could still say "Pause" for a moment; it now resets at once.

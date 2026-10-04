@@ -1,0 +1,52 @@
+.services {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.service {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+}
+
+.serviceName {
+  font-weight: var(--weight-medium);
+}
+
+.amount {
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  width: 100%;
+  height: var(--space-2);
+  accent-color: var(--accent);
+}
+
+.meta {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}
+
+.bookRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: var(--border-hair) solid var(--rule);
+}
+
+.bookRow a {
+  color: var(--accent);
+}
+
+/* Setting names: the bundled font, so screenshots match on every machine. */
+.meta code {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+}

@@ -156,3 +156,20 @@ test("the player is accessible, and looks right on phone and desktop, light and 
     }
   }
 });
+
+// M7: the running cost counter, after the AI and audio tests above have spent (fake) money.
+test("the admin's cost counter shows this month's text and voice spending, by book", async ({ page }) => {
+  await page.goto("/admin/invites");
+  await page.getByRole("link", { name: "Spending this month" }).click();
+  await expect(page.getByRole("heading", { name: "Spending this month" })).toBeVisible();
+  const amount = async (provider: string) => Number((await page.getByTestId(`spent-${provider}`).textContent())!.replace("$", ""));
+  expect(await amount("anthropic")).toBeGreaterThan(0);
+  expect(await amount("elevenlabs")).toBeGreaterThan(0);
+  await expect(page.getByTestId("cost-anthropic")).toContainText(/of \$20\.00/);
+  await expect(page.getByTestId("cost-anthropic")).toContainText(/[1-9]\d* paid requests/);
+  await expect(page.getByTestId("cost-elevenlabs")).toContainText(/[1-9]\d* paid requests?/);
+  const jekyll = page.getByTestId("cost-books").locator("li").filter({ hasText: "The Strange Case of Dr. Jekyll and Mr. Hyde" });
+  await expect(jekyll).toContainText(/text \$0\.\d+ · voice \$0\.\d+/);
+  await expect(jekyll).not.toContainText("text $0.00");
+  await expect(jekyll).not.toContainText("voice $0.00");
+});

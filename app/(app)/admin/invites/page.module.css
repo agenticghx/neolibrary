@@ -114,3 +114,7 @@
     padding: var(--space-4);
   }
 }
+
+.costsLink {
+  color: var(--accent);
+}
