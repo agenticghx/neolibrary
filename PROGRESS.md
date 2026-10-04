@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Finish S6 (corrected Kuhn scripts), then M13 (a) in docs/plan.md; skills K1–K3 planned in docs/readalong-plan.md.
+next_action: M13 (b) (match words to paragraphs); finish S6 (corrected Kuhn scripts); skills K1–K3 planned in docs/readalong-plan.md.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -120,6 +120,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 16:20 · Claude (laptop) · M13 (a): read and check a read-along package
+- **Done:** The app can now read a read-along package (a zip, with the files at its root or inside one folder) and check it with the same rules as the skill's Python checker: format name, audio checksums (when the audio is at hand; it may arrive later by signed upload), every script word timed in order with offsets that point at it, words marked not spoken have no time, times inside the chapter and never going backwards; warnings for low-confidence words and paragraphs not found in the book. It also tells whether a package belongs to a given book file (checksum). Offsets are counted as Python counts characters, so curly quotes and emoji do not shift them. The format spec and the Python checker are copied into the repo (`tools/readalong/`) so the app's contract lives with the app. A test package is built in code (tone WAV, known word times) and reused by later steps.
+- **Key paths:** `lib/readalong/package.ts`, `lib/readalong/fixture.ts`, `lib/readalong/package.test.ts`, `tools/readalong/{README.md,package-format.md,validate_package.py}`
+- **Commands that worked:** `npx vitest run lib/readalong` → `Tests 11 passed (11)`. Seven broken packages are refused by both checkers with the same messages. With the "starts before the previous word" rule removed from the TypeScript checker, that test fails (`1 failed | 10 passed`), so the comparison really checks. `npm run check` → `Tests 246 passed | 2 skipped (248)`.
+- **Known issues / blockers:** None. No user-visible change, so no screenshots.
+- **Exact next steps:** M13 (b): match the package's words to the book's paragraphs.
 
 ### 2026-10-04 16:10 · Claude (laptop) · M13 approved and planned; skills planned; Kuhn scripts being corrected
 - **Done:** Samuel approved the importer (S5) and correcting the Kuhn scripts (S6). Wrote **M13 · Read along with your own audiobooks** into `docs/plan.md`: six steps (a)–(f): read and check a package, match words to the app's paragraphs, upload and store (migration for audio offsets; signed upload because the Kuhn audio is 201 MB and books are capped at 200 MB), play EPUB, play PDF (Listen is off for PDFs today), go live. Answered Samuel's question about the reading levels: the STE levels use his STE skill pasted into the prompt (copy identical to the original today, but not kept in step); "Plain" has no skill. Planned three skills in `docs/readalong-plan.md`: K1 `plain-english`, K2 keep STE in step, K3 `book-chapters` (for `claude -p`). S6: the skill's `check_script.py` now lists every difference with its place in the script (skipped, added, misread, written); new `fix_script.py` makes corrected copies with a changes list; a check of all 17 Kuhn chapters is running on the laptop.
