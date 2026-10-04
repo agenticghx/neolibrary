@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { generations } from "@/lib/db/schema";
+import { audioTracks, generations } from "@/lib/db/schema";
 import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel } from "./model";
 import { sha256 } from "./prompts";
 
@@ -17,9 +17,10 @@ import { sha256 } from "./prompts";
  */
 export type Caps = { perBookUsd: number; perMonthUsd: number };
 
-export function capsFromEnv(env: Record<string, string | undefined> = process.env): Caps {
+/** Caps from settings: AI_CAP_… for text AI, VOICE_CAP_… for reading aloud. $5 per book and $20 per month unless set. */
+export function capsFromEnv(env: Record<string, string | undefined> = process.env, prefix: "AI" | "VOICE" = "AI"): Caps {
   const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : d);
-  return { perBookUsd: num(env.AI_CAP_PER_BOOK_USD, 5), perMonthUsd: num(env.AI_CAP_PER_MONTH_USD, 20) };
+  return { perBookUsd: num(env[`${prefix}_CAP_PER_BOOK_USD`], 5), perMonthUsd: num(env[`${prefix}_CAP_PER_MONTH_USD`], 20) };
 }
 
 export class SpendingCapReached extends AiError {}
@@ -97,17 +98,36 @@ export const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(
 
 const monthStart = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-/** Dollars spent with a provider since the start of this month (UTC), and on one book ever. */
+/** Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever. */
 export async function spending(db: Db, provider: string, bookId: string | null, now = new Date()) {
-  const total = (where: ReturnType<typeof and>) =>
-    db
-      .select({ usd: sql<number>`coalesce(sum(${generations.costUsd}), 0)::float8` })
-      .from(generations)
-      .where(where)
-      .then((r) => Number(r[0]?.usd ?? 0));
-  const month = await total(and(eq(generations.provider, provider), gte(generations.createdAt, monthStart(now))));
-  const book = bookId ? await total(and(eq(generations.provider, provider), eq(generations.bookId, bookId))) : 0;
+  const sum = async (table: typeof generations | typeof audioTracks, book: boolean) => {
+    const r = await db
+      .select({ usd: sql<number>`coalesce(sum(${table.costUsd}), 0)::float8` })
+      .from(table)
+      .where(
+        and(eq(table.provider, provider), book && bookId ? eq(table.bookId, bookId) : gte(table.createdAt, monthStart(now))),
+      );
+    return Number(r[0]?.usd ?? 0);
+  };
+  const month = (await sum(generations, false)) + (await sum(audioTracks, false));
+  const book = bookId ? (await sum(generations, true)) + (await sum(audioTracks, true)) : 0;
   return { month, book };
+}
+
+/** Throws if spending `estimate` more would pass a cap. */
+export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
+  const spent = await spending(db, provider, bookId, now);
+  const env = label === "AI" ? "AI" : "VOICE";
+  if (spent.month + estimate > caps.perMonthUsd) {
+    throw new SpendingCapReached(
+      `This month's ${label} spending cap (${usd(caps.perMonthUsd)}) has been reached (${usd(spent.month)} spent). It resets on the 1st, or the owner can raise ${env}_CAP_PER_MONTH_USD.`,
+    );
+  }
+  if (bookId && spent.book + estimate > caps.perBookUsd) {
+    throw new SpendingCapReached(
+      `This book's ${label} spending cap (${usd(caps.perBookUsd)}) has been reached (${usd(spent.book)} spent). The owner can raise ${env}_CAP_PER_BOOK_USD.`,
+    );
+  }
 }
 
 export async function findStored(db: Db, ownerId: string, req: GenerationRequest) {
@@ -139,18 +159,7 @@ export async function generate(
   const job = (async () => {
     const caps = opts.caps ?? capsFromEnv();
     const now = opts.now?.() ?? new Date();
-    const est = estimateCost(model, req);
-    const spent = await spending(db, model.provider, req.bookId, now);
-    if (spent.month + est > caps.perMonthUsd) {
-      throw new SpendingCapReached(
-        `This month's AI spending cap (${usd(caps.perMonthUsd)}) has been reached (${usd(spent.month)} spent). It resets on the 1st, or the owner can raise AI_CAP_PER_MONTH_USD.`,
-      );
-    }
-    if (req.bookId && spent.book + est > caps.perBookUsd) {
-      throw new SpendingCapReached(
-        `This book's AI spending cap (${usd(caps.perBookUsd)}) has been reached (${usd(spent.book)} spent). The owner can raise AI_CAP_PER_BOOK_USD.`,
-      );
-    }
+    await checkCaps(db, model.provider, req.bookId, estimateCost(model, req), caps, now, "AI");
     const result = await model.generate({
       system: req.system,
       prompt: req.prompt,

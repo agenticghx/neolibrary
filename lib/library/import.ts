@@ -74,6 +74,6 @@ export async function importBook(
 
 /** Owner of a stored file, from its key (books/<owner>/…, covers/<owner>/…). */
 export function fileOwner(key: string): string | null {
-  const m = /^(?:books|covers)\/([0-9a-f-]{36})\//.exec(key);
+  const m = /^(?:books|covers|audio)\/([0-9a-f-]{36})\//.exec(key);
   return m ? m[1] : null;
 }

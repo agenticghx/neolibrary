@@ -14,6 +14,8 @@ import { savePosition } from "./reading";
 import { eq } from "drizzle-orm";
 import { users } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
+import { FakeSpeech } from "@/lib/speech/fake";
+import { speakPassage } from "./audio";
 import { markQuestion, questionBank } from "./questions";
 import { rewriteParagraph } from "./rewrite";
 import { getSections } from "./sections-store";
@@ -48,6 +50,7 @@ describe("library export (ground rule 7)", () => {
     const bank = await questionBank(database.db, new FakeModel(), ownerId, { bookId, chapterId: carew.id });
     await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: false });
     await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: true });
+    const track = await speakPassage(database.db, storage, new FakeSpeech(), ownerId, { bookId, sectionId: paragraph.id, voice: "fake-ben" });
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
 
@@ -65,6 +68,8 @@ describe("library export (ground rule 7)", () => {
       [0, false],
       [0, true],
     ]);
+    expect(before.audioTracks).toEqual([expect.objectContaining({ id: track.track.id, voice: "fake-ben", audioKey: track.track.audioKey })]);
+    expect(before.audioTracks![0].words).toEqual(track.track.words);
     expect(before.settings).toEqual({ aiStyle: "ste-standard" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
     expect(before.generations).toEqual([
@@ -76,7 +81,7 @@ describe("library export (ground rule 7)", () => {
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
-    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks]).toEqual([[], [], [], [], [], []]);
+    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks]).toEqual([[], [], [], [], [], [], []]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));
