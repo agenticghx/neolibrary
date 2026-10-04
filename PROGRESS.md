@@ -3,8 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the auto-merge fix PR once CI is green; Samuel connects Railway `web` to the repo and turns on branch protection.
-blockers: Railway deploy and auto-merge need Samuel's clicks in Railway/GitHub settings (see Exact next steps).
+next_action: Sessions loop through docs/done.md on their own; next is M2 (accounts).
+blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
 ---
@@ -19,42 +19,47 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-1. **(Cloud session)** M1 skeleton is merged (PR #1, merged too early by the
-   old auto-merge). Get the auto-merge fix PR green and merge it. If the
-   screenshot comparison fails on GitHub only (machine rendering
-   differences), download the `playwright-report` artifact, compare, and
-   regenerate the reference images to match CI or raise the allowance in
-   `playwright.config.ts` slightly; never just delete them. (On PR #1 the
-   cloud-made references matched CI exactly.)
-2. **(Samuel, ~5 minutes, now that the app builds)**:
-   - Railway: open service `web` → Settings → Source → connect
-     `sahuno/neolibrary`, branch `main`. Then Settings → Networking →
-     "Generate domain". Paste the URL into the Log. Railway reads
-     `railway.json` (build `npm run build`, start `npm run start`, health
-     check `/api/health`).
-   - GitHub repo → Settings → Branches → add a rule for `main`: require a
-     pull request and require these checks: `Lint, types, unit tests`,
-     `PR hygiene (PROGRESS.md Log entry)`,
-     `Browser tests (screenshots + accessibility)`.
-3. **(Cloud session)** Finish M1: open `https://<railway-url>/api/health`
-   and `/sign-in`, paste the output into the Log, confirm the screenshot
-   grid comment appeared on the PR, then mark M1 done.
-4. **(Samuel, any time)** Put 5–10 screenshots you love and 3 you dislike
-   in `docs/design/refs/`, one line each on why. `docs/design.md` gets
-   revised from them.
-5. **(Samuel, later)** `ANTHROPIC_API_KEY` on Railway `web` before M6;
-   `OPENAI_API_KEY` before M9.
-6. **(Cloud session)** M2: invite-only accounts.
+The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
+
+1. **M2 · accounts** (first unticked box in `docs/done.md`). Plan: Postgres
+   via Drizzle; tests on PGlite (Postgres compiled to run inside Node, so no
+   database server is needed in tests or CI); invite-only email + password
+   accounts (no email service needed); the first admin is created with a
+   one-time setup code printed in the server log; sessions in a signed
+   cookie; every page and API behind login; Playwright proves a logged-out
+   visitor gets nothing.
+2. Then M3, M4, … in order, per `docs/done.md`.
+
+## Waiting on Samuel
+
+Never blocks the loop. Newest first.
+
+- **Railway deploy** (about 3 minutes): Railway → project `neolibrary` →
+  service `web` → Settings → Source → connect `sahuno/neolibrary`, branch
+  `main`; then Settings → Networking → "Generate domain". Railway reads
+  `railway.json`. Paste the URL anywhere a session will see it (e.g. a
+  GitHub issue titled "Railway URL").
+- **Branch protection** (optional second lock): GitHub → Settings →
+  Branches → rule for `main` requiring `Lint, types, unit tests`,
+  `PR hygiene (PROGRESS.md Log entry)`,
+  `Browser tests (screenshots + accessibility)`.
+- **Design references** (any time): 5–10 screenshots you love and 3 you
+  dislike in `docs/design/refs/`, one line each on why.
+- **Keys, later:** `ANTHROPIC_API_KEY` (M6), `OPENAI_API_KEY` (M9) on
+  Railway `web`.
+- **Spending caps** (open unknown 1): until set, defaults of $5 per book
+  and $20 per month per provider.
 
 ## Open unknowns
 
 | # | Question | Owner | Decide by | Status |
 |---|---|---|---|---|
-| 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? (Default applies until set: sessions add a cost counter in M6/M7 and stop generating audio/images above a limit Samuel sets in an environment variable.) | Samuel | before M6 | open |
-| 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Still to learn: whether the session's GitHub tools can merge a PR directly. | first M1 session | during M1 | partly answered |
+| 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? Default until Samuel sets one (docs/done.md): $5 per book, $20 per month per provider, as environment variables. | Samuel | before M6 | open (default applies) |
+| 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Answered 2026-10-04: yes, the session merged PR #2 with its GitHub tools (`merge_pull_request` → `merged: true`). | first M1 session | during M1 | closed |
 
 ## Decisions
 
+- 2026-10-04 · Samuel stops supervising; sessions work alone to the goal in `docs/done.md` (implement → verify → merge → loop). Items only Samuel can give go under "Waiting on Samuel" and never block · by Samuel
 - 2026-10-03 · Add STE (Simplified Technical English) to M6: a rewrite option with a strictness dial (default Standard ≈80%) and a reading preference for all AI explanations, using Samuel's skill copied to `prompts/ste/` · by Samuel
 - 2026-10-03 · Anthropic key needed only from M6, OpenAI key only from M9; voice-note transcription uses ElevenLabs · because cloud sessions build and test with fakes · by Claude
 - 2026-10-03 · Full self-merge kept: no PR category needs Samuel's approval (Fable's CODEOWNERS tiers declined) · by Samuel
@@ -68,6 +73,13 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 02:40 · Claude (cloud) · Defined "done" and the autonomous loop
+- **Done:** Samuel asked for a clear definition of done so sessions can work without supervision. Wrote `docs/done.md`: what makes a milestone done (built, proved by CI tests, merged green, looks right, ground rules kept, recorded), a checklist M1–M12 plus "live" checks, how to handle things only Samuel can give (list them, never block), and the loop. CLAUDE.md now points to it. `PROGRESS.md` gained "Waiting on Samuel"; open unknown 2 closed (a session can merge its own PR directly; it merged PR #2). M1 ticked as built; its live check waits on the Railway connection.
+- **Key paths:** `docs/done.md`, `CLAUDE.md`, `PROGRESS.md`
+- **Commands that worked:** PR #2 merge via GitHub tools → `{"merged":true,"sha":"f64ebe3…"}`; CI on PR #2 head `8b458e7`: 3/3 checks success.
+- **Known issues / blockers:** live deploy still waits on Samuel (Railway connection).
+- **Exact next steps:** M2, per "Exact next steps".
 
 ### 2026-10-04 02:20 · Claude (cloud) · Fixed auto-merge: it merged PR #1 before CI finished
 - **Done:** PR #1 (M1 skeleton) was merged by `github-actions[bot]` 9 seconds after it opened, before the browser tests finished. Cause: "Allow auto-merge" is already on but `main` has no required checks yet, and `gh pr merge --auto` then merges at once. Rewrote `.github/workflows/auto-merge.yml` to wait for the CI workflow itself (`workflow_run`), and to merge only if CI passed on the PR's latest commit (`--match-head-commit`). This holds even without branch protection. Because GitHub runs `workflow_run` workflows from main's copy, this fix PR is merged by hand once green.

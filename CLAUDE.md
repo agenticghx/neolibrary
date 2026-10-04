@@ -8,6 +8,10 @@ engineer.
 
 1. Read `PROGRESS.md` and resume from "Exact next steps". Do not ask Samuel
    to repeat what it says.
+1a. Read `docs/done.md`: it defines when a milestone and version 1 are done,
+   and the loop to follow. Samuel is not watching (2026-10-04): work alone,
+   implement → verify → merge → loop, and never stop for something only
+   Samuel can give; list it under "Waiting on Samuel" and move on.
 2. Read the milestone you are working on in `docs/plan.md`, and
    `docs/design.md` once it exists.
 3. If a step is blocked on a decision only Samuel can make, add it to
@@ -16,7 +20,8 @@ engineer.
 
 ## While working
 
-- Work on a branch named `m<N>-<short-topic>`; never commit to `main`
+- Work on a branch named `m<N>-<short-topic>` (or the `claude/…` branch the
+  cloud environment assigns, if it allows no other); never commit to `main`
   directly. Open a pull request when the step's "Done when" check passes.
 - If the session cannot merge directly, the auto-merge Action (M1) merges
   once checks pass; your job is to make the checks honest.
