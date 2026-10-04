@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Version 1 waits only on Samuel (keys, verdicts).
+next_action: Read-along plan (docs/readalong-plan.md) step 1, skill round 2; version 1 otherwise waits only on Samuel.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -40,10 +40,13 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
    Postgres), then `railway up --service web --ci`, then check
    `/api/health` and `/sign-in`.
 5. Worth doing later: a rate limit on `/api/agent/*`.
+6. **Read-along with your own audiobooks:** follow `docs/readalong-plan.md` (steps 1–5, each with a done-when check; Samuel's items S1–S6 are listed there).
 
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
+
+- **Read-along with your own audiobooks** (from 2026-10-04): items S1–S6 in `docs/readalong-plan.md`: make the Muse clip, add OpenAI API credit (or drop it), pick a default voice, review the skill test results, OK the importer milestone.
 
 - **New on the live site since you last looked** (nothing to do, just so you
   know): **Reading stats** (`/stats`, from the shelf footer) with your trend
@@ -117,6 +120,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 15:30 · Claude (laptop) · Read-along for your own audiobooks: skill built, plan written
+- **Done:** Samuel wants to upload an audiobook made anywhere (with its scripts) and read along in Neolibrary. Built a reusable skill, `readalong-audio` (`~/.claude/skills/readalong-audio/`, outside the repo). It makes a "read-along package" (format `neolibrary-readalong/1`): audio, scripts, word timings measured from the audio by forced alignment (a speech model marks where each known word starts), a transcript check of what was actually said, and where each paragraph is in the book. It also keeps a voice library (82 voices, no default until Samuel picks) and a $3 spending cap on paid voices. Measured: aligner word starts within 0.037 s of ElevenLabs' own timings for 90% of words; Kuhn ch. 10 (45 min) aligned in 20 s. Kuhn's supplied timings are estimates, and its scripts contain about 500 unread words in ch. 10 alone. `kuhn-ssr-audiobook.m4b` is damaged; the "fixed" file is good. Tested: ElevenLabs, Kyutai 1.6B, Kyutai Pocket work; OpenAI refused (no API credit); Muse waits on Samuel. Skill test round 1 ran (3 prompts, with and without the skill). Full plan with done-when checks: `docs/readalong-plan.md`.
+- **Key paths:** `docs/readalong-plan.md`; `~/.claude/skills/readalong-audio/`; `~/.local/share/readalong/` (venv, voices, `spend.jsonl`); test results `~/.claude/skills/readalong-audio-workspace/iteration-1/`
+- **Commands that worked:** `~/.local/share/readalong/venv/bin/python scripts/align.py <audio> <script> out.json --start S --end S --check check.json` → `7623 of 8145 words aligned in 19.1s (mps); 63 low-confidence`; `python3 scripts/build_package.py …` → `Package OK: 1 chapters, 2,350 words (9 not spoken)`; `python3 scripts/spend.py` → `Spent $0.4272 of $3.00`.
+- **Known issues / blockers:** Neolibrary has no importer for packages yet (plan step 4, needs Samuel's OK). OpenAI needs API credit. The cap's ElevenLabs estimate ($0.30 per 1,000 characters) is about 4× the list price in `docs/overviewOfVoiceModelPricing.md`; it overstates spending, which is the safe direction.
+- **Exact next steps:** `docs/readalong-plan.md` "Next steps": skill round 2, then the untested paths, then the whole Kuhn book, then the importer (M13).
+
+### 2026-10-04 14:16 · Grok (laptop) · Voice-model prices compared; Kyutai TTS installed locally
+- **Done:** Compared published speech prices (4 Oct 2026) and saved the table in the repo. xAI text-to-speech is $15 per million characters, the same sticker price as Azure neural voices. ElevenLabs list prices are $40–$80 per million characters. Kyutai has no per-character bill. Meta sells no speech API. Then installed both Kyutai models on this Mac, outside the repo, and checked each with a short WAV. Pocket TTS 3.3.0 made 2.28 s of audio in 176 ms (about 12× real time). TTS 1.6B (Apple MLX) made 4.80 s of audio in 5.89 s (0.81× real time).
+- **Key paths:** docs/overviewOfVoiceModelPricing.md; ~/.local/bin/pocket-tts; ~/.local/bin/kyutai-tts; ~/.local/share/kyutai/pocket; ~/.local/share/kyutai/tts16b; Hugging Face cache kyutai/tts-1.6b-en_fr (3.8 GB) and Pocket TTS weights (~460 MB)
+- **Commands that worked:** pocket-tts generate --text "Pocket TTS is installed." --output-path /tmp/pocket-tts-check.wav  → 24000 Hz, 2.28 s, 11.82× real time. printf 'Kyutai TTS one point six B is installed.' | kyutai-tts - /tmp/kyutai-tts-check.wav  → 24000 Hz, 4.80 s, LM 5.89 s.
+- **Known issues / blockers:** The official moshi_mlx 0.2.12 pin wants sentencepiece 0.2.0, which has no Mac wheel for Python 3.13. Installed sentencepiece 0.2.2 instead; the test clip still generated. TTS 1.6B was slower than real time on the first clip; --quantize 8 is the documented speed-up. This note does not change the app or the live site.
+- **Exact next steps:** Unchanged. Version 1 still waits on Samuel (keys, sign-in, verdicts). The pricing note is reference only.
 
 ### 2026-10-04 16:55 UTC · Claude (laptop) · Read-aloud highlight fix deployed
 - **Done:** PR #53 merged with all four checks green (rebased over ledger PR #52, keeping both entries). On CI both new tests passed: `✓ [safari] … the read-aloud highlight lands on every word in order, on time`, `✓ [audio] … while playing, the highlight lands on every word…`, `173 passed (6.5m)`. Deployed `4d3fbf6` after a backup (`~/Backups/neolibrary/prod-before-listen-sync-20261004T1650Z.sql`, 1,124,103 bytes; restore exit 0 into a throwaway local Postgres 18; 1 user, 129 books, 10 audio tracks). Railway deployment `638f205f` SUCCESS.
