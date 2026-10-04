@@ -122,9 +122,12 @@ Cloud sessions can't start until this exists.
    (commands in `PROGRESS.md`, Exact next steps).
 2. Create a Railway project with Postgres and a bucket; connect it to the
    GitHub repo.
-3. Get API keys: Anthropic, OpenAI (images). The ElevenLabs key is already in
-   the Mac Keychain as `ELEVENLABS_API_KEY`; cloud sessions and Railway can't
-   read the Keychain, so copy it across (command in `PROGRESS.md`).
+3. API keys. The ElevenLabs key is already on Railway (done 2026-10-03).
+   The app needs two more, later, not for M0: an **Anthropic** key before M6
+   (the deployed app calls Claude for rewrites, STE, prerequisites and
+   question banks), and an **OpenAI** key before M9 (image generation when
+   Wikipedia has no good picture). Cloud sessions write code with their own
+   Claude access and test with fakes, so they need neither key.
 4. In the Claude cloud environment settings, add the environment variables
    listed in `.env.example` (sessions need the database and bucket only for
    deploy checks; tests use fakes).
@@ -150,7 +153,10 @@ Done when: a cloud session opened on the repo can read `PROGRESS.md`.
   - a check that fails a PR with no screenshots or no `PROGRESS.md` Log entry.
 - A bot comment on every PR with a 2×2 screenshot grid (phone/desktop ×
   light/dark) so Samuel can judge the look in ten seconds.
-- `docs/design.md`, derived from `docs/design/refs/`: two real text faces,
+- `docs/design.md`, derived from `docs/design/refs/` (Samuel's picks) and
+  the Codex prototypes in `docs/design/prototypes/` (proposals: warm paper
+  `#F3EDE1`, ink `#243239`, teal `#376963`; dark `#1B282F` / `#E7DDC9` /
+  `#6B9F95`; prompts in `PROMPT.md` there): two real text faces,
   line length and line spacing set for long reading, spacing scale, colour
   tokens for light and dark, motion rules.
 - No landing-page polish *(Fable)*: put the design effort into the shelf and
@@ -228,9 +234,25 @@ gives back identical annotations.
 ### M6 · AI understanding tools (Claude)
 
 - **Rewrite with one click:** pick a paragraph → choose a level ("plain
-  English", "for a biologist", "add missing background", "shorter"). Every
-  rewrite is kept as a version; flip between them; the original is never
-  changed.
+  English", "for a biologist", "add missing background", "shorter",
+  **"STE"**). Every rewrite is kept as a version; flip between them; the
+  original is never changed.
+- **STE mode** (Samuel's request, 2026-10-03). STE = *Simplified Technical
+  English* (ASD-STE100), the aerospace standard for writing that has one
+  meaning per word, short sentences and active verbs. Source rules:
+  `prompts/ste/` (copied from Samuel's skill; see its README).
+  - A strictness dial: **Light**, **Standard (≈80%, the default)**, **Strict**,
+    or a percentage (90%+ = Strict, 70–89% = Standard, below 70% = Light,
+    as the skill defines).
+  - STE is also a **reading preference** for every AI explanation, not only
+    rewrites: "What do I need to know?", question-bank answers, image
+    captions. Set once in settings; can be changed per book.
+  - Keep technical names, numbers and units (the skill's "permitted" list);
+    never rewrite into baby English.
+  - Port `prompts/ste/ste_check.py` to TypeScript (same results on the same
+    inputs, checked by a test). Run it on every STE output and show a small
+    badge: "STE 92% (full-STE score)". If the rewrite had to pick between two
+    meanings, show the skill's "meaning changes" note under the rewrite.
 - **What do I need to know?** At the top of each section: the concepts it
   assumes, each with a two-line explanation and a link to read more.
 - **Question bank** per section: recall, understanding and application
@@ -266,7 +288,8 @@ timing data; one real section narrated and played on the deployed site.
 ### M8 · Thinking-out-loud notes
 
 - **Voice notes** on a passage: record in the browser, store the audio,
-  turn it into text automatically so it is searchable.
+  turn it into text automatically so it is searchable (use ElevenLabs'
+  speech-to-text, so no extra provider key is needed).
 - **Stickers** on passages.
 - **Handwritten notes** (a drawing layer for stylus or finger) come *last*
   in this milestone, as their own PR: hard to test automatically and less

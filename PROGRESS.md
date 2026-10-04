@@ -3,8 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel finishes M0 (Railway, keys, cloud environment, branch protection, design refs) and opens the first cloud session on M1.
-blockers: Railway and API keys not set up yet (M0).
+next_action: Samuel creates the Claude cloud environment and adds design refs; then a cloud session starts M1.
+blockers: Claude cloud environment not set up yet (M0).
 updated: 2026-10-03
 shared_copy: none
 ---
@@ -21,25 +21,24 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 1. ~~Put the project on GitHub as a private repo~~ (done 2026-10-03:
    `github.com/sahuno/neolibrary`).
-2. **(Samuel)** Railway: new project → add Postgres → add a bucket →
-   connect the GitHub repo. Get an Anthropic API key and an OpenAI API key
-   (for generated images).
-3. **(Samuel)** Create a Claude cloud environment for the repo and add the
-   environment variables there and in Railway: `ANTHROPIC_API_KEY`,
-   `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `DATABASE_URL`, bucket keys.
-   The ElevenLabs key is in the Mac Keychain; this copies it to the
-   clipboard without showing it, ready to paste:
-   ```bash
-   security find-generic-password -s ELEVENLABS_API_KEY -w | pbcopy
-   ```
-   Then on GitHub: Settings → Branches → protect `main`, require the CI
-   checks to pass before merging (sessions merge their own PRs).
-   Finally, put 5–10 screenshots you find beautiful and 3 you dislike in
-   `docs/design/refs/`, one line each on why (the design system is built
-   from them in M1).
-4. **(Cloud session)** M1 in `docs/plan.md`: Next.js skeleton, tests, CI,
-   `docs/design.md`, landing page, deploy to Railway.
-5. **(Cloud session)** M2: invite-only accounts.
+2. ~~Railway~~ (done 2026-10-03): project `neolibrary`
+   (https://railway.com/project/25f1488d-3bb6-401c-9b6b-35d08bd93756) with
+   `Postgres`, bucket `neolibrary-files` (US East), and an empty service `web`
+   that already has `DATABASE_URL`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`,
+   `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_URL_STYLE`,
+   `ELEVENLABS_API_KEY`. The app must use exactly these names.
+3. **(Samuel)** Still to do:
+   - Create a Claude cloud environment for `sahuno/neolibrary`. Tests use
+     fakes, so it needs no keys at first.
+   - Put 5–10 screenshots you love and 3 you dislike in `docs/design/refs/`
+     (Codex prototypes in `docs/design/prototypes/` are proposals to react to).
+4. **(Samuel, later)** `ANTHROPIC_API_KEY` on Railway `web` before M6;
+   `OPENAI_API_KEY` before M9. Not needed to start.
+5. **(Cloud session)** M1 in `docs/plan.md`: Next.js skeleton, tests, CI,
+   `docs/design.md`, deploy. Connect the repo to the Railway `web` service
+   only once the app builds (connecting earlier makes every push a failed
+   build). After M1 merges: turn on branch protection for `main`.
+6. **(Cloud session)** M2: invite-only accounts.
 
 ## Open unknowns
 
@@ -49,6 +48,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Decisions
 
+- 2026-10-03 · Add STE (Simplified Technical English) to M6: a rewrite option with a strictness dial (default Standard ≈80%) and a reading preference for all AI explanations, using Samuel's skill copied to `prompts/ste/` · by Samuel
+- 2026-10-03 · Anthropic key needed only from M6, OpenAI key only from M9; voice-note transcription uses ElevenLabs · because cloud sessions build and test with fakes · by Claude
 - 2026-10-03 · Full self-merge kept: no PR category needs Samuel's approval (Fable's CODEOWNERS tiers declined) · by Samuel
 - 2026-10-03 · Plan revised with Fable's review: study Paths (Path → Pillar → N/E slots) are the core of the shelf; W3C annotation anchors with quoted text; provenance on AI output; export round-trip tests; hard spending caps; DRM-free files only; design tokens + screenshot checks + Samuel's reference images; handwriting kept but last in M8 · because Fable judged these cheap now and expensive later · by Claude, at Samuel's request
 - 2026-10-03 · Cloud sessions merge their own PRs when every required check is green and no test was skipped or weakened; `main` gets branch protection · because Samuel wants autonomous progress · by Samuel
@@ -60,6 +61,20 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-03 21:40 · Claude (laptop) · Added STE mode to the plan; deferred API keys
+- **Done:** Copied Samuel's STE skill (SKILL.md, rules.md, substitutions.md, ste_check.py) to `prompts/ste/` with a README; M6 now has an STE rewrite option, strictness dial and STE reading preference with a score badge. M0 no longer asks for Anthropic/OpenAI keys (needed before M6 and M9). M8 voice-note transcription set to ElevenLabs.
+- **Key paths:** `/Users/sahuno/projects/personal/Neolibrary/prompts/ste/`, `/Users/sahuno/projects/personal/Neolibrary/docs/plan.md`, `/Users/sahuno/projects/personal/Neolibrary/PROGRESS.md`
+- **Commands that worked:** `cmp` of each copied file vs the skill → identical (4/4); `python3 prompts/ste/ste_check.py --text "Light transfers a pattern onto the wafer. Each layer adds another part of the circuit."` → `0 errors · 0 warnings · compliance 100%`
+- **Known issues / blockers:** `prompts/ste/` will drift if the skill changes; re-copy. Prototypes, STE files and ledger changes not yet committed or pushed.
+- **Exact next steps:** 1) Commit + push (awaiting Samuel's go-ahead). 2) Samuel: Claude cloud environment, design refs. 3) Cloud session: M1.
+
+### 2026-10-03 21:25 · Claude (laptop) · Railway set up; Codex made 9 design prototype images
+- **Done:** Railway project `neolibrary` created with `Postgres` (running), bucket `neolibrary-files` (US East), empty service `web` holding `DATABASE_URL` (reference to Postgres), six `S3_*` bucket variables and `ELEVENLABS_API_KEY` (copied from Keychain, never printed). Repo not connected to `web` yet (would fail to build until M1). Railway MCP installed for Claude Code (loads after restart). Codex (OpenAI image generation) made 9 prototypes in `docs/design/prototypes/`; prompt in `PROMPT.md`, and Codex's exact per-image prompts are in this session's transcript. Plan M1 now points to them.
+- **Key paths:** `/Users/sahuno/projects/personal/Neolibrary/docs/design/prototypes/` (01–09 PNG + PROMPT.md), `/Users/sahuno/projects/personal/Neolibrary/docs/plan.md`, `/Users/sahuno/projects/personal/Neolibrary/PROGRESS.md`
+- **Commands that worked:** `railway init --name neolibrary`; `railway add --database postgres --json`; `railway bucket create neolibrary-files --region iad --json`; `railway add --service web --json`; `railway variable set KEY --stdin --service web --skip-deploys`; check: DATABASE_URL starts with `postgresql://` = True, ElevenLabs key equals Keychain = True; `railway mcp install --agent claude-code`
+- **Known issues / blockers:** Prototype 01/02 progress line shows 20 dots for 18 pillars. The wafer card is a generated picture labelled with a prototype Wikimedia credit. Prototype images (~15 MB) not yet committed. Anthropic/OpenAI keys not yet on Railway.
+- **Exact next steps:** 1) Commit + push `docs/design/prototypes/` and ledger. 2) Samuel: Anthropic + OpenAI keys onto Railway `web`; create Claude cloud environment; add design refs. 3) Cloud session: M1.
 
 ### 2026-10-03 21:15 · Claude (laptop) · Git repo created and pushed to private GitHub
 - **Done:** Recorded Samuel's decision: full self-merge, no approval tiers (open unknown 2 closed). `git init`, first commit, private repo `sahuno/neolibrary` created and pushed. Added `.claude/scheduled_tasks.lock` to `.gitignore`. `demo/books/Descartes_1641Meditations.pdf` (added by Samuel) is excluded by the `*.pdf` rule and was not committed.
