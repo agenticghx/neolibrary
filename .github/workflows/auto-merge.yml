@@ -1,33 +1,48 @@
-# Turns on GitHub's auto-merge for pull requests opened by Claude sessions, so
-# they merge by themselves once every required check is green (Samuel's
-# self-merge decision; see CLAUDE.md). Needs two repo settings done once by
-# Samuel: "Allow auto-merge", and branch protection on main with the CI checks
-# required. Without them this workflow only prints a warning.
+# Merges a pull request opened by a Claude session once the CI workflow has
+# passed on the PR's latest commit (Samuel's self-merge decision; see CLAUDE.md).
+#
+# It waits for CI itself (workflow_run) instead of using GitHub's "auto-merge"
+# button, because that button merges at once when main has no required checks,
+# which is what happened to PR #1 (merged 9 seconds after opening, before CI
+# finished). This way the rule "merge only when every check is green" holds
+# even before branch protection is set up.
+#
+# Note: GitHub runs workflow_run workflows from the copy on main, so changes to
+# this file take effect after they are merged.
 name: Auto-merge
 
 on:
-  pull_request:
-    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  enable:
+  merge:
     if: >-
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      (startsWith(github.head_ref, 'claude/') || startsWith(github.head_ref, 'm'))
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      (startsWith(github.event.workflow_run.head_branch, 'claude/') ||
+       startsWith(github.event.workflow_run.head_branch, 'm'))
     runs-on: ubuntu-24.04
     steps:
-      - name: Enable auto-merge (squash)
+      - name: Merge the PR if CI passed on its latest commit
         env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if gh pr merge --auto --squash "$PR"; then
-            echo "Auto-merge enabled for $PR"
-          else
-            echo "::warning::Could not enable auto-merge. Turn on 'Allow auto-merge' and branch protection for main in the repo settings."
+          set -euo pipefail
+          pr=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,headRefOid,isDraft \
+            --jq ".[] | select(.headRefOid == \"$SHA\" and .isDraft == false) | .number")
+          if [ -z "$pr" ]; then
+            echo "No open, non-draft PR whose latest commit is $SHA; nothing to merge."
+            exit 0
           fi
+          echo "CI passed on $SHA; merging PR #$pr."
+          gh pr merge "$pr" --repo "$REPO" --squash --match-head-commit "$SHA"
