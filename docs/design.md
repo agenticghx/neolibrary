@@ -110,6 +110,14 @@ highlight.
   letter N or E, a darker spine edge). Owned covers are navy or green cloth;
   unowned ones are dimmed and captioned "Not owned". Never copies real cover
   art.
+- **AuthShell** (`components/AuthShell.tsx`): the quiet room around the
+  sign-in, setup and invitation forms (mark, wordmark, "By invitation only").
+- **ActionForm / Field** (`components/ActionForm.tsx`, styles in
+  `components/forms.module.css`): labelled inputs, one primary button, and
+  errors shown in a sunken box with an accent rule (`role="alert"`), never in
+  red.
+- **App bar** (`app/(app)/layout.tsx`): mark + wordmark on the left; Library,
+  Invite (admins only) and Sign out on the right, in quiet ink.
 
 ## How the look is checked
 

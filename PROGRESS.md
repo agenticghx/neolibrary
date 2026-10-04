@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M2 (accounts).
+next_action: Sessions loop through docs/done.md on their own; next is M3 (bookshelf + study paths).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,19 +21,25 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M2 · accounts** (first unticked box in `docs/done.md`). Plan: Postgres
-   via Drizzle; tests on PGlite (Postgres compiled to run inside Node, so no
-   database server is needed in tests or CI); invite-only email + password
-   accounts (no email service needed); the first admin is created with a
-   one-time setup code printed in the server log; sessions in a signed
-   cookie; every page and API behind login; Playwright proves a logged-out
-   visitor gets nothing.
-2. Then M3, M4, … in order, per `docs/done.md`.
+1. **M3 · bookshelf and study paths** (next unticked box in `docs/done.md`).
+   Suggested order, one PR each: (a) data model for books, Paths → Pillars →
+   slots, plus the seed file made from `docs/reading-lists/hidden-machinery.md`
+   and the Path view; (b) EPUB/PDF upload to storage (add the S3 bucket
+   implementation of `lib/storage` using the `S3_*` variables, with
+   MemoryStorage in tests), metadata + cover extraction, attaching an upload
+   to a wanted book; (c) shelf polish: sorting, search, collections, book
+   detail page. Fixture books: public-domain only (Standard Ebooks / Project
+   Gutenberg) under `fixtures/`.
+2. Then M4, M5, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
 
+- **Owner account** (after the Railway deploy, about 2 minutes): open
+  `https://<railway-url>/setup`. The setup code is in Railway → `web` →
+  Deployments → View logs (line "Neolibrary setup: …"), or set your own as
+  the variable `SETUP_CODE` on `web`. Then invite people from "Invite".
 - **Railway deploy** (about 3 minutes): Railway → project `neolibrary` →
   service `web` → Settings → Source → connect `sahuno/neolibrary`, branch
   `main`; then Settings → Networking → "Generate domain". Railway reads
@@ -73,6 +79,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 02:25 · Claude (cloud) · M2: invite-only accounts
+- **Done:** Postgres through Drizzle (a TypeScript layer for database queries), with PGlite (Postgres running inside Node) when `DATABASE_URL` is absent, so tests and CI need no database server. Hand-written migrations (scripts that change the database layout), each with a `.down.sql` reverse step, run at server start (`instrumentation.ts`). Accounts: no public sign-up. The owner account is created once at `/setup` with a one-time code (from `SETUP_CODE`, or printed in the server log); everyone else joins through a single-use, 7-day invite link that only an admin can make. Passwords use scrypt hashes; sessions are random tokens in an httpOnly cookie, and the database stores only their hash. Sign-in is rate-limited. Every page and API sits behind a two-step gate: `proxy.ts` checks the cookie is present, then pages and routes check the session against the database. File links are short-lived and signed (HMAC, 5 minutes) and also need a signed-in user; the signing key is generated and kept in the database, so no new variable is needed. Storage interface with a memory fake (S3 comes in M3). Pages: sign-in, setup, invitation, home, invite management; `/design` moved behind login. Fixed a React 19 behaviour that wiped the email field after a wrong password. Covers now shrink long titles instead of overflowing.
+- **Key paths:** `lib/auth/`, `lib/db/`, `db/migrations/0001_accounts.{up,down}.sql`, `proxy.ts`, `instrumentation.ts`, `app/(public)/`, `app/(app)/`, `app/api/me/`, `app/api/files/[...key]/`, `lib/signed-url.ts`, `lib/storage/`, `e2e/flows.spec.ts`, `e2e/auth.setup.ts`
+- **Commands that worked:** `npm run check` → lint clean, types clean, Vitest `58 passed`; `npx playwright test` → `54 passed (36.3s)`, including: logged-out → `/`, `/design`, `/admin/invites` and an unknown page redirect to sign-in; `/api/me` and `/api/files/...` answer 401 (also with a forged cookie); an invited user joins, signs out, fails with a wrong password, signs back in; the invite link then shows "closed"; a reader gets 404 on `/admin/invites`. Manual: `curl` against `next start` with a fresh PGlite gave the same codes (307 to sign-in, 401 for API).
+- **Known issues / blockers:** No password reset yet (an admin can make a new invite); add it with email in a later step if needed. The rate limiter lives in memory (one server process). Production database is empty, so no backup is needed before this first migration; later migrations need one (CLAUDE.md).
+- **Exact next steps:** M3, per "Exact next steps".
 
 ### 2026-10-04 02:40 · Claude (cloud) · Defined "done" and the autonomous loop
 - **Done:** Samuel asked for a clear definition of done so sessions can work without supervision. Wrote `docs/done.md`: what makes a milestone done (built, proved by CI tests, merged green, looks right, ground rules kept, recorded), a checklist M1–M12 plus "live" checks, how to handle things only Samuel can give (list them, never block), and the loop. CLAUDE.md now points to it. `PROGRESS.md` gained "Waiting on Samuel"; open unknown 2 closed (a session can merge its own PR directly; it merged PR #2). M1 ticked as built; its live check waits on the Railway connection.
