@@ -1,0 +1,218 @@
+import { strFromU8, unzipSync } from "fflate";
+import { XMLParser } from "fast-xml-parser";
+import { PDFDocument } from "pdf-lib";
+
+/**
+ * Reads what we need from an uploaded book: type, title, author, cover and
+ * table of contents. Ground rule 1: DRM-protected files are refused, never
+ * unlocked.
+ */
+export class ImportError extends Error {}
+
+export type TocEntry = { label: string; href: string; children: TocEntry[] };
+
+export type BookInfo = {
+  type: "epub" | "pdf";
+  title: string;
+  author: string;
+  language: string | null;
+  publisher: string | null;
+  description: string | null;
+  pageCount: number | null;
+  cover: { data: Uint8Array; contentType: string; ext: string } | null;
+  toc: TocEntry[];
+};
+
+export const MAX_BOOK_BYTES = 200 * 1024 * 1024;
+
+export function detectType(bytes: Uint8Array): "epub" | "pdf" | null {
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"; // %PDF
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b) return "epub"; // PK (zip); confirmed by the mimetype file
+  return null;
+}
+
+const xml = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@",
+  removeNSPrefix: true,
+  textNodeName: "#text",
+  isArray: (name) => ["item", "itemref", "meta", "creator", "title", "li", "navPoint", "EncryptedData", "rootfile", "reference"].includes(name),
+});
+
+const text = (v: unknown): string => {
+  if (v == null) return "";
+  if (typeof v === "string" || typeof v === "number") return String(v).trim();
+  if (Array.isArray(v)) return text(v[0]);
+  if (typeof v === "object" && "#text" in (v as Record<string, unknown>)) return text((v as Record<string, unknown>)["#text"]);
+  return "";
+};
+
+const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+
+function resolve(base: string, href: string): string {
+  const parts = (base.includes("/") ? base.slice(0, base.lastIndexOf("/") + 1) : "").split("/").filter(Boolean);
+  for (const seg of decodeURIComponent(href.split("#")[0]).split("/")) {
+    if (seg === "..") parts.pop();
+    else if (seg && seg !== ".") parts.push(seg);
+  }
+  return parts.join("/");
+}
+
+// Font obfuscation is allowed (it is not DRM); anything else encrypted is.
+const FONT_OBFUSCATION = ["http://www.idpf.org/2008/embedding", "http://ns.adobe.com/pdf/enc#RC"];
+
+export function parseEpub(bytes: Uint8Array): BookInfo {
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(bytes);
+  } catch {
+    throw new ImportError("This file is not a readable EPUB.");
+  }
+  if (files["mimetype"] && !strFromU8(files["mimetype"]).startsWith("application/epub+zip")) {
+    throw new ImportError("This zip file is not an EPUB.");
+  }
+  if (files["META-INF/rights.xml"]) throw new ImportError("This EPUB is DRM-protected. Only DRM-free books can be added.");
+  if (files["META-INF/encryption.xml"]) {
+    const enc = xml.parse(strFromU8(files["META-INF/encryption.xml"]));
+    const algorithms: string[] = (enc?.encryption?.EncryptedData ?? []).map(
+      (d: { EncryptionMethod?: { "@Algorithm"?: string } }) => d?.EncryptionMethod?.["@Algorithm"] ?? "",
+    );
+    if (algorithms.some((a) => !FONT_OBFUSCATION.includes(a))) {
+      throw new ImportError("This EPUB is DRM-protected. Only DRM-free books can be added.");
+    }
+  }
+  const container = files["META-INF/container.xml"];
+  if (!container) throw new ImportError("This EPUB is missing its container file.");
+  const opfPath: string = xml.parse(strFromU8(container))?.container?.rootfiles?.rootfile?.[0]?.["@full-path"];
+  if (!opfPath || !files[opfPath]) throw new ImportError("This EPUB is missing its package file.");
+  const pkg = xml.parse(strFromU8(files[opfPath]))?.package ?? {};
+  const meta = pkg.metadata ?? {};
+  const items: { "@id": string; "@href": string; "@media-type": string; "@properties"?: string }[] = pkg.manifest?.item ?? [];
+
+  const title = clean(text(meta.title));
+  const author = (meta.creator ?? []).map((c: unknown) => clean(text(c))).filter(Boolean).join(" & ");
+
+  // Cover: EPUB 3 "cover-image" property, else EPUB 2 <meta name="cover">.
+  const coverId = (meta.meta ?? []).find((m: Record<string, string>) => m["@name"] === "cover")?.["@content"];
+  const coverItem =
+    items.find((i) => i["@properties"]?.split(/\s+/).includes("cover-image")) ?? items.find((i) => i["@id"] === coverId);
+  let cover: BookInfo["cover"] = null;
+  if (coverItem && /^image\/(jpeg|png|gif|webp|svg\+xml)$/.test(coverItem["@media-type"])) {
+    const data = files[resolve(opfPath, coverItem["@href"])];
+    if (data) {
+      const contentType = coverItem["@media-type"];
+      cover = { data, contentType, ext: contentType === "image/svg+xml" ? "svg" : contentType.split("/")[1].replace("jpeg", "jpg") };
+    }
+  }
+
+  // Table of contents: EPUB 3 nav document, else EPUB 2 NCX.
+  let toc: TocEntry[] = [];
+  const nav = items.find((i) => i["@properties"]?.split(/\s+/).includes("nav"));
+  if (nav && files[resolve(opfPath, nav["@href"])]) {
+    toc = parseNav(strFromU8(files[resolve(opfPath, nav["@href"])]), resolve(opfPath, nav["@href"]));
+  } else {
+    const ncx = items.find((i) => i["@media-type"] === "application/x-dtbncx+xml");
+    if (ncx && files[resolve(opfPath, ncx["@href"])]) {
+      toc = parseNcx(strFromU8(files[resolve(opfPath, ncx["@href"])]), resolve(opfPath, ncx["@href"]));
+    }
+  }
+
+  return {
+    type: "epub",
+    title,
+    author,
+    language: clean(text(meta.language)) || null,
+    publisher: clean(text(meta.publisher)) || null,
+    description: clean(text(meta.description).replace(/<[^>]+>/g, " ")) || null,
+    pageCount: null,
+    cover,
+    toc,
+  };
+}
+
+function parseNav(source: string, navPath: string): TocEntry[] {
+  const doc = xml.parse(source);
+  const navs = findAll(doc, "nav");
+  const tocNav = navs.find((n) => String(n["@type"] ?? "").includes("toc")) ?? navs[0];
+  const walk = (ol: Record<string, unknown> | undefined): TocEntry[] =>
+    ((ol?.li as Record<string, unknown>[] | undefined) ?? []).map((li) => {
+      const a = li.a as Record<string, unknown> | undefined;
+      const label = clean(flatText(a ?? li.span));
+      return { label, href: a ? resolve(navPath, String(a["@href"] ?? "")) + hash(String(a["@href"] ?? "")) : "", children: walk(li.ol as Record<string, unknown>) };
+    });
+  return tocNav ? walk(tocNav.ol as Record<string, unknown>) : [];
+}
+
+function parseNcx(source: string, ncxPath: string): TocEntry[] {
+  const doc = xml.parse(source);
+  const walk = (points: Record<string, unknown>[] | undefined): TocEntry[] =>
+    (points ?? []).map((p) => {
+      const src = String((p.content as Record<string, string>)?.["@src"] ?? "");
+      return {
+        label: clean(text((p.navLabel as Record<string, unknown>)?.text)),
+        href: resolve(ncxPath, src) + hash(src),
+        children: walk(p.navPoint as Record<string, unknown>[]),
+      };
+    });
+  return walk(doc?.ncx?.navMap?.navPoint);
+}
+
+const hash = (href: string) => (href.includes("#") ? href.slice(href.indexOf("#")) : "");
+
+function flatText(node: unknown): string {
+  if (node == null) return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(flatText).join(" ");
+  if (typeof node === "object")
+    return Object.entries(node as Record<string, unknown>)
+      .filter(([k]) => !k.startsWith("@"))
+      .map(([, v]) => flatText(v))
+      .join(" ");
+  return "";
+}
+
+function findAll(node: unknown, name: string, out: Record<string, unknown>[] = []): Record<string, unknown>[] {
+  if (node && typeof node === "object") {
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (k === name) for (const n of Array.isArray(v) ? v : [v]) out.push(n as Record<string, unknown>);
+      else if (!k.startsWith("@")) findAll(v, name, out);
+    }
+  }
+  return out;
+}
+
+export async function parsePdf(bytes: Uint8Array, fileName: string): Promise<BookInfo> {
+  let doc: PDFDocument;
+  try {
+    doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  } catch (e) {
+    if (e instanceof Error && /encrypt/i.test(e.message)) {
+      throw new ImportError("This PDF is encrypted (DRM). Only DRM-free books can be added.");
+    }
+    throw new ImportError("This file is not a readable PDF.");
+  }
+  const fromName = fileName.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ").trim();
+  return {
+    type: "pdf",
+    title: clean(doc.getTitle() ?? "") || fromName,
+    author: clean(doc.getAuthor() ?? ""),
+    language: null,
+    publisher: null,
+    description: clean(doc.getSubject() ?? "") || null,
+    pageCount: doc.getPageCount(),
+    cover: null,
+    toc: [],
+  };
+}
+
+export async function readBook(bytes: Uint8Array, fileName: string): Promise<BookInfo> {
+  if (bytes.byteLength > MAX_BOOK_BYTES) throw new ImportError("This file is larger than 200 MB.");
+  const type = detectType(bytes);
+  if (type === "pdf") return parsePdf(bytes, fileName);
+  if (type === "epub") {
+    const info = parseEpub(bytes);
+    if (!info.title) info.title = fileName.replace(/\.epub$/i, "").replace(/[_-]+/g, " ").trim();
+    return info;
+  }
+  throw new ImportError("Only EPUB and PDF files can be added.");
+}

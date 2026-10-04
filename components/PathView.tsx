@@ -22,6 +22,7 @@ function SlotCover({ slot, current }: { slot: SlotView; current: boolean }) {
       href={`/books/${slot.book.id}`}
       progress={slot.book.progress}
       current={current}
+      imageUrl={slot.book.coverUrl}
     />
   );
 }

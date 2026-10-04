@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // Mirrors db/migrations. The SQL files are the source of truth for the layout;
 // this file gives TypeScript the same shape for queries.
@@ -60,6 +60,8 @@ export const books = pgTable("books", {
   language: text("language"),
   publisher: text("publisher"),
   description: text("description"),
+  toc: jsonb("toc").$type<{ label: string; href: string; children: unknown[] }[]>().notNull().default([]),
+  pageCount: integer("page_count"),
   progress: real("progress").notNull().default(0),
   lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

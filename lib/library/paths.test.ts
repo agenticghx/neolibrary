@@ -80,7 +80,7 @@ describe("you are here", () => {
   const slot = (id: string, kind: SlotView["kind"], progress: number): SlotView => ({
     id,
     kind,
-    book: { id, title: id, author: "", progress, unverified: false, owned: true },
+    book: { id, title: id, author: "", progress, unverified: false, owned: true, coverUrl: null },
   });
 
   it("points at the first unfinished core book in a pillar", () => {

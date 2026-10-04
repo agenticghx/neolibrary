@@ -21,15 +21,11 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M3 · bookshelf and study paths.** Step (a), the data model, seed and
-   Path view, is done. Next: (b) EPUB/PDF upload to storage. Add the S3
-   bucket implementation of `lib/storage` using the `S3_*` variables, with
-   MemoryStorage in tests. Pull out the title, author, cover and table of
-   contents. Attach an upload to a wanted book when the title matches (use
-   `normaliseTitle` in `lib/library/paths.ts`). Then (c) shelf polish:
-   all-books view with sorting, search, collections and progress. Fixture
-   books: public-domain only (Standard Ebooks / Project Gutenberg) under
-   `fixtures/`.
+1. **M3 (c) · shelf polish**, the last M3 step: on `/shelf`, sorting
+   (recent, title, author, progress), search by title or author,
+   collections (user-made groups of books, with their own table and a
+   reverse migration), and reading progress on each book. Then tick M3 in
+   `docs/done.md`: steps (a) and (b) already meet its "Done when".
 2. Then M4, M5, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -79,6 +75,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 03:20 · Claude (cloud) · M3 (b): upload EPUB and PDF, covers, attach to wanted books
+- **Done:** New `/shelf` page with drag-and-drop or "Choose files" upload (several files at once) through `POST /api/books`. `lib/library/ebook.ts` reads EPUBs (title, author, language, publisher, description, cover via EPUB 3 `cover-image` or EPUB 2 `meta name=cover`, table of contents from the nav document or NCX) and PDFs (title and author from metadata, else the file name, plus page count). It refuses DRM: EPUB `rights.xml` or encryption other than font obfuscation, and encrypted PDFs (ground rule 1). `lib/library/import.ts` attaches a file to a wanted book with the same title, so it lights up in its Path and keeps the list's wording; reports a book already on the shelf as a duplicate; otherwise adds a new book. Files are stored at `books/<owner>/<book>.<ext>`, covers at `covers/<owner>/…`. Production uses the Railway bucket (`lib/storage/s3.ts`, when `S3_BUCKET` is set); development and tests use local disk or memory. File links now also check the file belongs to the signed-in user, and are served with a sandbox policy so an SVG cover cannot run scripts. Covers show on the shelf, the Path and book pages; book pages list format, chapters, publisher, description and contents. Nav: Path · Shelf · Invite · Sign out. Migration `0003_book_files` (adds `toc` and `page_count`, with a reverse step). Test books: three Standard Ebooks EPUBs (Jekyll and Hyde, Frankenstein, The Time Machine) built from their GitHub source (standardebooks.org itself is blocked here), plus a generated Descartes PDF. Details in `fixtures/README.md`.
+- **Key paths:** `lib/library/ebook.ts`, `lib/library/import.ts`, `lib/storage/s3.ts`, `app/api/books/route.ts`, `app/(app)/shelf/`, `app/api/files/[...key]/route.ts`, `fixtures/`, `scripts/build-fixture-epubs.py`, `scripts/make-fixture-pdf.mjs`, `e2e/uploads.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `83 passed`; `npx playwright test` → `79 passed (53.5s)`, including: three EPUBs upload and appear with their titles and loaded cover images; *The Grid: The Fraying Wires…* attaches to the wanted *The Grid* and the Path shows "1 owned"; a duplicate, a .txt and a DRM EPUB are refused with clear messages; cover links give 403 when tampered with and 401 when signed out.
+- **Known issues / blockers:** PDFs get typographic covers, because drawing the first page needs pdf.js (M4). S3 storage is not exercised in tests (no bucket access here); it runs when deployed with the `S3_*` variables. Uploads are read fully into memory (200 MB limit per file).
+- **Exact next steps:** M3 (c), per "Exact next steps".
 
 ### 2026-10-04 02:50 · Claude (cloud) · M3 (a): study Paths, Hidden Machinery seed, Path view
 - **Done:** New tables `books`, `paths`, `pillars`, `slots` (migration `0002_library`, with a reverse step). Every row belongs to one user, so each person sees only their own library. `data/paths/hidden-machinery.ts` holds the reading list as data: Deedy's 18 pillars, 2 finance pillars, 9 blindspots, the reader suggestions, 3 agent-suggestion pillars (marked "not catalog-checked") and the master key last. A test checks it against the markdown list. `seedPath` adds a Path once per user and reuses a book the user already has with the same title (titles compared without case, punctuation or subtitle). The owner's Path is added at setup; other readers get an "Add this path" button. The home page is now the Path view: pillar columns, N then E covers, extras folded away, unowned books dimmed, a pillar track, "You are here", and the master key set apart at the end. Each book has a page saying where it sits in the Path. Cover gained a small size, links, a progress bar and a "current" ring.

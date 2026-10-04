@@ -17,6 +17,7 @@ export function Cover({
   href,
   progress,
   current = false,
+  imageUrl,
 }: {
   title: string;
   slot?: Slot;
@@ -28,6 +29,8 @@ export function Cover({
   progress?: number;
   /** Marks the book to read next ("you are here"). */
   current?: boolean;
+  /** The book's own cover image (from its file), shown instead of the typographic cover. */
+  imageUrl?: string | null;
 }) {
   const className = [
     styles.cover,
@@ -36,12 +39,20 @@ export function Cover({
     current ? styles.current : "",
   ].join(" ");
   const titleClass = [styles.title, styles[titleSize(title)]].join(" ");
-  const face = (
-    <div className={className}>
-      <span className={titleClass}>{title}</span>
-      {slot === "N" || slot === "E" ? <span className={styles.slot}>{slot}</span> : null}
-    </div>
-  );
+  const face =
+    imageUrl && owned ? (
+      <div className={[className, styles.withImage].join(" ")}>
+        {/* Signed, short-lived URL to the user's own file; next/image cannot optimise it. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt="" className={styles.image} />
+        {slot === "N" || slot === "E" ? <span className={[styles.slot, styles.slotOnImage].join(" ")}>{slot}</span> : null}
+      </div>
+    ) : (
+      <div className={className}>
+        <span className={titleClass}>{title}</span>
+        {slot === "N" || slot === "E" ? <span className={styles.slot}>{slot}</span> : null}
+      </div>
+    );
   return (
     <figure className={styles.figure}>
       {href ? (

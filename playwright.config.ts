@@ -38,6 +38,8 @@ export default defineConfig({
       dependencies: ["desktop-light", "desktop-dark", "phone-light", "phone-dark"],
       use: { ...desktop },
     },
+    // 4. Uploads change the shelf and the path, so they run last.
+    { name: "uploads", testMatch: /uploads\.spec\.ts/, dependencies: ["flows"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.
