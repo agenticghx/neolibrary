@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M4 (reader + section model + search).
+next_action: Sessions loop through docs/done.md on their own; next is M5 (highlights, notes, export).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,20 +21,27 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M4 (d) · reader themes and PDF reading**, then tick M4:
-   (1) A theme picker in the reader's Aa panel: Auto (follows the device),
-   Paper (light), Sepia, Night (dark). Define token sets for each in
-   `app/tokens.css` (keep the contrast test covering every set) and read
-   colours from the reader element. (2) Read PDFs in the reader with pdf.js
-   (`pdfjs-dist`) through foliate-js's `pdf.js` adapter, or a simple page
-   viewer if that is too fragile; extract PDF text into `sections` for
-   search. Playwright: open the Descartes fixture PDF and turn a page.
-2. Then M5, M6, … in order, per `docs/done.md`.
+1. **M5 · ebook basics** (next unticked box in `docs/done.md`). Suggested
+   PRs: (a) annotations model: one table for highlights, bookmarks and
+   notes, following the W3C Web Annotation shape. Target: book + section id
+   + CFI + TextQuoteSelector (exact text plus a few words before and after).
+   Edits add a new version and deletes only hide (ground rule 9). Make
+   highlights from a selection in the reader: foliate's `overlayer.js` draws
+   them, through the `create-overlayer` event and `view.addAnnotation`.
+   (b) notes panel per book, bookmarks, colours. (c) export: Markdown, W3C
+   Web Annotation JSON, copy, email (mailto), share a passage (link + image
+   card), and import back, with an export → wipe → import test. Add notes
+   to `/search`.
+2. Then M6, M7, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
 
+- **Real-book check for M4** (any time after the deploy): read one of your
+  own DRM-free books on the live site for a while and say in a GitHub issue
+  (title "M4 verdict") whether the reader is good enough, and what bothers
+  you.
 - **Owner account** (after the Railway deploy, about 2 minutes): open
   `https://<railway-url>/setup`. The setup code is in Railway → `web` →
   Deployments → View logs (line "Neolibrary setup: …"), or set your own as
@@ -78,6 +85,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:35 · Claude (cloud) · M4 (d): reader themes and PDF reading; M4 ticked
+- **Done:** A theme picker in the reader's Aa panel: Auto (follows the device), Paper, Sepia, Night. Themes are token sets in `app/tokens.css`; tests check that Paper and Night equal the light and dark values exactly and that Sepia passes every contrast rule. Book pages take the colours of the chosen theme. **PDFs now open in the reader:** my own foliate-js "book" adapter for pdf.js (`lib/reader/pdf-book.ts`, adapted from foliate's MIT adapter, which its npm release lacks) shows one centred page at a time, drawn on a canvas with a selectable text layer. It uses pdf.js's legacy build, because the modern build needs `Map.getOrInsertComputed`, which current browsers (including the test Chromium) lack. pdf.js's worker, character maps and fonts are copied to `public/pdfjs/` before each build (`scripts/copy-pdfjs.mjs`, gitignored). **PDF text is searchable:** `lib/library/pdf-sections.ts` reads each page's text on the server (one chapter per page, paragraphs split where a gap is clearly larger than the page's median line step), and results open the reader at that page. M4 ticked in `docs/done.md`; Samuel's real-book verdict is listed under Waiting on Samuel.
+- **Key paths:** `app/tokens.css` (themes), `app/(reader)/books/[id]/read/`, `lib/reader/pdf-book.ts`, `lib/library/pdf-sections.ts`, `scripts/copy-pdfjs.mjs`, `e2e/reader.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `123 passed`; `npx playwright test` → `105 passed (1.4m)`, including: Sepia recolours the reader (background `rgb(243, 234, 214)`), survives a reload, and Auto returns to the device theme; a generated 3-page PDF shows "PDF · 3 pages", opens on page 1 (`epubcfi(/6/2…)`), turns to page 2 (`/6/4`), and searching `"vigorous mind"` finds "Page 3" and opens it (`/6/6`).
+- **Known issues / blockers:** PDF pages keep their own colours (white paper) in every theme. Very large PDFs are read fully into memory in the browser. Paragraph splitting in PDFs is a heuristic; scanned (image-only) PDFs have no text (out of scope for version 1, per the plan).
+- **Exact next steps:** M5, per "Exact next steps".
 
 ### 2026-10-04 05:05 · Claude (cloud) · M4 (c): full-text search
 - **Done:** `/search` (new "Search" item in the nav) searches the text of every book on the user's shelf, using Postgres' built-in full-text search on `sections.search`. It supports words (matching word forms: "travelling" finds "travel"), "exact phrases" and -excluded words. Results are grouped by book, show the chapter and the paragraph with matches marked (`ts_headline`, marked with control characters so book text can never inject markup), and link into the reader at that paragraph (`/books/<id>/read?at=<cfi>`; the reader now accepts `at`).

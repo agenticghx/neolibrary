@@ -128,3 +128,93 @@
     --dur-slow: 0ms;
   }
 }
+
+/*
+ * Explicit themes, used by the reader's theme picker (and anything else that
+ * wants one). Paper and Night must equal the light and dark values above
+ * (checked in lib/tokens.test.ts); Sepia is its own warm set.
+ */
+
+/* Paper: the light theme */
+.theme-paper {
+  color-scheme: light;
+  --paper: #f3ede1;
+  --paper-raised: #faf6ee;
+  --paper-sunken: #e9e1d1;
+  --ink-900: #243239;
+  --ink-700: #3c4b52;
+  --ink-500: #5a676c;
+  --rule: #d6ccba;
+  --accent: #376963;
+  --accent-strong: #2a524d;
+  --on-accent: #faf6ee;
+  --highlight: #cfe0d8;
+  --highlight-active: #9cc4b6;
+  --focus-ring: #2a524d;
+  --machine-ink: #3c4b52;
+  --machine-bg: #ece6f0;
+  --machine-rule: #7a6a8c;
+  --cover-navy: #22384a;
+  --cover-green: #2e5a50;
+  --cover-ink: #f0e8d8;
+  --cover-unowned: #d9d3c7;
+  --cover-unowned-ink: #4a5458;
+  --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
+  --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
+}
+
+/* Sepia: warm, low-glare light */
+.theme-sepia {
+  color-scheme: light;
+  --paper: #f3ead6;
+  --paper-raised: #f8f2e3;
+  --paper-sunken: #e9dec4;
+  --ink-900: #3a2e22;
+  --ink-700: #54453a;
+  --ink-500: #6b5c4c;
+  --rule: #d9cba9;
+  --accent: #73502c;
+  --accent-strong: #5a3d20;
+  --on-accent: #f8f2e3;
+  --highlight: #e6d6ad;
+  --highlight-active: #d4bd85;
+  --focus-ring: #5a3d20;
+  --machine-ink: #54453a;
+  --machine-bg: #ece0ce;
+  --machine-rule: #8a6a4a;
+  --cover-navy: #22384a;
+  --cover-green: #2e5a50;
+  --cover-ink: #f0e8d8;
+  --cover-unowned: #dfd2b6;
+  --cover-unowned-ink: #54463a;
+  --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
+  --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
+}
+
+/* Night: the dark theme */
+.theme-night {
+  color-scheme: dark;
+  --paper: #1b282f;
+  --paper-raised: #22323a;
+  --paper-sunken: #152026;
+  --ink-900: #e7ddc9;
+  --ink-700: #cdc3b0;
+  --ink-500: #a49d8e;
+  --rule: #34454d;
+  --accent: #6b9f95;
+  --accent-strong: #8bbab0;
+  --on-accent: #12201f;
+  --highlight: #2c4743;
+  --highlight-active: #3f6a63;
+  --focus-ring: #8bbab0;
+  --machine-ink: #d3c9b6;
+  --machine-bg: #2a2a3a;
+  --machine-rule: #a796bb;
+  --cover-navy: #2a4459;
+  --cover-green: #346659;
+  --cover-ink: #f0e8d8;
+  --cover-unowned: #2b3a41;
+  --cover-unowned-ink: #b5ad9e;
+  --shadow-cover: 0 1px 1px #0000004d, 0 8px 18px #00000059, 0 20px 34px -14px #00000073;
+  --shadow-raised: 0 1px 2px #0000004d, 0 10px 28px -10px #0006;
+}

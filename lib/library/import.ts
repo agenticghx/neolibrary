@@ -68,7 +68,7 @@ export async function importBook(
       updatedAt: new Date(),
     })
     .where(eq(books.id, bookId));
-  if (info.type === "epub") await buildSections(db, bookId, file.bytes, info.toc);
+  await buildSections(db, bookId, file.bytes, info.toc, info.type);
   return { status: wanted ? "attached" : "added", bookId, title: wanted?.title ?? info.title };
 }
 

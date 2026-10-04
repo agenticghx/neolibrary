@@ -30,3 +30,6 @@ next-env.d.ts
 screenshots/
 .data/
 e2e/.auth/
+
+# Copied from node_modules at build time (scripts/copy-pdfjs.mjs)
+/public/pdfjs/

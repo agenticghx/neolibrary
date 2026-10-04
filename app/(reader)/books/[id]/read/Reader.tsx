@@ -8,7 +8,7 @@ import styles from "./reader.module.css";
 
 type TocItem = { label: string; href: string; subitems?: TocItem[] };
 type FoliateView = HTMLElement & {
-  open(file: File): Promise<void>;
+  open(book: File | object): Promise<void>;
   init(opts: { lastLocation?: string | null; showTextStart?: boolean }): Promise<void>;
   goTo(target: string | number): Promise<void>;
   prev(): Promise<void>;
@@ -19,24 +19,29 @@ type FoliateView = HTMLElement & {
 };
 type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string } };
 
+const readerClass = (s: ReaderSettings) => (s.theme === "auto" ? styles.reader : `${styles.reader} theme-${s.theme}`);
+
 const TOKENS = { paper: "--paper", ink: "--ink-900", accent: "--accent", highlight: "--highlight" } as const;
 
-function applySettings(v: FoliateView, s: ReaderSettings) {
+function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element) {
   const r = v.renderer;
+  if (!r.setStyles) return; // PDFs (fixed layout): pages are pictures; only the reader's chrome is themed.
   r.setAttribute("flow", s.flow);
   r.setAttribute("max-inline-size", "680px");
   r.setAttribute("max-column-count", "1");
   r.setAttribute("margin", "40px");
   r.setAttribute("gap", "7%");
-  r.setStyles?.(bookCss(s, themeColors(), location.origin));
+  r.setStyles?.(bookCss(s, themeColors(themeEl, s), location.origin));
 }
 
-function themeColors() {
-  const cs = getComputedStyle(document.documentElement);
+/** Colours for book pages, read from the design tokens on the reader element (so a theme class applies). */
+function themeColors(el: Element, s: ReaderSettings) {
+  const cs = getComputedStyle(el);
   const colors: Record<string, string> = Object.fromEntries(
     Object.entries(TOKENS).map(([k, v]) => [k, cs.getPropertyValue(v).trim()]),
   );
-  colors.scheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  colors.scheme =
+    s.theme === "night" || (s.theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
   return colors;
 }
 
@@ -45,10 +50,12 @@ export function Reader(props: {
   title: string;
   author: string;
   fileUrl: string;
+  fileType: "epub" | "pdf";
   initialCfi: string | null;
   initialFraction: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
@@ -96,14 +103,19 @@ export function Reader(props: {
         await import("foliate-js/view.js");
         const res = await fetch(props.fileUrl);
         if (!res.ok) throw new Error(`file ${res.status}`);
-        const file = new File([await res.blob()], "book.epub", { type: "application/epub+zip" });
+        const blob = await res.blob();
+        const book =
+          props.fileType === "pdf"
+            ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob)
+            : new File([blob], "book.epub", { type: "application/epub+zip" });
         if (cancelled) return;
         const v = document.createElement("foliate-view") as FoliateView;
         v.className = styles.view;
         host.current!.append(v);
         view.current = v;
-        await v.open(file);
-        applySettings(v, initial);
+        await v.open(book);
+        root.current!.className = readerClass(initial);
+        applySettings(v, initial, root.current!);
         setSettings(initial);
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
@@ -127,15 +139,17 @@ export function Reader(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.fileUrl, props.initialCfi, flush, onKey]);
+  }, [props.fileUrl, props.fileType, props.initialCfi, flush, onKey]);
 
   // Re-style when settings or the colour scheme change.
   useEffect(() => {
     if (!settings) return;
     saveSettings(settings);
-    if (view.current) applySettings(view.current, settings);
+    // The theme class must be on the element before colours are read from it.
+    if (root.current) root.current.className = readerClass(settings);
+    if (view.current && root.current) applySettings(view.current, settings, root.current);
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => view.current && applySettings(view.current, settings);
+    const onChange = () => view.current && root.current && applySettings(view.current, settings, root.current);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [settings]);
@@ -156,7 +170,13 @@ export function Reader(props: {
   const percent = Math.round(where.fraction * 100);
 
   return (
-    <div className={styles.reader} data-testid="reader" data-cfi={where.cfi ?? ""} data-status={status}>
+    <div
+      ref={root}
+      className={settings ? readerClass(settings) : styles.reader}
+      data-testid="reader"
+      data-cfi={where.cfi ?? ""}
+      data-status={status}
+    >
       <header className={styles.bar}>
         <Link href={`/books/${props.bookId}`} className={styles.brand} aria-label="Back to the book page">
           <Mark size={22} />
@@ -232,6 +252,10 @@ export function Reader(props: {
       {panel === "settings" && settings ? (
         <section className={styles.panel} aria-label="Reading settings">
           <p className={styles.panelTitle}>Reading settings</p>
+          {props.fileType === "pdf" ? (
+            <p className={styles.hint}>This is a PDF: its pages keep their own layout, so text settings do not apply.</p>
+          ) : (
+            <>
           <fieldset className={styles.group}>
             <legend>Layout</legend>
             <Segment value={settings.flow} options={[["paginated", "Pages"], ["scrolled", "Scroll"]]} onChange={(flow) => update({ flow })} />
@@ -278,7 +302,17 @@ export function Reader(props: {
               onChange={(face) => update({ face })}
             />
           </fieldset>
-          <p className={styles.hint}>Light or dark follows your device. Arrow keys turn pages.</p>
+            </>
+          )}
+          <fieldset className={styles.group}>
+            <legend>Theme</legend>
+            <Segment
+              value={settings.theme}
+              options={[["auto", "Auto"], ["paper", "Paper"], ["sepia", "Sepia"], ["night", "Night"]]}
+              onChange={(theme) => update({ theme })}
+            />
+          </fieldset>
+          <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
         </section>
       ) : null}
     </div>

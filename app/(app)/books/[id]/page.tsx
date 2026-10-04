@@ -43,7 +43,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
         <div className={styles.info}>
           <h1 className={styles.title}>{book.title}</h1>
           {book.author ? <p className={styles.author}>{book.author}</p> : null}
-          {owned && book.fileType === "epub" ? (
+          {owned && book.fileType ? (
             <Link href={`/books/${book.id}/read`} className={styles.read}>
               {book.progress > 0 ? "Continue reading" : "Read"}
             </Link>

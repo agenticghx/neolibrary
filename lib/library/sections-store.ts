@@ -2,6 +2,7 @@ import { and, asc, eq, isNotNull, isNull, notExists, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
+import { extractPdfSections } from "./pdf-sections";
 import { extractSections, type Section } from "./sections";
 
 /** Replaces a book's sections with freshly extracted ones. */
@@ -14,8 +15,14 @@ export async function saveSections(db: Db, bookId: string, list: Section[]) {
   });
 }
 
-export async function buildSections(db: Db, bookId: string, bytes: Uint8Array, toc: { label: string; href: string }[]) {
-  const list = extractSections(bytes, toc);
+export async function buildSections(
+  db: Db,
+  bookId: string,
+  bytes: Uint8Array,
+  toc: { label: string; href: string }[],
+  type: "epub" | "pdf" = "epub",
+) {
+  const list = type === "pdf" ? await extractPdfSections(bytes) : extractSections(bytes, toc);
   await saveSections(db, bookId, list);
   return list.length;
 }
@@ -43,11 +50,11 @@ export async function getSections(db: Db, ownerId: string, bookId: string) {
 /** Builds sections for EPUBs uploaded before the section model existed. */
 export async function backfillSections(db: Db, storage: Storage) {
   const missing = await db
-    .select({ id: books.id, fileKey: books.fileKey, toc: books.toc })
+    .select({ id: books.id, fileKey: books.fileKey, toc: books.toc, fileType: books.fileType })
     .from(books)
     .where(
       and(
-        eq(books.fileType, "epub"),
+        isNotNull(books.fileType),
         isNotNull(books.fileKey),
         isNull(books.deletedAt),
         notExists(db.select({ one: sql`1` }).from(sections).where(eq(sections.bookId, books.id))),
@@ -57,7 +64,7 @@ export async function backfillSections(db: Db, storage: Storage) {
   for (const b of missing) {
     const file = await storage.get(b.fileKey!).catch(() => null);
     if (!file) continue;
-    await buildSections(db, b.id, file.data, b.toc as { label: string; href: string }[]);
+    await buildSections(db, b.id, file.data, b.toc as { label: string; href: string }[], b.fileType ?? "epub");
     done += 1;
   }
   return done;

@@ -6,3 +6,6 @@ declare module "foliate-js/epubcfi.js" {
   export function compare(a: string, b: string): number;
   export function collapse(cfi: string, toEnd?: boolean): string;
 }
+declare module "pdfjs-dist/legacy/build/pdf.mjs" {
+  export * from "pdfjs-dist";
+}
