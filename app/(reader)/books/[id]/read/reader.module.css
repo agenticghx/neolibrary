@@ -473,6 +473,18 @@
   white-space: pre-wrap;
 }
 
+.shareMenu {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.shareDone {
+  color: var(--accent);
+  font-size: var(--text-sm);
+}
+
 .panelFoot {
   display: grid;
   gap: var(--space-2);

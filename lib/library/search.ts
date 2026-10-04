@@ -58,7 +58,8 @@ export async function searchLibrary(db: Db, ownerId: string, query: string, limi
 
 export type NoteHit = {
   annotationId: string;
-  bookId: string;
+  bookId: string | null;
+  /** The book's title, or the pillar's / path's for notes on those. */
   bookTitle: string;
   kind: "highlight" | "bookmark" | "note";
   cfi: string | null;
@@ -76,11 +77,14 @@ export async function searchNotes(db: Db, ownerId: string, query: string, limit 
       WHERE owner_id = ${ownerId}
       ORDER BY annotation_id, version DESC
     )
-    SELECT a.annotation_id AS "annotationId", b.id AS "bookId", b.title AS "bookTitle", a.kind, a.cfi,
+    SELECT a.annotation_id AS "annotationId", b.id AS "bookId",
+           coalesce(b.title, pi.title, pa.title, '') AS "bookTitle", a.kind, a.cfi,
            ts_headline('english', trim(a.body || ' ' || a.quote_exact), query.q,
              ${`StartSel=${"\u0002"}, StopSel=${"\u0003"}, MaxWords=30, MinWords=10, ShortWord=2`}) AS headline
     FROM latest a
-    JOIN books b ON b.id = a.book_id
+    LEFT JOIN books b ON b.id = a.book_id
+    LEFT JOIN pillars pi ON pi.id = a.target_id AND a.target_type = 'pillar'
+    LEFT JOIN paths pa ON pa.id = a.target_id AND a.target_type = 'path'
     JOIN query ON to_tsvector('english', a.body || ' ' || a.quote_exact) @@ query.q
     WHERE NOT a.deleted
     ORDER BY ts_rank(to_tsvector('english', a.body || ' ' || a.quote_exact), query.q) DESC, a.created_at DESC

@@ -396,13 +396,23 @@ export function Reader(props: {
       </footer>
 
       {selection ? (
-        <SelectionBar selection={selection} title={props.title} author={props.author} onHighlight={highlight} onClose={clearSelection} />
+        <SelectionBar
+          bookId={props.bookId}
+          selection={selection}
+          title={props.title}
+          author={props.author}
+          themeEl={() => root.current}
+          onHighlight={highlight}
+          onClose={clearSelection}
+        />
       ) : null}
 
       {panel === "notes" ? (
         <NotesPanel
           bookId={props.bookId}
           title={props.title}
+          author={props.author}
+          themeEl={() => root.current}
           items={notes}
           activeId={activeId}
           onGo={(a) => {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createInvite, revokeInvite } from "@/lib/auth/service";
 import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
 import { seedPath } from "@/lib/library/paths";
+import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
 import { STARTER_PATHS } from "@/lib/library/seed";
 import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
@@ -63,4 +64,21 @@ export async function toggleCollectionAction(data: FormData) {
   await setInCollection(await getDb(), user.id, String(data.get("collectionId")), bookId, data.get("inside") === "1");
   revalidatePath(`/books/${bookId}`);
   revalidatePath("/shelf");
+}
+
+/** A note on a pillar or a whole path (from the Path view). */
+export async function addTargetNoteAction(data: FormData) {
+  const user = await requireUser();
+  const targetType = String(data.get("targetType"));
+  if (targetType !== "pillar" && targetType !== "path") return;
+  const body = String(data.get("body") ?? "");
+  if (!body.trim()) return;
+  await createAnnotation(await getDb(), user.id, { kind: "note", targetType, targetId: String(data.get("targetId")), body });
+  revalidatePath("/");
+}
+
+export async function removeNoteAction(data: FormData) {
+  const user = await requireUser();
+  await deleteAnnotation(await getDb(), user.id, String(data.get("id")));
+  revalidatePath("/");
 }

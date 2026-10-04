@@ -67,7 +67,7 @@ deployed Railway URL.
 - [x] **M2** Invite-only accounts; a logged-out visitor gets nothing (pages, API, files)
 - [x] **M3** Bookshelf + study Paths; Hidden Machinery Path seeded; upload attaches to a wanted book (PRs #5, #6, #7)
 - [x] **M4** Reader, section model with stable ids, reopen at the same spot, full-text search (PRs #8–#11; real-book verdict awaiting Samuel)
-- [ ] **M5** Highlights, bookmarks, notes; Markdown + W3C export; export → wipe → import identical
+- [x] **M5** Highlights, bookmarks, notes; Markdown + W3C export; export → wipe → import identical (PRs #12–#14)
 - [ ] **M6** Rewrite with versions + provenance, STE mode with TypeScript checker matching `ste_check.py`, prerequisites, question bank, cross-book links (fake Claude)
 - [ ] **M7** Provider-neutral audio tracks, word highlight follows timings, cost estimate + caps (fake voice)
 - [ ] **M8** Voice notes with transcripts, stickers, handwriting saved and redrawn

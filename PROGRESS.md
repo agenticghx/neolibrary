@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M5 (highlights, notes, export).
+next_action: Sessions loop through docs/done.md on their own; next is M6 (AI understanding tools, fake Claude).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,15 +21,23 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M5 (c) · share a passage, and notes on Paths and Pillars**, then tick M5.
-   (1) In the selection bar and on each highlight in the Notes panel:
-   "Share" → "Copy link" (the reader URL with `?at=<cfi>`, for signed-in
-   users) and "Image card" (the quote, title and author drawn on a canvas in
-   the app's fonts and colours, downloaded as PNG). (2) Notes on a Pillar and
-   on the whole Path, from the Path view. The `annotations` table already
-   supports `target_type` path/pillar with `target_id`; `createAnnotation`
-   needs to accept them (owned path or pillar). Include them in exports.
-2. Then M6, M7, … in order, per `docs/done.md`.
+1. **M6 · AI understanding tools (Claude)**, next unticked box in
+   `docs/done.md`. Read the `claude-api` skill before writing Claude code
+   (model ids, SDK). Everything goes behind an interface with a **fake** used
+   in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
+   Suggested PRs: (a) the AI plumbing: `lib/ai/` with a `TextModel`
+   interface, `ClaudeModel` (Anthropic SDK, key from `ANTHROPIC_API_KEY`)
+   and `FakeModel`; prompts as files in `prompts/`; a `generations` table
+   storing every output with provenance (model, prompt-file hash, input-text
+   hash, time, tokens, cost) and re-serving it without a second call (ground
+   rule 5); spending caps from env (`AI_CAP_PER_BOOK_USD` default 5,
+   `AI_CAP_PER_MONTH_USD` default 20) with a cost estimate shown first
+   (ground rule 8). (b) Rewrite a paragraph at a level, with versions you can
+   flip between, shown visibly as machine-written. (c) STE mode: port
+   `prompts/ste/ste_check.py` to TypeScript with tests giving identical
+   results on the same inputs; STE badge. (d) "What do I need to know?" per
+   section; question bank; cross-book links.
+2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
 
@@ -82,6 +90,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 06:55 · Claude (cloud) · M5 (c): share a passage; notes on Paths and Pillars; M5 ticked
+- **Done:** **Share** from the selection bar and from each highlight in the Notes panel. "Copy link" copies a reader link to that passage (`/books/<id>/read?at=<cfi>`, for signed-in readers). "Image card" draws the quote with title and author on a 1200×630 canvas in the app's fonts and the reader's theme colours (`lib/reader/quote-card.ts`) and downloads it as a PNG. **Notes on a Pillar and on the whole Path** (ground rule 4): a quiet "Add note" under each pillar and under the Path's description, using server actions; the `annotations` table already had `target_type` path/pillar, and `createAnnotation` now accepts them (only your own path or pillar). They are in the library export (all annotations are) and in note search (labelled with the pillar's or path's name). M5 ticked in `docs/done.md`.
+- **Key paths:** `lib/reader/quote-card.ts`, `app/(reader)/books/[id]/read/ShareMenu.tsx`, `lib/library/annotations.ts` (`createTargetNote`, `notesForPath`), `components/PathView.tsx`, `app/(app)/actions.ts`, `lib/library/search.ts`, `e2e/annotations.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `133 passed`; `npx playwright test` → `111 passed (1.6m)`, including: Copy link puts `/books/<id>/read?at=epubcfi…` on the clipboard and opening it lands in "Story of the Door"; Image card downloads `the-strange-case-of-dr-jekyll-and-mr-hyde-quote.png` (a valid PNG, over 20 KB); a note on Semiconductors and one on the whole Path survive a reload, are found by search ("Note · Semiconductors"), and can be removed. Path page reference screenshots regenerated (the new "Add note" lines).
+- **Known issues / blockers:** Shared links work only for signed-in users who own the book (ground rule 6: books are private); the image card is the way to share outside. Notes on paths and pillars are not in the per-book Markdown/W3C exports (they are in the library JSON export).
+- **Exact next steps:** M6, per "Exact next steps".
 
 ### 2026-10-04 06:30 · Claude (cloud) · M5 (b): export notes (Markdown, W3C), import, copy, email; search notes
 - **Done:** `lib/library/annotation-formats.ts` turns a book's annotations into **Markdown** (book notes, then each passage as a quote under its chapter heading, with its note; bookmarks as list items) and **W3C Web Annotation JSON** (an AnnotationCollection; motivations highlighting, bookmarking or commenting; target with a TextQuoteSelector and a FragmentSelector holding the CFI; colour and section id as `neolibrary:` extras). It also reads W3C back. `importAnnotations` keeps ids and dates and skips ids that already exist, so importing twice adds nothing and nothing is overwritten. Routes: `GET /api/books/<id>/annotations/export?format=md|w3c` (a download) and `POST /api/books/<id>/annotations/import`. Interface: "Markdown · W3C JSON · Copy all · Email" (email opens the mail app with the Markdown, trimmed to stay under mailto limits) in the reader's Notes panel and in a new "Your notes" section on the book page, which also has the W3C import. `/search` now also searches your highlights and notes (latest version only, hidden ones left out) and lists them under "Your notes".

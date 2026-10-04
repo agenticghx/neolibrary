@@ -1,3 +1,5 @@
+import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
+import type { Annotation } from "@/lib/library/annotations";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
 import styles from "./PathView.module.css";
@@ -27,7 +29,42 @@ function SlotCover({ slot, current }: { slot: SlotView; current: boolean }) {
   );
 }
 
-function Pillar({ pillar, here }: { pillar: PillarView; here: boolean }) {
+/** Notes on a pillar or the whole path: a quiet disclosure with the notes and a box to add one. */
+function TargetNotes({ targetType, targetId, label, notes }: { targetType: "pillar" | "path"; targetId: string; label: string; notes: Annotation[] }) {
+  return (
+    <details className={styles.notes} open={notes.length > 0 || undefined}>
+      <summary className={styles.notesSummary}>{notes.length ? `Notes (${notes.length})` : "Add note"}</summary>
+      {notes.length ? (
+        <ul className={styles.noteList}>
+          {notes.map((n) => (
+            <li key={n.id} className={styles.note}>
+              <p className={styles.noteText}>{n.body}</p>
+              <form action={removeNoteAction}>
+                <input type="hidden" name="id" value={n.id} />
+                <button type="submit" className={styles.noteRemove} aria-label={`Remove note: ${n.body.slice(0, 40)}`}>
+                  Remove
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form action={addTargetNoteAction} className={styles.noteForm}>
+        <input type="hidden" name="targetType" value={targetType} />
+        <input type="hidden" name="targetId" value={targetId} />
+        <label className="visually-hidden" htmlFor={`note-${targetId}`}>
+          {label}
+        </label>
+        <textarea id={`note-${targetId}`} name="body" rows={2} className={styles.noteInput} placeholder="A thought, a pairing, a question…" required />
+        <button type="submit" className={styles.noteSave}>
+          Save note
+        </button>
+      </form>
+    </details>
+  );
+}
+
+function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; notes: Annotation[] }) {
   const core = pillar.slots.filter((s) => s.kind === "N" || s.kind === "E");
   const extras = pillar.slots.filter((s) => s.kind === "extra");
   const showExtrasAsCovers = core.length === 0;
@@ -87,11 +124,12 @@ function Pillar({ pillar, here }: { pillar: PillarView; here: boolean }) {
       {pillar.slots.some((s) => s.book.unverified) ? (
         <p className={styles.unverified}>Agent suggestions, not catalog-checked</p>
       ) : null}
+      <TargetNotes targetType="pillar" targetId={pillar.id} label={`Note on ${pillar.title}`} notes={notes} />
     </section>
   );
 }
 
-export function PathView({ path }: { path: PathData }) {
+export function PathView({ path, notes = new Map() }: { path: PathData; notes?: Map<string, Annotation[]> }) {
   const numbered = path.pillars.filter((p) => p.number > 0);
   const master = path.pillars.filter((p) => p.group === "master");
   const groups = Object.keys(GROUPS)
@@ -108,6 +146,7 @@ export function PathView({ path }: { path: PathData }) {
           {numbered.length} pillars · Read N, then E · {path.owned} owned, {path.wanted} wanted
         </p>
         <p className={styles.description}>{path.description}</p>
+        <TargetNotes targetType="path" targetId={path.id} label={`Note on ${path.title}`} notes={notes.get(path.id) ?? []} />
         <ol className={styles.track} aria-label={`${done} of ${numbered.length} pillars finished`}>
           {numbered.map((p, i) => (
             <li
@@ -130,7 +169,7 @@ export function PathView({ path }: { path: PathData }) {
           </h2>
           <div className={styles.grid}>
             {g.pillars.map((p) => (
-              <Pillar key={p.id} pillar={p} here={p.id === path.currentPillarId} />
+              <Pillar key={p.id} pillar={p} here={p.id === path.currentPillarId} notes={notes.get(p.id) ?? []} />
             ))}
           </div>
         </section>

@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { NotesExport } from "@/components/NotesExport";
 import type { Annotation } from "@/lib/library/annotations";
+import { ShareMenu } from "./ShareMenu";
 import styles from "./reader.module.css";
 
 /** Everything you marked in this book, in reading order. */
 export function NotesPanel({
   bookId,
   title,
+  author,
+  themeEl,
   items,
   activeId,
   onGo,
@@ -18,6 +21,8 @@ export function NotesPanel({
 }: {
   bookId: string;
   title: string;
+  author: string;
+  themeEl: () => Element | null;
   items: Annotation[];
   activeId: string | null;
   onGo: (a: Annotation) => void;
@@ -112,6 +117,9 @@ export function NotesPanel({
                   >
                     {a.body ? "Edit note" : "Add note"}
                   </button>
+                ) : null}
+                {a.kind === "highlight" && a.cfi ? (
+                  <ShareMenu bookId={bookId} cfi={a.cfi} quote={a.quote.exact} title={title} author={author} themeEl={themeEl} />
                 ) : null}
                 <button type="button" className={styles.tool} onClick={() => void onDelete(a)}>
                   Remove

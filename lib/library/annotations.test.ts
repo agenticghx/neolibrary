@@ -84,3 +84,27 @@ describe("annotations", () => {
     expect(await listAnnotations(database.db, other.id)).toEqual([]);
   });
 });
+
+describe("notes on paths and pillars", () => {
+  it("attach to your own path or pillar, and are listed per target", async () => {
+    const { seedPath, getPathView } = await import("./paths");
+    const { hiddenMachinery } = await import("@/data/paths/hidden-machinery");
+    const { notesForPath } = await import("./annotations");
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    const semis = view.pillars.find((p) => p.slug === "semiconductors")!;
+    const onPillar = await createAnnotation(database.db, ownerId, { kind: "note", targetType: "pillar", targetId: semis.id, body: "Pair with a fab tour." });
+    const onPath = await createAnnotation(database.db, ownerId, { kind: "note", targetType: "path", targetId: view.id, body: "One pillar a month." });
+    expect(onPillar).toMatchObject({ targetType: "pillar", targetId: semis.id, bookId: null, cfi: null });
+    const notes = await notesForPath(database.db, ownerId, view.id);
+    expect(notes.get(semis.id)!.map((n) => n.body)).toEqual(["Pair with a fab tour."]);
+    expect(notes.get(view.id)!.map((n) => n.body)).toEqual(["One pillar a month."]);
+    await deleteAnnotation(database.db, ownerId, onPath.id);
+    expect((await notesForPath(database.db, ownerId, view.id)).get(view.id)).toBeUndefined();
+
+    const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
+    const { token } = await createInvite(database.db, admin);
+    const other = await acceptInvite(database.db, token, { email: "r2@example.com", name: "R", password: "long enough pw" });
+    await expect(createAnnotation(database.db, other.id, { kind: "note", targetType: "pillar", targetId: semis.id, body: "x" })).rejects.toThrow("Not found");
+  });
+});
