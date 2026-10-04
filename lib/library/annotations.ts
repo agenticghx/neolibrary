@@ -14,7 +14,7 @@ import { isCfi } from "./reading";
  */
 export const COLORS = ["sage", "amber", "rose", "sky"] as const;
 export type Color = (typeof COLORS)[number];
-export type Kind = "highlight" | "bookmark" | "note";
+export type Kind = "highlight" | "bookmark" | "note" | "voice";
 
 export type Annotation = {
   id: string; // the annotation's stable id (annotation_id)
@@ -28,6 +28,8 @@ export type Annotation = {
   quote: { exact: string; prefix: string; suffix: string };
   color: Color | null;
   body: string;
+  /** Voice notes (M8): the recording and what was said. */
+  voice: { audioKey: string; mime: string; durationMs: number; transcript: string } | null;
   createdAt: string; // first version
   updatedAt: string; // latest version
 };
@@ -53,6 +55,10 @@ function toAnnotation(latest: Row, first: Row): Annotation {
     quote: { exact: latest.quoteExact, prefix: latest.quotePrefix, suffix: latest.quoteSuffix },
     color: (latest.color as Color | null) ?? null,
     body: latest.body,
+    voice:
+      latest.kind === "voice" && latest.audioKey
+        ? { audioKey: latest.audioKey, mime: latest.audioMime ?? "audio/webm", durationMs: latest.durationMs ?? 0, transcript: latest.transcript }
+        : null,
     createdAt: first.createdAt.toISOString(),
     updatedAt: latest.createdAt.toISOString(),
   };
@@ -105,13 +111,15 @@ export async function createAnnotation(
     /** For notes on a pillar or a whole path (instead of a book). */
     targetType?: unknown;
     targetId?: unknown;
+    /** Voice notes: the stored recording (see voice-notes.ts) and its transcript. */
+    voice?: { audioKey: string; mime: string; durationMs: number; transcript: string };
   },
   now = new Date(),
   /** Keep a given id (used when importing an export). */
   id?: string,
 ): Promise<Annotation> {
   const kind = input.kind as Kind;
-  if (!["highlight", "bookmark", "note"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
+  if (!["highlight", "bookmark", "note", "voice"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
   if (input.targetType === "pillar" || input.targetType === "path") {
     return createTargetNote(db, ownerId, input.targetType, input.targetId, String(input.body ?? ""), now, id);
   }
@@ -124,6 +132,8 @@ export async function createAnnotation(
   if (kind === "highlight" && (!passage || !quote.exact.trim())) throw new AnnotationError("Select some text to highlight.");
   if (kind === "bookmark" && !passage) throw new AnnotationError("A bookmark needs a place in the book.");
   if (kind === "note" && !body.trim()) throw new AnnotationError("Write something in the note.");
+  const voice = kind === "voice" ? input.voice : undefined;
+  if (kind === "voice" && (!voice || !voice.audioKey.startsWith(`audio/${ownerId}/`))) throw new AnnotationError("A voice note needs a recording.");
   const color = kind === "highlight" ? ((COLORS as readonly string[]).includes(String(input.color)) ? (input.color as Color) : "sage") : null;
   const cfi = passage ? (input.cfi as string) : null;
   const sectionId = cfi ? await sectionForCfi(db, bookId, cfi) : null;
@@ -145,6 +155,9 @@ export async function createAnnotation(
       quoteSuffix: quote.suffix,
       color,
       body,
+      ...(voice
+        ? { audioKey: voice.audioKey, audioMime: voice.mime, durationMs: Math.round(voice.durationMs), transcript: voice.transcript.slice(0, MAX_BODY) }
+        : {}),
       createdAt: now,
     })
     .returning();

@@ -161,7 +161,7 @@ export const annotations = pgTable("annotations", {
   ownerId: uuid("owner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["highlight", "bookmark", "note"] }).notNull(),
+  kind: text("kind", { enum: ["highlight", "bookmark", "note", "voice"] }).notNull(),
   targetType: text("target_type", { enum: ["passage", "book", "pillar", "path"] }).notNull(),
   bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
   targetId: uuid("target_id"),
@@ -173,6 +173,10 @@ export const annotations = pgTable("annotations", {
   color: text("color"),
   body: text("body").notNull().default(""),
   deleted: boolean("deleted").notNull().default(false),
+  audioKey: text("audio_key"),
+  audioMime: text("audio_mime"),
+  durationMs: integer("duration_ms"),
+  transcript: text("transcript").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

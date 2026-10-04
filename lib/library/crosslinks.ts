@@ -39,8 +39,8 @@ export async function crossLinks(db: Db, ownerId: string, bookId: string, text: 
       ORDER BY annotation_id, version DESC
     ),
     candidates AS (
-      SELECT a.annotation_id, a.book_id, a.section_id, a.cfi, a.quote_exact, a.body, a.created_at,
-             tsvector_to_array(to_tsvector('english', a.quote_exact || ' ' || a.body)) AS stems
+      SELECT a.annotation_id, a.book_id, a.section_id, a.cfi, a.quote_exact, trim(a.body || ' ' || a.transcript) AS body, a.created_at,
+             tsvector_to_array(to_tsvector('english', a.quote_exact || ' ' || a.body || ' ' || a.transcript)) AS stems
       FROM latest a
       JOIN books b ON b.id = a.book_id
       WHERE NOT a.deleted AND a.cfi IS NOT NULL AND a.book_id <> ${bookId}

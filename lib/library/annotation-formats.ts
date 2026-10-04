@@ -10,7 +10,13 @@ import type { Annotation, Color, Kind } from "./annotations";
 export type BookInfo = { id: string; title: string; author: string };
 
 const CFI_SPEC = "http://www.idpf.org/epub/linking/cfi/epub-cfi.html";
-const MOTIVATION: Record<Kind, string> = { highlight: "highlighting", bookmark: "bookmarking", note: "commenting" };
+const MOTIVATION: Record<Kind, string> = { highlight: "highlighting", bookmark: "bookmarking", note: "commenting", voice: "commenting" };
+
+/** What a note says in text: its body, and for a voice note the transcript. */
+const noteText = (a: Annotation) =>
+  [a.body.trim(), a.voice?.transcript.trim() ? `Voice note: ${a.voice.transcript.trim()}` : a.voice ? "Voice note (no transcript)" : ""]
+    .filter(Boolean)
+    .join("\n\n");
 const KIND_OF: Record<string, Kind> = { highlighting: "highlight", bookmarking: "bookmark", commenting: "note" };
 
 /** Markdown: the book's notes, then passages under their chapter headings. */
@@ -35,7 +41,7 @@ export function toMarkdown(book: BookInfo, items: Annotation[], chapterOf: (a: A
       continue;
     }
     lines.push("", ...a.quote.exact.split("\n").map((l) => `> ${l}`));
-    if (a.body.trim()) lines.push("", a.body.trim());
+    if (noteText(a)) lines.push("", noteText(a));
   }
   return lines.join("\n") + "\n";
 }
@@ -76,7 +82,7 @@ export function toW3C(book: BookInfo, items: Annotation[]): W3CCollection {
     motivation: MOTIVATION[a.kind],
     created: a.createdAt,
     modified: a.updatedAt,
-    ...(a.body.trim() ? { body: [{ type: "TextualBody", value: a.body, format: "text/plain", purpose: "commenting" }] } : {}),
+    ...(noteText(a) ? { body: [{ type: "TextualBody", value: a.voice ? noteText(a) : a.body, format: "text/plain", purpose: "commenting" }] } : {}),
     target: {
       source: bookUrn(book.id),
       ...(a.cfi
