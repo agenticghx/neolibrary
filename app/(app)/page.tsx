@@ -3,6 +3,7 @@ import { Cover } from "@/components/Cover";
 import { PathView } from "@/components/PathView";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { notesForPath } from "@/lib/library/annotations";
 import { coverSigner } from "@/lib/library/covers";
 import { getPathView, listPaths } from "@/lib/library/paths";
 import { STARTER_PATHS } from "@/lib/library/seed";
@@ -19,9 +20,10 @@ export default async function HomePage() {
   const path = first ? await getPathView(db, user.id, first.slug, await coverSigner()) : null;
 
   if (path) {
+    const notes = await notesForPath(db, user.id, path.id);
     return (
       <main className={styles.main}>
-        <PathView path={path} />
+        <PathView path={path} notes={notes} />
       </main>
     );
   }

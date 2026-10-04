@@ -200,6 +200,76 @@
   font-style: italic;
 }
 
+.notes {
+  font-size: var(--text-sm);
+}
+
+.notesSummary {
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.notes[open] .notesSummary {
+  color: var(--ink-700);
+}
+
+.noteList {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
+  align-items: start;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--rule);
+}
+
+.noteText {
+  color: var(--ink-700);
+  font-family: var(--font-serif);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+.noteRemove,
+.noteSave {
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.noteForm {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: end;
+  margin-top: var(--space-2);
+}
+
+.noteInput {
+  width: 100%;
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font: inherit;
+  font-family: var(--font-serif);
+  resize: vertical;
+}
+
+.noteInput::placeholder {
+  color: var(--ink-500);
+}
+
 .master {
   display: flex;
   align-items: center;
@@ -236,7 +306,77 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .master {
+  .notes {
+  font-size: var(--text-sm);
+}
+
+.notesSummary {
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.notes[open] .notesSummary {
+  color: var(--ink-700);
+}
+
+.noteList {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
+  align-items: start;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--rule);
+}
+
+.noteText {
+  color: var(--ink-700);
+  font-family: var(--font-serif);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+.noteRemove,
+.noteSave {
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.noteForm {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: end;
+  margin-top: var(--space-2);
+}
+
+.noteInput {
+  width: 100%;
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font: inherit;
+  font-family: var(--font-serif);
+  resize: vertical;
+}
+
+.noteInput::placeholder {
+  color: var(--ink-500);
+}
+
+.master {
     flex-direction: column-reverse;
     align-items: flex-start;
     padding: var(--space-5);

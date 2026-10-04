@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import * as CFI from "foliate-js/epubcfi.js";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, sections } from "@/lib/db/schema";
+import { annotations, books, paths, pillars, sections } from "@/lib/db/schema";
 import { isCfi } from "./reading";
 
 /**
@@ -102,6 +102,9 @@ export async function createAnnotation(
     quote?: { exact?: unknown; prefix?: unknown; suffix?: unknown };
     color?: unknown;
     body?: unknown;
+    /** For notes on a pillar or a whole path (instead of a book). */
+    targetType?: unknown;
+    targetId?: unknown;
   },
   now = new Date(),
   /** Keep a given id (used when importing an export). */
@@ -109,6 +112,9 @@ export async function createAnnotation(
 ): Promise<Annotation> {
   const kind = input.kind as Kind;
   if (!["highlight", "bookmark", "note"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
+  if (input.targetType === "pillar" || input.targetType === "path") {
+    return createTargetNote(db, ownerId, input.targetType, input.targetId, String(input.body ?? ""), now, id);
+  }
   if (!(await ownsBook(db, ownerId, input.bookId))) throw new AnnotationError("Book not found.");
   const bookId = input.bookId as string;
   const body = String(input.body ?? "").slice(0, MAX_BODY);
@@ -143,6 +149,57 @@ export async function createAnnotation(
     })
     .returning();
   return toAnnotation(row, row);
+}
+
+/** A note on a pillar or a whole path (ground rule 4: notes can attach to a Path or a Pillar). */
+async function createTargetNote(
+  db: Db,
+  ownerId: string,
+  targetType: "pillar" | "path",
+  targetId: unknown,
+  body: string,
+  now: Date,
+  id?: string,
+): Promise<Annotation> {
+  if (typeof targetId !== "string" || !/^[0-9a-f-]{36}$/i.test(targetId)) throw new AnnotationError("Not found.");
+  const owned =
+    targetType === "path"
+      ? await db.select({ id: paths.id }).from(paths).where(and(eq(paths.id, targetId), eq(paths.ownerId, ownerId)))
+      : await db
+          .select({ id: pillars.id })
+          .from(pillars)
+          .innerJoin(paths, eq(paths.id, pillars.pathId))
+          .where(and(eq(pillars.id, targetId), eq(paths.ownerId, ownerId)));
+  if (!owned.length) throw new AnnotationError("Not found.");
+  const text = body.slice(0, MAX_BODY);
+  if (!text.trim()) throw new AnnotationError("Write something in the note.");
+  const annotationId = id ?? crypto.randomUUID();
+  const [row] = await db
+    .insert(annotations)
+    .values({ id: annotationId, annotationId, version: 1, ownerId, kind: "note", targetType, targetId, body: text, createdAt: now })
+    .returning();
+  return toAnnotation(row, row);
+}
+
+/** Current notes on a path and on each of its pillars, keyed by target id. */
+export async function notesForPath(db: Db, ownerId: string, pathId: string) {
+  const pillarIds = (await db.select({ id: pillars.id }).from(pillars).where(eq(pillars.pathId, pathId))).map((p) => p.id);
+  const targets = [pathId, ...pillarIds];
+  const rows = await db
+    .select()
+    .from(annotations)
+    .where(and(eq(annotations.ownerId, ownerId), inArray(annotations.targetId, targets)))
+    .orderBy(asc(annotations.annotationId), asc(annotations.version));
+  const byId = new Map<string, Row[]>();
+  for (const r of rows) byId.set(r.annotationId, [...(byId.get(r.annotationId) ?? []), r]);
+  const out = new Map<string, Annotation[]>();
+  for (const list of byId.values()) {
+    const latest = list[list.length - 1];
+    if (latest.deleted || !latest.targetId) continue;
+    out.set(latest.targetId, [...(out.get(latest.targetId) ?? []), toAnnotation(latest, list[0])]);
+  }
+  for (const list of out.values()) list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return out;
 }
 
 async function versions(db: Db, ownerId: string, annotationId: string) {

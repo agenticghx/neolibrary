@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Color } from "@/lib/library/annotations";
+import { ShareMenu } from "./ShareMenu";
 import styles from "./reader.module.css";
 
 export type PendingSelection = { cfi: string; exact: string; prefix: string; suffix: string };
@@ -15,15 +16,19 @@ const COLORS: { value: Color; label: string }[] = [
 
 /** Appears while text is selected in the book: highlight, add a note, or copy. */
 export function SelectionBar({
+  bookId,
   selection,
   title,
   author,
+  themeEl,
   onHighlight,
   onClose,
 }: {
+  bookId: string;
   selection: PendingSelection;
   title: string;
   author: string;
+  themeEl: () => Element | null;
   onHighlight: (color: Color, body: string) => Promise<void>;
   onClose: () => void;
 }) {
@@ -88,6 +93,7 @@ export function SelectionBar({
           >
             {copied ? "Copied" : "Copy"}
           </button>
+          <ShareMenu bookId={bookId} cfi={selection.cfi} quote={selection.exact} title={title} author={author} themeEl={themeEl} />
           <button type="button" className={styles.tool} aria-label="Close" onClick={onClose}>
             ×
           </button>

@@ -145,3 +145,59 @@ test("search finds your notes and opens them", async ({ page }) => {
   await mine.getByRole("link").first().click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
 });
+
+// M5 (c): share a passage; notes on pillars and the path.
+test.describe("sharing", () => {
+  test.use({ permissions: ["clipboard-read", "clipboard-write"] });
+
+  test("share a passage as a link or an image card", async ({ page }) => {
+    await openAtRuggedCountenance(page);
+    await selectPhrase(page, "dreary and yet somehow lovable");
+    const bar = page.getByRole("toolbar", { name: "Selected text" });
+    await bar.getByRole("button", { name: "Share" }).click();
+    await bar.getByRole("button", { name: "Copy link" }).click();
+    await expect(bar.getByRole("status")).toHaveText("Link copied");
+    const link = await page.evaluate(() => navigator.clipboard.readText());
+    expect(link).toMatch(/\/books\/[0-9a-f-]{36}\/read\?at=epubcfi/);
+
+    const download = page.waitForEvent("download");
+    await bar.getByRole("button", { name: "Image card" }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe("the-strange-case-of-dr-jekyll-and-mr-hyde-quote.png");
+    const bytes = await (await import("node:fs/promises")).readFile((await file.path())!);
+    expect([...bytes.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); // PNG
+    expect(bytes.length).toBeGreaterThan(20_000);
+
+    // The shared link opens the reader at that passage.
+    await page.goto(link);
+    await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await expect(page.locator("footer").getByText("Story of the Door")).toBeVisible();
+  });
+});
+
+test("notes on a pillar and on the whole path", async ({ page }) => {
+  await page.goto("/");
+  const semis = page.getByTestId("pillar").filter({ has: page.getByRole("heading", { name: "Semiconductors" }) });
+  await semis.getByText("Add note").click();
+  await semis.getByLabel("Note on Semiconductors").fill("Watch a fab tour before Fabless.");
+  await semis.getByRole("button", { name: "Save note" }).click();
+  await expect(semis.getByText("Notes (1)")).toBeVisible();
+  await expect(semis.getByText("Watch a fab tour before Fabless.")).toBeVisible();
+
+  await page.locator("header").getByText("Add note").click();
+  await page.getByLabel("Note on Hidden Machinery").fill("One pillar a month.");
+  await page.locator("header").getByRole("button", { name: "Save note" }).click();
+  await expect(page.locator("header").getByText("One pillar a month.")).toBeVisible();
+
+  await page.reload();
+  await expect(semis.getByText("Watch a fab tour before Fabless.")).toBeVisible();
+  await expect(page.locator("header").getByText("One pillar a month.")).toBeVisible();
+
+  await page.goto(`/search?q=${encodeURIComponent("fab tour")}`);
+  await expect(page.getByRole("region", { name: "Your notes" })).toContainText("Note · Semiconductors");
+
+  await page.goto("/");
+  await semis.getByRole("button", { name: /^Remove note/ }).click();
+  await expect(semis.getByText("Watch a fab tour before Fabless.")).toHaveCount(0);
+  await expect(semis.getByText("Add note")).toBeVisible();
+});
