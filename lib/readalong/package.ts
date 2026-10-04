@@ -73,12 +73,32 @@ export class PackageError extends Error {}
 
 const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
+/**
+ * Limits on what a package zip may unpack to, checked from each entry's
+ * declared size BEFORE anything is unpacked: a tiny crafted zip ("zip bomb")
+ * can declare gigabytes. A package's scripts and timings are a few MB even
+ * for a long book; the audio may be inside too (up to the 200 MB request
+ * limit, and audio barely compresses), so allow a little more than that.
+ */
+export const MAX_UNPACKED_BYTES = 260 * 1024 * 1024;
+export const MAX_ENTRIES = 5000;
+
 /** Unzips a package. The zip may hold the files at its root or inside one folder. */
 export function readPackageZip(zip: Uint8Array): Record<string, Uint8Array> {
   let files: Record<string, Uint8Array>;
+  let total = 0;
+  let entries = 0;
   try {
-    files = unzipSync(zip);
-  } catch {
+    files = unzipSync(zip, {
+      filter: (f) => {
+        total += f.originalSize;
+        entries += 1;
+        if (total > MAX_UNPACKED_BYTES || entries > MAX_ENTRIES) throw new PackageError("This zip unpacks to more than a read-along package can hold.");
+        return true;
+      },
+    });
+  } catch (e) {
+    if (e instanceof PackageError) throw e;
     throw new PackageError("This is not a zip file.");
   }
   const names = Object.keys(files).filter((n) => !n.endsWith("/"));

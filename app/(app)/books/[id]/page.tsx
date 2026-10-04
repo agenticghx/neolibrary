@@ -145,7 +145,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               </ul>
             </section>
           ) : null}
-          {owned && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} /> : null}
+          {owned && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} fileType={book.fileType} /> : null}
           <p className={styles.status}>
             {owned
               ? `${Math.round(book.progress * 100)}% read`

@@ -166,6 +166,12 @@
   font-size: var(--text-sm);
 }
 
+/* A heading that only receives focus after an upload (so keyboard users
+   continue from the section): it is not a control, so no focus ring. */
+.landing:focus {
+  outline: none;
+}
+
 /* M13 (c3): "Your audiobook". Reuses the shelf's picker look (.pick) and the
    costs page's progress bar (.meter); Remove is a quiet button, never red. */
 .audiobook {

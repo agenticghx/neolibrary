@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import forms from "@/components/forms.module.css";
 import {
   type ImportSummary,
   megabytes,
   packageFiles,
   placedWords,
+  size,
   type UploadProgress,
   uploadPackage,
   UploadError,
@@ -20,48 +21,77 @@ import styles from "./page.module.css";
  * .zip of it, for phones that cannot pick a folder). The scripts go in one
  * request and the audio in 8 MB parts, with progress; the server checks it
  * all against this very book file before anything is kept.
+ *
+ * Screen readers hear only the steps (the role="status" line); the running
+ * "N of M MB" sits in a separate line and in the progress bar, so a long
+ * upload is not read out every 8 MB.
  */
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
-function status(p: UploadProgress) {
+function step(p: UploadProgress) {
   switch (p.stage) {
     case "checking":
       return "Checking the package against this book…";
+    case "fingerprints":
+      return `Checking the audio on this computer (${size(p.totalBytes)})…`;
+    case "sending-zip":
+      return `Sending the .zip (${size(p.totalBytes)}). This can take a few minutes; keep this page open.`;
     case "sending":
-      return `Sending the audio: ${megabytes(p.sentBytes, p.totalBytes)}`;
+      return `Sending the audio (${size(p.totalBytes)}). This can take a few minutes; keep this page open.`;
     case "finishing":
       return "Checking the audio and saving the timings…";
     case "done":
-      return "Done."; // the result is shown above, from the page's own data
+      return "Done.";
   }
 }
 
-export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: ImportSummary[] }) {
+export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string; imports: ImportSummary[]; fileType: "epub" | "pdf" }) {
   const router = useRouter();
   const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const cancel = useRef<AbortController | null>(null);
   const ready = imports.find((i) => i.status === "ready") ?? null;
   const unfinished = imports.filter((i) => i.status === "uploading");
+  const later = fileType === "pdf" ? "the next updates of the app (PDF books come after EPUB books)" : "the next update of the app";
+
+  // An upload stops when the reader leaves this page (and the browser asks first).
+  useEffect(() => {
+    if (!busy) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [busy]);
+  useEffect(() => () => cancel.current?.abort(), []);
+
+  const settle = () => {
+    setBusy(false);
+    cancel.current = null;
+    router.refresh();
+    heading.current?.focus(); // the busy state disabled the focused control; start again from the section
+  };
 
   const send = async (list: FileList | null, kind: "folder" | "zip") => {
     if (!list?.length) return;
+    cancel.current = new AbortController();
     setBusy(true);
     setError(null);
+    setMessage("");
     setProgress({ stage: "checking" });
     try {
       const picked =
         kind === "zip"
           ? [{ path: list[0].name, blob: list[0] }]
           : packageFiles([...list].map((f) => ({ name: f.name, webkitRelativePath: f.webkitRelativePath, blob: f })));
-      await uploadPackage(bookId, picked, { onProgress: setProgress });
-      router.refresh();
+      await uploadPackage(bookId, picked, { onProgress: setProgress, signal: cancel.current.signal });
+      setMessage("Done.");
     } catch (e) {
-      setProgress(null);
-      setError(e instanceof UploadError ? e.message : "The upload stopped. Choose the folder again to retry.");
-      router.refresh(); // an unfinished import may now be listed, with Remove
+      setError(e instanceof UploadError ? e.message : "The upload stopped. Choose the folder again to start over.");
     } finally {
-      setBusy(false);
+      setProgress(null);
+      settle();
     }
   };
 
@@ -72,19 +102,19 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
     input.value = "";
   };
 
-  const remove = async (id: string) => {
+  const remove = async (id: string, what: string) => {
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/books/${bookId}/readalong/${id}`, { method: "DELETE" }).catch(() => null);
-    if (!res?.ok) setError("It could not be removed. Try again in a moment.");
-    setProgress(null);
-    setBusy(false);
-    router.refresh();
+    if (res?.ok) setMessage(`Removed ${what}: its audio and word timings are gone from this book.`);
+    else setError("It could not be removed. Try again in a moment.");
+    settle();
   };
 
+  const sending = progress?.stage === "sending" ? progress : null;
   return (
     <section className={styles.notes} aria-labelledby="audiobook">
-      <h2 id="audiobook" className={styles.collectionsTitle}>
+      <h2 id="audiobook" ref={heading} tabIndex={-1} className={`${styles.collectionsTitle} ${styles.landing}`}>
         Your audiobook
       </h2>
       {ready ? (
@@ -107,9 +137,15 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
               ))}
             </ul>
           </details>
-          <p className={styles.notesSummary}>The Listen button will play it once the read-along player is finished, the next step of this feature.</p>
+          <p className={styles.notesSummary}>Playing it with the words lit up comes in {later}. Until then it is checked and kept ready here.</p>
           <div className={styles.audiobookActions}>
-            <button type="button" className={styles.quiet} disabled={busy} onClick={() => void remove(ready.id)} aria-label={`Remove ${ready.title || "this audiobook"}`}>
+            <button
+              type="button"
+              className={styles.quiet}
+              disabled={busy}
+              onClick={() => void remove(ready.id, ready.title || "the audiobook")}
+              aria-label={`Remove ${ready.title || "this audiobook"}`}
+            >
               Remove
             </button>
             <span className={styles.notesSummary}>Removes its audio and word timings from this book.</span>
@@ -117,17 +153,24 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
         </div>
       ) : (
         <p className={styles.notesSummary}>
-          Add an audiobook of this book and read along: each word lights up as it is spoken. Choose the read-along folder made on your laptop with the
-          readalong-audio skill (it holds the audio, the scripts and the word timings).
+          Add an audiobook of this book to read along with it: each word lights up as it is spoken. Choose the read-along folder made on your laptop
+          with the readalong-audio skill (it holds the audio, the scripts and the word timings). Playing it with the words lit up comes in {later};
+          for now the audiobook is checked against this book and kept ready.
         </p>
       )}
 
       {unfinished.map((u) => (
         <div key={u.id} className={styles.audiobookActions}>
           <span className={styles.notesSummary}>
-            Unfinished upload · started {day(u.createdAt)} · waiting for {u.waitingFor.join(", ") || "the audio"}
+            An upload from {day(u.createdAt)} did not finish and cannot be continued. Choose the folder again to start over, or remove it.
           </span>
-          <button type="button" className={styles.quiet} disabled={busy} onClick={() => void remove(u.id)} aria-label={`Remove the unfinished upload from ${day(u.createdAt)}`}>
+          <button
+            type="button"
+            className={styles.quiet}
+            disabled={busy}
+            onClick={() => void remove(u.id, "the unfinished upload")}
+            aria-label={`Remove the unfinished upload from ${day(u.createdAt)}`}
+          >
             Remove
           </button>
         </div>
@@ -139,21 +182,28 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
           <input type="file" webkitdirectory="" multiple className="visually-hidden" disabled={busy} onChange={(e) => void pick(e.currentTarget, "folder")} />
         </label>
         <label className={styles.pickQuiet}>
-          or a .zip of it
+          or a .zip of it (up to 200 MB)
           <input type="file" accept=".zip,application/zip" className="visually-hidden" disabled={busy} onChange={(e) => void pick(e.currentTarget, "zip")} />
         </label>
+        {busy && progress ? (
+          <button type="button" className={styles.quiet} onClick={() => cancel.current?.abort()}>
+            Cancel
+          </button>
+        ) : null}
       </div>
 
-      {progress ? (
+      {progress?.stage === "sending-zip" ? <progress className={styles.meter} aria-label="Sending the .zip" /> : null}
+      {sending ? (
         <div className={styles.audiobookProgress}>
-          {progress.stage === "sending" ? (
-            <progress className={styles.meter} max={progress.totalBytes} value={progress.sentBytes} aria-label="Audio sent so far" />
-          ) : null}
-          <p role="status" className={styles.notesSummary} data-testid="audiobook-status">
-            {status(progress)}
+          <progress className={styles.meter} max={sending.totalBytes} value={sending.sentBytes} aria-label="Audio sent so far" />
+          <p className={styles.notesSummary} data-testid="audiobook-sent">
+            {megabytes(sending.sentBytes, sending.totalBytes)} sent
           </p>
         </div>
       ) : null}
+      <p role="status" className={styles.notesSummary} data-testid="audiobook-status">
+        {progress ? step(progress) : message}
+      </p>
       {error ? (
         <p role="alert" className={forms.error}>
           {error}

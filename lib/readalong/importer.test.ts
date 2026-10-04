@@ -111,4 +111,46 @@ describe("importing a read-along package (M13)", () => {
     expect(await tracks()).toEqual([]);
     expect(await storage.stat(key)).toBeNull();
   });
+
+  it("finishes an upload only once when two finishes arrive together (a browser retrying)", async () => {
+    const { files } = pkgFor(5, 2);
+    const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    const p = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, files["audio/01.wav"]);
+    const both = await Promise.allSettled([
+      finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] }),
+      finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] }),
+    ]);
+    const ok = both.filter((r) => r.status === "fulfilled");
+    const refused = both.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+    expect(ok).toHaveLength(1);
+    expect(refused.map((r) => (r.reason as Error).message)).toEqual(["This upload is already being finished. Wait a moment, then reload the page."]);
+    expect(await tracks()).toHaveLength(2);
+    // Once ready, finishing again just answers with the finished import.
+    expect((await finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] })).status).toBe("ready");
+  });
+
+  it("a finish that fails releases the upload, so it can be finished after the file is sent again", async () => {
+    const { files } = pkgFor(5, 1);
+    const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    const wrong = files["audio/01.wav"].slice();
+    wrong[100] ^= 1;
+    const bad = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, wrong);
+    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [bad] })).rejects.toThrow("is not the audio");
+    const good = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, files["audio/01.wav"]);
+    expect((await finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [good] })).status).toBe("ready");
+  });
+
+  it("replacing an unfinished upload cancels its parts in storage", async () => {
+    const { files } = pkgFor(5, 1);
+    const first = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    await putAudioPart(database.db, storage, ownerId, bookId, first.id, "audio/01.wav", 1, files["audio/01.wav"].slice(0, 100));
+    const aborted: string[] = [];
+    const original = storage.abortUpload.bind(storage);
+    storage.abortUpload = async (key, id) => {
+      aborted.push(key);
+      return original(key, id);
+    };
+    await startImport(database.db, storage, ownerId, bookId, pkgFor(8, 1).zip());
+    expect(aborted).toEqual([expect.stringContaining(`readalong-${first.id}-1.wav`)]);
+  });
 });

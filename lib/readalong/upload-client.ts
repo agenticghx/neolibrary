@@ -4,14 +4,16 @@ import { zipSync } from "fflate";
  * M13 (c3): sending a read-along package from the browser.
  *
  * The reader picks the package folder (made on the laptop by the
- * `readalong-audio` skill). Everything except the audio is zipped and sent in
- * one request; the server checks it and says which audio files it still needs
- * (`waitingFor`). Each of those is sent in parts of `partBytes` (8 MB), so no
- * request carries a whole audiobook, and the import is finished. A .zip of
- * the package (small enough to send at once) is accepted too, for browsers
- * that cannot pick a folder (phones).
+ * `readalong-audio` skill). Only the files the manifest names are zipped
+ * (scripts, timings, checks, book map) and sent in one request; the server
+ * checks them and says which audio files it still needs (`waitingFor`). Each
+ * audio file is first checked here against the manifest's fingerprint, then
+ * sent in parts of `partBytes` (8 MB), so no request carries a whole
+ * audiobook; then the import is finished. A .zip of the package (up to
+ * 200 MB) is accepted too, for browsers that cannot pick a folder (phones).
  *
- * No browser APIs beyond fetch and Blob, so it runs in tests under Node.
+ * No browser APIs beyond fetch, Blob and crypto.subtle, so it runs in tests
+ * under Node.
  */
 export type PickedFile = { path: string; blob: Blob };
 
@@ -29,6 +31,8 @@ export type ImportSummary = {
 
 export type UploadProgress =
   | { stage: "checking" }
+  | { stage: "fingerprints"; totalBytes: number }
+  | { stage: "sending-zip"; totalBytes: number }
   | { stage: "sending"; file: string; sentBytes: number; totalBytes: number }
   | { stage: "finishing" }
   | { stage: "done"; summary: ImportSummary };
@@ -37,7 +41,11 @@ export class UploadError extends Error {}
 
 /** The most one request may carry: the server's limit for the package zip (MAX_ZIP_BYTES). */
 export const MAX_ZIP_BYTES = 200 * 1024 * 1024;
-const RETRIES = 3;
+/** Waits between tries after a dropped connection: about a minute in all (a Wi-Fi reconnect, a short sleep). */
+export const RETRY_WAITS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
+/** How long to keep asking whether a "finish" whose answer was lost went through. */
+const FINISH_POLLS = 40;
+const FINISH_POLL_MS = 3000;
 
 const ignored = (path: string) => path.split("/").some((part) => part.startsWith(".") || part === "__MACOSX");
 
@@ -45,31 +53,61 @@ const ignored = (path: string) => path.split("/").some((part) => part.startsWith
  * The package's files with paths relative to its manifest.json, from what a
  * folder picker gives (`webkitRelativePath` such as
  * "kuhn-readalong/timings/01.json"). If the reader picked a parent folder,
- * the shallowest manifest.json decides which folder is the package.
+ * the shallowest manifest.json decides which folder is the package; two
+ * packages side by side are refused rather than one picked by chance.
  */
 export function packageFiles(files: { name: string; webkitRelativePath?: string; blob: Blob }[]): PickedFile[] {
   const all = files.map((f) => ({ path: (f.webkitRelativePath || f.name).replace(/\\/g, "/"), blob: f.blob })).filter((f) => !ignored(f.path));
-  const manifests = all.filter((f) => f.path === "manifest.json" || f.path.endsWith("/manifest.json"));
-  if (!manifests.length) throw new UploadError("This folder has no manifest.json. Choose the read-along folder itself (the one the readalong-audio skill made).");
-  const root = manifests.map((m) => m.path.slice(0, -"manifest.json".length)).sort((a, b) => a.split("/").length - b.split("/").length)[0];
+  const roots = all
+    .filter((f) => f.path === "manifest.json" || f.path.endsWith("/manifest.json"))
+    .map((m) => m.path.slice(0, -"manifest.json".length));
+  if (!roots.length) throw new UploadError("This folder has no manifest.json. Choose the read-along folder itself (the one the readalong-audio skill made).");
+  const depth = (r: string) => r.split("/").length;
+  const shallowest = Math.min(...roots.map(depth));
+  const candidates = roots.filter((r) => depth(r) === shallowest);
+  if (candidates.length > 1) {
+    const names = candidates.map((r) => r.replace(/\/$/, "").split("/").pop()).join(", ");
+    throw new UploadError(`This folder holds several read-along packages (${names}). Choose one of them.`);
+  }
+  const root = candidates[0];
   return all.filter((f) => f.path.startsWith(root)).map((f) => ({ path: f.path.slice(root.length), blob: f.blob }));
 }
 
-/** Splits a package into what goes in the zip and the audio files the manifest lists. */
+type Manifest = {
+  audio?: { file: string; sha256: string }[];
+  chapters?: { script: string; timings: string; check?: string | null }[];
+  book_map?: string;
+};
+
+/**
+ * Splits a package into what goes in the zip and the audio files. Only the
+ * files the manifest names are zipped: a folder rebuilt in place can hold
+ * stale audio or other files nobody needs to send.
+ */
 export async function splitPackage(files: PickedFile[]) {
-  const manifest = files.find((f) => f.path === "manifest.json");
-  if (!manifest) throw new UploadError("This folder has no manifest.json.");
-  let audioPaths: string[];
+  const byPath = new Map(files.map((f) => [f.path, f.blob]));
+  const manifestBlob = byPath.get("manifest.json");
+  if (!manifestBlob) throw new UploadError("This folder has no manifest.json.");
+  let manifest: Manifest;
   try {
-    audioPaths = (JSON.parse(await manifest.blob.text()) as { audio?: { file: string }[] }).audio?.map((a) => a.file) ?? [];
+    manifest = JSON.parse(await manifestBlob.text()) as Manifest;
   } catch {
     throw new UploadError("manifest.json in this folder is not readable.");
   }
-  const audio = new Map(files.filter((f) => audioPaths.includes(f.path)).map((f) => [f.path, f.blob]));
-  const missing = audioPaths.filter((p) => !audio.has(p));
-  if (missing.length) throw new UploadError(`The folder is missing ${missing.join(", ")}, which the package lists.`);
-  const rest = files.filter((f) => !audio.has(f.path));
-  return { rest, audio };
+  const named = ["manifest.json", manifest.book_map ?? "book-map.json"];
+  for (const c of manifest.chapters ?? []) named.push(c.script, c.timings, ...(c.check ? [c.check] : []));
+  const audioList = manifest.audio ?? [];
+  const missing = [...named, ...audioList.map((a) => a.file)].filter((p) => !byPath.has(p));
+  if (missing.length) throw new UploadError(`The folder is missing ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? " and more" : ""}, which the package lists.`);
+  const rest = [...new Set(named)].map((path) => ({ path, blob: byPath.get(path)! }));
+  const audio = new Map(audioList.map((a) => [a.file, byPath.get(a.file)!]));
+  const fingerprints = new Map(audioList.map((a) => [a.file, a.sha256]));
+  return { rest, audio, fingerprints };
+}
+
+async function sha256(blob: Blob) {
+  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function zipOf(files: PickedFile[]) {
@@ -86,10 +124,12 @@ async function json(res: Response) {
   return body;
 }
 
+const CANCELLED = "The upload was cancelled.";
+
 /**
  * Sends a package. `files` is either the folder's files (see packageFiles) or
  * a single .zip of the package. Calls onProgress as it goes; resolves with
- * the finished import.
+ * the finished import. Cancel with `signal`.
  */
 export async function uploadPackage(
   bookId: string,
@@ -100,14 +140,19 @@ export async function uploadPackage(
   const wait = opts.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const progress = opts.onProgress ?? (() => {});
   const base = `/api/books/${bookId}/readalong`;
+  const stopIfCancelled = () => {
+    if (opts.signal?.aborted) throw new UploadError(CANCELLED);
+  };
+  /** A request, tried again after a dropped connection (never after an answer from the server). */
   const send = async (url: string, init: RequestInit) => {
-    // A dropped connection is retried a few times; an answer from the server is not.
-    for (let attempt = 1; ; attempt++) {
+    for (let attempt = 0; ; attempt++) {
+      stopIfCancelled();
       try {
         return await doFetch(url, { ...init, signal: opts.signal });
       } catch {
-        if (opts.signal?.aborted || attempt >= RETRIES) throw new UploadError("The connection dropped while sending. Choose the folder again to retry.");
-        await wait(1000 * attempt);
+        stopIfCancelled();
+        if (attempt >= RETRY_WAITS_MS.length) throw new UploadError("The connection dropped and did not come back. Choose the folder again to start over.");
+        await wait(RETRY_WAITS_MS[attempt]);
       }
     }
   };
@@ -118,9 +163,19 @@ export async function uploadPackage(
   if (files.length === 1 && /\.zip$/i.test(files[0].path)) {
     if (files[0].blob.size > MAX_ZIP_BYTES) throw new UploadError("This .zip is larger than 200 MB. Choose the package folder instead, so the audio can be sent in parts.");
     body = files[0].blob;
+    progress({ stage: "sending-zip", totalBytes: files[0].blob.size });
   } else {
     const split = await splitPackage(files);
     audio = split.audio;
+    // Check the audio here first: a changed file would otherwise be found only
+    // after minutes of sending, at the last step.
+    progress({ stage: "fingerprints", totalBytes: [...audio.values()].reduce((n, b) => n + b.size, 0) });
+    for (const [file, blob] of audio) {
+      stopIfCancelled();
+      if ((await sha256(blob)) !== split.fingerprints.get(file)) {
+        throw new UploadError(`${file} is not the audio this package was made with (its fingerprint differs). Make the package again with the readalong-audio skill.`);
+      }
+    }
     body = await zipOf(split.rest);
   }
   const started = await json(await send(base, { method: "POST", headers: { "content-type": "application/zip" }, body: body as BodyInit }));
@@ -145,13 +200,37 @@ export async function uploadPackage(
   }
   if (summary.status !== "ready") {
     progress({ stage: "finishing" });
-    summary = (await json(await send(`${base}/${summary.id}/finish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ parts }) }))).import as ImportSummary;
+    summary = await finish(summary.id, parts);
   }
   progress({ stage: "done", summary });
   return summary;
+
+  /**
+   * The last step. It is slow (the server re-reads every audio file to check
+   * it) and is never sent twice: if its answer is lost, ask whether it went
+   * through instead.
+   */
+  async function finish(id: string, list: typeof parts): Promise<ImportSummary> {
+    stopIfCancelled();
+    let res: Response | null = null;
+    try {
+      res = await doFetch(`${base}/${id}/finish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ parts: list }), signal: opts.signal });
+    } catch {
+      stopIfCancelled();
+    }
+    if (res) return (await json(res)).import as ImportSummary;
+    for (let i = 0; i < FINISH_POLLS; i++) {
+      await wait(FINISH_POLL_MS);
+      stopIfCancelled();
+      const listed = await doFetch(base, { signal: opts.signal }).then(json).catch(() => null);
+      const found = (listed?.imports as ImportSummary[] | undefined)?.find((x) => x.id === id);
+      if (found?.status === "ready") return found;
+    }
+    throw new UploadError("The last step did not answer. Reload the page in a minute to see whether the audiobook was saved.");
+  }
 }
 
-/** "3,162 of 3,180 spoken words placed (99%)" for a finished import. */
+/** "3,162 of 3,180 spoken words placed on the page (99%)" for a finished import. */
 export function placedWords(summary: Pick<ImportSummary, "report">) {
   const spoken = summary.report.chapters.reduce((n, c) => n + c.spokenWords, 0);
   const placed = summary.report.chapters.reduce((n, c) => n + c.matchedWords, 0);
@@ -161,3 +240,6 @@ export function placedWords(summary: Pick<ImportSummary, "report">) {
 
 /** "75 of 201 MB" */
 export const megabytes = (sent: number, total: number) => `${Math.round(sent / 1024 / 1024)} of ${Math.max(1, Math.round(total / 1024 / 1024))} MB`;
+
+/** "201 MB" */
+export const size = (bytes: number) => `${Math.max(1, Math.round(bytes / 1024 / 1024))} MB`;

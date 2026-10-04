@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { strFromU8, unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
@@ -7,42 +8,61 @@ import { testDatabase } from "@/lib/db/test-db";
 import { importBook } from "@/lib/library/import";
 import { getSections } from "@/lib/library/sections-store";
 import { MemoryStorage } from "@/lib/storage";
-import { buildPackage } from "./fixture";
-import { finishImport, putAudioPart, ReadalongError, startImport } from "./importer";
-import { packageFiles, placedWords, splitPackage, uploadPackage, UploadError, type UploadProgress } from "./upload-client";
+import { buildPackage, type FixtureChapter } from "./fixture";
+import { finishImport, listImports, putAudioPart, ReadalongError, startImport } from "./importer";
+import { packageFiles, placedWords, RETRY_WAITS_MS, splitPackage, uploadPackage, type UploadProgress } from "./upload-client";
 
 /**
  * M13 (c3): the browser side of sending a read-along package. The network is
  * replaced by a stand-in that calls the real importer (real database in
  * memory), so these tests show the browser code and the server code fit.
  */
+
+/** Like the real bucket: every part gets an unguessable tag, and joining checks the tags. */
+class BucketLikeStorage extends MemoryStorage {
+  private tags = new Map<string, string>();
+  override async putPart(key: string, uploadId: string, part: number, data: Uint8Array) {
+    await super.putPart(key, uploadId, part, data);
+    const tag = `"${crypto.randomUUID()}"`;
+    this.tags.set(`${uploadId}:${part}`, tag);
+    return tag;
+  }
+  override async finishUpload(key: string, uploadId: string, parts: { part: number; tag: string }[]) {
+    if (parts.some((p) => this.tags.get(`${uploadId}:${p.part}`) !== p.tag)) throw new Error("InvalidPart: a tag does not match");
+    return super.finishUpload(key, uploadId, parts);
+  }
+}
+
 let database: Database;
-let storage: MemoryStorage;
+let storage: BucketLikeStorage;
 let ownerId: string;
 let bookId: string;
 let bookBytes: Uint8Array;
 let paragraphs: { id: string; text: string; chapterIndex: number }[];
-let calls: { method: string; path: string }[];
+let calls: { method: string; path: string; body?: BodyInit | null }[];
 let failNext = 0;
+let loseNextFinishAnswer = false;
 
 const PART = 3000; // small parts, so a test file needs several
 
 beforeEach(async () => {
   database = await testDatabase();
-  storage = new MemoryStorage();
+  storage = new BucketLikeStorage();
   ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
   bookBytes = new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url)));
   bookId = (await importBook(database.db, storage, ownerId, { name: "jh.epub", bytes: bookBytes })).bookId;
   paragraphs = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph");
   calls = [];
   failNext = 0;
+  loseNextFinishAnswer = false;
 });
 afterEach(() => database.raw.close());
 
 /** The server, without HTTP: the same calls the API routes make. */
 async function server(url: string, init: RequestInit = {}) {
   const u = new URL(url, "http://test");
-  calls.push({ method: init.method ?? "GET", path: u.pathname });
+  const method = init.method ?? "GET";
+  calls.push({ method, path: u.pathname, body: init.body });
   if (failNext > 0) {
     failNext--;
     throw new TypeError("Failed to fetch");
@@ -50,18 +70,29 @@ async function server(url: string, init: RequestInit = {}) {
   const m = /^\/api\/books\/([^/]+)\/readalong(?:\/([^/]+)\/(parts|finish))?$/.exec(u.pathname)!;
   const bytes = async () => new Uint8Array(await new Response(init.body as BodyInit).arrayBuffer());
   try {
+    if (!m[2] && method === "GET") return Response.json({ imports: await listImports(database.db, ownerId, m[1]), partBytes: PART });
     if (!m[2]) return Response.json({ import: await startImport(database.db, storage, ownerId, m[1], await bytes()), partBytes: PART }, { status: 201 });
     if (m[3] === "parts") return Response.json(await putAudioPart(database.db, storage, ownerId, m[1], m[2], u.searchParams.get("file")!, Number(u.searchParams.get("part")), await bytes()));
-    return Response.json({ import: await finishImport(database.db, storage, ownerId, m[1], m[2], JSON.parse(String(init.body)).parts) });
+    const done = await finishImport(database.db, storage, ownerId, m[1], m[2], JSON.parse(String(init.body)).parts);
+    if (loseNextFinishAnswer) {
+      loseNextFinishAnswer = false;
+      throw new TypeError("Failed to fetch"); // the server finished, the answer was lost
+    }
+    return Response.json({ import: done });
   } catch (e) {
     if (e instanceof ReadalongError) return Response.json({ error: e.message }, { status: 400 });
     throw e;
   }
 }
 
-/** What a folder picker gives for a package folder named "jekyll-readalong". */
-function pickedFolder(files: Record<string, Uint8Array>, extra: Record<string, Uint8Array> = {}) {
-  return Object.entries({ ...files, ...extra }).map(([path, data]) => ({ name: path.split("/").pop()!, webkitRelativePath: `jekyll-readalong/${path}`, blob: new Blob([data as BlobPart]) }));
+/** What a folder picker gives for a package folder named `name`. */
+function pickedFolder(files: Record<string, Uint8Array>, name = "jekyll-readalong") {
+  return Object.entries(files).map(([path, data]) => ({ name: path.split("/").pop()!, webkitRelativePath: `${name}/${path}`, blob: new Blob([data as BlobPart]) }));
+}
+
+function chapterOf(from: number, n: number): FixtureChapter {
+  const read = paragraphs.slice(from, from + n);
+  return { title: `Paragraphs ${from}-${from + n - 1}`, paragraphs: read.map((p) => p.text), inBook: read.map((p) => p.chapterIndex) };
 }
 
 function pkg(n = 3, bytes = bookBytes) {
@@ -69,26 +100,37 @@ function pkg(n = 3, bytes = bookBytes) {
   return buildPackage({ bookBytes: bytes, chapters: [{ title: "Chapter", paragraphs: ["Chapter Four.", ...read.map((p) => p.text)], inBook: [null, ...read.map((p) => p.chapterIndex)] }] });
 }
 
-describe("sending a package from the browser (M13)", () => {
+const noWait = async () => {};
+
+describe("choosing the package (M13)", () => {
   it("finds the package inside the chosen folder, even when a parent folder was chosen, and skips hidden files", () => {
     const { files } = pkg();
-    const flat = packageFiles(pickedFolder(files, { ".DS_Store": new Uint8Array([1]) }));
+    const flat = packageFiles([...pickedFolder(files), { name: ".DS_Store", webkitRelativePath: "jekyll-readalong/.DS_Store", blob: new Blob(["x"]) }]);
     expect(flat.map((f) => f.path).sort()).toEqual(Object.keys(files).sort());
     const parent = packageFiles(pickedFolder(files).map((f) => ({ ...f, webkitRelativePath: `Downloads/${f.webkitRelativePath}` })));
     expect(parent.map((f) => f.path).sort()).toEqual(Object.keys(files).sort());
     expect(() => packageFiles([{ name: "notes.txt", webkitRelativePath: "x/notes.txt", blob: new Blob(["hi"]) }])).toThrow("This folder has no manifest.json");
   });
 
-  it("keeps the audio out of the zip, and says which listed audio file is missing", async () => {
+  it("refuses a parent folder holding two packages, and names them", () => {
     const { files } = pkg();
-    const { rest, audio } = await splitPackage(packageFiles(pickedFolder(files)));
-    expect([...audio.keys()]).toEqual(["audio/01.wav"]);
-    expect(rest.map((f) => f.path)).not.toContain("audio/01.wav");
-    const noAudio = packageFiles(pickedFolder(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
-    await expect(splitPackage(noAudio)).rejects.toThrow("The folder is missing audio/01.wav");
+    const two = [...pickedFolder(files, "Readalong/aaa-other-book"), ...pickedFolder(files, "Readalong/jekyll")];
+    expect(() => packageFiles(two)).toThrow("This folder holds several read-along packages (aaa-other-book, jekyll). Choose one of them.");
   });
 
-  it("sends the folder: the scripts in one request, the audio in parts with progress, then finishes", async () => {
+  it("zips only the files the manifest names (stale audio left in the folder is not sent), and names a missing one", async () => {
+    const { files } = pkg();
+    const stale = { ...files, "audio/02.wav": new Uint8Array(5000), "notes/todo.txt": new Uint8Array(10) };
+    const { rest, audio } = await splitPackage(packageFiles(pickedFolder(stale)));
+    expect([...audio.keys()]).toEqual(["audio/01.wav"]);
+    expect(rest.map((f) => f.path).sort()).toEqual(["book-map.json", "manifest.json", "scripts/01.txt", "timings/01.json"]);
+    const noScript = Object.fromEntries(Object.entries(files).filter(([n]) => n !== "scripts/01.txt"));
+    await expect(splitPackage(packageFiles(pickedFolder(noScript)))).rejects.toThrow("The folder is missing scripts/01.txt");
+  });
+});
+
+describe("sending the package (M13)", () => {
+  it("sends the scripts in one request and the audio in parts, reporting after every part, then finishes", async () => {
     const { files } = pkg();
     const seen: UploadProgress[] = [];
     const done = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, onProgress: (p) => seen.push(p) });
@@ -97,9 +139,13 @@ describe("sending a package from the browser (M13)", () => {
     const puts = calls.filter((c) => c.method === "PUT");
     expect(puts).toHaveLength(Math.ceil(size / PART));
     expect(calls.map((c) => c.method)).toEqual(["POST", ...puts.map(() => "PUT"), "POST"]);
-    // Progress: checking, then sending up to the whole file, then finishing, then done.
-    expect(seen[0]).toEqual({ stage: "checking" });
+    // The zip holds the scripts and timings, never the audio.
+    const zipped = unzipSync(new Uint8Array(await new Response(calls[0].body!).arrayBuffer()));
+    expect(Object.keys(zipped).sort()).toEqual(["book-map.json", "manifest.json", "scripts/01.txt", "timings/01.json"]);
+    // Progress: checking, fingerprints, one report before the first part and one after each, finishing, done.
+    expect(seen.slice(0, 2).map((p) => p.stage)).toEqual(["checking", "fingerprints"]);
     const sending = seen.filter((p) => p.stage === "sending") as Extract<UploadProgress, { stage: "sending" }>[];
+    expect(sending).toHaveLength(puts.length + 1);
     expect(sending.at(-1)).toMatchObject({ sentBytes: size, totalBytes: size, file: "audio/01.wav" });
     expect(sending.map((p) => p.sentBytes)).toEqual([...sending.map((p) => p.sentBytes)].sort((a, b) => a - b));
     expect(seen.slice(-2).map((p) => p.stage)).toEqual(["finishing", "done"]);
@@ -107,11 +153,38 @@ describe("sending a package from the browser (M13)", () => {
     expect(placedWords(done).text).toMatch(/^[\d,]+ of [\d,]+ spoken words placed on the page \(\d+%\)$/);
   });
 
-  it("sends a small .zip of the whole package in one request (for phones, which cannot pick folders)", async () => {
+  it("sends a package with one audio file per chapter, with progress running over all of them", async () => {
+    const { files } = buildPackage({ bookBytes, chapters: [chapterOf(30, 2), chapterOf(32, 2)] });
+    const seen: UploadProgress[] = [];
+    const done = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, onProgress: (p) => seen.push(p) });
+    expect(done.status).toBe("ready");
+    const total = files["audio/01.wav"].byteLength + files["audio/02.wav"].byteLength;
+    const sending = seen.filter((p) => p.stage === "sending") as Extract<UploadProgress, { stage: "sending" }>[];
+    expect(sending.at(-1)).toMatchObject({ sentBytes: total, totalBytes: total });
+    expect(sending.map((p) => p.sentBytes)).toEqual([...sending.map((p) => p.sentBytes)].sort((a, b) => a - b));
+    expect(new Set(sending.map((p) => p.file))).toEqual(new Set(["audio/01.wav", "audio/02.wav"]));
+    expect(await database.db.select().from(audioTracks)).toHaveLength(4);
+  });
+
+  it("refuses audio that is not the file the package was made with, before sending anything", async () => {
+    const { files } = pkg(1);
+    const changed = files["audio/01.wav"].slice();
+    changed[changed.length - 1] ^= 1;
+    await expect(uploadPackage(bookId, packageFiles(pickedFolder({ ...files, "audio/01.wav": changed })), { fetch: server })).rejects.toThrow(
+      "audio/01.wav is not the audio this package was made with (its fingerprint differs). Make the package again with the readalong-audio skill.",
+    );
+    expect(calls).toEqual([]);
+  });
+
+  it("sends a .zip of the whole package in one request (for phones), saying how large it is", async () => {
     const { zip } = pkg(2);
-    const done = await uploadPackage(bookId, [{ path: "jekyll-readalong.zip", blob: new Blob([zip() as BlobPart]) }], { fetch: server });
+    const blob = new Blob([zip() as BlobPart]);
+    const seen: UploadProgress[] = [];
+    const done = await uploadPackage(bookId, [{ path: "jekyll-readalong.zip", blob }], { fetch: server, onProgress: (p) => seen.push(p) });
     expect(done.status).toBe("ready");
     expect(calls.map((c) => c.method)).toEqual(["POST"]);
+    expect(seen.map((p) => p.stage)).toEqual(["checking", "sending-zip", "done"]);
+    expect(seen[1]).toEqual({ stage: "sending-zip", totalBytes: blob.size });
   });
 
   it("refuses a .zip over 200 MB before sending anything", async () => {
@@ -120,17 +193,61 @@ describe("sending a package from the browser (M13)", () => {
     expect(calls).toEqual([]);
   });
 
-  it("retries a dropped connection, and gives up with a plain message after three tries", async () => {
+  it("retries a dropped connection for about a minute, then gives up in plain words", async () => {
     const { files } = pkg(1);
-    failNext = 1; // the first request fails once, then works
-    const ok = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, wait: async () => {} });
+    const waits: number[] = [];
+    failNext = 2;
+    const ok = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, wait: async (ms) => void waits.push(ms) });
     expect(ok.status).toBe("ready");
-    failNext = 3;
-    await expect(uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, wait: async () => {} })).rejects.toThrow(UploadError);
+    expect(waits).toEqual(RETRY_WAITS_MS.slice(0, 2));
+    calls = [];
+    failNext = 100;
+    await expect(uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, wait: noWait })).rejects.toThrow(
+      "The connection dropped and did not come back. Choose the folder again to start over.",
+    );
+    expect(calls).toHaveLength(RETRY_WAITS_MS.length + 1);
+  });
+
+  it("when the answer to the last step is lost, asks whether it went through instead of sending it again", async () => {
+    const { files } = pkg(1);
+    loseNextFinishAnswer = true;
+    const done = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, wait: noWait });
+    expect(done.status).toBe("ready");
+    expect(calls.filter((c) => c.path.endsWith("/finish"))).toHaveLength(1);
+    expect(calls.at(-1)).toMatchObject({ method: "GET", path: `/api/books/${bookId}/readalong` });
+  });
+
+  it("shows the server's refusal at the last step, and does not say it is done", async () => {
+    const { files } = pkg(1);
+    const seen: UploadProgress[] = [];
+    const refuseFinish = async (url: string, init: RequestInit = {}) =>
+      url.endsWith("/finish") ? Response.json({ error: "audio/01.wav could not be put together: a part is missing. Send it again." }, { status: 400 }) : server(url, init);
+    await expect(uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: refuseFinish, onProgress: (p) => seen.push(p) })).rejects.toThrow(
+      "could not be put together",
+    );
+    expect(seen.map((p) => p.stage)).not.toContain("done");
+    expect((await listImports(database.db, ownerId, bookId)).map((i) => i.status)).toEqual(["uploading"]);
+  });
+
+  it("stops when cancelled, leaving an unfinished import the page can remove", async () => {
+    const { files } = pkg(3);
+    const stop = new AbortController();
+    const onProgress = (p: UploadProgress) => {
+      if (p.stage === "sending" && p.sentBytes > 0) stop.abort();
+    };
+    await expect(uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server, onProgress, signal: stop.signal })).rejects.toThrow("The upload was cancelled.");
+    expect((await listImports(database.db, ownerId, bookId)).map((i) => i.status)).toEqual(["uploading"]);
   });
 
   it("shows the server's own words when it refuses a package", async () => {
     const { files } = pkg(1, new Uint8Array([9, 9, 9]));
     await expect(uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server })).rejects.toThrow(/made from a different file of this book/);
+  });
+
+  it("the zip it sends is a readable package", async () => {
+    const { files } = pkg(1);
+    await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server });
+    const zipped = unzipSync(new Uint8Array(await new Response(calls[0].body!).arrayBuffer()));
+    expect(JSON.parse(strFromU8(zipped["manifest.json"])).format).toBe("neolibrary-readalong/1");
   });
 });

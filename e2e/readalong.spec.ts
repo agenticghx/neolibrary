@@ -113,6 +113,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   const { tmpdir } = await import("node:os");
   const path = await import("node:path");
   const AxeBuilder = (await import("@axe-core/playwright")).default;
+  const imports = async (bookId: string) => (await (await page.request.get(`/api/books/${bookId}/readalong`)).json()).imports as { status: string; title: string }[];
 
   await page.goto("/shelf");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
@@ -132,11 +133,12 @@ test("the book page takes a read-along folder, shows each step and the result, l
 
   await page.goto(`/books/${bookId}`);
   const section = page.getByRole("region", { name: "Your audiobook" });
-  await expect(section).toContainText("Add an audiobook of this book and read along");
+  await expect(section).toContainText("Add an audiobook of this book to read along with it");
+  await expect(section).toContainText("comes in the next update of the app");
   const empty = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(empty.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.html).join(" | ")}`)).toEqual([]);
 
-  // Record every status line the reader sees.
+  // Record every step the status line announces.
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as unknown as { seen: string[] }).seen = seen;
@@ -148,14 +150,20 @@ test("the book page takes a read-along folder, shows each step and the result, l
   const folder = section.getByLabel("Choose the read-along folder");
   await expect(folder).toHaveAttribute("webkitdirectory", "");
   await folder.setInputFiles(root);
-  await expect(section.getByTestId("audiobook-status")).toContainText("Done.");
+  await expect(section.getByTestId("audiobook-status")).toHaveText("Done.");
   await expect(section).toContainText("Ready · added");
   await expect(section.getByTestId("audiobook-placed")).toContainText(/[\d,]+ of [\d,]+ spoken words placed on the page \(\d+%\) in 1 chapter\./);
   const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
   expect(seen[0]).toBe("Checking the package against this book…");
-  expect(seen.some((s) => /^Sending the audio: \d+ of \d+ MB$/.test(s))).toBe(true);
+  expect(seen).toContain("Checking the audio on this computer (2 MB)…");
+  expect(seen.some((s) => /^Sending the audio \(\d+ MB\)\. This can take a few minutes; keep this page open\.$/.test(s))).toBe(true);
   expect(seen).toContain("Checking the audio and saving the timings…");
   expect(seen.at(-1)).toBe("Done.");
+  // The steps are announced once each, not once per 8 MB part.
+  expect(seen.filter((s) => s.startsWith("Sending")).length).toBe(1);
+  // Keyboard focus goes back to the section, not the top of the page.
+  expect(await page.evaluate(() => document.activeElement?.id)).toBe("audiobook");
+  expect(await imports(bookId)).toMatchObject([{ status: "ready", title: "Jekyll test reading" }]);
 
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
@@ -173,21 +181,42 @@ test("the book page takes a read-along folder, shows each step and the result, l
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });
 
-  // A package made from another file of the book is refused in plain words.
+  // A package made from another file of the book is refused in plain words, and the good one stays.
   const other = buildPackage({ bookBytes: new Uint8Array([1, 2, 3]), chapters: [{ title: "x", paragraphs: [paragraphs[0].text], inBook: [paragraphs[0].chapterIndex] }] });
-  await section.getByLabel("or a .zip of it").setInputFiles({ name: "other.zip", mimeType: "application/zip", buffer: Buffer.from(other.zip()) });
+  await section.getByLabel("or a .zip of it (up to 200 MB)").setInputFiles({ name: "other.zip", mimeType: "application/zip", buffer: Buffer.from(other.zip()) });
   await expect(section.getByRole("alert")).toContainText("made from a different file of this book");
-  await expect(section).toContainText("Ready · added"); // the good one is still there
+  expect(await imports(bookId)).toMatchObject([{ status: "ready", title: "Jekyll test reading" }]);
 
-  // Remove it; the section is back to its empty state.
-  await section.getByRole("button", { name: "Remove Jekyll test reading" }).click();
-  await expect(section).toContainText("Add an audiobook of this book and read along");
-  await expect(section).not.toContainText("Ready · added");
+  // Replace: the same folder with a new title takes the old one's place.
+  const manifest = JSON.parse(Buffer.from(files["manifest.json"]).toString());
+  await writeFile(path.join(root, "manifest.json"), JSON.stringify({ ...manifest, title: "Second reading" }));
+  await section.getByLabel("Replace with another folder").setInputFiles(root);
+  await expect(section).toContainText("Second reading");
+  await expect(section.getByRole("alert")).toHaveCount(0);
+  expect(await imports(bookId)).toMatchObject([{ status: "ready", title: "Second reading" }]);
+
+  // Remove: the section says so and is back to its empty state.
+  await section.getByRole("button", { name: "Remove Second reading" }).click();
+  await expect(section.getByTestId("audiobook-status")).toHaveText("Removed Second reading: its audio and word timings are gone from this book.");
+  await expect(section).toContainText("Add an audiobook of this book to read along with it");
+  await expect(section.getByRole("alert")).toHaveCount(0);
+  expect(await imports(bookId)).toEqual([]);
+
+  // An upload that never finished (here: started without its audio) is shown honestly and can be removed.
+  await page.request.post(`/api/books/${bookId}/readalong`, {
+    data: Buffer.from(zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/"))))),
+    headers: { "content-type": "application/zip" },
+  });
+  await page.reload();
+  await expect(section).toContainText(/An upload from \d+ \w+ \d{4} did not finish and cannot be continued\./);
+  await section.getByRole("button", { name: /^Remove the unfinished upload from / }).click();
+  await expect(section).not.toContainText("did not finish");
+  expect(await imports(bookId)).toEqual([]);
 
   // The .zip route (for phones): a small package with its audio inside.
-  await section.getByLabel("or a .zip of it").setInputFiles({ name: "jekyll-readalong.zip", mimeType: "application/zip", buffer: Buffer.from(zip()) });
+  await section.getByLabel("or a .zip of it (up to 200 MB)").setInputFiles({ name: "jekyll-readalong.zip", mimeType: "application/zip", buffer: Buffer.from(zip()) });
   await expect(section).toContainText("Ready · added");
   await section.getByRole("button", { name: "Remove Jekyll test reading" }).click();
   await expect(section).not.toContainText("Ready · added");
-  expect((await (await page.request.get(`/api/books/${bookId}/readalong`)).json()).imports).toEqual([]);
+  expect(await imports(bookId)).toEqual([]);
 });
