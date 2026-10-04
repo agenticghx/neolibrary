@@ -817,6 +817,52 @@
   stroke-linejoin: round;
 }
 
+.imageSearch {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.imageSearch input {
+  flex: 1;
+  width: auto;
+}
+
+.imageGrid {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.imageCard {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.imageThumb {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  background-color: var(--paper-sunken);
+}
+
+.imageTitle {
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}
+
+.imageCredit {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+}
+
+.imageCredit a {
+  color: var(--ink-700);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
 .recorder {
   display: grid;
   gap: var(--space-2);

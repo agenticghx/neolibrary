@@ -11,6 +11,7 @@ import { PEN_PATHS } from "@/lib/library/drawings";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ListenBar } from "./ListenBar";
+import { ImagesPanel } from "./ImagesPanel";
 import { rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
@@ -142,7 +143,8 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images">("none");
+  const [imagesFor, setImagesFor] = useState("");
   const [links, setLinks] = useState<CrossLink[]>([]);
   const [listening, setListening] = useState(false);
   const whereCfi = useRef<string | null>(props.initialCfi);
@@ -630,6 +632,11 @@ export function Reader(props: {
           onVoiceNote={saveVoiceNote}
           onSticker={addSticker}
           onDrawing={saveDrawing}
+          onImages={() => {
+            setImagesFor(selection.exact.slice(0, 80));
+            clearSelection();
+            setPanel("images");
+          }}
           onRewrite={() => {
             setRewriteAt(selection.cfi);
             clearSelection();
@@ -664,6 +671,8 @@ export function Reader(props: {
       ) : null}
 
       {panel === "links" ? <CrossLinksPanel links={links} /> : null}
+
+      {panel === "images" ? <ImagesPanel key={imagesFor} initialQuery={imagesFor} /> : null}
 
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 
