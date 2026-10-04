@@ -117,6 +117,46 @@ test("the stored versions carry their provenance", async ({ page }) => {
   await anon.close();
 });
 
+test("STE rewrites: a strictness dial, a full-STE score badge and the meaning-change notes", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary");
+  await openRewrite(page, "lover of the sane and customary");
+  await expect(panel(page)).toContainText("Version 3 of 3");
+  const dial = panel(page).getByRole("group", { name: "STE strictness" });
+  await expect(dial.getByRole("button", { name: "Standard" })).toHaveAttribute("aria-pressed", "true");
+  await dial.getByRole("button", { name: "Strict" }).click();
+  await panel(page).getByRole("button", { name: "STE", exact: true }).click();
+  await expect(rewrite(page)).toContainText("Rewrite · STE, Strict · written by the test AI");
+  await expect(rewrite(page)).toContainText(/STE \d+% \(full-STE score\)/);
+  await expect(rewrite(page)).toContainText("Meaning changes");
+  await expect(rewrite(page).getByRole("listitem")).toHaveText(["The test AI chose no meanings; this note shows where real ones go."]);
+  await expect(rewrite(page)).not.toContainText("---notes---");
+  await expect(panel(page)).toContainText("Version 4 of 4");
+
+  // A percentage picks the level (75% is Standard) and, with STE showing, asks for it.
+  await dial.getByLabel("or a percentage").fill("75");
+  await expect(rewrite(page)).toContainText("Rewrite · STE, Standard");
+  await expect(panel(page)).toContainText("Version 5 of 5");
+  await expect(dial.getByRole("button", { name: "Standard" })).toHaveAttribute("aria-pressed", "true");
+  // Back to Strict: the stored version is re-served.
+  await dial.getByRole("button", { name: "Strict" }).click();
+  await expect(rewrite(page)).toContainText("Rewrite · STE, Strict");
+  await expect(panel(page)).toContainText("Version 4 of 5");
+
+  const url = await page.evaluate(() => performance.getEntriesByType("resource").map((e) => e.name).find((n) => n.includes("/rewrites?")));
+  const data = await (await page.request.get(url!)).json();
+  const ste = data.versions.filter((v: { options: { level: string } }) => v.options.level === "ste");
+  expect(ste.map((v: { options: { strictness: string } }) => v.options.strictness)).toEqual(["strict", "standard"]);
+  for (const v of ste) {
+    expect(v.ste.score).toBeGreaterThanOrEqual(0);
+    expect(v.ste.score).toBeLessThanOrEqual(100);
+    expect(v.provenance.promptName).toBe("ste-rewrite + ste/SKILL + ste/substitutions");
+  }
+  const bad = await page.request.post(`/api/books/${bookIdOf(page)}/rewrites`, {
+    data: { sectionId: data.paragraph.id, level: "ste", strictness: "very" },
+  });
+  expect(bad.status()).toBe(400);
+});
+
 test("the rewrite panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {

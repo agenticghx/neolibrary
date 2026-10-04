@@ -24,5 +24,7 @@ function fakeAnswer(req: TextRequest) {
   const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   const task = /^Task: (.+)$/m.exec(req.prompt)?.[1] ?? "answer";
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
-  return `Fake ${task.toLowerCase()}: ${sentences.slice(0, 2).join(" ").replace(/\s+/g, " ").trim()}`;
+  const answer = `Fake ${task.toLowerCase()}: ${sentences.slice(0, 2).join(" ").replace(/\s+/g, " ").trim()}`;
+  // STE answers carry a notes section, like the real prompt asks for.
+  return /STE/.test(task) ? `${answer}\n---notes---\n- The test AI chose no meanings; this note shows where real ones go.` : answer;
 }

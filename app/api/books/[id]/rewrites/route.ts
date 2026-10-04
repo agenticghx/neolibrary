@@ -4,7 +4,18 @@ import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { isCfi } from "@/lib/library/reading";
-import { isLevel, LEVELS, paragraphFor, rewriteParagraph, RewriteError, listRewrites, estimateRewrite } from "@/lib/library/rewrite";
+import {
+  estimateRewrite,
+  isLevel,
+  LEVELS,
+  listRewrites,
+  paragraphFor,
+  rewriteParagraph,
+  RewriteError,
+  STRICTNESS,
+  strictnessFrom,
+  viewRewrite,
+} from "@/lib/library/rewrite";
 
 export const dynamic = "force-dynamic";
 
@@ -45,30 +56,37 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
-    return Response.json({ paragraph, versions, estimates, levels: LEVELS, fake: aiIsFake() });
+    return Response.json({ paragraph, versions, estimates, levels: LEVELS, strictness: STRICTNESS, fake: aiIsFake() });
   } catch (e) {
     return aiErrorResponse(e);
   }
 }
 
-/** Rewrites a paragraph, or re-serves the stored rewrite: { sectionId, level, fresh? }. */
+/**
+ * Rewrites a paragraph, or re-serves the stored rewrite: { sectionId, level,
+ * strictness?, fresh? }. For STE, strictness is light, standard (the default),
+ * strict, or a percentage.
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { sectionId?: unknown; level?: unknown; fresh?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { sectionId?: unknown; level?: unknown; strictness?: unknown; fresh?: unknown };
   if (typeof body.sectionId !== "string" || !isLevel(body.level)) {
     return Response.json({ error: "Choose a paragraph and a level." }, { status: 400 });
   }
+  const strictness = body.strictness === undefined ? "standard" : strictnessFrom(body.strictness);
+  if (!strictness) return Response.json({ error: "STE strictness is Light, Standard, Strict or a percentage." }, { status: 400 });
   try {
     const out = await rewriteParagraph(await getDb(), getTextModel(), user.id, {
       bookId,
       sectionId: body.sectionId,
       level: body.level,
+      strictness,
       fresh: body.fresh === true,
     });
-    return Response.json(out, { status: out.reused ? 200 : 201 });
+    return Response.json({ ...out, generation: viewRewrite(out.generation) }, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return aiErrorResponse(e);
   }

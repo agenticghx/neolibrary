@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Generation } from "@/lib/ai/generate";
+import { STRICTNESS, strictnessFrom, type Strictness } from "@/lib/library/levels";
+import type { RewriteView } from "@/lib/library/rewrite";
 import styles from "./reader.module.css";
 
 type Data = {
   paragraph: { id: string; text: string; cfi: string; chapter: string };
-  versions: Generation[];
+  versions: RewriteView[];
   estimates: Record<string, number> | null;
   levels: Record<string, string>;
   fake: boolean;
 };
+
+const STRICT_SHORT: Record<Strictness, string> = { light: "Light", standard: "Standard", strict: "Strict" };
 
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -25,6 +28,8 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [strictness, setStrictness] = useState<Strictness>("standard");
+  const [percent, setPercent] = useState("");
 
   const show = useCallback((res: Response, body: Data & { error?: string }, pick?: string) => {
     if (!res.ok) {
@@ -55,7 +60,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
     };
   }, [bookId, cfi, show]);
 
-  const ask = async (level: string, fresh = false) => {
+  const ask = async (level: string, fresh = false, strict: Strictness = strictness) => {
     if (!data) return;
     setBusy(fresh ? "again" : level);
     setError(null);
@@ -63,7 +68,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
       const res = await fetch(`/api/books/${bookId}/rewrites`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sectionId: data.paragraph.id, level, fresh }),
+        body: JSON.stringify({ sectionId: data.paragraph.id, level, fresh, ...(level === "ste" ? { strictness: strict } : {}) }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "The rewrite failed. Try again.");
@@ -76,7 +81,15 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
   };
 
   const current = data?.versions[index];
-  const levelOf = (g: Generation) => data?.levels[g.options.level] ?? g.options.level;
+  const levelOf = (g: RewriteView) =>
+    g.options.level === "ste"
+      ? `STE, ${STRICT_SHORT[g.options.strictness as Strictness] ?? g.options.strictness}`
+      : (data?.levels[g.options.level] ?? g.options.level);
+  // Changing the dial while an STE rewrite is showing asks for that strictness.
+  const pickStrictness = (next: Strictness) => {
+    setStrictness(next);
+    if (current?.options.level === "ste" && current.options.strictness !== next) void ask("ste", false, next);
+  };
   const estimate = data?.estimates ? Math.max(...Object.values(data.estimates)) : null;
 
   return (
@@ -97,13 +110,53 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
                   key={level}
                   type="button"
                   className={styles.segmentButton}
-                  aria-pressed={current?.options.level === level}
+                  aria-pressed={current?.options.level === level && (level !== "ste" || current.options.strictness === strictness)}
                   disabled={busy !== null}
                   onClick={() => void ask(level)}
                 >
                   {busy === level ? "Writing…" : label}
                 </button>
               ))}
+            </div>
+          </fieldset>
+          <fieldset className={styles.group}>
+            <legend>STE strictness</legend>
+            <div className={styles.strictRow}>
+              <div className={styles.segment}>
+                {(Object.keys(STRICTNESS) as Strictness[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={styles.segmentButton}
+                    aria-pressed={strictness === k}
+                    title={STRICTNESS[k]}
+                    disabled={busy !== null}
+                    onClick={() => {
+                      setPercent("");
+                      pickStrictness(k);
+                    }}
+                  >
+                    {STRICT_SHORT[k]}
+                  </button>
+                ))}
+              </div>
+              <label>
+                <span className="visually-hidden">or a percentage</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  inputMode="numeric"
+                  placeholder="%"
+                  className={styles.percentInput}
+                  value={percent}
+                  onChange={(e) => {
+                    setPercent(e.target.value);
+                    const next = strictnessFrom(e.target.value);
+                    if (next) pickStrictness(next);
+                  }}
+                />
+              </label>
             </div>
           </fieldset>
           <p className={styles.hint}>
@@ -124,9 +177,24 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
             <p className={styles.machineLabel}>
               Rewrite · {levelOf(current)} · written by {data.fake ? "the test AI" : "AI"}
             </p>
-            {current.output.split(/\n{2,}/).map((para, i) => (
+            {current.text.split(/\n{2,}/).map((para, i) => (
               <p key={i}>{para}</p>
             ))}
+            {current.ste ? (
+              <p className={styles.steBadge} title="Measured by the STE checker against full STE, whatever level was asked for">
+                STE {Math.round(current.ste.score)}% (full-STE score)
+              </p>
+            ) : null}
+            {current.meaningChanges.length ? (
+              <div className={styles.meaning}>
+                <p className={styles.machineLabel}>Meaning changes</p>
+                <ul>
+                  {current.meaningChanges.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <p className={styles.provenance}>
               {current.provenance.model} · {when(current.provenance.createdAt)} · $
               {current.provenance.costUsd.toFixed(current.provenance.costUsd < 0.01 ? 4 : 2)}
@@ -158,7 +226,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
               type="button"
               className={styles.tool}
               disabled={busy !== null || estimate === null}
-              onClick={() => void ask(current.options.level, true)}
+              onClick={() => void ask(current.options.level, true, (current.options.strictness as Strictness) ?? strictness)}
             >
               {busy === "again" ? "Writing…" : "Try again"}
             </button>
