@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M13 (c) (upload and store); finish S6 (corrected Kuhn scripts); skills K1–K3 planned in docs/readalong-plan.md.
+next_action: M13 (c2) is in the working tree, uncommitted. Open the PR once the full check and the readalong browser test pass, then (d) play it in an EPUB. S6 and skills K1–K3 still open.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -40,7 +40,7 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
    Postgres), then `railway up --service web --ci`, then check
    `/api/health` and `/sign-in`.
 5. Worth doing later: a rate limit on `/api/agent/*`.
-6. **Read-along with your own audiobooks:** M13 in `docs/plan.md` (approved 2026-10-04), steps (a)–(f); background, the skill work and skills K1–K3 in `docs/readalong-plan.md`.
+6. **Read-along with your own audiobooks:** M13 (a), (b), and (c) are in the working tree. (c2) is not committed. Next: on a branch, `npm run check` and `npx playwright test --project=readalong`; if both pass, one PR for (c2). Then (d) play the upload in an EPUB. S6 and skills K1–K3 are in `docs/readalong-plan.md`. Do not run migration 0020 in production until (f), and take a backup first.
 
 ## Waiting on Samuel
 
@@ -120,6 +120,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 17:40 · Claude (laptop) · M13 (c2): import a read-along package (database change + API)
+- **Done:** Migration 0020 (with a reverse step): a `readalong_imports` table (one row per uploaded package: status uploading/ready, manifest, match report, audio files, timings waiting for the audio) and three columns on `audio_tracks` (`audio_start_ms`, `audio_end_ms`: the stretch of a longer file a track plays; `import_id`). `lib/readalong/importer.ts`: `startImport` checks the zip, checks it was made from this very book file (sha256), places its words on the book's paragraphs, stores small audio at once or starts a part upload; `putAudioPart`; `finishImport` joins the parts, checks every audio file's fingerprint (read 8 MB at a time), then makes one read-aloud track per paragraph; a finished import replaces the book's earlier one; `deleteImport` removes tracks and audio files. API: `GET/POST /api/books/:id/readalong`, `PUT …/:importId/parts?file=&part=`, `POST …/:importId/finish`, `DELETE …/:importId`. Export and restore now carry imports and the new columns (round-trip test extended).
+- **Key paths:** `db/migrations/0020_readalong_imports.{up,down}.sql`, `lib/db/schema.ts`, `lib/readalong/{importer,http}.ts`, `lib/readalong/importer.test.ts`, `app/api/books/[id]/readalong/**`, `lib/library/export.ts` (+ test), `e2e/readalong.spec.ts`, `playwright.config.ts` (project `readalong`, last)
+- **Commands that worked:** `npx vitest run lib/library/export lib/readalong lib/db` → `25 passed | 2 skipped` (migrations down and up again included); `npm run check` → `Tests 266 passed | 2 skipped (268)`; `npx playwright test --ignore-snapshots` → `174 passed (1.9m)`: the new test uploads a package without audio, sends the audio in two parts, finishes, finds three upload tracks in the export, sees a package from another file refused in plain words, and deletes the import.
+- **Known issues / blockers:** No page for it yet (next: (c3) the upload page). Production needs a backup before migration 0020 runs.
+- **Exact next steps:** M13 (c3): "Add your audiobook" on the book's page (choose the package folder; audio sent in parts with progress).
+
+### 2026-10-04 16:37 · Grok (laptop) · M13 (c2): upload a read-along package and store its tracks
+- **Done:** M13 step (c), second half, is in the working tree and not committed. The owner of a book can upload a read-along package: POST the zip to /api/books/:id/readalong (the audio may be left out of the zip), PUT each audio file in parts, then POST finish. A readalong_imports row stays 'uploading' until every audio file matches the checksum in the package, then becomes 'ready'. Finishing writes one audio_tracks row per matched paragraph, with source 'upload', audio_start_ms and audio_end_ms marking that paragraph's stretch of the shared file, and import_id pointing at the import. A new finished import replaces that book's earlier one. Deleting an import removes its tracks and its audio. Migration 0020 creates the table and the three audio_tracks columns; the down migration drops them (audio files under audio/<owner>/<book>/readalong-* stay in storage). Library export and import now include readalongImports, and the stretch times on each track; imports are written before tracks because a track points at its import. The browser suite gained a 'readalong' project that runs after 'offline'. This is not the signed upload link the plan asked for: the parts are posted to the app, which writes them with the multipart storage calls from (c1).
+- **Key paths:** db/migrations/0020_readalong_imports.up.sql, db/migrations/0020_readalong_imports.down.sql, lib/db/schema.ts, lib/readalong/importer.ts, lib/readalong/importer.test.ts, lib/readalong/http.ts, app/api/books/[id]/readalong/route.ts, app/api/books/[id]/readalong/[importId]/route.ts, app/api/books/[id]/readalong/[importId]/parts/route.ts, app/api/books/[id]/readalong/[importId]/finish/route.ts, lib/library/export.ts, lib/library/export.test.ts, e2e/readalong.spec.ts, playwright.config.ts
+- **Commands that worked:** npx vitest run lib/readalong lib/library/export.test.ts → Test Files 4 passed (4), Tests 23 passed (23). Includes: zip with audio makes one track per paragraph; long audio in parts plays only after the file matches; wrong audio, another book's package, and someone else's book are refused; a new import replaces the old one; export → wipe → import returns the import and the stretch times.
+- **Known issues / blockers:** Not committed, and not deployed. The readalong Playwright spec was not run for this entry. Audio parts still pass through the web server (8 MB each). The plan's signed link straight to the bucket is not built, so the 201 MB Kuhn file would cross the server in many requests. Do not run migration 0020 in production until step (f), and take a backup first.
+- **Exact next steps:** On a branch, run npm run check and npx playwright test --project=readalong. If both pass and no test was weakened, open one PR for (c2) and paste this evidence. Then M13 (d): Listen prefers the uploaded audiobook in an EPUB, continuous across paragraphs. S6 (corrected Kuhn scripts) and skills K1–K3 are unchanged.
 
 ### 2026-10-04 17:00 · Claude (laptop) · M13 (c1): storage that can handle long audio
 - **Done:** Step (c) is split in two; this is the first half. The file route used to read the **whole file** from the bucket for every request and then cut out the bytes asked for: for a 201 MB audiobook every seek would pull 201 MB into the server. Now storage can tell a file's size without reading it (`stat`) and read only a byte range (`getRange`, a ranged GET on the bucket), and the route uses them. An open-ended request ("bytes=0-", how players start) gets at most 8 MB; the player asks for more as it plays. Storage also accepts a large file sent in parts (`startUpload` / `putPart` / `finishUpload` / `abortUpload`; the bucket's own multipart upload), so no single request has to carry an audiobook. Memory, local-disk and bucket versions all do this.
