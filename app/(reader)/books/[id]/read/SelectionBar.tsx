@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { Color } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { StickerIcon } from "@/components/StickerIcon";
+import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import styles from "./reader.module.css";
 
 export type PendingSelection = { cfi: string; exact: string; prefix: string; suffix: string };
@@ -25,6 +27,7 @@ export function SelectionBar({
   onHighlight,
   onRewrite,
   onVoiceNote,
+  onSticker,
   onClose,
 }: {
   bookId: string;
@@ -35,10 +38,12 @@ export function SelectionBar({
   onHighlight: (color: Color, body: string) => Promise<void>;
   onRewrite: () => void;
   onVoiceNote: (audio: Blob, durationMs: number) => Promise<void>;
+  onSticker: (sticker: Sticker) => Promise<void>;
   onClose: () => void;
 }) {
   const [noting, setNoting] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
   const preview = selection.exact.length > 90 ? `${selection.exact.slice(0, 90)}…` : selection.exact;
@@ -48,6 +53,24 @@ export function SelectionBar({
       <p className={styles.selectionQuote}>“{preview}”</p>
       {recording ? (
         <VoiceRecorder onSave={onVoiceNote} onBack={() => setRecording(false)} />
+      ) : picking ? (
+        <div className={styles.selectionActions} role="group" aria-label="Stickers">
+          {(Object.keys(STICKERS) as Sticker[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              className={`${styles.stickerButton} ${styles[`mark_${STICKERS[k].color}`]}`}
+              aria-label={`Sticker: ${STICKERS[k].label}`}
+              title={STICKERS[k].label}
+              onClick={() => void onSticker(k)}
+            >
+              <StickerIcon sticker={k} />
+            </button>
+          ))}
+          <button type="button" className={styles.tool} onClick={() => setPicking(false)}>
+            Back
+          </button>
+        </div>
       ) : noting ? (
         <form
           className={styles.noteForm}
@@ -93,6 +116,9 @@ export function SelectionBar({
           </button>
           <button type="button" className={styles.tool} onClick={() => setRecording(true)}>
             Voice note
+          </button>
+          <button type="button" className={styles.tool} onClick={() => setPicking(true)}>
+            Sticker
           </button>
           <button type="button" className={styles.tool} onClick={onRewrite}>
             Rewrite

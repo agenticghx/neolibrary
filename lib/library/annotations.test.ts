@@ -72,7 +72,7 @@ describe("annotations", () => {
     await expect(createAnnotation(database.db, ownerId, { kind: "highlight", bookId, cfi: "nope", quote: { exact: "x" } })).rejects.toThrow("not a place");
     await expect(createAnnotation(database.db, ownerId, { kind: "highlight", bookId, cfi: paras[0].cfi, quote: { exact: "" } })).rejects.toThrow("Select some text");
     await expect(createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "  " })).rejects.toThrow("Write something");
-    await expect(createAnnotation(database.db, ownerId, { kind: "sticker", bookId })).rejects.toThrow("Unknown kind");
+    await expect(createAnnotation(database.db, ownerId, { kind: "doodle", bookId })).rejects.toThrow("Unknown kind");
 
     const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
     const { token } = await createInvite(database.db, admin);

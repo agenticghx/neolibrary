@@ -70,6 +70,37 @@ test("record a voice note on a passage; it is transcribed, kept after a reload, 
   await expect(found).toContainText("transcript of a voice note");
 });
 
+test("put a sticker on a passage; it is drawn, listed, and still there after a reload", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const before = Number(/\((\d+)\)/.exec((await notesButton.textContent()) ?? "")?.[1] ?? 0);
+
+  await selectPhrase(page, "he took up a candle");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Sticker" }).click();
+  const stickers = bar.getByRole("group", { name: "Stickers" });
+  await expect(stickers.getByRole("button")).toHaveCount(6); // five stickers and Back
+  await stickers.getByRole("button", { name: "Sticker: Question" }).click();
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+  await expect(bar).toHaveCount(0);
+  await page.screenshot({ path: "screenshots/reader-sticker-drawn.png" });
+
+  await page.reload();
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+  await notesButton.click();
+  const item = page.getByTestId("notes").locator("li").filter({ hasText: "Sticker · Question" });
+  await expect(item).toHaveCount(1);
+  await expect(item).toContainText("he took up a candle");
+
+  const id = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  const md = await (await page.request.get(`/api/books/${id}/annotations/export?format=md`)).text();
+  expect(md).toContain("Sticker: Question");
+});
+
 test("the voice note in the Notes panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   const AxeBuilder = (await import("@axe-core/playwright")).default;
   const { mkdir } = await import("node:fs/promises");

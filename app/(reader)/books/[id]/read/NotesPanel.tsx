@@ -4,6 +4,8 @@ import { useState } from "react";
 import { NotesExport } from "@/components/NotesExport";
 import type { Annotation } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
+import { StickerIcon } from "@/components/StickerIcon";
+import { STICKERS } from "@/lib/library/stickers";
 import styles from "./reader.module.css";
 
 /** Everything you marked in this book, in reading order. */
@@ -72,8 +74,15 @@ export function NotesPanel({
                 {a.kind === "highlight" ? (
                   <span className={`${styles.dot} ${styles[`mark_${a.color ?? "sage"}`]}`} aria-hidden="true" />
                 ) : null}
+                {a.sticker ? (
+                  <span className={`${styles.stickerBadge} ${styles[`mark_${STICKERS[a.sticker].color}`]}`}>
+                    <StickerIcon sticker={a.sticker} size={14} />
+                  </span>
+                ) : null}
                 {a.kind === "bookmark"
                   ? "Bookmark"
+                  : a.sticker
+                    ? `Sticker · ${STICKERS[a.sticker].label}`
                   : a.kind === "voice"
                     ? "Voice note"
                     : a.kind === "note"

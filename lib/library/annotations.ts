@@ -3,6 +3,7 @@ import * as CFI from "foliate-js/epubcfi.js";
 import type { Db } from "@/lib/db/client";
 import { annotations, books, paths, pillars, sections } from "@/lib/db/schema";
 import { isCfi } from "./reading";
+import { isSticker, type Sticker } from "./stickers";
 
 /**
  * Highlights, bookmarks and notes (M5).
@@ -14,7 +15,7 @@ import { isCfi } from "./reading";
  */
 export const COLORS = ["sage", "amber", "rose", "sky"] as const;
 export type Color = (typeof COLORS)[number];
-export type Kind = "highlight" | "bookmark" | "note" | "voice";
+export type Kind = "highlight" | "bookmark" | "note" | "voice" | "sticker";
 
 export type Annotation = {
   id: string; // the annotation's stable id (annotation_id)
@@ -30,6 +31,8 @@ export type Annotation = {
   body: string;
   /** Voice notes (M8): the recording and what was said. */
   voice: { audioKey: string; mime: string; durationMs: number; transcript: string } | null;
+  /** Stickers (M8): which one. */
+  sticker: Sticker | null;
   createdAt: string; // first version
   updatedAt: string; // latest version
 };
@@ -59,6 +62,7 @@ function toAnnotation(latest: Row, first: Row): Annotation {
       latest.kind === "voice" && latest.audioKey
         ? { audioKey: latest.audioKey, mime: latest.audioMime ?? "audio/webm", durationMs: latest.durationMs ?? 0, transcript: latest.transcript }
         : null,
+    sticker: latest.kind === "sticker" && isSticker(latest.sticker) ? latest.sticker : null,
     createdAt: first.createdAt.toISOString(),
     updatedAt: latest.createdAt.toISOString(),
   };
@@ -113,13 +117,15 @@ export async function createAnnotation(
     targetId?: unknown;
     /** Voice notes: the stored recording (see voice-notes.ts) and its transcript. */
     voice?: { audioKey: string; mime: string; durationMs: number; transcript: string };
+    /** Stickers: one of STICKERS. */
+    sticker?: unknown;
   },
   now = new Date(),
   /** Keep a given id (used when importing an export). */
   id?: string,
 ): Promise<Annotation> {
   const kind = input.kind as Kind;
-  if (!["highlight", "bookmark", "note", "voice"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
+  if (!["highlight", "bookmark", "note", "voice", "sticker"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
   if (input.targetType === "pillar" || input.targetType === "path") {
     return createTargetNote(db, ownerId, input.targetType, input.targetId, String(input.body ?? ""), now, id);
   }
@@ -134,6 +140,7 @@ export async function createAnnotation(
   if (kind === "note" && !body.trim()) throw new AnnotationError("Write something in the note.");
   const voice = kind === "voice" ? input.voice : undefined;
   if (kind === "voice" && (!voice || !voice.audioKey.startsWith(`audio/${ownerId}/`))) throw new AnnotationError("A voice note needs a recording.");
+  if (kind === "sticker" && (!passage || !isSticker(input.sticker))) throw new AnnotationError("Choose a sticker for a place in the book.");
   const color = kind === "highlight" ? ((COLORS as readonly string[]).includes(String(input.color)) ? (input.color as Color) : "sage") : null;
   const cfi = passage ? (input.cfi as string) : null;
   const sectionId = cfi ? await sectionForCfi(db, bookId, cfi) : null;
@@ -158,6 +165,7 @@ export async function createAnnotation(
       ...(voice
         ? { audioKey: voice.audioKey, audioMime: voice.mime, durationMs: Math.round(voice.durationMs), transcript: voice.transcript.slice(0, MAX_BODY) }
         : {}),
+      ...(kind === "sticker" ? { sticker: input.sticker as Sticker } : {}),
       createdAt: now,
     })
     .returning();
@@ -311,6 +319,7 @@ export async function importAnnotations(
     quote: { exact: string; prefix: string; suffix: string };
     body: string;
     color: Color | null;
+    sticker?: Sticker | null;
     created: string | null;
     modified: string | null;
   }[],
@@ -333,7 +342,7 @@ export async function importAnnotations(
     const a = await createAnnotation(
       db,
       ownerId,
-      { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body },
+      { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined },
       created,
       it.id ?? undefined,
     );

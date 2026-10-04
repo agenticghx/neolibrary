@@ -1,4 +1,5 @@
 import type { Annotation, Color, Kind } from "./annotations";
+import { isSticker, STICKERS, type Sticker } from "./stickers";
 
 /**
  * Annotation exports (M5, ground rule 7):
@@ -10,14 +11,24 @@ import type { Annotation, Color, Kind } from "./annotations";
 export type BookInfo = { id: string; title: string; author: string };
 
 const CFI_SPEC = "http://www.idpf.org/epub/linking/cfi/epub-cfi.html";
-const MOTIVATION: Record<Kind, string> = { highlight: "highlighting", bookmark: "bookmarking", note: "commenting", voice: "commenting" };
+const MOTIVATION: Record<Kind, string> = {
+  highlight: "highlighting",
+  bookmark: "bookmarking",
+  note: "commenting",
+  voice: "commenting",
+  sticker: "tagging",
+};
 
-/** What a note says in text: its body, and for a voice note the transcript. */
+/** What a note says in text: the sticker's name, its body, and for a voice note the transcript. */
 const noteText = (a: Annotation) =>
-  [a.body.trim(), a.voice?.transcript.trim() ? `Voice note: ${a.voice.transcript.trim()}` : a.voice ? "Voice note (no transcript)" : ""]
+  [
+    a.sticker ? `Sticker: ${STICKERS[a.sticker].label}` : "",
+    a.body.trim(),
+    a.voice?.transcript.trim() ? `Voice note: ${a.voice.transcript.trim()}` : a.voice ? "Voice note (no transcript)" : "",
+  ]
     .filter(Boolean)
     .join("\n\n");
-const KIND_OF: Record<string, Kind> = { highlighting: "highlight", bookmarking: "bookmark", commenting: "note" };
+const KIND_OF: Record<string, Kind> = { highlighting: "highlight", bookmarking: "bookmark", commenting: "note", tagging: "sticker" };
 
 /** Markdown: the book's notes, then passages under their chapter headings. */
 export function toMarkdown(book: BookInfo, items: Annotation[], chapterOf: (a: Annotation) => string, exportedAt = new Date()) {
@@ -52,7 +63,7 @@ export type W3CAnnotation = {
   motivation: string;
   created: string;
   modified: string;
-  body?: { type: "TextualBody"; value: string; format: "text/plain"; purpose: "commenting" }[];
+  body?: { type: "TextualBody"; value: string; format: "text/plain"; purpose: "commenting" | "tagging" }[];
   target: {
     source: string;
     selector?: (
@@ -63,6 +74,7 @@ export type W3CAnnotation = {
   /** Neolibrary extras that the standard has no slot for. */
   "neolibrary:color"?: Color | null;
   "neolibrary:sectionId"?: string | null;
+  "neolibrary:sticker"?: Sticker;
 };
 
 export type W3CCollection = {
@@ -82,7 +94,18 @@ export function toW3C(book: BookInfo, items: Annotation[]): W3CCollection {
     motivation: MOTIVATION[a.kind],
     created: a.createdAt,
     modified: a.updatedAt,
-    ...(noteText(a) ? { body: [{ type: "TextualBody", value: a.voice ? noteText(a) : a.body, format: "text/plain", purpose: "commenting" }] } : {}),
+    ...(noteText(a)
+      ? {
+          body: [
+            {
+              type: "TextualBody",
+              value: a.voice || a.sticker ? noteText(a) : a.body,
+              format: "text/plain",
+              purpose: a.sticker ? "tagging" : "commenting",
+            },
+          ],
+        }
+      : {}),
     target: {
       source: bookUrn(book.id),
       ...(a.cfi
@@ -96,6 +119,7 @@ export function toW3C(book: BookInfo, items: Annotation[]): W3CCollection {
     },
     "neolibrary:color": a.color,
     "neolibrary:sectionId": a.sectionId,
+    ...(a.sticker ? { "neolibrary:sticker": a.sticker } : {}),
   }));
   return {
     "@context": "http://www.w3.org/ns/anno.jsonld",
@@ -115,6 +139,7 @@ export type ImportedAnnotation = {
   quote: { exact: string; prefix: string; suffix: string };
   body: string;
   color: Color | null;
+  sticker: Sticker | null;
   created: string | null;
   modified: string | null;
 };
@@ -127,7 +152,9 @@ export function fromW3C(data: unknown): ImportedAnnotation[] {
   return items.map((raw) => {
     const a = raw as W3CAnnotation;
     if (a?.type !== "Annotation") throw new FormatError("This is not a W3C Web Annotation file.");
-    const kind = KIND_OF[a.motivation] ?? (a.body?.length ? "note" : "highlight");
+    const sticker = isSticker(a["neolibrary:sticker"]) ? a["neolibrary:sticker"] : null;
+    // A "tagging" annotation from another tool (no Neolibrary sticker) comes in as a note.
+    const kind = sticker ? "sticker" : KIND_OF[a.motivation] === "sticker" ? "note" : (KIND_OF[a.motivation] ?? (a.body?.length ? "note" : "highlight"));
     const selectors = a.target?.selector ?? [];
     const quote = selectors.find((s) => s.type === "TextQuoteSelector") as
       | { exact: string; prefix?: string; suffix?: string }
@@ -139,8 +166,9 @@ export function fromW3C(data: unknown): ImportedAnnotation[] {
       kind,
       cfi: fragment?.value ?? null,
       quote: { exact: quote?.exact ?? "", prefix: quote?.prefix ?? "", suffix: quote?.suffix ?? "" },
-      body: a.body?.map((b) => b.value).join("\n\n") ?? "",
+      body: sticker ? "" : (a.body?.map((b) => b.value).join("\n\n") ?? ""),
       color: a["neolibrary:color"] ?? null,
+      sticker,
       created: a.created ?? null,
       modified: a.modified ?? null,
     };
