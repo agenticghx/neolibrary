@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel: reload a book in Safari (fix is live); otherwise version 1 waits only on Samuel (keys, verdicts).
+next_action: Land the reader back/contents PR and deploy; otherwise version 1 waits only on Samuel (keys, verdicts).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -117,6 +117,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 19:10 UTC · Claude (laptop) · Reader: Kindle-style back arrow and contents on the left
+- **Done:** Samuel asked for a way out of a book to the book list that does not disturb reading, on the left with the table of contents, as in Kindle (his screenshot). The reader's top bar now starts with **‹ "Back to your shelf"** (goes to `/shelf`; replaces the logo, which went to the book's page) and a **contents icon** ("Contents"). **Contents opens on the left**, beside its button, and **marks the chapter being read** (bold, accent bar on the left; not accent-coloured text, which fails contrast in dark mode). The word "Contents" left the right-hand tools (bookmark, help, Notes, Aa remain). Both are icons in the existing bar, so the page of text does not move.
+- **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx` (top bar, `TocList` `current`), `app/(reader)/books/[id]/read/reader.module.css` (`.lead`, `.leadTool`, `.panelLeft`, `.tocItem[aria-current]`), `e2e/reader.spec.ts`
+- **Commands that worked:** `npm run check` → `Tests 235 passed | 2 skipped (237)`; `npx playwright test --ignore-snapshots` → `171 passed (1.8m)`. The new test checks four things. Contents opens in the left half; the book frame's position is identical with it open (bounding box equal). Picking "Search for Mr. Hyde" goes there and closes the list, and reopening marks that chapter. "Back to your shelf" lands on `/shelf` ("Books you own"). Axe is clean in four looks; `screenshots/reader-contents-*` checked by eye.
+- **Known issues / blockers:** None.
+- **Exact next steps:** Land, deploy (backup first), Samuel tries it.
 ### 2026-10-04 18:35 UTC · Claude (laptop) · Safari fix deployed
 - **Done:** PR #49 merged with all four checks green; on CI's Linux WebKit both Safari tests passed (`✓ [safari] … an EPUB opens in Safari…`, `✓ [safari] … a PDF opens in Safari`, `170 passed (5.3m)`). It first conflicted with ledger PR #48 in `PROGRESS.md` (GitHub runs no checks on a conflicting PR); rebased, keeping both entries. Deployed `1101c8e` after a backup (`~/Backups/neolibrary/prod-before-safari-*.sql`, restore exit 0; 1 user, **3 books with files**: Samuel used the free-classics button). Railway deployment `383c798b` SUCCESS.
 - **Key paths:** `PROGRESS.md`

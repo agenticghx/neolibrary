@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
-import { Mark } from "@/components/Mark";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
 import { addToOutbox, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
 import type { CrossLink } from "@/lib/library/crosslinks";
@@ -673,9 +672,29 @@ export function Reader(props: {
       data-status={status}
     >
       <header className={styles.bar}>
-        <Link href={`/books/${props.bookId}`} className={styles.brand} aria-label="Back to the book page">
-          <Mark size={22} />
-        </Link>
+        {/* Left, as in Kindle: leave the book, and the table of contents. */}
+        <div className={styles.lead}>
+          <Link href="/shelf" className={`${styles.tool} ${styles.leadTool}`} aria-label="Back to your shelf" title="Back to your shelf">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M10 2.5 4.5 8l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <button
+            type="button"
+            className={`${styles.tool} ${styles.leadTool}`}
+            aria-label="Contents"
+            title="Contents"
+            aria-expanded={panel === "contents"}
+            onClick={() => setPanel(panel === "contents" ? "none" : "contents")}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M5.5 3.5h8M5.5 8h8M5.5 12.5h8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <circle cx="2.5" cy="3.5" r="1" fill="currentColor" />
+              <circle cx="2.5" cy="8" r="1" fill="currentColor" />
+              <circle cx="2.5" cy="12.5" r="1" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
         <p className={styles.title}>
           <span className={styles.titleText}>{props.title}</span>
           {props.author ? <span className={styles.author}> · {props.author}</span> : null}
@@ -713,14 +732,6 @@ export function Reader(props: {
             onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
           >
             Notes{notes.length ? ` (${notes.length})` : ""}
-          </button>
-          <button
-            type="button"
-            className={styles.tool}
-            aria-expanded={panel === "contents"}
-            onClick={() => setPanel(panel === "contents" ? "none" : "contents")}
-          >
-            Contents
           </button>
           <button
             type="button"
@@ -859,10 +870,11 @@ export function Reader(props: {
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 
       {panel === "contents" ? (
-        <nav className={styles.panel} aria-label="Contents">
+        <nav className={`${styles.panel} ${styles.panelLeft}`} aria-label="Contents">
           <p className={styles.panelTitle}>Contents</p>
           <TocList
             items={toc}
+            current={where.chapter}
             onPick={(href) => {
               void view.current?.goTo(href);
               setPanel("none");
@@ -967,16 +979,22 @@ function Segment<T extends string>({
   );
 }
 
-function TocList({ items, onPick }: { items: TocItem[]; onPick: (href: string) => void }) {
+/** The table of contents; the chapter being read is marked (as in Kindle). */
+function TocList({ items, onPick, current }: { items: TocItem[]; onPick: (href: string) => void; current: string }) {
   if (!items.length) return <p className={styles.hint}>This book has no table of contents.</p>;
   return (
     <ol className={styles.toc}>
       {items.map((t, i) => (
         <li key={`${t.href}-${i}`}>
-          <button type="button" className={styles.tocItem} onClick={() => onPick(t.href)}>
+          <button
+            type="button"
+            className={styles.tocItem}
+            aria-current={current && t.label.trim() === current ? "true" : undefined}
+            onClick={() => onPick(t.href)}
+          >
             {t.label.trim()}
           </button>
-          {t.subitems?.length ? <TocList items={t.subitems} onPick={onPick} /> : null}
+          {t.subitems?.length ? <TocList items={t.subitems} onPick={onPick} current={current} /> : null}
         </li>
       ))}
     </ol>

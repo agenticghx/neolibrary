@@ -91,6 +91,48 @@ test("scripts inside a book never run", async ({ page }) => {
   expect(await page.evaluate(() => (window as unknown as { __msgs?: string[] }).__msgs ?? [])).not.toContain("pwned");
 });
 
+// Like Kindle: on the left of the top bar, a back arrow to the shelf and the
+// table of contents, which opens on the left; reading is not disturbed.
+test("the back arrow leaves the book for the shelf; contents open on the left without moving the page", async ({ page }) => {
+  await openJekyll(page);
+  const host = page.locator("foliate-view");
+  const before = await host.boundingBox();
+  await page.getByRole("button", { name: "Contents" }).click();
+  const contents = page.getByRole("navigation", { name: "Contents" });
+  await expect(contents).toBeVisible();
+  const box = (await contents.boundingBox())!;
+  expect(box.x + box.width / 2).toBeLessThan(1280 / 2);
+  // The page of text stays exactly where it was.
+  expect(await host.boundingBox()).toEqual(before);
+  await contents.getByRole("button", { name: "Search for Mr. Hyde" }).click();
+  await expect(contents).toHaveCount(0);
+  await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible();
+  // Opened again, it marks the chapter being read.
+  await page.getByRole("button", { name: "Contents" }).click();
+  await expect(contents.locator('[aria-current="true"]')).toHaveText("Search for Mr. Hyde");
+  await page.getByRole("button", { name: "Contents" }).click();
+
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+      await page.getByRole("button", { name: "Contents" }).click();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `screenshots/reader-contents-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.getByRole("link", { name: "Back to your shelf" }).click();
+  await expect(page).toHaveURL(/\/shelf$/);
+  await expect(page.getByRole("heading", { name: "Books you own", level: 1 })).toBeVisible();
+});
+
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await openJekyll(page);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
