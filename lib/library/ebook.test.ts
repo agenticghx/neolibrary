@@ -22,6 +22,13 @@ describe("reading EPUBs", () => {
     });
   });
 
+  it("keeps contents labels in reading order even with inline markup", async () => {
+    const info = await readBook(fixture("stevenson-jekyll-and-hyde.epub"), "j.epub");
+    const labels = info.toc.flatMap((t) => [t.label, ...t.children.map((c) => c.label)]);
+    expect(labels).toContain("Search for Mr. Hyde");
+    expect(labels).toContain("Dr. Lanyon’s Narrative");
+  });
+
   it("refuses DRM-protected EPUBs but accepts font obfuscation", async () => {
     const base = {
       mimetype: strToU8("application/epub+zip"),
