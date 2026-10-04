@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel: press "Add three free classics" on the shelf (live now); otherwise version 1 waits only on Samuel (sign in, keys, verdicts).
+next_action: Land the Safari reader fix, deploy, ask Samuel to reload a book in Safari
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -117,6 +117,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 18:20 UTC · Claude (laptop) · Fix: books never opened in Safari ("Opening the book…" forever)
+- **Done:** Samuel's reader stalled at "Opening the book…". **Diagnosis:** Railway's request log showed the server was fine (the book file 200 in 0.4 s, notes fetched afterwards, reading-time reports arriving), and the browser was **Safari 27** (`AppleWebKit/605.1.15 … Version/27.0 Safari`). Every browser test ran in Chrome. Reproduced in Playwright's WebKit: the console said `Refused to load blob:… because it does not appear in the frame-ancestors directive of the Content Security Policy`, then `null is not an object (evaluating 'e.head')`. **Root cause:** the reader shows each chapter in a `blob:` frame, which inherits the page's security policy; `frame-ancestors 'none'` ("never show this inside a frame") made WebKit refuse the reader's *own* chapter frames (Chrome does not apply it there). The error is thrown inside foliate's frame handling, where the reader cannot catch it, so the screen waited forever. **Fix:** `frame-ancestors 'self'` in `proxy.ts` (only this site may frame its pages, so other sites are still blocked). **Guards:** (1) the reader now gives up after 30 s and shows "This book could not be opened" instead of hanging; (2) a new Playwright project `safari` (WebKit) opens an EPUB (text shows, next page works, no security-policy errors) and the PDF, and CI now installs WebKit; (3) `lib/csp.test.ts` checks the rule. **Proof the test catches it:** with `'none'` put back, both Safari tests fail with "loading"; with `'self'` they pass.
+- **Key paths:** `proxy.ts`, `app/(reader)/books/[id]/read/Reader.tsx` (`OPEN_TIMEOUT_MS`), `e2e/safari.spec.ts`, `playwright.config.ts` (project `safari`), `.github/workflows/ci.yml`, `lib/csp.test.ts`
+- **Commands that worked:** WebKit for Playwright installed by hand (the installer's unzip stalls again): `curl … builds/webkit/2215/webkit-mac-15-arm64.zip`, `ditto -x -k` into `~/Library/Caches/ms-playwright/webkit-2215`, plus the two marker files. `npm run check` → `Tests 235 passed | 2 skipped (237)`; `npx playwright test --ignore-snapshots` → `170 passed (1.7m)`. Railway http logs via the Railway MCP `get-logs` with `types: ["http"]`.
+- **Known issues / blockers:** Other Safari-only differences may exist outside the reader; the Safari project covers opening and paging books, not every page.
+- **Exact next steps:** Land this PR, deploy (backup first), ask Samuel to reload the book in Safari.
 ### 2026-10-04 17:20 UTC · Claude (laptop) · Free classics button deployed
 - **Done:** PR #47 merged with all four checks green (after committing CI's four `shelf-empty` screenshots, each checked by eye). Deployed `4fd1259` after a backup (`~/Backups/neolibrary/prod-before-samples-*.sql`, restore exit 0, 1 user, 126 books). Railway deployment `faae30d3` SUCCESS.
 - **Key paths:** `PROGRESS.md`

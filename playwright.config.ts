@@ -69,6 +69,8 @@ export default defineConfig({
     { name: "images", testMatch: /images\.spec\.ts/, dependencies: ["notes"], use: { ...desktop } },
     // 11. Reading statistics (controlled clock).
     { name: "stats", testMatch: /stats\.spec\.ts/, dependencies: ["images"], use: { ...desktop } },
+    // The reader in Safari's engine (WebKit), after the PDF upload in reader.spec.ts.
+    { name: "safari", testMatch: /safari\.spec\.ts/, dependencies: ["reader"], use: { ...desktop, browserName: "webkit" } },
     // 12. Agents: API tokens (M11).
     { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
     // 13. Offline (M12): service worker, download for offline.

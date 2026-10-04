@@ -84,8 +84,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium and WebKit (Safari's engine)
+        run: npx playwright install --with-deps chromium webkit
       - name: Playwright (screenshot comparison, axe-core accessibility)
         run: npx playwright test
 
