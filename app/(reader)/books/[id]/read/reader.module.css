@@ -496,6 +496,86 @@
   color: var(--accent);
 }
 
+/* Rewrite panel (M6). Machine-written text always looks different from the
+   book's text and from the reader's own notes (ground rule 5). */
+.original {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.originalText {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-700);
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  line-height: var(--leading-read);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-sunken);
+}
+
+.levels .segmentButton {
+  flex: 1 1 auto;
+}
+
+.machine {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-left: 3px dashed var(--machine-rule);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background-color: var(--machine-bg);
+  color: var(--machine-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-read);
+}
+
+.machineLabel,
+.provenance {
+  color: var(--machine-ink);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.provenance {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.versionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.versionCount {
+  flex: 1;
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.formError {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}
+
 @media (width <= 48rem) {
   .bar {
     padding: var(--space-2) var(--space-3);
