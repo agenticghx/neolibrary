@@ -31,6 +31,7 @@ const noteText = (a: Annotation) =>
     a.picture ? pictureText(a.picture) : "",
     a.body.trim(),
     a.voice?.transcript.trim() ? `Voice note: ${a.voice.transcript.trim()}` : a.voice ? "Voice note (no transcript)" : "",
+    a.agent ? `(Added by agent: ${a.agent})` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -44,7 +45,7 @@ export function toMarkdown(book: BookInfo, items: Annotation[], chapterOf: (a: A
   const bookNotes = items.filter((a) => a.targetType === "book" && a.kind === "note");
   if (bookNotes.length) {
     lines.push("", "## Notes on the book");
-    for (const n of bookNotes) lines.push("", n.body.trim());
+    for (const n of bookNotes) lines.push("", noteText(n));
   }
   let chapter: string | null = null;
   for (const a of items.filter((x) => x.cfi)) {
@@ -83,6 +84,8 @@ export type W3CAnnotation = {
   "neolibrary:sticker"?: Sticker;
   "neolibrary:drawing"?: Drawing;
   "neolibrary:picture"?: PinnedPicture;
+  /** Who made it, when an AI agent did (M11); the standard's `creator` with type Software. */
+  creator?: { type: "Software"; name: string };
 };
 
 export type W3CCollection = {
@@ -130,6 +133,7 @@ export function toW3C(book: BookInfo, items: Annotation[]): W3CCollection {
     ...(a.sticker ? { "neolibrary:sticker": a.sticker } : {}),
     ...(a.drawing ? { "neolibrary:drawing": a.drawing } : {}),
     ...(a.picture ? { "neolibrary:picture": a.picture } : {}),
+    ...(a.agent ? { creator: { type: "Software" as const, name: a.agent } } : {}),
   }));
   return {
     "@context": "http://www.w3.org/ns/anno.jsonld",
@@ -153,6 +157,8 @@ export type ImportedAnnotation = {
   drawing: Drawing | null;
   /** Checked again on import (cleanPicture), with the importing reader's id. */
   picture: PinnedPicture | null;
+  /** From `creator` when it is software (an AI agent). */
+  agent: string | null;
   created: string | null;
   modified: string | null;
 };
@@ -194,6 +200,7 @@ export function fromW3C(data: unknown): ImportedAnnotation[] {
       sticker,
       drawing,
       picture,
+      agent: a.creator?.type === "Software" && typeof a.creator.name === "string" ? a.creator.name.slice(0, 100) : null,
       created: a.created ?? null,
       modified: a.modified ?? null,
     };

@@ -80,6 +80,8 @@ export type LibraryExport = {
     drawing?: { width: number; height: number; strokes: number[][] } | null;
     /** Pinned pictures (added in M9). */
     picture?: Record<string, unknown> | null;
+    /** Added by an AI agent (M11): the API token's name. */
+    agent?: string | null;
     deleted: boolean;
     createdAt: string;
   }[];
@@ -260,6 +262,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       sticker: a.sticker,
       drawing: a.strokes,
       picture: a.picture,
+      agent: a.agent,
       deleted: a.deleted,
       createdAt: a.createdAt.toISOString(),
     })),
@@ -432,6 +435,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         sticker: a.sticker ?? null,
         strokes: a.drawing ?? null,
         picture: a.picture ?? null,
+        agent: a.agent ?? null,
         deleted: a.deleted,
         createdAt: new Date(a.createdAt),
       });

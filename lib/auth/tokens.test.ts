@@ -27,7 +27,10 @@ describe("personal API tokens (M11)", () => {
     expect(row.tokenHash).toBe(sha256(made.token));
     expect(JSON.stringify(row)).not.toContain(made.token);
     expect(row.prefix).toBe(made.token.slice(0, 8));
-    expect(await userForApiToken(database.db, made.token)).toEqual({ id: ownerId, email: "o@example.com", name: "Owner", role: "admin" });
+    expect(await userForApiToken(database.db, made.token)).toEqual({
+      user: { id: ownerId, email: "o@example.com", name: "Owner", role: "admin" },
+      tokenName: "Claude desktop",
+    });
     expect(await listApiTokens(database.db, ownerId)).toEqual([
       expect.objectContaining({ id: made.id, name: "Claude desktop", prefix: made.token.slice(0, 8), revokedAt: null }),
     ]);
@@ -61,7 +64,7 @@ describe("personal API tokens (M11)", () => {
     expect((await listApiTokens(database.db, ownerId))[0].revokedAt).toEqual(new Date("2026-10-04T11:00:00Z"));
 
     const second = await createApiToken(database.db, otherId, "reader's agent");
-    expect(await userForApiToken(database.db, second.token)).toMatchObject({ id: otherId });
+    expect(await userForApiToken(database.db, second.token)).toMatchObject({ user: { id: otherId }, tokenName: "reader's agent" });
     await database.db.update(users).set({ disabledAt: new Date() }).where(eq(users.id, otherId));
     expect(await userForApiToken(database.db, second.token)).toBeNull();
   });

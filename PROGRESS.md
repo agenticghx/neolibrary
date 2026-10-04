@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the M11 (a) PR (CI-rendered data-* and agents-* screenshots), then build M11 (b) agent API
+next_action: Land the M11 (b) PR, then build M11 (c) the MCP server on the same agent functions
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,15 +24,15 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M11 (a) PR** (branch `m11-api-tokens`): the first CI run should fail
-   only on reference screenshots: `data-*` (the page gained an "Agent access"
-   card) and the new `agents-*`. Take CI's images from the `playwright-report`
-   artifact (`test-results/visual-…/<name>-actual.png`), look at each, copy them to
-   `e2e/__screenshots__/`, push; auto-merge lands it.
-2. **M11 (b)** agent API on `/api/agent/*` with `agentUser(req)` (list books,
-   search text, read notes, add a note), **M11 (c)** MCP server (check
-   `npm view @modelcontextprotocol/sdk version` and its README before
-   choosing the transport), then **M12** (offline PWA and sync).
+1. **M11 (b) PR** (branch `m11-agent-api`): make its checks green; no
+   reference screenshots change (only the reader's Notes panel, which is not
+   in `e2e/pages.ts`). Auto-merge lands it.
+2. **M11 (c) MCP server** (the standard plug for AI agents): run
+   `npm view @modelcontextprotocol/sdk version` and read its README in
+   `node_modules` before choosing the transport. Tools `list_books`,
+   `search_text`, `get_notes`, `add_note` wrapping `lib/agent/library.ts`
+   (the same functions the HTTP agent API uses), authenticated with the same
+   Bearer token. Then tick M11 and go on to **M12** (offline PWA and sync).
 3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
    back up first, then `railway up --service web --ci`. The backup recipe
    that worked is in the 2026-10-04 11:40 Log entry.
@@ -104,6 +104,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 12:55 UTC · Claude (laptop) · M11 (b): the agent API, with agent notes marked in the reader
+- **Done:** PR #38 (M11 (a)) merged with all four checks green, after committing the eight CI-rendered `agents-*`/`data-*` reference screenshots (each looked at first). M11 (b) on `m11-agent-api`: with a token, an agent can now **list books** (`GET /api/agent/books?q=`), **search the text** (`GET /api/agent/search?q=&limit=`, matches wrapped in `**…**`, each with a `sectionId`), **read notes** (`GET /api/agent/books/:id/notes`) and **add a note** (`POST /api/agent/books/:id/notes` with `{ text, sectionId? }`). With a `sectionId` the note is a sky-blue highlight over that whole paragraph; without one it is a note on the book. The logic lives in `lib/agent/library.ts`, so the MCP server in (c) reuses it. **Provenance (ground rule 5):** every agent note records the token's name (migration `0019_annotation_agent` adds `annotations.agent`). Its reverse step writes "(Added by agent: name)" into the note text before dropping the column, and a test proves it. The Notes panel shows **"Added by agent · name"** with the note in the dashed machine style. Markdown adds "(Added by agent: name)", W3C uses the standard `creator: { type: "Software", name }`, and the library export carries `agent`; all three round-trip. The browser's own annotation route cannot set `agent` (it is a separate server-only argument). Two bugs found on the way: (1) `sectionForCfi` filed a note made from a paragraph's own CFI under the *previous* paragraph (an element CFI was compared as if it pointed before the paragraph); fixed by comparing both sides as "first character". (2) foliate does not draw a highlight for a bare paragraph CFI, so agent notes store a range over the paragraph (`…,/178/1:0,/179:0`), and it now draws (checked by eye).
+- **Key paths:** `lib/agent/{library,http}.ts`, `lib/agent/library.test.ts`, `app/api/agent/{books,search}/route.ts`, `app/api/agent/books/[id]/notes/route.ts`, `db/migrations/0019_annotation_agent.*`, `lib/library/{annotations,annotation-formats,export}.ts`, `lib/auth/{tokens,agent}.ts` (now also returns the token's name), `app/(reader)/books/[id]/read/NotesPanel.tsx`, `e2e/agents.spec.ts`
+- **Commands that worked:** `npm run check` → `Tests 228 passed | 2 skipped (230)`; `TEST_DATABASE_URL=… npm run test:postgres` → `Tests 2 passed (2)` (now lists books, searches, adds and reads an agent note); `npx playwright test --ignore-snapshots` → `161 passed (1.5m)`. **M11 "Done when" in the browser:** a token made in the UI; a client with no cookies lists books (The Time Machine and Jekyll), searches `"Next they turned to the business table"`, posts a note on that hit's paragraph (201, `addedByAgent: "Reading agent"`, colour sky), and reads it back. An empty note gives 400 and an unknown book 404. The reader's Notes panel shows "Added by agent · Reading agent" over the quoted paragraph, and **Go to** shows that paragraph. Axe is clean in four looks; `screenshots/reader-agent-note-*` checked by eye (the paragraph is tinted in the book).
+- **Known issues / blockers:** An agent note's quote is the whole paragraph (long in the Notes panel); it is the honest anchor text for a whole-paragraph note. No rate limit on agent routes yet. The MCP server is next.
+- **Exact next steps:** Land this PR, then M11 (c) MCP server.
 
 ### 2026-10-04 12:20 UTC · Claude (laptop) · M11 (a): personal API tokens
 - **Done:** PR #37 (ledger + CI on Postgres 18) merged by hand with all four checks green: the auto-merge Action only takes branches starting with `m` or `claude/`, and that one was `deploy-m10-ledger` (name branches `m<N>-…` to avoid this). M11 (a) on `m11-api-tokens`: a new **Agent access** page (`/agents`, linked from Your data) makes **personal API tokens** for AI agents. A token (`nl_` + 43 random characters) is shown once with a copy button and a warning to keep it as private as a password; the database keeps only its sha256 hash and first 8 characters (migration `0018_api_tokens`; the reverse step drops the table, since tokens are credentials). The list shows each token's name and prefix, and "Not used yet", "Last used <date>" (written at most once a minute) or "Revoked <date>", with a Revoke button. `lib/auth/agent.ts` `agentUser(req)` turns `Authorization: Bearer` into the token's user and ignores cookies. Revoked tokens and disabled users are refused. `proxy.ts` lets `/api/agent/*` through on a Bearer header, and both the gate and the route answer an agent-specific **401 JSON with `WWW-Authenticate: Bearer`**, never a sign-in redirect. A Bearer header opens nothing else (the rest of the API still wants the cookie). First route: `GET /api/agent/me`. Tokens are not in the library export (they are secrets).

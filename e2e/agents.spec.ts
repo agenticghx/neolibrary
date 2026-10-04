@@ -81,3 +81,63 @@ test("make a token, use it without cookies, see it used, revoke it", async ({ pa
     }
   }
 });
+
+// M11 "Done when": a test agent, using a token, lists books and adds a note
+// that shows up in the reader, marked as written by the agent.
+test("an agent with a token lists books, searches, adds a note, and the reader shows it", async ({ page, playwright }) => {
+  await page.goto("/agents");
+  await page.getByLabel("Which agent is it for?").fill("Reading agent");
+  await page.getByRole("button", { name: "Make a token" }).click();
+  const token = await page.getByTestId("new-token").inputValue();
+  const agent = await agentClient(playwright, token);
+
+  const books = (await (await agent.get("/api/agent/books")).json()).books as { id: string; title: string }[];
+  const jekyll = books.find((b) => b.title === "The Strange Case of Dr. Jekyll and Mr. Hyde")!;
+  expect(books.map((b) => b.title)).toContain("The Time Machine");
+  const search = await agent.get(`/api/agent/search?q=${encodeURIComponent('"Next they turned to the business table"')}&limit=3`);
+  expect(search.status()).toBe(200);
+  const hit = ((await search.json()).results as { bookId: string; sectionId: string; text: string }[]).find((h) => h.bookId === jekyll.id)!;
+  expect(hit.text).toMatch(/\*\*/);
+
+  const added = await agent.post(`/api/agent/books/${jekyll.id}/notes`, { data: { text: "Utterson and Poole search the cabinet here.", sectionId: hit.sectionId } });
+  expect(added.status()).toBe(201);
+  expect((await added.json()).note).toMatchObject({ addedByAgent: "Reading agent", sectionId: hit.sectionId, color: "sky" });
+  const notes = (await (await agent.get(`/api/agent/books/${jekyll.id}/notes`)).json()).notes as { note: string; addedByAgent: string | null }[];
+  expect(notes).toContainEqual(expect.objectContaining({ note: "Utterson and Poole search the cabinet here.", addedByAgent: "Reading agent" }));
+  // Bad input is explained, and another book id is "not found".
+  expect((await agent.post(`/api/agent/books/${jekyll.id}/notes`, { data: { text: "" } })).status()).toBe(400);
+  expect((await agent.get("/api/agent/books/00000000-0000-4000-8000-000000000000/notes")).status()).toBe(404);
+  await agent.dispose();
+
+  // The reader sees it, marked as the agent's, and "Go to" opens its paragraph.
+  await page.goto(`/books/${jekyll.id}/read`);
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const item = page.getByTestId("notes").getByRole("listitem").filter({ hasText: "Utterson and Poole search the cabinet here." });
+  await expect(item.getByTestId("note-agent")).toHaveText("Added by agent · Reading agent");
+  await expect(item.locator("blockquote")).toContainText("Next they turned to the business table");
+  await item.getByRole("button", { name: "Go to" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector("foliate-view") as unknown as { lastLocation: { range: Range } | null };
+        return view.lastLocation?.range.toString() ?? "";
+      }),
+    )
+    .toContain("Next they turned to the business table");
+  if (!(await page.getByTestId("notes").isVisible())) await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(item).toBeVisible();
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await item.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-agent-note-${name}-${scheme}.png` });
+    }
+  }
+});
