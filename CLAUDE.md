@@ -18,6 +18,8 @@ engineer.
 
 - Work on a branch named `m<N>-<short-topic>`; never commit to `main`
   directly. Open a pull request when the step's "Done when" check passes.
+- If the session cannot merge directly, the auto-merge Action (M1) merges
+  once checks pass; your job is to make the checks honest.
 - **You merge your own PR** (Samuel's decision, 2026-10-03), but only when all
   of these hold: every required check on GitHub is green; you did not skip,
   delete or weaken a test to get there; the PR description pastes the

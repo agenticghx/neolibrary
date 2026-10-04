@@ -151,6 +151,12 @@ Done when: a cloud session opened on the repo can read `PROGRESS.md`.
   - **accessibility and contrast** check (axe-core);
   - a lint rule that rejects colours and sizes not taken from the design tokens;
   - a check that fails a PR with no screenshots or no `PROGRESS.md` Log entry.
+  - **auto-merge**: a GitHub Action (an automation GitHub runs itself) that
+    merges a session's PR once every required check is green. Claude Code
+    docs say cloud sessions can open PRs but not merge them, so this is how
+    Samuel's self-merge decision works in practice. Turn on "Allow
+    auto-merge" in the repo settings and branch protection on `main` with
+    the CI checks required.
 - A bot comment on every PR with a 2×2 screenshot grid (phone/desktop ×
   light/dark) so Samuel can judge the look in ten seconds.
 - `docs/design.md`, derived from `docs/design/refs/` (Samuel's picks) and

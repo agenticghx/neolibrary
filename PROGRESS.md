@@ -27,9 +27,12 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
    that already has `DATABASE_URL`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`,
    `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_URL_STYLE`,
    `ELEVENLABS_API_KEY`. The app must use exactly these names.
-3. **(Samuel)** Still to do:
-   - Create a Claude cloud environment for `sahuno/neolibrary`. Tests use
-     fakes, so it needs no keys at first.
+3. **(Samuel)** Claude cloud environment (steps given in chat 2026-10-03):
+   install the Claude GitHub App on `sahuno/neolibrary`
+   (https://github.com/apps/claude), create an environment at
+   https://claude.ai/code with network access "Trusted", no variables, and
+   setup script `[ -f package.json ] && npm ci && npx playwright install chromium || true`.
+   Still to do:
    - Put 5–10 screenshots you love and 3 you dislike in `docs/design/refs/`
      (Codex prototypes in `docs/design/prototypes/` are proposals to react to).
 4. **(Samuel, later)** `ANTHROPIC_API_KEY` on Railway `web` before M6;
@@ -45,6 +48,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 | # | Question | Owner | Decide by | Status |
 |---|---|---|---|---|
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? (Default applies until set: sessions add a cost counter in M6/M7 and stop generating audio/images above a limit Samuel sets in an environment variable.) | Samuel | before M6 | open |
+| 2 | Can a cloud session merge its own PR? Claude Code docs (via claude-code-guide, 2026-10-03) say merging needs GitHub; plan answer: auto-merge GitHub Action in M1. Also check whether sessions may push branches named `m<N>-…` or only their own `claude/…` branch, and whether Playwright's browser download is allowed under "Trusted" network access. | first M1 session | during M1 | open |
 
 ## Decisions
 
@@ -61,6 +65,13 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-03 21:55 · Claude (laptop) · Pushed prototypes/STE; cloud-environment steps; auto-merge plan
+- **Done:** Committed and pushed `155bdc5`. Got cloud-session setup steps from Claude Code docs (claude-code-guide agent; doc URLs: code.claude.com/docs/en/web-quickstart.md, cloud-environments.md, claude-code-on-the-web.md, routines.md). The docs say sessions can open but not merge PRs, so M1 now includes an auto-merge GitHub Action; CLAUDE.md notes it. New open unknown 2 for M1 to verify.
+- **Key paths:** `/Users/sahuno/projects/personal/Neolibrary/docs/plan.md`, `/Users/sahuno/projects/personal/Neolibrary/CLAUDE.md`, `/Users/sahuno/projects/personal/Neolibrary/PROGRESS.md`
+- **Commands that worked:** `git push` → `## main...origin/main` (in sync) after `155bdc5`
+- **Known issues / blockers:** Self-merge is unproven until M1 builds the auto-merge Action. Docs claims came from a sub-agent and were not opened by me.
+- **Exact next steps:** 1) Samuel installs Claude GitHub App and creates the environment. 2) First cloud session: "Start M1 per PROGRESS.md".
 
 ### 2026-10-03 21:40 · Claude (laptop) · Added STE mode to the plan; deferred API keys
 - **Done:** Copied Samuel's STE skill (SKILL.md, rules.md, substitutions.md, ste_check.py) to `prompts/ste/` with a README; M6 now has an STE rewrite option, strictness dial and STE reading preference with a score badge. M0 no longer asks for Anthropic/OpenAI keys (needed before M6 and M9). M8 voice-note transcription set to ElevenLabs.
