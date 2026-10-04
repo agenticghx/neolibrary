@@ -48,6 +48,17 @@ export default defineConfig({
     { name: "ai", testMatch: /ai\.spec\.ts/, dependencies: ["annotations"], use: { ...desktop } },
     // 8. Reading aloud (fake voice).
     { name: "audio", testMatch: /audio\.spec\.ts/, dependencies: ["ai"], use: { ...desktop } },
+    // 9. Voice notes, stickers and handwriting. Chromium's fake microphone plays a test tone.
+    {
+      name: "notes",
+      testMatch: /notes\.spec\.ts/,
+      dependencies: ["audio"],
+      use: {
+        ...desktop,
+        permissions: ["microphone"],
+        launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
+      },
+    },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

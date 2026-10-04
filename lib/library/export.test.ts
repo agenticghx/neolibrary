@@ -14,7 +14,9 @@ import { savePosition } from "./reading";
 import { eq } from "drizzle-orm";
 import { users } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
-import { FakeSpeech } from "@/lib/speech/fake";
+import { FakeSpeech, wav } from "@/lib/speech/fake";
+import { FakeTranscriber } from "@/lib/speech/transcribe";
+import { createVoiceNote } from "./voice-notes";
 import { speakPassage } from "./audio";
 import { markQuestion, questionBank } from "./questions";
 import { rewriteParagraph } from "./rewrite";
@@ -51,6 +53,14 @@ describe("library export (ground rule 7)", () => {
     await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: false });
     await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: true });
     const track = await speakPassage(database.db, storage, new FakeSpeech(), ownerId, { bookId, sectionId: paragraph.id, voice: "fake-ben" });
+    const voice = await createVoiceNote(database.db, storage, new FakeTranscriber(), ownerId, {
+      bookId,
+      cfi: paragraph.cfi.replace(/\)$/, "/1:0)"),
+      quote: { exact: paragraph.text.slice(0, 20) },
+      audio: wav(1),
+      mime: "audio/wav",
+      durationMs: 1000,
+    });
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
 
@@ -63,7 +73,13 @@ describe("library export (ground rule 7)", () => {
       ["Second", 2, false],
       ["Hidden later", 1, false],
       ["Hidden later", 2, true],
+      ["", 1, false],
     ]);
+    expect(before.annotations!.at(-1)).toMatchObject({
+      kind: "voice",
+      audio: { key: voice.annotation.voice!.audioKey, mime: "audio/wav", durationMs: 1000 },
+      transcript: voice.annotation.voice!.transcript,
+    });
     expect(before.questionMarks!.map((m) => [m.questionIndex, m.correct])).toEqual([
       [0, false],
       [0, true],
@@ -75,6 +91,7 @@ describe("library export (ground rule 7)", () => {
     expect(before.generations).toEqual([
       expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
       expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "plain" } }),
+      expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
     ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
 
@@ -86,7 +103,10 @@ describe("library export (ground rule 7)", () => {
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));
     expect((await listShelf(database.db, ownerId, { collectionId: c.id })).map((b) => b.title)).toEqual(["The Time Machine"]);
-    expect((await listAnnotations(database.db, ownerId, bookId)).map((a) => a.body)).toEqual(["Second"]);
+    expect((await listAnnotations(database.db, ownerId, bookId)).map((a) => [a.kind, a.body])).toEqual([
+      ["note", "Second"],
+      ["voice", ""],
+    ]);
   });
 
   it("refuses files that are not a library export", async () => {

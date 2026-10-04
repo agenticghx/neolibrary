@@ -61,7 +61,7 @@ export type NoteHit = {
   bookId: string | null;
   /** The book's title, or the pillar's / path's for notes on those. */
   bookTitle: string;
-  kind: "highlight" | "bookmark" | "note";
+  kind: "highlight" | "bookmark" | "note" | "voice";
   cfi: string | null;
   snippet: SearchHit["snippet"];
 };
@@ -79,15 +79,15 @@ export async function searchNotes(db: Db, ownerId: string, query: string, limit 
     )
     SELECT a.annotation_id AS "annotationId", b.id AS "bookId",
            coalesce(b.title, pi.title, pa.title, '') AS "bookTitle", a.kind, a.cfi,
-           ts_headline('english', trim(a.body || ' ' || a.quote_exact), query.q,
+           ts_headline('english', trim(a.body || ' ' || a.transcript || ' ' || a.quote_exact), query.q,
              ${`StartSel=${"\u0002"}, StopSel=${"\u0003"}, MaxWords=30, MinWords=10, ShortWord=2`}) AS headline
     FROM latest a
     LEFT JOIN books b ON b.id = a.book_id
     LEFT JOIN pillars pi ON pi.id = a.target_id AND a.target_type = 'pillar'
     LEFT JOIN paths pa ON pa.id = a.target_id AND a.target_type = 'path'
-    JOIN query ON to_tsvector('english', a.body || ' ' || a.quote_exact) @@ query.q
+    JOIN query ON to_tsvector('english', a.body || ' ' || a.transcript || ' ' || a.quote_exact) @@ query.q
     WHERE NOT a.deleted
-    ORDER BY ts_rank(to_tsvector('english', a.body || ' ' || a.quote_exact), query.q) DESC, a.created_at DESC
+    ORDER BY ts_rank(to_tsvector('english', a.body || ' ' || a.transcript || ' ' || a.quote_exact), query.q) DESC, a.created_at DESC
     LIMIT ${limit}
   `);
   const list = (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows) as (Omit<NoteHit, "snippet"> & { headline: string })[];

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M8 (voice notes, stickers, handwriting).
+next_action: Sessions loop through docs/done.md on their own; next is M8 (b), stickers.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -22,26 +22,21 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
 1. **M8 · Thinking-out-loud notes**, next unticked box in `docs/done.md`.
-   Suggested PRs: (a) **voice notes** on a passage: record in the browser
-   (MediaRecorder; Playwright can use Chromium's fake microphone,
-   `--use-fake-device-for-media-stream` and
-   `--use-fake-ui-for-media-stream`, or upload a test audio file), store the
-   audio in the bucket under the owner (like `audio/…`), and turn it into
-   text so it is searchable: a `Transcriber` interface with ElevenLabs
-   speech-to-text (`client.speechToText.convert` in the SDK already
-   installed; check the model id there) and a fake that returns fixed text;
-   cost and caps through `checkCaps` with the voice caps. A voice note is an
-   annotation (append-only, ground rule 9) of a new kind `voice` with the
-   audio key and transcript (migration with a reverse step); it shows in the
-   Notes panel with a player, its transcript is in note search and in the
-   exports (Markdown and W3C: transcript as the body; library JSON: all
-   fields). (b) **Stickers** on passages: a small fixed set (e.g. ★ ? ! ✓ ⚑
-   drawn as SVG, not emoji, so screenshots match everywhere), stored as
-   annotations of kind `sticker`, drawn in the margin. (c) **Handwriting**
-   last: a drawing layer (pointer events on a canvas over the page),
-   strokes saved as JSON point lists on a passage annotation, redrawn after
-   reload; Playwright draws a scripted stroke. Done when (plan): voice note
-   and sticker survive a reload; a scripted stroke is saved and redrawn.
+   PR (a), voice notes, is done (see Log). Remaining:
+   (b) **Stickers** on passages: a small fixed set drawn as SVG (not emoji,
+   so screenshots match everywhere), e.g. star, question, exclamation,
+   tick, flag. Store them as annotations of kind `sticker` with a `sticker`
+   column (migration with a reverse step; extend the kind CHECK as
+   `0012_voice_notes` did, and its down step must turn stickers into
+   something the old schema accepts, e.g. highlights). Show them in the
+   Notes panel and as a small mark beside the passage (foliate overlayer
+   `draw-annotation` can draw a custom SVG). Export them (library JSON, and
+   in Markdown and W3C as a word, e.g. "Sticker: question"). Playwright:
+   add a sticker, reload, it is there. (c) **Handwriting** last: a drawing
+   layer (pointer events on a canvas over the reader stage), strokes saved
+   as JSON point lists on a passage annotation (kind `drawing`), redrawn
+   after reload; Playwright draws a scripted stroke and checks it is
+   redrawn (pixel check on the canvas). Then tick M8.
 2. Then M9, M10, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -109,6 +104,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 07:15 UTC · Claude (cloud) · M8 (a): voice notes on passages, transcribed and searchable
+- **Done:** Selecting text now offers **Voice note**: Record (with a running clock, up to 10 minutes), Stop, then **Save voice note** or Discard. Nothing leaves the device until Save. The recording goes to storage under the owner (`audio/<owner>/<book>/notes/…`), never into the database. It is **transcribed** by ElevenLabs speech-to-text (`scribe_v2`, through the SDK and key already used for reading aloud; a fake in tests). The transcript is stored with its provenance and cost like every AI output and counts against the voice caps; the price is set by `ELEVENLABS_STT_USD_PER_HOUR` (default $1, cautious). A voice note is an **annotation of kind `voice`** (migration `0012_voice_notes`). Its reverse step turns voice notes back into text notes holding their transcript, so going back loses nothing said. So voice notes are append-only, versioned and soft-deleted like every note. **If transcription fails or the cap is reached, the note is still saved** with the recording and a plain message, so nothing the reader said is lost. The Notes panel shows a voice note with a player (short-lived signed link) and its transcript, labelled "Transcript · machine-made" in the machine style. Transcripts are in note search (labelled "Voice note"), cross-book links, the Markdown and W3C exports (as "Voice note: …"), and the library export round trip (recording key, type, length, transcript). **Found and fixed on the way:** the Notes panel's export links (from M5) were 4.42:1 contrast in dark mode (accent text on the raised panel). They now use ink with an accent underline.
+- **Key paths:** `lib/speech/transcribe.ts`, `lib/library/voice-notes.ts`, `db/migrations/0012_voice_notes.*`, `lib/library/{annotations,annotation-formats,search,crosslinks,export}.ts`, `app/api/books/[id]/voice-notes/route.ts`, `app/api/books/[id]/annotations/route.ts` (signed audio links), `app/(reader)/books/[id]/read/{VoiceRecorder,SelectionBar,NotesPanel,Reader}.tsx`, `components/NotesExport.module.css`, `e2e/notes.spec.ts`, `playwright.config.ts` (project `notes` with Chromium's fake microphone)
+- **Commands that worked:** `npm run check` → Vitest `190 passed`. These include: the recording stored under the owner, transcribed once (1 call), a `transcript` generation with cost counted for `elevenlabs`, the note in the list, in search and in both exports, hidden-not-deleted on remove; still saved (with the reason) when transcription fails, when the cap is reached, or with no transcriber; wrong types, empty or over-10 MB files, other books and bad places refused before anything is paid; the round trip keeps the voice note. `npx playwright test` → `133 passed (2.7m)`, including, with the fake microphone (a test tone): select "a volume of some dry divinity" → Voice note → Record → Stop ("Recorded 0:01") → Save → the Notes panel shows "Voice note", the quote and "Test transcript of a voice note (… bytes of audio)."; the recording link returns audio over 1 KB; **after a reload the voice note is still there**; searching "transcript voice note" finds it as "Voice note · The Strange Case…"; axe clean in all four looks. Screenshots `screenshots/reader-voice-note-*` checked by eye.
+- **Known issues / blockers:** No real ElevenLabs transcription yet (the cloud session cannot reach ElevenLabs). Voice notes are not drawn in the book text (they show in the Notes panel); the transcript cannot be edited (the typed note beside it can).
+- **Exact next steps:** M8 (b), per "Exact next steps".
 
 ### 2026-10-04 06:50 UTC · Claude (cloud) · M7 (c): the running cost counter; M7 ticked
 - **Done:** A new admin page **"Spending this month"** (`/admin/costs`, admin only, linked from the Invite page because the phone navigation has no room) shows, for each paid service (Claude for text, ElevenLabs for voice): what it has cost since the 1st for everyone, against its monthly cap; a bar; how many paid requests; the per-book cap; and the names of the settings that change the caps. Below, a **split by book** for this month. Only the admin's own books are named; other readers' spending is one line, because books are private (ground rule 6). The page is in `e2e/pages.ts`, so it has reference screenshots and an accessibility check. The Invite page's references were regenerated for the new link. **M7 ticked** in `docs/done.md`. The live part (one real narrated paragraph) is under Waiting on Samuel, with a reminder to set `ELEVENLABS_USD_PER_1K_CHARS` to the real plan price.

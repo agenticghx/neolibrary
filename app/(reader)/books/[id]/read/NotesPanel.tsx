@@ -23,7 +23,7 @@ export function NotesPanel({
   title: string;
   author: string;
   themeEl: () => Element | null;
-  items: Annotation[];
+  items: (Annotation & { audioUrl?: string })[];
   activeId: string | null;
   onGo: (a: Annotation) => void;
   onSave: (a: Annotation, body: string) => Promise<void>;
@@ -72,9 +72,26 @@ export function NotesPanel({
                 {a.kind === "highlight" ? (
                   <span className={`${styles.dot} ${styles[`mark_${a.color ?? "sage"}`]}`} aria-hidden="true" />
                 ) : null}
-                {a.kind === "bookmark" ? "Bookmark" : a.kind === "note" ? "Note on the book" : a.body ? "Highlight and note" : "Highlight"}
+                {a.kind === "bookmark"
+                  ? "Bookmark"
+                  : a.kind === "voice"
+                    ? "Voice note"
+                    : a.kind === "note"
+                      ? "Note on the book"
+                      : a.body
+                        ? "Highlight and note"
+                        : "Highlight"}
               </p>
               {a.quote.exact ? <blockquote className={styles.noteQuote}>{a.quote.exact}</blockquote> : null}
+              {a.voice ? (
+                <div className={styles.voiceNote}>
+                  {a.audioUrl ? <audio controls preload="none" src={a.audioUrl} className={styles.voicePlayer} aria-label="Play the voice note" /> : null}
+                  <p className={styles.transcript}>
+                    <span className={styles.machineLabel}>Transcript · machine-made</span>
+                    {a.voice.transcript || "No transcript (it could not be made). The recording is kept."}
+                  </p>
+                </div>
+              ) : null}
               {editing === a.id ? (
                 <form
                   className={styles.noteForm}

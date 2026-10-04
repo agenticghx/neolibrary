@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Color } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
+import { VoiceRecorder } from "./VoiceRecorder";
 import styles from "./reader.module.css";
 
 export type PendingSelection = { cfi: string; exact: string; prefix: string; suffix: string };
@@ -23,6 +24,7 @@ export function SelectionBar({
   themeEl,
   onHighlight,
   onRewrite,
+  onVoiceNote,
   onClose,
 }: {
   bookId: string;
@@ -32,9 +34,11 @@ export function SelectionBar({
   themeEl: () => Element | null;
   onHighlight: (color: Color, body: string) => Promise<void>;
   onRewrite: () => void;
+  onVoiceNote: (audio: Blob, durationMs: number) => Promise<void>;
   onClose: () => void;
 }) {
   const [noting, setNoting] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
   const preview = selection.exact.length > 90 ? `${selection.exact.slice(0, 90)}…` : selection.exact;
@@ -42,7 +46,9 @@ export function SelectionBar({
   return (
     <div className={styles.selectionBar} role="toolbar" aria-label="Selected text">
       <p className={styles.selectionQuote}>“{preview}”</p>
-      {noting ? (
+      {recording ? (
+        <VoiceRecorder onSave={onVoiceNote} onBack={() => setRecording(false)} />
+      ) : noting ? (
         <form
           className={styles.noteForm}
           onSubmit={async (e) => {
@@ -84,6 +90,9 @@ export function SelectionBar({
           ))}
           <button type="button" className={styles.tool} onClick={() => setNoting(true)}>
             Add note
+          </button>
+          <button type="button" className={styles.tool} onClick={() => setRecording(true)}>
+            Voice note
           </button>
           <button type="button" className={styles.tool} onClick={onRewrite}>
             Rewrite

@@ -66,7 +66,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   className={styles.hit}
                 >
                   <span className={styles.chapter}>
-                    {h.kind === "note" ? "Note" : h.kind === "bookmark" ? "Bookmark" : "Highlight"} · {h.bookTitle}
+                    {h.kind === "note" ? "Note" : h.kind === "bookmark" ? "Bookmark" : h.kind === "voice" ? "Voice note" : "Highlight"} · {h.bookTitle}
                   </span>
                   <span className={styles.snippet}>
                     {h.snippet.map((p, i) => (p.match ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}

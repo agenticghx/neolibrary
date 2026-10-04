@@ -305,6 +305,23 @@ export function Reader(props: {
     await view.current?.addAnnotation({ value: a.cfi! });
   };
 
+  const saveVoiceNote = async (audio: Blob, durationMs: number) => {
+    if (!selection) return;
+    const picked = selection;
+    const form = new FormData();
+    form.set("audio", audio, "voice-note");
+    form.set("cfi", picked.cfi);
+    form.set("quote", JSON.stringify({ exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix }));
+    form.set("durationMs", String(Math.round(durationMs)));
+    const res = await fetch(`/api/books/${props.bookId}/voice-notes`, { method: "POST", body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "The voice note was not saved.");
+    clearSelection();
+    await reload();
+    setActiveId(body.annotation.id);
+    setPanel("notes");
+  };
+
   const saveNote = async (a: Annotation, body: string) => {
     await api(`/api/annotations/${a.id}`, "PATCH", { body });
     await reload();
@@ -520,6 +537,7 @@ export function Reader(props: {
           author={props.author}
           themeEl={() => root.current}
           onHighlight={highlight}
+          onVoiceNote={saveVoiceNote}
           onRewrite={() => {
             setRewriteAt(selection.cfi);
             clearSelection();

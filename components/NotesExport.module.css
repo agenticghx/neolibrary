@@ -5,19 +5,22 @@
   font-size: var(--text-sm);
 }
 
+/* Ink text with an accent underline: accent text on a raised panel is
+   below 4.5:1 contrast in dark mode. */
 .link {
   padding: 0;
   border: 0;
   background-color: transparent;
-  color: var(--accent);
+  color: var(--ink-900);
   font: inherit;
   text-decoration: underline;
+  text-decoration-color: var(--accent);
   text-underline-offset: 0.18em;
   cursor: pointer;
 }
 
 .link:hover {
-  color: var(--accent-strong);
+  text-decoration-thickness: 2px;
 }
 
 .import {
