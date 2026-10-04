@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { ImportForm } from "./ImportForm";
 import styles from "./page.module.css";
@@ -30,6 +31,15 @@ export default async function DataPage() {
         </h2>
         <p className={styles.cardText}>Works into an empty library, so nothing you have is ever overwritten.</p>
         <ImportForm />
+      </section>
+      <section className={styles.card} aria-labelledby="agents">
+        <h2 id="agents" className={styles.cardTitle}>
+          Let an agent use it
+        </h2>
+        <p className={styles.cardText}>Tokens for AI agents, which you can revoke at any time.</p>
+        <Link href="/agents" className={styles.button}>
+          Agent access
+        </Link>
       </section>
     </main>
   );

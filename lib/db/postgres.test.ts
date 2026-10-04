@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FakeModel } from "@/lib/ai/fake";
 import { createFirstAdmin } from "@/lib/auth/service";
+import { createApiToken, revokeApiToken, userForApiToken } from "@/lib/auth/tokens";
 import { createAnnotation, listAnnotations } from "@/lib/library/annotations";
 import { speakPassage } from "@/lib/library/audio";
 import { costReport } from "@/lib/library/costs";
@@ -149,6 +150,13 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
       kinds: [{ kind: "E", activeSeconds: 120, words: 480, books: 1, wpm: 240 }],
     });
     expect(await statsByWeek(db, ownerId, now)).toEqual([{ weekStart: "2026-10-12", activeSeconds: 120, words: 480, sessions: 1, wpm: 240 }]);
+
+    // API tokens (M11): hash lookup, "last used" throttle, revoke.
+    const made = await createApiToken(db, ownerId, "agent");
+    expect(await userForApiToken(db, made.token)).toMatchObject({ id: ownerId });
+    expect(await userForApiToken(db, made.token)).toMatchObject({ id: ownerId });
+    await revokeApiToken(db, ownerId, made.id);
+    expect(await userForApiToken(db, made.token)).toBeNull();
 
     // Export, wipe, import: everything comes back the same.
     const before = await exportLibrary(db, ownerId);

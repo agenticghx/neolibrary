@@ -1,10 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { agentUnauthorised } from "@/lib/auth/agent-401";
 
 // First gate in front of every request (Next.js "proxy").
 //
 // 1. Login: it only checks that a session cookie is present; pages and API
 //    routes then verify the session against the database (lib/auth/session.ts).
 //    Logged-out visitors get the sign-in page (pages) or 401 (API and files).
+//    Agent routes (/api/agent/*) use an API token instead of the cookie: a
+//    request with an `Authorization: Bearer` header passes this gate and the
+//    route checks the token (lib/auth/agent.ts).
 // 2. Content Security Policy on every page: only Next.js's own scripts (which
 //    carry this request's nonce) may run. Books can contain JavaScript; the
 //    reader shows them in blob: frames, which inherit this policy, so their
@@ -45,8 +49,10 @@ function withPolicy(req: NextRequest) {
 export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const isApi = pathname.startsWith("/api/");
-  const allowed = PUBLIC.some((re) => re.test(pathname)) || req.cookies.has("nl_session");
+  const agent = pathname.startsWith("/api/agent/") && /^Bearer\s/i.test(req.headers.get("authorization") ?? "");
+  const allowed = PUBLIC.some((re) => re.test(pathname)) || req.cookies.has("nl_session") || agent;
   if (!allowed) {
+    if (pathname.startsWith("/api/agent/")) return agentUnauthorised();
     if (isApi) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const url = req.nextUrl.clone();
     url.pathname = "/sign-in";

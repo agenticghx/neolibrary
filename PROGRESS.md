@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build M11 (a) personal API tokens on branch m11-api-tokens (plan in docs/handoff.md section 4)
+next_action: Land the M11 (a) PR (CI-rendered data-* and agents-* screenshots), then build M11 (b) agent API
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,12 +24,13 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **M11 (a) · Personal API tokens** (branch `m11-api-tokens`): plan in
-   `docs/handoff.md` §4. An `api_tokens` table (sha256 hash, name, created,
-   last used, revoked; migration with a reverse step), create/revoke on a
-   settings page with the token shown once, a Bearer helper, and `proxy.ts`
-   letting `/api/agent/*` through on a Bearer header (test the signed-out path).
-2. **M11 (b)** agent API, **M11 (c)** MCP server (check
+1. **M11 (a) PR** (branch `m11-api-tokens`): the first CI run should fail
+   only on reference screenshots: `data-*` (the page gained an "Agent access"
+   card) and the new `agents-*`. Take CI's images from the `playwright-report`
+   artifact (`test-results/visual-…/<name>-actual.png`), look at each, copy them to
+   `e2e/__screenshots__/`, push; auto-merge lands it.
+2. **M11 (b)** agent API on `/api/agent/*` with `agentUser(req)` (list books,
+   search text, read notes, add a note), **M11 (c)** MCP server (check
    `npm view @modelcontextprotocol/sdk version` and its README before
    choosing the transport), then **M12** (offline PWA and sync).
 3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
@@ -103,6 +104,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 12:20 UTC · Claude (laptop) · M11 (a): personal API tokens
+- **Done:** PR #37 (ledger + CI on Postgres 18) merged by hand with all four checks green: the auto-merge Action only takes branches starting with `m` or `claude/`, and that one was `deploy-m10-ledger` (name branches `m<N>-…` to avoid this). M11 (a) on `m11-api-tokens`: a new **Agent access** page (`/agents`, linked from Your data) makes **personal API tokens** for AI agents. A token (`nl_` + 43 random characters) is shown once with a copy button and a warning to keep it as private as a password; the database keeps only its sha256 hash and first 8 characters (migration `0018_api_tokens`; the reverse step drops the table, since tokens are credentials). The list shows each token's name and prefix, and "Not used yet", "Last used <date>" (written at most once a minute) or "Revoked <date>", with a Revoke button. `lib/auth/agent.ts` `agentUser(req)` turns `Authorization: Bearer` into the token's user and ignores cookies. Revoked tokens and disabled users are refused. `proxy.ts` lets `/api/agent/*` through on a Bearer header, and both the gate and the route answer an agent-specific **401 JSON with `WWW-Authenticate: Bearer`**, never a sign-in redirect. A Bearer header opens nothing else (the rest of the API still wants the cookie). First route: `GET /api/agent/me`. Tokens are not in the library export (they are secrets).
+- **Key paths:** `db/migrations/0018_api_tokens.*`, `lib/db/schema.ts` (`apiTokens`), `lib/auth/{tokens,agent,agent-401}.ts`, `lib/auth/tokens.test.ts`, `proxy.ts`, `app/api/agent/me/route.ts`, `app/(app)/agents/{page,TokenForm}.tsx`, `app/(app)/actions.ts`, `app/(app)/data/page.tsx`, `e2e/agents.spec.ts`, `e2e/pages.ts`, `playwright.config.ts` (project `agents`)
+- **Commands that worked:** `npm run check` → `Tests 221 passed | 2 skipped (223)` (tokens: hash only, owner only, once-a-minute last used, revoked/malformed/disabled refused, header parsing; migration 0018 up/down/up); `TEST_DATABASE_URL=… npm run test:postgres` → `Tests 2 passed (2)` (now with a token made, used twice, revoked); `npx playwright test --ignore-snapshots` → `160 passed (1.5m)`. The browser test makes a token in the UI; after a reload the token is no longer in the page; a client with **no cookies** gets 200 from `/api/agent/me` with the owner's name; the row then says "Last used"; Revoke gives "Revoked" and the client gets 401. Without a token, or with a fake one, the answer is 401 JSON. A Bearer header does not open `/api/export` (401) or `/shelf` (307 to sign-in). Axe clean and no sideways scroll in four looks; `screenshots/agents-tokens-*` checked by eye.
+- **Known issues / blockers:** Tokens never expire on their own (revoke by hand); fine for a personal library, revisit if sharing grows. No rate limit on agent routes yet (the sign-in limiter in `lib/auth/rate-limit.ts` could be reused in (b)).
+- **Exact next steps:** Land this PR with CI's screenshots, then M11 (b) agent API.
 
 ### 2026-10-04 11:40 UTC · Claude (laptop) · M10 merged and deployed (database backed up first)
 - **Done:** PR #36 (M10 (c)) merged with all four checks green, so **M10 is done** (#34, #35, #36). Deployed `main` (`9be5296`) to Railway from the laptop. **Backup first**, as the rule requires (migrations 0016 and 0017 ran on this deploy): the database has no public address (correct; not opened), and Railway's agent cannot make volume backups. So `pg_dump` ran inside the Postgres container through Railway's SSH gateway and was streamed to the laptop: `~/Backups/neolibrary/prod-before-0016-20261004T1058Z.sql` (76,826 bytes; not in git). **The restore was checked** into a throwaway local Postgres: exit 0, `users` 1, `books` 126, the same as production. After the deploy: health 200, `/stats` redirects to sign-in (the M10 page is live), the database has 17 migrations applied and the data is intact (1 user, 126 books), and `reading_sessions.chapters` exists. Production runs **Postgres 18.6**, so CI's real-Postgres job now uses `postgres:18` (it was 16). The owner account exists (`/setup` now redirects to sign-in), so that item is removed from Waiting on Samuel.
