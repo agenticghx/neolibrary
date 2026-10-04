@@ -11,6 +11,8 @@ export type TextRequest = {
   /** Upper limit on output, thinking included. */
   maxTokens: number;
   effort: Effort;
+  /** Ask for JSON matching this JSON Schema (structured output) instead of prose. */
+  schema?: Record<string, unknown>;
 };
 
 export type TextResult = {

@@ -157,7 +157,40 @@ test("STE rewrites: a strictness dial, a full-STE score badge and the meaning-ch
   expect(bad.status()).toBe(400);
 });
 
-test("the rewrite panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
+test('"What do I need to know?" explains the chapter\'s assumed concepts once, and keeps the answer', async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary");
+  const know = page.getByRole("region", { name: "What do I need to know?" });
+  const box = page.getByTestId("need-to-know");
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await expect(know).toContainText("Search for Mr. Hyde");
+  await know.getByRole("button", { name: /^Show me \((about \$|under \$)/ }).click();
+  await expect(box).toContainText("Before you read · written by the test AI");
+  await expect(box.locator("dt").first()).toBeVisible();
+  const links = box.getByRole("link", { name: /^Read more about/ });
+  expect(await links.count()).toBeGreaterThan(0);
+  await expect(links.first()).toHaveAttribute("href", /^https:\/\/en\.wikipedia\.org\/w\/index\.php\?search=/);
+  await expect(links.first()).toHaveAttribute("target", "_blank");
+  await expect(box).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
+
+  // Closing and reopening shows the stored answer; nothing is asked again.
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await expect(know).toHaveCount(0);
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await expect(know).toContainText("Saved answer");
+  await know.getByRole("button", { name: "Try again" }).click();
+  await expect(know).toContainText("Latest of 2 answers");
+
+  // Another chapter has its own answer.
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "The Carew Murder Case" }).click();
+  await expect(page.locator("footer")).toContainText("The Carew Murder Case");
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await expect(know).toContainText("The Carew Murder Case");
+  await expect(know.getByRole("button", { name: /^Show me/ })).toBeVisible();
+});
+
+test("the rewrite and need-to-know panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
@@ -170,6 +203,13 @@ test("the rewrite panel is accessible, and looks right on phone and desktop, lig
       expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       await page.waitForTimeout(500);
       await page.screenshot({ path: `screenshots/reader-rewrite-${name}-${scheme}.png` });
+
+      await page.getByRole("button", { name: "What do I need to know?" }).click();
+      await expect(page.getByTestId("need-to-know")).toBeVisible();
+      const know = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(know.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-need-to-know-${name}-${scheme}.png` });
     }
   }
 });

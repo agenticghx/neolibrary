@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
 import type { Annotation, Color } from "@/lib/library/annotations";
+import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { RewritePanel } from "./RewritePanel";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
@@ -85,7 +86,7 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know">("none");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
@@ -342,6 +343,20 @@ export function Reader(props: {
           <button
             type="button"
             className={styles.tool}
+            aria-expanded={panel === "know"}
+            aria-label="What do I need to know?"
+            title="What do I need to know?"
+            onClick={() => setPanel(panel === "know" ? "none" : "know")}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M6.2 6.2a1.9 1.9 0 1 1 2.6 1.75c-.5.22-.8.6-.8 1.15v.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <circle cx="8" cy="11.6" r=".85" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={styles.tool}
             aria-expanded={panel === "notes"}
             onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
           >
@@ -430,6 +445,8 @@ export function Reader(props: {
           onAddBookNote={addBookNote}
         />
       ) : null}
+
+      {panel === "know" && where.cfi ? <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} /> : null}
 
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (d), "What do I need to know?".
+next_action: Sessions loop through docs/done.md on their own; next is M6 (e), STE as a reading preference.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -25,20 +25,26 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
    `docs/done.md`. Read the `claude-api` skill before writing Claude code
    (model ids, SDK). Everything goes behind an interface with a **fake** used
    in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   PRs (a) plumbing, (b) rewrite in the reader and (c) STE are done (see
-   Log). Remaining: (d) **"What do I need to know?"** at the top of each
-   section (chapter): the concepts it assumes, each with a two-line
-   explanation and a "read more" link (Wikipedia search URL is fine), via
-   `generate()` with a new prompt file and structured output (JSON); **STE as
-   a reading preference** for all AI explanations: a user setting (new
-   column or table, with a migration and reverse step) changeable per book,
-   applied to prerequisites and question answers by adding the STE skill to
-   their prompts. (e) **Question bank** per section: recall, understanding
-   and application questions, answers hidden until clicked, mark right or
-   wrong (stored, exported), and a "needs a re-read" view. (f) **Cross-book
-   links**: when a passage covers an idea highlighted in another book, show
-   it in the margin (start with full-text search over the user's highlights
-   from other books; no AI needed for a first version). Then tick M6.
+   PRs (a) plumbing, (b) rewrite, (c) STE and (d) "What do I need to
+   know?" are done (see Log). Remaining:
+   (e) **STE as a reading preference** for every AI explanation: a user
+   setting ("Explain in: Plain English / STE Light / Standard / Strict"),
+   changeable per book. Store it with a migration (with a reverse step):
+   `users.ai_style` (default `plain`) and `books.ai_style` (null = follow the
+   user). Include both in the library export round trip. A small
+   `/settings` page (add it to `e2e/pages.ts` for screenshots) plus a
+   per-book control in the What-do-I-need-to-know panel. Applied by
+   replacing `{{style}}` in `prompts/prerequisites.md` (now "Write in plain,
+   precise English.") with an STE instruction that includes the skill, and
+   adding the style to the request options so each style is stored
+   separately; show the STE badge on STE explanations.
+   (f) **Question bank** per chapter: recall, understanding and application
+   questions (structured output, like prerequisites), answers hidden until
+   clicked, mark right or wrong (stored append-only, exported), and a "needs
+   a re-read" list of chapters. (g) **Cross-book links**: when a passage
+   covers an idea highlighted in another book, show it in the margin (start
+   with full-text search over the user's highlights from other books; no AI
+   needed for a first version). Then tick M6 in `docs/done.md`.
 2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -92,6 +98,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 05:00 UTC · Claude (cloud) · M6 (d): "What do I need to know?" per chapter
+- **Done:** A new button in the reader's top bar (a circled question mark, labelled "What do I need to know?") opens a panel for the chapter being read. "Show me (about $0.02)" sends the whole chapter (capped at 60,000 characters, about 15,000 tokens, so the cost has a known ceiling) with `prompts/prerequisites.md`. It asks for **structured output**, meaning JSON that must match a schema: 3–7 concepts the chapter assumes, each with a name, at most two sentences of explanation and a search phrase. The panel lists them in the machine-written style. Each has a "Read more" link to a Wikipedia search (opens in a new tab), and the provenance line sits underneath. The answer is stored per chapter and shown again for free; "Try again" adds a new answer. The text interface gained an optional `schema` (sent as `output_config.format`); the fake answers with made-up concepts. On phones the top bar was tightened so the title still shows next to the extra button.
+- **Key paths:** `lib/library/prerequisites.ts`, `prompts/prerequisites.md`, `app/api/books/[id]/prerequisites/route.ts`, `app/(reader)/books/[id]/read/NeedToKnowPanel.tsx`, `lib/ai/{model,claude,fake,generate}.ts` (schema), `e2e/ai.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `166 passed`, including: the chapter is found from a CFI inside it or at its very top; the request carries the schema, effort medium, and the chapter's first and last paragraphs; stored with provenance; asking again re-serves it (1 call); "Try again" makes 2 answers; bad JSON shows nothing; at most 8 concepts; other readers' books refused; `ClaudeModel` sends `output_config: { effort, format: { type: "json_schema", schema } }`. `npx playwright test` → `116 passed (1.8m)`, including: open the panel in "Search for Mr. Hyde" → Show me → concepts with Wikipedia "Read more" links (new tab) and "fake · 4 Oct 2026 · $0.0…"; close and reopen → "Saved answer"; Try again → "Latest of 2 answers"; jump to "The Carew Murder Case" → that chapter has its own (empty) answer; axe clean with the panel open. Screenshots `screenshots/reader-need-to-know-{desktop,phone}-{light,dark}.png` checked by eye (phone bar fixed after the first look showed "Notes (3)" wrapping and the title gone).
+- **Known issues / blockers:** Shown in a panel, not printed at the top of the chapter inside the book page (the book renders in its own sandboxed frame). Explanations are in plain English until the STE preference lands in (e). No real Claude call yet (no key).
+- **Exact next steps:** M6 (e), per "Exact next steps".
 
 ### 2026-10-04 04:50 UTC · Claude (cloud) · M6 (c): STE mode, with the checker ported to TypeScript
 - **Done:** `lib/ai/ste.ts` is a line-by-line port of Samuel's `prompts/ste/ste_check.py` (the Simplified Technical English checker). It gives the same report: sentence length, paragraph length, passive voice, continuous and perfect tenses, -ing clauses, noun clusters, verbose phrases, non-approved and ambiguous words, contractions, slashes and the compliance percentage. Python and JavaScript regular expressions differ in small ways (word boundaries, digits and whitespace beyond plain ASCII; line ends; rounding to one decimal), so those are spelled out to behave like Python. **STE is a fifth rewrite level** with the strictness dial from the skill: Light, Standard (≈80%, the default) or Strict, or a percentage (90%+ Strict, 70–89% Standard, below 70% Light). The STE prompt (`prompts/ste-rewrite.md`) sends the skill (`SKILL.md` without its header) and the substitution list at the chosen level, and asks for the rewrite followed by a `---notes---` line with the meaning changes. Each strictness is its own stored version; 85% re-serves the Standard one. Every STE rewrite is checked and shows a badge **"STE 92% (full-STE score)"**; it always measures against full STE, as the skill says. The skill's **meaning-change notes** are shown under the rewrite.

@@ -39,6 +39,7 @@ export type GenerationRequest = {
   prompt: string;
   maxTokens: number;
   effort: Effort;
+  schema?: Record<string, unknown>;
 };
 
 export type Generation = {
@@ -150,7 +151,13 @@ export async function generate(
         `This book's AI spending cap (${usd(caps.perBookUsd)}) has been reached (${usd(spent.book)} spent). The owner can raise AI_CAP_PER_BOOK_USD.`,
       );
     }
-    const result = await model.generate({ system: req.system, prompt: req.prompt, maxTokens: req.maxTokens, effort: req.effort });
+    const result = await model.generate({
+      system: req.system,
+      prompt: req.prompt,
+      maxTokens: req.maxTokens,
+      effort: req.effort,
+      ...(req.schema ? { schema: req.schema } : {}),
+    });
     const [row] = await db
       .insert(generations)
       .values({
