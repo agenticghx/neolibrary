@@ -18,17 +18,24 @@ import { packageFiles, placedWords, RETRY_WAITS_MS, splitPackage, uploadPackage,
  * memory), so these tests show the browser code and the server code fit.
  */
 
-/** Like the real bucket: every part gets an unguessable tag, and joining checks the tags. */
+/**
+ * Like the real bucket: every part gets an unguessable tag, joining checks
+ * the tags, and every part except the last must be at least the minimum
+ * size (5 MB on S3; PART here, the test's part size).
+ */
 class BucketLikeStorage extends MemoryStorage {
   private tags = new Map<string, string>();
+  private sizes = new Map<string, number>();
   override async putPart(key: string, uploadId: string, part: number, data: Uint8Array) {
     await super.putPart(key, uploadId, part, data);
     const tag = `"${crypto.randomUUID()}"`;
     this.tags.set(`${uploadId}:${part}`, tag);
+    this.sizes.set(`${uploadId}:${part}`, data.byteLength);
     return tag;
   }
   override async finishUpload(key: string, uploadId: string, parts: { part: number; tag: string }[]) {
     if (parts.some((p) => this.tags.get(`${uploadId}:${p.part}`) !== p.tag)) throw new Error("InvalidPart: a tag does not match");
+    if (parts.slice(0, -1).some((p) => (this.sizes.get(`${uploadId}:${p.part}`) ?? 0) < PART)) throw new Error("EntityTooSmall: a part before the last is too small");
     return super.finishUpload(key, uploadId, parts);
   }
 }
