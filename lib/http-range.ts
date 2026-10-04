@@ -21,3 +21,19 @@ export function byteRange(header: string | null, size: number): [number, number]
   if (start >= size || start > end) return "invalid";
   return [start, end];
 }
+
+/** The most one open-ended range request returns (bytes): M13 audiobooks can be hundreds of MB. */
+export const MAX_OPEN_RANGE = 8 * 1024 * 1024;
+
+/**
+ * The bytes to send for a request: like byteRange, but an open-ended request
+ * ("bytes=0-", how audio players start) gets at most MAX_OPEN_RANGE bytes, so
+ * a long audiobook is never read whole for one request. Players then ask for
+ * the next part as they play.
+ */
+export function servedRange(header: string | null, size: number, max = MAX_OPEN_RANGE): [number, number] | null | "invalid" {
+  const r = byteRange(header, size);
+  if (!r || r === "invalid") return r;
+  const openEnded = /^bytes=\d+-$/.test((header ?? "").trim());
+  return openEnded ? [r[0], Math.min(r[1], r[0] + max - 1)] : r;
+}

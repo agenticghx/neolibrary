@@ -121,6 +121,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 17:00 · Claude (laptop) · M13 (c1): storage that can handle long audio
+- **Done:** Step (c) is split in two; this is the first half. The file route used to read the **whole file** from the bucket for every request and then cut out the bytes asked for: for a 201 MB audiobook every seek would pull 201 MB into the server. Now storage can tell a file's size without reading it (`stat`) and read only a byte range (`getRange`, a ranged GET on the bucket), and the route uses them. An open-ended request ("bytes=0-", how players start) gets at most 8 MB; the player asks for more as it plays. Storage also accepts a large file sent in parts (`startUpload` / `putPart` / `finishUpload` / `abortUpload`; the bucket's own multipart upload), so no single request has to carry an audiobook. Memory, local-disk and bucket versions all do this.
+- **Key paths:** `lib/storage/index.ts`, `lib/storage/s3.ts`, `lib/storage/storage.test.ts`, `lib/http-range.ts` (`servedRange`), `app/api/files/[...key]/route.ts`
+- **Commands that worked:** `npx vitest run lib/storage lib/http-range` → `Tests 11 passed (11)`; the bucket version is checked by the requests it would send (a GET with `Range: bytes=1000-1099`, HEAD for size, Create/UploadPart/Complete multipart). `npm run check` → `Tests 261 passed | 2 skipped (263)`; `npx playwright test --ignore-snapshots` → `173 passed (2.0m)` (books, covers and audio still served through the changed route).
+- **Known issues / blockers:** Railway's bucket has not yet been tried with ranged GETs or multipart uploads; check it after the deploy in (f) (standard S3 calls; expected to work).
+- **Exact next steps:** M13 (c2): migration for audio offsets, import record, upload in parts, `POST /api/books/:id/readalong`.
+
 ### 2026-10-04 16:40 · Claude (laptop) · M13 (b): match a package's words to the book's paragraphs
 - **Done:** `matchToParagraphs` turns a package's timed words into word timings on the app's own paragraphs (`[startMs, endMs, from, to]`, times in the package's audio file), with each paragraph's coverage. Book and script are reduced to plain words and walked side by side; where they disagree it jumps to the nearest place where 4 words in a row agree again. That handles spoken headings, long front matter, unread footnotes, skipped phrases, and words broken across a PDF line ("half- extinguished" is highlighted as one word). Each chapter's search starts at the chapter or page the book map names: without that, Frankenstein's introduction (which quotes chapter V) was taken for chapter V, which the test now guards.
 - **Key paths:** `lib/readalong/match.ts`, `lib/readalong/match.test.ts`, `lib/readalong/fixture.ts` (`inBook` is now the book chapter)

@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { fileOwner } from "@/lib/library/import";
 import { serverSecret } from "@/lib/secrets";
 import { verifyFileSignature } from "@/lib/signed-url";
-import { byteRange } from "@/lib/http-range";
+import { servedRange } from "@/lib/http-range";
 import { getStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -23,27 +23,34 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
     return Response.json({ error: "Link expired or invalid" }, { status: 403 });
   }
   if (fileOwner(key) !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
-  const file = await (await getStorage()).get(key).catch(() => null);
-  if (!file) return Response.json({ error: "Not found" }, { status: 404 });
+  const storage = await getStorage();
+  const info = await storage.stat(key).catch(() => null);
+  if (!info) return Response.json({ error: "Not found" }, { status: 404 });
   const headers = {
-    "content-type": file.contentType,
+    "content-type": info.contentType,
     "cache-control": "private, max-age=300",
     "x-content-type-options": "nosniff",
     "content-security-policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
     // Audio players ask for byte ranges to learn the length and to seek.
     "accept-ranges": "bytes",
   };
-  const size = file.data.length;
-  const range = byteRange(req.headers.get("range"), size);
+  const size = info.size;
+  const range = servedRange(req.headers.get("range"), size);
   if (range === "invalid") {
     return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${size}` } });
   }
   if (range) {
+    // Only the bytes asked for are read from storage (an audiobook can be
+    // hundreds of MB); see servedRange for open-ended requests.
     const [start, end] = range;
-    return new Response(Buffer.from(file.data.subarray(start, end + 1)), {
+    const data = await storage.getRange(key, start, end);
+    if (!data) return Response.json({ error: "Not found" }, { status: 404 });
+    return new Response(Buffer.from(data), {
       status: 206,
-      headers: { ...headers, "content-range": `bytes ${start}-${end}/${size}`, "content-length": String(end - start + 1) },
+      headers: { ...headers, "content-range": `bytes ${start}-${start + data.byteLength - 1}/${size}`, "content-length": String(data.byteLength) },
     });
   }
-  return new Response(Buffer.from(file.data), { headers: { ...headers, "content-length": String(size) } });
+  const file = await storage.get(key).catch(() => null);
+  if (!file) return Response.json({ error: "Not found" }, { status: 404 });
+  return new Response(Buffer.from(file.data), { headers: { ...headers, "content-length": String(file.data.length) } });
 }
