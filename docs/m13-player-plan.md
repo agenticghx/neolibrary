@@ -7,10 +7,11 @@ WebKit (Playwright 1.56.1) to confirm or correct every claim. Line numbers
 are from `main` at `63c5fc1`; re-check them before editing.
 
 Background: `docs/plan.md` (M13), `docs/readalong-plan.md`, the package
-format in `tools/readalong/package-format.md`. Already merged: (a) package
-check, (b) word-to-paragraph matching, (c1) ranged storage reads and part
-uploads, (c2) import API + migration 0020, (c3) the "Your audiobook" upload
-section on the book page.
+format in `tools/readalong/package-format.md`. Built before this session:
+(a) package check, (b) word-to-paragraph matching, (c1) ranged storage reads
+and part uploads, (c2) import API + migration 0020, (c3) the "Your audiobook"
+upload section on the book page (check `git log` that its pull request is
+merged before starting).
 
 ## What exists
 
@@ -93,8 +94,15 @@ section on the book page.
      for `upload:` voices.
 4. `Reader.tsx`: no change for EPUB (`highlightWord` and `showPassage` take a
    CFI plus offsets into the paragraph text).
-5. Then update the book page's line "The Listen button will play it once the
-   read-along player is finished…" in `app/(app)/books/[id]/AudiobookUpload.tsx`.
+5. Then update the book page's wording in
+   `app/(app)/books/[id]/AudiobookUpload.tsx`: the sentences "Playing it with
+   the words lit up comes in {later}. Until then it is checked and kept ready
+   here." (ready state) and "…Playing it with the words lit up comes in
+   {later}; for now the audiobook is checked against this book and kept
+   ready." (empty state), and the `later` text ("the next update of the app",
+   or for PDFs "…PDF books come after EPUB books"). After (d), say Listen plays
+   it (EPUB); after (e), drop the PDF caveat. The browser test in
+   `e2e/readalong.spec.ts` checks these sentences; change it with them.
 
 **Tests for (d):** unit (`uploadedReading` order, skips, start index;
 route GET without a key still offers "Your audiobook"); Playwright in the
@@ -169,6 +177,27 @@ iframe, and that the page turns when the audio crosses it. Screenshots
   prefer playing straight through and only seek across untimed gaps.
 - One unexplained Chromium `pause` happened once in 13 local runs (possibly a
   macOS media key); a strict "never pauses" test on a Mac may flake.
+
+## Before the first deploy of M13 (step (f))
+
+Found by the reviewers of (c3); none can be checked from the laptop alone:
+
+1. **Backup first**: the deploy runs migration 0020 at startup (the recipe is
+   in the PROGRESS.md 2026-10-04 11:40 entry).
+2. **Try the real bucket once**: a package with audio over 16 MB (three 8 MB
+   parts or more), so the bucket's multipart join, its 5 MB minimum part size,
+   a HEAD and a ranged GET are all exercised. The tests enforce the same rules
+   with local storage, but the bucket itself has not been tried.
+3. **Time the last step on the real bucket**: "finish" re-reads every audio
+   byte (8 MB at a time) to check its fingerprint, in one request that sends
+   nothing back until done; Railway closes a silent request after a few
+   minutes. Time a 201 MB finish. If it is close to the limit, stream a
+   keep-alive from the finish route, or check the fingerprint while the parts
+   arrive.
+4. **Bucket clean-up rule** (Samuel, Railway settings): abandoned part uploads
+   are cancelled when the same reader starts another upload, after two days;
+   a bucket "lifecycle rule" that aborts incomplete multipart uploads after a
+   few days would catch readers who never come back.
 
 ## Order and done-when
 

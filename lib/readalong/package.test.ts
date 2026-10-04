@@ -131,6 +131,19 @@ describe("read-along packages", () => {
     for (let i = 0; i + 4 <= zip.byteLength; i++) {
       if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, 0x7fffffff, true);
     }
-    expect(() => readPackageZip(zip)).toThrow("This zip unpacks to more than a read-along package can hold.");
+    expect(() => readPackageZip(zip)).toThrow("This zip unpacks to more than a read-along package can hold");
+  });
+
+  it("refuses stored entries that overlap inside the zip (the same bytes unpacked again and again)", () => {
+    const zip = zipSync({ "manifest.json": strToU8("{}"), "a.bin": new Uint8Array(100_000) }, { level: 0 });
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    // Point every central-directory entry at the same data and claim it is large and stored.
+    for (let i = 0; i + 4 <= zip.byteLength; i++) {
+      if (view.getUint32(i, true) === 0x02014b50) {
+        view.setUint32(i + 20, 150_000, true); // packed size larger than the whole zip
+        view.setUint32(i + 24, 150_000, true);
+      }
+    }
+    expect(() => readPackageZip(zip)).toThrow("This zip unpacks to more than a read-along package can hold");
   });
 });

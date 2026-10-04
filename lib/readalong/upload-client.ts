@@ -11,7 +11,7 @@ import { sha256OfBlob } from "./sha256";
  * audio file is first checked here against the manifest's fingerprint, then
  * sent in parts of `partBytes` (8 MB), so no request carries a whole
  * audiobook; then the import is finished. A .zip of the package (up to
- * 200 MB) is accepted too, for browsers that cannot pick a folder (phones).
+ * 50 MB) is accepted too, for browsers that cannot pick a folder (phones).
  *
  * No browser APIs beyond fetch and Blob, so it runs in tests under Node.
  * Fingerprints are computed 8 MB at a time (sha256.ts), never holding a
@@ -29,6 +29,7 @@ export type ImportSummary = {
   finishedAt: string | null;
   report: { chapters: { n: number; title: string; spokenWords: number; matchedWords: number }[]; paragraphs: number };
   waitingFor: string[];
+  beingFinished?: boolean;
 };
 
 export type UploadProgress =
@@ -42,7 +43,7 @@ export type UploadProgress =
 export class UploadError extends Error {}
 
 /** The most one request may carry: the server's limit for the package zip (MAX_ZIP_BYTES). */
-export const MAX_ZIP_BYTES = 200 * 1024 * 1024;
+export const MAX_ZIP_BYTES = 50 * 1024 * 1024;
 /** Waits between tries after a dropped connection: about a minute in all (a Wi-Fi reconnect, a short sleep). */
 export const RETRY_WAITS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
 /** How long to keep asking whether a "finish" whose answer was lost went through. */
@@ -134,23 +135,33 @@ export async function uploadPackage(
   opts: { fetch?: Fetch; onProgress?: (p: UploadProgress) => void; signal?: AbortSignal; wait?: (ms: number) => Promise<void> } = {},
 ): Promise<ImportSummary> {
   const doFetch: Fetch = opts.fetch ?? ((i, init) => fetch(i, init));
-  const wait = opts.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const wait = opts.wait ?? ((ms: number) => abortableWait(ms, opts.signal));
   const progress = opts.onProgress ?? (() => {});
   const base = `/api/books/${bookId}/readalong`;
   const stopIfCancelled = () => {
     if (opts.signal?.aborted) throw new UploadError(CANCELLED);
   };
-  /** A request, tried again after a dropped connection (never after an answer from the server). */
-  const send = async (url: string, init: RequestInit) => {
+  /**
+   * A request, tried again after a dropped connection. With `gatewayRetry`
+   * (safe for sending a numbered part again), also after a 502/503/504 from
+   * the hosting's front door, which happens while the app restarts.
+   */
+  const send = async (url: string, init: RequestInit, gatewayRetry = false) => {
     for (let attempt = 0; ; attempt++) {
       stopIfCancelled();
+      let res: Response | null = null;
       try {
-        return await doFetch(url, { ...init, signal: opts.signal });
+        res = await doFetch(url, { ...init, signal: opts.signal });
       } catch {
         stopIfCancelled();
-        if (attempt >= RETRY_WAITS_MS.length) throw new UploadError("The connection dropped and did not come back. Choose the folder again to start over.");
-        await wait(RETRY_WAITS_MS[attempt]);
       }
+      if (res && !(gatewayRetry && [502, 503, 504].includes(res.status))) return res;
+      if (attempt >= RETRY_WAITS_MS.length) {
+        if (res) return res;
+        throw new UploadError("The connection dropped and did not come back. Choose the folder again to start over.");
+      }
+      await wait(RETRY_WAITS_MS[attempt]);
+      stopIfCancelled();
     }
   };
 
@@ -158,7 +169,7 @@ export async function uploadPackage(
   let body: Uint8Array | Blob;
   let audio = new Map<string, Blob>();
   if (files.length === 1 && /\.zip$/i.test(files[0].path)) {
-    if (files[0].blob.size > MAX_ZIP_BYTES) throw new UploadError("This .zip is larger than 200 MB. Choose the package folder instead, so the audio can be sent in parts.");
+    if (files[0].blob.size > MAX_ZIP_BYTES) throw new UploadError("This .zip is larger than 50 MB. Choose the package folder instead, so the audio can be sent in parts.");
     body = files[0].blob;
     progress({ stage: "sending-zip", totalBytes: files[0].blob.size });
   } else {
@@ -169,7 +180,13 @@ export async function uploadPackage(
     progress({ stage: "fingerprints", totalBytes: [...audio.values()].reduce((n, b) => n + b.size, 0) });
     for (const [file, blob] of audio) {
       stopIfCancelled();
-      const print = await sha256OfBlob(blob, 8 * 1024 * 1024, opts.signal).catch(() => stopIfCancelled());
+      let print: string;
+      try {
+        print = await sha256OfBlob(blob, 8 * 1024 * 1024, opts.signal);
+      } catch {
+        stopIfCancelled();
+        throw new UploadError(`${file} could not be read from this computer (was it moved or changed after you chose the folder?). Choose the folder again.`);
+      }
       if (print !== split.fingerprints.get(file)) {
         throw new UploadError(`${file} is not the audio this package was made with (its fingerprint differs). Make the package again with the readalong-audio skill.`);
       }
@@ -191,12 +208,13 @@ export async function uploadPackage(
     for (let at = 0, n = 1; at < blob.size; at += partBytes, n++) {
       const piece = blob.slice(at, Math.min(blob.size, at + partBytes));
       const url = `${base}/${summary.id}/parts?${new URLSearchParams({ file, part: String(n) })}`;
-      parts[file].push((await json(await send(url, { method: "PUT", headers: { "content-type": "application/octet-stream" }, body: piece }))) as { part: number; tag: string });
+      parts[file].push((await json(await send(url, { method: "PUT", headers: { "content-type": "application/octet-stream" }, body: piece }, true))) as { part: number; tag: string });
       sentBytes += piece.size;
       progress({ stage: "sending", file, sentBytes, totalBytes });
     }
   }
   if (summary.status !== "ready") {
+    stopIfCancelled(); // the last chance to cancel: once finishing starts, the server completes it
     progress({ stage: "finishing" });
     summary = await finish(summary.id, parts);
   }
@@ -205,27 +223,47 @@ export async function uploadPackage(
 
   /**
    * The last step. It is slow (the server re-reads every audio file to check
-   * it) and is never sent twice: if its answer is lost, ask whether it went
-   * through instead.
+   * it), and it cannot be cancelled: once sent, the server finishes it. If
+   * its answer is lost, ask whether it went through: if the server is still
+   * finishing, wait; if the request never arrived (not being finished), send
+   * it again (the server finishes an upload only once, so this is safe).
    */
   async function finish(id: string, list: typeof parts): Promise<ImportSummary> {
-    stopIfCancelled();
-    let res: Response | null = null;
-    try {
-      res = await doFetch(`${base}/${id}/finish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ parts: list }), signal: opts.signal });
-    } catch {
-      stopIfCancelled();
-    }
-    if (res) return (await json(res)).import as ImportSummary;
-    for (let i = 0; i < FINISH_POLLS; i++) {
+    const request = () =>
+      doFetch(`${base}/${id}/finish`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ parts: list }) }).catch(() => null);
+    // A 502/503/504 from the hosting's front door says nothing about whether
+    // the server finished: treat it like a lost answer and ask.
+    const answer = async () => {
+      const r = await request();
+      return r && [502, 503, 504].includes(r.status) ? null : r;
+    };
+    let res = await answer();
+    for (let i = 0; !res && i < FINISH_POLLS; i++) {
       await wait(FINISH_POLL_MS);
-      stopIfCancelled();
-      const listed = await doFetch(base, { signal: opts.signal }).then(json).catch(() => null);
+      const listed = await doFetch(base).then(json).catch(() => null);
       const found = (listed?.imports as ImportSummary[] | undefined)?.find((x) => x.id === id);
       if (found?.status === "ready") return found;
+      if (listed && !found) throw new UploadError("The upload is no longer on the server. Choose the folder again to start over.");
+      if (found && !found.beingFinished) res = await answer(); // never arrived (or was dropped): send it again
     }
-    throw new UploadError("The last step did not answer. Reload the page in a minute to see whether the audiobook was saved.");
+    if (!res) throw new UploadError("The last step did not answer. Reload the page in a minute to see whether the audiobook was saved.");
+    return (await json(res)).import as ImportSummary;
   }
+}
+
+/** A pause that ends early when cancelled. */
+export function abortableWait(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }
 
 /** "3,162 of 3,180 spoken words placed on the page (99%)" for a finished import. */

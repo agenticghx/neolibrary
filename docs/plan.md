@@ -393,8 +393,9 @@ Steps (one PR each):
   paragraph `[startMs, endMs, from, to]` timings. Words marked `not_spoken`
   and spoken headings that are not in the book are left out. Report coverage
   (share of each paragraph's words that got a time).
-- **(c) Upload and store**: migration for the audio offsets; signed upload of
-  the audio to the bucket; `POST /api/books/:id/readalong` with the rest of
+- **(c) Upload and store**: migration for the audio offsets; the audio sent
+  in 8 MB parts through the app to the bucket's multipart upload;
+  `POST /api/books/:id/readalong` with the rest of
   the package; rows with `source = 'upload'`; importing again replaces the
   old import; only the book's owner. (Done as (c1) storage, (c2) API, (c3)
   the "Your audiobook" section on the book page. Offering "Your audiobook" as

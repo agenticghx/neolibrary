@@ -10,7 +10,7 @@ import { getSections } from "@/lib/library/sections-store";
 import { MemoryStorage } from "@/lib/storage";
 import { buildPackage, type FixtureChapter } from "./fixture";
 import { finishImport, listImports, putAudioPart, ReadalongError, startImport } from "./importer";
-import { packageFiles, placedWords, RETRY_WAITS_MS, splitPackage, uploadPackage, type UploadProgress } from "./upload-client";
+import { abortableWait, packageFiles, placedWords, RETRY_WAITS_MS, splitPackage, uploadPackage, type UploadProgress } from "./upload-client";
 
 /**
  * M13 (c3): the browser side of sending a read-along package. The network is
@@ -194,9 +194,9 @@ describe("sending the package (M13)", () => {
     expect(seen[1]).toEqual({ stage: "sending-zip", totalBytes: blob.size });
   });
 
-  it("refuses a .zip over 200 MB before sending anything", async () => {
+  it("refuses a .zip over 50 MB before sending anything", async () => {
     const huge = { path: "big.zip", blob: { size: 201 * 1024 * 1024 } as Blob };
-    await expect(uploadPackage(bookId, [huge], { fetch: server })).rejects.toThrow("larger than 200 MB");
+    await expect(uploadPackage(bookId, [huge], { fetch: server })).rejects.toThrow("larger than 50 MB");
     expect(calls).toEqual([]);
   });
 
@@ -256,5 +256,124 @@ describe("sending the package (M13)", () => {
     await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: server });
     const zipped = unzipSync(new Uint8Array(await new Response(calls[0].body!).arrayBuffer()));
     expect(JSON.parse(strFromU8(zipped["manifest.json"])).format).toBe("neolibrary-readalong/1");
+  });
+
+  it("reads audio 8 MB at a time to check it and send it, never the whole file at once", async () => {
+    const big = buildPackage({ bookBytes, chapters: [chapterOf(40, 100)] }).files; // about 16 MB of audio
+    expect(big["audio/01.wav"].byteLength).toBeGreaterThan(9 * 1024 * 1024);
+    const picked = packageFiles(pickedFolder(big));
+    const audio = picked.find((f) => f.path === "audio/01.wav")!;
+    const reads: number[] = [];
+    const real = audio.blob;
+    audio.blob = {
+      size: real.size,
+      slice: (a?: number, b?: number) => (reads.push((b ?? real.size) - (a ?? 0)), real.slice(a, b)),
+      arrayBuffer: () => Promise.reject(new Error("read the whole file")),
+    } as unknown as Blob;
+    const real8 = 8 * 1024 * 1024;
+    await uploadPackage(bookId, picked, {
+      fetch: async (url, init) => {
+        const u = new URL(url, "http://test");
+        if (u.pathname.endsWith("/readalong") && init?.method === "POST") {
+          return Response.json({ import: await startImport(database.db, storage, ownerId, bookId, new Uint8Array(await new Response(init.body as BodyInit).arrayBuffer())), partBytes: real8 }, { status: 201 });
+        }
+        return server(url, init);
+      },
+    });
+    expect(Math.max(...reads)).toBeLessThanOrEqual(real8);
+    expect(reads.length).toBeGreaterThanOrEqual(4); // two reads to check it, two to send it
+  });
+
+  it("refuses a changed second audio file too, before sending anything", async () => {
+    const { files } = buildPackage({ bookBytes, chapters: [chapterOf(30, 2), chapterOf(32, 2)] });
+    const changed = files["audio/02.wav"].slice();
+    changed[100] ^= 1;
+    await expect(uploadPackage(bookId, packageFiles(pickedFolder({ ...files, "audio/02.wav": changed })), { fetch: server })).rejects.toThrow("audio/02.wav is not the audio");
+    expect(calls).toEqual([]);
+  });
+
+  it("says plainly when a chosen file cannot be read (moved or changed after choosing), rather than blaming the package", async () => {
+    const { files } = pkg(1);
+    const picked = packageFiles(pickedFolder(files));
+    const audio = picked.find((f) => f.path === "audio/01.wav")!;
+    const real = audio.blob;
+    audio.blob = {
+      size: real.size,
+      slice: () => ({ arrayBuffer: () => Promise.reject(new DOMException("The file could not be read.", "NotReadableError")) }),
+    } as unknown as Blob;
+    await expect(uploadPackage(bookId, picked, { fetch: server })).rejects.toThrow(
+      "audio/01.wav could not be read from this computer (was it moved or changed after you chose the folder?). Choose the folder again.",
+    );
+  });
+
+  it("keeps trying for at least a minute in all", () => {
+    expect(RETRY_WAITS_MS.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(60_000);
+  });
+
+  it("a pause between tries ends at once when the upload is cancelled", async () => {
+    const stop = new AbortController();
+    const t = Date.now();
+    const pause = abortableWait(30_000, stop.signal);
+    stop.abort();
+    await pause;
+    expect(Date.now() - t).toBeLessThan(1000);
+  });
+
+  it("tries a part again after a 503 from the hosting's front door (the app restarting)", async () => {
+    const { files } = pkg(1);
+    let refused = 0;
+    const flaky = async (url: string, init: RequestInit = {}) => {
+      if (init.method === "PUT" && refused === 0) {
+        refused++;
+        return new Response("Service Unavailable", { status: 503 });
+      }
+      return server(url, init);
+    };
+    expect((await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: flaky, wait: noWait })).status).toBe("ready");
+    expect(refused).toBe(1);
+  });
+
+  it("sends the last step again if it never reached the server", async () => {
+    const { files } = pkg(1);
+    let lost = 1;
+    const losesFirstFinish = async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith("/finish") && lost > 0) {
+        lost--;
+        throw new TypeError("Failed to fetch"); // lost on the way: the server never saw it
+      }
+      return server(url, init);
+    };
+    const done = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: losesFirstFinish, wait: noWait });
+    expect(done.status).toBe("ready");
+    expect(calls.filter((c) => c.path.endsWith("/finish"))).toHaveLength(1); // the one that arrived
+  });
+
+  it("once the last step has started, Cancel cannot stop it: the server finishes, and the page says so", async () => {
+    const { files } = pkg(1);
+    const stop = new AbortController();
+    const done = await uploadPackage(bookId, packageFiles(pickedFolder(files)), {
+      fetch: server,
+      signal: stop.signal,
+      onProgress: (p) => p.stage === "finishing" && stop.abort(),
+    });
+    expect(done.status).toBe("ready");
+    // Straight from the finish request's answer, not recovered by asking afterwards.
+    expect(calls.at(-1)).toMatchObject({ method: "POST" });
+    expect(calls.filter((c) => c.method === "GET")).toEqual([]);
+  });
+
+  it("a 503 on the last step is not taken as an answer: it asks, then sends it again", async () => {
+    const { files } = pkg(1);
+    let gateway = 1;
+    const frontDoor = async (url: string, init: RequestInit = {}) => {
+      if (url.endsWith("/finish") && gateway > 0) {
+        gateway--;
+        return new Response("Bad Gateway", { status: 502 });
+      }
+      return server(url, init);
+    };
+    const done = await uploadPackage(bookId, packageFiles(pickedFolder(files)), { fetch: frontDoor, wait: noWait });
+    expect(done.status).toBe("ready");
+    expect(calls.filter((c) => c.method === "GET")).toHaveLength(1); // asked once, saw it unfinished and not being finished
   });
 });

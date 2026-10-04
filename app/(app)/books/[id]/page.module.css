@@ -166,9 +166,9 @@
   font-size: var(--text-sm);
 }
 
-/* A heading that only receives focus after an upload (so keyboard users
-   continue from the section): it is not a control, so no focus ring. */
-.landing:focus {
+/* A heading that receives focus after an upload (so keyboard users continue
+   from the section). The ring shows after keyboard use, not after a click. */
+.landing:focus:not(:focus-visible) {
   outline: none;
 }
 

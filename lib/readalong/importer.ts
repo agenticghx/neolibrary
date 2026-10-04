@@ -27,8 +27,12 @@ export const PART_BYTES = 8 * 1024 * 1024;
 export const MAX_PART_BYTES = 16 * 1024 * 1024;
 /** At most this many audio files per package (one per chapter is the most a book needs). */
 export const MAX_AUDIO_FILES = 300;
-/** The zip without its audio: scripts and timings, a few MB even for a long book. */
-export const MAX_ZIP_BYTES = 200 * 1024 * 1024;
+/**
+ * The package zip sent in one request: scripts and timings (a few MB even for
+ * a long book), or a small package with its audio inside (the page's .zip
+ * route, for phones). Larger audio goes in 8 MB parts.
+ */
+export const MAX_ZIP_BYTES = 50 * 1024 * 1024;
 
 const MIME: Record<string, string> = {
   ".m4b": "audio/mp4",
@@ -69,6 +73,8 @@ export type ImportSummary = {
   report: { chapters: { n: number; title: string; spokenWords: number; matchedWords: number }[]; paragraphs: number };
   /** Audio files still to be sent in parts. */
   waitingFor: string[];
+  /** The last step is running on the server right now. */
+  beingFinished: boolean;
 };
 
 type Row = typeof readalongImports.$inferSelect;
@@ -81,9 +87,12 @@ const summary = (r: Row): ImportSummary => ({
   voice: r.voice,
   madeWith: r.madeWith,
   createdAt: r.createdAt.toISOString(),
-  finishedAt: r.finishedAt?.toISOString() ?? null,
+  // finished_at also marks "being finished" while still uploading; report it only once ready.
+  finishedAt: r.status === "ready" ? (r.finishedAt?.toISOString() ?? null) : null,
   report: r.report,
   waitingFor: r.status === "ready" ? [] : r.audio.filter((a) => a.uploadId).map((a) => a.file),
+  // Someone is finishing it right now (claimed within the last 15 minutes).
+  beingFinished: r.status === "uploading" && r.finishedAt !== null && r.finishedAt.getTime() > Date.now() - 15 * 60 * 1000,
 });
 
 async function ownedBook(db: Db, ownerId: string, bookId: string) {
@@ -104,7 +113,7 @@ async function ownedImport(db: Db, ownerId: string, bookId: string, importId: st
 export async function startImport(db: Db, storage: Storage, ownerId: string, bookId: string, zip: Uint8Array): Promise<ImportSummary> {
   const book = await ownedBook(db, ownerId, bookId);
   if (!book.fileKey) throw new ReadalongError("This book has no file to read along with.");
-  if (zip.byteLength > MAX_ZIP_BYTES) throw new ReadalongError("The package is too large to send in one piece; leave the audio out of the zip and send it in parts.");
+  if (zip.byteLength > MAX_ZIP_BYTES) throw new ReadalongError("The package is too large to send in one piece (over 50 MB); choose its folder instead, so the audio goes in parts.");
   let files: Record<string, Uint8Array>;
   let pkg;
   try {
@@ -220,8 +229,12 @@ async function finishClaimed(
     if (!p?.length) throw new ReadalongError(`The parts of ${a.file} were not listed.`);
     try {
       await storage.finishUpload(a.key, a.uploadId!, [...p].sort((x, y) => x.part - y.part));
-    } catch {
-      throw new ReadalongError(`${a.file} could not be put together: a part is missing. Send it again.`);
+    } catch (e) {
+      const why = String((e as Error)?.name ?? "") + String((e as Error)?.message ?? "");
+      if (/EntityTooSmall|too small/i.test(why)) {
+        throw new ReadalongError(`${a.file} could not be put together: a part before the last is smaller than 5 MB (the storage's minimum).`);
+      }
+      throw new ReadalongError(`${a.file} could not be put together: a part is missing. Choose the folder again to start over.`);
     }
   }
   for (const a of row.audio) {
@@ -230,7 +243,7 @@ async function finishClaimed(
       // uploads unusable. The reader makes the package again and starts over.
       await deleteImport(db, storage, ownerId, bookId, importId);
       throw new ReadalongError(
-        `${a.file} is not the audio this package was made with (its fingerprint differs). Nothing was kept: make the package again, then choose its folder.`,
+        `${a.file} did not arrive intact (its fingerprint differs from the package's). Nothing was kept: choose the folder again; if this happens again, make the package again.`,
       );
     }
   }
@@ -291,7 +304,15 @@ async function sweepAbandoned(db: Db, storage: Storage, ownerId: string) {
   const old = await db
     .select({ id: readalongImports.id, bookId: readalongImports.bookId })
     .from(readalongImports)
-    .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.status, "uploading"), lt(readalongImports.createdAt, new Date(Date.now() - ABANDONED_AFTER_MS))));
+    .where(
+      and(
+        eq(readalongImports.ownerId, ownerId),
+        eq(readalongImports.status, "uploading"),
+        lt(readalongImports.createdAt, new Date(Date.now() - ABANDONED_AFTER_MS)),
+        // not one that is being finished right now (claimed in the last 15 minutes)
+        or(isNull(readalongImports.finishedAt), lt(readalongImports.finishedAt, new Date(Date.now() - 15 * 60 * 1000))),
+      ),
+    );
   for (const o of old) await deleteImport(db, storage, ownerId, o.bookId, o.id).catch(() => {});
 }
 

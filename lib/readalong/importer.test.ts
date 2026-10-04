@@ -88,7 +88,7 @@ describe("importing a read-along package (M13)", () => {
     wrong[200] ^= 1;
     const p = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, wrong);
     await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [p] })).rejects.toThrow(
-      "audio/01.wav is not the audio this package was made with (its fingerprint differs). Nothing was kept: make the package again, then choose its folder.",
+      "audio/01.wav did not arrive intact (its fingerprint differs from the package's). Nothing was kept: choose the folder again; if this happens again, make the package again.",
     );
     expect(await tracks()).toEqual([]);
     expect(await listImports(database.db, ownerId, bookId)).toEqual([]);
@@ -111,7 +111,7 @@ describe("importing a read-along package (M13)", () => {
     const wrong = files["audio/02.wav"].slice();
     wrong[300] ^= 1;
     const bad = await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/02.wav", 1, wrong);
-    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [good], "audio/02.wav": [bad] })).rejects.toThrow("audio/02.wav is not the audio");
+    await expect(finishImport(database.db, storage, ownerId, bookId, s.id, { "audio/01.wav": [good], "audio/02.wav": [bad] })).rejects.toThrow("audio/02.wav did not arrive intact");
     expect(await listImports(database.db, ownerId, bookId)).toEqual([]);
     for (const n of [1, 2]) expect(await storage.stat(`audio/${ownerId}/${bookId}/readalong-${s.id}-${n}.wav`)).toBeNull();
   });
@@ -184,5 +184,16 @@ describe("importing a read-along package (M13)", () => {
     };
     await startImport(database.db, storage, ownerId, bookId, pkgFor(8, 1).zip());
     expect(aborted).toEqual([expect.stringContaining(`readalong-${first.id}-1.wav`)]);
+  });
+
+  it("the two-day sweep leaves alone an old upload that is being finished right now", async () => {
+    const { files } = pkgFor(5, 1);
+    const old = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    await database.db
+      .update(readalongImports)
+      .set({ createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), finishedAt: new Date() }) // claimed just now
+      .where(eq(readalongImports.id, old.id));
+    await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    expect((await listImports(database.db, ownerId, bookId)).map((i) => i.id)).toContain(old.id);
   });
 });

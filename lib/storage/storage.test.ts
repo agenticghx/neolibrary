@@ -22,7 +22,7 @@ const bytes = (n: number, seed = 1) => Uint8Array.from({ length: n }, (_, i) => 
 
 describe.each<[string, () => Storage]>([
   ["memory", () => new MemoryStorage()],
-  ["local disk", () => new LocalStorage(mkdtempSync(path.join(tmpdir(), "storage-")))],
+  ["local disk", () => new LocalStorage(mkdtempSync(path.join(tmpdir(), "storage-")), { minPartBytes: 1000 })],
 ])("%s storage", (_, make) => {
   it("tells a file's size and type, and reads just a byte range", async () => {
     const s = make();
@@ -57,6 +57,18 @@ describe.each<[string, () => Storage]>([
     await s.abortUpload("audio/u1/b1/x.m4b", id);
     await expect(s.finishUpload("audio/u1/b1/x.m4b", id, [{ part: 1, tag: t1 }])).rejects.toThrow();
     expect(await s.stat("audio/u1/b1/x.m4b")).toBeNull();
+  });
+});
+
+describe("the bucket's minimum part size", () => {
+  it("local storage refuses, by default, a part before the last that is under 5 MB, as the bucket does", async () => {
+    const s = new LocalStorage(mkdtempSync(path.join(tmpdir(), "storage-")));
+    const id = await s.startUpload("audio/u1/b1/x.m4b", "audio/mp4");
+    const t1 = await s.putPart("audio/u1/b1/x.m4b", id, 1, bytes(1000));
+    const t2 = await s.putPart("audio/u1/b1/x.m4b", id, 2, bytes(10));
+    await expect(s.finishUpload("audio/u1/b1/x.m4b", id, [{ part: 1, tag: t1 }, { part: 2, tag: t2 }])).rejects.toThrow("EntityTooSmall");
+    // One part (the last may be any size) is fine.
+    expect(await s.finishUpload("audio/u1/b1/x.m4b", id, [{ part: 1, tag: t1 }])).toBeUndefined();
   });
 });
 

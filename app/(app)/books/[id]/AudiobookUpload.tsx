@@ -27,6 +27,8 @@ import styles from "./page.module.css";
  * upload is not read out every 8 MB.
  */
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const dayTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 
 function step(p: UploadProgress) {
   switch (p.stage) {
@@ -51,7 +53,16 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // During the last step the bar stays full ("All 201 MB sent"), so the count
+  // is seen to reach the end before the server's checks begin.
+  const [audioTotal, setAudioTotal] = useState(0);
+  const onProgress = (p: UploadProgress) => {
+    if (p.stage === "sending") setAudioTotal(p.totalBytes);
+    setProgress(p);
+  };
   const heading = useRef<HTMLHeadingElement>(null);
+  const section = useRef<HTMLElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   const cancel = useRef<AbortController | null>(null);
   const ready = imports.find((i) => i.status === "ready") ?? null;
   const unfinished = imports.filter((i) => i.status === "uploading");
@@ -70,8 +81,18 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
     setBusy(false);
     cancel.current = null;
     router.refresh();
-    heading.current?.focus(); // the busy state disabled the focused control; start again from the section
+    // The busy state disabled the focused control, which drops focus to the
+    // page: start again from this section, unless the reader has moved on.
+    const at = document.activeElement;
+    if (!at || at === document.body || section.current?.contains(at)) heading.current?.focus();
   };
+
+  // While an upload runs the pickers are disabled; put focus on Cancel so
+  // keyboard and screen-reader users are not left on nothing.
+  const cancellable = busy && progress !== null && progress.stage !== "finishing" && progress.stage !== "done";
+  useEffect(() => {
+    if (cancellable && (document.activeElement === document.body || !document.activeElement)) cancelButton.current?.focus();
+  }, [cancellable]);
 
   const send = async (list: FileList | null, kind: "folder" | "zip") => {
     if (!list?.length) return;
@@ -79,13 +100,14 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
     setBusy(true);
     setError(null);
     setMessage("");
+    setAudioTotal(0);
     setProgress({ stage: "checking" });
     try {
       const picked =
         kind === "zip"
           ? [{ path: list[0].name, blob: list[0] }]
           : packageFiles([...list].map((f) => ({ name: f.name, webkitRelativePath: f.webkitRelativePath, blob: f })));
-      await uploadPackage(bookId, picked, { onProgress: setProgress, signal: cancel.current.signal });
+      await uploadPackage(bookId, picked, { onProgress, signal: cancel.current.signal });
       setMessage("Done.");
     } catch (e) {
       setError(e instanceof UploadError ? e.message : "The upload stopped. Choose the folder again to start over.");
@@ -105,15 +127,16 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
   const remove = async (id: string, what: string) => {
     setBusy(true);
     setError(null);
+    setMessage(""); // so the same message twice is announced twice
     const res = await fetch(`/api/books/${bookId}/readalong/${id}`, { method: "DELETE" }).catch(() => null);
     if (res?.ok) setMessage(`Removed ${what}: its audio and word timings are gone from this book.`);
     else setError("It could not be removed. Try again in a moment.");
     settle();
   };
 
-  const sending = progress?.stage === "sending" ? progress : null;
+  const sending = progress?.stage === "sending" ? progress : progress?.stage === "finishing" && audioTotal ? { sentBytes: audioTotal, totalBytes: audioTotal } : null;
   return (
-    <section className={styles.notes} aria-labelledby="audiobook">
+    <section ref={section} className={styles.notes} aria-labelledby="audiobook">
       <h2 id="audiobook" ref={heading} tabIndex={-1} className={`${styles.collectionsTitle} ${styles.landing}`}>
         Your audiobook
       </h2>
@@ -169,7 +192,7 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
             className={styles.quiet}
             disabled={busy}
             onClick={() => void remove(u.id, "the unfinished upload")}
-            aria-label={`Remove the unfinished upload from ${day(u.createdAt)}`}
+            aria-label={`Remove the unfinished upload from ${dayTime(u.createdAt)}`}
           >
             Remove
           </button>
@@ -182,12 +205,12 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
           <input type="file" webkitdirectory="" multiple className="visually-hidden" disabled={busy} onChange={(e) => void pick(e.currentTarget, "folder")} />
         </label>
         <label className={styles.pickQuiet}>
-          or a .zip of it (up to 200 MB)
+          or a .zip of it (up to 50 MB)
           <input type="file" accept=".zip,application/zip" className="visually-hidden" disabled={busy} onChange={(e) => void pick(e.currentTarget, "zip")} />
         </label>
-        {busy && progress ? (
-          <button type="button" className={styles.quiet} onClick={() => cancel.current?.abort()}>
-            Cancel
+        {cancellable ? (
+          <button type="button" ref={cancelButton} className={styles.quiet} onClick={() => cancel.current?.abort()}>
+            Cancel the upload
           </button>
         ) : null}
       </div>
@@ -197,7 +220,7 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
         <div className={styles.audiobookProgress}>
           <progress className={styles.meter} max={sending.totalBytes} value={sending.sentBytes} aria-label="Audio sent so far" />
           <p className={styles.notesSummary} data-testid="audiobook-sent">
-            {megabytes(sending.sentBytes, sending.totalBytes)} sent
+            {sending.sentBytes >= sending.totalBytes ? `All ${size(sending.totalBytes)} sent` : `${megabytes(sending.sentBytes, sending.totalBytes)} sent`}
           </p>
         </div>
       ) : null}
