@@ -31,6 +31,36 @@ jobs:
       - name: Unit tests (Vitest)
         run: npm test
 
+  postgres:
+    # Every other test uses PGlite (Postgres inside Node). This runs the
+    # migrations and the data layer on a real Postgres through postgres.js,
+    # the library production uses, so production-only database bugs fail here.
+    name: Real Postgres (migrations, data layer)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Migrations and data layer on Postgres 16
+        run: npm run test:postgres
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+
   hygiene:
     name: PR hygiene (PROGRESS.md Log entry)
     if: github.event_name == 'pull_request'
