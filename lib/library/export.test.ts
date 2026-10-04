@@ -14,6 +14,7 @@ import { savePosition } from "./reading";
 import { eq } from "drizzle-orm";
 import { users } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
+import { markQuestion, questionBank } from "./questions";
 import { rewriteParagraph } from "./rewrite";
 import { getSections } from "./sections-store";
 import { createCollection, listShelf, setInCollection } from "./shelf";
@@ -43,6 +44,10 @@ describe("library export (ground rule 7)", () => {
     await deleteAnnotation(database.db, ownerId, gone.id);
     const [paragraph] = (await getSections(database.db, ownerId, bookId)).filter((x) => x.kind === "paragraph");
     await rewriteParagraph(database.db, new FakeModel(), ownerId, { bookId, sectionId: paragraph.id, level: "plain" });
+    const carew = (await getSections(database.db, ownerId, bookId)).find((x) => x.kind === "chapter")!;
+    const bank = await questionBank(database.db, new FakeModel(), ownerId, { bookId, chapterId: carew.id });
+    await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: false });
+    await markQuestion(database.db, ownerId, { generationId: bank.generation.id, index: 0, correct: true });
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
 
@@ -56,17 +61,22 @@ describe("library export (ground rule 7)", () => {
       ["Hidden later", 1, false],
       ["Hidden later", 2, true],
     ]);
+    expect(before.questionMarks!.map((m) => [m.questionIndex, m.correct])).toEqual([
+      [0, false],
+      [0, true],
+    ]);
     expect(before.settings).toEqual({ aiStyle: "ste-standard" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
     expect(before.generations).toEqual([
       expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
+      expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "plain" } }),
     ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
 
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
-    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations]).toEqual([[], [], [], [], []]);
+    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks]).toEqual([[], [], [], [], [], []]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));

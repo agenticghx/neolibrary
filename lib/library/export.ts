@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, collectionBooks, collections, generations, paths, pillars, slots, users } from "@/lib/db/schema";
+import { annotations, books, collectionBooks, collections, generations, paths, pillars, questionMarks, slots, users } from "@/lib/db/schema";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -95,6 +95,8 @@ export type LibraryExport = {
     output: string;
     createdAt: string;
   }[];
+  /** Every right/wrong mark on question-bank questions (added in M6; append-only). */
+  questionMarks?: { id: string; bookId: string; chapterId: string; generationId: string; questionIndex: number; correct: boolean; createdAt: string }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -131,6 +133,11 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .where(eq(generations.ownerId, ownerId))
     .orderBy(asc(generations.createdAt), asc(generations.id));
 
+  const markRows = await db
+    .select()
+    .from(questionMarks)
+    .where(eq(questionMarks.ownerId, ownerId))
+    .orderBy(asc(questionMarks.createdAt), asc(questionMarks.id));
   const [settings] = await db.select({ aiStyle: users.aiStyle }).from(users).where(eq(users.id, ownerId));
 
   return {
@@ -220,6 +227,15 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       output: g.output,
       createdAt: g.createdAt.toISOString(),
     })),
+    questionMarks: markRows.map((m) => ({
+      id: m.id,
+      bookId: m.bookId,
+      chapterId: m.chapterId,
+      generationId: m.generationId,
+      questionIndex: m.questionIndex,
+      correct: m.correct,
+      createdAt: m.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -229,6 +245,7 @@ export class ExportFormatError extends Error {}
 export async function wipeLibrary(db: Db, ownerId: string) {
   await db.transaction(async (tx) => {
     await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
+    await tx.delete(questionMarks).where(eq(questionMarks.ownerId, ownerId));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
@@ -330,6 +347,9 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     }
     for (const g of x.generations ?? []) {
       await tx.insert(generations).values({ ...g, ownerId, createdAt: new Date(g.createdAt) });
+    }
+    for (const m of x.questionMarks ?? []) {
+      await tx.insert(questionMarks).values({ ...m, ownerId, createdAt: new Date(m.createdAt) });
     }
   });
 }

@@ -184,3 +184,20 @@
     font-size: var(--text-read-phone);
   }
 }
+
+.reread {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reread a {
+  color: var(--accent);
+}
+
+.rereadCount {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}

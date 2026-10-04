@@ -22,7 +22,7 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
  * assumes, each in two lines with a link to read more. Machine-written, so it
  * uses the machine style and says where it came from.
  */
-export function NeedToKnowPanel({ bookId, cfi }: { bookId: string; cfi: string }) {
+export function NeedToKnowPanel({ bookId, cfi, onQuestions }: { bookId: string; cfi: string; onQuestions: () => void }) {
   const [data, setData] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +98,11 @@ export function NeedToKnowPanel({ bookId, cfi }: { bookId: string; cfi: string }
         <p className={styles.formError} role="alert">
           {error}
         </p>
+      ) : null}
+      {data ? (
+        <button type="button" className={styles.backLink} onClick={onQuestions}>
+          Test yourself on this chapter ›
+        </button>
       ) : null}
       {data && latest ? (
         <>

@@ -229,7 +229,55 @@ test("STE as a reading preference: set for all books in reading settings, or for
   expect((await page.request.put(`/api/books/${bookIdOf(page)}/ai-style`, { data: { scope: "all", style: "loud" } })).status()).toBe(400);
 });
 
-test("the rewrite, need-to-know and settings panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
+test("question bank: answers hidden until asked, marks kept, and wrong answers flag the chapter for a re-read", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary");
+  const test = page.getByRole("region", { name: "Test yourself" });
+  const list = page.getByTestId("questions");
+  const score = page.getByTestId("question-score");
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Test yourself on this chapter ›" }).click();
+  await expect(test).toContainText("Search for Mr. Hyde · STE, Strict (full STE)"); // the reading preference from the last test
+  await test.getByRole("button", { name: /^Make questions \((about|under) \$/ }).click();
+  await expect(list).toContainText("Question bank · written by the test AI");
+  const items = list.locator("li");
+  await expect(items).toHaveCount(9);
+  await expect(items.nth(0)).toContainText("Recall");
+  await expect(items.nth(8)).toContainText("Application");
+  await expect(list).toContainText(/STE \d+% \(full-STE score\)/);
+  await expect(score).toHaveText("0 right · 0 wrong · 9 to go");
+  await expect(items.nth(0)).not.toContainText("A made-up model answer");
+
+  await items.nth(0).getByRole("button", { name: "Show answer" }).click();
+  await expect(items.nth(0)).toContainText("A made-up model answer");
+  await items.nth(0).getByRole("button", { name: "I got it wrong" }).click();
+  await expect(score).toHaveText("0 right · 1 wrong · 8 to go");
+  await items.nth(3).getByRole("button", { name: "Show answer" }).click();
+  await items.nth(3).getByRole("button", { name: "I got it right" }).click();
+  await expect(score).toHaveText("1 right · 1 wrong · 7 to go");
+
+  // Marks survive a reload; answers are hidden again.
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Test yourself on this chapter ›" }).click();
+  await expect(score).toHaveText("1 right · 1 wrong · 7 to go");
+  await expect(test).toContainText("Saved questions");
+  await expect(items.nth(0)).not.toContainText("A made-up model answer");
+
+  // The book page lists the chapter under "Needs a re-read"; the link opens it.
+  const id = bookIdOf(page);
+  await page.goto(`/books/${id}`);
+  const reread = page.getByRole("region", { name: "Needs a re-read" });
+  await expect(reread).toContainText("Search for Mr. Hyde · 1 of 2 wrong");
+  await reread.getByRole("link", { name: "Search for Mr. Hyde" }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.locator("footer")).toContainText("Search for Mr. Hyde");
+
+  const bad = await page.request.post(`/api/books/${id}/questions/marks`, { data: { generationId: "nope", index: 0, correct: true } });
+  expect(bad.status()).toBe(400);
+});
+
+test("the rewrite, need-to-know, settings and question panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
@@ -246,7 +294,7 @@ test("the rewrite, need-to-know and settings panels are accessible, and look rig
       await page.getByRole("button", { name: "What do I need to know?" }).click();
       await expect(page.getByTestId("need-to-know")).toBeVisible();
       const know = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
-      expect(know.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      expect(know.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-need-to-know-${name}-${scheme}.png` });
 
@@ -255,6 +303,13 @@ test("the rewrite, need-to-know and settings panels are accessible, and look rig
       const set = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(set.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       await page.screenshot({ path: `screenshots/reader-settings-${name}-${scheme}.png` });
+
+      await page.getByRole("button", { name: "What do I need to know?" }).click();
+      await page.getByRole("button", { name: "Test yourself on this chapter ›" }).click();
+      await page.getByTestId("questions").locator("li").nth(1).getByRole("button", { name: "Show answer" }).click();
+      const qs = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(qs.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-questions-${name}-${scheme}.png` });
     }
   }
 });

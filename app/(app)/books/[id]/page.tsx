@@ -8,6 +8,7 @@ import { coverSigner } from "@/lib/library/covers";
 import { getBook } from "@/lib/library/paths";
 import { NotesExport, NotesImport } from "@/components/NotesExport";
 import { listAnnotations } from "@/lib/library/annotations";
+import { needsReread } from "@/lib/library/questions";
 import { collectionsForBook } from "@/lib/library/shelf";
 import { toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
@@ -24,6 +25,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const { book, owned, places } = found;
   const inCollections = owned ? await collectionsForBook(await getDb(), user.id, book.id) : [];
   const marks = await listAnnotations(await getDb(), user.id, book.id);
+  const reread = owned ? await needsReread(await getDb(), user.id, book.id) : [];
   const count = (k: string) => marks.filter((a) => a.kind === k).length;
   const firstKind = places[0]?.kind;
 
@@ -118,6 +120,25 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               </p>
               {marks.length ? <NotesExport bookId={book.id} title={book.title} /> : null}
               <NotesImport bookId={book.id} />
+            </section>
+          ) : null}
+          {reread.length ? (
+            <section className={styles.notes} aria-labelledby="reread">
+              <h2 id="reread" className={styles.collectionsTitle}>
+                Needs a re-read
+              </h2>
+              <p className={styles.notesSummary}>Chapters where you marked a question-bank answer wrong.</p>
+              <ul className={styles.reread}>
+                {reread.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/books/${book.id}/read?at=${encodeURIComponent(c.cfi)}`}>{c.label}</Link>
+                    <span className={styles.rereadCount}>
+                      {" "}
+                      · {c.wrong} of {c.marked} wrong
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
           <p className={styles.status}>

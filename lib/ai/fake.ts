@@ -23,7 +23,7 @@ export class FakeModel implements TextModel {
 function fakeAnswer(req: TextRequest) {
   const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   const task = /^Task: (.+)$/m.exec(req.prompt)?.[1] ?? "answer";
-  if (req.schema) return JSON.stringify(fakeConcepts(text));
+  if (req.schema) return JSON.stringify(/question/i.test(task) ? fakeQuestions(text) : fakeConcepts(text));
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
   const answer = `Fake ${task.toLowerCase()}: ${sentences.slice(0, 2).join(" ").replace(/\s+/g, " ").trim()}`;
   // STE answers carry a notes section, like the real prompt asks for.
@@ -39,5 +39,20 @@ function fakeConcepts(text: string) {
       explanation: `A made-up explanation of ${name} from the test AI. The real one comes from Claude.`,
       read_more: name,
     })),
+  };
+}
+
+/** A question bank: three made-up questions of each kind about the text's first words. */
+function fakeQuestions(text: string) {
+  const names = [...new Set(text.match(/\b[A-Z][a-z]{3,}\b/g) ?? ["this"])];
+  const pick = (i: number) => names[i % names.length];
+  return {
+    questions: (["recall", "understanding", "application"] as const).flatMap((type, t) =>
+      [0, 1, 2].map((i) => ({
+        type,
+        question: `Test AI ${type} question ${i + 1}: what about ${pick(t * 3 + i)}?`,
+        answer: `A made-up model answer about ${pick(t * 3 + i)}.`,
+      })),
+    ),
   };
 }
