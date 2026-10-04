@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: All milestones and both offline fixes are merged and deployed; version 1 waits only on Samuel (sign in, keys, verdicts).
+next_action: Land the free-classics PR (CI screenshots for shelf-empty), deploy, confirm Samuel can read
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -116,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 16:40 UTC · Claude (laptop) · "Add three free classics" on an empty shelf (Samuel could not read anything)
+- **Done:** Samuel signed in and found nothing to read: the live library had **0 books with files** (the 126 entries are the Path's "wanted" placeholders). Checked `demo/books/`: it holds one file, `Descartes_1641Meditations.pdf`, which is the **Oxford World's Classics edition** (ISBN 9780192806963, a modern copyrighted translation). So it may go in Samuel's private library (he uploads it himself) but must not be bundled or committed (ground rule 1). Added an **"Add three free classics" button on the empty shelf**: *Frankenstein*, *Jekyll and Hyde* and *The Time Machine*, the Standard Ebooks editions already in `fixtures/books` (US public domain, CC0; `fixtures/README.md`), imported for that reader from the server's own copy. Pressing it twice adds nothing.
+- **Key paths:** `lib/library/samples.ts`, `lib/library/samples.test.ts`, `app/(app)/actions.ts` (`addSampleBooksAction`), `app/(app)/shelf/page.{tsx,module.css}`, `e2e/flows.spec.ts`
+- **Commands that worked:** `npm run check` → `Tests 234 passed | 2 skipped (236)`; `npx playwright test --ignore-snapshots` → `168 passed (1.7m)`. Browser: a newly invited reader (Ada) presses "Add three free classics"; the three books appear, the button goes away, and Frankenstein opens in the reader (ready). Screenshots `screenshots/shelf-empty-*` checked by eye.
+- **Known issues / blockers:** The `shelf-empty` reference screenshots must be rendered by CI (Linux). After deploy, check the live server can read `fixtures/books` (it is in the repo, so it should be in the container).
+- **Exact next steps:** Land this PR with CI's screenshots, deploy (backup first), tell Samuel to press the button and to drag his own Descartes PDF onto the shelf.
 
 ### 2026-10-04 16:00 UTC · Claude (laptop) · Offline edits and PDFs offline deployed
 - **Done:** PR #45 (PDFs offline) merged with all four checks green. Deployed `1664202` (#44 offline edits + #45 PDFs offline) after a backup: `~/Backups/neolibrary/prod-before-offline-fixes-20261004T1341Z.sql` (80,376 bytes), restore-checked (exit 0; 19 migrations, 1 user, 126 books; no migration in these PRs). Both offline gaps Samuel asked about are closed and live.

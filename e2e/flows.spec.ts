@@ -104,6 +104,17 @@ test.describe("signed in", () => {
     await guest.getByRole("button", { name: "Sign in" }).click();
     await expect(guest.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
 
+    // An empty shelf offers three free classics; one click, and they can be read.
+    await guest.goto("/shelf");
+    await guest.getByRole("button", { name: "Add three free classics" }).click();
+    for (const title of ["Frankenstein", "The Strange Case of Dr. Jekyll and Mr. Hyde", "The Time Machine"]) {
+      await expect(guest.getByTestId("shelf").getByRole("link", { name: new RegExp(`^${title}`) })).toBeVisible();
+    }
+    await expect(guest.getByRole("button", { name: "Add three free classics" })).toHaveCount(0);
+    await guest.getByTestId("shelf").getByRole("link", { name: /^Frankenstein/ }).click();
+    await guest.getByRole("link", { name: "Read", exact: true }).click();
+    await expect(guest.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+
     // The same link cannot be used again.
     const ctx2 = await freshContext(browser);
     const other = await ctx2.newPage();
