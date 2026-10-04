@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the reader back/contents PR and deploy; otherwise version 1 waits only on Samuel (keys, verdicts).
+next_action: Version 1 waits only on Samuel (keys, verdicts); act on his feedback as it comes.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -116,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 19:25 UTC · Claude (laptop) · Reader back arrow and left contents deployed
+- **Done:** PR #51 merged with all four checks green (after rebasing over ledger PR #50, keeping both entries). Deployed `4d36641` after a backup (`~/Backups/neolibrary/prod-before-reader-nav-*.sql`, restore exit 0; 1 user, 3 books with files, 0 annotations). Railway deployment `93b1a361` SUCCESS.
+- **Key paths:** `PROGRESS.md`
+- **Commands that worked:** in the running container, `grep -rl "Back to your shelf" /app/.next/server` found the new build; `/api/health` → 200.
+- **Known issues / blockers:** None.
+- **Exact next steps:** As in "Exact next steps".
 
 ### 2026-10-04 19:10 UTC · Claude (laptop) · Reader: Kindle-style back arrow and contents on the left
 - **Done:** Samuel asked for a way out of a book to the book list that does not disturb reading, on the left with the table of contents, as in Kindle (his screenshot). The reader's top bar now starts with **‹ "Back to your shelf"** (goes to `/shelf`; replaces the logo, which went to the book's page) and a **contents icon** ("Contents"). **Contents opens on the left**, beside its button, and **marks the chapter being read** (bold, accent bar on the left; not accent-coloured text, which fails contrast in dark mode). The word "Contents" left the right-hand tools (bookmark, help, Notes, Aa remain). Both are icons in the existing bar, so the page of text does not move.
