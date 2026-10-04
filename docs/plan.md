@@ -355,12 +355,65 @@ Done when: in Playwright with the network switched off, a downloaded book
 opens and a new highlight is saved, then appears on the server after the
 network returns.
 
+### M13 · Read along with your own audiobooks (approved by Samuel 2026-10-04)
+
+Upload an audiobook made anywhere, as a **read-along package** made on the
+laptop by the `readalong-audio` skill (format: the skill's
+`references/package-format.md`; background in `docs/readalong-plan.md`), and
+read along: the word being spoken is highlighted on the page, in EPUB and PDF
+books, and pages turn by themselves.
+
+Choices *(Claude, 2026-10-04; Samuel can overrule)*:
+- **One audio file, many paragraphs.** A package's audio is per chapter or
+  per book, not per paragraph. `audio_tracks` rows keep one row per
+  paragraph (so the existing player, cache and export keep working) but may
+  point into a shared file with `audio_start_ms`/`audio_end_ms` (migration,
+  with a reverse step; backup before it runs in production). Playing on into
+  the next paragraph of the same file must not stop or reload the audio.
+- **The app matches words to its own paragraphs**, on the server, from the
+  package's script words and book map. The laptop never needs the app's
+  paragraph splitter.
+- **Large audio goes straight to the bucket** (a signed upload link), not
+  through the web server: the Kuhn audio is 201 MB and books are capped at
+  200 MB.
+- **Tests never use a real audiobook**: a tiny package is built in test code
+  (a tone WAV with known word times), like the fake voice in M7.
+
+Steps (one PR each):
+- **(a) Read and check a package** (`lib/readalong/package.ts`): unzip, the
+  format name, the book's sha256 matches the stored file, every script word
+  present in order, times within each chapter. A TypeScript port of the
+  skill's `validate_package.py`, giving the same verdict on the same input.
+- **(b) Match words to paragraphs** (EPUB and PDF): per chapter, line up the
+  script's words with the book's paragraphs (spelling and punctuation
+  ignored, the book map's page and opening words as anchors), giving each
+  paragraph `[startMs, endMs, from, to]` timings. Words marked `not_spoken`
+  and spoken headings that are not in the book are left out. Report coverage
+  (share of each paragraph's words that got a time).
+- **(c) Upload and store**: migration for the audio offsets; signed upload of
+  the audio to the bucket; `POST /api/books/:id/readalong` with the rest of
+  the package; rows with `source = 'upload'`; importing again replaces the
+  old import; only the book's owner. Shows "Your audiobook" as a voice.
+- **(d) Play it (EPUB)**: Listen prefers the uploaded audiobook when there is
+  one; continuous playback across paragraphs; the frame-by-frame highlight
+  from the 2026-10-04 fix; `not_spoken` words never highlighted.
+- **(e) Play it (PDF)**: today Listen is switched off for PDFs
+  (`Reader.tsx`: `disabled={… || props.fileType === "pdf"}`). Draw the
+  highlight in the PDF viewer's text layer and turn pages by page number.
+  Also in Safari's engine.
+- **(f) Live**: deploy (backup first), import the Frankenstein test package
+  and the corrected Kuhn package, Samuel reads along.
+
+Done when: in the browser tests (Chrome and Safari engines) an uploaded
+package plays across at least two paragraphs without a pause and the
+highlight lands on every word in order, each within 0.1 s, in an EPUB and a
+PDF; and Samuel reads Kuhn ch. 1 on the live site and says it keeps time.
+
 ### Later (not planned in detail yet)
 
 Public sign-up with separate libraries, payments if ever needed, mobile
-apps, shared reading groups. Aligning audiobook narration Samuel owns (DRM-free) with
-the text (*forced alignment*: matching audio to words by time) as its own
-milestone. Note that Audible audio is DRM-protected and can't be used.
+apps, shared reading groups. (Aligning audiobook narration Samuel owns is now
+M13.) Note that Audible audio is DRM-protected and can't be used.
 
 ## How a cloud session works on this repo
 

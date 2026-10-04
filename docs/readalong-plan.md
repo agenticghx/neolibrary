@@ -71,8 +71,8 @@ Measured numbers, each from a run on 2026-10-04:
 | S2 | Add OpenAI API credit (platform.openai.com → Billing), or say to drop OpenAI | the OpenAI path is untested | 2026-10-11 |
 | S3 | Pick a default voice from the library page (`voices.py choose <key>`) | narration defaults | before step 5 |
 | S4 | Review the skill test results in the viewer and leave comments | drives skill round 2 | 2026-10-07 |
-| S5 | OK to build the importer in Neolibrary (step 4) | it is a new milestone (M13) | 2026-10-07 |
-| S6 | Fix the Kuhn source scripts, or leave the package to mark the differences (it handles both) | optional | any time |
+| S5 | ~~OK to build the importer~~ **approved 2026-10-04**: now M13 in `docs/plan.md` | | done |
+| S6 | ~~Fix the Kuhn scripts~~ **approved 2026-10-04**: corrected copies made by `fix_script.py` from a check of all 17 chapters; originals untouched | | in progress |
 
 ## Next steps, in order
 
@@ -109,7 +109,7 @@ Fix what round 1 found, then re-run the same three tests plus the old ones:
   not-spoken counts written into the ledger. The package stays on the
   laptop (copyrighted; never in git).
 
-### 4. Neolibrary importer (milestone M13; needs S5)
+### 4. Neolibrary importer (milestone M13; approved, see `docs/plan.md` M13)
 
 Plan, to refine into `docs/plan.md` when started:
 - [ ] Upload a package (zip) on the book's page; check `manifest.book.sha256`
@@ -141,6 +141,48 @@ Plan, to refine into `docs/plan.md` when started:
 Use the library's chosen voice for the Listen button; Kyutai voices need a
 machine with the model (the laptop), so in-app narration may stay
 ElevenLabs while the laptop makes packages.
+
+## Dedicated skills for the AI tools (planned 2026-10-04)
+
+Samuel asked what drives the reading levels "Plain / STE light / STE / STE
+strict". Found:
+- **STE levels:** Samuel's own STE skill, copied into `prompts/ste/` on
+  2026-10-03 and pasted into the instructions sent to Claude
+  (`claude-opus-5-5`), with the strictness named; the checker is ported to
+  TypeScript (`lib/ai/ste.ts`) and gives the score badge. The copy matched
+  the original exactly on 2026-10-04, but nothing keeps it in step.
+- **Plain:** no skill. One line ("Write in plain, precise English.") for
+  "What do I need to know?", one short paragraph
+  (`prompts/rewrite-levels/plain.md`) for rewrites. No method, examples or
+  checker.
+
+Plan, each built and tested like `readalong-audio` (runs with and without
+the skill, the results viewer for Samuel's comments, a second round):
+
+- [ ] **K1 `plain-english` skill (new)**: method, rules (one idea per
+      sentence, everyday words, define a term on first use, keep technical
+      names the reader will meet again), before/after examples on science
+      text, and a checker script (sentence length, rare words, passive
+      voice, undefined jargon). Then the app uses it for "Plain" the way it
+      uses STE, with a score like the STE badge.
+- [ ] **K2 keep STE in step**: a script that copies Samuel's skill into
+      `prompts/ste/`, and a test that fails on the laptop when the copy
+      differs from the original.
+- [ ] **K3 `book-chapters` skill (new; Samuel will run it with `claude -p`)**:
+      splits an uploaded book into chapter scripts for narration: one clean
+      text file per chapter plus a `chapters.json` that `readalong-audio`
+      reads; front matter, page headers, footnote markers and page numbers
+      removed; optional spoken heading per chapter; chapter numbers that
+      match Neolibrary's own (spine order for EPUB, pages for PDF). A
+      script does the mechanical part (table of contents, file order);
+      Claude decides the rest (what is a chapter, what to drop, where to
+      split a very long chapter). It runs unattended, so it must never stop
+      to ask: it decides, writes down why, and flags doubts in a report.
+      First books: Frankenstein and Jekyll and Hyde (public domain, in
+      `fixtures/books/`).
+      **Done when:** `claude -p "…"` on each book produces scripts that
+      `readalong-audio` turns into a package that validates, and Samuel
+      agrees with the chapter list.
 
 ## Where things are
 
