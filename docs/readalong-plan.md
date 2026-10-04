@@ -88,6 +88,9 @@ Fix what round 1 found, then re-run the same three tests plus the old ones:
       many pages) before quoting, so quotes are the paragraph's own words.
 - [ ] Package format: paragraph numbers count from 0 (fix the example).
 - [ ] `narrate.py --redo N`: remake one chunk (for a skipped or misread phrase).
+- [ ] Report the highlight's lag against where each word's sound starts
+      (the no-skill Kuhn run measured the aligner's starts about 0.1 s
+      after the sound; ElevenLabs comparison says 0.017 s; settle which).
 - [ ] Optional: split by the app's own paragraphs (`lib/library/sections.ts`
       and `pdf-sections.ts`) so packages match what the importer stores.
 - **Done when:** round 2's viewer shows every with-skill check passing, and
@@ -118,9 +121,14 @@ Plan, to refine into `docs/plan.md` when started:
 - [ ] Player: play a chapter file from a time offset (one long file, not a
       file per paragraph); highlight with the existing frame-by-frame
       follower; skip `not_spoken` words.
-- [ ] Confirm read-aloud works on PDFs (the round-1 run thought the
-      paragraph splitter was EPUB-only; `lib/library/pdf-sections.ts`
-      exists, so check before assuming).
+- [ ] **Read-along on PDFs (real work, not a check).** Today the Listen
+      button is switched off for PDF books (`Reader.tsx` line 796:
+      `disabled={… || props.fileType === "pdf"}`, title "Reading aloud
+      works for EPUB books"; confirmed 2026-10-04). The highlight must be
+      drawn in the PDF viewer's text layer (pdf.js), and pages turned by
+      page number. Paragraphs for PDFs exist (`lib/library/pdf-sections.ts`).
+      Kuhn is a PDF, so this blocks reading Kuhn along; an EPUB of the same
+      book would not need it.
 - [ ] Tests: a small public-domain package (Frankenstein, Kyutai voice; check
       the voice's licence first) as a fixture; browser test like the
       highlight test (every word, in order, within 0.1 s).
