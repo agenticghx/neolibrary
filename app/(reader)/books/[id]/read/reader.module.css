@@ -772,6 +772,26 @@
   color: var(--ink-900);
 }
 
+.stickerButton {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-pill);
+  color: var(--ink-900);
+  cursor: pointer;
+}
+
+.stickerBadge {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-pill);
+  color: var(--ink-900);
+}
+
 .recorder {
   display: grid;
   gap: var(--space-2);

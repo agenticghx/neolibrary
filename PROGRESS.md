@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M8 (b), stickers.
+next_action: Sessions loop through docs/done.md on their own; next is M8 (c), handwriting.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -22,21 +22,22 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
 1. **M8 · Thinking-out-loud notes**, next unticked box in `docs/done.md`.
-   PR (a), voice notes, is done (see Log). Remaining:
-   (b) **Stickers** on passages: a small fixed set drawn as SVG (not emoji,
-   so screenshots match everywhere), e.g. star, question, exclamation,
-   tick, flag. Store them as annotations of kind `sticker` with a `sticker`
-   column (migration with a reverse step; extend the kind CHECK as
-   `0012_voice_notes` did, and its down step must turn stickers into
-   something the old schema accepts, e.g. highlights). Show them in the
-   Notes panel and as a small mark beside the passage (foliate overlayer
-   `draw-annotation` can draw a custom SVG). Export them (library JSON, and
-   in Markdown and W3C as a word, e.g. "Sticker: question"). Playwright:
-   add a sticker, reload, it is there. (c) **Handwriting** last: a drawing
-   layer (pointer events on a canvas over the reader stage), strokes saved
-   as JSON point lists on a passage annotation (kind `drawing`), redrawn
-   after reload; Playwright draws a scripted stroke and checks it is
-   redrawn (pixel check on the canvas). Then tick M8.
+   PRs (a) voice notes and (b) stickers are done (see Log). Remaining:
+   (c) **Handwriting**: a drawing layer for stylus or finger. A "Draw"
+   button (e.g. in the selection bar for a passage, or a pen toggle in the
+   footer) puts a transparent canvas over the reader stage; pointer events
+   record strokes as lists of points relative to the page area. Save the
+   strokes as a passage annotation of kind `drawing` (migration with a
+   reverse step; extend the kind CHECK like `0013_stickers` and make the
+   down step keep something, e.g. a note "Drawing (n strokes)"), with the
+   strokes in a jsonb column. Redraw them when that passage is on screen
+   (as an overlay drawn from the passage's position, so they move with
+   reflowed text: store points relative to the passage's first line). Show
+   them in the Notes panel as a small SVG preview; export them in the
+   library JSON (Markdown/W3C: "Drawing (n strokes)"). Playwright draws a
+   scripted stroke with `page.mouse`, reloads, and checks the stroke is
+   redrawn (for example, read the overlay SVG's path or sample the
+   canvas pixels). Then tick M8 in `docs/done.md`.
 2. Then M9, M10, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -104,6 +105,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 07:45 UTC · Claude (cloud) · M8 (b): stickers on passages
+- **Done:** Selecting text now offers **Sticker**, which shows five stickers: Important (star), Question, Surprising (!), Agree (tick), Come back to this (flag). They are drawn as SVG shapes, not emoji, so they look the same on every device and in screenshots (`lib/library/stickers.ts`, `components/StickerIcon.tsx`). A sticker is an **annotation of kind `sticker`** (migration `0013_stickers`). Its reverse step turns stickers into amber highlights whose note names the sticker, so going back keeps the marks. So stickers are append-only and soft-deleted like everything else. In the book, the passage is tinted in the sticker's colour and a small badge sits **in the left margin beside its first line**, so no text is covered. The line's start is found from the paragraph each time the overlay redraws, so it follows resizing. The Notes panel lists "Sticker · Question" with the icon. Exports: library JSON (the `sticker` field), Markdown ("Sticker: Question") and W3C (motivation `tagging`, plus a `neolibrary:sticker` extra so a W3C round trip keeps it a sticker; another tool's tagging comes in as a note). An M5 test used "sticker" as its example of an *unknown* kind; it now uses "doodle" (same check, the example just became a real kind).
+- **Key paths:** `lib/library/stickers.ts`, `components/StickerIcon.tsx`, `db/migrations/0013_stickers.*`, `lib/library/{annotations,annotation-formats,export}.ts`, `app/(reader)/books/[id]/read/{SelectionBar,NotesPanel,Reader}.tsx` (`drawSticker`), `e2e/notes.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `193 passed`, including: a sticker on a passage is listed, in Markdown as "Sticker: Question", in W3C as tagging with `neolibrary:sticker`, and in the library export; a W3C export → hide → import keeps it a sticker; a sticker needs a place and a known sticker; every sticker has a name, a highlight colour and SVG paths. `npx playwright test` → `134 passed (2.7m)`, including: select "he took up a candle" → Sticker → the picker has five stickers and Back → "Sticker: Question" → Notes +1; **after a reload it is still there** ("Sticker · Question" with the quote), and the Markdown export says "Sticker: Question". Checked the drawing by eye three times (`screenshots/reader-sticker-drawn.png`). The first version covered words mid-line, because foliate gives the selection's own rectangles. The second sat over the line above. Now the passage is tinted and the badge is in the margin.
+- **Known issues / blockers:** A sticker covers what was selected; there is no "sticker on the whole paragraph" without selecting. In scroll layout the margin badge uses the same rule and was only checked in page layout.
+- **Exact next steps:** M8 (c), per "Exact next steps".
 
 ### 2026-10-04 07:15 UTC · Claude (cloud) · M8 (a): voice notes on passages, transcribed and searchable
 - **Done:** Selecting text now offers **Voice note**: Record (with a running clock, up to 10 minutes), Stop, then **Save voice note** or Discard. Nothing leaves the device until Save. The recording goes to storage under the owner (`audio/<owner>/<book>/notes/…`), never into the database. It is **transcribed** by ElevenLabs speech-to-text (`scribe_v2`, through the SDK and key already used for reading aloud; a fake in tests). The transcript is stored with its provenance and cost like every AI output and counts against the voice caps; the price is set by `ELEVENLABS_STT_USD_PER_HOUR` (default $1, cautious). A voice note is an **annotation of kind `voice`** (migration `0012_voice_notes`). Its reverse step turns voice notes back into text notes holding their transcript, so going back loses nothing said. So voice notes are append-only, versioned and soft-deleted like every note. **If transcription fails or the cap is reached, the note is still saved** with the recording and a plain message, so nothing the reader said is lost. The Notes panel shows a voice note with a player (short-lived signed link) and its transcript, labelled "Transcript · machine-made" in the machine style. Transcripts are in note search (labelled "Voice note"), cross-book links, the Markdown and W3C exports (as "Voice note: …"), and the library export round trip (recording key, type, length, transcript). **Found and fixed on the way:** the Notes panel's export links (from M5) were 4.42:1 contrast in dark mode (accent text on the raised panel). They now use ink with an accent underline.

@@ -6,6 +6,7 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
 import type { Annotation, Color } from "@/lib/library/annotations";
 import type { CrossLink } from "@/lib/library/crosslinks";
+import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ListenBar } from "./ListenBar";
@@ -37,6 +38,53 @@ type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string }; r
 type DrawFn = (rects: unknown, opts?: unknown) => SVGElement;
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/**
+ * Draws a sticker: the passage tinted in the sticker's colour (like a
+ * highlight) and a small badge in the left margin beside its first line, so
+ * no text is covered. The line's start is found from the paragraph each time
+ * the overlay redraws (after a resize, for example).
+ */
+function drawSticker(sticker: Sticker, fill: string, ink: string, highlight: DrawFn, range: Range | null): DrawFn {
+  return (rects, opts) => {
+    const ns = "http://www.w3.org/2000/svg";
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("data-sticker", sticker);
+    const list = rects as DOMRect[];
+    const first = list[0];
+    g.append(highlight(rects, { ...(opts as object), color: fill }));
+    if (!first) return g as unknown as SVGElement;
+    // The column fragment of the paragraph that holds the first line: its left edge is where the line starts.
+    const start = range?.startContainer;
+    const block = (start?.nodeType === Node.ELEMENT_NODE ? (start as Element) : start?.parentElement)?.closest("p, li, blockquote, dd, div, h1, h2, h3, h4, h5, h6");
+    const frags = block ? Array.from(block.getClientRects()) : [];
+    const frag = frags.find((f) => first.left >= f.left - 1 && first.left <= f.right + 1 && first.top >= f.top - 1 && first.top <= f.bottom + 1);
+    const size = 16;
+    const cx = (frag?.left ?? first.left) - size / 2 - 8;
+    const cy = first.top + first.height / 2;
+    const disc = document.createElementNS(ns, "circle");
+    disc.setAttribute("cx", String(cx));
+    disc.setAttribute("cy", String(cy));
+    disc.setAttribute("r", String(size / 2));
+    disc.setAttribute("fill", fill);
+    disc.setAttribute("stroke", ink);
+    disc.setAttribute("stroke-width", "1");
+    g.append(disc);
+    for (const d of STICKERS[sticker].paths) {
+      const p = document.createElementNS(ns, "path");
+      p.setAttribute("d", d);
+      p.setAttribute("fill", "none");
+      p.setAttribute("stroke", ink);
+      p.setAttribute("stroke-width", "2.6");
+      p.setAttribute("stroke-linecap", "round");
+      p.setAttribute("stroke-linejoin", "round");
+      const inner = size - 4;
+      p.setAttribute("transform", `translate(${cx - inner / 2} ${cy - inner / 2}) scale(${inner / 24})`);
+      g.append(p);
+    }
+    return g as unknown as SVGElement;
+  };
+}
 
 /** The quote around a selection (W3C TextQuoteSelector): exact text plus some words either side. */
 function quoteOf(doc: Document, range: Range) {
@@ -184,12 +232,19 @@ export function Reader(props: {
         notesRef.current = loaded;
         setNotes(loaded);
         v.addEventListener("create-overlay", () => {
-          for (const a of notesRef.current) if (a.kind === "highlight" && a.cfi) void v.addAnnotation({ value: a.cfi });
+          for (const a of notesRef.current) if ((a.kind === "highlight" || a.kind === "sticker") && a.cfi) void v.addAnnotation({ value: a.cfi });
         });
         v.addEventListener("draw-annotation", (e: Event) => {
-          const { draw, annotation } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string } }>).detail;
+          const { draw, annotation, range } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string }; range: Range | null }>)
+            .detail;
           const a = notesRef.current.find((x) => x.cfi === annotation.value);
-          const color = getComputedStyle(root.current!).getPropertyValue(`--mark-${a?.color ?? "sage"}`).trim();
+          const cs = getComputedStyle(root.current!);
+          if (a?.kind === "sticker" && a.sticker) {
+            const fill = cs.getPropertyValue(`--mark-${STICKERS[a.sticker].color}`).trim();
+            draw(drawSticker(a.sticker, fill, cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null), {});
+            return;
+          }
+          const color = cs.getPropertyValue(`--mark-${a?.color ?? "sage"}`).trim();
           draw(Overlayer.highlight, { color });
         });
         v.addEventListener("show-annotation", (e: Event) => {
@@ -300,6 +355,20 @@ export function Reader(props: {
       quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
       color,
       body,
+    });
+    await reload();
+    await view.current?.addAnnotation({ value: a.cfi! });
+  };
+
+  const addSticker = async (sticker: Sticker) => {
+    if (!selection) return;
+    const picked = selection;
+    clearSelection();
+    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
+      kind: "sticker",
+      cfi: picked.cfi,
+      quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
+      sticker,
     });
     await reload();
     await view.current?.addAnnotation({ value: a.cfi! });
@@ -538,6 +607,7 @@ export function Reader(props: {
           themeEl={() => root.current}
           onHighlight={highlight}
           onVoiceNote={saveVoiceNote}
+          onSticker={addSticker}
           onRewrite={() => {
             setRewriteAt(selection.cfi);
             clearSelection();
