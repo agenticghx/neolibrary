@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { searchLibrary, type SearchHit } from "@/lib/library/search";
+import { searchLibrary, searchNotes, type SearchHit } from "@/lib/library/search";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Search" };
@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requireUser();
   const q = ((await searchParams).q ?? "").slice(0, 200);
-  const hits = q ? await searchLibrary(await getDb(), user.id, q) : [];
+  const db = await getDb();
+  const [hits, noteHits] = q ? await Promise.all([searchLibrary(db, user.id, q), searchNotes(db, user.id, q)]) : [[], []];
   const byBook = new Map<string, SearchHit[]>();
   for (const h of hits) byBook.set(h.bookId, [...(byBook.get(h.bookId) ?? []), h]);
 
@@ -38,13 +39,44 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       </form>
       {q ? (
         <p className={styles.summary} role="status">
-          {hits.length === 0
-            ? `Nothing in your books matches “${q}”.`
-            : `${hits.length}${hits.length === 60 ? "+" : ""} ${hits.length === 1 ? "passage" : "passages"} in ${byBook.size} ${byBook.size === 1 ? "book" : "books"}.`}
+          {hits.length === 0 && noteHits.length === 0
+            ? `Nothing in your books or notes matches “${q}”.`
+            : [
+                hits.length
+                  ? `${hits.length}${hits.length === 60 ? "+" : ""} ${hits.length === 1 ? "passage" : "passages"} in ${byBook.size} ${byBook.size === 1 ? "book" : "books"}`
+                  : "",
+                noteHits.length ? `${noteHits.length} in your notes` : "",
+              ]
+                .filter(Boolean)
+                .join(", ") + "."}
         </p>
       ) : (
-        <p className={styles.summary}>Searches the text of every book on your shelf. Put a minus before a word to leave it out.</p>
+        <p className={styles.summary}>Searches the text of every book on your shelf, and your highlights and notes. Put a minus before a word to leave it out.</p>
       )}
+      {noteHits.length ? (
+        <section className={styles.book} aria-labelledby="your-notes">
+          <h2 id="your-notes" className={styles.bookTitle}>
+            Your notes
+          </h2>
+          <ol className={styles.hits}>
+            {noteHits.map((h) => (
+              <li key={h.annotationId}>
+                <Link
+                  href={h.cfi ? `/books/${h.bookId}/read?at=${encodeURIComponent(h.cfi)}` : `/books/${h.bookId}`}
+                  className={styles.hit}
+                >
+                  <span className={styles.chapter}>
+                    {h.kind === "note" ? "Note" : h.kind === "bookmark" ? "Bookmark" : "Highlight"} · {h.bookTitle}
+                  </span>
+                  <span className={styles.snippet}>
+                    {h.snippet.map((p, i) => (p.match ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
       {[...byBook.values()].map((list) => (
         <section key={list[0].bookId} className={styles.book} aria-labelledby={`b-${list[0].bookId}`}>
           <h2 id={`b-${list[0].bookId}`} className={styles.bookTitle}>

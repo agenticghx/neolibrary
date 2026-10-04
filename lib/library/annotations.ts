@@ -104,6 +104,8 @@ export async function createAnnotation(
     body?: unknown;
   },
   now = new Date(),
+  /** Keep a given id (used when importing an export). */
+  id?: string,
 ): Promise<Annotation> {
   const kind = input.kind as Kind;
   if (!["highlight", "bookmark", "note"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
@@ -119,7 +121,7 @@ export async function createAnnotation(
   const color = kind === "highlight" ? ((COLORS as readonly string[]).includes(String(input.color)) ? (input.color as Color) : "sage") : null;
   const cfi = passage ? (input.cfi as string) : null;
   const sectionId = cfi ? await sectionForCfi(db, bookId, cfi) : null;
-  const annotationId = crypto.randomUUID();
+  const annotationId = id ?? crypto.randomUUID();
   const [row] = await db
     .insert(annotations)
     .values({
@@ -221,4 +223,55 @@ export async function allVersions(db: Db, ownerId: string, bookIds?: string[]) {
     .from(annotations)
     .where(bookIds ? and(eq(annotations.ownerId, ownerId), inArray(annotations.bookId, bookIds)) : eq(annotations.ownerId, ownerId))
     .orderBy(asc(annotations.createdAt), asc(annotations.annotationId), asc(annotations.version));
+}
+
+/**
+ * Adds imported annotations to a book. An annotation whose id already exists
+ * is skipped, so importing twice adds nothing and nothing is overwritten.
+ * Returns how many were added and skipped.
+ */
+export async function importAnnotations(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  items: {
+    id: string | null;
+    kind: Kind;
+    cfi: string | null;
+    quote: { exact: string; prefix: string; suffix: string };
+    body: string;
+    color: Color | null;
+    created: string | null;
+    modified: string | null;
+  }[],
+) {
+  let added = 0;
+  let skipped = 0;
+  for (const it of items) {
+    if (it.id) {
+      const [exists] = await db
+        .select({ id: annotations.id })
+        .from(annotations)
+        .where(eq(annotations.annotationId, it.id))
+        .limit(1);
+      if (exists) {
+        skipped += 1;
+        continue;
+      }
+    }
+    const created = it.created && !Number.isNaN(Date.parse(it.created)) ? new Date(it.created) : new Date();
+    const a = await createAnnotation(
+      db,
+      ownerId,
+      { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body },
+      created,
+      it.id ?? undefined,
+    );
+    // Keep the "last changed" time too, as a second version.
+    if (it.modified && it.modified !== it.created && !Number.isNaN(Date.parse(it.modified))) {
+      await addVersion(db, ownerId, a.id, {}, new Date(it.modified));
+    }
+    added += 1;
+  }
+  return { added, skipped };
 }

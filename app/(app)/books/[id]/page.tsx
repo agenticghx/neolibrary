@@ -6,6 +6,8 @@ import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { getBook } from "@/lib/library/paths";
+import { NotesExport, NotesImport } from "@/components/NotesExport";
+import { listAnnotations } from "@/lib/library/annotations";
 import { collectionsForBook } from "@/lib/library/shelf";
 import { toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
@@ -21,6 +23,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   if (!found) notFound();
   const { book, owned, places } = found;
   const inCollections = owned ? await collectionsForBook(await getDb(), user.id, book.id) : [];
+  const marks = await listAnnotations(await getDb(), user.id, book.id);
+  const count = (k: string) => marks.filter((a) => a.kind === k).length;
   const firstKind = places[0]?.kind;
 
   return (
@@ -101,6 +105,20 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
                 ))}
               </ul>
             </div>
+          ) : null}
+          {owned || marks.length ? (
+            <section className={styles.notes} aria-labelledby="your-notes">
+              <h2 id="your-notes" className={styles.collectionsTitle}>
+                Your notes
+              </h2>
+              <p className={styles.notesSummary}>
+                {marks.length
+                  ? `${count("highlight")} highlights · ${count("note")} notes on the book · ${count("bookmark")} bookmarks`
+                  : "Nothing yet. Highlights and notes you make while reading appear here."}
+              </p>
+              {marks.length ? <NotesExport bookId={book.id} title={book.title} /> : null}
+              <NotesImport bookId={book.id} />
+            </section>
           ) : null}
           <p className={styles.status}>
             {owned

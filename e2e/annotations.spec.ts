@@ -32,7 +32,8 @@ async function selectPhrase(page: Page, phrase: string) {
 
 async function openAtRuggedCountenance(page: Page) {
   await page.goto(`/search?q=${encodeURIComponent('"rugged countenance"')}`);
-  await page.getByRole("link").filter({ hasText: "rugged" }).click();
+  // The book's passage (your own highlight of it is listed under "Your notes" too).
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "rugged" }).click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
 }
 
@@ -106,3 +107,41 @@ test("editing keeps every version; removing hides; book notes work", async ({ pa
 async function bookId(page: Page) {
   return /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
 }
+
+// M5 "Done when" (part): export produces a Markdown file containing them.
+test("export notes as Markdown and W3C JSON; importing the same file adds nothing", async ({ page }) => {
+  await page.goto("/shelf");
+  await page.getByTestId("shelf").getByRole("link", { name: /^The Strange Case/ }).click();
+  const notes = page.getByRole("region", { name: "Your notes" });
+  await expect(notes).toContainText("1 highlights · 1 notes on the book · 1 bookmarks");
+
+  const download = page.waitForEvent("download");
+  await notes.getByRole("link", { name: "Markdown" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("the-strange-case-of-dr-jekyll-and-mr-hyde-notes.md");
+  const md = await (await import("node:fs/promises")).readFile((await file.path())!, "utf8");
+  expect(md).toContain("# The Strange Case of Dr. Jekyll and Mr. Hyde");
+  expect(md).toContain("## Notes on the book\n\nCompare with Frankenstein: the double.");
+  expect(md).toContain("## Story of the Door");
+  expect(md).toContain("> cold, scanty and embarrassed in discourse\n\nReticence as character, not coldness.");
+  expect(md).toContain("- Bookmark: ");
+
+  const bookId = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  const w3c = await (await page.request.get(`/api/books/${bookId}/annotations/export?format=w3c`)).json();
+  expect(w3c).toMatchObject({ "@context": "http://www.w3.org/ns/anno.jsonld", type: "AnnotationCollection", total: 3 });
+  await notes.getByLabel("Import W3C annotations (.json)").setInputFiles({
+    name: "notes.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(w3c)),
+  });
+  await expect(notes.getByRole("status")).toHaveText("Added 0 annotations; 3 already here.");
+});
+
+test("search finds your notes and opens them", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent("reticence")}`);
+  await expect(page.getByRole("status")).toHaveText("1 in your notes.");
+  const mine = page.getByRole("region", { name: "Your notes" });
+  await expect(mine.locator("mark")).toHaveText(["Reticence"]);
+  await mine.getByRole("link").first().click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+});

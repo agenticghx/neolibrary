@@ -21,19 +21,14 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M5 (b) · export and share**, then tick M5:
-   (1) Export a book's annotations as Markdown (title, then each highlight
-   as a quote with its chapter and note) and as W3C Web Annotation JSON
-   (`@context` http://www.w3.org/ns/anno.jsonld, a TextQuoteSelector plus a
-   FragmentSelector holding the CFI). Offer them from the book page and the
-   Notes panel, with "Copy all" (clipboard) and "Email" (a `mailto:` link
-   with the Markdown). (2) Import W3C annotations back; test export → wipe →
-   import gives identical annotations. (3) Share a passage: a link that opens
-   the reader at the CFI, for logged-in users, and an image card of the quote
-   drawn on a canvas, offered as a download. (4) Search notes too (add
-   annotation text to `/search`). (5) Notes on Paths and Pillars (the table
-   already supports `target_type` path/pillar): a small note box on the
-   Path view.
+1. **M5 (c) · share a passage, and notes on Paths and Pillars**, then tick M5.
+   (1) In the selection bar and on each highlight in the Notes panel:
+   "Share" → "Copy link" (the reader URL with `?at=<cfi>`, for signed-in
+   users) and "Image card" (the quote, title and author drawn on a canvas in
+   the app's fonts and colours, downloaded as PNG). (2) Notes on a Pillar and
+   on the whole Path, from the Path view. The `annotations` table already
+   supports `target_type` path/pillar with `target_id`; `createAnnotation`
+   needs to accept them (owned path or pillar). Include them in exports.
 2. Then M6, M7, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -87,6 +82,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 06:30 · Claude (cloud) · M5 (b): export notes (Markdown, W3C), import, copy, email; search notes
+- **Done:** `lib/library/annotation-formats.ts` turns a book's annotations into **Markdown** (book notes, then each passage as a quote under its chapter heading, with its note; bookmarks as list items) and **W3C Web Annotation JSON** (an AnnotationCollection; motivations highlighting, bookmarking or commenting; target with a TextQuoteSelector and a FragmentSelector holding the CFI; colour and section id as `neolibrary:` extras). It also reads W3C back. `importAnnotations` keeps ids and dates and skips ids that already exist, so importing twice adds nothing and nothing is overwritten. Routes: `GET /api/books/<id>/annotations/export?format=md|w3c` (a download) and `POST /api/books/<id>/annotations/import`. Interface: "Markdown · W3C JSON · Copy all · Email" (email opens the mail app with the Markdown, trimmed to stay under mailto limits) in the reader's Notes panel and in a new "Your notes" section on the book page, which also has the W3C import. `/search` now also searches your highlights and notes (latest version only, hidden ones left out) and lists them under "Your notes".
+- **Key paths:** `lib/library/annotation-formats.ts`, `lib/library/annotation-export.ts`, `lib/library/annotations.ts` (`importAnnotations`), `lib/library/search.ts` (`searchNotes`), `components/NotesExport.tsx`, `app/api/books/[id]/annotations/{export,import}/`, `app/(app)/books/[id]/page.tsx`, `e2e/annotations.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `132 passed` (includes **W3C export → wipe → import → identical annotations**, a second import adding 0, and the exact Markdown text); `npx playwright test` → `109 passed (1.5m)`, including downloading `the-strange-case-of-dr-jekyll-and-mr-hyde-notes.md` with the quote, note, book note and bookmark; W3C total 3; re-import gives "Added 0 annotations; 3 already here."; searching "reticence" finds the note and opens it.
+- **Known issues / blockers:** The W3C export holds the current state of each annotation, not its full edit history (the library JSON export keeps every version). Email cannot attach files, so long notes are cut with a pointer to the Markdown download.
+- **Exact next steps:** M5 (c), per "Exact next steps".
 
 ### 2026-10-04 06:05 · Claude (cloud) · M5 (a): highlights, notes and bookmarks
 - **Done:** New `annotations` table (migration `0007_annotations`, with a reverse step). It is append-only, following ground rule 9: an edit adds a new version and a delete adds a hidden version, and `GET /api/annotations/<id>` returns every version. Passage annotations follow ground rule 4 and the W3C Web Annotation shape: book, section id (found by comparing CFIs with foliate's code), CFI, and quote (exact text plus up to 64 characters either side). Reader: selecting text opens a **selection bar** with four highlight colours (sage, amber, rose, sky, new `--mark-*` tokens), "Add note" and "Copy" (the quote with title and author). Highlights are drawn in the book by foliate's overlayer; clicking one opens it in the **Notes panel**. The panel lists book notes first, then bookmarks and passages in reading order, with Go to, Edit note, Remove, and a box for a note on the whole book. A **bookmark button** in the top bar toggles a bookmark for the current page. Annotations, including every version, are in the library export, and the export → wipe → import test covers them (ground rule 7). **Bug found and fixed:** saving a highlight cleared whatever was selected when the save finished, which could wipe a new selection made meanwhile; the selection is now taken and cleared before saving, and the test selects the next passage immediately.
