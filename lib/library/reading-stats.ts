@@ -231,6 +231,8 @@ export type ChapterStats = { key: string; label: string; position: number; activ
 export type Suggestion = {
   bookId: string;
   title: string;
+  /** The chapter's link in the book's contents (unique within the book). */
+  chapterKey: string;
   chapter: string;
   chapterWpm: number;
   usualWpm: number;
@@ -292,7 +294,7 @@ export function suggestionsFrom(books: { bookId: string; title: string; chapters
     if (b.chapters.length < CHAPTERS_NEEDED) continue;
     const usual = median(b.chapters.map((c) => c.wpm));
     for (const c of b.chapters) {
-      if (c.wpm < usual * SHARP_DROP) list.push({ bookId: b.bookId, title: b.title, chapter: c.label || "One chapter", chapterWpm: c.wpm, usualWpm: Math.round(usual) });
+      if (c.wpm < usual * SHARP_DROP) list.push({ bookId: b.bookId, title: b.title, chapterKey: c.key, chapter: c.label || "One chapter", chapterWpm: c.wpm, usualWpm: Math.round(usual) });
     }
   }
   return list;

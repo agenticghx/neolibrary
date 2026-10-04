@@ -178,7 +178,7 @@ describe("reading statistics (M10)", () => {
         ],
       },
     ]);
-    expect(suggestionsFrom(books)).toEqual([{ bookId: tm, title: "The Time Machine", chapter: "Chapter 4", chapterWpm: 100, usualWpm: 250 }]);
+    expect(suggestionsFrom(books)).toEqual([{ bookId: tm, title: "The Time Machine", chapterKey: "c4.xhtml", chapter: "Chapter 4", chapterWpm: 100, usualWpm: 250 }]);
     // Steady reading, or too few chapters, suggests nothing.
     expect(suggestionsFrom([{ ...books[0], chapters: books[0].chapters.slice(0, 3) }])).toEqual([]);
     expect(suggestionsFrom([{ ...books[0], chapters: books[0].chapters.slice(2) }])).toEqual([]);

@@ -115,7 +115,7 @@ export default async function StatsPage() {
             {suggestions.length > 0 ? (
               <ul className={own.suggestions}>
                 {suggestions.map((x) => (
-                  <li key={`${x.bookId}-${x.chapter}`}>
+                  <li key={`${x.bookId}-${x.chapterKey}`}>
                     In <Link href={`/books/${x.bookId}/read`}>{x.title}</Link>, your speed drops sharply in{" "}
                     <strong>{x.chapter}</strong>: {x.chapterWpm} words per minute, against your usual {x.usualWpm} in this
                     book. Try <em>What do I need to know?</em> in the reader for the background this chapter assumes.

@@ -75,6 +75,10 @@ Useful commands:
 
 ## 3. M10 (a): reading stats, in progress
 
+> **Update 2026-10-04 (laptop session): M10 is done.** (a) was merged as PR #34,
+> (b) as #35 and (c) as #36; `docs/done.md` ticks M10. The patch described
+> below no longer exists. Skip to §4 for M11; `PROGRESS.md` has the details.
+
 **What the patch contains** (`docs/handoff/m10a-reading-stats-wip.patch`):
 
 - `db/migrations/0016_reading_sessions.{up,down}.sql` and the
