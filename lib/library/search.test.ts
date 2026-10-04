@@ -5,7 +5,8 @@ import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
-import { searchLibrary, splitSnippet } from "./search";
+import { createAnnotation, deleteAnnotation, updateAnnotation } from "./annotations";
+import { searchLibrary, searchNotes, splitSnippet } from "./search";
 
 let database: Database;
 let ownerId: string;
@@ -44,6 +45,19 @@ describe("full-text search", () => {
     const { token } = await createInvite(database.db, admin);
     const other = await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" });
     expect(await searchLibrary(database.db, other.id, "countenance")).toEqual([]);
+  });
+
+  it("searches your notes: latest version only, hidden ones left out", async () => {
+    const shelf = await searchLibrary(database.db, ownerId, '"rugged countenance"');
+    const bookId = shelf[0].bookId;
+    const n = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "The doppelganger motif" });
+    await updateAnnotation(database.db, ownerId, n.id, { body: "The double as a motif" });
+    const gone = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "A motif I removed" });
+    await deleteAnnotation(database.db, ownerId, gone.id);
+    expect(await searchNotes(database.db, ownerId, "doppelganger")).toEqual([]);
+    const hits = await searchNotes(database.db, ownerId, "motif");
+    expect(hits.map((h) => h.annotationId)).toEqual([n.id]);
+    expect(hits[0].snippet.find((p) => p.match)?.text).toBe("motif");
   });
 
   it("splits marked snippets into plain and matched pieces", () => {

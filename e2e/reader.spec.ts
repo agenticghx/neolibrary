@@ -135,12 +135,14 @@ test("search finds a phrase and opens the reader at that paragraph", async ({ pa
 
   // ...and a paragraph from chapter 1 is not (so the check above can fail).
   await page.goto(`/search?q=${encodeURIComponent('"rugged countenance"')}`);
-  const other = decodeURIComponent((await page.getByRole("link").filter({ hasText: "rugged" }).getAttribute("href"))!.split("?at=")[1]);
+  const other = decodeURIComponent(
+    (await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "rugged" }).getAttribute("href"))!.split("?at=")[1],
+  );
   expect(CFI.compare(other.replace(/\)$/, "/1:0)"), CFI.collapse(visible))).toBeLessThan(0);
 
   // Nothing matches: a clear message, no results.
   await page.goto("/search?q=xylophone+zeppelin");
-  await expect(page.getByRole("status")).toHaveText("Nothing in your books matches “xylophone zeppelin”.");
+  await expect(page.getByRole("status")).toHaveText("Nothing in your books or notes matches “xylophone zeppelin”.");
 });
 
 // M4 (d): themes and PDFs.

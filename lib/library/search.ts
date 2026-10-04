@@ -55,3 +55,37 @@ export async function searchLibrary(db: Db, ownerId: string, query: string, limi
   })[];
   return list.map(({ headline, ...h }) => ({ ...h, snippet: splitSnippet(headline) }));
 }
+
+export type NoteHit = {
+  annotationId: string;
+  bookId: string;
+  bookTitle: string;
+  kind: "highlight" | "bookmark" | "note";
+  cfi: string | null;
+  snippet: SearchHit["snippet"];
+};
+
+/** Searches the user's own highlights and notes (latest versions, not hidden). */
+export async function searchNotes(db: Db, ownerId: string, query: string, limit = 30): Promise<NoteHit[]> {
+  const q = query.trim().slice(0, 200);
+  if (!q) return [];
+  const rows = await db.execute(sql`
+    WITH query AS (SELECT websearch_to_tsquery('english', ${q}) AS q),
+    latest AS (
+      SELECT DISTINCT ON (annotation_id) * FROM annotations
+      WHERE owner_id = ${ownerId}
+      ORDER BY annotation_id, version DESC
+    )
+    SELECT a.annotation_id AS "annotationId", b.id AS "bookId", b.title AS "bookTitle", a.kind, a.cfi,
+           ts_headline('english', trim(a.body || ' ' || a.quote_exact), query.q,
+             ${`StartSel=${"\u0002"}, StopSel=${"\u0003"}, MaxWords=30, MinWords=10, ShortWord=2`}) AS headline
+    FROM latest a
+    JOIN books b ON b.id = a.book_id
+    JOIN query ON to_tsvector('english', a.body || ' ' || a.quote_exact) @@ query.q
+    WHERE NOT a.deleted
+    ORDER BY ts_rank(to_tsvector('english', a.body || ' ' || a.quote_exact), query.q) DESC, a.created_at DESC
+    LIMIT ${limit}
+  `);
+  const list = (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows) as (Omit<NoteHit, "snippet"> & { headline: string })[];
+  return list.map(({ headline, ...h }) => ({ ...h, snippet: splitSnippet(headline) }));
+}

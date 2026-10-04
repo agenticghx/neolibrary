@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { NotesExport } from "@/components/NotesExport";
 import type { Annotation } from "@/lib/library/annotations";
 import styles from "./reader.module.css";
 
 /** Everything you marked in this book, in reading order. */
 export function NotesPanel({
+  bookId,
+  title,
   items,
   activeId,
   onGo,
@@ -13,6 +16,8 @@ export function NotesPanel({
   onDelete,
   onAddBookNote,
 }: {
+  bookId: string;
+  title: string;
   items: Annotation[];
   activeId: string | null;
   onGo: (a: Annotation) => void;
@@ -116,6 +121,12 @@ export function NotesPanel({
           ))}
         </ol>
       )}
+      {items.length ? (
+        <div className={styles.panelFoot}>
+          <p className={styles.groupLabel}>Take your notes elsewhere</p>
+          <NotesExport bookId={bookId} title={title} />
+        </div>
+      ) : null}
     </nav>
   );
 }

@@ -401,6 +401,8 @@ export function Reader(props: {
 
       {panel === "notes" ? (
         <NotesPanel
+          bookId={props.bookId}
+          title={props.title}
           items={notes}
           activeId={activeId}
           onGo={(a) => {
