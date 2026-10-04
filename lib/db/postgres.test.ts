@@ -9,7 +9,9 @@ import { costReport } from "@/lib/library/costs";
 import { crossLinks } from "@/lib/library/crosslinks";
 import { exportLibrary, importLibrary, wipeLibrary } from "@/lib/library/export";
 import { importBook } from "@/lib/library/import";
+import { seedPath } from "@/lib/library/paths";
 import { questionBank } from "@/lib/library/questions";
+import { recordReading, statsByBook, statsByPathSlot, statsByWeek } from "@/lib/library/reading-stats";
 import { rewriteParagraph } from "@/lib/library/rewrite";
 import { searchLibrary, searchNotes } from "@/lib/library/search";
 import { getSections } from "@/lib/library/sections-store";
@@ -124,6 +126,25 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
     // Cross-book links (array overlap and unnest).
     const links = await crossLinks(db, ownerId, frankenstein, "Utterson the lawyer opened his safe and read the will.");
     expect(links.map((l) => l.bookId)).toEqual([jekyll]);
+
+    // Reading stats (M10): the upsert with greatest(), sums, and the Path joins.
+    const sitting = "bbbbbbbb-0000-4000-8000-000000000001";
+    const now = new Date("2026-10-14T12:00:00Z");
+    await recordReading(db, ownerId, { sessionId: sitting, bookId: jekyll, startedAt: "2026-10-12T09:00:00Z", activeSeconds: 60, words: 200, pages: 1 }, now);
+    await recordReading(db, ownerId, { sessionId: sitting, bookId: jekyll, startedAt: "2026-10-12T09:00:00Z", activeSeconds: 120, words: 480, pages: 2 }, now);
+    expect(await statsByBook(db, ownerId)).toEqual([expect.objectContaining({ bookId: jekyll, activeSeconds: 120, words: 480, sessions: 1, wpm: 240 })]);
+    await seedPath(db, ownerId, {
+      slug: "pg",
+      title: "Postgres path",
+      description: "",
+      sourceUrl: "",
+      pillars: [{ slug: "a", title: "Doubles", group: "main", books: [{ kind: "E", title: "The Strange Case of Dr. Jekyll and Mr. Hyde", author: "Stevenson" }] }],
+    });
+    expect(await statsByPathSlot(db, ownerId)).toEqual({
+      pillars: [expect.objectContaining({ title: "Doubles", path: "Postgres path", activeSeconds: 120, books: 1, wpm: 240 })],
+      kinds: [{ kind: "E", activeSeconds: 120, words: 480, books: 1, wpm: 240 }],
+    });
+    expect(await statsByWeek(db, ownerId, now)).toEqual([{ weekStart: "2026-10-12", activeSeconds: 120, words: 480, sessions: 1, wpm: 240 }]);
 
     // Export, wipe, import: everything comes back the same.
     const before = await exportLibrary(db, ownerId);

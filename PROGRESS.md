@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M10 (a) PR once CI is green, then build M10 (b) (your own trend on /stats)
+next_action: Land the M10 (b) PR (regenerate stats-* reference screenshots from CI), then build M10 (c) per-chapter suggestions
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -24,25 +24,15 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 taking over): where the work stands, the plan for every remaining
 milestone, the commands, and the lessons and gotchas so far.
 
-1. **The M9 (c) + handoff PR** (branch `claude/magical-bardeen-fpwlg1`). If
-   it is still open, make its checks green; the auto-merge Action merges it
-   once CI passes. (The real-Postgres CI job, PR #32, is already merged.)
-2. **M10 (a) · Measure honestly** is built and was green at handoff, but
-   saved as a patch, not committed: `docs/handoff/m10a-reading-stats-wip.patch`.
-   From an up-to-date `main`: `git checkout -b m10-reading-stats`,
-   `git apply docs/handoff/m10a-reading-stats-wip.patch`, delete the patch
-   file, `npm ci`, `npm run check`, `npx playwright test`, check
-   `e2e/__screenshots__/stats-*` by eye, Log entry, PR. Contents and design
-   are in `docs/handoff.md` §3.
-3. **M10 (b) · Your own trend first**: `/stats` grows speed by book, by
-   pillar, and N vs E books (from the Path's slots), and time read per week.
-   A comparison with a published adult average only with a cited source on
-   the page (do not invent a number); if no source can be verified, leave
-   it out and say so.
-4. **M10 (c) · Simple, honest suggestions** from per-chapter speed (needs
+1. **M10 (b) PR** (branch `m10-trend`): if still open, make its checks green.
+   The first CI run is expected to fail only on the four `stats-*` reference
+   screenshots (the empty page gained the cited comparison box). Download the
+   `playwright-report` artifact, look at each `test-results/**/stats-*-actual.png`,
+   copy them over `e2e/__screenshots__/stats-*.png`, push. Then auto-merge.
+2. **M10 (c) · Simple, honest suggestions** from per-chapter speed (needs
    the chapter of each page in the sitting), e.g. "your speed drops sharply
    in chapter 4; try the prerequisites panel". Then tick M10.
-5. **M11** (API tokens, agent API, MCP server) and **M12** (offline PWA and
+3. **M11** (API tokens, agent API, MCP server) and **M12** (offline PWA and
    sync), then the live checks: plans in `docs/handoff.md` §4.
 
 ## Waiting on Samuel
@@ -116,6 +106,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 10:45 UTC · Claude (laptop) · M10 (b): your own trend first, and a cited average
+- **Done:** PR #34 (M10 (a)) merged with all four checks green. M10 (b) built on `m10-trend`: `/stats` now shows, in order, **Week by week** (time with a bar, words, words per minute; weeks start Monday UTC; weeks with no reading between kept as 0 min), **By pillar** (with the Path's name; a book in two pillars counts in both), **N and E books** (N = narrative, read first; E = engineering), **By book**, then a secondary **For comparison** box: adults reading English silently average 238 wpm for non-fiction (most 175 to 300) and 260 for fiction (most 200 to 320), with the caveat that it is not the same measurement, cited as Brysbaert (2019), *Journal of Memory and Language* 109, 104047, doi:10.1016/j.jml.2019.104047. The numbers were read from page 1 of the paper itself (the abstract), not from a summary. Looking at the screenshots by eye exposed a dishonest number: the week showed **1970 wpm**, because earlier tests flicked through Jekyll (8,417 words in seconds). New rule, stated on the page: **speed counts only sittings of a minute or more at no more than 1,000 wpm**; flicking adds to words read but not to speed. Also: The Grid test upload is now a small readable EPUB (it was a stub the reader could not open), so the stats test can read it.
+- **Key paths:** `lib/library/reading-stats.ts` (`statsByPathSlot`, `statsByWeek`, `weekStart`, `countsForSpeed`), `app/(app)/stats/page.{tsx,module.css}`, `lib/library/reading-stats.test.ts`, `lib/db/postgres.test.ts`, `e2e/stats.spec.ts`, `e2e/uploads.spec.ts`, `lib/library/test-epub.ts`
+- **Commands that worked:** `npm run check` → `Tests 215 passed | 2 skipped (217)`; real Postgres (embedded-postgres in the scratchpad, port 54330) `TEST_DATABASE_URL=postgres://postgres:pw@localhost:54330/postgres npm run test:postgres` → `Tests 2 passed (2)` (now includes the stats queries); `npx playwright test --ignore-snapshots` → `149 passed (1.4m)`. The new browser test reads The Grid for 90 s, then checks one week row, the pillar "Electricity & the grid · Hidden Machinery", the N row's words per minute, and the cited link; axe clean and no sideways scroll in all four looks; `screenshots/stats-trend-*` checked by eye.
+- **Known issues / blockers:** The reference screenshots `e2e/__screenshots__/stats-*` must be regenerated on Linux (CI), not on the Mac. Week boundaries are UTC (Sunday 8 pm in New York), stated on the page.
+- **Exact next steps:** Land the M10 (b) PR (screenshots from CI), then M10 (c).
 
 ### 2026-10-04 10:10 UTC · Claude (laptop) · M10 (a) verified in the browser; PR opened
 - **Done:** Finished verifying M10 (a) "Measure honestly" on branch `m10-reading-stats`. Browser tests now pass on the laptop. Looked at `e2e/__screenshots__/stats-*` by eye: heading, the honest-counting explanation and the "Nothing yet" line, readable in light and dark, no overflow. Removed a Python bytecode file (`prompts/ste/__pycache__/…pyc`) that the WIP commit picked up by accident, and added `__pycache__/` and `*.pyc` to `.gitignore`.

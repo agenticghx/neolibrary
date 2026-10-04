@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { strToU8, zipSync } from "fflate";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { tinyEpub } from "../lib/library/test-epub";
+import { readableEpub } from "../lib/library/test-epub";
 import { ADMIN_STATE } from "./pages";
 
 // M3 "Done when" (part): uploading three public-domain books shows them on the
@@ -45,12 +45,18 @@ test("a book page shows what the file told us", async ({ page }) => {
   await expect(page.getByText(/EPUB · \d+ chapters/)).toBeVisible();
 });
 
+const GRID_TEXT = `<h1>The wires</h1>${Array.from(
+  { length: 6 },
+  (_, i) => `<p>Paragraph ${i + 1}. A line of poles runs along the road, carrying power from a station far away to the houses and shops of a small town, where lamps and kettles wait for it every evening.</p>`,
+).join("")}`;
+
 test("a file matching a wanted book attaches to it and lights up the path", async ({ page }) => {
   await page.goto("/shelf");
   await page.getByLabel("Choose files").setInputFiles({
     name: "the-grid.epub",
     mimeType: "application/epub+zip",
-    buffer: Buffer.from(tinyEpub("The Grid: The Fraying Wires Between Americans and Our Energy Future", "Gretchen Bakke")),
+    // Readable (spine and contents), so the stats test can open it in the reader. Invented text.
+    buffer: Buffer.from(readableEpub("The Grid: The Fraying Wires Between Americans and Our Energy Future", [GRID_TEXT], "Gretchen Bakke")),
   });
   await expect(page.getByTestId("upload-results").getByText("Attached to the wanted book in your path")).toBeVisible();
   await page.goto("/");

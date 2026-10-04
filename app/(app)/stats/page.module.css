@@ -12,6 +12,10 @@
   text-align: right;
 }
 
+.table td {
+  white-space: nowrap;
+}
+
 .table thead th {
   border-top: 0;
   color: var(--ink-500);
@@ -31,4 +35,62 @@
   color: var(--ink-900);
   text-decoration: underline;
   text-decoration-color: var(--accent);
+}
+
+.note {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}
+
+.sub {
+  display: block;
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  font-weight: normal;
+}
+
+/* Time read that week, as a bar behind the number (longest week = full width). */
+.timeCell {
+  position: relative;
+  display: block;
+  min-inline-size: 5.5rem;
+}
+
+.bar {
+  position: absolute;
+  inset-block: 15%;
+  inset-inline-start: 0;
+  inline-size: 100%;
+  block-size: 70%;
+  fill: var(--accent);
+  opacity: 0.18;
+}
+
+.compare {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+  line-height: var(--leading-read);
+}
+
+.compareTitle {
+  color: var(--ink-900);
+  font-size: var(--text-md);
+}
+
+.cite {
+  color: var(--ink-500);
+}
+
+.compare a {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  overflow-wrap: anywhere;
 }
