@@ -7,6 +7,7 @@ import { Mark } from "@/components/Mark";
 import type { Annotation, Color } from "@/lib/library/annotations";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
+import { PEN_PATHS } from "@/lib/library/drawings";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ListenBar } from "./ListenBar";
@@ -40,16 +41,15 @@ type DrawFn = (rects: unknown, opts?: unknown) => SVGElement;
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 
 /**
- * Draws a sticker: the passage tinted in the sticker's colour (like a
- * highlight) and a small badge in the left margin beside its first line, so
+ * Draws a sticker or a handwritten note's mark: the passage tinted (like a
+ * highlight) and a small badge in the margin beside its first line, so
  * no text is covered. The line's start is found from the paragraph each time
  * the overlay redraws (after a resize, for example).
  */
-function drawSticker(sticker: Sticker, fill: string, ink: string, highlight: DrawFn, range: Range | null): DrawFn {
+function drawBadge(paths: readonly string[], fill: string, ink: string, highlight: DrawFn, range: Range | null, side: "left" | "right" = "left"): DrawFn {
   return (rects, opts) => {
     const ns = "http://www.w3.org/2000/svg";
     const g = document.createElementNS(ns, "g");
-    g.setAttribute("data-sticker", sticker);
     const list = rects as DOMRect[];
     const first = list[0];
     g.append(highlight(rects, { ...(opts as object), color: fill }));
@@ -60,7 +60,8 @@ function drawSticker(sticker: Sticker, fill: string, ink: string, highlight: Dra
     const frags = block ? Array.from(block.getClientRects()) : [];
     const frag = frags.find((f) => first.left >= f.left - 1 && first.left <= f.right + 1 && first.top >= f.top - 1 && first.top <= f.bottom + 1);
     const size = 16;
-    const cx = (frag?.left ?? first.left) - size / 2 - 8;
+    // Stickers go in the left margin, handwriting marks in the right one, so both can sit on one line.
+    const cx = side === "left" ? (frag?.left ?? first.left) - size / 2 - 8 : (frag?.right ?? first.right) + size / 2 + 8;
     const cy = first.top + first.height / 2;
     const disc = document.createElementNS(ns, "circle");
     disc.setAttribute("cx", String(cx));
@@ -70,7 +71,7 @@ function drawSticker(sticker: Sticker, fill: string, ink: string, highlight: Dra
     disc.setAttribute("stroke", ink);
     disc.setAttribute("stroke-width", "1");
     g.append(disc);
-    for (const d of STICKERS[sticker].paths) {
+    for (const d of paths) {
       const p = document.createElementNS(ns, "path");
       p.setAttribute("d", d);
       p.setAttribute("fill", "none");
@@ -232,7 +233,7 @@ export function Reader(props: {
         notesRef.current = loaded;
         setNotes(loaded);
         v.addEventListener("create-overlay", () => {
-          for (const a of notesRef.current) if ((a.kind === "highlight" || a.kind === "sticker") && a.cfi) void v.addAnnotation({ value: a.cfi });
+          for (const a of notesRef.current) if (["highlight", "sticker", "drawing"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
         });
         v.addEventListener("draw-annotation", (e: Event) => {
           const { draw, annotation, range } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string }; range: Range | null }>)
@@ -241,7 +242,11 @@ export function Reader(props: {
           const cs = getComputedStyle(root.current!);
           if (a?.kind === "sticker" && a.sticker) {
             const fill = cs.getPropertyValue(`--mark-${STICKERS[a.sticker].color}`).trim();
-            draw(drawSticker(a.sticker, fill, cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null), {});
+            draw(drawBadge(STICKERS[a.sticker].paths, fill, cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null), {});
+            return;
+          }
+          if (a?.kind === "drawing") {
+            draw(drawBadge(PEN_PATHS, cs.getPropertyValue("--mark-sky").trim(), cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null, "right"), {});
             return;
           }
           const color = cs.getPropertyValue(`--mark-${a?.color ?? "sage"}`).trim();
@@ -372,6 +377,22 @@ export function Reader(props: {
     });
     await reload();
     await view.current?.addAnnotation({ value: a.cfi! });
+  };
+
+  const saveDrawing = async (strokes: number[][]) => {
+    if (!selection) return;
+    const picked = selection;
+    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
+      kind: "drawing",
+      cfi: picked.cfi,
+      quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
+      drawing: { strokes },
+    });
+    clearSelection();
+    await reload();
+    await view.current?.addAnnotation({ value: a.cfi! });
+    setActiveId(a.id);
+    setPanel("notes");
   };
 
   const saveVoiceNote = async (audio: Blob, durationMs: number) => {
@@ -608,6 +629,7 @@ export function Reader(props: {
           onHighlight={highlight}
           onVoiceNote={saveVoiceNote}
           onSticker={addSticker}
+          onDrawing={saveDrawing}
           onRewrite={() => {
             setRewriteAt(selection.cfi);
             clearSelection();

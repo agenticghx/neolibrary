@@ -101,6 +101,48 @@ test("put a sticker on a passage; it is drawn, listed, and still there after a r
   expect(md).toContain("Sticker: Question");
 });
 
+test("draw a handwritten note on a passage; the strokes are saved and redrawn after a reload", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+
+  await selectPhrase(page, "went into his business room");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Draw" }).click();
+  const pad = page.getByTestId("drawing-pad");
+  const box = (await pad.boundingBox())!;
+  // A scripted stroke (a wave), then a dot.
+  await page.mouse.move(box.x + box.width * 0.1, box.y + box.height * 0.5);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + box.width * (0.1 + i * 0.07), box.y + box.height * (0.5 + (i % 2 ? -0.25 : 0.25)));
+  await page.mouse.up();
+  await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.8);
+  await expect(pad).toHaveAttribute("aria-label", "Drawing pad, 2 strokes");
+  await bar.getByRole("button", { name: "Save drawing" }).click();
+
+  const item = page.getByTestId("notes").locator("li").filter({ hasText: "Handwritten note" });
+  await expect(item).toHaveCount(1);
+  await expect(item).toContainText("went into his business room");
+  const preview = item.getByTestId("drawing-preview");
+  await expect(preview).toHaveAttribute("aria-label", "Handwritten note, 2 strokes");
+  const drawn = await preview.locator("path").evaluateAll((ps) => ps.map((p) => p.getAttribute("d")));
+  expect(drawn).toHaveLength(2);
+  expect(drawn[0]!.split("L").length).toBeGreaterThanOrEqual(10); // the wave keeps its points
+  expect(drawn[1]).toMatch(/^M\d+ \d+h0\.01$/); // the dot
+
+  await page.reload();
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: "screenshots/reader-drawing-page.png" }); // the marks in the margins, checked by eye
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const again = page.getByTestId("notes").locator("li").filter({ hasText: "Handwritten note" }).getByTestId("drawing-preview");
+  await expect(again.locator("path")).toHaveCount(2);
+  expect(await again.locator("path").evaluateAll((ps) => ps.map((p) => p.getAttribute("d")))).toEqual(drawn);
+  await again.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "screenshots/reader-drawing.png" });
+});
+
 test("the voice note in the Notes panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   const AxeBuilder = (await import("@axe-core/playwright")).default;
   const { mkdir } = await import("node:fs/promises");

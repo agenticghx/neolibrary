@@ -1,5 +1,6 @@
 import type { Annotation, Color, Kind } from "./annotations";
 import { isSticker, STICKERS, type Sticker } from "./stickers";
+import { cleanDrawing, type Drawing } from "./drawings";
 
 /**
  * Annotation exports (M5, ground rule 7):
@@ -17,12 +18,14 @@ const MOTIVATION: Record<Kind, string> = {
   note: "commenting",
   voice: "commenting",
   sticker: "tagging",
+  drawing: "commenting",
 };
 
 /** What a note says in text: the sticker's name, its body, and for a voice note the transcript. */
 const noteText = (a: Annotation) =>
   [
     a.sticker ? `Sticker: ${STICKERS[a.sticker].label}` : "",
+    a.drawing ? `Handwritten note (${a.drawing.strokes.length} ${a.drawing.strokes.length === 1 ? "stroke" : "strokes"})` : "",
     a.body.trim(),
     a.voice?.transcript.trim() ? `Voice note: ${a.voice.transcript.trim()}` : a.voice ? "Voice note (no transcript)" : "",
   ]
@@ -75,6 +78,7 @@ export type W3CAnnotation = {
   "neolibrary:color"?: Color | null;
   "neolibrary:sectionId"?: string | null;
   "neolibrary:sticker"?: Sticker;
+  "neolibrary:drawing"?: Drawing;
 };
 
 export type W3CCollection = {
@@ -99,7 +103,7 @@ export function toW3C(book: BookInfo, items: Annotation[]): W3CCollection {
           body: [
             {
               type: "TextualBody",
-              value: a.voice || a.sticker ? noteText(a) : a.body,
+              value: a.voice || a.sticker || a.drawing ? noteText(a) : a.body,
               format: "text/plain",
               purpose: a.sticker ? "tagging" : "commenting",
             },
@@ -120,6 +124,7 @@ export function toW3C(book: BookInfo, items: Annotation[]): W3CCollection {
     "neolibrary:color": a.color,
     "neolibrary:sectionId": a.sectionId,
     ...(a.sticker ? { "neolibrary:sticker": a.sticker } : {}),
+    ...(a.drawing ? { "neolibrary:drawing": a.drawing } : {}),
   }));
   return {
     "@context": "http://www.w3.org/ns/anno.jsonld",
@@ -140,6 +145,7 @@ export type ImportedAnnotation = {
   body: string;
   color: Color | null;
   sticker: Sticker | null;
+  drawing: Drawing | null;
   created: string | null;
   modified: string | null;
 };
@@ -153,8 +159,15 @@ export function fromW3C(data: unknown): ImportedAnnotation[] {
     const a = raw as W3CAnnotation;
     if (a?.type !== "Annotation") throw new FormatError("This is not a W3C Web Annotation file.");
     const sticker = isSticker(a["neolibrary:sticker"]) ? a["neolibrary:sticker"] : null;
+    const drawing = cleanDrawing(a["neolibrary:drawing"]);
     // A "tagging" annotation from another tool (no Neolibrary sticker) comes in as a note.
-    const kind = sticker ? "sticker" : KIND_OF[a.motivation] === "sticker" ? "note" : (KIND_OF[a.motivation] ?? (a.body?.length ? "note" : "highlight"));
+    const kind = sticker
+      ? "sticker"
+      : drawing
+        ? "drawing"
+        : KIND_OF[a.motivation] === "sticker"
+          ? "note"
+          : (KIND_OF[a.motivation] ?? (a.body?.length ? "note" : "highlight"));
     const selectors = a.target?.selector ?? [];
     const quote = selectors.find((s) => s.type === "TextQuoteSelector") as
       | { exact: string; prefix?: string; suffix?: string }
@@ -166,9 +179,10 @@ export function fromW3C(data: unknown): ImportedAnnotation[] {
       kind,
       cfi: fragment?.value ?? null,
       quote: { exact: quote?.exact ?? "", prefix: quote?.prefix ?? "", suffix: quote?.suffix ?? "" },
-      body: sticker ? "" : (a.body?.map((b) => b.value).join("\n\n") ?? ""),
+      body: sticker || drawing ? "" : (a.body?.map((b) => b.value).join("\n\n") ?? ""),
       color: a["neolibrary:color"] ?? null,
       sticker,
+      drawing,
       created: a.created ?? null,
       modified: a.modified ?? null,
     };

@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db/client";
 import { annotations, books, paths, pillars, sections } from "@/lib/db/schema";
 import { isCfi } from "./reading";
 import { isSticker, type Sticker } from "./stickers";
+import { cleanDrawing, type Drawing } from "./drawings";
 
 /**
  * Highlights, bookmarks and notes (M5).
@@ -15,7 +16,7 @@ import { isSticker, type Sticker } from "./stickers";
  */
 export const COLORS = ["sage", "amber", "rose", "sky"] as const;
 export type Color = (typeof COLORS)[number];
-export type Kind = "highlight" | "bookmark" | "note" | "voice" | "sticker";
+export type Kind = "highlight" | "bookmark" | "note" | "voice" | "sticker" | "drawing";
 
 export type Annotation = {
   id: string; // the annotation's stable id (annotation_id)
@@ -33,6 +34,8 @@ export type Annotation = {
   voice: { audioKey: string; mime: string; durationMs: number; transcript: string } | null;
   /** Stickers (M8): which one. */
   sticker: Sticker | null;
+  /** Handwritten notes (M8): pen strokes on a fixed-size pad. */
+  drawing: Drawing | null;
   createdAt: string; // first version
   updatedAt: string; // latest version
 };
@@ -63,6 +66,7 @@ function toAnnotation(latest: Row, first: Row): Annotation {
         ? { audioKey: latest.audioKey, mime: latest.audioMime ?? "audio/webm", durationMs: latest.durationMs ?? 0, transcript: latest.transcript }
         : null,
     sticker: latest.kind === "sticker" && isSticker(latest.sticker) ? latest.sticker : null,
+    drawing: latest.kind === "drawing" && latest.strokes ? latest.strokes : null,
     createdAt: first.createdAt.toISOString(),
     updatedAt: latest.createdAt.toISOString(),
   };
@@ -119,13 +123,15 @@ export async function createAnnotation(
     voice?: { audioKey: string; mime: string; durationMs: number; transcript: string };
     /** Stickers: one of STICKERS. */
     sticker?: unknown;
+    /** Handwritten notes: { strokes: [[x, y, …], …] } on the 600 × 300 pad. */
+    drawing?: unknown;
   },
   now = new Date(),
   /** Keep a given id (used when importing an export). */
   id?: string,
 ): Promise<Annotation> {
   const kind = input.kind as Kind;
-  if (!["highlight", "bookmark", "note", "voice", "sticker"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
+  if (!["highlight", "bookmark", "note", "voice", "sticker", "drawing"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
   if (input.targetType === "pillar" || input.targetType === "path") {
     return createTargetNote(db, ownerId, input.targetType, input.targetId, String(input.body ?? ""), now, id);
   }
@@ -141,6 +147,8 @@ export async function createAnnotation(
   const voice = kind === "voice" ? input.voice : undefined;
   if (kind === "voice" && (!voice || !voice.audioKey.startsWith(`audio/${ownerId}/`))) throw new AnnotationError("A voice note needs a recording.");
   if (kind === "sticker" && (!passage || !isSticker(input.sticker))) throw new AnnotationError("Choose a sticker for a place in the book.");
+  const drawing = kind === "drawing" ? cleanDrawing(input.drawing) : null;
+  if (kind === "drawing" && (!passage || !drawing)) throw new AnnotationError("Draw something for a place in the book.");
   const color = kind === "highlight" ? ((COLORS as readonly string[]).includes(String(input.color)) ? (input.color as Color) : "sage") : null;
   const cfi = passage ? (input.cfi as string) : null;
   const sectionId = cfi ? await sectionForCfi(db, bookId, cfi) : null;
@@ -166,6 +174,7 @@ export async function createAnnotation(
         ? { audioKey: voice.audioKey, audioMime: voice.mime, durationMs: Math.round(voice.durationMs), transcript: voice.transcript.slice(0, MAX_BODY) }
         : {}),
       ...(kind === "sticker" ? { sticker: input.sticker as Sticker } : {}),
+      ...(drawing ? { strokes: drawing } : {}),
       createdAt: now,
     })
     .returning();
@@ -320,6 +329,7 @@ export async function importAnnotations(
     body: string;
     color: Color | null;
     sticker?: Sticker | null;
+    drawing?: Drawing | null;
     created: string | null;
     modified: string | null;
   }[],
@@ -342,7 +352,7 @@ export async function importAnnotations(
     const a = await createAnnotation(
       db,
       ownerId,
-      { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined },
+      { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined, drawing: it.drawing ?? undefined },
       created,
       it.id ?? undefined,
     );

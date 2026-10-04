@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M8 (c), handwriting.
+next_action: Sessions loop through docs/done.md on their own; next is M9 (images).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,24 +21,33 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M8 · Thinking-out-loud notes**, next unticked box in `docs/done.md`.
-   PRs (a) voice notes and (b) stickers are done (see Log). Remaining:
-   (c) **Handwriting**: a drawing layer for stylus or finger. A "Draw"
-   button (e.g. in the selection bar for a passage, or a pen toggle in the
-   footer) puts a transparent canvas over the reader stage; pointer events
-   record strokes as lists of points relative to the page area. Save the
-   strokes as a passage annotation of kind `drawing` (migration with a
-   reverse step; extend the kind CHECK like `0013_stickers` and make the
-   down step keep something, e.g. a note "Drawing (n strokes)"), with the
-   strokes in a jsonb column. Redraw them when that passage is on screen
-   (as an overlay drawn from the passage's position, so they move with
-   reflowed text: store points relative to the passage's first line). Show
-   them in the Notes panel as a small SVG preview; export them in the
-   library JSON (Markdown/W3C: "Drawing (n strokes)"). Playwright draws a
-   scripted stroke with `page.mouse`, reloads, and checks the stroke is
-   redrawn (for example, read the overlay SVG's path or sample the
-   canvas pixels). Then tick M8 in `docs/done.md`.
-2. Then M9, M10, … in order, per `docs/done.md`.
+1. **M9 · See it (images)**, next unticked box in `docs/done.md`.
+   Everything behind interfaces with fakes (ground rule 3). Suggested PRs:
+   (a) **Image search**: an `ImageSearch` interface with a Wikimedia
+   Commons provider (the MediaWiki API, `commons.wikimedia.org/w/api.php`
+   with `generator=search`, `prop=imageinfo`, `iiprop=url|extmetadata`
+   for licence and credit; no key; send a descriptive User-Agent as
+   Wikimedia asks) and a fake returning fixed results for "silicon wafer"
+   (thumbnail URLs served from `public/` test images, so CSP `img-src` and
+   tests stay offline). Check whether the cloud session can reach
+   commons.wikimedia.org (curl); if not, test only against the fake and
+   a stand-in fetch, as with ElevenLabs. Results show credit and licence.
+   (b) **Generated image fallback**: an `ImageGenerator` interface with
+   OpenAI (check the current image model name when building; key
+   `OPENAI_API_KEY`, Waiting on Samuel) and a fake that makes a small PNG in
+   code; cost estimate first and caps (`IMAGE_CAP_…`, extend `capsFromEnv`),
+   provenance in `generations`-like storage, image file in the bucket;
+   labelled "Generated image" everywhere. (c) **Pin an image to a passage**:
+   an annotation of kind `image` (migration with a reverse step, extend the
+   kind CHECK like `0014_drawings`) holding the image source (Commons URL +
+   credit + licence, or the stored generated file), shown as a pop-up card
+   from a small marker in the margin (reuse `drawBadge` in `Reader.tsx`)
+   and in the Notes panel; exported (library JSON; Markdown/W3C with the
+   credit). Done when (plan): searching "silicon wafer" against the fake
+   returns results; a pinned image survives reload. Images from outside
+   need `img-src` in the CSP (`proxy.ts`): allow `upload.wikimedia.org`
+   only.
+2. Then M10, M11, M12, per `docs/done.md`.
 
 ## Waiting on Samuel
 
@@ -105,6 +114,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 08:10 UTC · Claude (cloud) · M8 (c): handwritten notes; M8 ticked
+- **Done:** Selecting text now offers **Draw**, which opens a drawing pad for stylus, finger or mouse (pointer events, `touch-action: none`), with Undo, Clear, Back and **Save drawing**. Strokes are kept in pad units (600 × 300) as whole-number point lists, so a handwritten note redraws the same on any screen (`lib/library/drawings.ts`). It is saved as an **annotation of kind `drawing`** (migration `0014_drawings`). Its reverse step turns drawings into notes saying "Handwritten note (n strokes)", so going back keeps a trace. So drawings are append-only and soft-deleted like the rest. The Notes panel redraws the note as an SVG preview. In the book, the passage is tinted and a **pen badge sits in the right margin** (stickers stay in the left margin, so both fit on one line). Exports: library JSON (`drawing`), Markdown and W3C ("Handwritten note (2 strokes)"; W3C carries the strokes as `neolibrary:drawing`, so a W3C round trip keeps the drawing). Points are clamped to the pad, and oversized drawings (more than 300 strokes or 20,000 points) are refused. **M8 ticked** in `docs/done.md`.
+- **Key paths:** `lib/library/drawings.ts`, `db/migrations/0014_drawings.*`, `lib/library/{annotations,annotation-formats,export}.ts`, `app/(reader)/books/[id]/read/{DrawingPad,SelectionBar,NotesPanel,Reader}.tsx` (`drawBadge`), `e2e/notes.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `195 passed`, including: strokes saved, rounded to the pad and listed exactly; SVG paths `M10 10L120 81L240 40` and a dot; "Handwritten note (2 strokes)" in Markdown and W3C; W3C export → hide → import keeps the drawing; points outside the pad clamped; non-drawings, empty and oversized drawings refused; a drawing needs a place. `npx playwright test` → `135 passed (2.6m)`. The browser test **draws a scripted stroke** with the mouse (a 10-point wave) **and a dot**: the pad says "2 strokes"; after Save the Notes panel's preview has 2 paths (the wave with at least 10 points, the dot); **after a reload the preview's path data is identical**. Checked by eye (`screenshots/reader-drawing.png`, `reader-drawing-page.png`). On the way, the first pen badge sat on top of the sticker badge on the same line. Pushing it further out got it clipped by the overlay's edge, so handwriting marks now use the right margin.
+- **Known issues / blockers:** The drawing is on a pad attached to a passage, not drawn directly over the page's text. Text reflows with font size and layout, so ink over the page would drift away from its words. One pen badge per line (several drawings on one line share the spot).
+- **Exact next steps:** M9, per "Exact next steps".
 
 ### 2026-10-04 07:45 UTC · Claude (cloud) · M8 (b): stickers on passages
 - **Done:** Selecting text now offers **Sticker**, which shows five stickers: Important (star), Question, Surprising (!), Agree (tick), Come back to this (flag). They are drawn as SVG shapes, not emoji, so they look the same on every device and in screenshots (`lib/library/stickers.ts`, `components/StickerIcon.tsx`). A sticker is an **annotation of kind `sticker`** (migration `0013_stickers`). Its reverse step turns stickers into amber highlights whose note names the sticker, so going back keeps the marks. So stickers are append-only and soft-deleted like everything else. In the book, the passage is tinted in the sticker's colour and a small badge sits **in the left margin beside its first line**, so no text is covered. The line's start is found from the paragraph each time the overlay redraws, so it follows resizing. The Notes panel lists "Sticker · Question" with the icon. Exports: library JSON (the `sticker` field), Markdown ("Sticker: Question") and W3C (motivation `tagging`, plus a `neolibrary:sticker` extra so a W3C round trip keeps it a sticker; another tool's tagging comes in as a note). An M5 test used "sticker" as its example of an *unknown* kind; it now uses "doodle" (same check, the example just became a real kind).
