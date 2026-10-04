@@ -8,6 +8,8 @@ import type { Annotation, Color } from "@/lib/library/annotations";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
+import { ListenBar } from "./ListenBar";
+import { rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -25,8 +27,9 @@ type FoliateView = HTMLElement & {
   next(): Promise<void>;
   close(): void;
   book: { toc?: TocItem[]; dir?: string };
-  renderer: HTMLElement & { setStyles?(css: string): void };
+  renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[] };
   getCFI(index: number, range: Range): string;
+  resolveCFI(cfi: string): { index: number; anchor: (doc: Document) => Range };
   addAnnotation(a: { value: string }): Promise<unknown>;
   deleteAnnotation(a: { value: string }): Promise<unknown>;
 };
@@ -52,7 +55,7 @@ function quoteOf(doc: Document, range: Range) {
 
 const readerClass = (s: ReaderSettings) => (s.theme === "auto" ? styles.reader : `${styles.reader} theme-${s.theme}`);
 
-const TOKENS = { paper: "--paper", ink: "--ink-900", accent: "--accent", highlight: "--highlight" } as const;
+const TOKENS = { paper: "--paper", ink: "--ink-900", accent: "--accent", highlight: "--highlight", spoken: "--highlight-active" } as const;
 
 function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element) {
   const r = v.renderer;
@@ -92,6 +95,8 @@ export function Reader(props: {
   const [toc, setToc] = useState<TocItem[]>([]);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links">("none");
   const [links, setLinks] = useState<CrossLink[]>([]);
+  const [listening, setListening] = useState(false);
+  const whereCfi = useRef<string | null>(props.initialCfi);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
@@ -200,6 +205,7 @@ export function Reader(props: {
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+          whereCfi.current = d.cfi;
           visibleText.current = clean(d.range?.toString() ?? "");
           pending.current = d;
           if (timer.current) clearTimeout(timer.current);
@@ -337,6 +343,40 @@ export function Reader(props: {
     await reload();
   };
 
+  // Read aloud: highlight the word being spoken, inside the book's own frame
+  // (CSS Custom Highlight API, so the book's text is not touched), and turn
+  // the page when the voice reaches the end of it.
+  const highlightWord = (passageCfi: string, from: number, to: number): string | null => {
+    const v = view.current;
+    if (!v) return null;
+    const { index, anchor } = v.resolveCFI(passageCfi);
+    const doc = v.renderer.getContents().find((c) => c.index === index)?.doc;
+    if (!doc) return null;
+    const start = anchor(doc).startContainer;
+    const el = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
+    const range = el ? rangeForOffsets(el, from, to) : null;
+    if (!range) return null;
+    const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
+    win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
+    const visible = whereCfi.current;
+    if (visible && CFI.compare(v.getCFI(index, range), CFI.collapse(visible, true)) > 0) void v.next();
+    return range.toString();
+  };
+
+  const showPassage = (passageCfi: string) => {
+    const v = view.current;
+    const visible = whereCfi.current;
+    if (!v) return;
+    if (!visible || CFI.compare(passageCfi, CFI.collapse(visible)) < 0 || CFI.compare(passageCfi, CFI.collapse(visible, true)) > 0) void v.goTo(passageCfi);
+  };
+
+  const stopListening = () => {
+    for (const { doc } of view.current?.renderer.getContents() ?? []) {
+      (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
+    }
+    setListening(false);
+  };
+
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
   const percent = Math.round(where.fraction * 100);
 
@@ -447,10 +487,30 @@ export function Reader(props: {
         <span className={styles.progress} aria-hidden="true">
           <span className={styles.progressFill} data-progress={Math.round(where.fraction * 50) * 2} />
         </span>
-        <span className={styles.percent} aria-label={`${percent}% read`}>
-          {percent}%
+        <span className={styles.footRight}>
+          <button
+            type="button"
+            className={styles.listenButton}
+            aria-pressed={listening}
+            disabled={!where.cfi || props.fileType === "pdf"}
+            title={props.fileType === "pdf" ? "Reading aloud works for EPUB books" : "Read aloud"}
+            onClick={() => (listening ? stopListening() : setListening(true))}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M2 5h2.5L8 2v10L4.5 9H2z" fill="currentColor" />
+              <path d="M10 4.5a3.5 3.5 0 0 1 0 5M11.5 3a5.5 5.5 0 0 1 0 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+            Listen
+          </button>
+          <span className={styles.percent} aria-label={`${percent}% read`}>
+            {percent}%
+          </span>
         </span>
       </footer>
+
+      {listening && where.cfi ? (
+        <ListenBar bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
+      ) : null}
 
       {selection ? (
         <SelectionBar

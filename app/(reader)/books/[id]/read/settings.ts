@@ -59,6 +59,7 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     }
     a:link, a:visited { color: ${colors.accent} !important; }
     ::selection { background: ${colors.highlight}; }
+    ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
     img, svg { max-width: 100%; height: auto; }
     pre { white-space: pre-wrap !important; }
     aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }

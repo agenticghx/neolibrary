@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { fileOwner } from "@/lib/library/import";
 import { serverSecret } from "@/lib/secrets";
 import { verifyFileSignature } from "@/lib/signed-url";
+import { byteRange } from "@/lib/http-range";
 import { getStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -24,12 +25,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
   if (fileOwner(key) !== user.id) return Response.json({ error: "Not found" }, { status: 404 });
   const file = await (await getStorage()).get(key).catch(() => null);
   if (!file) return Response.json({ error: "Not found" }, { status: 404 });
-  return new Response(Buffer.from(file.data), {
-    headers: {
-      "content-type": file.contentType,
-      "cache-control": "private, max-age=300",
-      "x-content-type-options": "nosniff",
-      "content-security-policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
-    },
-  });
+  const headers = {
+    "content-type": file.contentType,
+    "cache-control": "private, max-age=300",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+    // Audio players ask for byte ranges to learn the length and to seek.
+    "accept-ranges": "bytes",
+  };
+  const size = file.data.length;
+  const range = byteRange(req.headers.get("range"), size);
+  if (range === "invalid") {
+    return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${size}` } });
+  }
+  if (range) {
+    const [start, end] = range;
+    return new Response(Buffer.from(file.data.subarray(start, end + 1)), {
+      status: 206,
+      headers: { ...headers, "content-range": `bytes ${start}-${end}/${size}`, "content-length": String(end - start + 1) },
+    });
+  }
+  return new Response(Buffer.from(file.data), { headers: { ...headers, "content-length": String(size) } });
 }
