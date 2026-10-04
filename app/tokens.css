@@ -82,6 +82,12 @@
   --machine-bg: #ece6f0;
   --machine-rule: #7a6a8c;
 
+  /* Highlight colours in books (drawn translucent over the text) */
+  --mark-sage: #5f9e86;
+  --mark-amber: #e0a43a;
+  --mark-rose: #d76f7d;
+  --mark-sky: #5b97d4;
+
   /* Typographic book covers */
   --cover-navy: #22384a;
   --cover-green: #2e5a50;

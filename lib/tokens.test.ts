@@ -54,12 +54,15 @@ describe("prototype palette", () => {
 });
 
 describe("explicit reader themes", () => {
+  // Highlight colours (--mark-*) are shared by every theme, so themes do not repeat them.
+  const themed = (t: Record<string, string>) => Object.fromEntries(Object.entries(t).filter(([k]) => !k.startsWith("mark-")));
+
   it("Paper and Night repeat the light and dark values exactly", () => {
-    expect(themes.paper).toEqual(light);
-    expect(themes.night).toEqual(dark);
+    expect(themes.paper).toEqual(themed(light));
+    expect(themes.night).toEqual(themed(dark));
   });
 
   it("Sepia defines every colour the other themes do", () => {
-    expect(Object.keys(themes.sepia).sort()).toEqual(Object.keys(light).sort());
+    expect(Object.keys(themes.sepia).sort()).toEqual(Object.keys(themed(light)).sort());
   });
 });

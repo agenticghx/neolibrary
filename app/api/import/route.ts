@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const db = await getDb();
   const current = await exportLibrary(db, user.id);
-  if (current.books.length || current.paths.length || current.collections.length) {
+  if (current.books.length || current.paths.length || current.collections.length || current.annotations?.length) {
     return Response.json({ error: "Your library is not empty. Importing only works into an empty library." }, { status: 409 });
   }
   let data: unknown;

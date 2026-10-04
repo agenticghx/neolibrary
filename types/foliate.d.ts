@@ -9,3 +9,4 @@ declare module "foliate-js/epubcfi.js" {
 declare module "pdfjs-dist/legacy/build/pdf.mjs" {
   export * from "pdfjs-dist";
 }
+declare module "foliate-js/overlayer.js";

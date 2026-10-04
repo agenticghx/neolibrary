@@ -21,17 +21,19 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M5 · ebook basics** (next unticked box in `docs/done.md`). Suggested
-   PRs: (a) annotations model: one table for highlights, bookmarks and
-   notes, following the W3C Web Annotation shape. Target: book + section id
-   + CFI + TextQuoteSelector (exact text plus a few words before and after).
-   Edits add a new version and deletes only hide (ground rule 9). Make
-   highlights from a selection in the reader: foliate's `overlayer.js` draws
-   them, through the `create-overlayer` event and `view.addAnnotation`.
-   (b) notes panel per book, bookmarks, colours. (c) export: Markdown, W3C
-   Web Annotation JSON, copy, email (mailto), share a passage (link + image
-   card), and import back, with an export → wipe → import test. Add notes
-   to `/search`.
+1. **M5 (b) · export and share**, then tick M5:
+   (1) Export a book's annotations as Markdown (title, then each highlight
+   as a quote with its chapter and note) and as W3C Web Annotation JSON
+   (`@context` http://www.w3.org/ns/anno.jsonld, a TextQuoteSelector plus a
+   FragmentSelector holding the CFI). Offer them from the book page and the
+   Notes panel, with "Copy all" (clipboard) and "Email" (a `mailto:` link
+   with the Markdown). (2) Import W3C annotations back; test export → wipe →
+   import gives identical annotations. (3) Share a passage: a link that opens
+   the reader at the CFI, for logged-in users, and an image card of the quote
+   drawn on a canvas, offered as a download. (4) Search notes too (add
+   annotation text to `/search`). (5) Notes on Paths and Pillars (the table
+   already supports `target_type` path/pillar): a small note box on the
+   Path view.
 2. Then M6, M7, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -85,6 +87,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 06:05 · Claude (cloud) · M5 (a): highlights, notes and bookmarks
+- **Done:** New `annotations` table (migration `0007_annotations`, with a reverse step). It is append-only, following ground rule 9: an edit adds a new version and a delete adds a hidden version, and `GET /api/annotations/<id>` returns every version. Passage annotations follow ground rule 4 and the W3C Web Annotation shape: book, section id (found by comparing CFIs with foliate's code), CFI, and quote (exact text plus up to 64 characters either side). Reader: selecting text opens a **selection bar** with four highlight colours (sage, amber, rose, sky, new `--mark-*` tokens), "Add note" and "Copy" (the quote with title and author). Highlights are drawn in the book by foliate's overlayer; clicking one opens it in the **Notes panel**. The panel lists book notes first, then bookmarks and passages in reading order, with Go to, Edit note, Remove, and a box for a note on the whole book. A **bookmark button** in the top bar toggles a bookmark for the current page. Annotations, including every version, are in the library export, and the export → wipe → import test covers them (ground rule 7). **Bug found and fixed:** saving a highlight cleared whatever was selected when the save finished, which could wipe a new selection made meanwhile; the selection is now taken and cleared before saving, and the test selects the next passage immediately.
+- **Key paths:** `db/migrations/0007_annotations.*`, `lib/library/annotations.ts`, `app/api/books/[id]/annotations/`, `app/api/annotations/[id]/`, `app/(reader)/books/[id]/read/{Reader,SelectionBar,NotesPanel}.tsx`, `e2e/annotations.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `127 passed`; `npx playwright test` → `107 passed (1.5m)`, including: highlight "rugged countenance" in amber; immediately select "cold, scanty and embarrassed in discourse" and add a note; bookmark the page; **reload → Notes (3), in reading order, with the note text**; edit the note → 2 versions on the server; remove a highlight; add a note on the book. Screenshot check by hand: amber and sky highlights drawn in the text, and the Notes panel listing them.
+- **Known issues / blockers:** Highlight overlays are not compared pixel by pixel (they render inside the book frame). PDFs: text selection works on the text layer, but highlights on PDF pages have not been tested yet.
+- **Exact next steps:** M5 (b), per "Exact next steps".
 
 ### 2026-10-04 05:35 · Claude (cloud) · M4 (d): reader themes and PDF reading; M4 ticked
 - **Done:** A theme picker in the reader's Aa panel: Auto (follows the device), Paper, Sepia, Night. Themes are token sets in `app/tokens.css`; tests check that Paper and Night equal the light and dark values exactly and that Sepia passes every contrast rule. Book pages take the colours of the chosen theme. **PDFs now open in the reader:** my own foliate-js "book" adapter for pdf.js (`lib/reader/pdf-book.ts`, adapted from foliate's MIT adapter, which its npm release lacks) shows one centred page at a time, drawn on a canvas with a selectable text layer. It uses pdf.js's legacy build, because the modern build needs `Map.getOrInsertComputed`, which current browsers (including the test Chromium) lack. pdf.js's worker, character maps and fonts are copied to `public/pdfjs/` before each build (`scripts/copy-pdfjs.mjs`, gitignored). **PDF text is searchable:** `lib/library/pdf-sections.ts` reads each page's text on the server (one chapter per page, paragraphs split where a gap is clearly larger than the page's median line step), and results open the reader at that page. M4 ticked in `docs/done.md`; Samuel's real-book verdict is listed under Waiting on Samuel.

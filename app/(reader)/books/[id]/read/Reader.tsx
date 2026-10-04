@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
+import type { Annotation, Color } from "@/lib/library/annotations";
+import { NotesPanel } from "./NotesPanel";
+import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings } from "./settings";
 import styles from "./reader.module.css";
 
@@ -16,8 +20,29 @@ type FoliateView = HTMLElement & {
   close(): void;
   book: { toc?: TocItem[]; dir?: string };
   renderer: HTMLElement & { setStyles?(css: string): void };
+  getCFI(index: number, range: Range): string;
+  addAnnotation(a: { value: string }): Promise<unknown>;
+  deleteAnnotation(a: { value: string }): Promise<unknown>;
 };
-type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string } };
+type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string }; range?: Range };
+type DrawFn = (rects: unknown, opts?: unknown) => SVGElement;
+
+const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/** The quote around a selection (W3C TextQuoteSelector): exact text plus some words either side. */
+function quoteOf(doc: Document, range: Range) {
+  const before = doc.createRange();
+  before.setStart(doc.body, 0);
+  before.setEnd(range.startContainer, range.startOffset);
+  const after = doc.createRange();
+  after.setStart(range.endContainer, range.endOffset);
+  after.setEnd(doc.body, doc.body.childNodes.length);
+  return {
+    exact: clean(range.toString()),
+    prefix: before.toString().replace(/\s+/g, " ").slice(-64).trimStart(),
+    suffix: after.toString().replace(/\s+/g, " ").slice(0, 64).trimEnd(),
+  };
+}
 
 const readerClass = (s: ReaderSettings) => (s.theme === "auto" ? styles.reader : `${styles.reader} theme-${s.theme}`);
 
@@ -59,7 +84,13 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes">("none");
+  const [notes, setNotes] = useState<Annotation[]>([]);
+  const notesRef = useRef<Annotation[]>([]);
+  const [selection, setSelection] = useState<PendingSelection | null>(null);
+  const selectionDoc = useRef<Document | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const visibleText = useRef("");
   const [where, setWhere] = useState<{ cfi: string | null; fraction: number; chapter: string }>({
     cfi: props.initialCfi,
     fraction: props.initialFraction,
@@ -114,19 +145,55 @@ export function Reader(props: {
         host.current!.append(v);
         view.current = v;
         await v.open(book);
+        // Highlights: load them, and draw each one when its page is rendered.
+        const { Overlayer } = (await import("foliate-js/overlayer.js")) as { Overlayer: { highlight: DrawFn } };
+        const loaded: Annotation[] = (await (await fetch(`/api/books/${props.bookId}/annotations`)).json()).annotations ?? [];
+        notesRef.current = loaded;
+        setNotes(loaded);
+        v.addEventListener("create-overlay", () => {
+          for (const a of notesRef.current) if (a.kind === "highlight" && a.cfi) void v.addAnnotation({ value: a.cfi });
+        });
+        v.addEventListener("draw-annotation", (e: Event) => {
+          const { draw, annotation } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string } }>).detail;
+          const a = notesRef.current.find((x) => x.cfi === annotation.value);
+          const color = getComputedStyle(root.current!).getPropertyValue(`--mark-${a?.color ?? "sage"}`).trim();
+          draw(Overlayer.highlight, { color });
+        });
+        v.addEventListener("show-annotation", (e: Event) => {
+          const a = notesRef.current.find((x) => x.cfi === (e as CustomEvent<{ value: string }>).detail.value);
+          if (a) {
+            setActiveId(a.id);
+            setPanel("notes");
+          }
+        });
         root.current!.className = readerClass(initial);
         applySettings(v, initial, root.current!);
         setSettings(initial);
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+          visibleText.current = clean(d.range?.toString() ?? "");
           pending.current = d;
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => flush(), 600);
         });
         v.addEventListener("load", (e: Event) => {
-          const doc = (e as CustomEvent<{ doc: Document }>).detail.doc;
+          const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
           doc.addEventListener("keydown", onKey);
+          // A text selection opens the selection bar (highlight, note, copy).
+          let t: ReturnType<typeof setTimeout> | null = null;
+          doc.addEventListener("selectionchange", () => {
+            if (t) clearTimeout(t);
+            t = setTimeout(() => {
+              const sel = doc.getSelection();
+              if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+              const range = sel.getRangeAt(0);
+              const quote = quoteOf(doc, range);
+              if (!quote.exact) return;
+              selectionDoc.current = doc;
+              setSelection({ cfi: v.getCFI(index, range), ...quote });
+            }, 250);
+          });
         });
         setToc(v.book.toc ?? []);
         await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi });
@@ -139,7 +206,7 @@ export function Reader(props: {
     return () => {
       cancelled = true;
     };
-  }, [props.fileUrl, props.fileType, props.initialCfi, flush, onKey]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey]);
 
   // Re-style when settings or the colour scheme change.
   useEffect(() => {
@@ -166,6 +233,79 @@ export function Reader(props: {
     };
   }, [flush, onKey]);
 
+  const setAll = (list: Annotation[]) => {
+    notesRef.current = list;
+    setNotes(list);
+  };
+
+  const api = async (url: string, method: string, body?: unknown) => {
+    const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
+    return res.status === 204 ? null : res.json();
+  };
+
+  const reload = async () => setAll((await api(`/api/books/${props.bookId}/annotations`, "GET")).annotations);
+
+  const clearSelection = () => {
+    selectionDoc.current?.getSelection()?.removeAllRanges();
+    setSelection(null);
+  };
+
+  const highlight = async (color: Color, body: string) => {
+    if (!selection) return;
+    // Take the selection and clear it first: the reader may select something
+    // new while this is being saved, and that must not be wiped.
+    const picked = selection;
+    clearSelection();
+    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
+      kind: "highlight",
+      cfi: picked.cfi,
+      quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
+      color,
+      body,
+    });
+    await reload();
+    await view.current?.addAnnotation({ value: a.cfi! });
+  };
+
+  const saveNote = async (a: Annotation, body: string) => {
+    await api(`/api/annotations/${a.id}`, "PATCH", { body });
+    await reload();
+  };
+
+  const removeNote = async (a: Annotation) => {
+    await api(`/api/annotations/${a.id}`, "DELETE");
+    if (a.kind === "highlight" && a.cfi) await view.current?.deleteAnnotation({ value: a.cfi });
+    await reload();
+  };
+
+  const addBookNote = async (body: string) => {
+    await api(`/api/books/${props.bookId}/annotations`, "POST", { kind: "note", body });
+    await reload();
+  };
+
+  const bookmarkHere = where.cfi
+    ? notes.find(
+        (a) =>
+          a.kind === "bookmark" &&
+          a.cfi &&
+          CFI.compare(a.cfi, CFI.collapse(where.cfi!)) >= 0 &&
+          CFI.compare(a.cfi, CFI.collapse(where.cfi!, true)) <= 0,
+      )
+    : undefined;
+
+  const toggleBookmark = async () => {
+    if (!where.cfi) return;
+    if (bookmarkHere) await api(`/api/annotations/${bookmarkHere.id}`, "DELETE");
+    else
+      await api(`/api/books/${props.bookId}/annotations`, "POST", {
+        kind: "bookmark",
+        cfi: CFI.collapse(where.cfi),
+        quote: { exact: visibleText.current.slice(0, 160) || where.chapter },
+      });
+    await reload();
+  };
+
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
   const percent = Math.round(where.fraction * 100);
 
@@ -186,6 +326,25 @@ export function Reader(props: {
           {props.author ? <span className={styles.author}> · {props.author}</span> : null}
         </p>
         <div className={styles.tools}>
+          <button
+            type="button"
+            className={styles.tool}
+            aria-pressed={Boolean(bookmarkHere)}
+            aria-label={bookmarkHere ? "Remove bookmark" : "Bookmark this page"}
+            onClick={() => void toggleBookmark()}
+          >
+            <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true">
+              <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={styles.tool}
+            aria-expanded={panel === "notes"}
+            onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
+          >
+            Notes{notes.length ? ` (${notes.length})` : ""}
+          </button>
           <button
             type="button"
             className={styles.tool}
@@ -235,6 +394,23 @@ export function Reader(props: {
           {percent}%
         </span>
       </footer>
+
+      {selection ? (
+        <SelectionBar selection={selection} title={props.title} author={props.author} onHighlight={highlight} onClose={clearSelection} />
+      ) : null}
+
+      {panel === "notes" ? (
+        <NotesPanel
+          items={notes}
+          activeId={activeId}
+          onGo={(a) => {
+            if (a.cfi) void view.current?.goTo(a.cfi);
+          }}
+          onSave={saveNote}
+          onDelete={removeNote}
+          onAddBookNote={addBookNote}
+        />
+      ) : null}
 
       {panel === "contents" ? (
         <nav className={styles.panel} aria-label="Contents">

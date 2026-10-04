@@ -1,12 +1,12 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { books, collectionBooks, collections, paths, pillars, slots } from "@/lib/db/schema";
+import { annotations, books, collectionBooks, collections, paths, pillars, slots } from "@/lib/db/schema";
 
 /**
- * Ground rule 7 (no lock-in): everything in a user's library can be
- * exported as one JSON file and imported back. Annotations join this file
- * (and the W3C Web Annotation export) in M5. Book files themselves stay in
- * storage; the export records their keys and names.
+ * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
+ * collections, and every version of every annotation) can be exported as one
+ * JSON file and imported back. Book files themselves stay in storage; the
+ * export records their keys and names.
  */
 export const EXPORT_FORMAT = "neolibrary-library";
 export const EXPORT_VERSION = 1;
@@ -54,6 +54,23 @@ export type LibraryExport = {
     }[];
   }[];
   collections: { id: string; name: string; createdAt: string; bookIds: string[] }[];
+  /** Every version of every highlight, bookmark and note (added in M5; nothing is ever overwritten). */
+  annotations?: {
+    id: string;
+    annotationId: string;
+    version: number;
+    kind: "highlight" | "bookmark" | "note";
+    targetType: "passage" | "book" | "pillar" | "path";
+    bookId: string | null;
+    targetId: string | null;
+    sectionId: string | null;
+    cfi: string | null;
+    quote: { exact: string; prefix: string; suffix: string };
+    color: string | null;
+    body: string;
+    deleted: boolean;
+    createdAt: string;
+  }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -77,6 +94,12 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         .where(inArray(collectionBooks.collectionId, collectionRows.map((c) => c.id)))
         .orderBy(asc(collectionBooks.addedAt), asc(collectionBooks.bookId))
     : [];
+
+  const annotationRows = await db
+    .select()
+    .from(annotations)
+    .where(eq(annotations.ownerId, ownerId))
+    .orderBy(asc(annotations.createdAt), asc(annotations.annotationId), asc(annotations.version));
 
   return {
     format: EXPORT_FORMAT,
@@ -129,6 +152,22 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       createdAt: c.createdAt.toISOString(),
       bookIds: memberRows.filter((m) => m.collectionId === c.id).map((m) => m.bookId),
     })),
+    annotations: annotationRows.map((a) => ({
+      id: a.id,
+      annotationId: a.annotationId,
+      version: a.version,
+      kind: a.kind,
+      targetType: a.targetType,
+      bookId: a.bookId,
+      targetId: a.targetId,
+      sectionId: a.sectionId,
+      cfi: a.cfi,
+      quote: { exact: a.quoteExact, prefix: a.quotePrefix, suffix: a.quoteSuffix },
+      color: a.color,
+      body: a.body,
+      deleted: a.deleted,
+      createdAt: a.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -137,6 +176,7 @@ export class ExportFormatError extends Error {}
 /** Removes a user's whole library (books, paths, collections). Their account stays. */
 export async function wipeLibrary(db: Db, ownerId: string) {
   await db.transaction(async (tx) => {
+    await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
     await tx.delete(books).where(eq(books.ownerId, ownerId));
@@ -211,6 +251,27 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         // Keep the original order: later books get later timestamps.
         await tx.insert(collectionBooks).values({ collectionId: c.id, bookId, addedAt: new Date(new Date(c.createdAt).getTime() + k) });
       }
+    }
+    for (const a of x.annotations ?? []) {
+      await tx.insert(annotations).values({
+        id: a.id,
+        annotationId: a.annotationId,
+        version: a.version,
+        ownerId,
+        kind: a.kind,
+        targetType: a.targetType,
+        bookId: a.bookId,
+        targetId: a.targetId,
+        sectionId: a.sectionId,
+        cfi: a.cfi,
+        quoteExact: a.quote.exact,
+        quotePrefix: a.quote.prefix,
+        quoteSuffix: a.quote.suffix,
+        color: a.color,
+        body: a.body,
+        deleted: a.deleted,
+        createdAt: new Date(a.createdAt),
+      });
     }
   });
 }
