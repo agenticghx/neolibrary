@@ -61,12 +61,16 @@ export async function revokeApiToken(db: Db, ownerId: string, id: string, now = 
   }
 }
 
-/** The user a token acts for, or null (unknown, revoked, or the user is disabled). Notes when it was last used. */
-export async function userForApiToken(db: Db, token: string | null | undefined, now = new Date()): Promise<PublicUser | null> {
+/** The user a token acts for and the token's name, or null (unknown, revoked, or the user is disabled). Notes when it was last used. */
+export async function userForApiToken(
+  db: Db,
+  token: string | null | undefined,
+  now = new Date(),
+): Promise<{ user: PublicUser; tokenName: string } | null> {
   if (!token || !token.startsWith(TOKEN_PREFIX) || token.length > 200) return null;
   const hash = sha256(token);
   const [row] = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+    .select({ id: users.id, email: users.email, name: users.name, role: users.role, tokenName: apiTokens.name })
     .from(apiTokens)
     .innerJoin(users, eq(users.id, apiTokens.ownerId))
     .where(and(eq(apiTokens.tokenHash, hash), isNull(apiTokens.revokedAt), isNull(users.disabledAt)));
@@ -75,7 +79,8 @@ export async function userForApiToken(db: Db, token: string | null | undefined, 
     .update(apiTokens)
     .set({ lastUsedAt: now })
     .where(and(eq(apiTokens.tokenHash, hash), or(isNull(apiTokens.lastUsedAt), lt(apiTokens.lastUsedAt, new Date(now.getTime() - TOUCH_MS)))));
-  return row;
+  const { tokenName, ...user } = row;
+  return { user, tokenName };
 }
 
 /** The token in an `Authorization: Bearer …` header, if any. */

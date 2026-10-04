@@ -193,6 +193,8 @@ export const annotations = pgTable("annotations", {
   sticker: text("sticker"),
   strokes: jsonb("strokes").$type<{ width: number; height: number; strokes: number[][] }>(),
   picture: jsonb("picture").$type<Record<string, unknown>>(),
+  /** The API token (by name) that added it through the agent API, or null if the reader wrote it (M11). */
+  agent: text("agent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

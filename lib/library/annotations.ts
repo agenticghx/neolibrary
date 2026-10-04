@@ -39,6 +39,8 @@ export type Annotation = {
   drawing: Drawing | null;
   /** Pinned pictures (M9): from Wikimedia Commons or generated. */
   picture: PinnedPicture | null;
+  /** Added by an AI agent through the agent API (M11): the token's name. Null when the reader wrote it. */
+  agent: string | null;
   createdAt: string; // first version
   updatedAt: string; // latest version
 };
@@ -71,6 +73,7 @@ function toAnnotation(latest: Row, first: Row): Annotation {
     sticker: latest.kind === "sticker" && isSticker(latest.sticker) ? latest.sticker : null,
     drawing: latest.kind === "drawing" && latest.strokes ? latest.strokes : null,
     picture: latest.kind === "image" && latest.picture ? (latest.picture as PinnedPicture) : null,
+    agent: first.agent ?? null,
     createdAt: first.createdAt.toISOString(),
     updatedAt: latest.createdAt.toISOString(),
   };
@@ -85,12 +88,16 @@ export async function sectionForCfi(db: Db, bookId: string, cfi: string): Promis
     .from(sections)
     .where(eq(sections.bookId, bookId))
     .orderBy(asc(sections.position));
+  // An element's CFI (a whole paragraph, no character offset) means its first
+  // character: compare both sides in that form, so a paragraph's own CFI
+  // falls in that paragraph and not in the one before.
+  const atStart = (c: string) => (c.includes("!") && !c.includes(",") && !/:\d+(\[[^\]]*\])?\)$/.test(c) ? c.replace(/\)$/, "/1:0)") : c);
+  const point = atStart(start);
   let best: string | null = null;
   for (const s of rows) {
     if (s.kind === "chapter" || !chapter || !s.cfi.startsWith(`epubcfi(${chapter}`)) continue;
     // Compare the section's start with the annotation's start.
-    const sStart = s.cfi.includes("!") && !s.cfi.includes(",") ? s.cfi.replace(/\)$/, "/1:0)") : s.cfi;
-    if (CFI.compare(sStart, start) <= 0) best = s.id;
+    if (CFI.compare(atStart(s.cfi), point) <= 0) best = s.id;
   }
   return best;
 }
@@ -135,6 +142,8 @@ export async function createAnnotation(
   now = new Date(),
   /** Keep a given id (used when importing an export). */
   id?: string,
+  /** Set only by the agent API: the name of the API token adding it (provenance, ground rule 5). */
+  agent?: string,
 ): Promise<Annotation> {
   const kind = input.kind as Kind;
   if (!["highlight", "bookmark", "note", "voice", "sticker", "drawing", "image"].includes(kind)) throw new AnnotationError("Unknown kind of annotation.");
@@ -184,6 +193,7 @@ export async function createAnnotation(
       ...(kind === "sticker" ? { sticker: input.sticker as Sticker } : {}),
       ...(drawing ? { strokes: drawing } : {}),
       ...(picture ? { picture: picture as unknown as Record<string, unknown> } : {}),
+      ...(agent ? { agent: agent.slice(0, 100) } : {}),
       createdAt: now,
     })
     .returning();
@@ -340,6 +350,7 @@ export async function importAnnotations(
     sticker?: Sticker | null;
     drawing?: Drawing | null;
     picture?: PinnedPicture | null;
+    agent?: string | null;
     created: string | null;
     modified: string | null;
   }[],
@@ -365,6 +376,7 @@ export async function importAnnotations(
       { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined, drawing: it.drawing ?? undefined, picture: it.picture ?? undefined },
       created,
       it.id ?? undefined,
+      it.agent ?? undefined,
     );
     // Keep the "last changed" time too, as a second version.
     if (it.modified && it.modified !== it.created && !Number.isNaN(Date.parse(it.modified))) {

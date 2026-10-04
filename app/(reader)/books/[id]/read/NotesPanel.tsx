@@ -97,6 +97,11 @@ export function NotesPanel({
                         ? "Highlight and note"
                         : "Highlight"}
               </p>
+              {a.agent ? (
+                <p className={styles.machineLabel} data-testid="note-agent">
+                  Added by agent · {a.agent}
+                </p>
+              ) : null}
               {a.quote.exact ? <blockquote className={styles.noteQuote}>{a.quote.exact}</blockquote> : null}
               {a.drawing ? <DrawingPreview strokes={a.drawing.strokes} /> : null}
               {a.picture ? <PictureView picture={a.picture} url={a.pictureUrl} /> : null}
@@ -132,7 +137,7 @@ export function NotesPanel({
                   </div>
                 </form>
               ) : a.body ? (
-                <p className={styles.noteBody}>{a.body}</p>
+                <p className={a.agent ? `${styles.noteBody} ${styles.machine}` : styles.noteBody}>{a.body}</p>
               ) : null}
               <div className={styles.noteActions}>
                 {a.cfi ? (

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FakeModel } from "@/lib/ai/fake";
 import { createFirstAdmin } from "@/lib/auth/service";
 import { createApiToken, revokeApiToken, userForApiToken } from "@/lib/auth/tokens";
+import { agentAddNote, agentBooks, agentNotes, agentSearch } from "@/lib/agent/library";
 import { createAnnotation, listAnnotations } from "@/lib/library/annotations";
 import { speakPassage } from "@/lib/library/audio";
 import { costReport } from "@/lib/library/costs";
@@ -153,10 +154,16 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
 
     // API tokens (M11): hash lookup, "last used" throttle, revoke.
     const made = await createApiToken(db, ownerId, "agent");
-    expect(await userForApiToken(db, made.token)).toMatchObject({ id: ownerId });
-    expect(await userForApiToken(db, made.token)).toMatchObject({ id: ownerId });
+    expect(await userForApiToken(db, made.token)).toMatchObject({ user: { id: ownerId }, tokenName: "agent" });
+    expect(await userForApiToken(db, made.token)).toMatchObject({ user: { id: ownerId }, tokenName: "agent" });
     await revokeApiToken(db, ownerId, made.id);
     expect(await userForApiToken(db, made.token)).toBeNull();
+    // The agent API's library calls, with provenance on the note.
+    expect((await agentBooks(db, ownerId)).map((b) => b.id)).toContain(jekyll);
+    const [hit] = await agentSearch(db, ownerId, '"Next they turned to the business table"', 1);
+    const agentNote = await agentAddNote(db, ownerId, "agent", { bookId: jekyll, text: "Agent note.", sectionId: hit.sectionId });
+    expect(agentNote).toMatchObject({ sectionId: hit.sectionId, addedByAgent: "agent" });
+    expect((await agentNotes(db, ownerId, jekyll)).find((n) => n.id === agentNote.id)?.addedByAgent).toBe("agent");
 
     // Export, wipe, import: everything comes back the same.
     const before = await exportLibrary(db, ownerId);
