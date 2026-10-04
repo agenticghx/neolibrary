@@ -2,14 +2,19 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { estimateCost, generate, listGenerations, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
+import { steCheck } from "@/lib/ai/ste";
+import { steStyleInstruction } from "@/lib/ai/ste-prompt";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
+import { getStyles } from "./ai-style";
 import { sectionForCfi } from "./annotations";
+import { styleStrictness, type Style } from "./levels";
 
 /**
  * "What do I need to know?" (M6): the concepts a chapter assumes, each with a
- * two-line explanation and a link to read more. Stored once per chapter like
- * every AI answer (ground rule 5); `prompts/prerequisites.md`.
+ * two-line explanation and a link to read more. Stored once per chapter and
+ * style like every AI answer (ground rule 5); `prompts/prerequisites.md`.
+ * Written in the reader's style for this book: plain English or STE.
  */
 export class PrerequisitesError extends Error {}
 
@@ -69,7 +74,7 @@ export async function chapterFor(db: Db, ownerId: string, bookId: string, at: { 
   return row;
 }
 
-async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Chapter): Promise<GenerationRequest> {
+async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Chapter, style: Style): Promise<GenerationRequest> {
   const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
   const parts = await db
     .select({ kind: sections.kind, label: sections.label, text: sections.text })
@@ -82,18 +87,19 @@ async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Ch
     .slice(0, MAX_CHARS);
   if (!text.trim()) throw new PrerequisitesError("This chapter has no text to read.");
   const file = await readPrompt("prerequisites");
-  const style = "Write in plain, precise English.";
+  const strictness = styleStrictness(style);
+  const instruction = strictness ? await steStyleInstruction(strictness) : "Write in plain, precise English.";
   const { system, user } = splitPrompt(file);
   return {
     ownerId,
     bookId,
     sectionId: chapter.id,
     kind: "prerequisites",
-    options: { style: "plain" },
-    promptName: "prerequisites",
-    promptHash: sha256(`${file}\n\n${style}`),
+    options: { style },
+    promptName: strictness ? "prerequisites + ste-style + ste/SKILL + ste/substitutions" : "prerequisites",
+    promptHash: sha256(`${file}\n\n${instruction}`),
     input: text,
-    system: fill(system, { style }),
+    system: fill(system, { style: instruction }),
     prompt: fill(user, { book: book.author ? `${book.title}, by ${book.author}` : book.title, chapter: chapter.label, text }),
     maxTokens: MAX_TOKENS,
     effort: "medium",
@@ -102,7 +108,12 @@ async function buildRequest(db: Db, ownerId: string, bookId: string, chapter: Ch
 }
 
 export type Concept = { name: string; explanation: string; readMore: string };
-export type PrerequisitesView = Generation & { concepts: Concept[] };
+export type PrerequisitesView = Generation & {
+  style: Style;
+  concepts: Concept[];
+  /** STE only: the checker's full-STE score on the explanations. */
+  ste: { score: number; errors: number; warnings: number } | null;
+};
 
 const readMoreUrl = (q: string) => `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(q)}`;
 
@@ -122,7 +133,9 @@ export function viewPrerequisites(g: Generation): PrerequisitesView {
   } catch {
     // Not JSON (should not happen with structured output): show nothing rather than garbage.
   }
-  return { ...g, concepts };
+  const style = (g.options?.style as Style | undefined) ?? "plain";
+  const r = style !== "plain" && concepts.length ? steCheck(concepts.map((c) => c.explanation).join("\n\n")) : null;
+  return { ...g, style, concepts, ste: r ? { score: r.compliance, errors: r.errors, warnings: r.warnings } : null };
 }
 
 export async function needToKnow(
@@ -133,12 +146,14 @@ export async function needToKnow(
   opts: { caps?: Caps; now?: () => Date } = {},
 ) {
   const chapter = await chapterFor(db, ownerId, input.bookId, { chapterId: input.chapterId });
-  const out = await generate(db, model, await buildRequest(db, ownerId, input.bookId, chapter), { ...opts, fresh: input.fresh });
+  const { effective } = await getStyles(db, ownerId, input.bookId);
+  const out = await generate(db, model, await buildRequest(db, ownerId, input.bookId, chapter, effective), { ...opts, fresh: input.fresh });
   return { ...out, generation: viewPrerequisites(out.generation) };
 }
 
 export async function estimateNeedToKnow(db: Db, model: TextModel, ownerId: string, bookId: string, chapter: Chapter) {
-  return estimateCost(model, await buildRequest(db, ownerId, bookId, chapter));
+  const { effective } = await getStyles(db, ownerId, bookId);
+  return estimateCost(model, await buildRequest(db, ownerId, bookId, chapter, effective));
 }
 
 /** Every stored answer for a chapter, oldest first. */

@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { STYLES, type Style } from "@/lib/library/levels";
 import type { PrerequisitesView } from "@/lib/library/prerequisites";
 import styles from "./reader.module.css";
 
 type Data = {
   chapter: { id: string; label: string };
   versions: PrerequisitesView[];
+  /** The style for this book: answers in other styles are kept but not shown. */
+  style: Style;
   estimate: number | null;
   fake: boolean;
 };
@@ -65,13 +68,18 @@ export function NeedToKnowPanel({ bookId, cfi }: { bookId: string; cfi: string }
     }
   };
 
-  const latest = data?.versions.at(-1);
+  const mine = data?.versions.filter((v) => v.style === data.style) ?? [];
+  const latest = mine.at(-1);
 
   return (
     <section className={styles.panel} aria-label="What do I need to know?">
       <p className={styles.panelTitle}>What do I need to know?</p>
       {!data && !error ? <p className={styles.hint}>Finding the chapter…</p> : null}
-      {data ? <p className={styles.groupLabel}>{data.chapter.label}</p> : null}
+      {data ? (
+        <p className={styles.groupLabel}>
+          {data.chapter.label} · {STYLES[data.style]}
+        </p>
+      ) : null}
       {data && !latest ? (
         <>
           <p className={styles.hint}>The ideas this chapter takes for granted, each explained in two lines, with a link to read more.</p>
@@ -112,6 +120,11 @@ export function NeedToKnowPanel({ bookId, cfi }: { bookId: string; cfi: string }
             ) : (
               <p>Nothing came back for this chapter. Try again.</p>
             )}
+            {latest.ste ? (
+              <p className={styles.steBadge} title="Measured by the STE checker against full STE, whatever level was asked for">
+                STE {Math.round(latest.ste.score)}% (full-STE score)
+              </p>
+            ) : null}
             <p className={styles.provenance}>
               {latest.provenance.model} · {when(latest.provenance.createdAt)} · $
               {latest.provenance.costUsd.toFixed(latest.provenance.costUsd < 0.01 ? 4 : 2)}
@@ -119,7 +132,7 @@ export function NeedToKnowPanel({ bookId, cfi }: { bookId: string; cfi: string }
           </aside>
           <div className={styles.versionRow}>
             <span className={styles.versionCount}>
-              {data.versions.length === 1 ? "Saved answer" : `Latest of ${data.versions.length} answers`}
+              {mine.length === 1 ? "Saved answer" : `Latest of ${mine.length} answers`}
             </span>
             <button type="button" className={styles.tool} disabled={busy || data.estimate === null} onClick={() => void ask(true)}>
               {busy ? "Reading…" : "Try again"}

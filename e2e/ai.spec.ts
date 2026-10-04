@@ -190,7 +190,46 @@ test('"What do I need to know?" explains the chapter\'s assumed concepts once, a
   await expect(know.getByRole("button", { name: /^Show me/ })).toBeVisible();
 });
 
-test("the rewrite and need-to-know panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
+test("STE as a reading preference: set for all books in reading settings, or for one book", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary");
+  const settings = page.getByRole("region", { name: "Reading settings" });
+  const style = settings.getByRole("group", { name: "AI explanations" });
+  const know = page.getByRole("region", { name: "What do I need to know?" });
+  const box = page.getByTestId("need-to-know");
+
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(style.getByRole("button", { name: "Plain" })).toHaveAttribute("aria-pressed", "true");
+  await style.getByRole("button", { name: "STE strict" }).click();
+  await expect(style.getByRole("button", { name: "STE strict" })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await expect(know).toContainText("Search for Mr. Hyde · STE, Strict (full STE)");
+  await know.getByRole("button", { name: /^Show me/ }).click();
+  await expect(box).toContainText(/STE \d+% \(full-STE score\)/);
+  await expect(know).toContainText("Saved answer");
+
+  // This book only: plain English again; the two earlier plain answers come back, free.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await style.getByLabel("Only for this book").check();
+  await style.getByRole("button", { name: "Plain" }).click();
+  await expect(style.getByRole("button", { name: "Plain" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await expect(know).toContainText("Search for Mr. Hyde · Plain English");
+  await expect(know).toContainText("Latest of 2 answers");
+  await expect(box).not.toContainText("full-STE score");
+
+  // Following the setting for all books again: STE strict, after a reload too.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await style.getByLabel("Only for this book").uncheck();
+  await expect(style.getByRole("button", { name: "STE strict" })).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const styles = await (await page.request.get(`/api/books/${bookIdOf(page)}/ai-style`)).json();
+  expect(styles).toEqual({ user: "ste-strict", book: null, effective: "ste-strict" });
+  expect((await page.request.put(`/api/books/${bookIdOf(page)}/ai-style`, { data: { scope: "all", style: "loud" } })).status()).toBe(400);
+});
+
+test("the rewrite, need-to-know and settings panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
@@ -210,6 +249,12 @@ test("the rewrite and need-to-know panels are accessible, and look right on phon
       expect(know.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-need-to-know-${name}-${scheme}.png` });
+
+      await page.getByRole("button", { name: "Reading settings" }).click();
+      await expect(page.getByRole("group", { name: "AI explanations" })).toBeVisible();
+      const set = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(set.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-settings-${name}-${scheme}.png` });
     }
   }
 });
