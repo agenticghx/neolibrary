@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M9 (b), generated images.
+next_action: Sessions loop through docs/done.md on their own; next is M9 (c), pin a picture to a passage.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -22,30 +22,24 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
 1. **M9 · See it (images)**, next unticked box in `docs/done.md`.
-   PR (a), image search, is done (see Log). Remaining:
-   (b) **Generated image fallback**: an `ImageGenerator` interface in
-   `lib/images/` with `OpenAIImages` (the `openai` SDK 7.27.0 is installed;
-   its type list names `gpt-image-2` as the current stable model; GPT image
-   models return base64 PNG in `data[0].b64_json`; key `OPENAI_API_KEY`,
-   Waiting on Samuel) and a fake that makes a small PNG in code (or reuse a
-   test SVG). A "Make a picture" button in the See-it panel, offered after
-   the search results, shows the cost first (`OPENAI_IMAGE_USD`, a cautious
-   default such as $0.20 per image), checks caps (`IMAGE_CAP_PER_BOOK_USD`,
-   `IMAGE_CAP_PER_MONTH_USD`; extend `capsFromEnv` with prefix "IMAGE" and
-   the cost page's SERVICES), stores the file in the bucket under the owner
-   (`images/<owner>/…`; add `images` to `fileOwner`) with provenance (a
-   `generations` row of kind `image`: prompt file `prompts/image.md`, model,
-   cost, output = storage key), re-serves the same request without paying
-   again, and labels it "Generated image" everywhere. Test the adapter
-   against a stand-in fetch like `lib/ai/claude.test.ts`.
-   (c) **Pin an image to a passage**: an annotation of kind `image`
-   (migration with a reverse step, extend the kind CHECK like
-   `0014_drawings`) holding the picked image (Commons: URLs, title, credit,
-   licence, page; generated: storage key + "Generated image"). Shown from a
-   margin marker (`drawBadge` in `Reader.tsx`, e.g. right margin like
-   drawings) that opens a pop-up card, and in the Notes panel; exported
-   (library JSON; Markdown/W3C with the credit and licence). Done when
-   (plan): a pinned image survives reload. Then tick M9.
+   PRs (a) image search and (b) generated pictures are done (see Log).
+   Remaining: (c) **Pin a picture to a passage**: in the See-it panel, a
+   "Pin to the passage" button on each result card and on the generated
+   picture. The panel needs the selection's place (pass `selection.cfi`
+   and quote from `Reader.tsx` with the query). Store an annotation of
+   kind `image` (migration with a reverse step; extend the kind CHECK like
+   `0014_drawings`, down step: notes saying "Picture: <title>, <credit>,
+   <licence>") with a jsonb column holding the picture: for Commons the
+   thumb/image/page URLs, title, credit, licence and licence URL; for
+   generated, the storage key (`images/<owner>/…`) and "Generated image".
+   Show it from a margin marker (`drawBadge` in `Reader.tsx`; right margin
+   is taken by drawings, so for example stack it below, or reuse the left
+   side under stickers) that opens a pop-up card, and in the Notes panel
+   (thumbnail, credit, licence, "Generated image" label; generated ones
+   need a signed URL like voice notes in the annotations route). Export it
+   (library JSON; Markdown "Picture: …, credit, licence"; W3C body plus a
+   `neolibrary:image` extra). Done when (plan): a pinned image survives
+   reload. Then tick M9.
 2. Then M10, M11, M12, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -86,7 +80,9 @@ Never blocks the loop. Newest first.
 - **Design references** (any time): 5–10 screenshots you love and 3 you
   dislike in `docs/design/refs/`, one line each on why.
 - **Keys, later:** `ANTHROPIC_API_KEY` (M6), `OPENAI_API_KEY` (M9) on
-  Railway `web`.
+  Railway `web`. With the OpenAI key, also set `OPENAI_IMAGE_USD` to the
+  real price per picture (default $0.20; the app asks for 1024 × 1024,
+  medium quality, model `gpt-image-2`).
 - **Spending caps** (open unknown 1): until set, defaults of $5 per book
   and $20 per month per provider.
 
@@ -114,13 +110,19 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 09:05 UTC · Claude (cloud) · M9 (b): generated pictures when Commons has nothing good
+- **Done:** Under the search results, the See-it panel offers **"Make a picture of “a candle” (about $0.20)"**, so the cost is shown first. It uses an `ImageGenerator` interface (`lib/images/generate.ts`): **OpenAI** through its official SDK (model `gpt-image-2`, the current named model in the SDK's type list; 1024 × 1024, medium quality, PNG returned as base64), or a fake that draws a small striped PNG in code. The prompt is a file (`prompts/image.md`: plain, accurate, true colours, no text in the picture). The picture is stored in the bucket under the owner (`images/<owner>/…`, fetched only through signed links), with provenance as a `generations` row of kind `image` (model, prompt fingerprint, subject, cost; output = the file's key). It is **made once per subject** (any case or spacing) and shown again for free. It appears in the machine style, labelled **"Generated image · made by AI, not a photograph"**, with model, date and cost. **Caps:** `IMAGE_CAP_PER_BOOK_USD` / `IMAGE_CAP_PER_MONTH_USD` (default $5 / $20), price `OPENAI_IMAGE_USD` (default $0.20, cautious). The cost page gained an **OpenAI (pictures)** card. Its per-book split now names each service ("Claude $0.012 · ElevenLabs $0.030"): before, transcripts and pictures were counted under "text", which was wrong. Its reference screenshots were regenerated.
+- **Key paths:** `lib/images/generate.ts`, `lib/library/pictures.ts`, `prompts/image.md`, `app/api/books/[id]/pictures/route.ts`, `app/(reader)/books/[id]/read/ImagesPanel.tsx`, `lib/library/costs.ts`, `app/(app)/admin/costs/page.tsx`, `lib/ai/generate.ts` (`IMAGE` caps), `lib/library/import.ts` (`fileOwner`), `.env.example`, `e2e/images.spec.ts`, `e2e/__screenshots__/costs-*`
+- **Commands that worked:** `npm run check` → Vitest `205 passed`, including: `OpenAIImages` against a stand-in API sends `POST /v1/images/generations` with `{ model: "gpt-image-2", n: 1, size: "1024x1024", quality: "medium", output_format: "png" }` and a Bearer key, and explains a refused key, a refused prompt and an empty answer; the fake's PNG is valid (signature, 96 × 64, the image data inflates to the right size); a picture made once with provenance, stored under the owner, re-served for the same subject in any case (still 1 call), counted for `openai` on the cost page; caps stop it before calling. `npx playwright test --update-snapshots`, then `npx playwright test` → `138 passed (2.9m)`, including: See it "a candle" → no results → "Make a picture of “a candle” (about $0.20)" → 201 → the card says "Generated image · made by AI, not a photograph", "fake-image · … · $0.20", and the picture loads (96 px wide); opening See it again shows the stored picture and no button. Only the `costs-*` reference images changed.
+- **Known issues / blockers:** No real OpenAI call yet: there is no `OPENAI_API_KEY` (Waiting on Samuel), and the cloud session may not reach OpenAI. Pictures cannot be pinned to a passage yet (PR (c)).
+- **Exact next steps:** M9 (c), per "Exact next steps".
+
 ### 2026-10-04 08:30 UTC · Claude (laptop) · Fix: migrations failed on real Postgres, so the live site returned 500
 - **Done:** First Railway deploy (laptop `railway up` of `5f62bd9`; the repo can't be connected yet because Railway's GitHub app has no access to the private repo) built, but every page returned 500: `UNSAFE_TRANSACTION: Only use sql.begin, sql.reserved or max: 1`. Cause: `migrateUp`/`migrateDown` sent `BEGIN; … COMMIT;` through `client.unsafe` on a pooled postgres.js client, which postgres.js refuses. PGlite (tests) allows it, so CI never saw it. Fix: `RawSql.transaction(sql)` (postgres.js `sql.begin`, PGlite `transaction`), used by both. Domain made: https://web-production-f27a0e.up.railway.app
 - **Key paths:** `lib/db/client.ts`, `lib/db/migrate.ts`
 - **Commands that worked:** throwaway database on a real Postgres (embedded-postgres, local): old code → `UNSAFE_TRANSACTION`; fixed code → `migrations: 14; up 14; down 14; up again 14`. `npm run check` → lint and types clean, `Test Files 38 passed`, `Tests 195 passed`.
 - **Known issues / blockers:** CI tests only PGlite, so production-only database bugs can slip through. Railway auto-deploy needs Samuel to give Railway's GitHub app access to `sahuno/neolibrary`.
 - **Exact next steps:** 1) Next cloud session: add a CI job that runs migrations (and a smoke test) against a real Postgres service container. 2) Redeploy after this merges and confirm `/api/health` is 200.
-
 
 ### 2026-10-04 08:35 UTC · Claude (cloud) · M9 (a): see it, pictures from Wikimedia Commons
 - **Done:** Selecting text now offers **See it**, which opens a panel searching pictures of the selection (the search box can be changed). Results come from **Wikimedia Commons** through the MediaWiki API (`lib/images/search.ts`: generator search in the File namespace, image info with a 480 px thumbnail, licence, licence link, artist and title; no key; a descriptive User-Agent as Wikimedia asks). Each card shows the picture, its title, and **credit · licence (linked) · Source** (the Commons file page). Credits are reduced to plain text, because Commons returns bits of HTML. Commons cannot be reached from the cloud container, so the adapter is tested against a stand-in API (exact request, ordering, skipping non-images and missing thumbnails, errors). The browser tests use a fake (`FakeImageSearch`) whose three wafer pictures are small SVGs in `public/fake-images/`. The page's security policy now allows pictures from `upload.wikimedia.org` (and nowhere else new). New route `GET /api/images/search?q=` (signed-in only).

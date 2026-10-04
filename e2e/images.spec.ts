@@ -66,6 +66,29 @@ test("see it: pictures of a phrase, each with its credit and licence; searching 
   await anon.close();
 });
 
+test("no good picture: make one with AI, labelled as generated, paid once and shown again for free", async ({ page }) => {
+  await openReader(page);
+  let panel = await seeIt(page, "a candle");
+  await expect(panel).toContainText("No pictures found for “a candle”.");
+  const make = panel.getByRole("button", { name: "Make a picture of “a candle” (about $0.20)" });
+  await expect(make).toBeVisible();
+  const made = page.waitForResponse((r) => r.url().endsWith("/pictures") && r.request().method() === "POST");
+  await make.click();
+  expect((await made).status()).toBe(201);
+  const card = page.getByTestId("generated-picture");
+  await expect(card).toContainText("Generated image · made by AI, not a photograph");
+  await expect(card).toContainText(/fake-image · \d+ \w+ \d{4} · \$0\.20/);
+  const img = card.getByRole("img", { name: "Generated picture of a candle" });
+  await expect(img).toBeVisible();
+  expect(await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(96);
+
+  // Asked again later: the stored picture, no button and no second payment.
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  panel = await seeIt(page, "a candle");
+  await expect(page.getByTestId("generated-picture")).toBeVisible();
+  await expect(panel.getByRole("button", { name: /^Make a picture/ })).toHaveCount(0);
+});
+
 test("the see-it panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {

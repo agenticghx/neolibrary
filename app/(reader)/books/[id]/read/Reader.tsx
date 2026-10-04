@@ -672,7 +672,7 @@ export function Reader(props: {
 
       {panel === "links" ? <CrossLinksPanel links={links} /> : null}
 
-      {panel === "images" ? <ImagesPanel key={imagesFor} initialQuery={imagesFor} /> : null}
+      {panel === "images" ? <ImagesPanel key={imagesFor} bookId={props.bookId} initialQuery={imagesFor} /> : null}
 
       {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 

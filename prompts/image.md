@@ -1,0 +1,1 @@
+A clear, accurate illustration of {{subject}}, as it might appear in a good reference book, to help a reader of {{book}} picture it. Show the thing itself plainly, in natural light and true colours, on a simple background. No text, labels, letters or watermarks in the picture.

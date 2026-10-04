@@ -169,7 +169,6 @@ test("the admin's cost counter shows this month's text and voice spending, by bo
   await expect(page.getByTestId("cost-anthropic")).toContainText(/[1-9]\d* paid requests/);
   await expect(page.getByTestId("cost-elevenlabs")).toContainText(/[1-9]\d* paid requests?/);
   const jekyll = page.getByTestId("cost-books").locator("li").filter({ hasText: "The Strange Case of Dr. Jekyll and Mr. Hyde" });
-  await expect(jekyll).toContainText(/text \$0\.\d+ · voice \$0\.\d+/);
-  await expect(jekyll).not.toContainText("text $0.00");
-  await expect(jekyll).not.toContainText("voice $0.00");
+  await expect(jekyll).toContainText(/Claude \$0\.\d+ · ElevenLabs \$0\.\d+/);
+  await expect(jekyll).not.toContainText("$0.00");
 });
