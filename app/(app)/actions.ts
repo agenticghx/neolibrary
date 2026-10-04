@@ -6,6 +6,7 @@ import { createInvite, revokeInvite } from "@/lib/auth/service";
 import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
 import { seedPath } from "@/lib/library/paths";
 import { STARTER_PATHS } from "@/lib/library/seed";
+import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
 
 export async function signOutAction() {
@@ -33,4 +34,33 @@ export async function addPathAction(data: FormData) {
   const seed = STARTER_PATHS[String(data.get("slug"))];
   if (seed) await seedPath(await getDb(), user.id, seed);
   revalidatePath("/");
+}
+
+export type CollectionState = { error: string | null };
+
+export async function createCollectionAction(_: CollectionState, data: FormData): Promise<CollectionState> {
+  const user = await requireUser();
+  try {
+    const c = await createCollection(await getDb(), user.id, String(data.get("name") ?? ""));
+    revalidatePath("/shelf");
+    redirect(`/shelf?c=${c.id}`);
+  } catch (e) {
+    if (e instanceof CollectionError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function deleteCollectionAction(data: FormData) {
+  const user = await requireUser();
+  await deleteCollection(await getDb(), user.id, String(data.get("id")));
+  revalidatePath("/shelf");
+  redirect("/shelf");
+}
+
+export async function toggleCollectionAction(data: FormData) {
+  const user = await requireUser();
+  const bookId = String(data.get("bookId"));
+  await setInCollection(await getDb(), user.id, String(data.get("collectionId")), bookId, data.get("inside") === "1");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath("/shelf");
 }

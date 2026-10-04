@@ -6,6 +6,8 @@ import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { getBook } from "@/lib/library/paths";
+import { collectionsForBook } from "@/lib/library/shelf";
+import { toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Book" };
@@ -18,6 +20,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const found = await getBook(await getDb(), user.id, (await params).id);
   if (!found) notFound();
   const { book, owned, places } = found;
+  const inCollections = owned ? await collectionsForBook(await getDb(), user.id, book.id) : [];
   const firstKind = places[0]?.kind;
 
   return (
@@ -74,6 +77,25 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               Suggested by an agent and not checked against a catalog. Confirm the title, author and edition before
               buying.
             </p>
+          ) : null}
+          {inCollections.length ? (
+            <div className={styles.collections}>
+              <p className={styles.collectionsTitle}>Collections</p>
+              <ul>
+                {inCollections.map((c) => (
+                  <li key={c.id}>
+                    <form action={toggleCollectionAction}>
+                      <input type="hidden" name="bookId" value={book.id} />
+                      <input type="hidden" name="collectionId" value={c.id} />
+                      <input type="hidden" name="inside" value={c.inside ? "0" : "1"} />
+                      <button type="submit" className={styles.collection} aria-pressed={c.inside}>
+                        {c.name}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
           <p className={styles.status}>
             {owned

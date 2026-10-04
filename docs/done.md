@@ -65,7 +65,7 @@ deployed Railway URL.
 
 - [x] **M1** Skeleton, design system, CI, screenshot grid, auto-merge (PRs #1, #2)
 - [x] **M2** Invite-only accounts; a logged-out visitor gets nothing (pages, API, files)
-- [ ] **M3** Bookshelf + study Paths; Hidden Machinery Path seeded; upload attaches to a wanted book
+- [x] **M3** Bookshelf + study Paths; Hidden Machinery Path seeded; upload attaches to a wanted book (PRs #5, #6, #7)
 - [ ] **M4** Reader, section model with stable ids, reopen at the same spot, full-text search
 - [ ] **M5** Highlights, bookmarks, notes; Markdown + W3C export; export → wipe → import identical
 - [ ] **M6** Rewrite with versions + provenance, STE mode with TypeScript checker matching `ste_check.py`, prerequisites, question bank, cross-book links (fake Claude)
