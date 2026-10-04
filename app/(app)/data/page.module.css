@@ -1,0 +1,72 @@
+.main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-9);
+  display: grid;
+  gap: var(--space-5);
+}
+
+.eyebrow {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: var(--text-2xl);
+}
+
+.lede {
+  color: var(--ink-700);
+  font-family: var(--font-serif);
+  font-size: var(--text-read);
+  line-height: var(--leading-read);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+}
+
+.card > div {
+  width: 100%;
+}
+
+.cardTitle {
+  font-size: var(--text-lg);
+}
+
+.cardText {
+  color: var(--ink-700);
+}
+
+.button {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-serif);
+  text-decoration: none;
+}
+
+.button:hover {
+  background-color: var(--accent-strong);
+  color: var(--on-accent);
+}
+
+@media (width <= 48rem) {
+  .main {
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  .lede {
+    font-size: var(--text-read-phone);
+  }
+}

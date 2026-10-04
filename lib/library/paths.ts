@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
@@ -207,13 +207,4 @@ export async function getBook(db: Db, ownerId: string, id: string) {
     .innerJoin(paths, eq(paths.id, pillars.pathId))
     .where(eq(slots.bookId, book.id));
   return { book, owned: book.fileKey !== null, places };
-}
-
-/** The user's books that have a file, newest first. */
-export async function listShelf(db: Db, ownerId: string) {
-  return db
-    .select()
-    .from(books)
-    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey)))
-    .orderBy(desc(books.updatedAt));
 }

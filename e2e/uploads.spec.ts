@@ -93,3 +93,95 @@ test("cover links are signed, short-lived and only for their owner", async ({ pa
   expect((await anon.request.get(src!)).status()).toBe(401);
   await anon.close();
 });
+
+// M3 (c): finding books on the shelf.
+
+test("search and sort the shelf", async ({ page }) => {
+  await page.goto("/shelf");
+  const shelf = page.getByTestId("shelf");
+  const titles = () => shelf.locator("li").evaluateAll((els) => els.map((e) => e.querySelector("span[class*=itemTitle]")!.textContent));
+
+  await page.getByLabel("Sort").selectOption("title");
+  await expect(page).toHaveURL(/sort=title/);
+  await expect.poll(titles).toEqual(["Frankenstein", "The Grid", "The Strange Case of Dr. Jekyll and Mr. Hyde", "The Time Machine"]);
+
+  await page.getByRole("searchbox", { name: "Search your shelf" }).fill("wells");
+  await expect(page).toHaveURL(/q=wells/);
+  await expect.poll(titles).toEqual(["The Time Machine"]);
+
+  await page.getByRole("searchbox", { name: "Search your shelf" }).fill("no such book");
+  await expect(page.getByText("Nothing matches “no such book”.")).toBeVisible();
+});
+
+test("collections group books and filter the shelf", async ({ page }) => {
+  await page.goto("/shelf");
+  await page.getByRole("button", { name: "+ New collection" }).click();
+  await page.getByLabel("Collection name").fill("Gothic");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("link", { name: "Gothic 0" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("No books in this collection yet.")).toBeVisible();
+
+  // Add two books from their pages.
+  for (const title of [/^Frankenstein/, /^The Strange Case/]) {
+    await page.goto("/shelf");
+    await page.getByTestId("shelf").getByRole("link", { name: title }).click();
+    const toggle = page.getByRole("button", { name: "Gothic" });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  }
+
+  await page.goto("/shelf");
+  await page.getByRole("link", { name: "Gothic 2" }).click();
+  await expect(page.getByTestId("shelf").locator("li")).toHaveCount(2);
+  await expect(page.getByTestId("shelf").getByRole("link", { name: /^The Time Machine/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Delete collection" }).click();
+  await expect(page).toHaveURL(/\/shelf$/);
+  await expect(page.getByRole("link", { name: /^Gothic/ })).toHaveCount(0);
+  await expect(page.getByText("4 books.")).toBeVisible();
+});
+
+test("the library can be downloaded, and import never overwrites", async ({ page, browser }) => {
+  const res = await page.request.get("/api/export");
+  expect(res.headers()["content-disposition"]).toMatch(/attachment; filename="neolibrary-library-\d{4}-\d{2}-\d{2}\.json"/);
+  const data = await res.json();
+  expect(data).toMatchObject({ format: "neolibrary-library", version: 1 });
+  expect(data.books.filter((b: { file: unknown }) => b.file).length).toBe(4);
+  expect(data.paths[0].slug).toBe("hidden-machinery");
+
+  // Importing into a library that is not empty is refused.
+  const refused = await page.request.post("/api/import", { data });
+  expect(refused.status()).toBe(409);
+
+  // A fresh, empty account can bring a library file back.
+  const admin = page;
+  await admin.goto("/admin/invites");
+  await admin.getByRole("button", { name: "Make an invitation link" }).click();
+  const link = await admin.getByTestId("invite-link").inputValue();
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const guest = await ctx.newPage();
+  await guest.goto(link);
+  await guest.getByLabel("Your name").fill("Grace");
+  await guest.getByLabel("Email address").fill("grace@example.com");
+  await guest.getByLabel("Password").fill("a long password here");
+  await guest.getByRole("button", { name: "Join the library" }).click();
+  await guest.waitForURL(/\/$/);
+
+  const bookId = crypto.randomUUID();
+  const small = {
+    format: "neolibrary-library",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    books: [{ id: bookId, title: "Meditations", author: "Marcus Aurelius", note: "", unverified: false, file: null, coverKey: null, language: null, publisher: null, description: null, toc: [], pageCount: null, progress: 0, lastOpenedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
+    paths: [],
+    collections: [{ id: crypto.randomUUID(), name: "Stoics", createdAt: new Date().toISOString(), bookIds: [bookId] }],
+  };
+  await guest.goto("/data");
+  await guest.getByLabel("Library file (.json)").setInputFiles({ name: "lib.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(small)) });
+  await expect(guest.getByRole("status")).toHaveText("Brought back 1 books, 0 paths and 1 collections.");
+  const back = await (await ctx.request.get("/api/export")).json();
+  expect(back.books.map((b: { title: string }) => b.title)).toEqual(["Meditations"]);
+  expect(back.collections[0]).toMatchObject({ name: "Stoics", bookIds: [bookId] });
+  await ctx.close();
+});

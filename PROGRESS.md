@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M3 (bookshelf + study paths).
+next_action: Sessions loop through docs/done.md on their own; next is M4 (reader + section model + search).
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -21,12 +21,18 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
 
-1. **M3 (c) · shelf polish**, the last M3 step: on `/shelf`, sorting
-   (recent, title, author, progress), search by title or author,
-   collections (user-made groups of books, with their own table and a
-   reverse migration), and reading progress on each book. Then tick M3 in
-   `docs/done.md`: steps (a) and (b) already meet its "Done when".
-2. Then M4, M5, … in order, per `docs/done.md`.
+1. **M4 · reader and the anchor model** (next unticked box in
+   `docs/done.md`). Suggested PRs: (a) foliate-js reader page
+   `/books/[id]/read`: paginated and scroll modes, font, size, line spacing,
+   themes, table of contents; position saved per user (EPUB CFI, a standard
+   address for a spot in an EPUB) and restored on reload; progress updates
+   `books.progress`. (b) Section model: split each book into sections
+   (chapter → section → paragraph) with stable ids, text stored in Postgres;
+   unit test that re-importing the same file gives the same ids. (c)
+   Full-text search across books (Postgres full-text search). Check
+   foliate-js's licence and how to bundle it (it is plain ES modules, not
+   on npm in the usual way).
+2. Then M5, M6, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
 
@@ -75,6 +81,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 03:45 · Claude (cloud) · M3 (c): shelf search, sort, collections, progress; library export/import
+- **Done:** Shelf search (title or author, case-insensitive; `%` and `_` treated literally) and sort (recent, title, author, progress), both kept in the address bar so a view can be bookmarked. Collections are user-made groups of books: create on the shelf, add or remove from each book's page, filter the shelf by collection, delete. They use new tables `collections` and `collection_books` (migration `0004_collections`, with a reverse step). Each book on the shelf shows Unread / N% read / Finished. **Ground rule 7, which M3 (a)/(b) had missed:** `lib/library/export.ts` exports the whole library (books, paths with pillars and slots, collections) as one JSON file (`/api/export`, "Download your library"). Import (`/api/import`, the new "Your data" page at `/data`) works only into an empty library, so nothing is overwritten. A unit test runs export → wipe → import and checks the second export is identical. The browser's file button is styled with the app font (a system font would differ between machines). All reference screenshots were regenerated from scratch. M3 ticked in `docs/done.md`.
+- **Key paths:** `lib/library/shelf.ts`, `lib/library/export.ts`, `db/migrations/0004_collections.*`, `app/(app)/shelf/{Controls,NewCollection}.tsx`, `app/(app)/data/`, `app/api/export/`, `app/api/import/`, `e2e/uploads.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `91 passed`; `npx playwright test` → `90 passed (58.5s)`, including sort by title, search "wells", collection "Gothic" (create, add two books, filter, delete), export download (4 owned books, the hidden-machinery path), import into a non-empty library refused (409), import into a new account restoring a book and a collection.
+- **Known issues / blockers:** The export holds book details, not the files. A restore into a different server needs the files copied too; a full backup (zip with files) can come with M5's annotation export. Import keeps ids, so it restores into the same server or a fresh one, but cannot copy one person's export into a second account on the same server (ids would clash). Collection names are unique per person only when spelled identically.
+- **Exact next steps:** M4, per "Exact next steps".
 
 ### 2026-10-04 03:20 · Claude (cloud) · M3 (b): upload EPUB and PDF, covers, attach to wanted books
 - **Done:** New `/shelf` page with drag-and-drop or "Choose files" upload (several files at once) through `POST /api/books`. `lib/library/ebook.ts` reads EPUBs (title, author, language, publisher, description, cover via EPUB 3 `cover-image` or EPUB 2 `meta name=cover`, table of contents from the nav document or NCX) and PDFs (title and author from metadata, else the file name, plus page count). It refuses DRM: EPUB `rights.xml` or encryption other than font obfuscation, and encrypted PDFs (ground rule 1). `lib/library/import.ts` attaches a file to a wanted book with the same title, so it lights up in its Path and keeps the list's wording; reports a book already on the shelf as a duplicate; otherwise adds a new book. Files are stored at `books/<owner>/<book>.<ext>`, covers at `covers/<owner>/…`. Production uses the Railway bucket (`lib/storage/s3.ts`, when `S3_BUCKET` is set); development and tests use local disk or memory. File links now also check the file belongs to the signed-in user, and are served with a sandbox policy so an SVG cover cannot run scripts. Covers show on the shelf, the Path and book pages; book pages list format, chapters, publisher, description and contents. Nav: Path · Shelf · Invite · Sign out. Migration `0003_book_files` (adds `toc` and `page_count`, with a reverse step). Test books: three Standard Ebooks EPUBs (Jekyll and Hyde, Frankenstein, The Time Machine) built from their GitHub source (standardebooks.org itself is blocked here), plus a generated Descartes PDF. Details in `fixtures/README.md`.
