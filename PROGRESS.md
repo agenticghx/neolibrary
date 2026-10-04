@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Land the PDFs-offline PR, then deploy both offline fixes with a backup first
+next_action: All milestones and both offline fixes are merged and deployed; version 1 waits only on Samuel (sign in, keys, verdicts).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -39,9 +39,6 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
    Postgres container through `ssh.railway.com`, restore-check into a local
    Postgres), then `railway up --service web --ci`, then check
    `/api/health` and `/sign-in`.
-4. In progress (Samuel asked, 2026-10-04): offline edits and removals are
-   merged (#44); PDFs offline is on branch `m12-offline-pdf` (PR open).
-   Deploy after it merges (backup first).
 5. Worth doing later: a rate limit on `/api/agent/*`.
 
 ## Waiting on Samuel
@@ -119,6 +116,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 16:00 UTC · Claude (laptop) · Offline edits and PDFs offline deployed
+- **Done:** PR #45 (PDFs offline) merged with all four checks green. Deployed `1664202` (#44 offline edits + #45 PDFs offline) after a backup: `~/Backups/neolibrary/prod-before-offline-fixes-20261004T1341Z.sql` (80,376 bytes), restore-checked (exit 0; 19 migrations, 1 user, 126 books; no migration in these PRs). Both offline gaps Samuel asked about are closed and live.
+- **Key paths:** `PROGRESS.md`
+- **Commands that worked:** `railway up --service web --ci` → "Deploy complete"; `curl $B/api/health` → `{"status":"ok",…} 200`; `/sign-in` → 200; `PATCH /api/annotations/<id>` without a session → 401; `/pdfjs/files.json` without a session → 307 to sign-in (as intended; signed-in readers fetch it); Railway build log → `public/pdfjs/files.json lists 186 files`.
+- **Known issues / blockers:** Only Samuel's items remain (see "Waiting on Samuel").
+- **Exact next steps:** As in "Exact next steps".
 
 ### 2026-10-04 15:50 UTC · Claude (laptop) · PDFs readable offline (Samuel's request)
 - **Done:** PR #44 (offline edits and removals) merged with all four checks green. Second gap: **PDF books can now be downloaded for offline.** pdf.js, the PDF viewer, loads its worker, standard fonts and character maps from `/pdfjs/`, some only when a later page needs them. So `scripts/copy-pdfjs.mjs` (run before every build) now also writes `public/pdfjs/files.json`, listing all 186 files. For a PDF, "Download for offline" keeps every file on that list (about 4.7 MB, once per device; files already kept for another PDF are skipped), plus the page, the PDF and its notes as for EPUBs. The setting now shows for PDFs, with the note "The first PDF also keeps the PDF viewer (about 5 MB)". The service worker already answered `/pdfjs/` from the cache when offline.
