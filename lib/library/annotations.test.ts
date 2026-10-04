@@ -125,4 +125,30 @@ describe("notes on paths and pillars", () => {
     await expect(createAnnotationOnce(database.db, other, id, input)).rejects.toThrow("already taken");
     await expect(createAnnotationOnce(database.db, ownerId, "not-a-uuid", input)).rejects.toThrow("Bad annotation id.");
   });
+
+  it("an edit or removal made offline is applied once, however often it is sent", async () => {
+    const note = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "First." });
+    const edit = "1a2b3c4d-0000-4000-8000-00000000000e";
+    expect(await updateAnnotation(database.db, ownerId, note.id, { body: "Edited on the train.", changeId: edit })).toMatchObject({ version: 2, body: "Edited on the train." });
+    // A later edit, then the first one arrives again: nothing changes.
+    await updateAnnotation(database.db, ownerId, note.id, { body: "Edited at home." });
+    expect(await updateAnnotation(database.db, ownerId, note.id, { body: "Edited on the train.", changeId: edit.toUpperCase() })).toMatchObject({
+      version: 3,
+      body: "Edited at home.",
+    });
+    expect(await history(database.db, ownerId, note.id)).toHaveLength(3);
+
+    const removal = "1a2b3c4d-0000-4000-8000-00000000000d";
+    await deleteAnnotation(database.db, ownerId, note.id, new Date(), removal);
+    await deleteAnnotation(database.db, ownerId, note.id, new Date(), removal); // resent: fine, nothing added
+    expect(await history(database.db, ownerId, note.id)).toHaveLength(4);
+    expect((await listAnnotations(database.db, ownerId, bookId)).find((a) => a.id === note.id)).toBeUndefined();
+    // Without the same change id, a removed note stays "not found".
+    await expect(deleteAnnotation(database.db, ownerId, note.id)).rejects.toThrow("Annotation not found.");
+
+    // A change id used on one note cannot be reused on another, and must be a uuid.
+    const other = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Other." });
+    await expect(updateAnnotation(database.db, ownerId, other.id, { body: "x", changeId: edit })).rejects.toThrow("already taken");
+    await expect(updateAnnotation(database.db, ownerId, other.id, { body: "x", changeId: "nope" })).rejects.toThrow("Bad change id.");
+  });
 });

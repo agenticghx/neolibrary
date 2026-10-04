@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
-import { addToOutbox, flushOutbox, isOffline, outboxFor, removeFromOutbox } from "@/lib/outbox";
+import { addToOutbox, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
@@ -407,10 +407,43 @@ export function Reader(props: {
       if (!isOffline(e)) throw e;
     }
     const waiting = await outboxFor(props.bookId).catch(() => []);
-    const base = server ?? notesRef.current.filter((a) => !a.pending);
-    const known = new Set(base.map((a) => a.id));
-    setAll([...base, ...waiting.filter((w) => !known.has(w.id)).map((w) => localAnnotation(w.id, w.body, w.savedAt))]);
+    setAll(withOutbox(server ?? notesRef.current, waiting));
   };
+
+  const madeOffline = useRef(new Set<string>());
+
+  /** Shows what waits in the outbox on top of the server's list: new notes added, edits applied, removals hidden. */
+  const withOutbox = (base: Annotation[], waiting: OutboxItem[]) => {
+    const created = waiting.filter((w) => opOf(w) === "create");
+    const createdIds = new Set(created.map((w) => w.id));
+    madeOffline.current = createdIds;
+    let list = [...base.filter((a) => !createdIds.has(a.id)), ...created.map((w) => localAnnotation(w.id, w.body, w.savedAt))];
+    for (const w of waiting) {
+      if (opOf(w) === "edit") list = list.map((a) => (a.id === w.annotationId ? { ...a, ...(w.body as Partial<Annotation>), pending: true } : a));
+      if (opOf(w) === "remove") list = list.filter((a) => a.id !== w.annotationId);
+    }
+    return list;
+  };
+
+  /** Edits or removes a note the server has; with no network the change waits in the outbox (M12). */
+  const change = async (a: Annotation, op: "edit" | "remove", body: Record<string, unknown> = {}) => {
+    const changeId = crypto.randomUUID();
+    try {
+      if (op === "edit") await api(`/api/annotations/${a.id}`, "PATCH", { ...body, changeId });
+      else await api(`/api/annotations/${a.id}?changeId=${changeId}`, "DELETE");
+    } catch (e) {
+      if (!isOffline(e)) throw e;
+      await addToOutbox({ id: changeId, op, annotationId: a.id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
+    }
+  };
+
+  /**
+   * A note made offline and not sent yet: its waiting item, if any. Known
+   * from the last reload without asking the device's database, so ordinary
+   * saves go to the server at once.
+   */
+  const waitingCreate = async (id: string) =>
+    madeOffline.current.has(id) ? (await outboxFor(props.bookId).catch(() => [])).find((w) => w.id === id && opOf(w) === "create") : undefined;
 
   /**
    * Adds a highlight, note, sticker or bookmark with an id chosen here. With
@@ -536,14 +569,22 @@ export function Reader(props: {
   };
 
   const saveNote = async (a: Annotation, body: string) => {
-    await api(`/api/annotations/${a.id}`, "PATCH", { body });
+    // Made offline and not sent yet: change what will be sent.
+    const waiting = await waitingCreate(a.id);
+    if (waiting) await addToOutbox({ ...waiting, body: { ...waiting.body, body } });
+    else await change(a, "edit", { body });
     await reload();
   };
 
+  /** Removes a note: if it was made offline and never sent, it (and its edits) just leave the outbox. */
+  const forget = async (a: Annotation) => {
+    if (await waitingCreate(a.id)) {
+      for (const w of await outboxFor(props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
+    } else await change(a, "remove");
+  };
+
   const removeNote = async (a: Annotation) => {
-    // Not sent yet: it only exists on this device.
-    if (a.pending) await removeFromOutbox(a.id);
-    else await api(`/api/annotations/${a.id}`, "DELETE");
+    await forget(a);
     if (a.kind === "highlight" && a.cfi) await view.current?.deleteAnnotation({ value: a.cfi });
     await reload();
   };
@@ -565,8 +606,7 @@ export function Reader(props: {
 
   const toggleBookmark = async () => {
     if (!where.cfi) return;
-    if (bookmarkHere?.pending) await removeFromOutbox(bookmarkHere.id);
-    else if (bookmarkHere) await api(`/api/annotations/${bookmarkHere.id}`, "DELETE");
+    if (bookmarkHere) await forget(bookmarkHere);
     else
       await create({
         kind: "bookmark",

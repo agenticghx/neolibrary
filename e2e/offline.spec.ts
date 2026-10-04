@@ -194,3 +194,57 @@ test("a highlight made offline is kept on the device and reaches the server when
   expect((await onServer()).filter((a) => a.quote.exact === phrase).length).toBe(1);
   await server.dispose();
 });
+
+// Edits and removals made offline wait on the device too, and are applied once when the network returns.
+test("a note edited and a note removed offline are changed on the server when the network returns", async ({ page, context, playwright }) => {
+  const frankenstein = await bookId(page, "Frankenstein");
+  const server = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: ADMIN_STATE });
+  type Row = { id: string; body: string };
+  const onServer = async () => ((await (await server.get(`/api/books/${frankenstein}/annotations`)).json()).annotations as Row[]);
+  const keep = (await (await server.post(`/api/books/${frankenstein}/annotations`, { data: { kind: "note", body: "Polar voyage as ambition." } })).json()) as Row;
+  const drop = (await (await server.post(`/api/books/${frankenstein}/annotations`, { data: { kind: "note", body: "Delete this one later." } })).json()) as Row;
+
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByTestId("offline").getByRole("button", { name: "Download for offline" }).click();
+  await expect(page.getByTestId("offline").getByRole("status")).toBeVisible();
+
+  await context.setOffline(true);
+  await context.route("**/*", (route) => route.abort("internetdisconnected"));
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const notes = page.getByTestId("notes");
+  const kept = notes.getByRole("listitem").filter({ hasText: "Polar voyage as ambition." });
+  await kept.getByRole("button", { name: "Edit note" }).click();
+  await kept.getByLabel("Edit note").fill("Polar voyage as ambition, edited on the train.");
+  // (Its text is now in the edit box, so the item is no longer found by it: use the one Save button.)
+  await notes.getByRole("button", { name: "Save" }).click();
+  const edited = notes.getByRole("listitem").filter({ hasText: "edited on the train" });
+  await expect(edited.getByTestId("note-pending")).toBeVisible();
+  await notes.getByRole("listitem").filter({ hasText: "Delete this one later." }).getByRole("button", { name: "Remove" }).click();
+  await expect(notes.getByRole("listitem").filter({ hasText: "Delete this one later." })).toHaveCount(0);
+
+  // Still offline after a reload: both changes stay, and the server has neither yet.
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(notes.getByRole("listitem").filter({ hasText: "edited on the train" })).toBeVisible();
+  await expect(notes.getByRole("listitem").filter({ hasText: "Delete this one later." })).toHaveCount(0);
+  expect((await onServer()).find((a) => a.id === keep.id)?.body).toBe("Polar voyage as ambition.");
+  expect((await onServer()).some((a) => a.id === drop.id)).toBe(true);
+
+  // Network back: both changes reach the server, each exactly once.
+  await context.unrouteAll();
+  await context.setOffline(false);
+  await expect.poll(async () => (await onServer()).find((a) => a.id === keep.id)?.body, { timeout: 15_000 }).toBe("Polar voyage as ambition, edited on the train.");
+  await expect.poll(async () => (await onServer()).some((a) => a.id === drop.id), { timeout: 15_000 }).toBe(false);
+  await page.reload();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const versions = async (id: string) => ((await (await server.get(`/api/annotations/${id}`)).json()).versions as unknown[]).length;
+  expect(await versions(keep.id)).toBe(2);
+  expect(await versions(drop.id)).toBe(2);
+  await server.dispose();
+});

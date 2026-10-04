@@ -279,16 +279,31 @@ async function versions(db: Db, ownerId: string, annotationId: string) {
     .orderBy(desc(annotations.version));
 }
 
-async function addVersion(db: Db, ownerId: string, annotationId: string, change: Partial<Row>, now: Date) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Adds a version. With a `changeId` (chosen by the browser for a change made
+ * offline, M12) it becomes the new version's id, so sending the same change
+ * again adds nothing and returns the annotation as it stands.
+ */
+async function addVersion(db: Db, ownerId: string, annotationId: string, change: Partial<Row>, now: Date, changeId?: unknown) {
+  if (changeId !== undefined && (typeof changeId !== "string" || !UUID.test(changeId))) throw new AnnotationError("Bad change id.");
   const all = await versions(db, ownerId, annotationId);
   const latest = all[0];
+  if (changeId) {
+    const [done] = await db.select({ annotationId: annotations.annotationId, ownerId: annotations.ownerId }).from(annotations).where(eq(annotations.id, changeId.toLowerCase()));
+    if (done) {
+      if (done.ownerId !== ownerId || done.annotationId !== latest?.annotationId) throw new AnnotationError("That change id is already taken.");
+      return toAnnotation(latest, all[all.length - 1]);
+    }
+  }
   if (!latest || latest.deleted) throw new AnnotationError("Annotation not found.");
   const { id: _id, version, createdAt: _c, ...rest } = latest;
   void _id;
   void _c;
   const [row] = await db
     .insert(annotations)
-    .values({ ...rest, ...change, version: version + 1, createdAt: now })
+    .values({ ...rest, ...change, ...(changeId ? { id: (changeId as string).toLowerCase() } : {}), version: version + 1, createdAt: now })
     .returning();
   return toAnnotation(row, all[all.length - 1]);
 }
@@ -298,7 +313,7 @@ export async function updateAnnotation(
   db: Db,
   ownerId: string,
   annotationId: string,
-  change: { color?: unknown; body?: unknown },
+  change: { color?: unknown; body?: unknown; changeId?: unknown },
   now = new Date(),
 ) {
   const patch: Partial<Row> = {};
@@ -307,12 +322,12 @@ export async function updateAnnotation(
     if (!(COLORS as readonly string[]).includes(String(change.color))) throw new AnnotationError("Unknown colour.");
     patch.color = change.color as Color;
   }
-  return addVersion(db, ownerId, annotationId, patch, now);
+  return addVersion(db, ownerId, annotationId, patch, now, change.changeId);
 }
 
 /** Hides an annotation (soft delete): a new version marked deleted. */
-export async function deleteAnnotation(db: Db, ownerId: string, annotationId: string, now = new Date()) {
-  await addVersion(db, ownerId, annotationId, { deleted: true }, now);
+export async function deleteAnnotation(db: Db, ownerId: string, annotationId: string, now = new Date(), changeId?: unknown) {
+  await addVersion(db, ownerId, annotationId, { deleted: true }, now, changeId);
 }
 
 export async function history(db: Db, ownerId: string, annotationId: string) {

@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return Response.json({ versions });
 }
 
-/** Changes colour or note text: { color?, body? } (adds a new version). */
+/** Changes colour or note text: { color?, body?, changeId? } (adds a new version; a resent changeId adds nothing). */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
@@ -29,12 +29,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
-/** Hides an annotation (a new version marked deleted). */
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+/** Hides an annotation (a new version marked deleted). `?changeId=` makes a resend harmless. */
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   try {
-    await deleteAnnotation(await getDb(), user.id, (await params).id);
+    const changeId = new URL(req.url).searchParams.get("changeId") ?? undefined;
+    await deleteAnnotation(await getDb(), user.id, (await params).id, new Date(), changeId);
     return new Response(null, { status: 204 });
   } catch (e) {
     return fail(e);

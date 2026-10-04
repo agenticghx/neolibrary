@@ -5,7 +5,7 @@ import { FakeModel } from "@/lib/ai/fake";
 import { createFirstAdmin } from "@/lib/auth/service";
 import { createApiToken, revokeApiToken, userForApiToken } from "@/lib/auth/tokens";
 import { agentAddNote, agentBooks, agentNotes, agentSearch } from "@/lib/agent/library";
-import { createAnnotation, createAnnotationOnce, listAnnotations } from "@/lib/library/annotations";
+import { createAnnotation, createAnnotationOnce, deleteAnnotation, history, listAnnotations, updateAnnotation } from "@/lib/library/annotations";
 import { speakPassage } from "@/lib/library/audio";
 import { costReport } from "@/lib/library/costs";
 import { crossLinks } from "@/lib/library/crosslinks";
@@ -157,6 +157,18 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
     expect((await createAnnotationOnce(db, ownerId, offlineId, { kind: "note", bookId: jekyll, body: "Offline." })).created).toBe(true);
     expect((await createAnnotationOnce(db, ownerId, offlineId, { kind: "note", bookId: jekyll, body: "Offline." })).created).toBe(false);
     expect((await listAnnotations(db, ownerId, jekyll)).filter((a) => a.id === offlineId)).toHaveLength(1);
+    // An edit and a removal made offline, each sent twice: applied once.
+    const editId = "cccccccc-0000-4000-8000-0000000000e1";
+    await updateAnnotation(db, ownerId, offlineId, { body: "Edited offline.", changeId: editId });
+    await updateAnnotation(db, ownerId, offlineId, { body: "Edited offline.", changeId: editId });
+    const removeId = "cccccccc-0000-4000-8000-0000000000d1";
+    await deleteAnnotation(db, ownerId, offlineId, new Date(), removeId);
+    await deleteAnnotation(db, ownerId, offlineId, new Date(), removeId);
+    expect((await history(db, ownerId, offlineId)).map((v) => [v.version, v.body, v.deleted])).toEqual([
+      [1, "Offline.", false],
+      [2, "Edited offline.", false],
+      [3, "Edited offline.", true],
+    ]);
 
     // API tokens (M11): hash lookup, "last used" throttle, revoke.
     const made = await createApiToken(db, ownerId, "agent");

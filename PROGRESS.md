@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: All milestones merged and deployed; version 1 waits only on Samuel (sign in, keys, verdicts). See Waiting on Samuel.
+next_action: Land the offline edits PR, build PDFs offline, deploy both with a backup first
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -39,9 +39,10 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
    Postgres container through `ssh.railway.com`, restore-check into a local
    Postgres), then `railway up --service web --ci`, then check
    `/api/health` and `/sign-in`.
-4. Worth doing next if there is time, smallest first: offline edits and
-   deletes in the outbox; PDFs offline (`/pdfjs/` files); a rate limit on
-   `/api/agent/*`; CI's real-Postgres job already matches production (18).
+4. In progress (Samuel asked, 2026-10-04): offline edits and removals
+   (branch `m12-offline-edits`, PR open), then PDFs offline (branch
+   `m12-offline-pdf`). Deploy after both (backup first).
+5. Worth doing later: a rate limit on `/api/agent/*`.
 
 ## Waiting on Samuel
 
@@ -118,6 +119,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 15:20 UTC · Claude (laptop) · Offline edits and removals of notes (Samuel's request)
+- **Done:** Samuel asked to fix the two offline gaps. This is the first: **editing or removing a note while offline** now works like creating one. On the server, an edit (`PATCH /api/annotations/:id` with `changeId`) or removal (`DELETE …?changeId=`) may carry a browser-chosen id, which becomes the new version row's id (every version already has its own id, so **no migration**). Sending the same change again adds nothing and returns the note as it stands; a change id used on another note, or not a uuid, is refused. In the browser, the outbox (`lib/outbox.ts`) holds three kinds of item: create, edit and remove, sent in the order they were made. While offline, an edited note shows its new text with "On this device · syncs when you are back online", and a removed one disappears; both survive a reload. Editing or removing a note that was itself made offline just changes or drops the waiting item. The Edit button is no longer hidden for waiting notes. The reader remembers in memory which notes were made offline, so ordinary saves still go straight to the server with no extra step. An older test (`annotations.spec.ts`, reads history right after Save) failed when an extra database lookup came first; I removed the delay rather than loosen that test.
+- **Key paths:** `lib/library/annotations.ts` (`addVersion` changeId), `app/api/annotations/[id]/route.ts`, `lib/outbox.ts`, `app/(reader)/books/[id]/read/{Reader,NotesPanel}.tsx`, `e2e/offline.spec.ts`, `lib/library/annotations.test.ts`, `lib/db/postgres.test.ts`
+- **Commands that worked:** `npm run check` → `Tests 233 passed | 2 skipped (235)` (edit resent after a later edit changes nothing; removal resent adds nothing; reused or malformed change ids refused); `TEST_DATABASE_URL=… npm run test:postgres` → `Tests 2 passed (2)` (versions exactly 1, 2, 3 after each change was sent twice); `npx playwright test --ignore-snapshots` → `167 passed (1.6m)`. The new browser test makes two book notes online, downloads Frankenstein, then goes offline (offline mode plus every request refused). It edits one note (marked waiting) and removes the other. After an offline reload both changes are still shown, and a separate signed-in check finds the server unchanged. With the network back, the server has the new text and the removed note is gone, with **exactly 2 versions each** (nothing applied twice).
+- **Known issues / blockers:** If the same note is changed on two devices while both are offline, the change that reaches the server last is shown; the other stays in the note's history (nothing is lost).
+- **Exact next steps:** Land this PR, then PDFs offline.
 
 ### 2026-10-04 14:50 UTC · Claude (laptop) · M12 merged and deployed; every milestone done; live health check ticked
 - **Done:** PR #42 (M12 (b)) merged with all four checks green, so **M12 is done and all twelve milestone boxes in `docs/done.md` are ticked** (on `main`). **Deployed** `c916909` after a backup: `~/Backups/neolibrary/prod-before-m12-20261004T1242Z.sql` (80,376 bytes), restore-checked (exit 0; 19 migrations, 1 user, 126 books). Live checks pass, so the live box "Railway URL serves `/api/health` and `/sign-in`" is ticked. Railway `web` has `ELEVENLABS_API_KEY` and the storage keys, but no `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY` and no price settings (variable *names* listed, no values read), so the remaining live boxes wait on Samuel exactly as listed. Rewrote "Exact next steps" to say plainly that version 1 now waits only on Samuel. This ledger PR changes documentation only; the running site is `c916909`. Updated `docs/handoff.md` (§4 note: all milestones done; §5: the offline-test and screenshot gotchas, the auto-merge branch names, the backup recipe).
