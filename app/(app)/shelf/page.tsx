@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { listCollections, listShelf, parseSort } from "@/lib/library/shelf";
-import { deleteCollectionAction } from "../actions";
+import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
 import { Dropzone } from "./Dropzone";
 import { NewCollection } from "./NewCollection";
@@ -54,6 +54,17 @@ export default async function ShelfPage({
         </p>
       </header>
       <Dropzone />
+      {everything.length === 0 ? (
+        <form action={addSampleBooksAction} className={styles.samples}>
+          <p className={styles.samplesText}>
+            No books to hand? Start with three free classics: <em>Frankenstein</em>, <em>Jekyll and Hyde</em> and{" "}
+            <em>The Time Machine</em> (public-domain editions from Standard Ebooks).
+          </p>
+          <button type="submit" className={styles.samplesButton}>
+            Add three free classics
+          </button>
+        </form>
+      ) : null}
 
       {everything.length ? (
         <section className={styles.browse} aria-label="Browse your shelf">

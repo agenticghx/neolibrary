@@ -7,6 +7,8 @@ import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
 import { seedPath } from "@/lib/library/paths";
 import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
 import { STARTER_PATHS } from "@/lib/library/seed";
+import { addSampleBooks } from "@/lib/library/samples";
+import { getStorage } from "@/lib/storage";
 import { createApiToken, revokeApiToken, TokenError } from "@/lib/auth/tokens";
 import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
@@ -106,4 +108,12 @@ export async function revokeTokenAction(data: FormData) {
     if (!(e instanceof TokenError)) throw e;
   }
   revalidatePath("/agents");
+}
+
+/** Adds the free sample classics to the reader's shelf (an empty library gets something to read at once). */
+export async function addSampleBooksAction() {
+  const user = await requireUser();
+  await addSampleBooks(await getDb(), await getStorage(), user.id);
+  revalidatePath("/shelf");
+  revalidatePath("/");
 }

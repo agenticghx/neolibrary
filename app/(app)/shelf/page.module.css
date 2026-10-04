@@ -314,3 +314,37 @@
     gap: var(--space-5) var(--space-3);
   }
 }
+
+/* Empty shelf: three free classics in one click. */
+.samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+}
+
+.samplesText {
+  flex: 1 1 22rem;
+  color: var(--ink-700);
+  line-height: var(--leading-read);
+}
+
+.samplesButton {
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-family: var(--font-serif);
+  cursor: pointer;
+}
+
+.samplesButton:hover {
+  background-color: var(--accent-strong);
+}
