@@ -341,3 +341,23 @@ test("a two-part upload is announced once, can be cancelled, and the PDF page sa
   await page.goto(`/books/${pdf.id}`);
   await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("PDF books come after EPUB books");
 });
+
+// The upload routes skip proxy.ts (so large bodies are not cut at 10 MB);
+// they must still refuse a signed-out upload, before reading it.
+test("a signed-out upload of 12 MB is refused by the upload routes themselves", async ({ page, browser }) => {
+  await page.goto("/shelf");
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
+  const anon = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const big = Buffer.alloc(12 * 1024 * 1024, 7);
+  const base = new URL("/", page.url()).href;
+  const book = await anon.request.post(`${base}api/books`, { multipart: { files: { name: "x.epub", mimeType: "application/epub+zip", buffer: big } } });
+  expect(book.status()).toBe(401);
+  const pkg = await anon.request.post(`${base}api/books/${bookId}/readalong`, { data: big, headers: { "content-type": "application/zip" } });
+  expect(pkg.status()).toBe(401);
+  const part = await anon.request.put(`${base}api/books/${bookId}/readalong/${crypto.randomUUID()}/parts?file=a&part=1`, { data: big });
+  expect(part.status()).toBe(401);
+  // Every other route still goes through the sign-in check in proxy.ts.
+  expect((await anon.request.get(`${base}api/export`)).status()).toBe(401);
+  await anon.close();
+});
