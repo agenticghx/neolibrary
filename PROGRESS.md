@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M13 (b) (match words to paragraphs); finish S6 (corrected Kuhn scripts); skills K1–K3 planned in docs/readalong-plan.md.
+next_action: M13 (c) (upload and store); finish S6 (corrected Kuhn scripts); skills K1–K3 planned in docs/readalong-plan.md.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -120,6 +120,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 16:40 · Claude (laptop) · M13 (b): match a package's words to the book's paragraphs
+- **Done:** `matchToParagraphs` turns a package's timed words into word timings on the app's own paragraphs (`[startMs, endMs, from, to]`, times in the package's audio file), with each paragraph's coverage. Book and script are reduced to plain words and walked side by side; where they disagree it jumps to the nearest place where 4 words in a row agree again. That handles spoken headings, long front matter, unread footnotes, skipped phrases, and words broken across a PDF line ("half- extinguished" is highlighted as one word). Each chapter's search starts at the chapter or page the book map names: without that, Frankenstein's introduction (which quotes chapter V) was taken for chapter V, which the test now guards.
+- **Key paths:** `lib/readalong/match.ts`, `lib/readalong/match.test.ts`, `lib/readalong/fixture.ts` (`inBook` is now the book chapter)
+- **Commands that worked:** `npx vitest run lib/readalong` → `Tests 16 passed (16)`; `npm run check` → all green. Local only (not committed; Kuhn is private): the real Kuhn ch. 1 package against the PDF as the app splits it (`extractPdfSections`, 800 paragraphs in 406 ms) → 3,162 of 3,180 spoken words matched (99.4%), pages 12–21 exactly, median paragraph coverage 0.997, none below 0.8, in 66 ms.
+- **Known issues / blockers:** None.
+- **Exact next steps:** M13 (c): upload and store (migration for audio offsets; signed upload of the audio).
 
 ### 2026-10-04 16:20 · Claude (laptop) · M13 (a): read and check a read-along package
 - **Done:** The app can now read a read-along package (a zip, with the files at its root or inside one folder) and check it with the same rules as the skill's Python checker: format name, audio checksums (when the audio is at hand; it may arrive later by signed upload), every script word timed in order with offsets that point at it, words marked not spoken have no time, times inside the chapter and never going backwards; warnings for low-confidence words and paragraphs not found in the book. It also tells whether a package belongs to a given book file (checksum). Offsets are counted as Python counts characters, so curly quotes and emoji do not shift them. The format spec and the Python checker are copied into the repo (`tools/readalong/`) so the app's contract lives with the app. A test package is built in code (tone WAV, known word times) and reused by later steps.
