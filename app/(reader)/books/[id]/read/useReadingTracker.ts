@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef } from "react";
 /** No input or page turn for this long means the reader has stopped reading. */
 export const IDLE_MS = 2 * 60 * 1000;
 const FLUSH_MS = 30 * 1000;
+/** A page reported this soon after the last one, with no key or tap between, is the same page re-laid out. */
+const SETTLE_MS = 1500;
 
 const countWords = (text: string) => (text.match(/\S+/g) ?? []).length;
 
@@ -29,6 +31,9 @@ export function useReadingTracker(bookId: string, listening: boolean) {
     pages: new Map<string, number>(),
     chapters: new Map<string, ChapterTally>(),
     chapter: "",
+    lastPage: "",
+    lastPageAt: 0,
+    inputSincePage: false,
     lastActivity: 0,
     lastTick: 0,
     lastFlush: 0,
@@ -86,6 +91,7 @@ export function useReadingTracker(bookId: string, listening: boolean) {
     }, 1000);
     const active = () => {
       s.lastActivity = Date.now();
+      s.inputSincePage = true;
     };
     const hidden = () => {
       if (document.visibilityState === "hidden") flush(true);
@@ -110,7 +116,17 @@ export function useReadingTracker(bookId: string, listening: boolean) {
     const s = state.current;
     s.lastActivity = Date.now();
     if (!key) return;
-    // The same page can be reported again once layout settles; keep its latest count (still one entry per page).
+    // The same page can be reported again once layout settles, sometimes at a
+    // slightly different start: with no input since a report moments ago, the
+    // new report replaces it. Otherwise keep each page's latest count.
+    const now = Date.now();
+    if (s.lastPage && s.lastPage !== key && !s.inputSincePage && now - s.lastPageAt < SETTLE_MS) {
+      s.pages.delete(s.lastPage);
+      for (const c of s.chapters.values()) c.pages.delete(s.lastPage);
+    }
+    s.lastPage = key;
+    s.lastPageAt = now;
+    s.inputSincePage = false;
     const words = countWords(text);
     s.pages.set(key, words);
     s.chapter = chapter?.key ?? "";
@@ -124,6 +140,7 @@ export function useReadingTracker(bookId: string, listening: boolean) {
   /** Input inside the book's own frame (keys and taps there do not reach the window). */
   const onActivity = useCallback(() => {
     state.current.lastActivity = Date.now();
+    state.current.inputSincePage = true;
   }, []);
 
   return { onPage, onActivity };
