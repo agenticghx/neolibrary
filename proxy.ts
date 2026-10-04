@@ -29,7 +29,7 @@ export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV 
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
   ].join("; ");
 }
 

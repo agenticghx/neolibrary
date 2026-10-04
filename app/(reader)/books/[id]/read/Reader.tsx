@@ -134,6 +134,9 @@ function themeColors(el: Element, s: ReaderSettings) {
   return colors;
 }
 
+/** How long a book may take to open before the reader says it could not be opened. */
+const OPEN_TIMEOUT_MS = 30_000;
+
 /** Fired once a book's notes have loaded: send what waits in the outbox (M12). */
 const SYNC_EVENT = "neolibrary:sync-notes";
 
@@ -226,6 +229,11 @@ export function Reader(props: {
   useEffect(() => {
     if (view.current) return;
     let cancelled = false;
+    // Never wait forever: some failures inside the book's frames are thrown
+    // where this code cannot catch them (this hid a Safari problem, 2026-10-04).
+    const giveUp = setTimeout(() => {
+      if (!cancelled) setStatus((s) => (s === "loading" ? "error" : s));
+    }, OPEN_TIMEOUT_MS);
     (async () => {
       try {
         const initial = loadSettings();
@@ -325,14 +333,17 @@ export function Reader(props: {
         });
         setToc(v.book.toc ?? []);
         await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi });
+        clearTimeout(giveUp);
         setStatus("ready");
       } catch (err) {
         console.error(err);
+        clearTimeout(giveUp);
         if (!cancelled) setStatus("error");
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(giveUp);
     };
   }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks]);
 
