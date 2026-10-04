@@ -130,6 +130,20 @@ export function ListenBar({
     setWord(onWord(info.passage.cfi, from, to) ?? "");
   };
 
+  // "timeupdate" fires only about every quarter second, while many words are
+  // shorter than that, so while playing, follow the clock on every frame
+  // (each time the screen is redrawn, about 60 times a second).
+  const followRef = useRef(follow);
+  followRef.current = follow;
+  useEffect(() => {
+    if (!playing) return;
+    let frame = requestAnimationFrame(function tick() {
+      followRef.current();
+      frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [playing]);
+
   const changeVoice = (v: string) => {
     audio.current?.pause();
     if (audio.current) audio.current.removeAttribute("src");

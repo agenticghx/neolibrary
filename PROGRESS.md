@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Version 1 waits only on Samuel (keys, verdicts); act on his feedback as it comes.
+next_action: Land and deploy the read-aloud highlight fix; otherwise version 1 waits only on Samuel (keys, verdicts).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -117,6 +117,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 19:40 UTC · Claude (laptop) · Fix: read-aloud highlight lagged and skipped words
+- **Done:** Samuel (Safari, Frankenstein ch. V) said the word highlight did not keep up with the voice. **Checked the data first:** all 10 saved tracks in production have every word timed, in order, with no drift (e.g. "toils." 3.68–4.38 s, then a pause before "With"), so ElevenLabs' timings were fine. **Root cause:** the player moved the highlight only on the audio's `timeupdate` event, which the browser fires about every quarter second (measured: median 266 ms in Chrome's engine, 250 ms in Safari's), while many words last less than that. So the highlight lagged and skipped short words. **Fix:** while playing, the player checks the audio clock on every frame (each screen redraw, about 60 times a second); `timeupdate` stays as the fallback for background tabs. A guard stops one page turn being asked for twice before the page has moved.
+- **Key paths:** `app/(reader)/books/[id]/read/ListenBar.tsx`, `app/(reader)/books/[id]/read/Reader.tsx` (`turning`), `e2e/listen.ts` (new shared check), `e2e/audio.spec.ts`, `e2e/safari.spec.ts`
+- **Commands that worked:** production timings read with `psql` inside the Postgres container over `ssh <postgres-ssh-id>@ssh.railway.com` (read-only). New test plays 3 s of the fake voice and records every word the highlight moves to: **before** the fix, Chrome showed 12 of 19 words and Safari 13 of 20; **after**, all words in order, each within 0.1 s of its start, in both. `npm run check` → `Tests 235 passed | 2 skipped (237)`; `npx playwright test --ignore-snapshots` → `173 passed (1.8m)`.
+- **Known issues / blockers:** The tests use the fake voice (WAV). They cannot rule out a small constant offset in Safari's clock on ElevenLabs' MP3; only Samuel's ear on the live site can judge that. Nothing on screen changed apart from the highlight, so no new screenshots.
+- **Exact next steps:** Land, deploy (backup first), ask Samuel to replay the same paragraph.
 ### 2026-10-04 19:25 UTC · Claude (laptop) · Reader back arrow and left contents deployed
 - **Done:** PR #51 merged with all four checks green (after rebasing over ledger PR #50, keeping both entries). Deployed `4d36641` after a backup (`~/Backups/neolibrary/prod-before-reader-nav-*.sql`, restore exit 0; 1 user, 3 books with files, 0 annotations). Railway deployment `93b1a361` SUCCESS.
 - **Key paths:** `PROGRESS.md`
