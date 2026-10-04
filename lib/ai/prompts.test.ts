@@ -17,9 +17,14 @@ describe("prompt files", () => {
     expect(user).toContain("<passage>\n{{text}}\n</passage>");
   });
 
-  it("has an instruction file for every rewrite level, and nothing else", async () => {
+  it("has an instruction file for every rewrite level but STE (which has its own prompt), and nothing else", async () => {
     const { LEVELS } = await import("@/lib/library/rewrite");
-    expect(readdirSync("prompts/rewrite-levels").sort()).toEqual(Object.keys(LEVELS).map((l) => `${l}.md`).sort());
+    const levels = Object.keys(LEVELS).filter((l) => l !== "ste");
+    expect(readdirSync("prompts/rewrite-levels").sort()).toEqual(levels.map((l) => `${l}.md`).sort());
+    const { system, user } = splitPrompt(await readPrompt("ste-rewrite"));
+    expect(system).toContain("{{skill}}");
+    expect(system).toContain("---notes---");
+    expect(user).toContain("<passage>\n{{text}}\n</passage>");
   });
 
   it("refuses names that could leave the prompts folder", async () => {

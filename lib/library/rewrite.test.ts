@@ -1,14 +1,15 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FakeModel } from "@/lib/ai/fake";
-import { SpendingCapReached, spending } from "@/lib/ai/generate";
+import { generate, SpendingCapReached, spending } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
-import { estimateRewrite, listRewrites, paragraphFor, rewriteParagraph } from "./rewrite";
+import { steCheck } from "@/lib/ai/ste";
+import { estimateRewrite, listRewrites, paragraphFor, rewriteParagraph, strictnessFrom, viewRewrite } from "./rewrite";
 import { getSections } from "./sections-store";
 
 let database: Database;
@@ -93,6 +94,32 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
 
   it("a changed prompt file gives a new answer; the old one keeps its old fingerprint", async () => {
     const model = new FakeModel();
+    const req = {
+      ownerId,
+      bookId,
+      sectionId: paragraphs[2].id,
+      kind: "rewrite",
+      options: { level: "plain" },
+      promptName: "rewrite + rewrite-levels/plain",
+      promptHash: sha256("prompt, first wording"),
+      input: paragraphs[2].text,
+      system: "s",
+      prompt: `<passage>${paragraphs[2].text}</passage>`,
+      maxTokens: 100,
+      effort: "low" as const,
+    };
+    const old = await generate(database.db, model, req);
+    const edited = await generate(database.db, model, { ...req, promptHash: sha256("prompt, edited") });
+    expect([old.reused, edited.reused]).toEqual([false, false]);
+    expect(model.calls).toHaveLength(2);
+    expect((await listRewrites(database.db, ownerId, bookId, paragraphs[2].id)).map((g) => g.provenance.promptHash)).toEqual([
+      sha256("prompt, first wording"),
+      sha256("prompt, edited"),
+    ]);
+  });
+
+  it("rewrites are private: another reader's identical request is its own call", async () => {
+    const model = new FakeModel();
     const p = paragraphs[2];
     const a = await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: p.id, level: "biologist" });
     // Same text and level but another reader: rewrites are private (ground rule 6), so this is a new call.
@@ -105,7 +132,7 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
     ).bookId;
     await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: p.id, level: "biologist" });
     expect(model.calls).toHaveLength(2);
-    expect(await listRewrites(database.db, ownerId, bookId, p.id)).toEqual([a.generation]);
+    expect((await listRewrites(database.db, ownerId, bookId, p.id)).map((g) => g.id)).toEqual([a.generation.id]);
   });
 
   it("finds the paragraph at a place in the book (a selection's CFI)", async () => {
@@ -131,6 +158,54 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
       "Only paragraphs",
     );
     expect(model.calls).toHaveLength(0);
+  });
+});
+
+describe("STE rewrites (M6)", () => {
+  it("send Samuel's STE skill at the chosen strictness, and keep each strictness as its own version", async () => {
+    const model = new FakeModel();
+    const p = paragraphs[4];
+    const std = await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: p.id, level: "ste" });
+    expect(std.generation.options).toEqual({ level: "ste", strictness: "standard" });
+    const sent = model.calls[0];
+    expect(sent.system).toContain("Choose the strictness level first"); // from prompts/ste/SKILL.md
+    expect(sent.system).toContain("| in order to | to |"); // from prompts/ste/substitutions.md
+    expect(sent.system).toContain("Strictness level: Standard (≈80%)");
+    expect(sent.system).not.toContain('name: "simplified-technical-english"'); // the skill's front matter is dropped
+    expect(sent.prompt).toContain("Task: Rewrite (STE, Standard (≈80%))");
+    const file = readFileSync("prompts/ste-rewrite.md", "utf8");
+    const skill = readFileSync("prompts/ste/SKILL.md", "utf8").replace(/^---\n[\s\S]*?\n---\n/, "").trim();
+    const subs = readFileSync("prompts/ste/substitutions.md", "utf8").trim();
+    expect(std.generation.provenance.promptHash).toBe(sha256(`${file}\n\n${skill}\n\n${subs}`));
+
+    await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: p.id, level: "ste", strictness: "strict" });
+    expect(model.calls).toHaveLength(2);
+    expect(model.calls[1].system).toContain("Strictness level: Strict (full STE)");
+    // 85% is Standard: the stored answer is re-served.
+    const again = await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: p.id, level: "ste", strictness: strictnessFrom("85%")! });
+    expect(again.reused).toBe(true);
+    expect(model.calls).toHaveLength(2);
+
+    const [first] = await listRewrites(database.db, ownerId, bookId, p.id);
+    expect(first.text).toMatch(/^Fake rewrite \(ste, standard \(≈80%\)\): /);
+    expect(first.text).not.toContain("---notes---");
+    expect(first.meaningChanges).toEqual(["The test AI chose no meanings; this note shows where real ones go."]);
+    expect(first.ste).toEqual(expect.objectContaining({ score: steCheck(first.text).compliance }));
+  });
+
+  it("splits the notes from the rewrite and scores it with the STE checker", () => {
+    const g = { output: "Close the valve. The pump has been running.\n---notes---\n- \"Since\" read as \"because\".\n\n", options: { level: "ste" } };
+    const v = viewRewrite(g as never);
+    expect(v.text).toBe("Close the valve. The pump has been running.");
+    expect(v.meaningChanges).toEqual(['"Since" read as "because".']);
+    expect(v.ste).toEqual({ score: 50, errors: 1, warnings: 0, sentences: 2 });
+    expect(viewRewrite({ output: "Plain.", options: { level: "plain" } } as never)).toMatchObject({ text: "Plain.", ste: null, meaningChanges: [] });
+  });
+
+  it("maps a strictness percentage to a level, as the skill defines", () => {
+    expect([95, 90, 89.9, 80, 70, 69, 0].map(strictnessFrom)).toEqual(["strict", "strict", "standard", "standard", "standard", "light", "light"]);
+    expect(["light", "standard", "strict", "80%", " 92 % "].map(strictnessFrom)).toEqual(["light", "standard", "strict", "standard", "strict"]);
+    expect([101, -1, "loose", "", null, "constructor"].map(strictnessFrom)).toEqual([null, null, null, null, null, null]);
   });
 });
 

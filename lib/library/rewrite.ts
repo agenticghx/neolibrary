@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { generate, listGenerations, estimateCost, type Caps } from "@/lib/ai/generate";
+import { generate, listGenerations, estimateCost, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
+import { steCheck } from "@/lib/ai/ste";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { sectionForCfi } from "./annotations";
@@ -9,16 +10,11 @@ import { sectionForCfi } from "./annotations";
 /**
  * Rewrite one paragraph at a level (M6). Every rewrite is a stored version;
  * the book's own text is never changed. Prompts: `prompts/rewrite.md` plus
- * one instruction file per level in `prompts/rewrite-levels/`.
+ * one instruction file per level in `prompts/rewrite-levels/`; STE uses
+ * `prompts/ste-rewrite.md` with Samuel's STE skill (`prompts/ste/`).
  */
-export const LEVELS = {
-  plain: "Plain English",
-  biologist: "For a biologist",
-  background: "Add missing background",
-  shorter: "Shorter",
-} as const;
-export type Level = keyof typeof LEVELS;
-export const isLevel = (v: unknown): v is Level => typeof v === "string" && v in LEVELS;
+export { isLevel, LEVELS, STRICTNESS, strictnessFrom, type Level, type Strictness } from "./levels";
+import { LEVELS, STRICTNESS, type Level, type Strictness } from "./levels";
 
 export class RewriteError extends Error {}
 
@@ -51,30 +47,48 @@ export async function paragraphFor(
   return { id: row.id, text: row.text, cfi: row.cfi, chapter: chapter?.label ?? "" };
 }
 
-async function buildRequest(db: Db, ownerId: string, bookId: string, sectionId: string, level: Level) {
+async function buildRequest(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  sectionId: string,
+  level: Level,
+  strictness: Strictness,
+): Promise<GenerationRequest> {
   const paragraph = await paragraphFor(db, ownerId, bookId, { sectionId });
   const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  const message = {
+    book: book.author ? `${book.title}, by ${book.author}` : book.title,
+    chapter: paragraph.chapter,
+    text: paragraph.text,
+  };
+  const common = { ownerId, bookId, sectionId, kind: "rewrite", input: paragraph.text, maxTokens: MAX_TOKENS, effort: "low" as const };
+
+  if (level === "ste") {
+    const file = await readPrompt("ste-rewrite");
+    const skill = (await readPrompt("ste/SKILL")).replace(/^---\n[\s\S]*?\n---\n/, "").trim();
+    const substitutions = (await readPrompt("ste/substitutions")).trim();
+    const { system, user } = splitPrompt(file);
+    return {
+      ...common,
+      options: { level, strictness },
+      promptName: "ste-rewrite + ste/SKILL + ste/substitutions",
+      promptHash: sha256(`${file}\n\n${skill}\n\n${substitutions}`),
+      system: fill(system, { skill, substitutions, strictness: STRICTNESS[strictness] }),
+      prompt: fill(user, { ...message, task: `Rewrite (STE, ${STRICTNESS[strictness]})` }),
+    };
+  }
+
   const base = await readPrompt("rewrite");
   const instruction = (await readPrompt(`rewrite-levels/${level}`)).trim();
   const { system, user } = splitPrompt(base);
   return {
-    ownerId,
-    bookId,
-    sectionId,
-    kind: "rewrite",
+    ...common,
     options: { level },
     promptName: `rewrite + rewrite-levels/${level}`,
     promptHash: sha256(`${base}\n\n${instruction}`),
-    input: paragraph.text,
     system: fill(system, { instruction }),
-    prompt: fill(user, {
-      task: `Rewrite (${LEVELS[level]})`,
-      book: book.author ? `${book.title}, by ${book.author}` : book.title,
-      chapter: paragraph.chapter,
-      text: paragraph.text,
-    }),
-    maxTokens: MAX_TOKENS,
-    effort: "low" as const,
+    prompt: fill(user, { ...message, task: `Rewrite (${LEVELS[level]})` }),
   };
 }
 
@@ -83,17 +97,39 @@ export async function rewriteParagraph(
   db: Db,
   model: TextModel,
   ownerId: string,
-  input: { bookId: string; sectionId: string; level: Level; fresh?: boolean },
+  input: { bookId: string; sectionId: string; level: Level; strictness?: Strictness; fresh?: boolean },
   opts: { caps?: Caps; now?: () => Date } = {},
 ) {
-  const req = await buildRequest(db, ownerId, input.bookId, input.sectionId, input.level);
+  const req = await buildRequest(db, ownerId, input.bookId, input.sectionId, input.level, input.strictness ?? "standard");
   return generate(db, model, req, { ...opts, fresh: input.fresh });
 }
 
 /** The rough cost of a rewrite, shown before asking (ground rule 8). */
 export async function estimateRewrite(db: Db, model: TextModel, ownerId: string, bookId: string, sectionId: string, level: Level) {
-  return estimateCost(model, await buildRequest(db, ownerId, bookId, sectionId, level));
+  return estimateCost(model, await buildRequest(db, ownerId, bookId, sectionId, level, "standard"));
 }
 
-export const listRewrites = (db: Db, ownerId: string, bookId: string, sectionId: string) =>
-  listGenerations(db, ownerId, bookId, sectionId, "rewrite");
+export type RewriteView = Generation & {
+  /** The rewrite itself, without the notes. */
+  text: string;
+  /** STE only: places where the original could be read two ways, and the reading chosen. */
+  meaningChanges: string[];
+  /** STE only: the checker's result on the rewrite (always measured against full STE). */
+  ste: { score: number; errors: number; warnings: number; sentences: number } | null;
+};
+
+/** Splits the stored answer into the rewrite and its notes, and scores STE rewrites with the checker. */
+export function viewRewrite(g: Generation): RewriteView {
+  const [text, notes = ""] = g.output.split(/^---notes---[ \t]*$/m);
+  const meaningChanges = notes
+    .split("\n")
+    .map((l) => l.replace(/^\s*[-*•]\s*/, "").trim())
+    .filter(Boolean);
+  const clean = text.trim();
+  if (g.options.level !== "ste") return { ...g, text: clean, meaningChanges: [], ste: null };
+  const r = steCheck(clean);
+  return { ...g, text: clean, meaningChanges, ste: { score: r.compliance, errors: r.errors, warnings: r.warnings, sentences: r.sentences } };
+}
+
+export const listRewrites = async (db: Db, ownerId: string, bookId: string, sectionId: string) =>
+  (await listGenerations(db, ownerId, bookId, sectionId, "rewrite")).map(viewRewrite);

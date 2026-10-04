@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (c), STE mode.
+next_action: Sessions loop through docs/done.md on their own; next is M6 (d), "What do I need to know?".
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -25,18 +25,20 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
    `docs/done.md`. Read the `claude-api` skill before writing Claude code
    (model ids, SDK). Everything goes behind an interface with a **fake** used
    in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   PRs (a) plumbing and (b) rewrite in the reader are done (see Log).
-   Remaining: (c) **STE mode**: port `prompts/ste/ste_check.py` to
-   TypeScript (`lib/ai/ste.ts`) with a test that runs the Python script and
-   the port on the same inputs and gets identical results (python3 is in the
-   cloud container and CI's ubuntu runner); STE as a fifth rewrite level
-   with the strictness dial (Light / Standard ≈80% default / Strict, or a
-   percentage); every STE output checked and shown with a badge "STE 92%
-   (full-STE score)" and the skill's "meaning changes" note; STE as a reading
-   preference for all AI explanations (a setting, changeable per book).
-   (d) "What do I need to know?" per section; question bank; cross-book
-   links. All use `generate()` in `lib/ai/generate.ts` (stores, re-serves,
-   caps) and show output with the `.machine` style from the reader CSS.
+   PRs (a) plumbing, (b) rewrite in the reader and (c) STE are done (see
+   Log). Remaining: (d) **"What do I need to know?"** at the top of each
+   section (chapter): the concepts it assumes, each with a two-line
+   explanation and a "read more" link (Wikipedia search URL is fine), via
+   `generate()` with a new prompt file and structured output (JSON); **STE as
+   a reading preference** for all AI explanations: a user setting (new
+   column or table, with a migration and reverse step) changeable per book,
+   applied to prerequisites and question answers by adding the STE skill to
+   their prompts. (e) **Question bank** per section: recall, understanding
+   and application questions, answers hidden until clicked, mark right or
+   wrong (stored, exported), and a "needs a re-read" view. (f) **Cross-book
+   links**: when a passage covers an idea highlighted in another book, show
+   it in the margin (start with full-text search over the user's highlights
+   from other books; no AI needed for a first version). Then tick M6.
 2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -90,6 +92,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 04:50 UTC · Claude (cloud) · M6 (c): STE mode, with the checker ported to TypeScript
+- **Done:** `lib/ai/ste.ts` is a line-by-line port of Samuel's `prompts/ste/ste_check.py` (the Simplified Technical English checker). It gives the same report: sentence length, paragraph length, passive voice, continuous and perfect tenses, -ing clauses, noun clusters, verbose phrases, non-approved and ambiguous words, contractions, slashes and the compliance percentage. Python and JavaScript regular expressions differ in small ways (word boundaries, digits and whitespace beyond plain ASCII; line ends; rounding to one decimal), so those are spelled out to behave like Python. **STE is a fifth rewrite level** with the strictness dial from the skill: Light, Standard (≈80%, the default) or Strict, or a percentage (90%+ Strict, 70–89% Standard, below 70% Light). The STE prompt (`prompts/ste-rewrite.md`) sends the skill (`SKILL.md` without its header) and the substitution list at the chosen level, and asks for the rewrite followed by a `---notes---` line with the meaning changes. Each strictness is its own stored version; 85% re-serves the Standard one. Every STE rewrite is checked and shows a badge **"STE 92% (full-STE score)"**; it always measures against full STE, as the skill says. The skill's **meaning-change notes** are shown under the rewrite.
+- **Key paths:** `lib/ai/ste.ts`, `lib/ai/ste.test.ts`, `prompts/ste-rewrite.md`, `lib/library/levels.ts` (levels and strictness, shared with the browser), `lib/library/rewrite.ts` (`viewRewrite`), `app/(reader)/books/[id]/read/RewritePanel.tsx`, `e2e/ai.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `161 passed`. **`lib/ai/ste.test.ts` runs `ste_check.py` with python3 and the TypeScript port on the same inputs and compares every field of every report:** 25 hand-written cases in both modes; the four STE skill Markdown files (code fences, tables, lists; e.g. `rules.md` → 95.4%, 109 sentences, 33 findings, the same in both); every paragraph of *Jekyll and Hyde*, *The Time Machine* and *Frankenstein* (over 1,400) plus each book as one text; and 2,000 random texts built from tricky pieces (abbreviations, decimals, URLs, code, tables, accented letters, non-breaking spaces, emoji, Arabic and Roman numerals). All identical. `npx playwright test` → `115 passed (1.8m)`, including: Strict → STE → "Rewrite · STE, Strict", badge "STE …% (full-STE score)", the meaning-change note, "Version 4 of 4"; typing 75 in the % box switches to Standard and asks ("Version 5 of 5"); Strict again re-serves version 4; a bad strictness → 400. Screenshots `screenshots/reader-rewrite-*` now show an STE rewrite with its badge (checked by eye, light and dark).
+- **Known issues / blockers:** The cost hint shows the dearest level (STE sends the skill, about 5,000 extra tokens: roughly $0.06 at most per STE rewrite). STE as a reading preference for other AI explanations comes with those explanations in (d). No real Claude call yet (no key).
+- **Exact next steps:** M6 (d), per "Exact next steps".
 
 ### 2026-10-04 04:40 UTC · Claude (cloud) · M6 (b): rewrite a paragraph in the reader
 - **Done:** Selecting text in the reader now offers **Rewrite**. It opens a Rewrite panel for the paragraph the selection is in (found from the selection's CFI with the section model). The panel shows the chapter and the start of the original paragraph, four levels (Plain English, For a biologist, Add missing background, Shorter), and the cost before you ask ("A new rewrite costs about $0.04. Saved rewrites are free."; generous on purpose). The rewrite appears in the **machine-written style** from the design system: sans type, lilac background, dashed purple rule, a label "Rewrite · Shorter · written by AI" ("by the test AI" when the fake is in use) and a provenance line (model · date · cost). Versions: "Version 2 of 3" with ‹ › to flip between them, and **Try again** for a new version on purpose. Asking for a level that is already stored re-serves it with no call. If no key is set, the panel says so and still shows saved rewrites. New route `GET/POST /api/books/<id>/rewrites` (signed-in owner only). Errors come back as plain sentences: spending cap (429), AI not set up (503), declined (422).
