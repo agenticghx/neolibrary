@@ -44,6 +44,8 @@ export default defineConfig({
     { name: "reader", testMatch: /reader\.spec\.ts/, dependencies: ["uploads"], use: { ...desktop } },
     // 6. Highlights, notes and bookmarks in a book the reader tests opened.
     { name: "annotations", testMatch: /annotations\.spec\.ts/, dependencies: ["reader"], use: { ...desktop } },
+    // 7. AI tools (fake AI) in the same book.
+    { name: "ai", testMatch: /ai\.spec\.ts/, dependencies: ["annotations"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run.

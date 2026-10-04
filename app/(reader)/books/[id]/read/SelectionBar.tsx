@@ -14,7 +14,7 @@ const COLORS: { value: Color; label: string }[] = [
   { value: "sky", label: "Sky" },
 ];
 
-/** Appears while text is selected in the book: highlight, add a note, or copy. */
+/** Appears while text is selected in the book: highlight, add a note, rewrite the paragraph, copy or share. */
 export function SelectionBar({
   bookId,
   selection,
@@ -22,6 +22,7 @@ export function SelectionBar({
   author,
   themeEl,
   onHighlight,
+  onRewrite,
   onClose,
 }: {
   bookId: string;
@@ -30,6 +31,7 @@ export function SelectionBar({
   author: string;
   themeEl: () => Element | null;
   onHighlight: (color: Color, body: string) => Promise<void>;
+  onRewrite: () => void;
   onClose: () => void;
 }) {
   const [noting, setNoting] = useState(false);
@@ -82,6 +84,9 @@ export function SelectionBar({
           ))}
           <button type="button" className={styles.tool} onClick={() => setNoting(true)}>
             Add note
+          </button>
+          <button type="button" className={styles.tool} onClick={onRewrite}>
+            Rewrite
           </button>
           <button
             type="button"

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sessions loop through docs/done.md on their own; next is M6 (b), rewrite in the reader.
+next_action: Sessions loop through docs/done.md on their own; next is M6 (c), STE mode.
 blockers: none for building; live deploy waits on Samuel (see Waiting on Samuel).
 updated: 2026-10-04
 shared_copy: none
@@ -25,21 +25,18 @@ The goal and the loop are in `docs/done.md`. Samuel is not watching; work alone.
    `docs/done.md`. Read the `claude-api` skill before writing Claude code
    (model ids, SDK). Everything goes behind an interface with a **fake** used
    in all tests (ground rule 3); no real key exists yet (Waiting on Samuel).
-   PR (a), the AI plumbing, is done (see Log). Remaining PRs:
-   (b) **Rewrite in the reader:** an API route (`/api/books/<id>/rewrites`:
-   GET lists versions for a section plus the cost estimate; POST rewrites or
-   re-serves, `fresh` for "Try again") on top of `rewriteParagraph` in
-   `lib/library/rewrite.ts`; in the reader, a "Rewrite" action on a paragraph
-   (from the selection bar: the section under the selection) with the four
-   levels and the estimate, versions you can flip between, styled as
-   machine-written with the `--machine-*` tokens and a provenance line
-   (model, date, cost). e2e with `AI_FAKE=1` (already in the Playwright
-   webServer env): rewrite, reload, the version is re-served. Screenshots.
-   (c) STE mode: port `prompts/ste/ste_check.py` to TypeScript with tests
-   giving identical results on the same inputs; STE as a fifth level with the
-   strictness dial; badge "STE 92%". (d) "What do I need to know?" per
-   section; question bank; cross-book links. All use `generate()` in
-   `lib/ai/generate.ts`, which stores, re-serves and enforces the caps.
+   PRs (a) plumbing and (b) rewrite in the reader are done (see Log).
+   Remaining: (c) **STE mode**: port `prompts/ste/ste_check.py` to
+   TypeScript (`lib/ai/ste.ts`) with a test that runs the Python script and
+   the port on the same inputs and gets identical results (python3 is in the
+   cloud container and CI's ubuntu runner); STE as a fifth rewrite level
+   with the strictness dial (Light / Standard ≈80% default / Strict, or a
+   percentage); every STE output checked and shown with a badge "STE 92%
+   (full-STE score)" and the skill's "meaning changes" note; STE as a reading
+   preference for all AI explanations (a setting, changeable per book).
+   (d) "What do I need to know?" per section; question bank; cross-book
+   links. All use `generate()` in `lib/ai/generate.ts` (stores, re-serves,
+   caps) and show output with the `.machine` style from the reader CSS.
 2. Then M7, M8, … in order, per `docs/done.md`.
 
 ## Waiting on Samuel
@@ -93,6 +90,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-04 04:40 UTC · Claude (cloud) · M6 (b): rewrite a paragraph in the reader
+- **Done:** Selecting text in the reader now offers **Rewrite**. It opens a Rewrite panel for the paragraph the selection is in (found from the selection's CFI with the section model). The panel shows the chapter and the start of the original paragraph, four levels (Plain English, For a biologist, Add missing background, Shorter), and the cost before you ask ("A new rewrite costs about $0.04. Saved rewrites are free."; generous on purpose). The rewrite appears in the **machine-written style** from the design system: sans type, lilac background, dashed purple rule, a label "Rewrite · Shorter · written by AI" ("by the test AI" when the fake is in use) and a provenance line (model · date · cost). Versions: "Version 2 of 3" with ‹ › to flip between them, and **Try again** for a new version on purpose. Asking for a level that is already stored re-serves it with no call. If no key is set, the panel says so and still shows saved rewrites. New route `GET/POST /api/books/<id>/rewrites` (signed-in owner only). Errors come back as plain sentences: spending cap (429), AI not set up (503), declined (422).
+- **Key paths:** `app/(reader)/books/[id]/read/RewritePanel.tsx`, `SelectionBar.tsx`, `Reader.tsx`, `reader.module.css` (`.machine`, `.levels`, `.versionRow`), `app/api/books/[id]/rewrites/route.ts`, `lib/library/rewrite.ts` (`paragraphFor`), `e2e/ai.spec.ts`
+- **Commands that worked:** `npm run check` → Vitest `152 passed`. `npx playwright test` → `114 passed (1.8m)`, including (fake AI): select "lover of the sane and customary" → Rewrite → the panel names "Search for Mr. Hyde" → Plain English → machine-written box with "fake · 4 Oct 2026 · $0.0…" and "Version 1 of 1"; Shorter → "Version 2 of 2"; ‹ shows Plain English; asking Plain English again keeps 2 versions (re-served); the book's own text is unchanged; **after a reload the two versions come back**; Try again → "Version 3 of 3"; the API returns levels `plain, shorter, shorter`, each with provider, model, prompt name, 64-hex prompt and input fingerprints and cost > 0; signed-out → 401; axe finds no accessibility problems with the panel open in all four looks. Screenshots: `screenshots/reader-rewrite-{desktop,phone}-{light,dark}.png` (checked by eye: the rewrite is clearly set apart from the book text in light and dark).
+- **Known issues / blockers:** A rewrite needs a text selection inside the paragraph (no "rewrite this paragraph" button on hover yet). Paragraphs that already have rewrites are not marked in the text. No real Claude call yet (no key).
+- **Exact next steps:** M6 (c), per "Exact next steps".
 
 ### 2026-10-04 04:30 UTC · Claude (cloud) · M6 (a): AI plumbing (fake Claude, stored answers with provenance, spending caps)
 - **Done:** `lib/ai/` holds the text-AI interface (`TextModel`). `ClaudeModel` calls the Claude API with the Anthropic SDK (the current Claude Opus model, set in `lib/ai/claude.ts`; adaptive thinking; an effort level per task; Anthropic's server-side fallback, which re-runs a declined request on another model, with the model that actually answered recorded). `FakeModel` answers instantly, costs nothing and counts its calls. All tests use the fake; the browser tests get it through `AI_FAKE=1`. With no `ANTHROPIC_API_KEY` the app says "AI is not set up yet" instead of making answers up. Prompts are files: `prompts/rewrite.md` plus one instruction per level in `prompts/rewrite-levels/` (plain English, for a biologist, add missing background, shorter). A new `generations` table (migration `0008_generations`, with a reverse step) stores every machine-written text with its provenance (ground rule 5): provider, the model that answered, prompt name, sha256 fingerprints of the prompt files and of the input text, tokens, cost in dollars and time. `generate()` re-serves a stored answer for the same request without a second call, and two identical requests at the same moment share one call. "Try again" (`fresh`) adds a new version; nothing is overwritten. **Spending caps** (ground rule 8): before any call, the estimated cost plus this month's spending (all readers, one key) must stay under `AI_CAP_PER_MONTH_USD` (default $20) and the book's spending under `AI_CAP_PER_BOOK_USD` (default $5); otherwise nothing is called and the reader is told which cap was hit. Stored answers are free, so they are served even at the cap. `rewriteParagraph()` in `lib/library/rewrite.ts` is the first user (server side only; the reader button is PR (b)). Generations are in the library export, and the export → wipe → import test covers them (ground rule 7).

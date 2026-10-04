@@ -8,7 +8,7 @@ import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
-import { estimateRewrite, listRewrites, rewriteParagraph } from "./rewrite";
+import { estimateRewrite, listRewrites, paragraphFor, rewriteParagraph } from "./rewrite";
 import { getSections } from "./sections-store";
 
 let database: Database;
@@ -106,6 +106,18 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
     await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: p.id, level: "biologist" });
     expect(model.calls).toHaveLength(2);
     expect(await listRewrites(database.db, ownerId, bookId, p.id)).toEqual([a.generation]);
+  });
+
+  it("finds the paragraph at a place in the book (a selection's CFI)", async () => {
+    const all = await getSections(database.db, ownerId, bookId);
+    const p = all.find((s) => s.id === paragraphs[3].id)!;
+    const inside = p.cfi.replace(/\)$/, "/1:10)");
+    expect(await paragraphFor(database.db, ownerId, bookId, { cfi: inside })).toEqual({
+      id: p.id,
+      text: p.text,
+      cfi: p.cfi,
+      chapter: all.find((s) => s.kind === "chapter" && s.chapterIndex === p.chapterIndex)!.label,
+    });
   });
 
   it("refuses paragraphs that are not the reader's, and headings", async () => {

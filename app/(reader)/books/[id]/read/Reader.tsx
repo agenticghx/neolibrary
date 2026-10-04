@@ -6,6 +6,7 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { Mark } from "@/components/Mark";
 import type { Annotation, Color } from "@/lib/library/annotations";
 import { NotesPanel } from "./NotesPanel";
+import { RewritePanel } from "./RewritePanel";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings } from "./settings";
 import styles from "./reader.module.css";
@@ -84,7 +85,8 @@ export function Reader(props: {
   const view = useRef<FoliateView | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite">("none");
+  const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
   const [selection, setSelection] = useState<PendingSelection | null>(null);
@@ -403,6 +405,11 @@ export function Reader(props: {
           author={props.author}
           themeEl={() => root.current}
           onHighlight={highlight}
+          onRewrite={() => {
+            setRewriteAt(selection.cfi);
+            clearSelection();
+            setPanel("rewrite");
+          }}
           onClose={clearSelection}
         />
       ) : null}
@@ -423,6 +430,8 @@ export function Reader(props: {
           onAddBookNote={addBookNote}
         />
       ) : null}
+
+      {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
 
       {panel === "contents" ? (
         <nav className={styles.panel} aria-label="Contents">
