@@ -545,23 +545,24 @@ Machinery is no longer added at set-up but offered as a starter Path; Path
 placeholders also appear under "Want to Read"; the spine view is on the
 phone only (Samuel asked for it there).
 
-Steps:
+Steps (the detailed build plan, with files, tests, mutation checks and the
+lessons to apply, is `docs/m14-home-plan.md`; one PR per step):
 - **(a) Mockups:** done 2026-10-05; Samuel's picks above.
-- **(b)** Home on desktop and phone: the sidebar (desktop) and tabs (phone:
-  Home, Library, Paths, Search); "Continue" (B); the whole library as a grid
-  with fill bars and the marks; Import; the phone's Grid / Spines toggle
-  (remembered on that device); Hidden Machinery offered, not added at
-  set-up. Every title labelled by availability (Read and listen, Read only,
-  Listen only, Not available yet), and the "owned" wording removed from the
-  app: "Books you own" (`app/(app)/shelf/page.tsx`), "Not owned" and "(not
-  owned)" (`components/Cover.tsx`), "· not owned" (`components/PathView.tsx`),
-  the comment in `lib/library/paths.ts`, and the browser tests that look for
-  those words (`e2e/pages.ts`, `paths.spec.ts`, `reader.spec.ts`,
-  `uploads.spec.ts`).
+- **(b1)** Label every title by availability (Read and listen, Read only,
+  Listen only, Not available yet) and remove the "owned" wording from the
+  app, its code names and its tests.
+- **(b2)** The sidebar on desktop, bottom tabs and an account menu on a
+  phone; the library page moves to `/library` (`/shelf` redirects).
+- **(b3)** Home: "Continue" (B), the whole library as a grid with fill bars
+  and marks, Import, the phone's Grid / Spines toggle; titles not available
+  yet in one closed group; Hidden Machinery offered, not added at set-up.
 - **(c)** Library filters by kind and status.
-- **(d)** Paths: their own pages, and making your own Path.
-- **(e)** The mini-player (B, with speed) across pages.
-- **(f)** Deploy (backup first).
+- **(d)** Paths: their own pages, making your own Path, adding a book file
+  to a title that has none.
+- **(e)** The mini-player (B, with speed) across pages, in three PRs: one
+  player for the whole app with no visible change; the mini-player outside
+  the reader; Think aloud.
+- **(f)** Deploy (backup first) and Samuel's verdict.
 
 Done when: in the browser tests, after sign-in Home shows "Continue" with the
 last-opened book, its last note and both buttons, and the whole library with

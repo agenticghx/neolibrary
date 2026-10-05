@@ -14,7 +14,12 @@ engineer.
    implement → verify → merge → loop, and never stop for something only
    Samuel can give; list it under "Waiting on Samuel" and move on.
 2. Read the milestone you are working on in `docs/plan.md`, and
-   `docs/design.md` once it exists.
+   `docs/design.md` once it exists. For M14, read `docs/m14-home-plan.md`
+   first: it is the build plan, step by step.
+2a. During M14, keep `LEARNING_LOG.md` at the repo root (create it at the
+   start if it is missing; format and rules in `docs/m14-home-plan.md` §7):
+   one entry per attempt, with its hypothesis, the signal, the result as
+   measured, and the lesson. Commit it with each PR.
 3. If a step is blocked on a decision only Samuel can make, add it to
    `## Open unknowns` with a decide-by date, then pick the next step that is
    not blocked.

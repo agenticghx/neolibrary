@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 (b): Home on desktop and phone with Samuel's picks (docs/plan.md M14, "Samuel's picks"); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
+next_action: Build M14 from docs/m14-home-plan.md: create LEARNING_LOG.md, run the baseline, then step b1 (availability labels, no "owned" wording) on m14-b1-availability; then M13's matcher follow-up and deploy.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -28,14 +28,15 @@ books, and his verdicts for M4 and M6. Nothing else is blocked.
 The goal and the loop are in `docs/done.md`; lessons and gotchas are in
 `docs/handoff.md` §5 and in this Log.
 
-**New first step (2026-10-05): M14 · Home is the library** (`docs/plan.md`,
-"The library comes first" near the top and M14 near the end). Samuel
-picked his options on the mockups (Decisions, 2026-10-05; "Samuel's picks"
-in M14). Next: M14 (b), Home on desktop and phone: sidebar and tabs,
-"Continue" with the last note, the library grid with fill bars, Import, the
-phone's Grid / Spines toggle, Hidden Machinery offered instead of added.
-The picks drawn together are on the "Your picks" boards of
-https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg.
+**New first step (2026-10-05): build M14 · Home is the library.** The
+build plan is `docs/m14-home-plan.md`: read it top to bottom first. It
+holds Samuel's picks and rules, the steps as one PR each (b1 availability
+labels and no "owned" wording; b2 sidebar and phone tabs; b3 Home; c
+filters; d Paths; e1-e3 the mini-player; f deploy), the files and tests
+each step touches, the mutation checks to run, the lessons to apply, and
+the format of **`LEARNING_LOG.md`, which the build session creates at the
+repo root before changing code** and keeps up to date. Start with §0 of
+that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 1. **When Samuel adds `ANTHROPIC_API_KEY`** (Railway → `web`): sign in as him
    only if he asks; otherwise wait for his "M6 verdict" issue and paste one
@@ -114,6 +115,7 @@ Never blocks the loop. Newest first.
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? Default until Samuel sets one (docs/done.md): $5 per book, $20 per month per provider, as environment variables. | Samuel | before M6 | open (default applies) |
 | 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Answered 2026-10-04: yes, the session merged PR #2 with its GitHub tools (`merge_pull_request` → `merged: true`). | first M1 session | during M1 | closed |
 | 3 | M14: are Claude's four assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read"; the spine view on the phone only)? Path page layout and the two Home extras (a question; threads) not picked yet. Default until answered: the assumptions hold, the Path page stays as drawn, the extras stay out. | Samuel | 2026-10-12, before M14 (d) | partly answered 2026-10-05 (picks recorded in Decisions and `docs/plan.md` M14) |
+| 4 | M14 defaults the build plan sets (`docs/m14-home-plan.md` §4 and §10): does ElevenLabs narration count as "Listen" (default no); titles not available yet in one closed group at the end of the grid (default yes); "Want to Read" = everything not started (default yes); spine view phone only (default yes); own Paths = sections of ordered titles (default yes). | Samuel | 2026-10-19 | open (defaults apply) |
 
 ## Decisions
 
@@ -134,6 +136,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 14:30 · Claude (laptop) · M14 build plan written for a fresh session
+- **Done:** At Samuel's request ("finalize the detailed plans. i will clear context and start a fresh session to implement, verify, review"), wrote `docs/m14-home-plan.md`: Samuel's picks and rules with his words; the decisions the plan makes as defaults (D1-D12: availability = book file / uploaded audiobook; titles not available yet in a closed group; routes `/`, `/library`, `/paths`; filters; no Hidden Machinery at set-up; Continue; phone-only spines; phone tabs and account menu; own Paths as sections of titles; one player in the root layout; no migration expected); seven steps as nine PRs with files, tests, screenshots, "Done when" and mutation checks; a test impact map (which existing tests break in which step); the `LEARNING_LOG.md` format Samuel asked for (iterations with hypothesis, action, evaluation, result, interpretation, lesson, next experiment; an index; rolling lessons; rules); 15 lessons from M13's learning loop and this session; the per-step loop; open questions; risks. The facts come from three read-only code-mapping agents (Home and data; the player; tests and CI), with the key ones re-checked by hand. Main findings that shaped the plan: nine browser tests assume set-up adds Hidden Machinery (so the set-up test adds it through the new empty Home instead); no paragraph text reaches the browser today (the mini-player's sentence needs a server change); tests assume one audio element and a "Read aloud" region; the saved position only moves when the reader turns pages. `docs/plan.md` M14 steps and `CLAUDE.md` (read the build plan; keep `LEARNING_LOG.md`) point to it.
+- **Key paths:** `docs/m14-home-plan.md`, `docs/plan.md` (M14 steps), `CLAUDE.md` (start-of-session items 2 and 2a), `PROGRESS.md`.
+- **Commands that worked:** spot checks of agent claims: `sed -n 36,40p lib/library/paths.test.ts` (asserts `view.wanted` > 100); `grep -n cover-unowned app/tokens.css | wc -l` → 10 (two tokens in five theme blocks); `sed -n 13p ListenBar.tsx` → `const SPEEDS = [0.75, 1, 1.25, 1.5, 2];`; `sed -n 264,268p Reader.tsx` (the open-book effect returns early when the view exists); `sed -n 55,57p app/(public)/actions.ts` (the set-up seed).
+- **Known issues / blockers:** none for the build. Open unknown 4 lists the plan's defaults for Samuel.
+- **Exact next steps:** a fresh session follows `docs/m14-home-plan.md` §0: create `LEARNING_LOG.md`, baseline run, then step b1.
 
 ### 2026-10-05 13:40 · Claude (laptop) · Rule: titles are labelled by availability, never "owned"
 - **Done:** Samuel: "stop with book you own and do not own bs! a book i upload is book i own! uploaded books titles can still appear they are just unavailable to read or listen or both!" Wrote the rule into `docs/plan.md` ("The library comes first") and into M14 (b), which now must remove the "owned" wording from the app and its tests. Updated the canvas: the Path page and the picks boards label titles Read and listen / Read only / Listen only / Not available yet, with a greyed title-only book in the library grid; the notes and an image caption no longer say "own".
