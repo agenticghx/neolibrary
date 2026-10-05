@@ -46,9 +46,18 @@ annotations, many learning materials … not a hidden machinery library."
   innovated, "not just copy cat" (see M14).
 - **Paths are curricula: ordered reading plans** such as Hidden Machinery
   (pillars, a narrative book first, a deeper book second). A Path may list
-  books you do not own yet: they show as greyed-out placeholders and become
-  fully visible when you upload them. A Path is one group in the sidebar,
-  not the home page. Notes can still attach to a Path or a Pillar.
+  titles that have no book file or audio yet: they show greyed out and
+  become fully visible when you add the file. A Path is one group in the
+  sidebar, not the home page. Notes can still attach to a Path or a Pillar.
+- **Everything in the library is yours; never say "owned" or "not owned"**
+  (Samuel, 2026-10-05: "a book I upload is a book I own! uploaded books
+  titles can still appear they are just unavailable to read or listen or
+  both!"). Every title says what is available: **Read and listen**, **Read
+  only** (a book file, no audio), **Listen only** (audio, no book file), or
+  **Not available yet** (a title with neither: greyed cover, with a way to
+  add the file). Titles with nothing available yet appear in the library
+  too, not only on Paths. The older sections below that say "owned" or
+  "unowned" mean exactly this.
 - **Collections are unordered groups of materials**, as in Apple Books.
 - **A book and its audiobook are one item** you can read and listen to
   together (M13), not two separate items as in Apple Books.
@@ -501,51 +510,66 @@ What Samuel confirmed (2026-10-05):
   book; the reader is a separate route group (a folder of pages with its own
   layout), so the audio has to move up into the app's root layout.
 - **Not a copy of Apple Books**: Apple's structure, Neolibrary's materials
-  and features. The signature touches are Samuel's pick (open; candidates
-  below).
+  and features.
+
+**Samuel's picks (2026-10-05)**, made on the mockups
+(https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg, private to him):
+- **Home on desktop: A**: covers in a grid, the sidebar, "Continue", Import
+  and the mini-player.
+- **Home on a phone: A, with a toggle to a spine view**: covers in a grid
+  by default; a Grid / Spines switch shows the books as spines on a shelf,
+  each spine filling from the bottom as you read (option B on the mockups).
+- **Mini-player: B, plus a speed the reader chooses**: the sentence being
+  read with the word lit, back 15 s, play/pause, forward 15 s, "Go to the
+  page", "Think aloud" (records a voice note, M8, on that sentence), and a
+  speed menu. The reader's Listen bar already has a speed setting
+  (`ListenBar.tsx`, `playbackRate`).
+- **Progress on covers: A**: a bar under the cover fills as you read (what
+  the app does today). The marks drawn with it on the mockups come along:
+  a folded corner when the book has your notes, headphones when it has
+  audio, a tick when finished. No ribbon (Samuel: "the ribbon for
+  completion status won't work. use the fill percentage for progress").
+- **Continue: B**: the card shows your last note or highlight in that book,
+  with "Read from here" and "Listen from here", both starting at the same
+  paragraph (the app saves the reading position, `books.position`, and
+  read-along maps text to audio time).
+- **Not picked yet** (one option each on the mockups): the Path page
+  layout, and two optional extras for Home: one question from the question
+  bank (M6) of a chapter you got wrong, and threads across books (ideas you
+  highlighted in more than one book, `lib/library/crosslinks.ts`). They stay
+  out of M14 until Samuel asks.
 
 Assumed by Claude, not yet confirmed by Samuel: you can make your own Paths
 (today Hidden Machinery is the only one, added from a built-in list); Hidden
 Machinery is no longer added at set-up but offered as a starter Path; Path
-placeholders also appear under "Want to Read".
-
-Candidate signature touches, each using data Apple Books does not have:
-1. **Continue picks up your thinking, not just your page.** One card
-   resumes both reading and listening at the same paragraph (the app
-   saves the reading position, `books.position`, and read-along maps text to
-   audio time) and shows the last thing you highlighted or noted in that book.
-2. **Covers that show your study.** Progress as a fill: a bar, the cover
-   or the spine fills up as you read (Samuel, 2026-10-05: "the ribbon for
-   completion status won't work. use the fill percentage for progress";
-   which fill is his pick on the mockups). A mark when a book has your
-   notes, a mark when it has read-along audio;
-   on a Path, a placeholder is plain undyed cloth that takes its colour when
-   you upload the book. Home shows the next book on each Path, with "import
-   it" when you do not own it yet.
-3. **A mini-player that shows the words.** The sentence being spoken as one
-   line of text, "go to the page", and a button that records a voice note
-   (M8) on that sentence while you walk.
-4. **One question on Home** from the question bank (M6) of a chapter you
-   got wrong (`question_marks`), to recall before you read on.
-5. **Threads across books** on Home: ideas you highlighted in more than one
-   book (`lib/library/crosslinks.ts`).
+placeholders also appear under "Want to Read"; the spine view is on the
+phone only (Samuel asked for it there).
 
 Steps:
-- **(a) Mockups first:** Home, a Path page and the mini-player, on desktop
-  and phone, light and dark, in the design tokens, for Samuel to react to
-  before any code. Samuel picks the signature touches here.
-- **(b)** Home and the sidebar (Continue, whole library, Import); Hidden
-  Machinery offered, not added at set-up.
+- **(a) Mockups:** done 2026-10-05; Samuel's picks above.
+- **(b)** Home on desktop and phone: the sidebar (desktop) and tabs (phone:
+  Home, Library, Paths, Search); "Continue" (B); the whole library as a grid
+  with fill bars and the marks; Import; the phone's Grid / Spines toggle
+  (remembered on that device); Hidden Machinery offered, not added at
+  set-up. Every title labelled by availability (Read and listen, Read only,
+  Listen only, Not available yet), and the "owned" wording removed from the
+  app: "Books you own" (`app/(app)/shelf/page.tsx`), "Not owned" and "(not
+  owned)" (`components/Cover.tsx`), "· not owned" (`components/PathView.tsx`),
+  the comment in `lib/library/paths.ts`, and the browser tests that look for
+  those words (`e2e/pages.ts`, `paths.spec.ts`, `reader.spec.ts`,
+  `uploads.spec.ts`).
 - **(c)** Library filters by kind and status.
 - **(d)** Paths: their own pages, and making your own Path.
-- **(e)** The mini-player across pages.
-- **(f)** The signature touches Samuel picked, then deploy (backup first).
+- **(e)** The mini-player (B, with speed) across pages.
+- **(f)** Deploy (backup first).
 
 Done when: in the browser tests, after sign-in Home shows "Continue" with the
-last-opened book and the whole library with Import; the sidebar's filters,
+last-opened book, its last note and both buttons, and the whole library with
+Import; on a phone the Grid / Spines toggle switches the view; the sidebar's filters,
 Paths and Collections each open the right view; a placeholder on a Path
 becomes a full cover after its book is uploaded; audio started in the reader
-keeps playing on Home; screenshots on phone and desktop, light and dark; and
+keeps playing on Home, where the mini-player shows the sentence being read
+and its speed can be changed; screenshots on phone and desktop, light and dark; and
 Samuel says it feels like his library, not Apple's.
 
 ### Later (not planned in detail yet)
