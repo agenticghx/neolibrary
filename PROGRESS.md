@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #73 (step 1) once GitHub Actions recovers and CI is green; then push step 2 (m14-b2-shell, built and verified locally) after rebasing on main; then step 3 (Home).
+next_action: Merge #73 (step 1) when its CI re-run is green; rebase and push step 2 (m14-b2-shell, verified locally: 233 passed, mutations caught); refresh its reference images from CI; then step 3 (Home).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -138,6 +138,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 17:52 · Claude (laptop) · M14 step 2 reviewed, fixed and mutation-checked (local); step 1 CI re-run
+- **Done:** Step 2 reviews (three agents) confirmed: sidebar foot below the fold at 1280 x 800, New collection dead in an empty library, sidebar stale after a library import, unnamed search landmarks, no skip link, account-menu focus and tap sizes, no iPhone home-bar room, "shelf" wording; all fixed (ba46d87, 9c4b434, c1cf25c) with tests for each and for the gaps the test reviewer listed. A real regression found and fixed on the way: a permanently focusable skip-link wrapper took focus on clicks in WebKit and broke the audiobook section's focus check (`readalong.spec.ts:300`, readalong-safari). One Chromium audio-timing failure (`readalong.spec.ts:605`, "fell 810 ms behind") judged a flake: no audio code changed, the next full run passed. Step 1's CI re-run started once Actions moved from "major outage" to "degraded performance".
+- **Key paths:** `components/shell/` (new `SkipLink.tsx`), `app/(app)/layout.tsx`, `app/(app)/library/page.tsx`, `app/(app)/data/ImportForm.tsx`, `e2e/shell.spec.ts`, `e2e/flows.spec.ts`, `e2e/uploads.spec.ts`, `e2e/annotations.spec.ts`, `lib/library/paths.test.ts`, `LEARNING_LOG.md` (Iterations 12-14, lessons).
+- **Commands that worked:** full suite on c1cf25c from a fresh database → `233 passed (6.3m)`, exit 0; mutations with scratchpad `mut-chain.sh` (patch, `npx playwright test --project <p> --ignore-snapshots` from a fresh database, restore): M13, M14, M15, M16, M12c each fail a named line; M12 (`min-height: 0` removed) changed nothing (empty mutation, recorded).
+- **Known issues / blockers:** GitHub Actions still degraded; #73 waits for CI. Every signed-in reference image changes in step 2 (refresh from CI). Open for Samuel: the phone top strip (on every page) and `viewport-fit: cover` for an installed iPhone app (needs a real iPhone).
+- **Exact next steps:** when #73's CI is green: mark ready, merge, confirm `main` equals the checked commit; rebase `m14-b2-shell` onto `origin/main` (`git rebase --onto origin/main m14-b1-availability m14-b2-shell`; keep both sets of iterations in `LEARNING_LOG.md`), rerun the suite, push as a draft PR, refresh all signed-in reference images from CI's report, merge; then step 3 (Home).
 
 ### 2026-10-05 17:09 · Claude (laptop) · M14 step 2 built and verified locally; step 1 waits on a GitHub Actions outage
 - **Done:** Step 1 (PR #73): CI's first real run failed only the planned reference images (10 `visual.spec.ts` cases: `path`, `shelf-empty`, `book-not-available` on phone); each `*-actual.png` looked at and copied in (61db041, pushed). Its next CI run was cancelled with 0 steps twice: GitHub Actions "major outage" (githubstatus.com, 21:04 UTC). A background task re-runs it when Actions is operational. Step 2 on local branch `m14-b2-shell` (not pushed, so the auto-merge Action cannot merge step 1's files with it): /shelf moved to /library with a redirect keeping the query (d5eec0f); /paths and /paths/[slug], `listPathsWithProgress`, shared `StarterPaths`, search links pillar and Path notes to their Path (80e26b0); the shell: sidebar on desktop, tabs + top strip + account menu on a phone, current-page marks, layout refresh after Path and collection changes (18ee79d). Three reviewer agents are reviewing step 2.

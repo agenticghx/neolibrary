@@ -24,13 +24,28 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 9 | 2026-10-05 ~20:50 | 2 | The shell passes accessibility in every look | looks projects (97 tests) | failure then success | 4.50:1 is not a pass: axe rounds against you |
 | 10 | 2026-10-05 ~21:00 | 2 | shell.spec passes and measures what it claims | `--project shell` | failure then success | switching colour scheme on an open page measures mid-transition colours |
 | 11 | 2026-10-05 21:05 | 2 | Step 2 green from a fresh database; its checks catch breaks | full suite on 18ee79d; 4 browser mutations | success | a needed refresh is proved by removing it |
+| 12 | 2026-10-05 ~21:15 | 2 review | Step 2 is ready (review) | three reviewer agents | partial | a laptop-height screenshot shows what a scrolling test hides |
+| 13 | 2026-10-05 21:31 | 2 | The review fixes keep the suite green | full suite on ba46d87, 9c4b434, c1cf25c | failure, flake, then success | a focusable wrapper changes where Safari puts focus on click |
+| 14 | 2026-10-05 21:49 | 2 | Each review fix has a test that fails without it | 6 fresh-database mutations | success (one mutation was empty) | a mutation can be a no-op: check it changes behaviour |
 
 ## Lessons so far
 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
-- **Ask "which bug passes every test?", then mutate it** (Iterations 3, 4).
+- **Ask "which bug passes every test?", then mutate it** (Iterations 3, 4,
+  12, 14; seen twice). Step 1's and step 2's reviewers each found bugs no
+  test caught. Apply: for each rule, break each branch once; when a
+  mutation passes, check it changed behaviour at all (Iteration 14's empty
+  `min-height` mutation).
+- **Look at a laptop-height screenshot of every fixed panel** (Iteration
+  12). A test that clicks scrolls first, so "out of view" passes. Use
+  `toBeInViewport` for things that must stay visible.
+- **Never leave a large wrapper focusable** (Iteration 13): Safari focuses
+  the nearest focusable ancestor on click, which broke a "focus fell back
+  to the page" check elsewhere.
+- **Change the colour scheme before loading a page when measuring
+  contrast** (Iteration 10): mid-transition colours fail.
   The plan's three mutation checks all passed, yet a reviewer found three
   more bugs no test caught (a broken `isAvailable`, the uploaded-audiobook
   path in the data and on the shelf). Apply: for each rule, break each
@@ -247,4 +262,74 @@ harmless: without it the sidebar keeps the old list.
 **Lesson.** Prove a "defensive" line by removing it and watching a test
 fail; otherwise it may be dead code or a missing test.
 **Next experiment.** Reviews of step 2.
+
+### Iteration 12 · 2026-10-05 ~21:15 (estimated) · Step 2 review · partial
+
+**Hypothesis.** Step 2 (18ee79d) is ready.
+**Action.** Three read-only reviewer agents (correctness; UI, accessibility
+and the mockup; "could each test fail?"). Findings checked by reading the
+code and by mutation (Iteration 14).
+**Result.** Confirmed and fixed (ba46d87, 9c4b434, c1cf25c): the sidebar's
+account foot was below the fold at 1280 x 800 (tests passed because
+Playwright scrolls to what it clicks); New collection did nothing in an
+empty library (both the UI and the correctness reviewer); importing a
+library file left the sidebar stale; two unnamed search landmarks; no
+skip link; account menu: Escape lost focus, rows 21 px tall, Sign out's
+underline nearly invisible; no room for an iPhone's home bar; a Path's
+name wrapped beside its count; "shelf" wording on uploads and search.
+Test gaps closed: Invite for non-admins, the sidebar gaining a Path and an
+imported collection, /paths contents, exact "N of M", one current tab,
+tap outside, repeated query keys through /shelf, a pillar note's link,
+two Paths sharing a book. Not changed, with reasons: the phone top strip
+(Samuel's call, asked in the PR and the M14 verdict); `viewport-fit:
+cover` (needs a real iPhone to check; the reader would change too); React
+`cache()` for the duplicate queries (small); the search box border at
+1.2-1.7:1 (as drawn in the mockup; icon and placeholder mark it).
+**Lesson.** Look at a laptop-height screenshot of every fixed panel: a test
+that clicks scrolls first and hides "out of view".
+**Next experiment.** Full suite on the fixes.
+
+### Iteration 13 · 2026-10-05 21:31 · Step 2 · failure, flake, then success
+
+**Hypothesis.** The review fixes keep the whole suite green.
+**Action.** Full suite from a fresh database on ba46d87, then 9c4b434, then
+c1cf25c.
+**Result.** ba46d87: `1 failed` (shell.spec "tap outside": the open menu
+covers the heading the test clicked; the test now taps the page margin).
+9c4b434: `1 failed`, `readalong.spec.ts:605` (Chromium) "the audio fell
+810 ms behind the clock (stalled)"; repeated alone on a cold server it
+failed 5 of 5 differently ("was" lit 111 ms late, limit 100): timing on a
+loaded or cold machine. Step 2 changed nothing on the reader's audio path
+(`git diff` shows one link in Reader.tsx). Judged a flake. Next run
+(9c4b434 again): `1 failed`, `readalong.spec.ts:300` in WebKit, focus on
+"content" instead of "audiobook": a real regression. The skip link's
+wrapper had `tabindex=-1`, so Safari (which does not focus clicked
+buttons) focused it on every click, and the audiobook section's "focus
+fell back to the page" check failed. Fixed (c1cf25c): the wrapper is
+focusable only for the skip; `233 passed (6.3m)`, exit 0.
+**Lesson.** Never leave a large wrapper focusable: in Safari a click inside
+it moves focus there. Focus checks like `activeElement === document.body`
+in other parts of the app depend on it.
+**Next experiment.** Mutation checks for the review fixes.
+
+### Iteration 14 · 2026-10-05 21:49 · Step 2 mutations · success
+
+**Hypothesis.** Each review fix has a test that fails without it.
+**Action.** Scratchpad `mut-chain.sh`: patch, run the project and its
+dependencies from a fresh database (Playwright builds), restore.
+**Result.** M13 New collection only with books → flows.spec:100 fails; M16
+Invite for every reader → flows.spec "Invite" `toHaveCount(0)` fails
+(received 1); M14 import without refresh → uploads.spec:203 fails (first
+try used `-g`, which skipped the tests that add books and failed at :169
+for that reason; rerun without `-g`); M15 Escape without focusing the
+button → shell.spec:152 fails; M12 (remove `min-height: 0` from the
+links) → nothing failed: an empty mutation, because `overflow-y: auto`
+already lets a flex item shrink. M12c (the old, non-shrinking links) →
+flows.spec:107 fails: Sign out unreachable. The skip-link wrapper's
+regression is guarded by readalong.spec:300 in WebKit (Iteration 13).
+**Lesson.** A mutation that changes nothing proves nothing: when a
+mutation passes, first check it changed behaviour, then decide whether
+the test or the mutation is wrong. Filtering with `-g` can remove the
+setup a test depends on.
+**Next experiment.** Push step 2 once #73 merges.
 
