@@ -1,7 +1,8 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { AudioError, estimateSpeech, passageFor, speakPassage, storedTrack, type Track } from "@/lib/library/audio";
+import { AudioError, speakPassage, type Track } from "@/lib/library/audio";
+import { listenInfo } from "@/lib/library/listen";
 import { isCfi } from "@/lib/library/reading";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
@@ -29,8 +30,9 @@ function errorResponse(e: unknown) {
 
 /**
  * The paragraph to read at `?cfi=` (or `?section=`), the next one, the voices,
- * the stored track for `?voice=` if any (with a short-lived audio link) and
- * what making it would cost.
+ * the stored track for `?voice=` if any (with a short-lived audio link), what
+ * making it would cost, and (with `?cfi=`) the book's uploaded audiobook from
+ * there on (M13 (d); its audio is served by the read-along audio route).
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -39,28 +41,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
   const url = new URL(req.url);
   const cfi = url.searchParams.get("cfi");
-  const section = url.searchParams.get("section");
-  const db = await getDb();
   try {
-    const passage = await passageFor(db, user.id, bookId, cfi && isCfi(cfi) ? { cfi } : { sectionId: section ?? "" });
-    let voices: { id: string; name: string }[] = [];
-    let track: Track | null = null;
-    let configured = true;
-    try {
-      const model = getSpeechModel();
-      voices = await model.voices();
-      const voice = url.searchParams.get("voice") || voices[0]?.id;
-      if (voice) track = await storedTrack(db, user.id, model, voice, passage);
-    } catch (e) {
-      if (!(e instanceof SpeechNotConfigured)) throw e;
-      configured = false;
-    }
-    return Response.json({
-      passage: { id: passage.id, cfi: passage.cfi, nextId: passage.nextId, characters: passage.text.length },
-      voices,
-      track: await withUrl(track),
-      estimate: configured ? estimateSpeech(passage) : null,
+    const info = await listenInfo(await getDb(), user.id, bookId, {
+      cfi: cfi && isCfi(cfi) ? cfi : null,
+      section: url.searchParams.get("section"),
+      voice: url.searchParams.get("voice"),
     });
+    return Response.json({ ...info, track: await withUrl(info.track) });
   } catch (e) {
     return errorResponse(e);
   }

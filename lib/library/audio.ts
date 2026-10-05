@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte } from "drizzle-orm";
 import { capsFromEnv, checkCaps, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
-import { audioTracks, books, sections } from "@/lib/db/schema";
+import { audioTracks, books, readalongImports, sections } from "@/lib/db/schema";
 import { speechCost, type SpeechModel } from "@/lib/speech/model";
 import { wordTimings, type WordTiming } from "@/lib/speech/timings";
 import type { Storage } from "@/lib/storage";
@@ -32,6 +32,10 @@ export type Track = {
   characters: number;
   costUsd: number;
   createdAt: string;
+  /** M13: an uploaded track is this stretch of a longer file (ms), and its word times are times in that file. */
+  audioStartMs: number | null;
+  audioEndMs: number | null;
+  importId: string | null;
 };
 
 type Row = typeof audioTracks.$inferSelect;
@@ -50,29 +54,46 @@ const toTrack = (r: Row): Track => ({
   characters: r.characters,
   costUsd: r.costUsd,
   createdAt: r.createdAt.toISOString(),
+  audioStartMs: r.audioStartMs,
+  audioEndMs: r.audioEndMs,
+  importId: r.importId,
 });
 
-export type Passage = { id: string; text: string; cfi: string; chapterIndex: number; nextId: string | null; previousText: string; nextText: string };
+export type Passage = {
+  id: string;
+  text: string;
+  cfi: string;
+  chapterIndex: number;
+  /** Its place in reading order (sections.position). */
+  position: number;
+  nextId: string | null;
+  previousText: string;
+  nextText: string;
+};
 
 /** The paragraph at a place in the book (a CFI) or with an id, and the one after it (to read on). */
 export async function passageFor(db: Db, ownerId: string, bookId: string, at: { cfi: string } | { sectionId: string }): Promise<Passage> {
   const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
   if (!book) throw new AudioError("Book not found");
-  let id = "cfi" in at ? await sectionForCfi(db, bookId, at.cfi) : at.sectionId;
+  // A CFI with no place inside its chapter (no "!") is the top of a chapter,
+  // or a whole PDF page: every paragraph of a page has its page's CFI, so
+  // matching it would give the page's last paragraph; read from the first.
+  let id = "cfi" in at ? (at.cfi.includes("!") ? await sectionForCfi(db, bookId, at.cfi) : null) : at.sectionId;
   let [row] = id
     ? await db
         .select({ id: sections.id, kind: sections.kind, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
         .from(sections)
         .where(and(eq(sections.bookId, bookId), eq(sections.id, id)))
     : [];
-  // From a heading, or the top of a chapter, read on from the next paragraph.
+  // From a heading, or the top of a chapter (or page), read on from the next
+  // paragraph: the chapter's first, or the next chapter's if it has none.
   if (!row && "cfi" in at) {
     const spine = /^epubcfi\(\/6\/(\d+)/.exec(at.cfi)?.[1];
     if (spine) {
       [row] = await db
         .select({ id: sections.id, kind: sections.kind, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
         .from(sections)
-        .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, Number(spine) / 2 - 1), eq(sections.kind, "paragraph")))
+        .where(and(eq(sections.bookId, bookId), gte(sections.chapterIndex, Number(spine) / 2 - 1), eq(sections.kind, "paragraph")))
         .orderBy(asc(sections.position))
         .limit(1);
     }
@@ -98,6 +119,7 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
     text: row.text,
     cfi: row.cfi,
     chapterIndex: row.chapterIndex,
+    position: row.position,
     nextId: around[i + 1]?.id ?? null,
     previousText: around[i - 1]?.text.slice(-300) ?? "",
     nextText: around[i + 1]?.text.slice(0, 300) ?? "",
@@ -198,4 +220,84 @@ export async function listTracks(db: Db, ownerId: string, bookId: string) {
       .where(and(eq(audioTracks.ownerId, ownerId), eq(audioTracks.bookId, bookId)))
       .orderBy(asc(audioTracks.createdAt))
   ).map(toTrack);
+}
+
+/** One paragraph of an uploaded audiobook, as the player needs it (M13 (d)). */
+export type ReadingParagraph = {
+  sectionId: string;
+  /** Where it is in the book: the paragraph's CFI (EPUB), or its page's (PDF). */
+  cfi: string;
+  /** Its chapter (EPUB spine index) or page (PDF, from 0). */
+  chapterIndex: number;
+  /** Which of the audiobook's files it is in (an index into `files`). */
+  file: number;
+  /** Its stretch of that file, in milliseconds from the file's start. */
+  startMs: number;
+  endMs: number;
+  /** [startMs, endMs, from, to]: times in the file, offsets into the paragraph's text. */
+  words: WordTiming[];
+};
+
+/** A book's uploaded audiobook, from a place in the book on (M13 (d)). */
+export type UploadedReading = {
+  importId: string;
+  /** How the Listen bar names it among the voices: "upload:<importId>". */
+  voice: string;
+  title: string | null;
+  /** Its audio files, each played from one address (see the audio route). */
+  files: { url: string; mime: string }[];
+  /** The paragraphs that have word times, from the reading position on, in reading order; empty when the audiobook ends before it. */
+  paragraphs: ReadingParagraph[];
+};
+
+/**
+ * The book's uploaded audiobook (the newest finished import; a finished
+ * import replaces the earlier ones), with the paragraphs it reads from
+ * `fromPosition` (a sections.position) on. Paragraphs where no spoken word
+ * matched have no track and are not listed; nor is any track without words.
+ * The audio is served by app/api/books/[id]/readalong/[importId]/audio/[n].
+ */
+export async function uploadedReading(db: Db, ownerId: string, bookId: string, fromPosition: number): Promise<UploadedReading | null> {
+  const [imp] = await db
+    .select({ id: readalongImports.id, title: readalongImports.title, audio: readalongImports.audio })
+    .from(readalongImports)
+    .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.bookId, bookId), eq(readalongImports.status, "ready")))
+    .orderBy(desc(readalongImports.createdAt))
+    .limit(1);
+  if (!imp) return null;
+  const rows = await db
+    .select({
+      sectionId: audioTracks.sectionId,
+      audioKey: audioTracks.audioKey,
+      startMs: audioTracks.audioStartMs,
+      endMs: audioTracks.audioEndMs,
+      words: audioTracks.words,
+      cfi: sections.cfi,
+      chapterIndex: sections.chapterIndex,
+    })
+    .from(audioTracks)
+    .innerJoin(sections, and(eq(sections.bookId, audioTracks.bookId), eq(sections.id, audioTracks.sectionId)))
+    .where(
+      and(
+        eq(audioTracks.ownerId, ownerId),
+        eq(audioTracks.bookId, bookId),
+        eq(audioTracks.importId, imp.id),
+        gte(sections.position, fromPosition),
+      ),
+    )
+    .orderBy(asc(sections.position));
+  const fileOf = new Map(imp.audio.map((a, i) => [a.key, i]));
+  const paragraphs: ReadingParagraph[] = [];
+  for (const r of rows) {
+    const file = fileOf.get(r.audioKey);
+    if (file === undefined || !r.words.length || r.startMs === null || r.endMs === null) continue;
+    paragraphs.push({ sectionId: r.sectionId, cfi: r.cfi, chapterIndex: r.chapterIndex, file, startMs: r.startMs, endMs: r.endMs, words: r.words });
+  }
+  return {
+    importId: imp.id,
+    voice: `upload:${imp.id}`,
+    title: imp.title,
+    files: imp.audio.map((a, i) => ({ url: `/api/books/${bookId}/readalong/${imp.id}/audio/${i}`, mime: a.mime })),
+    paragraphs,
+  };
 }

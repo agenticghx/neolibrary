@@ -404,6 +404,13 @@ Steps (one PR each):
   `docs/m13-player-plan.md`): Listen prefers the uploaded audiobook when there is
   one; continuous playback across paragraphs; the frame-by-frame highlight
   from the 2026-10-04 fix; `not_spoken` words never highlighted.
+  *Built 2026-10-04 (branch `m13-epub-player`; what changed from the plan is
+  in `docs/m13-player-plan.md`, "What (d) built"):* "Your audiobook" is the
+  first voice in Listen and plays with no ElevenLabs key; one audio element
+  plays straight on, its source set only when the file changes; the audio
+  comes from an address checked by the sign-in cookie, with no link to
+  expire; no answer carries more than 8 MB; the page turns to a new chapter
+  as soon as the last word before it is over.
 - **(e) Play it (PDF)**: today Listen is switched off for PDFs
   (`Reader.tsx`: `disabled={… || props.fileType === "pdf"}`). Draw the
   highlight in the PDF viewer's text layer and turn pages by page number.

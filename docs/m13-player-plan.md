@@ -117,6 +117,59 @@ fires waiting/canplay on every seek, WebKit fires none. In WebKit (the
 `data-word`, which would pass even without the Highlight API. Add a test that
 shortens the link expiry and plays past it.
 
+## What (d) built (2026-10-04)
+
+Written for the session that builds (e), and for Samuel. Built on branch
+`m13-epub-player`; evidence in the `PROGRESS.md` Log.
+
+- **Problem 1, links that expire:** the plan's second option. The audio is
+  served by `GET /api/books/<id>/readalong/<importId>/audio/<n>`, checked by
+  the sign-in cookie and the owner, with no signature and no expiry. So
+  "shorten the expiry and play past it" has nothing left to test; the browser
+  test checks instead that the address has no `exp`/`sig`, that ranges come
+  with the cookie alone, and that a signed-out request gets 401. Serving the
+  bytes is shared with `/api/files` in `lib/serve-file.ts`, which also sends
+  a large file asked for whole in 8 MB pieces instead of reading it whole.
+- **Problem 2, closed ranges:** `servedRange` caps every form (open, closed,
+  suffix) at 8 MB. A browser test starts a 16 MB audiobook more than 8 MB in
+  and checks, in Chromium and WebKit, that every answer is at most 8 MB and
+  the words still light up on time.
+- **Problem 3, reloading:** one audio element; its source is set only when
+  the file number changes. The test counts `loadstart` events: one per file.
+- **Problems 4 to 7:** `Track` has the three fields; `listenInfo`
+  (`lib/library/listen.ts`) looks the audiobook up before the voice service,
+  so it is offered with no ElevenLabs key (unit test with an environment
+  without the key); audiobook mode never asks for made-on-demand audio.
+- **Problem 8, offline:** if the audio fails while offline, the bar says the
+  audiobook needs an internet connection.
+- **Changes from the plan:**
+  - The response lists the timed paragraphs *from the reading position on*
+    (no `startIndex`): smaller for a long book, and an empty list means the
+    audiobook ends before here (the bar says so).
+  - `estimate` stays null without a key: Play is enabled by choosing "Your
+    audiobook", so the note for a made voice stays honest.
+  - A whole PDF page now starts reading at its first paragraph
+    (`passageFor` used to pick the page's last; every PDF paragraph has its
+    page's address). (e) needs this.
+  - The per-frame logic is a pure function, `follow` in
+    `lib/readalong/player.ts`, with its own tests: untimed audio shorter than
+    1.5 s plays through; longer is skipped by a seek; a file with nothing
+    more on the page hands over to the next file; and **the page turns to the
+    next paragraph as soon as the last word before it is over**, so a new
+    chapter (or, in (e), a PDF page) has opened by the time its first word is
+    spoken. Without this, a new chapter only began opening at its first word.
+  - A word is counted as lit only when it was found on the page, so a word
+    asked for while a chapter is still opening is tried again on the next
+    frame. No test isolates this (the early page turn hides it in the tests).
+- **Found while testing (step (b), not fixed here):** the matcher anchors a
+  chapter's audio at the first place in the book chapter where its first
+  four words agree. A package that starts mid-chapter can be placed wrongly
+  when its opening words also occur earlier in that chapter (Jekyll's
+  "how did you know me" is in two paragraphs). Real packages start at a
+  chapter's start, so it is unlikely there; the book map's `quote` and
+  paragraph order could anchor it more firmly. The browser tests use
+  paragraphs checked to be placed exactly.
+
 ## (e) PDF player
 
 What the skeptics found:
