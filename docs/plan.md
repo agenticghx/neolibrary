@@ -409,8 +409,9 @@ Steps (one PR each):
   first voice in Listen when it begins near the reading position, and plays
   with no ElevenLabs key; one audio element plays straight on, its source set
   only when the file changes; the audio comes from an address checked by the
-  sign-in cookie, with no link to expire; no answer to a byte-range request
-  carries more than 8 MB, and a whole file is read and sent 8 MB at a time;
+  sign-in cookie, with no link to expire; a closed byte range is answered
+  with at most 8 MB, while an open-ended one ("from here to the end") and a
+  whole file are sent in full but read 8 MB at a time;
   the page turns as soon as the last word before it is over; the Listen bar
   is a row below the page, so it never hides the word being read.
 - **(e) Play it (PDF)**: today Listen is switched off for PDFs

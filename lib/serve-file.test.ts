@@ -19,18 +19,28 @@ async function stored(size: number) {
 }
 
 describe("sending stored files (books, covers, audio)", () => {
-  it("sends a range as asked, never more than 8 MB, saying which bytes came", async () => {
+  it("sends a closed range as asked up to 8 MB, saying which bytes came, and an open-ended one whole, in pieces", async () => {
     const size = 20 * 1024 * 1024 + 5;
     const { storage, data } = await stored(size);
-    // Safari's engine asks for the whole file as a closed range.
+    // Safari's engine asks for the whole file as a closed range: the first 8 MB.
     const whole = await serveStoredFile(req(`bytes=0-${size - 1}`), storage, "audio/u1/b1/x.wav");
     expect(whole.status).toBe(206);
     expect(whole.headers.get("content-range")).toBe(`bytes 0-${MAX_RANGE - 1}/${size}`);
     expect(whole.headers.get("content-length")).toBe(String(MAX_RANGE));
     expect(same(await whole.arrayBuffer(), data.slice(0, MAX_RANGE))).toBe(true);
-    // Chromium's open-ended ask, from the middle.
-    const open = await serveStoredFile(req(`bytes=${MAX_RANGE}-`), storage, "audio/u1/b1/x.wav");
-    expect(open.headers.get("content-range")).toBe(`bytes ${MAX_RANGE}-${2 * MAX_RANGE - 1}/${size}`);
+    // An open-ended ask from the middle (Chromium, WebKit on Linux): to the end, read 8 MB at a time.
+    const reads: number[] = [];
+    const watched = {
+      stat: (k: string) => storage.stat(k),
+      getRange: (k: string, start: number, end: number) => (reads.push(end - start + 1), storage.getRange(k, start, end)),
+      get: (k: string) => storage.get(k),
+    } as unknown as Storage;
+    const open = await serveStoredFile(req(`bytes=${MAX_RANGE}-`), watched, "audio/u1/b1/x.wav");
+    expect(open.status).toBe(206);
+    expect(open.headers.get("content-range")).toBe(`bytes ${MAX_RANGE}-${size - 1}/${size}`);
+    expect(open.headers.get("content-length")).toBe(String(size - MAX_RANGE));
+    expect(same(await open.arrayBuffer(), data.slice(MAX_RANGE))).toBe(true);
+    expect(reads).toEqual([MAX_RANGE, size - 2 * MAX_RANGE]);
     // The last bytes, and a small exact range.
     const tail = await serveStoredFile(req("bytes=-5"), storage, "audio/u1/b1/x.wav");
     expect(same(await tail.arrayBuffer(), data.slice(size - 5))).toBe(true);
@@ -74,10 +84,10 @@ describe("sending stored files (books, covers, audio)", () => {
     expect(res.headers.get("content-length")).toBe(String(size));
     expect(res.headers.get("content-type")).toBe("application/epub+zip");
     expect(same(await res.arrayBuffer(), data)).toBe(true);
-    // And a range from the middle, capped.
+    // And an open-ended range from the middle, to the end, in pieces.
     const mid = await serveStoredFile(req(`bytes=${MAX_RANGE - 10}-`), disk, "books/u1/b1/big.epub");
-    expect(mid.headers.get("content-range")).toBe(`bytes ${MAX_RANGE - 10}-${2 * MAX_RANGE - 11}/${size}`);
-    expect(same(await mid.arrayBuffer(), data.slice(MAX_RANGE - 10, 2 * MAX_RANGE - 10))).toBe(true);
+    expect(mid.headers.get("content-range")).toBe(`bytes ${MAX_RANGE - 10}-${size - 1}/${size}`);
+    expect(same(await mid.arrayBuffer(), data.slice(MAX_RANGE - 10))).toBe(true);
   });
 
   it("sends a small file whole, and says when there is none", async () => {

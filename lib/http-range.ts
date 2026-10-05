@@ -31,16 +31,22 @@ export function byteRange(header: string | null, size: number): [number, number]
 export const MAX_RANGE = Number(process.env.FILES_MAX_RANGE_BYTES) > 0 ? Math.floor(Number(process.env.FILES_MAX_RANGE_BYTES)) : 8 * 1024 * 1024;
 
 /**
- * The bytes to send for a request: like byteRange, but never more than
- * MAX_RANGE bytes from the start of what was asked, so a long audiobook is
- * never read whole for one request. This applies to every form: open-ended
- * ("bytes=0-", how Chromium starts), closed ("bytes=0-21168043": Safari's
- * engine asks for the whole file this way) and suffix ("bytes=-500"). The
- * Content-Range header then says which bytes came, and players ask for the
- * rest as they play (checked in Chromium and WebKit, e2e/readalong.spec.ts).
+ * The bytes to send for a request (end inclusive).
+ *
+ * An open-ended request ("bytes=N-": from here to the end, how Chromium and
+ * WebKit on Linux ask) gets all of it; lib/serve-file.ts reads and sends a
+ * long one MAX_RANGE bytes at a time, so it is never held in memory whole.
+ * It must not be cut short: WebKit on Linux (GStreamer) takes a shorter
+ * answer for the end of the file and stops playing (seen on CI, 2026-10-05).
+ *
+ * A closed or suffix request longer than MAX_RANGE ("bytes=0-21168043":
+ * Safari's engine asks for a whole file this way) gets its first MAX_RANGE
+ * bytes; the Content-Range header says which, and the player asks for the
+ * rest (checked in WebKit on the Mac, e2e/readalong.spec.ts).
  */
 export function servedRange(header: string | null, size: number, max = MAX_RANGE): [number, number] | null | "invalid" {
   const r = byteRange(header, size);
   if (!r || r === "invalid") return r;
+  if (/^bytes=\d+-$/.test((header ?? "").trim())) return r;
   return [r[0], Math.min(r[1], r[0] + max - 1)];
 }

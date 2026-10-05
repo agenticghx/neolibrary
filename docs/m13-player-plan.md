@@ -132,12 +132,17 @@ each finding, and every confirmed one was fixed (listed at the end).
   with the cookie alone, and that a signed-out request gets 401. Serving the
   bytes is shared with `/api/files` in `lib/serve-file.ts`, which also sends
   a large file asked for whole in pieces instead of reading it whole.
-- **Problem 2, closed ranges:** `servedRange` caps every form (open, closed,
-  suffix) at 8 MB. The browser tests run with the cap at 64 KB
+- **Problem 2, closed ranges:** a closed range ("bytes=0-<last>", how
+  Safari's engine asks for a whole file) is answered with at most 8 MB, and
+  the player asks for the rest. An open-ended range ("bytes=N-", from here to
+  the end, how Chromium and WebKit on Linux ask) is answered in full, but
+  read and sent 8 MB at a time (`lib/serve-file.ts`), so memory stays small.
+  It was capped at first; CI showed WebKit on Linux (GStreamer) takes a
+  shorter answer to "from here to the end" for the end of the file and stops
+  playing. The browser tests run with pieces of 64 KB
   (`FILES_MAX_RANGE_BYTES`, `TEST_MAX_RANGE` in `e2e/pages.ts`), so every
-  test that plays audio runs past the end of several answers, and checks
-  that the player asked for the rest in time (and that the audio never
-  stalled: the audio clock keeps pace with the wall clock).
+  test that plays audio crosses several pieces and checks that the audio
+  never stalled (the audio clock keeps pace with the wall clock).
 - **Problem 3, reloading:** one audio element; its source is set only when
   the file number changes. The tests count `loadstart` events: one per file.
 - **Problems 4 to 7:** `Track` has the three fields; `listenInfo`

@@ -473,31 +473,38 @@ function watchAnswers(page: Page, importId: string) {
   return answers;
 }
 
+/** "bytes=N-": from N to the end of the file. */
+const openEnded = (asked: string | null) => !!asked && /^bytes=\d+-$/.test(asked);
+
 /**
- * The audio came in pieces: every answer to a byte-range request carries at
- * most TEST_MAX_RANGE bytes (8 MB on the live site), and the player asked
- * for the rest as it played (a range starting just after one it had). An
- * answer without a range is allowed only to a request that asked for none:
- * WebKit on Linux, as CI runs it, plays audio through GStreamer, whose first
- * request asks for no range; Playwright reports that answer with status 0
- * (it cannot see it), or 200 for the whole file.
+ * The audio's answers follow lib/http-range.ts: an open-ended request
+ * ("bytes=N-") is answered to the end of the file (the server reads and
+ * sends it in pieces); a closed one with at most TEST_MAX_RANGE bytes (8 MB
+ * on the live site), and when that cut it short the player asked for the
+ * rest; an answer without a range only to a request that asked for none
+ * (WebKit on Linux, as CI runs it, plays audio through GStreamer, whose first
+ * request asks for no range; Playwright reports that answer with status 0 or
+ * 200).
  */
 function expectAnswersInPieces(answers: ReturnType<typeof watchAnswers>) {
   expect(answers.length).toBeGreaterThan(0);
   for (const a of answers) {
     if (a.status === 206) {
       expect(a.sent, `answer to ${a.asked}`).not.toBeNull();
-      expect(a.sent![1] - a.sent![0] + 1, `answer to ${a.asked}`).toBeLessThanOrEqual(TEST_MAX_RANGE);
+      const [from, to, size] = a.sent!;
+      if (openEnded(a.asked)) expect(to, `answer to ${a.asked}: to the end of the file`).toBe(size - 1);
+      else expect(to - from + 1, `answer to ${a.asked}`).toBeLessThanOrEqual(TEST_MAX_RANGE);
     } else {
       expect(a.asked, `a whole-file answer (status ${a.status}) only when no range was asked for`).toBeNull();
       expect([0, 200], "the answer to a request for the whole file").toContain(a.status);
     }
   }
-  const ranges = answers.filter((a) => a.sent).map((a) => a.sent!);
-  if (answers.every((a) => a.status === 206)) {
+  // A closed request cut short (Safari's engine on the Mac asks for whole files that way): the player asked for the rest.
+  const cut = answers.filter((a) => a.status === 206 && a.asked && !openEnded(a.asked) && a.sent && Number(/-(\d+)$/.exec(a.asked)?.[1] ?? 0) > a.sent[1]);
+  if (cut.length) {
     expect(
-      ranges.some((r) => ranges.some((q) => q[0] === r[1] + 1)),
-      "the player asked for the rest of the audio after the end of an answer",
+      cut.some((c) => answers.some((a) => a.sent && a.sent[0] === c.sent![1] + 1)),
+      "the player asked for the rest of the audio after an answer that was cut short",
     ).toBe(true);
   }
 }

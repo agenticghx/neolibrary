@@ -3,11 +3,12 @@ import type { Storage } from "./storage";
 
 /**
  * Sends a stored file (a book, a cover, audio) as the answer to a request:
- * the byte range a player asked for (at most MAX_RANGE bytes, see
- * lib/http-range.ts), or the whole file. A whole file larger than MAX_RANGE
- * is read and sent MAX_RANGE bytes at a time, so the server never holds a
- * long audiobook in memory at once. Used by /api/files (signed links) and the
- * read-along audio route (M13 (d)); each checks who may have the file first.
+ * the byte range a player asked for (see servedRange in lib/http-range.ts),
+ * or the whole file. Anything longer than MAX_RANGE is read and sent
+ * MAX_RANGE bytes at a time, each piece read when the previous one has been
+ * taken, so the server never holds a long audiobook in memory at once. Used
+ * by /api/files (signed links) and the read-along audio route (M13 (d));
+ * each checks who may have the file first.
  *
  * Files are never rendered as pages on this site: the sandbox policy stops
  * scripts in, for example, an SVG cover.
@@ -29,8 +30,14 @@ export async function serveStoredFile(req: Request, storage: Storage, key: strin
     return new Response(null, { status: 416, headers: { ...headers, "content-range": `bytes */${size}` } });
   }
   if (range) {
-    // Only the bytes to be sent are read from storage.
     const [start, end] = range;
+    if (end - start + 1 > MAX_RANGE) {
+      return new Response(inPieces(storage, key, start, end), {
+        status: 206,
+        headers: { ...headers, "content-range": `bytes ${start}-${end}/${size}`, "content-length": String(end - start + 1) },
+      });
+    }
+    // Only the bytes to be sent are read from storage.
     const data = await storage.getRange(key, start, end);
     if (!data?.byteLength) return Response.json({ error: "Not found" }, { status: 404 });
     return new Response(Buffer.from(data), {
@@ -43,16 +50,19 @@ export async function serveStoredFile(req: Request, storage: Storage, key: strin
     if (!file) return Response.json({ error: "Not found" }, { status: 404 });
     return new Response(Buffer.from(file.data), { headers: { ...headers, "content-length": String(file.data.length) } });
   }
-  // A large file asked for whole: one piece at a time, each read when the
-  // previous one has been sent.
-  let at = 0;
-  const body = new ReadableStream<Uint8Array>({
+  return new Response(inPieces(storage, key, 0, size - 1), { headers: { ...headers, "content-length": String(size) } });
+}
+
+/** Bytes start..end (inclusive) of a stored file, read MAX_RANGE bytes at a time as the receiver takes them. */
+function inPieces(storage: Storage, key: string, start: number, end: number) {
+  let at = start;
+  return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      if (at >= size) {
+      if (at > end) {
         controller.close();
         return;
       }
-      const chunk = await storage.getRange(key, at, Math.min(size, at + MAX_RANGE) - 1).catch(() => null);
+      const chunk = await storage.getRange(key, at, Math.min(end, at + MAX_RANGE - 1)).catch(() => null);
       if (!chunk?.byteLength) {
         controller.error(new Error(`Stored file ${key} ended early`));
         return;
@@ -61,5 +71,4 @@ export async function serveStoredFile(req: Request, storage: Storage, key: strin
       at += chunk.byteLength;
     },
   });
-  return new Response(body, { headers: { ...headers, "content-length": String(size) } });
 }
