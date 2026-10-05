@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 (a): mockups of Home, a Path page and the mini-player for Samuel to react to (docs/plan.md M14); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
+next_action: M14: Samuel picks signature touches on the mockups (open unknown 3), then M14 (b) Home and sidebar (docs/plan.md M14); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -34,9 +34,10 @@ corrected the plan: the app opens on the library ("Continue", then every
 book, with Import), not on the Hidden Machinery Path; Apple Books is the
 model for structure (sidebar: Library filters, Paths, Collections; a
 mini-player that keeps audio playing while you browse), Neolibrary's own
-look and features make it "not just copy cat". Start with step (a): mockups
-on desktop and phone, light and dark, for Samuel to react to before any
-code; he picks the signature touches there (open unknown 3).
+look and features make it "not just copy cat". Step (a) is done: mockups
+of the base and all five candidate touches are at
+https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (private to Samuel). Next:
+record his pick (open unknown 3), then step (b), Home and the sidebar.
 
 1. **When Samuel adds `ANTHROPIC_API_KEY`** (Railway → `web`): sign in as him
    only if he asks; otherwise wait for his "M6 verdict" issue and paste one
@@ -114,7 +115,7 @@ Never blocks the loop. Newest first.
 |---|---|---|---|---|
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? Default until Samuel sets one (docs/done.md): $5 per book, $20 per month per provider, as environment variables. | Samuel | before M6 | open (default applies) |
 | 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Answered 2026-10-04: yes, the session merged PR #2 with its GitHub tools (`merge_pull_request` → `merged: true`). | first M1 session | during M1 | closed |
-| 3 | M14: which signature touches (candidates 1–5 in `docs/plan.md` M14), and are Claude's three assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read")? Default until answered: the mockups show candidates 1–3 and the assumptions hold. | Samuel | 2026-10-12, before M14 (b) | open |
+| 3 | M14: which signature touches (candidates 1–5 in `docs/plan.md` M14), and are Claude's three assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read")? Mockups of all five: https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (2026-10-05). Default until answered: candidates 1–3 and the assumptions hold. | Samuel | 2026-10-12, before M14 (b) | open |
 
 ## Decisions
 
@@ -133,6 +134,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 08:05 · Claude (laptop) · M14 (a): mockups made for Samuel to choose from
+- **Done:** Samuel asked to see all prototypes and decide. Made one private design canvas (claude.ai artifact, only Samuel can open it): https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg. It holds the agreed base (Home on desktop in light and dark, Home on a phone in both, a Path page with greyed-out placeholders), the five candidate signature touches from `docs/plan.md` M14 (each shown in light and dark, with a note saying what Apple Books does and which stored data it uses), and the nine Codex prototype images from 2026-10-03. Built in the app's design tokens (`app/tokens.css`) and fonts; books, notes and numbers on it are samples. Corrected an error in the 2026-10-03 prototype on the way: in "How systems fail", *Meltdown* is the story book (N) and *Normal Accidents* the deeper one (E), as in `docs/reading-lists/hidden-machinery.md`. Also: PR #69 was merged by the auto-merge Action (121c124) and, being stacked on PR #68, carried #68's files; #68 was closed as included.
+- **Key paths:** the canvas above (not in git); `docs/plan.md` M14; `PROGRESS.md`.
+- **Commands that worked:** `sips -s format jpeg -Z 1400` to shrink the prototype PNGs (1.5–2.5 MB each) to 100–390 KB before uploading them to the canvas; `gh pr checks 68` → all four pass after `gh run rerun 37296828074 --failed`.
+- **Known issues / blockers:** waiting on Samuel's pick (open unknown 3). The canvas was not checked by rendering it (the canvas type asks not to); if a board looks wrong, Samuel can say which.
+- **Exact next steps:** record Samuel's pick in Decisions and open unknown 3; update M14's "Candidate signature touches" to the chosen ones; then M14 (b): Home and the sidebar.
 
 ### 2026-10-05 07:22 · Claude (laptop) · Samuel corrected the plan: Home is the library (M14 written)
 - **Done:** Samuel said the app had the wrong front door: it is "a digital library that holds books, audiobooks, annotations, many learning materials … not a hidden machinery library". Over three exchanges we agreed (his words confirmed each point): Home after sign-in = "Continue" at the top, then the whole library, with Import; Apple Books (his screenshot of it on the Mac) is the model for structure (sidebar with Library filters by kind and status, Paths, Collections; a mini-player that keeps an audiobook playing while you browse); Paths are curricula with a reading order and greyed-out placeholders that fill in when the book is uploaded; Collections are unordered; and the experience must be innovated, "not just copy cat". Wrote it into `docs/plan.md`: a new section "The library comes first" near the top, the old "core idea" and M3's "default view is the Path view" marked superseded (kept, not deleted), and a new milestone **M14 · Home is the library** with what was confirmed, what Claude assumed, five candidate signature touches (each using data Apple Books does not have, checked in the code: `books.position`, read-along paragraph timing, `question_marks`, `lib/library/crosslinks.ts`, voice notes), steps (a)–(f) and a "Done when". Ledger: decision, open unknown 3, next steps. No app code changed.
