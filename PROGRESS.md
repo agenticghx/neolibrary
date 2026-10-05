@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 step 1 draft PR: refresh the four reference images from CI, merge when green; then step 2 (m14-b2-shell) from docs/m14-home-plan.md.
+next_action: Merge #73 (step 1) once GitHub Actions recovers and CI is green; then push step 2 (m14-b2-shell, built and verified locally) after rebasing on main; then step 3 (Home).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -138,6 +138,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 17:09 · Claude (laptop) · M14 step 2 built and verified locally; step 1 waits on a GitHub Actions outage
+- **Done:** Step 1 (PR #73): CI's first real run failed only the planned reference images (10 `visual.spec.ts` cases: `path`, `shelf-empty`, `book-not-available` on phone); each `*-actual.png` looked at and copied in (61db041, pushed). Its next CI run was cancelled with 0 steps twice: GitHub Actions "major outage" (githubstatus.com, 21:04 UTC). A background task re-runs it when Actions is operational. Step 2 on local branch `m14-b2-shell` (not pushed, so the auto-merge Action cannot merge step 1's files with it): /shelf moved to /library with a redirect keeping the query (d5eec0f); /paths and /paths/[slug], `listPathsWithProgress`, shared `StarterPaths`, search links pillar and Path notes to their Path (80e26b0); the shell: sidebar on desktop, tabs + top strip + account menu on a phone, current-page marks, layout refresh after Path and collection changes (18ee79d). Three reviewer agents are reviewing step 2.
+- **Key paths:** `components/shell/` (Sidebar, TabBar, AccountMenu, NavLink, current.ts + test, icons, Shell.module.css), `app/(app)/layout.tsx`, `app/(app)/library/` (moved from shelf), `app/(app)/shelf/page.tsx` (redirect), `app/(app)/paths/`, `components/StarterPaths.tsx`, `lib/library/paths.ts` (`listPathsWithProgress`), `lib/library/search.ts` (`pathSlug`), `e2e/shell.spec.ts` (new project `shell` between uploads and reader), `LEARNING_LOG.md` (Iterations 8-11).
+- **Commands that worked:** full browser suite on 18ee79d from a fresh database → `224 passed (6.3m)`; Vitest → `Tests 360 passed | 2 skipped (362)`; browser mutations with scratchpad `mut-e2e.sh` (patch, build, serve on the database the last full run left, `npx playwright test --project shell --no-deps -g …`, restore): M8 tab padding, M9 wrong link, M10 menu not closing, M11 no layout refresh → each `1 failed` at a named line.
+- **Known issues / blockers:** GitHub Actions outage blocks CI for #73 (and so step 2's push). Every signed-in reference image changes in step 2 (refresh from CI once it runs). The phone top strip with the account button is on every page, not only Home (D9 said Home): needed so Sign out is reachable everywhere; Samuel can overrule.
+- **Exact next steps:** read the three step-2 reviews, fix what is confirmed, mutation-check the fixes; when Actions recovers and #73 is green, mark it ready and merge, confirm `main` equals the checked commit; then `git rebase --onto origin/main m14-b1-availability m14-b2-shell` (resolve `LEARNING_LOG.md` by keeping both sets of iterations), push step 2 as a draft PR, refresh its reference images from CI; then step 3.
 
 ### 2026-10-05 16:50 · Claude (laptop) · M14 step 1 verified and pushed as a draft PR
 - **Done:** step 1 (labels by availability, no "owned" wording) implemented, reviewed and mutation-checked; pushed as a draft PR on `m14-b1-availability`. Three reviewer agents (correctness, wording and contrast, tests); confirmed findings fixed in 281bf04: pure label rules split from server lookups (`lib/library/listenable.ts`) so Cover never bundles database or ElevenLabs code; every title in a Path's folded list labelled; the shelf's small heading says Library; `docs/design.md` updated; new tests for a read-only cover, labels from an uploaded audiobook with narration off, and the shelf and book-page labels. Seven mutation checks, each caught by a named test (`LEARNING_LOG.md` Iteration 4).
