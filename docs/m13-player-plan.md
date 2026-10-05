@@ -210,7 +210,13 @@ each finding, and every confirmed one was fixed (listed at the end).
   Playwright reports that answer with status 0; the tests accept a whole-file
   answer (status 0 or 200) only to a request that asked for no range. The closed
   whole-file range ("bytes=0-<last>") is Safari-on-Mac behaviour, checked by
-  local Mac runs. Real Safari on an iPhone has not been tried: that is (f).
+  local Mac runs. GStreamer also stalled ("Loading your audiobook…" for
+  good) when the start time was set before the file's length was known, far
+  into a 16 MB file (CI run 37260648155); so play() is still called at once
+  (inside the click, as Safari needs), but the start time is set on
+  `loadedmetadata` (the moment the first bytes, which say how long the file
+  is, have arrived), and the follower waits until then. Real Safari on an
+  iPhone has not been tried: that is (f).
 
 ## (e) PDF player
 
