@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14: Samuel picks signature touches on the mockups (open unknown 3), then M14 (b) Home and sidebar (docs/plan.md M14); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
+next_action: M14: Samuel picks one option per part on the mockups (open unknown 3), then M14 (b) Home and sidebar (docs/plan.md M14); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -35,7 +35,7 @@ book, with Import), not on the Hidden Machinery Path; Apple Books is the
 model for structure (sidebar: Library filters, Paths, Collections; a
 mini-player that keeps audio playing while you browse), Neolibrary's own
 look and features make it "not just copy cat". Step (a) is done: mockups
-of the base and all five candidate touches are at
+with options for each part are at
 https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (private to Samuel). Next:
 record his pick (open unknown 3), then step (b), Home and the sidebar.
 
@@ -115,7 +115,7 @@ Never blocks the loop. Newest first.
 |---|---|---|---|---|
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? Default until Samuel sets one (docs/done.md): $5 per book, $20 per month per provider, as environment variables. | Samuel | before M6 | open (default applies) |
 | 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Answered 2026-10-04: yes, the session merged PR #2 with its GitHub tools (`merge_pull_request` → `merged: true`). | first M1 session | during M1 | closed |
-| 3 | M14: which signature touches (candidates 1–5 in `docs/plan.md` M14), and are Claude's three assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read")? Mockups of all five: https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (2026-10-05). Default until answered: candidates 1–3 and the assumptions hold. | Samuel | 2026-10-12, before M14 (b) | open |
+| 3 | M14: which signature touches (candidates 1–5 in `docs/plan.md` M14), and are Claude's three assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read")? Mockups with options per part (Home A/B, phone A/B, player A/B/C, progress fill A/B/C, Continue A/B): https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (2026-10-05). Decided so far: no ribbon, progress is a fill; every player has back/forward 15 s. Default until answered: option A in each part and the assumptions hold. | Samuel | 2026-10-12, before M14 (b) | open |
 
 ## Decisions
 
@@ -134,6 +134,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 12:30 · Claude (laptop) · M14 (a) mockups redone: options per part; no ribbon
+- **Done:** Samuel's feedback on the first canvas: the phone mini-player had no back/forward 15 s buttons; one design per part was not what he asked for ("you made 1 prototype per segment and asked me to pick 1?"); the progress ribbon "won't work", use a fill percentage. Redid the canvas (same link, https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg) with options inside each part: Home on desktop A (covers in a grid) or B (a shelf of spines that fill up as you read); Home on a phone A or B; mini-player A (compact), B (shows the words) or C (scrubber, speed); progress on covers A (bar under the cover), B (the cover fills from the bottom) or C (the spine fills); Continue A (plain) or B (your last note, read or listen from the same paragraph). Every player has back 15, play/pause and forward 15. The ribbon board was removed. Path page, the question and threads still have one option each (said so on the canvas). Plan: M14's mini-player line now requires the three controls; candidate 2 says progress is a fill (Samuel's words quoted).
+- **Key paths:** the canvas above; `docs/plan.md` M14; `PROGRESS.md`.
+- **Commands that worked:** a control check over the board sources before publishing: per board, count of `aria-label="Now playing`, `Back 15 seconds`, `Pause`, `Forward 15 seconds` → Main 1/1/1/1, HomeDark 1/1/1/1, HomeB 1/1/1/1, HomePhone 1/1/1/1, PhoneB 1/1/1/1, Players 6/6/6/6 (the phone boards draw each player twice, light and dark); `grep -l ribbon` → only the removed board.
+- **Known issues / blockers:** the canvas is still not checked by rendering it (the canvas type asks not to unless Samuel asks). Waiting on Samuel's picks per part (open unknown 3).
+- **Exact next steps:** record Samuel's picks (one per part) in Decisions and M14; then M14 (b).
 
 ### 2026-10-05 08:05 · Claude (laptop) · M14 (a): mockups made for Samuel to choose from
 - **Done:** Samuel asked to see all prototypes and decide. Made one private design canvas (claude.ai artifact, only Samuel can open it): https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg. It holds the agreed base (Home on desktop in light and dark, Home on a phone in both, a Path page with greyed-out placeholders), the five candidate signature touches from `docs/plan.md` M14 (each shown in light and dark, with a note saying what Apple Books does and which stored data it uses), and the nine Codex prototype images from 2026-10-03. Built in the app's design tokens (`app/tokens.css`) and fonts; books, notes and numbers on it are samples. Corrected an error in the 2026-10-03 prototype on the way: in "How systems fail", *Meltdown* is the story book (N) and *Normal Accidents* the deeper one (E), as in `docs/reading-lists/hidden-machinery.md`. Also: PR #69 was merged by the auto-merge Action (121c124) and, being stacked on PR #68, carried #68's files; #68 was closed as included.
