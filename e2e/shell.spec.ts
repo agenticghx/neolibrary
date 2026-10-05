@@ -147,7 +147,7 @@ test.describe("phone", () => {
     await expect(button).toBeFocused();
     // A tap outside closes it, and so does the button again.
     await button.click();
-    await page.getByRole("heading", { level: 1 }).click();
+    await page.mouse.click(12, 500); // the page's left margin, away from the menu (which covers the heading)
     await expect(button).toHaveAttribute("aria-expanded", "false");
     await button.click();
     await button.click();
