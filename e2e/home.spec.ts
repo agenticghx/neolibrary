@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { mkdir } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_STATE } from "./pages";
 
@@ -15,13 +16,17 @@ test.use({ storageState: ADMIN_STATE });
 test.describe.configure({ mode: "default" });
 
 type ExportedBook = { id: string; title: string; position?: string | null; progress: number };
-const jekyll = async (page: Page) =>
-  ((await (await page.request.get("/api/export")).json()).books as ExportedBook[]).find((b) => b.title.startsWith("The Strange Case"))!;
+const findBook = async (page: Page, start: string) =>
+  ((await (await page.request.get("/api/export")).json()).books as ExportedBook[]).find((b) => b.title.startsWith(start))!;
+const jekyll = (page: Page) => findBook(page, "The Strange Case");
+const cfiStart = (cfi: string | null) => (cfi ?? "").split(",")[0];
 
 test("Continue shows the book opened last, its newest note, Read from here and Listen from here", async ({ page }) => {
   const book = await jekyll(page);
+  const pdf = await findBook(page, "Discourse on the Method"); // a PDF: Read only, no audiobook
   expect(book.position, "the reader tests left a saved place in Jekyll").toBeTruthy();
-  // Open it last (saving its place again, unchanged) and leave a note: both now the newest.
+  // Open the PDF, then Jekyll, last (saving their places again, unchanged), and leave a note in Jekyll.
+  expect((await page.request.put(`/api/books/${pdf.id}/position`, { data: { cfi: pdf.position ?? "epubcfi(/6/2)", fraction: pdf.progress } })).status()).toBe(204);
   expect((await page.request.put(`/api/books/${book.id}/position`, { data: { cfi: book.position, fraction: book.progress } })).status()).toBe(204);
   expect((await page.request.post(`/api/books/${book.id}/annotations`, { data: { kind: "note", body: "A thought left for Home." } })).status()).toBe(201);
 
@@ -34,13 +39,18 @@ test("Continue shows the book opened last, its newest note, Read from here and L
   await expect(card).toContainText(`${Math.round(book.progress * 100)}%`);
   await expect(card).toContainText("Your last note here");
   await expect(card).toContainText("A thought left for Home.");
+  // The PDF's card: no Listen from here (nothing to listen to), and no note box (no notes in it).
+  const second = cards.nth(1);
+  await expect(second.getByRole("heading", { level: 3 })).toHaveText(pdf.title);
+  await expect(second.getByRole("link", { name: "Read from here" })).toBeVisible();
+  await expect(second.getByRole("link", { name: "Listen from here" })).toHaveCount(0);
+  await expect(second.getByText(/^Your last (note|highlight) here$/)).toHaveCount(0);
 
   // Read from here: the reader at the saved place.
   await card.getByRole("link", { name: "Read from here" }).click();
   const reader = page.getByTestId("reader");
   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  const spineOf = (cfi: string | null) => (cfi ?? "").split("!")[0];
-  expect(spineOf(await reader.getAttribute("data-cfi"))).toBe(spineOf(book.position!));
+  expect(cfiStart(await reader.getAttribute("data-cfi"))).toBe(cfiStart(book.position!));
   await expect(page.getByRole("region", { name: "Read aloud" })).toHaveCount(0);
 
   // Listen from here: the reader with the Read aloud bar open (the reader presses Play: Safari needs the click).
@@ -49,6 +59,13 @@ test("Continue shows the book opened last, its newest note, Read from here and L
   await card.getByRole("link", { name: "Listen from here" }).click();
   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(page.getByRole("region", { name: "Read aloud" })).toBeVisible({ timeout: 10_000 });
+  // Used once: ?listen=1 leaves the address, so a reload does not open the bar again.
+  await expect(page).toHaveURL(new RegExp(`/books/${book.id}/read$`));
+
+  // A book with nothing to listen to never opens the bar, even when asked.
+  await page.goto(`/books/${pdf.id}/read?listen=1`);
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.getByRole("region", { name: "Read aloud" })).toHaveCount(0);
 });
 
 test("the library: labels, marks, the closed group of titles not available yet, and Import", async ({ page }) => {
@@ -58,7 +75,14 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   const item = grid.getByRole("listitem").filter({ hasText: book.title });
   await expect(item.getByText("Read and listen", { exact: true })).toBeVisible(); // an EPUB, narration on in tests
   await expect(item.locator('[data-mark="notes"]')).toHaveCount(1); // it has notes: the folded corner
-  await expect(page.getByRole("heading", { name: /^Your library \d+ titles$/ })).toBeVisible();
+  await expect(item.locator('[data-mark="audiobook"]')).toHaveCount(0); // narration alone draws no headphones (D1)
+  await expect(item).toContainText("has your notes"); // the marks in words, for screen readers
+  const finished = grid.getByRole("listitem").filter({ hasText: "Trap Book" });
+  await expect(finished.locator('[data-mark="finished"]')).toHaveCount(1);
+  await expect(finished).toContainText("Finished");
+  // The count is of the grid's titles (the ones not available yet are counted in their own group).
+  const count = Number((await page.getByRole("heading", { name: /^Your library \d+ titles$/ }).textContent())!.match(/(\d+) titles/)![1]);
+  await expect(grid.locator(":scope > li")).toHaveCount(count);
   // Every cover fits its grid cell (a long title once drew a cover two cells wide, over its neighbour).
   const overflow = await grid.locator(":scope > li").evaluateAll((items) =>
     items.flatMap((li) => {
@@ -77,13 +101,38 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   const waiting = group.getByRole("link", { name: /^Chip War/ });
   await expect(waiting).toBeVisible();
   await expect(waiting).toContainText("Not available yet");
-  await expect(waiting.locator("img")).toHaveCount(0); // a greyed cover, no picture
 
-  // Import opens the file picker; Choose files is there too.
+  // Import opens the file picker. Files sent from Home are read like the library's:
+  // a book already here, and a file that is not a book (neither changes the library).
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Import" }).click();
   expect((await chooser).isMultiple()).toBe(true);
-  await expect(page.getByLabel("Choose files")).toBeAttached();
+  await page.getByLabel("Choose files").setInputFiles([
+    { name: "wells-the-time-machine.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/wells-the-time-machine.epub") },
+    { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") },
+  ]);
+  const results = page.getByTestId("upload-results");
+  await expect(results.getByText("Already in your library")).toBeVisible();
+  await expect(results.getByText("Only EPUB and PDF files can be added.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "2 files read." })).toBeAttached();
+
+  // A file dropped anywhere, even on the sidebar, is sent, not opened by the browser.
+  await page.reload();
+  const transfer = await page.evaluateHandle(() => {
+    const t = new DataTransfer();
+    t.items.add(new File(["hello"], "dropped.txt", { type: "text/plain" }));
+    return t;
+  });
+  const sidebar = page.getByRole("complementary", { name: "Sidebar" });
+  for (const type of ["dragenter", "dragover", "drop"]) await sidebar.dispatchEvent(type, { dataTransfer: transfer });
+  await expect(page.getByTestId("upload-results").getByText("Only EPUB and PDF files can be added.")).toBeVisible();
+  await expect(page).toHaveURL(/:\d+\/$/);
+
+  // Sort by title: the grid's first title comes first in the alphabet.
+  await page.getByLabel("Sort").selectOption("title");
+  await expect(page).toHaveURL(/\?sort=title$/);
+  const titles = await grid.locator(":scope > li [class*=itemTitle]").allTextContents();
+  expect(titles).toEqual([...titles].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" })));
 });
 
 for (const [name, viewport] of [
@@ -101,8 +150,9 @@ for (const [name, viewport] of [
     await expect(grid).toBeVisible();
     await expect(spines).toBeHidden();
     if (name === "phone") {
+      await expect(page.getByTestId("continue-card")).toHaveCount(2); // both drawn ...
       await expect(page.getByTestId("continue-card").first()).toBeVisible();
-      await expect(page.getByTestId("continue-card").nth(1)).toBeHidden(); // one card on a phone (D7)
+      await expect(page.getByTestId("continue-card").nth(1)).toBeHidden(); // ... one shown on a phone (D7)
     }
 
     await spinesButton.click();
@@ -114,6 +164,8 @@ for (const [name, viewport] of [
     const book = await jekyll(page);
     await expect(page.getByRole("link", { name: `${book.title}, ${Math.round(book.progress * 100)}% read` })).toHaveCount(1);
     await expect(page.getByRole("link", { name: new RegExp(`^${book.title.slice(0, 20)}`) })).toHaveCount(1);
+    // A finished book's spine says Done at its foot; a spine's name says how far you are.
+    await expect(spines.getByRole("link", { name: /^Trap Book, finished/ })).toContainText("Done");
     await page.reload();
     await expect(spinesButton).toHaveAttribute("aria-pressed", "true");
     await expect(spines).toBeVisible();
@@ -125,6 +177,17 @@ for (const [name, viewport] of [
     await expect(grid).toBeVisible();
   });
 }
+
+test("/library has the same View switch", async ({ page }) => {
+  await page.goto("/library");
+  await page.getByRole("button", { name: "Spines", exact: true }).click();
+  await expect(page.getByTestId("spines")).toBeVisible();
+  await expect(page.getByTestId("shelf")).toBeHidden();
+  await page.getByRole("button", { name: "Grid", exact: true }).click();
+  await expect(page.getByTestId("shelf")).toBeVisible();
+  // The whole library ends with the titles not available yet, as on Home.
+  await expect(page.getByText(/^Not available yet \(\d+\)$/)).toBeVisible();
+});
 
 test("Home is accessible, fits a phone, and looks right in light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
@@ -141,6 +204,14 @@ test("Home is accessible, fits a phone, and looks right in light and dark", asyn
       expect(results.violations.map((v) => `${name} ${scheme} ${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: `screenshots/home-full-${name}-${scheme}.png`, fullPage: true });
+
+      // The spine view and the opened group of titles not available yet, too.
+      await page.getByRole("button", { name: "Spines", exact: true }).click();
+      await page.locator("details summary").filter({ hasText: /^Not available yet/ }).click();
+      const more = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(more.violations.map((v) => `${name} ${scheme} spines ${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/home-spines-${name}-${scheme}.png`, fullPage: true });
+      await page.getByRole("button", { name: "Grid", exact: true }).click();
     }
   }
 });

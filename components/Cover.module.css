@@ -202,23 +202,33 @@
 }
 
 /* Marks (M14): folded corner = your notes; headphones = an uploaded audiobook; tick = finished. */
+
+/* A corner turned down: the page shows through the top-right triangle, the
+   flap (in the cover's ink) lies on the lower-left one. Each triangle is its
+   own shape, so neither clips the other. */
 .fold {
   position: absolute;
   top: 0;
   right: 0;
   width: 1.5rem;
   height: 1.5rem;
+}
+
+.fold::before,
+.fold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.fold::before {
   border-top-right-radius: var(--radius-md);
   background-color: var(--paper);
   clip-path: polygon(0 0, 100% 0, 100% 100%);
 }
 
 .fold::after {
-  content: "";
-  position: absolute;
-  inset: 0;
   background-color: var(--cover-ink);
-  opacity: 0.45;
   clip-path: polygon(0 0, 0 100%, 100% 100%);
 }
 
@@ -266,5 +276,23 @@
   .fill .long,
   .fill .veryLong {
     font-size: var(--text-xs);
+  }
+}
+
+/* A small swatch beside a title (Continue): the cloth or the picture, no lettering. */
+.mini {
+  width: 4.5rem;
+  padding: var(--space-2);
+}
+
+.mini .title,
+.mini .slot {
+  display: none;
+}
+
+@media (width <= 48rem) {
+  .mini {
+    width: 3.75rem;
+    padding: var(--space-1);
   }
 }

@@ -17,6 +17,7 @@ export function Cover({
   available,
   caption = true,
   size = "md",
+  decorative = false,
   href,
   progress,
   current = false,
@@ -30,8 +31,10 @@ export function Cover({
   available: Availability;
   /** Show the availability label ("Read only", ...) under the cover; off where the page shows it itself. */
   caption?: boolean;
-  /** "fill": as wide as its grid column (the library grid, three columns on a phone). */
-  size?: "md" | "sm" | "fill";
+  /** "fill": as wide as its grid column (the library grid); "mini": a small swatch beside a title (Continue). */
+  size?: "md" | "sm" | "fill" | "mini";
+  /** The page shows the title beside the cover: hide the cover's own lettering from screen readers. */
+  decorative?: boolean;
   href?: string;
   /** 0–1; drawn as a thin bar under available books that have been started. */
   progress?: number;
@@ -49,7 +52,7 @@ export function Cover({
   const className = [
     styles.cover,
     any ? styles[tone] : styles.empty,
-    size === "sm" ? styles.small : size === "fill" ? styles.fill : "",
+    size === "sm" ? styles.small : size === "fill" ? styles.fill : size === "mini" ? styles.mini : "",
     current ? styles.current : "",
   ].join(" ");
   const titleClass = [styles.title, styles[titleSize(title)]].join(" ");
@@ -75,7 +78,7 @@ export function Cover({
     ) : null;
   const face =
     imageUrl && any ? (
-      <div className={[className, styles.withImage].join(" ")}>
+      <div className={[className, styles.withImage].join(" ")} aria-hidden={decorative || undefined}>
         {/* Signed, short-lived URL to the user's own file; next/image cannot optimise it. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl} alt="" className={styles.image} />
@@ -83,7 +86,7 @@ export function Cover({
         {drawn}
       </div>
     ) : (
-      <div className={className}>
+      <div className={className} aria-hidden={decorative || undefined}>
         <span className={titleClass}>{title}</span>
         {slot === "N" || slot === "E" ? <span className={styles.slot}>{slot}</span> : null}
         {drawn}

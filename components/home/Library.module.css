@@ -69,22 +69,22 @@
   background-color: var(--accent);
 }
 
-/* Spines on shelves: each slot carries its piece of plank, so a row of spines stands on one shelf. */
+/* Spines on shelves. Every slot is one shelf tall (12rem), so the rows line up
+   with a plank drawn the full width under each row, the last one too. */
 .spines {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  row-gap: var(--space-5);
   margin: 0;
   padding: 0;
   list-style: none;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(12rem - var(--space-2)), var(--rule) calc(12rem - var(--space-2)), var(--rule) 12rem);
 }
 
 .spineSlot {
   display: flex;
   align-items: flex-end;
+  height: 12rem;
   padding: 0 var(--space-0) var(--space-2);
-  border-bottom: 0.625rem solid var(--paper-sunken);
 }
 
 .spine {
@@ -121,14 +121,18 @@
   color: var(--cover-empty-ink);
 }
 
-/* How far you are: the spine fills from the bottom. */
+/* How far you are: the spine fills from the bottom with darker cloth (its light
+   lettering keeps, and gains, contrast), topped by a solid line. */
 .spineFill {
   position: absolute;
   inset: auto 0 0;
   height: 0;
-  border-top: 1.5px solid var(--cover-ink);
-  background-color: var(--cover-ink);
-  opacity: 0.2;
+  border-top: 2px solid var(--cover-ink);
+  background-color: var(--spine-fill);
+}
+
+.spineFill[data-progress="0"] {
+  border-top-width: 0;
 }
 
 .spineTitle {
@@ -143,6 +147,10 @@
   text-align: center;
   writing-mode: vertical-rl;
   rotate: 180deg;
+}
+
+.spineTitle[data-long] {
+  font-size: var(--text-xs);
 }
 
 .spineFoot {
@@ -225,6 +233,12 @@
 .notYetNote {
   margin: var(--space-2) 0 var(--space-5);
   color: var(--ink-700);
+}
+
+/* The titles not available yet: smaller covers, so a hundred of them stay a short list. */
+.compact {
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--space-5) var(--space-4);
 }
 
 @media (width <= 48rem) {

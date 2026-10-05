@@ -6,7 +6,7 @@ import { books, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { createAnnotation, deleteAnnotation, updateAnnotation } from "./annotations";
-import { bookIdsWithNotes, continueBooks, latestNotes, notYetAvailable } from "./home";
+import { bookIdsWithNotes, continueBooks, latestNotes, libraryItems, notYetAvailable } from "./home";
 import { importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -89,6 +89,31 @@ describe("latestNotes", () => {
     expect([...(await bookIdsWithNotes(database.db, ownerId))]).toEqual([noted]);
   });
 
+  it("shows a voice note when it is the newest", async () => {
+    await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Older" }, at(1));
+    const voice = await createAnnotation(
+      database.db,
+      ownerId,
+      { kind: "voice", bookId, cfi: rangeIn(paras[2], 0, 4), quote: { exact: paras[2].text.slice(0, 4) }, voice: { audioKey: `audio/${ownerId}/v.webm`, mime: "audio/webm", durationMs: 1200, transcript: "Said aloud" } },
+      at(2),
+    );
+    expect((await latestNotes(database.db, ownerId, [bookId])).get(bookId)!.id).toBe(voice.id);
+  });
+
+  it("folds the corner of a book with only highlights, not of one with none", async () => {
+    const plain = await add(ownerId, "No marks");
+    await createAnnotation(database.db, ownerId, { kind: "highlight", bookId, cfi: rangeIn(paras[1], 0, 3), quote: { exact: paras[1].text.slice(0, 3) } });
+    const items = await libraryItems(database.db, ownerId, (await database.db.select().from(books)).filter((b) => b.ownerId === ownerId), () => null, true);
+    expect(items.find((i) => i.id === bookId)!.notes).toBe(true);
+    expect(items.find((i) => i.id === plain)!.notes).toBe(false);
+  });
+
+  it("never shows a note an AI agent added as the reader's own", async () => {
+    const mine = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "My own words" }, at(1));
+    await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "An agent's summary" }, at(2), undefined, "Claude");
+    expect((await latestNotes(database.db, ownerId, [bookId])).get(bookId)!.id).toBe(mine.id);
+  });
+
   it("leaves out books with no notes, and other readers' notes", async () => {
     const empty = await add(ownerId, "Empty");
     const mine = await latestNotes(database.db, ownerId, [bookId, empty]);
@@ -98,11 +123,34 @@ describe("latestNotes", () => {
   });
 });
 
+describe("libraryItems", () => {
+  it("draws headphones only for an uploaded audiobook, never for narration (D1)", async () => {
+    const withAudio = await add(ownerId, "With audiobook");
+    const narrated = await add(ownerId, "Narrated only");
+    await database.db.insert(readalongImports).values({ ownerId, bookId: withAudio, status: "ready", manifest: {}, report: { chapters: [], paragraphs: 0 }, audio: [] });
+    const list = (await database.db.select().from(books)).filter((b) => b.ownerId === ownerId);
+    const items = await libraryItems(database.db, ownerId, list, (key) => (key ? `/c/${key}` : null), true);
+    const a = items.find((i) => i.id === withAudio)!;
+    const n = items.find((i) => i.id === narrated)!;
+    expect([a.audiobook, a.available.listen]).toEqual([true, true]);
+    expect([n.audiobook, n.available.listen]).toEqual([false, true]);
+  });
+
+  it("signs a cover only for a book with a file", async () => {
+    const withFile = await add(ownerId, "Has a file", { coverKey: "covers/a.jpg" });
+    const titleOnly = await add(ownerId, "Title only", { fileKey: null, fileType: null, coverKey: "covers/b.jpg" });
+    const list = (await database.db.select().from(books)).filter((b) => b.ownerId === ownerId);
+    const items = await libraryItems(database.db, ownerId, list, (key) => (key ? `/c/${key}` : null), true);
+    expect(items.find((i) => i.id === withFile)!.coverUrl).toBe("/c/covers/a.jpg");
+    expect(items.find((i) => i.id === titleOnly)!.coverUrl).toBeNull();
+  });
+});
+
 describe("notYetAvailable", () => {
   it("lists titles with no file and no finished audiobook, by title", async () => {
     await add(ownerId, "Has a file");
-    const zebra = await add(ownerId, "zebra waits", { fileKey: null, fileType: null });
-    const apple = await add(ownerId, "Apple waits", { fileKey: null, fileType: null });
+    const zebra = await add(ownerId, "Zebra waits", { fileKey: null, fileType: null });
+    const apple = await add(ownerId, "apple waits", { fileKey: null, fileType: null });
     await add(ownerId, "Deleted waiting", { fileKey: null, fileType: null, deletedAt: at(1) });
     const uploading = await add(ownerId, "Audio still uploading", { fileKey: null, fileType: null });
     const listenOnly = await add(ownerId, "Listen only", { fileKey: null, fileType: null });

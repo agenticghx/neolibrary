@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { ACCEPT, UPLOAD_MESSAGES, useBookUpload } from "./useBookUpload";
 import styles from "./HomeImport.module.css";
 
@@ -12,29 +12,55 @@ const useUpload = () => {
   return u;
 };
 
-/** Home accepts book files dropped anywhere on the page (Samuel's pick: "Home = Continue, the library, with Import"). */
+const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+
+/**
+ * Home accepts book files dropped anywhere in the window, the sidebar and tabs
+ * too (Samuel's pick: "Home = Continue, the library, with Import"); a dropped
+ * file never makes the browser leave the app to open it. Only file drags are
+ * claimed: text and links behave as usual. A counter of drag enters and
+ * leaves keeps the outline steady (Safari gives dragleave no relatedTarget).
+ */
 export function ImportRoot({ className, children }: { className?: string; children: React.ReactNode }) {
   const upload = useBookUpload();
+  const { upload: send } = upload;
   const [over, setOver] = useState(false);
+  useEffect(() => {
+    let depth = 0;
+    const enter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth += 1;
+      setOver(true);
+    };
+    const leave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setOver(false);
+    };
+    const overIt = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setOver(false);
+      if (e.dataTransfer?.files.length) void send(e.dataTransfer.files);
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("dragover", overIt);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("dragover", overIt);
+      window.removeEventListener("drop", drop);
+    };
+  }, [send]);
   return (
     <Ctx.Provider value={upload}>
-      <main
-        className={[className, over ? styles.over : ""].join(" ")}
-        onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes("Files")) return;
-          e.preventDefault();
-          setOver(true);
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
-        }}
-        onDrop={(e) => {
-          if (!e.dataTransfer.files.length) return;
-          e.preventDefault();
-          setOver(false);
-          void upload.upload(e.dataTransfer.files);
-        }}
-      >
+      <main className={[className, over ? styles.over : ""].join(" ")} data-testid="home-drop">
         {children}
       </main>
     </Ctx.Provider>
@@ -54,12 +80,19 @@ export function ImportButton() {
   );
 }
 
-/** The dashed hint above the library, with Choose files, and what happened to each file. */
-export function ImportZone() {
+/**
+ * The dashed hint, with Choose files, and what happened to each file. On a
+ * phone the hint is hidden where the page has books (nothing can be dropped
+ * on a phone; the round Import button opens the picker), but the results show.
+ */
+export function ImportZone({ hideOnPhone = false }: { hideOnPhone?: boolean }) {
   const { input, busy, results, error, upload } = useUpload();
   return (
     <div className={styles.zoneWrap}>
-      <div className={styles.zone}>
+      <p role="status" className="visually-hidden">
+        {busy ? "Reading your books…" : results.length ? `${results.length === 1 ? "1 file" : `${results.length} files`} read.` : ""}
+      </p>
+      <div className={[styles.zone, hideOnPhone ? styles.phoneHidden : ""].join(" ")}>
         <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" className={styles.zoneIcon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 16V4M7 9l5-5 5 5M5 20h14" />
         </svg>

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { LibraryGrid, LibrarySpines } from "@/components/home/Library";
+import { LibraryGrid, LibrarySpines, NotYetGroup } from "@/components/home/Library";
 import { LibraryViews } from "@/components/home/LibraryViews";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
-import { libraryItems } from "@/lib/library/home";
+import { libraryItems, notYetAvailable } from "@/lib/library/home";
 import { listCollections, listShelf, parseSort } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
@@ -34,6 +34,8 @@ export default async function LibraryPage({
     listShelf(db, user.id),
   ]);
   const items = await libraryItems(db, user.id, shelf, await coverSigner());
+  // The whole library (no search, no collection) ends with the titles not available yet (D3).
+  const waiting = !sp.q && !active ? await libraryItems(db, user.id, await notYetAvailable(db, user.id)) : [];
   const chipHref = (c?: string) => {
     const p = new URLSearchParams();
     if (c) p.set("c", c);
@@ -114,6 +116,8 @@ export default async function LibraryPage({
           )}
         </section>
       ) : null}
+
+      <NotYetGroup items={waiting} />
 
       <footer className={styles.data}>
         <p>

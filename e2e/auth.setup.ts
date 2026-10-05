@@ -13,6 +13,9 @@ setup("create the owner account", async ({ page }) => {
     await page.getByLabel("Email address").fill(ADMIN.email);
     await page.getByLabel("Password").fill(ADMIN.password);
     await page.getByRole("button", { name: "Create owner account" }).click();
+    // Set-up adds no Path any more (M14 D6): the owner starts with an empty library.
+    await expect(page.getByText(/Your library is empty\./)).toBeVisible();
+    expect((await page.request.get("/paths/hidden-machinery")).status()).toBe(404);
   } else {
     await page.getByLabel("Email address").fill(ADMIN.email);
     await page.getByLabel("Password").fill(ADMIN.password);

@@ -111,6 +111,10 @@
 }
 
 @media (width <= 48rem) {
+  .phoneHidden {
+    display: none;
+  }
+
   .importButton {
     justify-content: center;
     width: 2.75rem;

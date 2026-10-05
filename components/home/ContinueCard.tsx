@@ -25,8 +25,10 @@ export function ContinueCard({ item, chapter, note }: { item: LibraryItem; chapt
   const titleId = `continue-${item.id}`;
   return (
     <article className={styles.card} aria-labelledby={titleId} data-testid="continue-card">
-      <Cover title={item.title} available={item.available} caption={false} size="sm" imageUrl={item.coverUrl} />
-      <div className={styles.cardBody}>
+      <div className={styles.cardCover}>
+        <Cover title={item.title} available={item.available} caption={false} decorative size="mini" imageUrl={item.coverUrl} />
+      </div>
+      <div className={styles.cardHead}>
         <h3 id={titleId} className={styles.cardTitle}>
           {item.title}
         </h3>
@@ -39,27 +41,27 @@ export function ContinueCard({ item, chapter, note }: { item: LibraryItem; chapt
             <span className={styles.cardFill} data-progress={Math.round(item.progress * 20) * 5} />
           </span>
         </p>
-        {shown ? (
-          <div className={styles.note}>
-            <span className={styles.noteLabel}>{shown.label}</span>
-            <p className={shown.highlight ? styles.noteQuote : styles.noteWords}>
-              {shown.highlight ? <mark className={styles.noteMark}>{shown.text}</mark> : shown.text}
-            </p>
-          </div>
-        ) : null}
-        <div className={styles.cardActions}>
+      </div>
+      {shown ? (
+        <div className={styles.note}>
+          <span className={styles.noteLabel}>{shown.label}</span>
+          <p className={shown.highlight ? styles.noteQuote : styles.noteWords}>
+            {shown.highlight ? <mark className={styles.noteMark}>{shown.text}</mark> : shown.text}
+          </p>
+        </div>
+      ) : null}
+      <div className={styles.cardActions}>
           <Link href={`/books/${item.id}/read`} className={styles.primary}>
             Read from here
           </Link>
           {item.available.listen ? (
             <Link href={`/books/${item.id}/read?listen=1`} className={styles.secondary}>
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+              <svg className={styles.listenIcon} width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                 <path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z" />
               </svg>
               Listen from here
             </Link>
           ) : null}
-        </div>
       </div>
     </article>
   );

@@ -33,16 +33,18 @@ export async function continueBooks(db: Db, ownerId: string, limit = 2) {
 const SHOWN: Annotation["kind"][] = ["note", "voice", "highlight"];
 
 /**
- * For each book, its newest note, voice note or highlight, by when it last
- * changed (its latest version), skipping deleted ones. Books with none are
- * left out of the map. (listAnnotations sorts by reading order, not time.)
+ * For each book, the reader's newest note, voice note or highlight, by when
+ * it last changed (its latest version), skipping deleted ones and notes an
+ * AI agent added (the card says "Your last note"; ground rule 5: AI output
+ * is never shown as the reader's own). Books with none are left out of the
+ * map. (listAnnotations sorts by reading order, not time.)
  */
 export async function latestNotes(db: Db, ownerId: string, bookIds: string[]): Promise<Map<string, Annotation>> {
   const out = new Map<string, Annotation>();
   for (const bookId of bookIds) {
     let newest: Annotation | null = null;
     for (const a of await listAnnotations(db, ownerId, bookId)) {
-      if (SHOWN.includes(a.kind) && (!newest || a.updatedAt > newest.updatedAt)) newest = a;
+      if (SHOWN.includes(a.kind) && !a.agent && (!newest || a.updatedAt > newest.updatedAt)) newest = a;
     }
     if (newest) out.set(bookId, newest);
   }
@@ -86,6 +88,8 @@ export type LibraryItem = {
   coverUrl: string | null;
   progress: number;
   pageCount: number | null;
+  /** The book file's size in bytes: a stand-in for length when there is no page count (EPUBs). */
+  fileSize: number | null;
   available: Availability;
   /** The reader has notes or highlights in it (folded corner). */
   notes: boolean;
@@ -116,6 +120,7 @@ export async function libraryItems(
     coverUrl: b.fileKey ? signCover(b.coverKey) : null,
     progress: b.progress,
     pageCount: b.pageCount,
+    fileSize: b.fileSize,
     available: availabilityOf(b, audio.has(b.id), narration),
     notes: noted.has(b.id),
     audiobook: audio.has(b.id),

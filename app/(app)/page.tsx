@@ -24,15 +24,18 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const sort = parseSort((await searchParams).sort);
   const [shelf, waiting, opened] = await Promise.all([listShelf(db, user.id, { sort }), notYetAvailable(db, user.id), continueBooks(db, user.id, 2)]);
   const sign = await coverSigner();
-  const [items, waitingItems, notes] = await Promise.all([
-    libraryItems(db, user.id, shelf, sign),
-    libraryItems(db, user.id, waiting),
+  // One pass for both lists: the notes and audiobook look-ups run once.
+  const waitingIds = new Set(waiting.map((b) => b.id));
+  const [all, notes] = await Promise.all([
+    libraryItems(db, user.id, [...shelf, ...waiting], sign),
     latestNotes(
       db,
       user.id,
       opened.map((b) => b.id),
     ),
   ]);
+  const items = all.filter((i) => !waitingIds.has(i.id));
+  const waitingItems = all.filter((i) => waitingIds.has(i.id));
   const byId = new Map(items.map((i) => [i.id, i]));
   const continuing = await Promise.all(
     opened
@@ -87,7 +90,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <SortMenu />
                   </div>
                 }
-                between={<ImportZone />}
+                between={<ImportZone hideOnPhone />}
                 grid={<LibraryGrid items={items} />}
                 spines={<LibrarySpines items={items} />}
               />
