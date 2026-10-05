@@ -44,7 +44,8 @@ export function ListenBar({
   startCfi: string;
   /** Highlight a word of a paragraph (character offsets into its text); returns the word's text, or null if it is not on the page yet. */
   onWord: (passageCfi: string, from: number, to: number) => string | null;
-  onPassage: (passageCfi: string) => void;
+  /** Show a paragraph (turning the page if needed); `resume`: going on after a pause, show the word being read. */
+  onPassage: (passageCfi: string, opts?: { resume?: boolean }) => void;
   onClose: () => void;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
@@ -125,9 +126,9 @@ export function ListenBar({
     if (!info) return;
     const el = audio.current!;
     if (info.track && el.src && !el.ended) {
-      // Paused part-way: bring the paragraph's page back if the reader turned away, and go on.
+      // Paused part-way: bring the page back if the reader turned away, and go on.
       lastWord.current = -1;
-      onPassage(info.passage.cfi);
+      onPassage(info.passage.cfi, { resume: true });
       await el.play();
       return;
     }
@@ -215,7 +216,7 @@ export function ListenBar({
       // Paused part-way: bring its page back if the reader turned away, and go on from there.
       lastWord.current = -1;
       shown.current = book.current.index;
-      onPassage(p.cfi);
+      onPassage(p.cfi, { resume: true });
       el.play().catch(playFailed);
       return;
     }

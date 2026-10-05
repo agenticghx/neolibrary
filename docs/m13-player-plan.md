@@ -179,9 +179,15 @@ each finding, and every confirmed one was fixed (listed at the end).
   - Switching voices hands the place over (a made voice reads on from the
     audiobook's paragraph, and back); made-voice audio still being fetched
     when the voice changes is dropped.
-  - Play after a pause brings back the page being read if the reader turned
-    away. "Loading your audiobook…" shows when the audio has waited for
-    data for more than 0.6 s.
+  - Play after a pause goes back to the page of the word being read if the
+    reader turned away (not to the paragraph's first page: in a long
+    paragraph that would turn back and then forward again). "Loading your
+    audiobook…" shows when the audio has waited for data for more than 0.6 s.
+  - The automatic page turn (from M7, shared with made voices) goes straight
+    to the word's page, and its "turning" flag clears when the request ends:
+    foliate ignores a turn asked for within 0.1 s of the last one and then
+    sends no "relocate", so after a jump of several pages the page used to
+    stop turning for good.
   - A word is counted as lit only when it was found on the page, so a word
     asked for while a chapter is still opening is tried again on the next
     frame; an error in one frame (a chapter half-opened) no longer stops the
@@ -195,8 +201,9 @@ each finding, and every confirmed one was fixed (listed at the end).
   paragraph order could anchor it more firmly. The browser tests use
   paragraphs checked to be placed exactly.
 - **Engines:** CI runs WebKit on Linux, which plays media through GStreamer,
-  not Safari's AVFoundation; the read-along tests accept a whole-file answer
-  to a request that asked for no range (Linux WebKit's way). The closed
+  not Safari's AVFoundation; its first audio request asks for no range, and
+  Playwright reports that answer with status 0; the tests accept a whole-file
+  answer (status 0 or 200) only to a request that asked for no range. The closed
   whole-file range ("bytes=0-<last>") is Safari-on-Mac behaviour, checked by
   local Mac runs. Real Safari on an iPhone has not been tried: that is (f).
 

@@ -166,6 +166,8 @@ export function Reader(props: {
   const whereCfi = useRef<string | null>(props.initialCfi);
   /** Read aloud asked for the next page and it has not arrived yet. */
   const turning = useRef(false);
+  /** Where the word lit by read aloud is (its CFI): going on after a pause returns to its page. */
+  const litCfi = useRef<string | null>(null);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
@@ -650,22 +652,40 @@ export function Reader(props: {
     if (!range) return null;
     const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
+    const wordCfi = v.getCFI(index, range);
+    litCfi.current = wordCfi;
     const visible = whereCfi.current;
-    if (visible && !turning.current && CFI.compare(v.getCFI(index, range), CFI.collapse(visible, true)) > 0) {
+    if (visible && !turning.current && CFI.compare(wordCfi, CFI.collapse(visible, true)) > 0) {
+      // On to the word's page, however many pages on (after a jump in the
+      // audio it may be several). foliate ignores a turn asked for while it
+      // finishes the last one (about 0.1 s), and then sends no "relocate":
+      // so the flag clears when this request is done or ignored, and the
+      // next word asks again.
       turning.current = true;
-      void v.next();
+      void v.goTo(wordCfi).finally(() => {
+        turning.current = false;
+      });
     }
     return range.toString();
   };
 
-  const showPassage = (passageCfi: string) => {
+  /**
+   * Shows a paragraph read aloud, unless it is already on screen. Going on
+   * after a pause (`resume`), it shows the word that was being read instead:
+   * in a long paragraph that may be on a later page than the paragraph's
+   * start, and turning back to the start would only turn forward again.
+   */
+  const showPassage = (passageCfi: string, opts: { resume?: boolean } = {}) => {
     const v = view.current;
     const visible = whereCfi.current;
     if (!v) return;
-    if (!visible || CFI.compare(passageCfi, CFI.collapse(visible)) < 0 || CFI.compare(passageCfi, CFI.collapse(visible, true)) > 0) void v.goTo(passageCfi);
+    const target = opts.resume && litCfi.current ? litCfi.current : passageCfi;
+    const at = CFI.collapse(target);
+    if (!visible || CFI.compare(at, CFI.collapse(visible)) < 0 || CFI.compare(at, CFI.collapse(visible, true)) > 0) void v.goTo(target);
   };
 
   const stopListening = () => {
+    litCfi.current = null;
     for (const { doc } of view.current?.renderer.getContents() ?? []) {
       (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
     }
