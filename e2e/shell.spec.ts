@@ -74,6 +74,11 @@ test.describe("desktop sidebar", () => {
     await expect(skip).toBeInViewport();
     await page.keyboard.press("Enter");
     await expect(page.locator("#content")).toBeFocused();
+    // The next Tab goes into the page, and the wrapper stops being focusable
+    // (otherwise Safari would focus it on every click in the page).
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.getElementById("content")!.contains(document.activeElement) && document.activeElement !== document.getElementById("content"))).toBe(true);
+    await expect(page.locator("#content")).not.toHaveAttribute("tabindex");
   });
 
   test("a new collection appears in the sidebar at once, and leaves with it", async ({ page }) => {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Mark } from "@/components/Mark";
 import { AccountMenu } from "@/components/shell/AccountMenu";
 import { Sidebar } from "@/components/shell/Sidebar";
+import { SkipLink } from "@/components/shell/SkipLink";
 import { TabBar } from "@/components/shell/TabBar";
 import styles from "@/components/shell/Shell.module.css";
 import { requireUser } from "@/lib/auth/session";
@@ -18,9 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [paths, collections] = await Promise.all([listPathsWithProgress(db, user.id), listCollections(db, user.id)]);
   return (
     <div className={styles.shell}>
-      <a href="#content" className={styles.skip}>
-        Skip to the page
-      </a>
+      <SkipLink />
       <Sidebar user={user} paths={paths} collections={collections} />
       <div className={styles.column}>
         <header className={styles.phoneBar}>
@@ -30,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <AccountMenu name={user.name} admin={user.role === "admin"} />
         </header>
-        <div id="content" tabIndex={-1} className={styles.content}>
+        <div id="content" className={styles.content}>
           {children}
         </div>
       </div>
