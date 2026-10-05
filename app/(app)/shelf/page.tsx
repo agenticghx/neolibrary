@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { Cover } from "@/components/Cover";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { availabilityLabel, availabilityOf } from "@/lib/library/availability";
+import { audiobookBookIds, narrationOn } from "@/lib/library/listenable";
 import { coverSigner } from "@/lib/library/covers";
 import { listCollections, listShelf, parseSort } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
@@ -33,6 +35,12 @@ export default async function ShelfPage({
     listShelf(db, user.id),
   ]);
   const sign = await coverSigner();
+  const audiobooks = await audiobookBookIds(
+    db,
+    user.id,
+    shelf.map((b) => b.id),
+  );
+  const narration = narrationOn();
   const chipHref = (c?: string) => {
     const p = new URLSearchParams();
     if (c) p.set("c", c);
@@ -45,11 +53,11 @@ export default async function ShelfPage({
   return (
     <main className={styles.main}>
       <header className={styles.head}>
-        <p className={styles.eyebrow}>Your shelf</p>
-        <h1 className={styles.title}>Books you own</h1>
+        <p className={styles.eyebrow}>Library</p>
+        <h1 className={styles.title}>Your library</h1>
         <p className={styles.lede}>
           {everything.length === 0
-            ? "Nothing here yet. Add your own DRM-free books; ones on your path light up there too."
+            ? "Nothing here yet. Add your own DRM-free books."
             : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
         </p>
       </header>
@@ -101,16 +109,20 @@ export default async function ShelfPage({
 
           {shelf.length ? (
             <ul className={styles.grid} data-testid="shelf">
-              {shelf.map((b) => (
-                <li key={b.id}>
-                  <Link href={`/books/${b.id}`} className={styles.item}>
-                    <Cover title={b.title} owned imageUrl={sign(b.coverKey)} progress={b.progress} />
-                    <span className={styles.itemTitle}>{b.title}</span>
-                    <span className={styles.itemAuthor}>{b.author}</span>
-                    <span className={styles.itemProgress}>{progressLabel(b.progress)}</span>
-                  </Link>
-                </li>
-              ))}
+              {shelf.map((b) => {
+                const available = availabilityOf(b, audiobooks.has(b.id), narration);
+                return (
+                  <li key={b.id}>
+                    <Link href={`/books/${b.id}`} className={styles.item}>
+                      <Cover title={b.title} available={available} caption={false} imageUrl={sign(b.coverKey)} progress={b.progress} />
+                      <span className={styles.itemTitle}>{b.title}</span>
+                      <span className={styles.itemAuthor}>{b.author}</span>
+                      <span className={styles.itemAvailable}>{availabilityLabel(available)}</span>
+                      <span className={styles.itemProgress}>{progressLabel(b.progress)}</span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className={styles.empty}>{sp.q ? `Nothing matches “${sp.q}”.` : "No books in this collection yet."}</p>

@@ -7,7 +7,7 @@ import styles from "./page.module.css";
 
 const MESSAGES = {
   added: "Added to your shelf",
-  attached: "Attached to the wanted book in your path",
+  attached: "Added to a title that was waiting for it",
   duplicate: "Already on your shelf",
 } as const;
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cover } from "@/components/Cover";
+import { NOT_YET } from "@/lib/library/availability";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Design system" };
@@ -83,9 +84,9 @@ export default function DesignPage() {
             Shelf
           </h2>
           <div className={styles.shelf}>
-            <Cover title="Meditations" slot="N" tone="navy" />
-            <Cover title="Discourse on Method" slot="E" tone="green" />
-            <Cover title="The Principles" slot="E" owned={false} />
+            <Cover title="Meditations" slot="N" tone="navy" available={{ read: true, listen: true }} />
+            <Cover title="Discourse on Method" slot="E" tone="green" available={{ read: true, listen: false }} />
+            <Cover title="The Principles" slot="E" available={NOT_YET} />
           </div>
         </section>
 

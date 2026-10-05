@@ -4,6 +4,7 @@ import { PathView } from "@/components/PathView";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { notesForPath } from "@/lib/library/annotations";
+import { NOT_YET } from "@/lib/library/availability";
 import { coverSigner } from "@/lib/library/covers";
 import { getPathView, listPaths } from "@/lib/library/paths";
 import { STARTER_PATHS } from "@/lib/library/seed";
@@ -41,8 +42,8 @@ export default async function HomePage() {
           <form key={p.slug} action={addPathAction} className={styles.starter}>
             <input type="hidden" name="slug" value={p.slug} />
             <div className={styles.shelf} aria-hidden="true">
-              <Cover title={p.pillars[0].books[0].title} slot="N" owned={false} size="sm" />
-              <Cover title={p.pillars[0].books[1].title} slot="E" owned={false} size="sm" />
+              <Cover title={p.pillars[0].books[0].title} slot="N" available={NOT_YET} caption={false} size="sm" />
+              <Cover title={p.pillars[0].books[1].title} slot="E" available={NOT_YET} caption={false} size="sm" />
             </div>
             <div className={styles.starterText}>
               <h2 className={styles.starterTitle}>{p.title}</h2>

@@ -27,28 +27,28 @@ test("the owner's library opens on the Hidden Machinery path, in reading order",
   const lastPillarBox = await page.getByTestId("pillar").last().boundingBox();
   const masterBox = await master.boundingBox();
   expect(masterBox!.y).toBeGreaterThan(lastPillarBox!.y);
-  await expect(page.getByRole("link", { name: "Seeing Like a State (not owned)" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Seeing Like a State (not available yet)" })).toBeVisible();
 
-  // Nothing is owned yet: every book is dimmed, and "you are here" is on pillar 01.
-  await expect(page.getByText("Not owned").first()).toBeVisible();
+  // No book file yet: titles are greyed and labelled, and "you are here" is on pillar 01.
+  await expect(page.getByText("Not available yet", { exact: true }).first()).toBeVisible();
   const here = page.getByText("You are here");
   await expect(here).toHaveCount(1);
   await expect(page.getByTestId("pillar").filter({ has: here }).locator("h3")).toHaveText("Electricity & the grid");
 });
 
-test("a wanted book has its own page saying where it sits", async ({ page }) => {
+test("a title not available yet has its own page saying where it sits", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Chip War (not owned)", exact: true }).click();
+  await page.getByRole("link", { name: "Chip War (not available yet)", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Chip War", level: 1 })).toBeVisible();
   await expect(page.getByText("Hidden Machinery › Semiconductors")).toBeVisible();
-  await expect(page.getByText("Not on your shelf yet")).toBeVisible();
+  await expect(page.getByText("Not available yet. Add the book file (EPUB or PDF) and it attaches here.")).toBeVisible();
 });
 
 test("agent suggestions are labelled as not catalog-checked", async ({ page }) => {
   await page.goto("/");
   const geo = page.getByTestId("pillar").filter({ has: page.getByRole("heading", { name: "Geospatial reasoning" }) });
   await expect(geo.getByText("Agent suggestions, not catalog-checked")).toBeVisible();
-  await geo.getByRole("link", { name: "The Power of Maps (not owned)" }).click();
+  await geo.getByRole("link", { name: "The Power of Maps (not available yet)" }).click();
   await expect(page.getByText("not checked against a catalog")).toBeVisible();
 });
 

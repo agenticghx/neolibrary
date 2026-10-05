@@ -29,7 +29,7 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["machine-ink", "machine-bg", 4.5],
   ["cover-ink", "cover-navy", 4.5],
   ["cover-ink", "cover-green", 4.5],
-  ["cover-unowned-ink", "cover-unowned", 4.5],
+  ["cover-empty-ink", "cover-empty", 4.5],
   ["focus-ring", "paper", 3],
   ["machine-rule", "machine-bg", 3],
 ];

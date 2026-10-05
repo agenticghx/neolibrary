@@ -7,7 +7,7 @@ import { ADMIN_STATE } from "./pages";
 
 // M3 "Done when" (part): uploading three public-domain books shows them on the
 // shelf with correct titles and covers; uploading a file whose title matches a
-// wanted book attaches to it.
+// title waiting for it (a placeholder on a Path) attaches to it.
 
 test.use({ storageState: ADMIN_STATE });
 test.describe.configure({ mode: "serial" });
@@ -50,7 +50,7 @@ const GRID_TEXT = `<h1>The wires</h1>${Array.from(
   (_, i) => `<p>Paragraph ${i + 1}. A line of poles runs along the road, carrying power from a station far away to the houses and shops of a small town, where lamps and kettles wait for it every evening.</p>`,
 ).join("")}`;
 
-test("a file matching a wanted book attaches to it and lights up the path", async ({ page }) => {
+test("a file matching a title not available yet attaches to it and lights up the path", async ({ page }) => {
   await page.goto("/shelf");
   await page.getByLabel("Choose files").setInputFiles({
     name: "the-grid.epub",
@@ -58,12 +58,15 @@ test("a file matching a wanted book attaches to it and lights up the path", asyn
     // Readable (spine and contents), so the stats test can open it in the reader. Invented text.
     buffer: Buffer.from(readableEpub("The Grid: The Fraying Wires Between Americans and Our Energy Future", [GRID_TEXT], "Gretchen Bakke")),
   });
-  await expect(page.getByTestId("upload-results").getByText("Attached to the wanted book in your path")).toBeVisible();
+  await expect(page.getByTestId("upload-results").getByText("Added to a title that was waiting for it")).toBeVisible();
   await page.goto("/");
-  // Owned now: no "(not owned)" in its name, and the path counts it.
-  await expect(page.getByRole("link", { name: "The Grid", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "The Grid (not owned)" })).toHaveCount(0);
-  await expect(page.getByText(/1 owned/)).toBeVisible();
+  // Available now: no "(not available yet)" in its name, its label says so (an EPUB, and the
+  // tests' fake voice counts as narration), and the path counts it.
+  const grid = page.getByRole("link", { name: "The Grid", exact: true });
+  await expect(grid).toBeVisible();
+  await expect(page.getByRole("link", { name: "The Grid (not available yet)" })).toHaveCount(0);
+  await expect(page.getByRole("figure").filter({ has: grid }).getByText("Read and listen", { exact: true })).toBeVisible();
+  await expect(page.getByText(/\b1 available, \d+ not available yet/)).toBeVisible();
 });
 
 test("duplicates, other file types and DRM-protected books are refused politely", async ({ page }) => {

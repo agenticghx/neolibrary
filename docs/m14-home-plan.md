@@ -145,21 +145,30 @@ it are history. In words, for when the canvas is not reachable:
 ## 4. Decisions this plan makes (defaults; Samuel can overrule each in a line)
 
 Record each in `PROGRESS.md` Decisions as "by Claude (default)" the first
-time the code depends on it, and list D1, D3, D5 and D10 in Open unknowns
-(row 4) with decide-by 2026-10-19.
+time the code depends on it. **Samuel answered D1, D3, D5, D8 and D10 on
+2026-10-05** (Open unknowns row 4, now closed); his answers are written into
+those items below and win over anything else in this file.
 
-- **D1 · Availability.** *Read* = the title has a book file
-  (`books.fileKey` is not null). *Listen* = it has a ready uploaded
-  audiobook (a `readalong_imports` row with `status = "ready"`). Labels:
-  **Read and listen**, **Read only**, **Listen only**, **Not available
-  yet**. ElevenLabs narration does not count as "Listen" (it is paid, made
-  on demand, EPUB only, and needs a key); the reader still offers it.
+- **D1 · Availability (Samuel, 2026-10-05: narration counts, "of course
+  yes").** *Read* = the title has a book file (`books.fileKey` is not
+  null). *Listen* = it has a ready uploaded audiobook (a
+  `readalong_imports` row with `status = "ready"`), **or** it is an EPUB
+  and narration is switched on (ElevenLabs narration is EPUB only; it is
+  on when `getSpeechModel()` does not throw `SpeechNotConfigured`: the key
+  is set on the live site, and the fake voice is used in tests with
+  `AI_FAKE=1`). Labels: **Read and listen**, **Read only**, **Listen
+  only**, **Not available yet**. So with narration on, every EPUB says
+  Read and listen; a PDF says Read and listen only with an uploaded
+  audiobook. Two things stay tied to an **uploaded** audiobook, so they
+  still tell titles apart (by Claude, default; Samuel can overrule): the
+  headphones mark on the cover, and the Audiobooks filter (D5).
 - **D2 · "Listen only" has no source yet.** Today an audiobook can only be
   added to a title that has a book file (the read-along importer matches
   spoken words to the book's paragraphs). The label logic must support
   Listen only, but uploading audio to a title without a book file is **not
   in M14**; add it to `docs/plan.md` "Later" as a candidate for M15.
-- **D3 · Titles not available yet in the library.** Hidden Machinery alone
+- **D3 · Titles not available yet in the library (Samuel confirmed,
+  2026-10-05).** Hidden Machinery alone
   adds more than 100 such titles, so they must not flood the grid. Home and
   Library "All" show available titles in the grid, then one closed group
   **"Not available yet (N)"** (a `<details>` element) listing the rest as
@@ -170,10 +179,12 @@ time the code depends on it, and list D1, D3, D5 and D10 in Open unknowns
   keeping its query; `/paths` the list of Paths; `/paths/[slug]` one Path.
   The reader's back arrow and the book page's back link go to `/`, labelled
   "Back to your library" and "Library".
-- **D5 · Library filters.** All = everything. Want to Read = not started
+- **D5 · Library filters (Samuel confirmed Want to Read = automatic,
+  2026-10-05).** All = everything. Want to Read = not started
   (`progress = 0` and never opened), including titles not available yet.
   Finished = `progress >= 1`. Books = has an EPUB file. PDFs = has a PDF
-  file. Audiobooks = has a ready uploaded audiobook.
+  file. Audiobooks = has a ready uploaded audiobook (narration alone does
+  not count here, or the filter would equal Books; see D1).
 - **D6 · Set-up no longer adds Hidden Machinery.** The empty Home offers
   "Add three free classics" (existing samples) and "Start from a reading
   list: Hidden Machinery" (the existing `addPathAction`). `/paths` offers the
@@ -185,9 +196,14 @@ time the code depends on it, and list D1, D3, D5 and D10 in Open unknowns
   reader at the saved position. Listen from here: in step 3 it opens the
   reader with Listen started (`/books/[id]/read?listen=1`); from step 6 on
   it starts the mini-player inside the click and stays on Home.
-- **D8 · Spine view** is on the phone only (Samuel asked for it there),
-  remembered on the device (`localStorage` key `nl.libraryView`), default
-  Grid.
+- **D8 · View switch on desktop and phone (Samuel, 2026-10-05: "grid is
+  default", with a View button to switch between grid and spines on both
+  desktop and phone).** A View
+  switch (two buttons, Grid and Spines, `aria-pressed`) above the library
+  on Home and `/library`, on both desktop and phone. Default Grid,
+  remembered on the device (`localStorage` key `nl.libraryView`). Desktop
+  spines follow the mockups' "Home on desktop B" (a shelf of spines that
+  fill from the bottom as you read).
 - **D9 · Phone navigation.** Bottom tabs: Home, Library, Paths, Search.
   Collections are the chips on the Library tab. Reading stats, Your data,
   Invite and Sign out sit in an account menu behind a round initial button
@@ -197,7 +213,11 @@ time the code depends on it, and list D1, D3, D5 and D10 in Open unknowns
   in order (stored as slots). Each title is a library book, or a new
   title-only entry (title and author). A title may be marked "Story first"
   (N) or "Go deeper" (E); otherwise it is a plain entry (`extra`). Reorder
-  with "Move up" / "Move down" buttons (no drag-only controls).
+  with "Move up" / "Move down" buttons (no drag-only controls). Samuel
+  confirmed this shape on 2026-10-05 and chose **no "Read last" marker**
+  for now (the database's `master` slot kind, used by Hidden Machinery's
+  *Seeing Like a State*, stays available to add later without a
+  migration).
 - **D11 · One player for the whole app (step 6).** One audio element lives
   in the root layout. The reader, when open, lends the player its page
   turning and word lighting. Outside the reader the mini-player shows the
@@ -223,15 +243,18 @@ names.
 **Changes.**
 - New `lib/library/availability.ts`: `type Availability = { read: boolean;
   listen: boolean }`, `availabilityLabel(a)`, and
-  `listenableBookIds(db, ownerId, bookIds): Promise<Set<string>>` (one query
+  `audiobookBookIds(db, ownerId, bookIds): Promise<Set<string>>` (one query
   on `readalong_imports` with `status = "ready"`; today the only helper,
   `readyImport` in `lib/library/audio.ts:280`, is per book and not
-  exported). **Every place that draws a Cover or a label must compute
-  `listen` with it**: `getPathView` and `getBook` in `lib/library/paths.ts`,
+  exported), `narrationOn()` (true when `getSpeechModel()` does not throw
+  `SpeechNotConfigured`), and `availabilityOf(book, hasAudiobook,
+  narration)` (D1: listen = uploaded audiobook, or an EPUB with narration
+  on). **Every place that draws a Cover or a label must compute `listen`
+  with these**: `getPathView` and `getBook` in `lib/library/paths.ts`,
   the shelf grid (`app/(app)/shelf/page.tsx`), the book page and the
   `/design` sample. Today they all derive `owned` from `fileKey` alone; if
-  one is missed, its headphones mark never shows and its label always says
-  "Read only".
+  one is missed, its headphones mark never shows and its label is wrong.
+  The headphones mark follows the uploaded audiobook only (D1).
 - `components/Cover.tsx`: replace the `owned` prop with `available`
   (`Availability`); the greyed style when neither; the link label says
   "(not available yet)"; the caption shows the availability label. Rename
@@ -263,8 +286,11 @@ names.
   60-66` (attach message; `/1 available/`), `lib/library/paths.test.ts:
   38-39`, `lib/tokens.test.ts:32`.
 - New unit tests: `availabilityLabel` for all four cases;
-  `listenableBookIds` (a ready import counts, an "uploading" one does not,
-  another owner's never does).
+  `audiobookBookIds` (a ready import counts, an "uploading" one does not,
+  another owner's never does); `availabilityOf` (an EPUB with narration on
+  is Read and listen, with narration off Read only; a PDF with narration on
+  is Read only unless it has an uploaded audiobook; a title-only book is
+  Not available yet either way).
 - New check: `grep -rniE "not owned|books you own|unowned|\\bowned\\b"
   app components lib e2e` prints nothing except the unrelated locals
   `ownedBook` / `ownedImport` in `lib/readalong/importer.ts` and the owner
@@ -276,8 +302,9 @@ names.
 **Done when.** The grep above is clean; the Path view and a title-only
 book page say "not available yet"; unit and browser suites green.
 
-**Mutation checks.** Make `listenableBookIds` ignore `status`: the
-"uploading" test fails. Make Cover show the image for a title-only book: a
+**Mutation checks.** Make `audiobookBookIds` ignore `status`: the
+"uploading" test fails. Let narration count for a PDF: the `availabilityOf`
+PDF test fails. Make Cover show the image for a title-only book: a
 test fails (add one that checks the greyed cover has no image).
 
 ### Step 2 · `m14-b2-shell`: sidebar on desktop, tabs on a phone
@@ -383,11 +410,12 @@ Machinery.
   the grid. Empty library: lede "Good to see you, {first name}. Your library
   is empty.", buttons "Add three free classics" and "Start from a reading
   list" (the Hidden Machinery card from today's empty Home).
-- Phone: the Grid / Spines switch (client component, `aria-pressed`, stored
-  in `localStorage` `nl.libraryView`, reading it inside `try/catch`); the
-  spine view (spine width from page count, fill from progress, title
-  vertical, "New" / "Done" / percentage at the foot; a greyed spine for not
-  available).
+- The View switch, Grid / Spines, on desktop and phone (D8; client
+  component, `aria-pressed`, stored in `localStorage` `nl.libraryView`,
+  reading it inside `try/catch`); the spine view (spine width from page
+  count, fill from progress, title vertical, "New" / "Done" / percentage at
+  the foot; a greyed spine for not available; desktop follows the mockups'
+  "Home on desktop B").
 - Continue's Listen from here: `/books/[id]/read?listen=1`; the reader opens
   Listen when that flag is present (and only for a book with something to
   listen to).
@@ -412,8 +440,9 @@ Machinery.
   Continue shows Jekyll, its newest note text, both buttons; Read from here
   opens the reader at the saved CFI; Listen from here opens the reader with
   the Read aloud bar present; the grid shows availability labels; the "Not
-  available yet (N)" group holds Hidden Machinery titles; on a phone the
-  switch toggles grid and spines and is remembered after a reload; axe
+  available yet (N)" group holds Hidden Machinery titles; on desktop and
+  on a phone the switch toggles grid and spines and is remembered after a
+  reload; axe
   clean and no sideways scroll; screenshots `home-full-<look>.png` with the
   2x2 loop used in `stats.spec.ts:104-116`.
 - Unit tests for `continueBooks`, `latestNotes` (newest wins; a deleted
@@ -424,8 +453,8 @@ Machinery.
 projects; `home-full` from `home.spec.ts` with data.
 
 **Done when.** After sign-in Home shows Continue with the last-opened book,
-its last note and both buttons, and the whole library with Import; on a
-phone the switch works; set-up adds no Path; suites green.
+its last note and both buttons, and the whole library with Import; on
+desktop and phone the View switch works; set-up adds no Path; suites green.
 
 **Mutation checks.** Return the oldest note instead of the newest: the
 `latestNotes` test fails. Drop the `progress < 1` filter: a finished book
@@ -849,20 +878,22 @@ From `docs/learning-loop-2026-10-05.md` §B–D, `docs/handoff.md` §5, and the
    `PROGRESS.md` Log entry and the iteration.
 9. **Ask the advisor before declaring the step done.**
 
-## 10. Open questions for Samuel (defaults apply until he answers)
+## 10. Open questions for Samuel
 
-Put these in `PROGRESS.md` Open unknowns (row 4) and in the M14 verdict
-issue. Each has a default in §4.
+Answered 2026-10-05 (Open unknowns row 4, closed; details in §4):
 
-1. D1: should ElevenLabs narration count as "Listen" for EPUBs? (Default:
-   no; only your uploaded audiobook counts.)
-2. D3: titles not available yet: one closed group at the end of the grid?
-   (Default: yes.)
-3. D5: "Want to Read": everything not started, or a list you add to by hand
-   like Apple's? (Default: everything not started.)
-4. D8: spine view on desktop too? (Default: phone only.)
-5. D10: is "sections with ordered titles, each optionally Story first or Go
-   deeper" enough for your own Paths? (Default: yes.)
+1. D1: ElevenLabs narration counts as "Listen" for EPUBs: **yes** ("of
+   course yes"). Headphones mark and Audiobooks filter stay tied to an
+   uploaded audiobook (Claude's default; ask in the M14 verdict issue).
+2. D3: titles not available yet in one closed group at the end: **yes**.
+3. D5: "Want to Read" = everything not started (automatic): **yes**.
+4. D8: Grid is the default; a View switch to spines on **both desktop and
+   phone**.
+5. D10: sections with ordered titles is enough; **no "Read last" marker**
+   for now.
+
+Still open:
+
 6. Still open from earlier: the Path page layout (one option drawn) and the
    two Home extras (a question; threads), not in M14.
 
@@ -894,4 +925,4 @@ issue. Each has a default in §4.
 - **Screenshot churn**: step 2 changes every signed-in reference image;
   keep step 2 free of other visual changes so the diff is reviewable.
 - **Scope creep**: "Listen only" uploads, a hand-made Want to Read list,
-  desktop spines, the Home extras are out of M14 unless Samuel says so.
+  a "Read last" marker, the Home extras are out of M14 unless Samuel says so.

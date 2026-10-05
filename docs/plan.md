@@ -55,7 +55,9 @@ annotations, many learning materials … not a hidden machinery library."
   both!"). Every title says what is available: **Read and listen**, **Read
   only** (a book file, no audio), **Listen only** (audio, no book file), or
   **Not available yet** (a title with neither: greyed cover, with a way to
-  add the file). Titles with nothing available yet appear in the library
+  add the file). "Listen" counts ElevenLabs narration too (Samuel,
+  2026-10-05: "of course yes"): with narration switched on, every EPUB is
+  Read and listen; a PDF needs an uploaded audiobook. Titles with nothing available yet appear in the library
   too, not only on Paths. The older sections below that say "owned" or
   "unowned" mean exactly this.
 - **Collections are unordered groups of materials**, as in Apple Books.
@@ -519,6 +521,9 @@ What Samuel confirmed (2026-10-05):
 - **Home on a phone: A, with a toggle to a spine view**: covers in a grid
   by default; a Grid / Spines switch shows the books as spines on a shelf,
   each spine filling from the bottom as you read (option B on the mockups).
+  The same View switch is on desktop too (Samuel, 2026-10-05: "grid is
+  default", with a View button to switch between grid and spines on both
+  desktop and phone).
 - **Mini-player: B, plus a speed the reader chooses**: the sentence being
   read with the word lit, back 15 s, play/pause, forward 15 s, "Go to the
   page", "Think aloud" (records a voice note, M8, on that sentence), and a
@@ -539,11 +544,13 @@ What Samuel confirmed (2026-10-05):
   highlighted in more than one book, `lib/library/crosslinks.ts`). They stay
   out of M14 until Samuel asks.
 
-Assumed by Claude, not yet confirmed by Samuel: you can make your own Paths
-(today Hidden Machinery is the only one, added from a built-in list); Hidden
-Machinery is no longer added at set-up but offered as a starter Path; Path
-placeholders also appear under "Want to Read"; the spine view is on the
-phone only (Samuel asked for it there).
+Confirmed by Samuel on 2026-10-05 (they were Claude's assumptions): you can
+make your own Paths, as sections of ordered titles, without a "Read last"
+marker for now; Hidden Machinery is no longer added at set-up but offered as
+a starter Path; "Want to Read" is automatic (everything not started) and
+includes Path placeholders; titles not available yet sit in one closed
+group at the end of the grid; the View switch (Grid / Spines) is on desktop
+and phone, Grid by default.
 
 Steps (the detailed build plan, with files, tests, mutation checks and the
 lessons to apply, is `docs/m14-home-plan.md`; one PR per step):
@@ -554,7 +561,7 @@ lessons to apply, is `docs/m14-home-plan.md`; one PR per step):
 - **(b2)** The sidebar on desktop, bottom tabs and an account menu on a
   phone; the library page moves to `/library` (`/shelf` redirects).
 - **(b3)** Home: "Continue" (B), the whole library as a grid with fill bars
-  and marks, Import, the phone's Grid / Spines toggle; titles not available
+  and marks, Import, the Grid / Spines View switch (desktop and phone); titles not available
   yet in one closed group; Hidden Machinery offered, not added at set-up.
 - **(c)** Library filters by kind and status.
 - **(d)** Paths: their own pages, making your own Path, adding a book file
@@ -566,7 +573,7 @@ lessons to apply, is `docs/m14-home-plan.md`; one PR per step):
 
 Done when: in the browser tests, after sign-in Home shows "Continue" with the
 last-opened book, its last note and both buttons, and the whole library with
-Import; on a phone the Grid / Spines toggle switches the view; the sidebar's filters,
+Import; on desktop and phone the Grid / Spines View switch changes the view; the sidebar's filters,
 Paths and Collections each open the right view; a placeholder on a Path
 becomes a full cover after its book is uploaded; audio started in the reader
 keeps playing on Home, where the mini-player shows the sentence being read
