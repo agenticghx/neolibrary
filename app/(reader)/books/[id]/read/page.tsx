@@ -16,7 +16,7 @@ export default async function ReadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ at?: string }>;
+  searchParams: Promise<{ at?: string; listen?: string }>;
 }) {
   const user = await requireUser();
   const db = await getDb();
@@ -24,7 +24,8 @@ export default async function ReadPage({
   if (!found || !found.available.read || !found.book.fileType) notFound();
   const { book } = found;
   // ?at=<cfi> (e.g. from a search result) opens at that spot instead of the saved one.
-  const at = (await searchParams).at;
+  const sp = await searchParams;
+  const at = sp.at;
   const fileUrl = signFileUrl(await serverSecret(db, "file-links"), book.fileKey!);
   return (
     <Reader
@@ -35,6 +36,7 @@ export default async function ReadPage({
       fileType={book.fileType!}
       initialCfi={isCfi(at) ? at : book.position}
       initialFraction={book.progress}
+      startListening={sp.listen === "1" && found.available.listen}
     />
   );
 }
