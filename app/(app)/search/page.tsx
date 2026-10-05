@@ -62,7 +62,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             {noteHits.map((h) => (
               <li key={h.annotationId}>
                 <Link
-                  href={!h.bookId ? "/" : h.cfi ? `/books/${h.bookId}/read?at=${encodeURIComponent(h.cfi)}` : `/books/${h.bookId}`}
+                  href={!h.bookId ? (h.pathSlug ? `/paths/${h.pathSlug}` : "/") : h.cfi ? `/books/${h.bookId}/read?at=${encodeURIComponent(h.cfi)}` : `/books/${h.bookId}`}
                   className={styles.hit}
                 >
                   <span className={styles.chapter}>

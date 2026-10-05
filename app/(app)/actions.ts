@@ -36,9 +36,11 @@ export async function revokeInviteAction(data: FormData) {
 export async function addPathAction(data: FormData) {
   const user = await requireUser();
   const seed = STARTER_PATHS[String(data.get("slug"))];
-  if (seed) await seedPath(await getDb(), user.id, seed);
+  if (!seed) return;
+  await seedPath(await getDb(), user.id, seed);
   // The sidebar on every page lists the Paths.
   revalidatePath("/", "layout");
+  redirect(`/paths/${seed.slug}`);
 }
 
 export type CollectionState = { error: string | null };

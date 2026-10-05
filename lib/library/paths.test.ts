@@ -5,7 +5,7 @@ import type { Database } from "@/lib/db/client";
 import { books, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { createFirstAdmin, createInvite, acceptInvite } from "@/lib/auth/service";
-import { choosePillar, getBook, getPathView, normaliseTitle, pillarProgress, seedPath, type SlotView } from "./paths";
+import { choosePillar, getBook, getPathView, listPathsWithProgress, normaliseTitle, pillarProgress, seedPath, type SlotView } from "./paths";
 
 let database: Database;
 let ownerId: string;
@@ -75,6 +75,30 @@ describe("seeding the Hidden Machinery path", () => {
     expect((await getBook(database.db, ownerId, grid, false))!.available).toEqual({ read: true, listen: true });
     expect((await getBook(database.db, ownerId, chipWar, false))!.available).toEqual({ read: true, listen: false });
     expect((await getBook(database.db, ownerId, chipWar, true))!.available).toEqual({ read: true, listen: true });
+  });
+
+  it("counts a Path's numbered pillars and those started, for the sidebar", async () => {
+    expect(await listPathsWithProgress(database.db, ownerId)).toEqual([]);
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    const numbered = view.pillars.filter((p) => p.number > 0);
+    const [before] = await listPathsWithProgress(database.db, ownerId);
+    expect(before).toMatchObject({ slug: "hidden-machinery", title: "Hidden Machinery", started: 0, total: numbered.length });
+
+    const progress = (id: string, value: number, deleted = false) =>
+      database.db
+        .update(books)
+        .set({ progress: value, ...(deleted ? { deletedAt: new Date() } : {}) })
+        .where(eq(books.id, id));
+    await progress(numbered[0].slots[0].book.id, 0.2); // pillar 1: started
+    await progress(numbered[0].slots[1].book.id, 1); // the same pillar again: still one
+    await progress(numbered[2].slots[0].book.id, 0.5, true); // a deleted book does not count
+    const suggested = view.pillars.find((p) => p.group === "suggested")!;
+    await progress(suggested.slots[0].book.id, 0.5); // not a numbered pillar
+    const master = view.pillars.find((p) => p.group === "master")!;
+    await progress(master.slots[0].book.id, 0.5); // the master key is not numbered either
+    const [after] = await listPathsWithProgress(database.db, ownerId);
+    expect(after).toMatchObject({ started: 1, total: numbered.length });
   });
 
   it("keeps each person's library separate", async () => {

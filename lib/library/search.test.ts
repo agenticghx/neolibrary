@@ -6,6 +6,8 @@ import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
 import { createAnnotation, deleteAnnotation, updateAnnotation } from "./annotations";
+import { hiddenMachinery } from "@/data/paths/hidden-machinery";
+import { getPathView, seedPath } from "./paths";
 import { searchLibrary, searchNotes, splitSnippet } from "./search";
 
 let database: Database;
@@ -58,6 +60,23 @@ describe("full-text search", () => {
     const hits = await searchNotes(database.db, ownerId, "motif");
     expect(hits.map((h) => h.annotationId)).toEqual([n.id]);
     expect(hits[0].snippet.find((p) => p.match)?.text).toBe("motif");
+  });
+
+  it("gives a note on a pillar or a path its Path's slug, and a book note none", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    await createAnnotation(database.db, ownerId, { kind: "note", targetType: "pillar", targetId: view.pillars[0].id, body: "Grid frequency drifts" });
+    await createAnnotation(database.db, ownerId, { kind: "note", targetType: "path", targetId: view.id, body: "Grid systems overall" });
+    const shelf = await searchLibrary(database.db, ownerId, '"rugged countenance"');
+    await createAnnotation(database.db, ownerId, { kind: "note", bookId: shelf[0].bookId, body: "Grid of streets" });
+    const hits = await searchNotes(database.db, ownerId, "grid");
+    expect(hits.map((h) => [h.bookTitle, h.pathSlug]).sort()).toEqual(
+      [
+        ["Electricity & the grid", "hidden-machinery"],
+        ["Hidden Machinery", "hidden-machinery"],
+        [shelf[0].bookTitle, null],
+      ].sort(),
+    );
   });
 
   it("splits marked snippets into plain and matched pieces", () => {
