@@ -22,7 +22,42 @@ other, audio and text are sold separately, notes are hard to get out, and
 books are written for one generic reader. Neolibrary puts one person's study
 in one place, and everything in it can be exported.
 
-## The core idea: study paths, not just books *(Fable)*
+## The library comes first; Paths are one way to study it (Samuel, 2026-10-05)
+
+This replaces "The core idea" below, which made a study path the front door.
+Samuel's words: "this is a digital library that holds books, audiobooks,
+annotations, many learning materials … not a hidden machinery library."
+
+- **Neolibrary is a library.** It holds ebooks, PDFs, audiobooks, your
+  annotations (highlights, notes, voice notes) and the learning materials the
+  app makes from them (rewrites, pictures, question banks).
+- **Home, after sign-in:** "Continue" at the top (what you are reading or
+  listening to now, with its progress), then your whole library, with
+  Import (drag and drop) right there.
+- **Apple Books is the model for structure, not for looks.** From a screenshot
+  Samuel shared (Apple Books on the Mac, 2026-10-05): a sidebar with Search
+  and Home; a *Library* group that filters everything by kind and status (All,
+  Want to Read, Finished, Books, Audiobooks, PDFs); a *My Collections* group
+  with "New Collection"; Home with "Continue" cards ("Audiobook · 69%") and
+  titled rows of covers; a mini-player (a small audio bar at the bottom) that
+  keeps an audiobook playing while you browse. There are no stores here:
+  Import takes their place. The look stays ours (`docs/design.md`: warm
+  paper, cloth covers, serif type), and Samuel asked that the experience be
+  innovated, "not just copy cat" (see M14).
+- **Paths are curricula: ordered reading plans** such as Hidden Machinery
+  (pillars, a narrative book first, a deeper book second). A Path may list
+  books you do not own yet: they show as greyed-out placeholders and become
+  fully visible when you upload them. A Path is one group in the sidebar,
+  not the home page. Notes can still attach to a Path or a Pillar.
+- **Collections are unordered groups of materials**, as in Apple Books.
+- **A book and its audiobook are one item** you can read and listen to
+  together (M13), not two separate items as in Apple Books.
+
+## The core idea: study paths, not just books *(Fable)* — superseded 2026-10-05
+
+*Superseded by Samuel on 2026-10-05: Paths stay (as curricula, with
+placeholders), but the library, not a Path, is the home page. See the section
+above and M14. Kept for the history of the data model.*
 
 Samuel's reading list (`docs/reading-lists/hidden-machinery.md`) shows how
 Samuel actually studies: a **pillar** (a topic, e.g. "Semiconductors") with a
@@ -192,7 +227,8 @@ API, file URLs), and an invited user can log in.
 - The shelf is the showpiece: covers or spines on a shelf, sorting, search,
   collections, reading progress shown on each book. The default view is the
   Path view: pillar columns, N → E → extras order, unowned books dimmed,
-  "you are here" per pillar.
+  "you are here" per pillar. *(Superseded 2026-10-05 by Samuel: the home
+  page is the library, not the Path view; see M14.)*
 - Book detail page.
 - **Import Samuel's reading list as the first Path** (`docs/reading-lists/hidden-machinery.md`).
   This is the main test data for M3, so the first shelf is Samuel's own,
@@ -438,6 +474,75 @@ Done when: in the browser tests (Chrome and Safari engines) an uploaded
 package plays across at least two paragraphs without a pause and the
 highlight lands on every word in order, each within 0.1 s, in an EPUB and a
 PDF; and Samuel reads Kuhn ch. 1 on the live site and says it keeps time.
+
+### M14 · Home is the library (asked for by Samuel 2026-10-05)
+
+Why: the app opens on the Hidden Machinery Path (`app/(app)/page.tsx`), the
+top menu's first item "Path" points there (`app/(app)/layout.tsx`), and
+setting up the owner account adds Hidden Machinery without asking
+(`app/(public)/actions.ts`, "The owner's first shelf is their own reading
+list"). Samuel wants a library first; see "The library comes first" near the
+top of this plan.
+
+What Samuel confirmed (2026-10-05):
+- **Home** = "Continue" at the top, then the whole library, with Import.
+- **Sidebar** (on desktop; the phone layout is designed in step (a)):
+  Search, Home; *Library* filters (All, Want to Read, Finished, Books,
+  Audiobooks, PDFs); *Paths*; *Collections* with "New collection".
+- **Paths** are ordered curricula with greyed-out placeholders that fill in
+  when the book is uploaded (this already works: `lib/library/import.ts`
+  matches an upload to a wanted book by title). Each Path gets its own page
+  (today's Path view moves there).
+- **Collections** stay unordered.
+- **A mini-player** keeps the audiobook playing while you move around the
+  app. Today the player lives only in the reader
+  (`app/(reader)/books/[id]/read/ListenBar.tsx`) and stops when you leave the
+  book; the reader is a separate route group (a folder of pages with its own
+  layout), so the audio has to move up into the app's root layout.
+- **Not a copy of Apple Books**: Apple's structure, Neolibrary's materials
+  and features. The signature touches are Samuel's pick (open; candidates
+  below).
+
+Assumed by Claude, not yet confirmed by Samuel: you can make your own Paths
+(today Hidden Machinery is the only one, added from a built-in list); Hidden
+Machinery is no longer added at set-up but offered as a starter Path; Path
+placeholders also appear under "Want to Read".
+
+Candidate signature touches, each using data Apple Books does not have:
+1. **Continue picks up your thinking, not just your page.** One card
+   resumes both reading and listening at the same paragraph (the app
+   saves the reading position, `books.position`, and read-along maps text to
+   audio time) and shows the last thing you highlighted or noted in that book.
+2. **Covers that show your study.** Progress as a cloth bookmark ribbon,
+   a mark when a book has your notes, a mark when it has read-along audio;
+   on a Path, a placeholder is plain undyed cloth that takes its colour when
+   you upload the book. Home shows the next book on each Path, with "import
+   it" when you do not own it yet.
+3. **A mini-player that shows the words.** The sentence being spoken as one
+   line of text, "go to the page", and a button that records a voice note
+   (M8) on that sentence while you walk.
+4. **One question on Home** from the question bank (M6) of a chapter you
+   got wrong (`question_marks`), to recall before you read on.
+5. **Threads across books** on Home: ideas you highlighted in more than one
+   book (`lib/library/crosslinks.ts`).
+
+Steps:
+- **(a) Mockups first:** Home, a Path page and the mini-player, on desktop
+  and phone, light and dark, in the design tokens, for Samuel to react to
+  before any code. Samuel picks the signature touches here.
+- **(b)** Home and the sidebar (Continue, whole library, Import); Hidden
+  Machinery offered, not added at set-up.
+- **(c)** Library filters by kind and status.
+- **(d)** Paths: their own pages, and making your own Path.
+- **(e)** The mini-player across pages.
+- **(f)** The signature touches Samuel picked, then deploy (backup first).
+
+Done when: in the browser tests, after sign-in Home shows "Continue" with the
+last-opened book and the whole library with Import; the sidebar's filters,
+Paths and Collections each open the right view; a placeholder on a Path
+becomes a full cover after its book is uploaded; audio started in the reader
+keeps playing on Home; screenshots on phone and desktop, light and dark; and
+Samuel says it feels like his library, not Apple's.
 
 ### Later (not planned in detail yet)
 

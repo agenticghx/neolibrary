@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: The matcher follow-up for Kuhn (footnote numbers, words broken across pages; docs/m13-player-plan.md, "What (e) built"); then M13 (f) deploy, backup first; EPUB unzip limits.
+next_action: M14 (a): mockups of Home, a Path page and the mini-player for Samuel to react to (docs/plan.md M14); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -27,6 +27,16 @@ books, and his verdicts for M4 and M6. Nothing else is blocked.
 
 The goal and the loop are in `docs/done.md`; lessons and gotchas are in
 `docs/handoff.md` §5 and in this Log.
+
+**New first step (2026-10-05): M14 · Home is the library** (`docs/plan.md`,
+"The library comes first" near the top and M14 near the end). Samuel
+corrected the plan: the app opens on the library ("Continue", then every
+book, with Import), not on the Hidden Machinery Path; Apple Books is the
+model for structure (sidebar: Library filters, Paths, Collections; a
+mini-player that keeps audio playing while you browse), Neolibrary's own
+look and features make it "not just copy cat". Start with step (a): mockups
+on desktop and phone, light and dark, for Samuel to react to before any
+code; he picks the signature touches there (open unknown 3).
 
 1. **When Samuel adds `ANTHROPIC_API_KEY`** (Railway → `web`): sign in as him
    only if he asks; otherwise wait for his "M6 verdict" issue and paste one
@@ -104,14 +114,16 @@ Never blocks the loop. Newest first.
 |---|---|---|---|---|
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? Default until Samuel sets one (docs/done.md): $5 per book, $20 per month per provider, as environment variables. | Samuel | before M6 | open (default applies) |
 | 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Answered 2026-10-04: yes, the session merged PR #2 with its GitHub tools (`merge_pull_request` → `merged: true`). | first M1 session | during M1 | closed |
+| 3 | M14: which signature touches (candidates 1–5 in `docs/plan.md` M14), and are Claude's three assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read")? Default until answered: the mockups show candidates 1–3 and the assumptions hold. | Samuel | 2026-10-12, before M14 (b) | open |
 
 ## Decisions
 
+- 2026-10-05 · The library, not a Path, is the home page: Home = "Continue" at the top, then the whole library with Import. Apple Books' structure (sidebar with Library filters by kind and status, Paths, Collections; a mini-player across pages) with Neolibrary's own look. Paths = ordered curricula with greyed-out placeholders that fill in on upload; Collections = unordered groups. Innovate, "not just copy cat" · by Samuel
 - 2026-10-04 · Samuel stops supervising; sessions work alone to the goal in `docs/done.md` (implement → verify → merge → loop). Items only Samuel can give go under "Waiting on Samuel" and never block · by Samuel
 - 2026-10-03 · Add STE (Simplified Technical English) to M6: a rewrite option with a strictness dial (default Standard ≈80%) and a reading preference for all AI explanations, using Samuel's skill copied to `prompts/ste/` · by Samuel
 - 2026-10-03 · Anthropic key needed only from M6, OpenAI key only from M9; voice-note transcription uses ElevenLabs · because cloud sessions build and test with fakes · by Claude
 - 2026-10-03 · Full self-merge kept: no PR category needs Samuel's approval (Fable's CODEOWNERS tiers declined) · by Samuel
-- 2026-10-03 · Plan revised with Fable's review: study Paths (Path → Pillar → N/E slots) are the core of the shelf; W3C annotation anchors with quoted text; provenance on AI output; export round-trip tests; hard spending caps; DRM-free files only; design tokens + screenshot checks + Samuel's reference images; handwriting kept but last in M8 · because Fable judged these cheap now and expensive later · by Claude, at Samuel's request
+- 2026-10-03 · Plan revised with Fable's review: study Paths (Path → Pillar → N/E slots) are the core of the shelf (as the home page: superseded 2026-10-05); W3C annotation anchors with quoted text; provenance on AI output; export round-trip tests; hard spending caps; DRM-free files only; design tokens + screenshot checks + Samuel's reference images; handwriting kept but last in M8 · because Fable judged these cheap now and expensive later · by Claude, at Samuel's request
 - 2026-10-03 · Cloud sessions merge their own PRs when every required check is green and no test was skipped or weakened; `main` gets branch protection · because Samuel wants autonomous progress · by Samuel
 - 2026-10-03 · Images: Wikipedia/Wikimedia Commons by default, OpenAI image generation when nothing fits · by Samuel
 - 2026-10-03 · Defaults accepted for the other open questions: EPUB + text-based PDF first (scanned PDFs later); each reader sees only their own uploads unless the owner shares a shelf; Railway's free URL until a domain is chosen · by Samuel
@@ -121,6 +133,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 07:22 · Claude (laptop) · Samuel corrected the plan: Home is the library (M14 written)
+- **Done:** Samuel said the app had the wrong front door: it is "a digital library that holds books, audiobooks, annotations, many learning materials … not a hidden machinery library". Over three exchanges we agreed (his words confirmed each point): Home after sign-in = "Continue" at the top, then the whole library, with Import; Apple Books (his screenshot of it on the Mac) is the model for structure (sidebar with Library filters by kind and status, Paths, Collections; a mini-player that keeps an audiobook playing while you browse); Paths are curricula with a reading order and greyed-out placeholders that fill in when the book is uploaded; Collections are unordered; and the experience must be innovated, "not just copy cat". Wrote it into `docs/plan.md`: a new section "The library comes first" near the top, the old "core idea" and M3's "default view is the Path view" marked superseded (kept, not deleted), and a new milestone **M14 · Home is the library** with what was confirmed, what Claude assumed, five candidate signature touches (each using data Apple Books does not have, checked in the code: `books.position`, read-along paragraph timing, `question_marks`, `lib/library/crosslinks.ts`, voice notes), steps (a)–(f) and a "Done when". Ledger: decision, open unknown 3, next steps. No app code changed.
+- **Key paths:** `docs/plan.md` (new section near the top; M14 before "Later"), `PROGRESS.md`. Code that M14 will change: `app/(app)/page.tsx` (Home shows the first Path), `app/(app)/layout.tsx` (top menu, "Path" first), `app/(public)/actions.ts` (adds Hidden Machinery at set-up), `app/(reader)/books/[id]/read/ListenBar.tsx` (the only audio player).
+- **Commands that worked:** `grep -rn -i "path view\|default view\|shelf is the curriculum" docs/` (only `docs/plan.md` repeated the old idea; `docs/done.md` line 68 is the M3 history and stays). `gh run rerun 37296828074 --failed` for PR #68, whose only failure was the known flaky WebKit timing test (`"was" (word 1) shown 117 ms after it starts`, limit 100 ms). This branch is stacked on PR #68's branch so the two ledger edits do not collide.
+- **Known issues / blockers:** Samuel's Apple Books screenshot is described in words in the plan, not committed (it shows bestseller covers). The mini-player needs the audio element moved from the reader's layout to the app's root layout: the biggest technical change in M14. PR #68 waits on its re-run.
+- **Exact next steps:** M14 (a): mockups (Home, a Path page, the mini-player; desktop and phone; light and dark; in the design tokens) for Samuel to react to; he picks the signature touches (open unknown 3). Then M14 (b). M13's matcher follow-up and (f) stay next after that.
 
 ### 2026-10-05 10:40 · Claude (laptop) · Learning loop of the M13 (d)+(e) session written down; PR #67 merged
 - **Done:** (1) PR #67 (M13 (e), the PDF player) merged by hand as 74b7d0e after CI run 37273447978 passed all four checks (`219 passed (12.7m)`); `main` equals the checked commit (`git diff 9c038c2 origin/main` is empty). (2) At Samuel's request, wrote `docs/learning-loop-2026-10-05.md`: how each failed test, CI run, review and measurement in the (d) and (e) session changed the next attempt (29 iterations, each in eight parts; a table; mistakes; reusable lessons; the strategy that emerged; open questions), from the session transcript, with line references and quoted numbers.
