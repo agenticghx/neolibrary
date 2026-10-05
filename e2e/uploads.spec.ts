@@ -59,7 +59,7 @@ test("a file matching a title not available yet attaches to it and lights up the
     buffer: Buffer.from(readableEpub("The Grid: The Fraying Wires Between Americans and Our Energy Future", [GRID_TEXT], "Gretchen Bakke")),
   });
   await expect(page.getByTestId("upload-results").getByText("Added to a title that was waiting for it")).toBeVisible();
-  await page.goto("/");
+  await page.goto("/paths/hidden-machinery");
   // Available now: no "(not available yet)" in its name, its label says so (an EPUB, and the
   // tests' fake voice counts as narration), and the path counts it.
   const grid = page.getByRole("link", { name: "The Grid", exact: true });

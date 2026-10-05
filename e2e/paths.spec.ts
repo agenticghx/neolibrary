@@ -8,7 +8,7 @@ import { ADMIN_STATE } from "./pages";
 test.use({ storageState: ADMIN_STATE });
 
 test("the owner's library opens on the Hidden Machinery path, in reading order", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/paths/hidden-machinery");
   await expect(page.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
 
   const pillarTitles = await page.getByTestId("pillar").locator("h3").allTextContents();
@@ -37,7 +37,7 @@ test("the owner's library opens on the Hidden Machinery path, in reading order",
 });
 
 test("a title not available yet has its own page saying where it sits", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/paths/hidden-machinery");
   await page.getByRole("link", { name: "Chip War (not available yet)", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Chip War", level: 1 })).toBeVisible();
   await expect(page.getByText("Hidden Machinery › Semiconductors")).toBeVisible();
@@ -45,7 +45,7 @@ test("a title not available yet has its own page saying where it sits", async ({
 });
 
 test("agent suggestions are labelled as not catalog-checked", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/paths/hidden-machinery");
   const geo = page.getByTestId("pillar").filter({ has: page.getByRole("heading", { name: "Geospatial reasoning" }) });
   await expect(geo.getByText("Agent suggestions, not catalog-checked")).toBeVisible();
   await geo.getByRole("link", { name: "The Power of Maps (not available yet)" }).click();

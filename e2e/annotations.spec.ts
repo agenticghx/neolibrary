@@ -176,7 +176,7 @@ test.describe("sharing", () => {
 });
 
 test("notes on a pillar and on the whole path", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/paths/hidden-machinery");
   const semis = page.getByTestId("pillar").filter({ has: page.getByRole("heading", { name: "Semiconductors" }) });
   await semis.getByText("Add note").click();
   await semis.getByLabel("Note on Semiconductors").fill("Watch a fab tour before Fabless.");
@@ -198,7 +198,7 @@ test("notes on a pillar and on the whole path", async ({ page }) => {
   // A note on a pillar opens its Path.
   await expect(page.getByRole("region", { name: "Your notes" }).getByRole("link", { name: /Note · Semiconductors/ })).toHaveAttribute("href", "/paths/hidden-machinery");
 
-  await page.goto("/");
+  await page.goto("/paths/hidden-machinery");
   await semis.getByRole("button", { name: /^Remove note/ }).click();
   await expect(semis.getByText("Watch a fab tour before Fabless.")).toHaveCount(0);
   await expect(semis.getByText("Add note")).toBeVisible();

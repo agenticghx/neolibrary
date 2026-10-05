@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { books } from "@/lib/db/schema";
+import { books, type Book } from "@/lib/db/schema";
 import { listAnnotations, type Annotation } from "./annotations";
-import { audiobookBookIds } from "./listenable";
+import { availabilityOf, type Availability } from "./availability";
+import { audiobookBookIds, narrationOn } from "./listenable";
 
 /**
  * What Home shows (M14 step 3, decisions D3 and D7 in docs/m14-home-plan.md):
@@ -76,3 +77,48 @@ export async function bookIdsWithNotes(db: Db, ownerId: string): Promise<Set<str
   const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as { bookId: string }[];
   return new Set(rows.map((r) => r.bookId));
 }
+
+/** One title as the library grid and the spine view draw it. */
+export type LibraryItem = {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl: string | null;
+  progress: number;
+  pageCount: number | null;
+  available: Availability;
+  /** The reader has notes or highlights in it (folded corner). */
+  notes: boolean;
+  /** It has a finished uploaded audiobook (headphones; narration alone does not count, D1). */
+  audiobook: boolean;
+};
+
+/** Adds availability and marks to books, with one query each for audiobooks and notes. */
+export async function libraryItems(
+  db: Db,
+  ownerId: string,
+  list: Book[],
+  signCover: (key: string | null) => string | null = () => null,
+  narration: boolean = narrationOn(),
+): Promise<LibraryItem[]> {
+  const [audio, noted] = await Promise.all([
+    audiobookBookIds(
+      db,
+      ownerId,
+      list.map((b) => b.id),
+    ),
+    bookIdsWithNotes(db, ownerId),
+  ]);
+  return list.map((b) => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    coverUrl: b.fileKey ? signCover(b.coverKey) : null,
+    progress: b.progress,
+    pageCount: b.pageCount,
+    available: availabilityOf(b, audio.has(b.id), narration),
+    notes: noted.has(b.id),
+    audiobook: audio.has(b.id),
+  }));
+}
+

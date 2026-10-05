@@ -21,7 +21,7 @@ test.describe("desktop sidebar", () => {
     await page.goto("/library");
     await expect(page.getByTestId("tab-bar")).toBeHidden();
     const cases: [string | RegExp, RegExp, string][] = [
-      ["Home", /:\d+\/$/, "Hidden Machinery"],
+      ["Home", /:\d+\/$/, "Home"],
       ["All", /\/library$/, "Your library"],
       ["Want to Read", /\/library\?show=want$/, "Your library"],
       ["Finished", /\/library\?show=finished$/, "Your library"],
@@ -108,7 +108,7 @@ test.describe("phone", () => {
       ["Library", /\/library$/, "Your library"],
       ["Paths", /\/paths$/, "Your paths"],
       ["Search", /\/search$/, "Find a passage"],
-      ["Home", /:\d+\/$/, "Hidden Machinery"],
+      ["Home", /:\d+\/$/, "Home"],
     ] as const) {
       await tabs.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(url);

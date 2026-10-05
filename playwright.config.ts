@@ -73,8 +73,10 @@ export default defineConfig({
     { name: "stats", testMatch: /stats\.spec\.ts/, dependencies: ["images"], use: { ...desktop } },
     // The reader in Safari's engine (WebKit), after the PDF upload in reader.spec.ts.
     { name: "safari", testMatch: /safari\.spec\.ts/, dependencies: ["reader"], use: { ...desktop, browserName: "webkit" } },
+    // 11b. Home (M14): Continue, the library, the View switch; after the reading the earlier projects did.
+    { name: "home", testMatch: /home\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
     // 12. Agents: API tokens (M11).
-    { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
+    { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["home"], use: { ...desktop } },
     // 13. Offline (M12): service worker, download for offline.
     { name: "offline", testMatch: /offline\.spec\.ts/, dependencies: ["agents"], use: { ...desktop } },
     // 14. Read-along audiobooks the reader uploads (M13), last: it changes a book's read-aloud audio.

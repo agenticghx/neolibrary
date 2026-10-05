@@ -1,45 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import type { UploadOutcome } from "@/app/api/books/route";
+import { useState } from "react";
+import { ACCEPT, UPLOAD_MESSAGES, useBookUpload } from "@/components/upload/useBookUpload";
 import styles from "./page.module.css";
-
-const MESSAGES = {
-  added: "Added to your library",
-  attached: "Added to a title that was waiting for it",
-  duplicate: "Already in your library",
-} as const;
 
 /** Drag-and-drop (or pick) EPUB and PDF files; several at once. */
 export function Dropzone() {
-  const router = useRouter();
-  const input = useRef<HTMLInputElement>(null);
+  const { input, busy, results, error, upload } = useBookUpload();
   const [over, setOver] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [results, setResults] = useState<UploadOutcome[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  async function upload(files: FileList | File[]) {
-    const list = [...files];
-    if (!list.length) return;
-    setBusy(true);
-    setError(null);
-    const body = new FormData();
-    for (const f of list) body.append("files", f);
-    try {
-      const res = await fetch("/api/books", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
-      setResults(json.results);
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setBusy(false);
-      if (input.current) input.current.value = "";
-    }
-  }
 
   return (
     <div className={styles.upload}>
@@ -65,7 +33,7 @@ export function Dropzone() {
             type="file"
             name="files"
             multiple
-            accept=".epub,.pdf,application/epub+zip,application/pdf"
+            accept={ACCEPT}
             className="visually-hidden"
             disabled={busy}
             onChange={(e) => e.target.files && void upload(e.target.files)}
@@ -82,7 +50,7 @@ export function Dropzone() {
           {results.map((r, i) => (
             <li key={`${r.file}-${i}`} className={r.status === "error" ? styles.resultError : undefined}>
               <span className={styles.resultFile}>{r.status === "error" ? r.file : r.title}</span>
-              <span className={styles.resultNote}>{r.status === "error" ? r.message : MESSAGES[r.status]}</span>
+              <span className={styles.resultNote}>{r.status === "error" ? r.message : UPLOAD_MESSAGES[r.status]}</span>
             </li>
           ))}
         </ul>

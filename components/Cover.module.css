@@ -176,6 +176,15 @@
   bottom: var(--space-2);
 }
 
+/* As wide as its grid column. */
+.fillFigure {
+  width: 100%;
+}
+
+.fill {
+  width: 100%;
+}
+
 @media (width <= 48rem) {
   .cover {
     width: 6.75rem;
@@ -188,6 +197,74 @@
 
   .long,
   .veryLong {
+    font-size: var(--text-xs);
+  }
+}
+
+/* Marks (M14): folded corner = your notes; headphones = an uploaded audiobook; tick = finished. */
+.fold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-top-right-radius: var(--radius-md);
+  background-color: var(--paper);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.fold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--cover-ink);
+  opacity: 0.45;
+  clip-path: polygon(0 0, 0 100%, 100% 100%);
+}
+
+.audioMark,
+.doneMark {
+  position: absolute;
+  bottom: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: var(--radius-pill);
+}
+
+.audioMark {
+  left: var(--space-3);
+  color: var(--cover-ink);
+}
+
+.audioMark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--cover-ink);
+  opacity: 0.18;
+}
+
+.doneMark {
+  right: var(--space-2);
+  background-color: var(--mark-amber);
+  color: var(--cover-navy);
+}
+
+/* After the phone rule above, so a filling cover keeps its column's width there too. */
+@media (width <= 48rem) {
+  .fill {
+    width: 100%;
+  }
+
+  .fill .title {
+    font-size: var(--text-sm);
+  }
+
+  .fill .long,
+  .fill .veryLong {
     font-size: var(--text-xs);
   }
 }
