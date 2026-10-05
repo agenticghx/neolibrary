@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14: Samuel picks one option per part on the mockups (open unknown 3), then M14 (b) Home and sidebar (docs/plan.md M14); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
+next_action: M14 (b): Home on desktop and phone with Samuel's picks (docs/plan.md M14, "Samuel's picks"); then the M13 matcher follow-up for Kuhn and M13 (f) deploy, backup first; EPUB unzip limits.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -30,14 +30,12 @@ The goal and the loop are in `docs/done.md`; lessons and gotchas are in
 
 **New first step (2026-10-05): M14 · Home is the library** (`docs/plan.md`,
 "The library comes first" near the top and M14 near the end). Samuel
-corrected the plan: the app opens on the library ("Continue", then every
-book, with Import), not on the Hidden Machinery Path; Apple Books is the
-model for structure (sidebar: Library filters, Paths, Collections; a
-mini-player that keeps audio playing while you browse), Neolibrary's own
-look and features make it "not just copy cat". Step (a) is done: mockups
-with options for each part are at
-https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (private to Samuel). Next:
-record his pick (open unknown 3), then step (b), Home and the sidebar.
+picked his options on the mockups (Decisions, 2026-10-05; "Samuel's picks"
+in M14). Next: M14 (b), Home on desktop and phone: sidebar and tabs,
+"Continue" with the last note, the library grid with fill bars, Import, the
+phone's Grid / Spines toggle, Hidden Machinery offered instead of added.
+The picks drawn together are on the "Your picks" boards of
+https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg.
 
 1. **When Samuel adds `ANTHROPIC_API_KEY`** (Railway → `web`): sign in as him
    only if he asks; otherwise wait for his "M6 verdict" issue and paste one
@@ -115,10 +113,11 @@ Never blocks the loop. Newest first.
 |---|---|---|---|---|
 | 1 | Spending cap per month for Claude + ElevenLabs + OpenAI + Railway? Default until Samuel sets one (docs/done.md): $5 per book, $20 per month per provider, as environment variables. | Samuel | before M6 | open (default applies) |
 | 2 | Can a cloud session merge its own PR? Plan answer: auto-merge GitHub Action (added in M1, needs Samuel's two repo settings). Partly answered 2026-10-04: this session was told by its environment to push only to its assigned `claude/…` branch, so branches are `claude/…`, not `m<N>-…`; the auto-merge Action accepts both. A browser download was not needed (Chromium is preinstalled; Playwright pinned to 1.56.1 to match it). Answered 2026-10-04: yes, the session merged PR #2 with its GitHub tools (`merge_pull_request` → `merged: true`). | first M1 session | during M1 | closed |
-| 3 | M14: which signature touches (candidates 1–5 in `docs/plan.md` M14), and are Claude's three assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read")? Mockups with options per part (Home A/B, phone A/B, player A/B/C, progress fill A/B/C, Continue A/B): https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg (2026-10-05). Decided so far: no ribbon, progress is a fill; every player has back/forward 15 s. Default until answered: option A in each part and the assumptions hold. | Samuel | 2026-10-12, before M14 (b) | open |
+| 3 | M14: are Claude's four assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read"; the spine view on the phone only)? Path page layout and the two Home extras (a question; threads) not picked yet. Default until answered: the assumptions hold, the Path page stays as drawn, the extras stay out. | Samuel | 2026-10-12, before M14 (d) | partly answered 2026-10-05 (picks recorded in Decisions and `docs/plan.md` M14) |
 
 ## Decisions
 
+- 2026-10-05 · M14 picks on the mockups: Home on desktop A (covers in a grid); phone A (grid) with a Grid / Spines toggle; mini-player B (the sentence being read, back/forward 15 s, Go to the page, Think aloud) plus a speed the reader chooses; progress A (a bar under the cover fills); Continue B (last note, Read from here / Listen from here). Path page layout and the two Home extras not picked yet · by Samuel
 - 2026-10-05 · The library, not a Path, is the home page: Home = "Continue" at the top, then the whole library with Import. Apple Books' structure (sidebar with Library filters by kind and status, Paths, Collections; a mini-player across pages) with Neolibrary's own look. Paths = ordered curricula with greyed-out placeholders that fill in on upload; Collections = unordered groups. Innovate, "not just copy cat" · by Samuel
 - 2026-10-04 · Samuel stops supervising; sessions work alone to the goal in `docs/done.md` (implement → verify → merge → loop). Items only Samuel can give go under "Waiting on Samuel" and never block · by Samuel
 - 2026-10-03 · Add STE (Simplified Technical English) to M6: a rewrite option with a strictness dial (default Standard ≈80%) and a reading preference for all AI explanations, using Samuel's skill copied to `prompts/ste/` · by Samuel
@@ -134,6 +133,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 13:10 · Claude (laptop) · Samuel's M14 picks recorded and drawn together
+- **Done:** Samuel picked one option per part: Home on desktop A (grid); phone A (grid) with a toggle to the spine view; mini-player B plus a speed he can choose; progress A (a bar under the cover fills); Continue B (last note, Read from here / Listen from here). Wrote them into `docs/plan.md` M14 ("Samuel's picks"), replacing the five candidates; reworked steps (b)–(f) and "Done when" to match. Added a "Your picks" row to the canvas: the phone in grid and spine view with the Grid / Spines toggle, Continue B and player B with speed; and player B with its speed menu open, on desktop and phone, light and dark.
+- **Key paths:** `docs/plan.md` M14; `PROGRESS.md`; the canvas.
+- **Commands that worked:** the control check before publishing (each player has `Back 15 seconds`, `Pause`, `Forward 15 seconds` and a speed button).
+- **Known issues / blockers:** open unknown 3 now holds only the four assumptions, the Path page layout and the two extras; defaults apply.
+- **Exact next steps:** M14 (b) on a branch `m14-home`: Home and sidebar, tabs on the phone, Continue B, grid with fill bars and marks, Import, the Grid / Spines toggle, Hidden Machinery offered not added; Playwright screenshots phone and desktop, light and dark.
 
 ### 2026-10-05 12:30 · Claude (laptop) · M14 (a) mockups redone: options per part; no ribbon
 - **Done:** Samuel's feedback on the first canvas: the phone mini-player had no back/forward 15 s buttons; one design per part was not what he asked for ("you made 1 prototype per segment and asked me to pick 1?"); the progress ribbon "won't work", use a fill percentage. Redid the canvas (same link, https://claude.ai/artifact/Bcvw4gq5SeemEQdDPxYDFg) with options inside each part: Home on desktop A (covers in a grid) or B (a shelf of spines that fill up as you read); Home on a phone A or B; mini-player A (compact), B (shows the words) or C (scrubber, speed); progress on covers A (bar under the cover), B (the cover fills from the bottom) or C (the spine fills); Continue A (plain) or B (your last note, read or listen from the same paragraph). Every player has back 15, play/pause and forward 15. The ribbon board was removed. Path page, the question and threads still have one option each (said so on the canvas). Plan: M14's mini-player line now requires the three controls; candidate 2 says progress is a fill (Samuel's words quoted).
