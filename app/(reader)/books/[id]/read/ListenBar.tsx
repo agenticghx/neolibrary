@@ -61,8 +61,12 @@ export function ListenBar({
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastWord = useRef(-1);
   const [at] = useState(startCfi);
-  /** Where the audiobook is: the paragraph (index into its list) and the file in the audio element (-1: none). */
-  const book = useRef({ index: 0, file: -1, played: false });
+  /**
+   * Where the audiobook is: the paragraph (index into its list), the file in
+   * the audio element (-1: none), whether it has played, and whether its
+   * start time is still to be set (the file is loading).
+   */
+  const book = useRef({ index: 0, file: -1, played: false, settling: false });
   /** The paragraph whose page was last turned to (it can be turned to before its first word). */
   const shown = useRef(-1);
   /** Changes with every change of voice, so audio still being fetched for the old voice is dropped. */
@@ -183,21 +187,36 @@ export function ListenBar({
   /**
    * Plays the audiobook from paragraph `i`'s first word, or, reading on into
    * a new file, from the file's beginning (its chapter title), unless a long
-   * stretch comes first. Everything up to play() happens at once, inside the
-   * click when there is one: Safari lets audio start only from a tap or
-   * click, and a wait in between loses it. Setting the time before the file
-   * has loaded is allowed: the audio starts there once it has.
+   * stretch comes first. play() is called at once, inside the click when
+   * there is one: Safari lets audio start only from a tap or click, and a
+   * wait in between loses it. A file still loading gets its time as soon as
+   * its length is known (before any of it is heard): WebKit on Linux stalls
+   * on a time set earlier than that, far into a file (seen on CI).
    */
   const playAudiobookFrom = (i: number, fromFileStart = false) => {
     const el = audio.current!;
     const ab = info!.audiobook!;
     const p = ab.paragraphs[i];
+    const at = (fromFileStart ? fileStart(p) : p.startMs) / 1000;
     if (book.current.file !== p.file) el.src = ab.files[p.file].url;
-    el.currentTime = (fromFileStart ? fileStart(p) : p.startMs) / 1000;
+    const settling = el.readyState < 1 && at > 0;
+    if (!settling) el.currentTime = at;
+    else {
+      const src = el.src;
+      el.addEventListener(
+        "loadedmetadata",
+        () => {
+          if (el.src !== src) return;
+          el.currentTime = at;
+          book.current.settling = false;
+        },
+        { once: true },
+      );
+    }
     // A new file resets the speed to the default one.
     el.defaultPlaybackRate = speed;
     el.playbackRate = speed;
-    book.current = { index: i, file: p.file, played: true };
+    book.current = { index: i, file: p.file, played: true, settling };
     setBookStarted(true);
     lastWord.current = -1;
     setPassageCfi(p.cfi);
@@ -249,8 +268,8 @@ export function ListenBar({
     const el = audio.current;
     const ab = info?.audiobook;
     if (!el || !ab?.paragraphs.length || book.current.file < 0) return;
-    // Not while a file loads or a seek runs: the time is not settled yet.
-    if (el.readyState < 1 || el.seeking) return;
+    // Not while a file loads, its start time is still to be set, or a seek runs: the time is not settled yet.
+    if (el.readyState < 1 || book.current.settling || el.seeking) return;
     const s = followAudiobook(ab.paragraphs, book.current.index, book.current.file, el.currentTime * 1000);
     if (s.kind === "load") {
       playAudiobookFrom(s.index, true).catch(playFailed);

@@ -172,7 +172,10 @@ export function expectNoStall(frames: Frame[], maxLagMs = 400) {
   for (const file of new Set(frames.map((f) => f[5]).filter((x) => x >= 0))) {
     const playing = frames.filter((f) => f[5] === file && !f[4]);
     if (playing.length < 2) continue;
-    const begin = playing.find((f) => f[0] > playing[0][0] + 0.1) ?? playing[0];
+    // From when the audio is moving on from its starting point: the first change of its time
+    // is the jump to where it starts (or its first step), and loading there is not a stall.
+    const k = Math.max(0, playing.findIndex((f, i) => i > 0 && f[0] !== playing[i - 1][0]));
+    const begin = playing.slice(k).find((f) => f[0] > playing[k][0] + 0.1) ?? playing[k];
     const end = playing.at(-1)!;
     const lag = end[7] - begin[7] - (end[0] - begin[0]) * 1000;
     expect(lag, `file ${file}: the audio fell ${Math.round(lag)} ms behind the clock (stalled)`).toBeLessThan(maxLagMs);

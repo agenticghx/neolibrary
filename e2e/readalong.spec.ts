@@ -575,7 +575,8 @@ test("M13 (d): an EPUB plays its audiobook straight on across paragraphs, lighti
       await page.emulateMedia({ colorScheme: scheme });
       const b = await openListening(page, bookId, 61);
       await b.getByRole("button", { name: "Play" }).click();
-      await expect(b.getByRole("button", { name: "Pause" })).toBeVisible();
+      // Playing (the file loaded and at its start), then moved on to a word.
+      await playUntil(page, expected[0].startMs + 50);
       const word = expected[6];
       await page.evaluate((t) => {
         const a = document.querySelector("audio")!;
@@ -824,13 +825,21 @@ test("M13 (d): in a paragraph longer than a page, Pause and Play stay on the pag
   const first = await page.getByTestId("reader").getAttribute("data-cfi");
   await recordPlayer(page);
   await bar.getByRole("button", { name: "Play" }).click();
-  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  await playUntil(page, expected[0].startMs + 50);
   // Well into the paragraph, several pages on: the pages turn to the word.
   const far = expected[Math.floor(expected.length * 0.6)];
   await page.evaluate((t) => {
     document.querySelector("audio")!.currentTime = t;
   }, far.startMs / 1000);
-  await expect.poll(async () => (await recording(page)).frames.at(-1)?.[8], { timeout: 10_000 }).toBe(true);
+  await expect
+    .poll(
+      async () => {
+        const f = (await recording(page)).frames.at(-1);
+        return !!f && f[0] * 1000 >= far.startMs && f[8] === true;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
   await bar.getByRole("button", { name: "Pause" }).click();
   const there = await page.getByTestId("reader").getAttribute("data-cfi");
   expect(there).not.toBe(first);
@@ -866,12 +875,20 @@ test("M13 (d): switching voices hands the place over: a made voice reads on from
   await bar.getByRole("button", { name: "Play" }).click();
   await expect(bar).toHaveAttribute("data-passage", PARAGRAPHS[63].cfi);
   await bar.getByRole("button", { name: "Pause" }).click();
-  // And back: the audiobook goes on from the made voice's paragraph.
+  // And back: the audiobook goes on from the made voice's paragraph (once
+  // its file has loaded), lighting nothing before it.
   await bar.getByLabel("Voice").selectOption(`upload:${imp.id}`);
+  await recordPlayer(page);
   await bar.getByRole("button", { name: "Play" }).click();
   await expect(bar).toHaveAttribute("data-passage", PARAGRAPHS[63].cfi);
-  const t = await page.evaluate(() => document.querySelector("audio")!.currentTime * 1000);
-  expect(t).toBeGreaterThanOrEqual(expected.find((w) => w.cfi === PARAGRAPHS[63].cfi)!.startMs - 50);
+  const p63 = expected.filter((w) => w.cfi === PARAGRAPHS[63].cfi);
+  await playUntil(page, p63[2].startMs + 50);
+  const { frames } = await recording(page);
+  // Only paragraph 63 was shown (none before it), and its first words lit up.
+  expect(new Set(frames.map((f) => f[2]).filter(Boolean))).toEqual(new Set([PARAGRAPHS[63].cfi]));
+  const words = frames.map((f) => f[1]).filter((w, k, all) => w && w !== all[k - 1]);
+  expect(words).toContain(p63[0].word);
+  expect(words).toContain(p63[1].word);
 });
 
 test("M13 (d): an audiobook that begins in a later chapter is not started unasked, and one that ends earlier says so", async ({ page }) => {
