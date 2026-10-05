@@ -18,6 +18,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 3 | 2026-10-05 20:25 | 1 | The step-1 change is ready (review) | three reviewer agents | partial | reviews found test gaps the plan's own mutation list missed |
 | 4 | 2026-10-05 20:35 | 1 | Each rule has a test that fails when it breaks | 6 unit mutations + 1 browser mutation with a control run | success | mutate every branch of a rule, not only the ones the plan lists |
 | 5 | 2026-10-05 20:45 | 1 | The reviewed commit stays green | full browser run on 281bf04 | success | rerun the whole suite after review fixes |
+| 6 | 2026-10-05 20:36 | 1 | CI on draft PR #73 checks 9bbf122 | CI run 37369213583 | flake | read a job's step count before reading its result |
+| 7 | 2026-10-05 21:10 | 1 | Only the planned reference images differ on CI | CI rerun of 37369213583 | success | an unchanged image can still pass the 0.2% limit |
 
 ## Lessons so far
 
@@ -134,4 +136,39 @@ reference-image sets (`book-not-available`, `path`, `shelf-empty`,
 `design`), which the Mac run does not compare.
 **Lesson.** None new.
 **Next experiment.** Push as a draft; read CI.
+
+### Iteration 6 · 2026-10-05 20:36 · Step 1 CI · flake
+
+**Hypothesis.** CI on PR #73 (9bbf122) passes everything except the four
+reference-image sets.
+**Action.** Pushed, opened draft PR #73.
+**Evaluation.** `gh pr checks 73`; `gh run view 37369213583 --json jobs`.
+**Result.** Three jobs "fail" after 15m1s, but each is `cancelled` with
+`steps=0`: they never got a runner. Only the ledger check ran (pass).
+githubstatus.com at 20:36 UTC: "Partially Degraded Service", Actions
+`degraded_performance`, "Incident with Actions: investigating".
+**Interpretation.** Not a test result: no code was tested on CI. A flake of
+the service, with evidence.
+**Lesson.** A red check is not a test failure until its log shows steps;
+check `steps` (or the log) before reading anything into it.
+**Next experiment.** `gh run rerun 37369213583 --failed`; wait.
+
+### Iteration 7 · 2026-10-05 21:10 · Step 1 CI · success (images refreshed)
+
+**Hypothesis.** On CI only the reference images of the changed pages fail.
+**Action.** `gh run rerun 37369213583 --failed` after the outage; read the
+browser job log; `gh run download 37369213583 -n playwright-report`.
+**Result.** Browser job ran (13 steps): `10 failed`, `122 did not run`,
+`87 passed (3.0m)`. All 10 failures are `visual.spec.ts` "looks as
+approved": `path` (4 looks), `shelf-empty` (4), `book-not-available`
+(phone light and dark). Looked at each `*-actual.png`: the Path page with
+"Not available yet" under every cover, "Your library" under "LIBRARY", the
+book page's "Not available yet. Add the book file…". Copied the 10 into
+`e2e/__screenshots__`. `design` passed: its covers are below the fold.
+**Interpretation.** As planned. The 122 tests that did not run sit behind
+the screenshot projects; they run on the next push.
+**Lesson.** `book-not-available` on desktop passed although its text
+changed: a one-line text change can stay under the 0.2% pixel limit, so
+the old reference image stays. Step 2 refreshes every signed-in image.
+**Next experiment.** Push; all checks green; mark ready; merge.
 
