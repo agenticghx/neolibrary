@@ -316,6 +316,22 @@ async function sweepAbandoned(db: Db, storage: Storage, ownerId: string) {
   for (const o of old) await deleteImport(db, storage, ownerId, o.bookId, o.id).catch(() => {});
 }
 
+/** Audio file number `n` (from 0) of a finished import, for its owner only: what the player streams (M13 (d)). */
+export async function importAudio(db: Db, ownerId: string, bookId: string, importId: string, n: number): Promise<ReadalongAudio | null> {
+  const [row] = await db
+    .select({ audio: readalongImports.audio })
+    .from(readalongImports)
+    .where(
+      and(
+        eq(readalongImports.id, importId),
+        eq(readalongImports.ownerId, ownerId),
+        eq(readalongImports.bookId, bookId),
+        eq(readalongImports.status, "ready"),
+      ),
+    );
+  return (Number.isInteger(n) && n >= 0 && row?.audio[n]) || null;
+}
+
 export async function listImports(db: Db, ownerId: string, bookId: string) {
   await ownedBook(db, ownerId, bookId);
   const rows = await db

@@ -22,18 +22,31 @@ export function byteRange(header: string | null, size: number): [number, number]
   return [start, end];
 }
 
-/** The most one open-ended range request returns (bytes): M13 audiobooks can be hundreds of MB. */
-export const MAX_OPEN_RANGE = 8 * 1024 * 1024;
+/**
+ * The most one range request returns (bytes): M13 audiobooks can be hundreds
+ * of MB. FILES_MAX_RANGE_BYTES sets it lower for the browser tests (64 KB,
+ * playwright.config.ts), so that every test that plays audio runs past the
+ * end of several answers and proves the browser asks for the rest in time.
+ */
+export const MAX_RANGE = Number(process.env.FILES_MAX_RANGE_BYTES) > 0 ? Math.floor(Number(process.env.FILES_MAX_RANGE_BYTES)) : 8 * 1024 * 1024;
 
 /**
- * The bytes to send for a request: like byteRange, but an open-ended request
- * ("bytes=0-", how audio players start) gets at most MAX_OPEN_RANGE bytes, so
- * a long audiobook is never read whole for one request. Players then ask for
- * the next part as they play.
+ * The bytes to send for a request (end inclusive).
+ *
+ * An open-ended request ("bytes=N-": from here to the end, how Chromium and
+ * WebKit on Linux ask) gets all of it; lib/serve-file.ts reads and sends a
+ * long one MAX_RANGE bytes at a time, so it is never held in memory whole.
+ * It must not be cut short: WebKit on Linux (GStreamer) takes a shorter
+ * answer for the end of the file and stops playing (seen on CI, 2026-10-05).
+ *
+ * A closed or suffix request longer than MAX_RANGE ("bytes=0-21168043":
+ * Safari's engine asks for a whole file this way) gets its first MAX_RANGE
+ * bytes; the Content-Range header says which, and the player asks for the
+ * rest (checked in WebKit on the Mac, e2e/readalong.spec.ts).
  */
-export function servedRange(header: string | null, size: number, max = MAX_OPEN_RANGE): [number, number] | null | "invalid" {
+export function servedRange(header: string | null, size: number, max = MAX_RANGE): [number, number] | null | "invalid" {
   const r = byteRange(header, size);
   if (!r || r === "invalid") return r;
-  const openEnded = /^bytes=\d+-$/.test((header ?? "").trim());
-  return openEnded ? [r[0], Math.min(r[1], r[0] + max - 1)] : r;
+  if (/^bytes=\d+-$/.test((header ?? "").trim())) return r;
+  return [r[0], Math.min(r[1], r[0] + max - 1)];
 }

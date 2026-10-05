@@ -23,3 +23,9 @@ export const pages: PageCase[] = [
 export const ADMIN = { name: "Samuel Example", email: "owner@example.com", password: "a long test password" };
 export const SETUP_CODE = "e2e-setup-code";
 export const ADMIN_STATE = "e2e/.auth/admin.json";
+/**
+ * The most bytes one answer to a byte-range request carries in the browser
+ * tests (8 MB in production, lib/http-range.ts): small, so audio plays past
+ * the end of several answers in every read-aloud test.
+ */
+export const TEST_MAX_RANGE = 64 * 1024;

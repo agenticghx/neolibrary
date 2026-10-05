@@ -1,6 +1,7 @@
+/* Rows: top bar, book, the read-aloud bar while it is open, foot. */
 .reader {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   height: 100dvh;
   background-color: var(--paper);
   color: var(--ink-900);
@@ -174,11 +175,12 @@
   cursor: default;
 }
 
+/* A row of the reader's grid (not floating over the page), so the book's
+   pages end above it and the word being read is never hidden under it. */
 .listenBar {
-  position: fixed;
-  left: 50%;
-  bottom: var(--space-8);
-  z-index: var(--z-overlay);
+  position: relative;
+  justify-self: center;
+  margin-block-end: var(--space-2);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -189,7 +191,6 @@
   border-radius: var(--radius-lg);
   background-color: var(--paper-raised);
   box-shadow: var(--shadow-raised);
-  transform: translateX(-50%);
 }
 
 .listenClose {

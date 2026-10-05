@@ -66,7 +66,8 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
   const cancel = useRef<AbortController | null>(null);
   const ready = imports.find((i) => i.status === "ready") ?? null;
   const unfinished = imports.filter((i) => i.status === "uploading");
-  const later = fileType === "pdf" ? "the next updates of the app (PDF books come after EPUB books)" : "the next update of the app";
+  // M13 (d) plays an audiobook in EPUB books; PDF books follow in (e).
+  const playsHere = fileType !== "pdf";
 
   // An upload stops when the reader leaves this page (and the browser asks first).
   useEffect(() => {
@@ -160,7 +161,11 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
               ))}
             </ul>
           </details>
-          <p className={styles.notesSummary}>Playing it with the words lit up comes in {later}. Until then it is checked and kept ready here.</p>
+          <p className={styles.notesSummary}>
+            {playsHere
+              ? "To read along, open the book and press Listen: your audiobook plays from where you are (or from where it begins), and each word lights up as it is spoken."
+              : "Playing it in a PDF book comes in the next update of the app. Until then it is checked and kept ready here."}
+          </p>
           <div className={styles.audiobookActions}>
             <button
               type="button"
@@ -177,8 +182,10 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
       ) : (
         <p className={styles.notesSummary}>
           Add an audiobook of this book to read along with it: each word lights up as it is spoken. Choose the read-along folder made on your laptop
-          with the readalong-audio skill (it holds the audio, the scripts and the word timings). Playing it with the words lit up comes in {later};
-          for now the audiobook is checked against this book and kept ready.
+          with the readalong-audio skill (it holds the audio, the scripts and the word timings).
+          {playsHere
+            ? " Then press Listen in the book to play it."
+            : " Playing it in a PDF book comes in the next update of the app; until then the audiobook is checked against this book and kept ready."}
         </p>
       )}
 

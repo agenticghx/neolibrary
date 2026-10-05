@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { unzipSync, zipSync } from "fflate";
 import { extractSections } from "@/lib/library/sections";
 import { buildPackage } from "@/lib/readalong/fixture";
-import { ADMIN_STATE } from "./pages";
+import { expectEveryWordOnTime, expectNoStall, recording, recordPlayer, type Spoken } from "./listen";
+import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
 
 // M13 (c2): uploading a read-along package through the real server: the
 // package without its audio, the audio in parts, then finishing. The package
@@ -146,7 +147,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   await page.goto(`/books/${bookId}`);
   const section = page.getByRole("region", { name: "Your audiobook" });
   await expect(section).toContainText("Add an audiobook of this book to read along with it");
-  await expect(section).toContainText("comes in the next update of the app");
+  await expect(section).toContainText("Then press Listen in the book to play it.");
   const empty = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(empty.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.html).join(" | ")}`)).toEqual([]);
 
@@ -164,6 +165,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   await folder.setInputFiles(root);
   await expect(section.getByTestId("audiobook-status")).toHaveText("Done.");
   await expect(section).toContainText("Ready · added");
+  await expect(section).toContainText("To read along, open the book and press Listen");
   await expect(section.getByTestId("audiobook-placed")).toContainText(/[\d,]+ of [\d,]+ spoken words placed on the page \(\d+%\) in 1 chapter\./);
   const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
   expect(seen[0]).toBe("Checking the package against this book…");
@@ -336,10 +338,10 @@ test("a two-part upload is announced once, can be cancelled, and the PDF page sa
   await section.getByRole("button", { name: "Remove Long reading" }).click();
   await expect(section).not.toContainText("Ready · added");
 
-  // A PDF book says its player comes after the EPUB one.
+  // A PDF book says its player comes in the next update.
   const pdf = books.find((b) => b.title === "Discourse on the Method")!;
   await page.goto(`/books/${pdf.id}`);
-  await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("PDF books come after EPUB books");
+  await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("Playing it in a PDF book comes in the next update of the app");
 });
 
 // The upload routes skip proxy.ts (so large bodies are not cut at 10 MB);
@@ -360,4 +362,581 @@ test("a signed-out upload of 12 MB is refused by the upload routes themselves", 
   // Every other route still goes through the sign-in check in proxy.ts.
   expect((await anon.request.get(`${base}api/export`)).status()).toBe(401);
   await anon.close();
+});
+
+// M13 (d): playing the uploaded audiobook in the reader. Each test imports
+// its own package (replacing the last). After every test, passed or failed,
+// the book's audiobooks are removed, so the tests after it (and a rerun
+// against the same local server, where audio.spec.ts expects only the
+// made-on-demand voices) see the book without one.
+test.afterEach(async ({ page }) => {
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const bookId = books.find((b) => b.title.startsWith("The Strange Case"))?.id;
+  if (!bookId) return;
+  const { imports } = (await (await page.request.get(`/api/books/${bookId}/readalong`)).json()) as { imports: { id: string }[] };
+  for (const i of imports) await page.request.delete(`/api/books/${bookId}/readalong/${i.id}`);
+});
+
+const PARAGRAPHS = extractSections(BOOK).filter((s) => s.kind === "paragraph");
+
+/** What the audiobook says: a book paragraph (by index), or words the book does not print (a spoken heading, an aside). */
+type Said = number | string;
+
+/**
+ * A package reading `said` aloud, one audio file per chapter, and the words
+ * the player should light up: those of the book's paragraphs, with when
+ * each starts in its file (from the package's own timings).
+ */
+function readAlong(chapters: { title: string; said: Said[]; notSpoken?: string[] }[], title = "Test reading") {
+  const text = (x: Said) => (typeof x === "number" ? PARAGRAPHS[x].text : x);
+  const pkg = buildPackage({
+    bookBytes: BOOK,
+    title,
+    chapters: chapters.map((c) => {
+      const tokens = c.said.flatMap((x) => text(x).match(/\S+/g)!);
+      return {
+        title: c.title,
+        paragraphs: c.said.map(text),
+        inBook: c.said.map((x) => (typeof x === "number" ? PARAGRAPHS[x].chapterIndex : null)),
+        notSpoken: (c.notSpoken ?? []).map((w) => {
+          expect(tokens.filter((t) => t === w), `"${w}" once in the chapter`).toHaveLength(1);
+          return tokens.indexOf(w);
+        }),
+      };
+    }),
+  });
+  const expected: Spoken[] = [];
+  chapters.forEach((c, file) => {
+    const timings = JSON.parse(Buffer.from(pkg.files[`timings/${String(file + 1).padStart(2, "0")}.json`]).toString()).words as {
+      w: string;
+      start: number | null;
+      source: string;
+    }[];
+    let i = 0;
+    for (const x of c.said) {
+      const words = timings.slice(i, (i += text(x).match(/\S+/g)!.length));
+      if (typeof x !== "number") continue;
+      for (const w of words) if (w.source === "aligned") expected.push({ word: w.w, startMs: Math.round(w.start! * 1000), file, cfi: PARAGRAPHS[x].cfi });
+    }
+  });
+  return { ...pkg, expected };
+}
+
+async function jekyllId(page: Page) {
+  await page.goto("/shelf");
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  return books.find((b) => b.title.startsWith("The Strange Case"))!.id;
+}
+
+/** Imports a package with its audio inside; checks the server placed exactly the expected words, at the expected times. */
+async function importReading(page: Page, bookId: string, zip: Uint8Array, expected: Spoken[]) {
+  const res = await page.request.post(`/api/books/${bookId}/readalong`, { data: Buffer.from(zip), headers: { "content-type": "application/zip" } });
+  const body = await res.json();
+  expect(body.error ?? null).toBeNull();
+  expect(body.import.status).toBe("ready");
+  const first = PARAGRAPHS.find((p) => p.cfi === expected[0].cfi)!;
+  const info = await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: first.cfi })}`)).json();
+  const placed = (info.audiobook.paragraphs as { sectionId: string; cfi: string; file: number; words: [number, number, number, number][] }[]).flatMap((p) =>
+    p.words.map(([startMs, , from, to]) => ({ word: PARAGRAPHS.find((x) => x.id === p.sectionId)!.text.slice(from, to), startMs, file: p.file, cfi: p.cfi })),
+  );
+  expect(placed).toEqual(expected);
+  return { id: body.import.id as string, info };
+}
+
+async function openListening(page: Page, bookId: string, at: number) {
+  await page.goto(`/books/${bookId}/read?at=${encodeURIComponent(PARAGRAPHS[at].cfi)}`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
+  return bar;
+}
+
+/**
+ * A closing line the book does not print: the test audio otherwise ends
+ * 0.4 s after the last word starts, and a slow machine might let it run to
+ * its end (a "pause" and an "ended") before the test stops it.
+ */
+const TAIL = "And that is where this part of the reading ends.";
+
+const playUntil = (page: Page, ms: number) =>
+  page.waitForFunction((t) => document.querySelector("audio")!.currentTime * 1000 >= t, ms, { timeout: 45_000 });
+
+/** Every answer the server gave for an import's audio: the range asked for, the status, and the range sent. */
+function watchAnswers(page: Page, importId: string) {
+  const answers: { asked: string | null; status: number; sent: [number, number, number] | null; length: number }[] = [];
+  page.on("response", (r) => {
+    if (!r.url().includes(`/readalong/${importId}/audio/`)) return;
+    const m = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(r.headers()["content-range"] ?? "");
+    answers.push({ asked: r.request().headers().range ?? null, status: r.status(), sent: m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null, length: Number(r.headers()["content-length"] ?? -1) });
+  });
+  return answers;
+}
+
+/** "bytes=N-": from N to the end of the file. */
+const openEnded = (asked: string | null) => !!asked && /^bytes=\d+-$/.test(asked);
+
+/**
+ * The audio's answers follow lib/http-range.ts: an open-ended request
+ * ("bytes=N-") is answered to the end of the file (the server reads and
+ * sends it in pieces); a closed one with at most TEST_MAX_RANGE bytes (8 MB
+ * on the live site), and when that cut it short the player asked for the
+ * rest; an answer without a range only to a request that asked for none
+ * (WebKit on Linux, as CI runs it, plays audio through GStreamer, whose first
+ * request asks for no range; Playwright reports that answer with status 0 or
+ * 200).
+ */
+function expectAnswersInPieces(answers: ReturnType<typeof watchAnswers>) {
+  expect(answers.length).toBeGreaterThan(0);
+  for (const a of answers) {
+    if (a.status === 206) {
+      expect(a.sent, `answer to ${a.asked}`).not.toBeNull();
+      const [from, to, size] = a.sent!;
+      if (openEnded(a.asked)) expect(to, `answer to ${a.asked}: to the end of the file`).toBe(size - 1);
+      else expect(to - from + 1, `answer to ${a.asked}`).toBeLessThanOrEqual(TEST_MAX_RANGE);
+    } else {
+      expect(a.asked, `a whole-file answer (status ${a.status}) only when no range was asked for`).toBeNull();
+      expect([0, 200], "the answer to a request for the whole file").toContain(a.status);
+    }
+  }
+  // A closed request cut short (Safari's engine on the Mac asks for whole files that way): the player asked for the rest.
+  const cut = answers.filter((a) => a.status === 206 && a.asked && !openEnded(a.asked) && a.sent && Number(/-(\d+)$/.exec(a.asked)?.[1] ?? 0) > a.sent[1]);
+  if (cut.length) {
+    expect(
+      cut.some((c) => answers.some((a) => a.sent && a.sent[0] === c.sent![1] + 1)),
+      "the player asked for the rest of the audio after an answer that was cut short",
+    ).toBe(true);
+  }
+}
+
+/** The reader's book file was sent whole and intact (in pieces on the server: lib/serve-file.ts). */
+async function expectBookIntact(response: Promise<import("@playwright/test").Response>) {
+  const r = await response;
+  expect(r.status()).toBe(200);
+  const body = await r.body();
+  expect(body.byteLength).toBe(BOOK.byteLength);
+  const { createHash } = await import("node:crypto");
+  expect(createHash("sha256").update(body).digest("hex")).toBe(createHash("sha256").update(BOOK).digest("hex"));
+}
+
+const names = (events: [string, number][]) => events.map((e) => e[0]);
+
+test("M13 (d): an EPUB plays its audiobook straight on across paragraphs, lighting every word in order, on time", async ({ page }) => {
+  test.setTimeout(120_000);
+  const bookId = await jekyllId(page);
+  // Short lines of dialogue in chapter 2, read after a spoken heading, with
+  // a spoken aside the book does not print (a short untimed gap that plays
+  // through), and one word the narrator skipped. (Paragraphs whose opening
+  // words are not also earlier in the chapter: the matcher anchors a
+  // chapter's audio at the first place its first four words agree.)
+  // (A closing line the book does not print keeps the audio going after the last word.)
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: ["Search for Mr. Hyde.", 61, 62, 63, "He paused.", 64, 65, 66, TAIL], notSpoken: ["hoarsely."] }]);
+  const imp = await importReading(page, bookId, zip(), expected);
+  expect(expected.map((w) => w.word)).not.toContain("hoarsely.");
+  const answers = watchAnswers(page, imp.id);
+
+  // The book itself (270 KB) arrives whole: on the test server every file
+  // over 64 KB asked for whole is read and sent in pieces.
+  const bookFile = page.waitForResponse((r) => r.url().includes("/api/files/books/"));
+  const bar = await openListening(page, bookId, 61);
+  await expectBookIntact(bookFile);
+  await expect(bar).toContainText("Your audiobook: free to play.");
+  await expect(bar.getByLabel("Voice")).toHaveValue(`upload:${imp.id}`);
+  await expect(bar.getByLabel("Voice").locator("option:checked")).toHaveText("Your audiobook");
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected.at(-1)!.startMs + 400);
+  const { frames, events } = await recording(page);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+
+  // Every word, in order, each within a tenth of a second and on the page on screen; all six paragraphs in turn.
+  const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
+  expect(paragraphs).toEqual([61, 62, 63, 64, 65, 66].map((i) => PARAGRAPHS[i].cfi));
+  // The skipped word never lit up.
+  expect(frames.filter((f) => f[1].includes("hoarsely") || f[3]?.includes("hoarsely"))).toEqual([]);
+  // One audio element, loaded once and never reloaded; no pause, no stall;
+  // no seek after the first (to the reading position): the aside played through.
+  expect(names(events).filter((n) => n === "loadstart")).toHaveLength(1);
+  for (const n of ["emptied", "abort", "error", "pause"]) expect(names(events)).not.toContain(n);
+  expect(names(events).filter((n) => n === "seeking").length).toBeLessThanOrEqual(1);
+  const started = frames.findIndex((f) => !f[4]);
+  expect(frames.slice(started).filter((f) => f[4])).toEqual([]);
+  expectNoStall(frames);
+  // The audio came in 64 KB answers, and the player kept asking for more.
+  expectAnswersInPieces(answers);
+
+  // The bar, with the audiobook chosen and a word lit: accessible, in four looks.
+  const AxeBuilder = (await import("@axe-core/playwright")).default;
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      const b = await openListening(page, bookId, 61);
+      await b.getByRole("button", { name: "Play" }).click();
+      // Playing (the file loaded and at its start), then moved on to a word.
+      await playUntil(page, expected[0].startMs + 50);
+      const word = expected[6];
+      await page.evaluate((t) => {
+        const a = document.querySelector("audio")!;
+        a.pause();
+        a.currentTime = t;
+      }, (word.startMs + 50) / 1000);
+      await expect(b).toHaveAttribute("data-word", word.word);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // The bar sits below the page: the book's view ends above it.
+      const [view, barBox] = await Promise.all([page.locator("foliate-view").boundingBox(), b.boundingBox()]);
+      expect(view!.y + view!.height).toBeLessThanOrEqual(barBox!.y + 1);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-audiobook-${name}-${scheme}${engine()}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+});
+
+// On a phone with the largest text, a few short paragraphs fill more than
+// one page: the page must turn as the reading goes on, so that every word
+// lights up where the reader can see it.
+test("M13 (d): on a phone with large text, the page turns as the reading goes on and every lit word is on screen", async ({ page }) => {
+  test.setTimeout(120_000);
+  const bookId = await jekyllId(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => localStorage.setItem("neolibrary.reader.v1", JSON.stringify({ size: 170 })));
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63, 64, 65, 66, 67, 68, TAIL] }]);
+  await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 61);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected.at(-1)!.startMs + 300);
+  const { frames } = await recording(page);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+  expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
+  expectNoStall(frames);
+  // The page did turn while the audio played.
+  const playingAt = new Set(frames.filter((f) => !f[4]).map((f) => f[6]));
+  expect(playingAt.size, "pages shown while playing").toBeGreaterThanOrEqual(2);
+});
+
+// The book's chapter 1 ends and chapter 2 begins, with the new chapter's
+// heading spoken between them, as in real audiobooks. A new chapter takes a
+// moment to open, so the page turns as soon as the last word of chapter 1
+// is over: by the time chapter 2's first word is spoken, it is on the page.
+test("M13 (d): reading on into the book's next chapter, the page turns during the spoken heading and every word lights on time", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Two chapters", said: [32, "Search for Mr. Hyde.", 33] }]);
+  await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 32);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6!/);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  const first = expected.findIndex((w) => w.cfi === PARAGRAPHS[33].cfi);
+  await playUntil(page, expected[first + 8].startMs + 300);
+  const { frames, events } = await recording(page);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+  const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: first + 8, onScreen: true });
+  expect(paragraphs).toEqual([32, 33].map((i) => PARAGRAPHS[i].cfi));
+  // The page turned to chapter 2 (spine item /6/8) during the heading: after
+  // chapter 1's last word, before chapter 2's first.
+  const turned = frames.find((f) => f[6].startsWith("epubcfi(/6/8!"));
+  expect(turned, "the reader turned to chapter 2").toBeDefined();
+  expect(turned![0] * 1000).toBeGreaterThan(expected[first - 1].startMs);
+  expect(turned![0] * 1000, "turned before chapter 2's first word").toBeLessThan(expected[first].startMs);
+  // And the audio was never reloaded, nor stalled.
+  expect(names(events).filter((n) => n === "loadstart")).toHaveLength(1);
+  expect(names(events)).not.toContain("pause");
+  expectNoStall(frames);
+});
+
+// The shape of real packages (Kuhn: one file per chapter): a new audio file
+// that is also a new chapter of the book. Here the first file ends with
+// several seconds the book does not print, so the player moves to the next
+// file by itself before this one ends (it does not wait for "ended"), and
+// starts that file at its beginning, so its chapter title is heard.
+const OUTRO =
+  "This is the end of chapter one of this test reading. The voice goes on for a while here, saying things that are not printed in the book, so that the player has to move on to the next file by itself, before this one ends.";
+
+test("M13 (d): into a new chapter's audio file: the player moves on before the old file ends, turns the page in time, and plays the chapter title", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([
+    { title: "One", said: [32, OUTRO] },
+    { title: "Two", said: ["Chapter Two. Search for Mr. Hyde.", 33] },
+  ]);
+  await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 32);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  const first = expected.findIndex((w) => w.cfi === PARAGRAPHS[33].cfi);
+  await page.waitForFunction(() => /\/audio\/1$/.test(document.querySelector("audio")!.getAttribute("src") ?? ""), undefined, { timeout: 30_000 });
+  await playUntil(page, expected[first + 8].startMs + 300);
+  const { frames, events } = await recording(page);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+  expectEveryWordOnTime(frames, expected, { minWords: first + 8, onScreen: true });
+  // The first file did not run to its end: the player moved on by itself.
+  expect(names(events)).not.toContain("ended");
+  expect(names(events).filter((n) => n === "loadstart")).toHaveLength(2);
+  expect(names(events)).not.toContain("error");
+  // The new file started at its beginning (its chapter title), not at its first paragraph.
+  const inSecond = frames.filter((f) => f[5] === 1);
+  expect(inSecond[0][0]).toBeLessThan(0.3);
+  expect(expected[first].startMs).toBeGreaterThan(800);
+  // The page showed chapter 2 before its first word.
+  const turned = frames.find((f) => f[6].startsWith("epubcfi(/6/8!"));
+  expect(turned, "the reader turned to chapter 2").toBeDefined();
+  expect(turned![5] === 0 || turned![0] * 1000 < expected[first].startMs, "turned before chapter 2's first word").toBe(true);
+  expectNoStall(frames);
+});
+
+// Kuhn has one file per chapter. Crossing from one to the next at its end
+// sets the audio element's source once more and plays on from the "ended"
+// event, which Safari's engine might refuse without a click.
+test("M13 (d): the audiobook plays on from one chapter's audio file into the next, and says when it ends", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([
+    { title: "One", said: ["Chapter One.", 63, 64] },
+    { title: "Two", said: ["Chapter Two.", 65, 66] },
+  ]);
+  const imp = await importReading(page, bookId, zip(), expected);
+  expect(imp.info.audiobook.files).toHaveLength(2);
+  const bar = await openListening(page, bookId, 63);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  // To the end: the bar says so and stops.
+  await expect(bar).toContainText("That is the end of your audiobook.", { timeout: 30_000 });
+  await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
+  const { frames, events } = await recording(page);
+  const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
+  expect(paragraphs).toEqual([63, 64, 65, 66].map((i) => PARAGRAPHS[i].cfi));
+  // The second file was loaded once, by the same element: exactly one more start.
+  expect(names(events).filter((n) => n === "loadstart")).toHaveLength(2);
+  expect(names(events)).not.toContain("error");
+  expect(new Set(frames.map((f) => f[5]).filter((f) => f >= 0))).toEqual(new Set([0, 1]));
+});
+
+// A long audiobook (a WAV of about 16 MB), started well into the file:
+// the browser asks for the bytes it needs there and plays on as each
+// answer runs out. (Safari's engine asks for the whole file as one closed
+// range, "bytes=0-<last>"; Chromium asks "bytes=0-".)
+test("M13 (d): a long audiobook plays from far into its file, its audio arriving in capped pieces", async ({ page }) => {
+  test.setTimeout(120_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected, files } = readAlong([{ title: "Long", said: PARAGRAPHS.slice(40, 140).map((_, k) => 40 + k) }], "Long reading");
+  expect(files["audio/01.wav"].byteLength).toBeGreaterThan(15 * 1024 * 1024);
+  const imp = await importReading(page, bookId, zip(), expected);
+  const answers = watchAnswers(page, imp.id);
+  // The player starts at the first timed paragraph from the top of the page
+  // that holds paragraph 112 (about 700 s in).
+  const opened = page.waitForResponse((r) => /\/audio\?cfi=/.test(r.url()));
+  const bar = await openListening(page, bookId, 112);
+  const start = (await (await opened).json()).audiobook.paragraphs[0].cfi as string;
+  const from = expected.slice(expected.findIndex((w) => w.cfi === start));
+  // That is more than 8 MB into the file (16,000 bytes a second).
+  expect(from[0].startMs * 16).toBeGreaterThan(8 * 1024 * 1024 * 1.1);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  const second = from.findIndex((w) => w.cfi !== from[0].cfi);
+  await playUntil(page, from[second + 3].startMs + 300);
+  const { frames } = await recording(page);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+  expectEveryWordOnTime(frames, from, { minWords: second + 3, onScreen: true });
+  expectNoStall(frames);
+  expectAnswersInPieces(answers);
+  // The bytes it played came from far into the file, by range (unless the
+  // engine read the whole file without asking for ranges: WebKit on Linux).
+  if (answers.every((a) => a.status === 206)) expect(answers.some((a) => a.sent![0] >= 8 * 1024 * 1024)).toBe(true);
+});
+
+// The audiobook's address has no expiry to run out: it is checked by the
+// sign-in cookie. (A signed /api/files link expires after 5 minutes, and an
+// audio element keeps asking for ranges for as long as it plays.)
+test("M13 (d): the audiobook's audio is served by sign-in alone, with no link to expire, and never to a signed-out visitor", async ({ page, browser }) => {
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Short", said: [63, 64] }]);
+  const imp = await importReading(page, bookId, zip(), expected);
+  const url = imp.info.audiobook.files[0].url as string;
+  expect(url).toBe(`/api/books/${bookId}/readalong/${imp.id}/audio/0`);
+  expect(url).not.toMatch(/exp=|sig=/);
+  const part = await page.request.get(url, { headers: { range: "bytes=0-3" } });
+  expect(part.status()).toBe(206);
+  expect((await part.body()).toString()).toBe("RIFF");
+  expect(part.headers()["content-type"]).toBe("audio/wav");
+  const anon = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  expect((await anon.request.get(new URL(url, page.url()).href, { headers: { range: "bytes=0-3" } })).status()).toBe(401);
+  // The next part of the paragraphs, likewise.
+  const partsUrl = new URL(`${imp.info.audiobook.partsUrl}?from=0`, page.url()).href;
+  expect((await anon.request.get(partsUrl)).status()).toBe(401);
+  expect(await (await page.request.get(partsUrl)).json()).toMatchObject({ paragraphs: [{ cfi: PARAGRAPHS[63].cfi }, { cfi: PARAGRAPHS[64].cfi }], more: null });
+  await anon.close();
+  expect((await page.request.get(url.replace(/\/0$/, "/1"))).status()).toBe(404);
+  expect((await page.request.get(url.replace(imp.id, crypto.randomUUID()))).status()).toBe(404);
+  expect((await page.request.delete(`/api/books/${bookId}/readalong/${imp.id}`)).status()).toBe(204);
+  // Removed: its audio is gone too.
+  expect((await page.request.get(url)).status()).toBe(404);
+});
+
+test("M13 (d): Pause and Play go on where the audio stopped, without reloading it, and bring back a page turned away from", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63, 64, 65, 66] }]);
+  await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 61);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected[6].startMs + 50);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  const stoppedAt = await page.evaluate(() => document.querySelector("audio")!.currentTime);
+  // The reader looks at another chapter meanwhile.
+  const here = await page.getByTestId("reader").getAttribute("data-cfi");
+  await page.evaluate(() => (document.querySelector("foliate-view") as unknown as { goTo(t: string): Promise<void> }).goTo("epubcfi(/6/12!/4/2)"));
+  await expect(page.getByTestId("reader")).not.toHaveAttribute("data-cfi", here ?? "");
+  await bar.getByRole("button", { name: "Play" }).click();
+  // Back to the paragraph being read, going on from where it stopped.
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/8!/);
+  await playUntil(page, expected[12].startMs + 50);
+  const { frames, events } = await recording(page);
+  expect(names(events).filter((n) => n === "loadstart")).toHaveLength(1);
+  // Playing again after the pause (not the first Play) went on from where it stopped.
+  const paused = frames.findIndex((f, k) => k > 0 && f[4] && !frames[k - 1][4]);
+  const resumed = frames.slice(paused).find((f) => !f[4]);
+  expect(paused).toBeGreaterThan(0);
+  expect(resumed![0]).toBeGreaterThanOrEqual(stoppedAt - 0.05);
+  // The words after the pause light up on the page on screen.
+  const after = frames.filter((f) => f[0] * 1000 >= expected[10].startMs);
+  expect(after.some((f) => f[3] === expected[11].word && f[8] === true)).toBe(true);
+});
+
+// A paragraph longer than a page: going on after a pause stays on the page
+// of the word being read (turning back to the paragraph's first page would
+// only turn forward again a moment later).
+test("M13 (d): in a paragraph longer than a page, Pause and Play stay on the page of the word being read", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => localStorage.setItem("neolibrary.reader.v1", JSON.stringify({ size: 170 })));
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [69] }]);
+  await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 69);
+  const first = await page.getByTestId("reader").getAttribute("data-cfi");
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected[0].startMs + 50);
+  // Well into the paragraph, several pages on: the pages turn to the word.
+  const far = expected[Math.floor(expected.length * 0.6)];
+  await page.evaluate((t) => {
+    document.querySelector("audio")!.currentTime = t;
+  }, far.startMs / 1000);
+  await expect
+    .poll(
+      async () => {
+        const f = (await recording(page)).frames.at(-1);
+        return !!f && f[0] * 1000 >= far.startMs && f[8] === true;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  const there = await page.getByTestId("reader").getAttribute("data-cfi");
+  expect(there).not.toBe(first);
+  const before = (await recording(page)).frames.length;
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, far.startMs + 1500);
+  const after = (await recording(page)).frames.slice(before);
+  expect(after.length).toBeGreaterThan(10);
+  // Never back to the paragraph's first page, and the lit word on screen as soon as it goes on.
+  expect(after.filter((f) => f[6] === first)).toEqual([]);
+  const lit = after.filter((f) => !f[4] && f[3]);
+  expect(lit.length).toBeGreaterThan(0);
+  expect(lit.slice(0, 3).every((f) => f[8] === true)).toBe(true);
+});
+
+test("M13 (d): switching voices hands the place over: a made voice reads on from the audiobook's paragraph, and back", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63, 64, 65, 66] }]);
+  const imp = await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 61);
+  await bar.getByRole("button", { name: "Play" }).click();
+  // Into paragraph 63, then a made voice.
+  await playUntil(page, expected.find((w) => w.cfi === PARAGRAPHS[63].cfi)!.startMs + 100);
+  await expect(bar).toHaveAttribute("data-passage", PARAGRAPHS[63].cfi);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  // The bar asks for paragraph 63 in the made voice (its cost, or audio saved earlier: the
+  // Chromium run before this one may have made it).
+  const handedOver = page.waitForResponse((r) => r.url().includes("/audio?") && new URL(r.url()).searchParams.get("section") === PARAGRAPHS[63].id);
+  await bar.getByLabel("Voice").selectOption("fake-ada");
+  expect((await (await handedOver).json()).passage.id).toBe(PARAGRAPHS[63].id);
+  await expect(bar).toContainText(/This paragraph costs (about \$|under \$)[\d.]+ to read aloud; then it is saved\.|Saved audio: free to play\./);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar).toHaveAttribute("data-passage", PARAGRAPHS[63].cfi);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  // And back: the audiobook goes on from the made voice's paragraph (once
+  // its file has loaded), lighting nothing before it.
+  await bar.getByLabel("Voice").selectOption(`upload:${imp.id}`);
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar).toHaveAttribute("data-passage", PARAGRAPHS[63].cfi);
+  const p63 = expected.filter((w) => w.cfi === PARAGRAPHS[63].cfi);
+  await playUntil(page, p63[2].startMs + 50);
+  const { frames } = await recording(page);
+  // Only paragraph 63 was shown (none before it), and its first words lit up.
+  expect(new Set(frames.map((f) => f[2]).filter(Boolean))).toEqual(new Set([PARAGRAPHS[63].cfi]));
+  const words = frames.map((f) => f[1]).filter((w, k, all) => w && w !== all[k - 1]);
+  expect(words).toContain(p63[0].word);
+  expect(words).toContain(p63[1].word);
+});
+
+test("M13 (d): an audiobook that begins in a later chapter is not started unasked, and one that ends earlier says so", async ({ page }) => {
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63] }]);
+  const imp = await importReading(page, bookId, zip(), expected);
+  // Opened in chapter 1: a made voice is chosen, and the audiobook says where it begins.
+  let bar = await openListening(page, bookId, 20);
+  await expect(bar.getByLabel("Voice")).toHaveValue("fake-ada");
+  await bar.getByLabel("Voice").selectOption(`upload:${imp.id}`);
+  await expect(bar).toContainText("Your audiobook begins further on (Search for Mr. Hyde): Play turns to it.");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/8!/);
+  await expect(bar).toHaveAttribute("data-passage", PARAGRAPHS[61].cfi);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  // Opened after its last paragraph: it says so, and cannot play.
+  bar = await openListening(page, bookId, 70);
+  await bar.getByLabel("Voice").selectOption(`upload:${imp.id}`);
+  await expect(bar).toContainText("Your audiobook ends before this part of the book.");
+  await expect(bar.getByRole("button", { name: "Play" })).toBeDisabled();
+});
+
+test("M13 (d): offline, the bar says reading aloud needs the internet; a removed audiobook says it could not be played", async ({ page, context }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63] }]);
+  const imp = await importReading(page, bookId, zip(), expected);
+  await page.goto(`/books/${bookId}/read?at=${encodeURIComponent(PARAGRAPHS[61].cfi)}`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // Offline when Listen is pressed.
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Reading aloud needs an internet connection");
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
+  // Online when it opens, offline when Play is pressed.
+  await context.setOffline(false);
+  await page.getByRole("button", { name: "Listen" }).click();
+  await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
+  await context.setOffline(true);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar).toContainText("Reading aloud needs an internet connection", { timeout: 15_000 });
+  await context.setOffline(false);
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
+  // The audiobook removed while the bar is open (from another tab, say).
+  await page.getByRole("button", { name: "Listen" }).click();
+  await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
+  expect((await page.request.delete(`/api/books/${bookId}/readalong/${imp.id}`)).status()).toBe(204);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar).toContainText("Your audiobook could not be played. Reload the page and try again.", { timeout: 15_000 });
 });

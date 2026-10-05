@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byteRange, servedRange } from "./http-range";
+import { byteRange, MAX_RANGE, servedRange } from "./http-range";
 
 describe("byte ranges for stored files", () => {
   it("reads the usual forms and refuses what cannot be served", () => {
@@ -18,15 +18,26 @@ describe("byte ranges for stored files", () => {
     ]);
   });
 
-  it("M13: an open-ended request on a long file gets at most 8 MB; an exact range is served as asked", () => {
+  it("M13: a closed or suffix request on a long file gets at most 8 MB; an open-ended one gets all it asked for", () => {
     const size = 201 * 1024 * 1024; // the Kuhn audiobook
     const max = 8 * 1024 * 1024;
-    expect(servedRange("bytes=0-", size)).toEqual([0, max - 1]);
-    expect(servedRange("bytes=100000000-", size)).toEqual([100000000, 100000000 + max - 1]);
+    expect(MAX_RANGE).toBe(max);
+    // Open-ended ("from here to the end", how Chromium and WebKit on Linux ask): all of it.
+    // lib/serve-file.ts sends it in 8 MB pieces; a shorter answer stops WebKit on Linux.
+    expect(servedRange("bytes=0-", size)).toEqual([0, size - 1]);
+    expect(servedRange("bytes=100000000-", size)).toEqual([100000000, size - 1]);
     expect(servedRange(`bytes=${size - 10}-`, size)).toEqual([size - 10, size - 1]);
-    expect(servedRange("bytes=0-3", size)).toEqual([0, 3]);
+    // Closed, running to the end of the file (Safari's engine asks this way): capped.
+    expect(servedRange(`bytes=0-${size - 1}`, size)).toEqual([0, max - 1]);
+    expect(servedRange(`bytes=5000-${size + 99}`, size)).toEqual([5000, 5000 + max - 1]);
+    // Suffix: the last N bytes, capped from where they start.
+    expect(servedRange(`bytes=-${size}`, size)).toEqual([0, max - 1]);
     expect(servedRange("bytes=-500", size)).toEqual([size - 500, size - 1]);
+    // Exact small ranges are untouched.
+    expect(servedRange("bytes=0-3", size)).toEqual([0, 3]);
+    expect(servedRange(`bytes=0-${max - 1}`, size)).toEqual([0, max - 1]);
     expect(servedRange(null, size)).toBeNull();
     expect(servedRange("bytes=0-", 1000)).toEqual([0, 999]);
+    expect(servedRange("bytes=2000-", 1000)).toBe("invalid");
   });
 });

@@ -10,7 +10,7 @@ import { importBook } from "@/lib/library/import";
 import { getSections } from "@/lib/library/sections-store";
 import { MemoryStorage } from "@/lib/storage";
 import { buildPackage } from "./fixture";
-import { deleteImport, finishImport, listImports, putAudioPart, ReadalongError, startImport } from "./importer";
+import { deleteImport, finishImport, importAudio, listImports, putAudioPart, ReadalongError, startImport } from "./importer";
 
 /**
  * M13 (c2): importing a read-along package into a book, with the audio in
@@ -195,5 +195,28 @@ describe("importing a read-along package (M13)", () => {
       .where(eq(readalongImports.id, old.id));
     await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
     expect((await listImports(database.db, ownerId, bookId)).map((i) => i.id)).toContain(old.id);
+  });
+});
+
+describe("the audio the player streams (M13 (d))", () => {
+  it("gives a finished import's audio files by number, to the owner only", async () => {
+    const { zip, files } = pkgFor(5, 2);
+    const s = await startImport(database.db, storage, ownerId, bookId, zip());
+    const a = await importAudio(database.db, ownerId, bookId, s.id, 0);
+    expect(a).toMatchObject({ file: "audio/01.wav", mime: "audio/wav", uploadId: null });
+    expect((await storage.get(a!.key))!.data).toEqual(files["audio/01.wav"]);
+    for (const n of [1, -1, 0.5, Number.NaN]) expect(await importAudio(database.db, ownerId, bookId, s.id, n)).toBeNull();
+    const { createInvite, acceptInvite } = await import("@/lib/auth/service");
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+    expect(await importAudio(database.db, other, bookId, s.id, 0)).toBeNull();
+    expect(await importAudio(database.db, ownerId, crypto.randomUUID(), s.id, 0)).toBeNull();
+  });
+
+  it("gives nothing for an upload that has not finished", async () => {
+    const { files } = pkgFor(5, 2);
+    const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    expect(s.status).toBe("uploading");
+    expect(await importAudio(database.db, ownerId, bookId, s.id, 0)).toBeNull();
   });
 });

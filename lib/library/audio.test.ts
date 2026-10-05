@@ -1,13 +1,18 @@
 import { readFileSync } from "node:fs";
+import { and, eq } from "drizzle-orm";
+import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SpendingCapReached, spending } from "@/lib/ai/generate";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
+import { audioTracks } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
+import { buildPackage } from "@/lib/readalong/fixture";
+import { startImport } from "@/lib/readalong/importer";
 import { FAKE_SECONDS_PER_CHAR, FakeSpeech } from "@/lib/speech/fake";
 import { speechCost } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
-import { estimateSpeech, listTracks, passageFor, speakPassage } from "./audio";
+import { estimateSpeech, listTracks, passageFor, readingPart, speakPassage, uploadedReading } from "./audio";
 import { fileOwner, importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -16,13 +21,14 @@ let storage: MemoryStorage;
 let ownerId: string;
 let bookId: string;
 let all: Awaited<ReturnType<typeof getSections>>;
+let bookBytes: Uint8Array;
 
 beforeEach(async () => {
   database = await testDatabase();
   storage = new MemoryStorage();
   ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
-  const file = new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url)));
-  bookId = (await importBook(database.db, storage, ownerId, { name: "jh.epub", bytes: file })).bookId;
+  bookBytes = new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url)));
+  bookId = (await importBook(database.db, storage, ownerId, { name: "jh.epub", bytes: bookBytes })).bookId;
   all = await getSections(database.db, ownerId, bookId);
 });
 afterEach(() => database.raw.close());
@@ -106,5 +112,130 @@ describe("reading aloud (M7)", () => {
     ]);
     expect(voice.calls).toHaveLength(1);
     expect(x.track.id).toBe(y.track.id);
+  });
+});
+
+describe("the book's own audiobook in the player (M13 (d))", () => {
+  /** A finished import reading paragraphs 5-7 (file 1, after a spoken heading) and 8-9 (file 2). */
+  async function imported(bytes = bookBytes) {
+    const ps = paragraphs();
+    const chapter = (from: number, to: number, title: string) => ({
+      title,
+      paragraphs: [title + ".", ...ps.slice(from, to).map((p) => p.text)],
+      inBook: [null, ...ps.slice(from, to).map((p) => p.chapterIndex)],
+    });
+    const { zip } = buildPackage({ bookBytes: bytes, chapters: [chapter(5, 8, "Chapter One"), chapter(8, 10, "Chapter Two")] });
+    return startImport(database.db, storage, ownerId, bookId, zip());
+  }
+
+  it("lists the timed paragraphs from the reading position on, in reading order, with their file and times", async () => {
+    const imp = await imported();
+    const ps = paragraphs();
+    const r = (await uploadedReading(database.db, ownerId, bookId, 0))!;
+    expect(r).toMatchObject({ importId: imp.id, voice: `upload:${imp.id}`, title: "Test book" });
+    expect(r.files).toEqual([
+      { url: `/api/books/${bookId}/readalong/${imp.id}/audio/0`, mime: "audio/wav" },
+      { url: `/api/books/${bookId}/readalong/${imp.id}/audio/1`, mime: "audio/wav" },
+    ]);
+    expect(r.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(5, 10).map((p) => p.id));
+    expect(r.paragraphs.map((p) => p.file)).toEqual([0, 0, 0, 1, 1]);
+    expect(r.paragraphs.map((p) => p.cfi)).toEqual(ps.slice(5, 10).map((p) => p.cfi));
+    for (const p of r.paragraphs) {
+      // Times are times in the file: a stretch of it, word by word.
+      expect(p.startMs).toBe(p.words[0][0]);
+      expect(p.endMs).toBe(p.words.at(-1)![1]);
+      const text = ps.find((x) => x.id === p.sectionId)!.text;
+      expect(text.slice(p.words[0][2], p.words[0][3])).toBe(text.split(" ")[0]);
+    }
+    // The spoken heading is not on the page, so each file's first paragraph starts after it.
+    expect(r.paragraphs[0].startMs).toBeGreaterThan(0);
+    expect(r.paragraphs[3].startMs).toBeGreaterThan(0);
+    expect(r.paragraphs[3].startMs).toBeLessThan(r.paragraphs[2].startMs);
+    // From paragraph 7 on; from the end of the book, nothing.
+    expect((await uploadedReading(database.db, ownerId, bookId, ps[7].position))!.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(7, 10).map((p) => p.id));
+    expect((await uploadedReading(database.db, ownerId, bookId, ps.at(-1)!.position))!.paragraphs).toEqual([]);
+    // Each paragraph says where it is in reading order.
+    expect(r.paragraphs.map((p) => p.position)).toEqual(ps.slice(5, 10).map((p) => p.position));
+    expect(r.partsUrl).toBe(`/api/books/${bookId}/readalong/${imp.id}/reading`);
+    expect(r.more).toBeNull();
+    // The tracks themselves carry the stretch and the import (Track used to drop them).
+    const tracks = (await listTracks(database.db, ownerId, bookId)).filter((t) => t.source === "upload");
+    expect(tracks).toHaveLength(5);
+    expect(tracks[0]).toMatchObject({ importId: imp.id, audioStartMs: expect.any(Number), audioEndMs: expect.any(Number) });
+  });
+
+  it("leaves out a track without words, and offers nothing to another reader, for an unfinished upload, or with no audiobook", async () => {
+    expect(await uploadedReading(database.db, ownerId, bookId, 0)).toBeNull();
+    const imp = await imported();
+    const ps = paragraphs();
+    await database.db.update(audioTracks).set({ words: [] }).where(and(eq(audioTracks.importId, imp.id), eq(audioTracks.sectionId, ps[6].id)));
+    expect((await uploadedReading(database.db, ownerId, bookId, 0))!.paragraphs.map((p) => p.sectionId)).toEqual([5, 7, 8, 9].map((i) => ps[i].id));
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+    expect(await uploadedReading(database.db, other, bookId, 0)).toBeNull();
+    // A newer upload that has not finished does not replace the finished one.
+    const { files } = buildPackage({ bookBytes, chapters: [{ title: "x", paragraphs: [ps[20].text], inBook: [ps[20].chapterIndex] }] });
+    const waiting = await startImport(database.db, storage, ownerId, bookId, zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
+    expect(waiting.status).toBe("uploading");
+    expect((await uploadedReading(database.db, ownerId, bookId, 0))!.importId).toBe(imp.id);
+  });
+});
+
+describe("the audiobook's paragraphs, in parts (M13 (d))", () => {
+  it("sends a part at a time, says where the next part starts, and gives the next parts to the owner of a finished import only", async () => {
+    const ps = paragraphs();
+    const { zip } = buildPackage({ bookBytes, chapters: [{ title: "Five", paragraphs: ps.slice(5, 10).map((p) => p.text), inBook: ps.slice(5, 10).map((p) => p.chapterIndex) }] });
+    const imp = await startImport(database.db, storage, ownerId, bookId, zip());
+    const first = (await uploadedReading(database.db, ownerId, bookId, 0, 2))!;
+    expect(first.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(5, 7).map((p) => p.id));
+    expect(first.more).toBe(ps[7].position);
+    const second = (await readingPart(database.db, ownerId, bookId, imp.id, first.more!, 2))!;
+    expect(second.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(7, 9).map((p) => p.id));
+    const last = (await readingPart(database.db, ownerId, bookId, imp.id, second.more!, 2))!;
+    expect(last).toMatchObject({ paragraphs: [{ sectionId: ps[9].id }], more: null });
+    // Nothing for another reader, another import, or one still uploading.
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+    expect(await readingPart(database.db, other, bookId, imp.id, 0)).toBeNull();
+    expect(await readingPart(database.db, ownerId, bookId, crypto.randomUUID(), 0)).toBeNull();
+    const { files } = buildPackage({ bookBytes, chapters: [{ title: "x", paragraphs: [ps[20].text], inBook: [ps[20].chapterIndex] }] });
+    const waiting = await startImport(database.db, storage, ownerId, bookId, zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
+    expect(await readingPart(database.db, ownerId, bookId, waiting.id, 0)).toBeNull();
+  });
+});
+
+describe("where reading aloud starts in a PDF", () => {
+  it("starts a whole page at its first paragraph (every paragraph has the page's address), and an empty page at the next text", async () => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.TimesRoman);
+    const page = (paragraphs: string[][]) => {
+      const p = doc.addPage([612, 792]);
+      let y = 700;
+      for (const lines of paragraphs) {
+        for (const line of lines) {
+          p.drawText(line, { x: 72, y, size: 11, font });
+          y -= 14;
+        }
+        y -= 18; // a wider gap: a new paragraph
+      }
+    };
+    page([["The first paragraph of page one,", "in two lines."], ["The second paragraph of page one,", "also in two lines."]]);
+    page([]); // a page with no text
+    page([["The only paragraph of page three,", "in two lines."]]);
+    const id = (await importBook(database.db, storage, ownerId, { name: "pages.pdf", bytes: await doc.save() })).bookId;
+    const ps = (await getSections(database.db, ownerId, id)).filter((s) => s.kind === "paragraph");
+    expect(ps.map((p) => [p.chapterIndex, p.text])).toEqual([
+      [0, "The first paragraph of page one, in two lines."],
+      [0, "The second paragraph of page one, also in two lines."],
+      [2, "The only paragraph of page three, in two lines."],
+    ]);
+    // Page 1 starts at its first paragraph, not its last.
+    expect((await passageFor(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" })).id).toBe(ps[0].id);
+    // The empty page 2 reads on from page 3.
+    expect((await passageFor(database.db, ownerId, id, { cfi: "epubcfi(/6/4)" })).id).toBe(ps[2].id);
+    expect((await passageFor(database.db, ownerId, id, { cfi: "epubcfi(/6/6)" })).id).toBe(ps[2].id);
+    // Past the last page with text, there is nothing to read.
+    await expect(passageFor(database.db, ownerId, id, { cfi: "epubcfi(/6/8)" })).rejects.toThrow("nothing to read");
   });
 });

@@ -117,6 +117,107 @@ fires waiting/canplay on every seek, WebKit fires none. In WebKit (the
 `data-word`, which would pass even without the Highlight API. Add a test that
 shortens the link expiry and plays past it.
 
+## What (d) built (2026-10-04)
+
+Written for the session that builds (e), and for Samuel. Built on branch
+`m13-epub-player`; evidence in the `PROGRESS.md` Log. Then five reviewers
+(player, server, tests, regressions, wording) read it, a skeptic checked
+each finding, and every confirmed one was fixed (listed at the end).
+
+- **Problem 1, links that expire:** the plan's second option. The audio is
+  served by `GET /api/books/<id>/readalong/<importId>/audio/<n>`, checked by
+  the sign-in cookie and the owner, with no signature and no expiry. So
+  "shorten the expiry and play past it" has nothing left to test; the browser
+  test checks instead that the address has no `exp`/`sig`, that ranges come
+  with the cookie alone, and that a signed-out request gets 401. Serving the
+  bytes is shared with `/api/files` in `lib/serve-file.ts`, which also sends
+  a large file asked for whole in pieces instead of reading it whole.
+- **Problem 2, closed ranges:** a closed range ("bytes=0-<last>", how
+  Safari's engine asks for a whole file) is answered with at most 8 MB, and
+  the player asks for the rest. An open-ended range ("bytes=N-", from here to
+  the end, how Chromium and WebKit on Linux ask) is answered in full, but
+  read and sent 8 MB at a time (`lib/serve-file.ts`), so memory stays small.
+  It was capped at first; CI showed WebKit on Linux (GStreamer) takes a
+  shorter answer to "from here to the end" for the end of the file and stops
+  playing. The browser tests run with pieces of 64 KB
+  (`FILES_MAX_RANGE_BYTES`, `TEST_MAX_RANGE` in `e2e/pages.ts`), so every
+  test that plays audio crosses several pieces and checks that the audio
+  never stalled (the audio clock keeps pace with the wall clock).
+- **Problem 3, reloading:** one audio element; its source is set only when
+  the file number changes. The tests count `loadstart` events: one per file.
+- **Problems 4 to 7:** `Track` has the three fields; `listenInfo`
+  (`lib/library/listen.ts`) looks the audiobook up before the voice service,
+  so it is offered with no ElevenLabs key (unit test with an environment
+  without the key); audiobook mode never asks for made-on-demand audio. The
+  ElevenLabs voice list is now kept for ten minutes and waited on for at most
+  3 s, so a slow ElevenLabs cannot hold the audiobook up.
+- **Problem 8, offline:** the bar says reading aloud needs an internet
+  connection, both when Listen is opened offline and when the audio fails
+  offline (browser test with the network turned off).
+- **Changes from the plan:**
+  - The response lists the timed paragraphs *from the reading position on*
+    (no `startIndex`), 200 at a time: `more` says where the next part
+    starts, `partsUrl` serves it, and the bar asks for it 40 paragraphs
+    before it runs out. An empty list means the audiobook ends before here.
+  - The audiobook is the default voice only when it begins near the reading
+    position (same chapter, or within 10 paragraphs). Further on, the bar
+    says where it begins ("begins further on (Search for Mr. Hyde): Play
+    turns to it") and a made voice is the default, so Play never takes the
+    reader chapters ahead unasked (it would also move their saved place).
+  - `estimate` stays null without a key: Play is enabled by choosing "Your
+    audiobook", so the note for a made voice stays honest.
+  - A whole PDF page now starts reading at its first paragraph
+    (`passageFor` used to pick the page's last; every PDF paragraph has its
+    page's address). (e) needs this.
+  - The per-frame logic is a pure function, `follow` in
+    `lib/readalong/player.ts`, with its own tests. What lies between
+    paragraphs plays: pauses, a chapter title read aloud, a paragraph's last
+    words that got no time. Only untimed audio longer than **6 s** is
+    skipped by a seek. The page turns to the next paragraph **as soon as the
+    last word before it is over**, and a skip waits 0.85 s more, so a new
+    chapter (or PDF page) has opened before its first word. A file with
+    nothing more on the page for 6 s hands over to the next file, which
+    starts at its beginning (its chapter title is heard).
+  - The Listen bar is a row of the reader's grid between the page and the
+    foot, not floating over the page: on a phone it used to hide the last
+    three lines, where the word being read was.
+  - Switching voices hands the place over (a made voice reads on from the
+    audiobook's paragraph, and back); made-voice audio still being fetched
+    when the voice changes is dropped.
+  - Play after a pause goes back to the page of the word being read if the
+    reader turned away (not to the paragraph's first page: in a long
+    paragraph that would turn back and then forward again). "Loading your
+    audiobook…" shows when the audio has waited for data for more than 0.6 s.
+  - The automatic page turn (from M7, shared with made voices) goes straight
+    to the word's page, and its "turning" flag clears when the request ends:
+    foliate ignores a turn asked for within 0.1 s of the last one and then
+    sends no "relocate", so after a jump of several pages the page used to
+    stop turning for good.
+  - A word is counted as lit only when it was found on the page, so a word
+    asked for while a chapter is still opening is tried again on the next
+    frame; an error in one frame (a chapter half-opened) no longer stops the
+    per-frame loop for the rest of the session.
+- **Found while testing (step (b), not fixed here):** the matcher anchors a
+  chapter's audio at the first place in the book chapter where its first
+  four words agree. A package that starts mid-chapter can be placed wrongly
+  when its opening words also occur earlier in that chapter (Jekyll's
+  "how did you know me" is in two paragraphs). Real packages start at a
+  chapter's start, so it is unlikely there; the book map's `quote` and
+  paragraph order could anchor it more firmly. The browser tests use
+  paragraphs checked to be placed exactly.
+- **Engines:** CI runs WebKit on Linux, which plays media through GStreamer,
+  not Safari's AVFoundation; its first audio request asks for no range, and
+  Playwright reports that answer with status 0; the tests accept a whole-file
+  answer (status 0 or 200) only to a request that asked for no range. The closed
+  whole-file range ("bytes=0-<last>") is Safari-on-Mac behaviour, checked by
+  local Mac runs. GStreamer also stalled ("Loading your audiobook…" for
+  good) when the start time was set before the file's length was known, far
+  into a 16 MB file (CI run 37260648155); so play() is still called at once
+  (inside the click, as Safari needs), but the start time is set on
+  `loadedmetadata` (the moment the first bytes, which say how long the file
+  is, have arrived), and the follower waits until then. Real Safari on an
+  iPhone has not been tried: that is (f).
+
 ## (e) PDF player
 
 What the skeptics found:
