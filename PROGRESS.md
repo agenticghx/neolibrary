@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 step 1 (m14-b1-availability): finish the baseline browser run, run the full suite on the step 1 code, mutation checks, reviews, then a draft PR; after it merges, step 2 (m14-b2-shell).
+next_action: M14 step 1 draft PR: refresh the four reference images from CI, merge when green; then step 2 (m14-b2-shell) from docs/m14-home-plan.md.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-05
 shared_copy: none
@@ -138,6 +138,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 16:50 · Claude (laptop) · M14 step 1 verified and pushed as a draft PR
+- **Done:** step 1 (labels by availability, no "owned" wording) implemented, reviewed and mutation-checked; pushed as a draft PR on `m14-b1-availability`. Three reviewer agents (correctness, wording and contrast, tests); confirmed findings fixed in 281bf04: pure label rules split from server lookups (`lib/library/listenable.ts`) so Cover never bundles database or ElevenLabs code; every title in a Path's folded list labelled; the shelf's small heading says Library; `docs/design.md` updated; new tests for a read-only cover, labels from an uploaded audiobook with narration off, and the shelf and book-page labels. Seven mutation checks, each caught by a named test (`LEARNING_LOG.md` Iteration 4).
+- **Key paths:** `lib/library/availability.ts`, `lib/library/listenable.ts`, `components/Cover.tsx`, `components/Cover.test.tsx`, `lib/library/paths.ts`, `components/PathView.tsx`, `app/(app)/shelf/page.tsx`, `app/(app)/books/[id]/page.tsx`, `e2e/readalong.spec.ts:1151-1154`, `e2e/reader.spec.ts` (PDF test), `LEARNING_LOG.md`.
+- **Commands that worked:** `npx playwright test --ignore-snapshots` from a fresh database on f530c5d and on 281bf04 → `219 passed (6.2m)` both times; mutation script (scratchpad `mutate.py`) → M1–M6 each fail a named unit test; browser mutation (scratchpad `m7.sh`: build the mutated app, `next start` on the database a full run left, `npx playwright test --project readalong --no-deps -g "a PDF plays its audiobook across paragraphs"`) → `1 failed` at `readalong.spec.ts:1154`, control → `1 passed (25.2s)`.
+- **Known issues / blockers:** CI will fail the visual test for `book-not-available`, `path`, `shelf-empty` and `design` until their reference images are refreshed from CI's report (Linux images; build plan §8). The known WebKit intermittent failure (`readalong.spec.ts:727`) may also appear.
+- **Exact next steps:** read CI on the draft PR; download the report, look at each `*-actual.png` of the four pages, copy them into `e2e/__screenshots__`, push; when every check is green, mark ready and merge; confirm `main` equals the checked commit; then step 2 (`m14-b2-shell`).
 
 ### 2026-10-05 16:03 · Claude (laptop) · M14: Samuel's answers recorded; step 1 (availability labels) written, not yet pushed
 - **Done:** Samuel answered open unknown 4: (1) ElevenLabs narration counts as "Listen" ("of course yes"); (2) titles not available yet in one closed group (default); (3) Want to Read automatic; (4) "grid is default", with a View switch to spines on desktop and phone; (5) own Paths as drawn, no "Read last" marker. Recorded in Decisions, Open unknowns (rows 3 and 4), `docs/plan.md` M14 and `docs/m14-home-plan.md` §4, §5 steps 1 and 3, §10 (commit 0a43836). Claude's default added: the headphones mark and the Audiobooks filter stay tied to an uploaded audiobook. Created `LEARNING_LOG.md` (Iteration 1, the baseline, half filled). Step 1 code on branch `m14-b1-availability` (uncommitted at this entry): new `lib/library/availability.ts` (`availabilityLabel`, `availabilityOf`: listen = uploaded audiobook, or an EPUB with narration on; `narrationOn`; `audiobookBookIds`); `Cover` takes a required `available` and an optional `caption`, greyed style renamed `.empty` with tokens `--cover-empty(-ink)` in all five theme blocks; Path view, shelf, book page, `/design`, empty Home and the reader guard use availability; "owned" wording removed from app, code names and tests (the wording grep prints nothing).

@@ -14,11 +14,28 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | # | When (UTC) | Step | Hypothesis or goal | Signal | Outcome | Lesson (short) |
 |---|---|---|---|---|---|---|
 | 1 | 2026-10-05 19:55 | Baseline | `main` is green on the Mac | `npm run check`; full browser suite | success | start from green |
+| 2 | 2026-10-05 20:10 | 1 | Labels by availability, no "owned", suites stay green | `npm run check`; full browser suite on f530c5d | success | a required prop turns a forgotten call site into a type error |
+| 3 | 2026-10-05 20:25 | 1 | The step-1 change is ready (review) | three reviewer agents | partial | reviews found test gaps the plan's own mutation list missed |
+| 4 | 2026-10-05 20:35 | 1 | Each rule has a test that fails when it breaks | 6 unit mutations + 1 browser mutation with a control run | success | mutate every branch of a rule, not only the ones the plan lists |
+| 5 | 2026-10-05 20:45 | 1 | The reviewed commit stays green | full browser run on 281bf04 | success | rerun the whole suite after review fixes |
 
 ## Lessons so far
 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
+
+- **Ask "which bug passes every test?", then mutate it** (Iterations 3, 4).
+  The plan's three mutation checks all passed, yet a reviewer found three
+  more bugs no test caught (a broken `isAvailable`, the uploaded-audiobook
+  path in the data and on the shelf). Apply: for each rule, break each
+  branch once, not only the cases the plan names.
+- **Turn "every caller must…" into a required parameter** (Iteration 2).
+  The compiler then lists every call site. Apply to the Home grid and
+  spines in step 3 (they draw covers too).
+- **A browser mutation can run in about two minutes**: build the mutated
+  app, serve it on the database a full run left, run one test with
+  `--no-deps`, then a control run on the restored code (Iteration 4,
+  scratchpad `m7.sh`).
 
 ## Iterations
 
@@ -39,3 +56,82 @@ M14 changes (or a collision), not from `main`. The known WebKit failure
 at `readalong.spec.ts:727` did not occur here; it is CI-only so far.
 **Lesson.** None new; this is the reference point.
 **Next experiment.** Step 1 (`m14-b1-availability`).
+
+### Iteration 2 · 2026-10-05 20:10 · Step 1 · success
+
+**Hypothesis.** Labelling titles by availability (D1, narration counts) and
+removing "owned" keeps every suite green; only the four reference images
+for the changed pages differ (CI only).
+**Action.** `lib/library/availability.ts`; Cover takes a required
+`available` (a forgotten call site is now a type error, advisor's idea);
+Path view, shelf, book page, `/design`, reader guard; tests reworded
+(commit f530c5d).
+**Evaluation.** `npm run check`; `rm -rf .data/e2e .data/e2e-files && npx
+playwright test --ignore-snapshots`; the wording grep.
+**Result.** `Tests 353 passed | 2 skipped (355)` (11 new); browser `219
+passed (6.2m)`, exit 0; `grep -rniE "not owned|books you own|unowned|\bowned\b"
+app components lib e2e --exclude-dir=__screenshots__` prints nothing.
+**Interpretation.** Behaviour holds on the Mac. Reference images were not
+compared (`--ignore-snapshots`); four sets will fail on CI as planned.
+**Lesson.** Make "every caller must do X" a required parameter so the
+compiler lists the callers, instead of a warning in a plan.
+**Next experiment.** Reviews (Iteration 3).
+
+### Iteration 3 · 2026-10-05 20:25 · Step 1 review · partial
+
+**Hypothesis.** f530c5d is ready to push.
+**Action.** Three read-only reviewer agents: correctness and regressions;
+wording, UI and contrast; "could each test fail?". Findings checked by
+reading the code or by a mutation run (a direct check stood in for a
+skeptic agent where one was possible).
+**Result.** Confirmed and fixed (281bf04): a broken `isAvailable` (read AND
+listen) passed every test; the uploaded-audiobook path in `getPathView`,
+`getBook` and the shelf was untested; no test read the shelf label;
+"Your shelf" small heading over "Your library"; available titles in a
+Path's folded list had no label; Cover imported server code (database,
+ElevenLabs) through `availability.ts`; `docs/design.md` used old names.
+Not changed, with reasons: reference images stale (refreshed from CI, §8);
+screen readers hear "not available yet" in the link name and the caption
+(both required by the plan's tests; harmless); `getBook` does one extra
+query for pages that ignore the label (one query, not per row); the label
+ignores the voice spending cap (D1 says key set = narration on); "Listen
+only" titles have nowhere to play (D2, not in M14). Contrast of all new
+labels: lowest 6.86:1 (sepia, sunken panel).
+**Lesson.** The plan's mutation list covered the rules it named; a
+reviewer asking "which bug passes every test?" found three more.
+**Next experiment.** Mutation-check the new tests (Iteration 4).
+
+### Iteration 4 · 2026-10-05 20:35 · Step 1 mutations · success
+
+**Hypothesis.** Each availability rule has a test that fails when the rule
+breaks.
+**Action.** A script (scratchpad `mutate.py`) applies one change, runs the
+named Vitest files, restores the file. On 281bf04's code.
+**Result.** All caught: M1 `audiobookBookIds` ignores `status` → 2 failed
+(availability.test, paths.test); M2 narration counts for a PDF → 1 failed
+("never counts narration for a PDF"); M3 Cover shows the image for a
+title-only book → 1 failed; M4 `isAvailable` = read AND listen → 2 failed
+(Cover "can only be read", paths.test); M5 `getPathView` ignores uploaded
+audiobooks → 1 failed; M6 `getBook` ignores them → 1 failed. M7 (shelf page
+ignores uploaded audiobooks): built the mutated app, served it on the
+database the full run left, ran only `readalong.spec.ts:1123` with
+`--no-deps` (scratchpad `m7.sh`) → `1 failed` at line 1154 ("Read and
+listen" not found on the PDF's shelf item); control on the restored code →
+`1 passed (25.2s)`.
+**Lesson.** See Iteration 3.
+**Next experiment.** Draft PR; CI; refresh the reference images from CI.
+
+### Iteration 5 · 2026-10-05 20:45 · Step 1 · success
+
+**Hypothesis.** The review fixes (281bf04) keep every suite green,
+including the new browser checks (shelf and book-page labels, a PDF with
+an audiobook says Read and listen).
+**Action.** `npm run check` (before commit); `rm -rf .data/e2e
+.data/e2e-files && npx playwright test --ignore-snapshots` on 281bf04.
+**Result.** `npm run lint`, `tsc` clean; browser `219 passed (6.2m)`, exit 0.
+**Interpretation.** Ready for a draft PR. CI will still fail four
+reference-image sets (`book-not-available`, `path`, `shelf-empty`,
+`design`), which the Mac run does not compare.
+**Lesson.** None new.
+**Next experiment.** Push as a draft; read CI.
+
