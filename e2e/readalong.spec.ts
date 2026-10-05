@@ -439,7 +439,7 @@ async function importReading(page: Page, bookId: string, zip: Uint8Array, expect
   const placed = (info.audiobook.paragraphs as { sectionId: string; cfi: string; file: number; words: [number, number, number, number][] }[]).flatMap((p) =>
     p.words.map(([startMs, , from, to]) => ({ word: PARAGRAPHS.find((x) => x.id === p.sectionId)!.text.slice(from, to), startMs, file: p.file, cfi: p.cfi })),
   );
-  expect(placed.slice(0, expected.length)).toEqual(expected);
+  expect(placed).toEqual(expected);
   return { id: body.import.id as string, info };
 }
 
@@ -451,6 +451,13 @@ async function openListening(page: Page, bookId: string, at: number) {
   await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
   return bar;
 }
+
+/**
+ * A closing line the book does not print: the test audio otherwise ends
+ * 0.4 s after the last word starts, and a slow machine might let it run to
+ * its end (a "pause" and an "ended") before the test stops it.
+ */
+const TAIL = "And that is where this part of the reading ends.";
 
 const playUntil = (page: Page, ms: number) =>
   page.waitForFunction((t) => document.querySelector("audio")!.currentTime * 1000 >= t, ms, { timeout: 45_000 });
@@ -515,7 +522,8 @@ test("M13 (d): an EPUB plays its audiobook straight on across paragraphs, lighti
   // through), and one word the narrator skipped. (Paragraphs whose opening
   // words are not also earlier in the chapter: the matcher anchors a
   // chapter's audio at the first place its first four words agree.)
-  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: ["Search for Mr. Hyde.", 61, 62, 63, "He paused.", 64, 65, 66], notSpoken: ["hoarsely."] }]);
+  // (A closing line the book does not print keeps the audio going after the last word.)
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: ["Search for Mr. Hyde.", 61, 62, 63, "He paused.", 64, 65, 66, TAIL], notSpoken: ["hoarsely."] }]);
   const imp = await importReading(page, bookId, zip(), expected);
   expect(expected.map((w) => w.word)).not.toContain("hoarsely.");
   const answers = watchAnswers(page, imp.id);
@@ -590,7 +598,7 @@ test("M13 (d): on a phone with large text, the page turns as the reading goes on
   const bookId = await jekyllId(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => localStorage.setItem("neolibrary.reader.v1", JSON.stringify({ size: 170 })));
-  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63, 64, 65, 66, 67, 68] }]);
+  const { zip, expected } = readAlong([{ title: "Search for Mr. Hyde", said: [61, 62, 63, 64, 65, 66, 67, 68, TAIL] }]);
   await importReading(page, bookId, zip(), expected);
   const bar = await openListening(page, bookId, 61);
   await recordPlayer(page);
