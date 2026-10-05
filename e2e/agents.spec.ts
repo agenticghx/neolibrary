@@ -32,7 +32,7 @@ test("agent routes answer 401 (never a sign-in redirect) without a valid token",
   // A Bearer header opens only agent routes, not the rest of the API or pages.
   const client = await agentClient(playwright, "nl_not-a-real-token");
   expect((await client.get("/api/export", { maxRedirects: 0 })).status()).toBe(401);
-  expect((await client.get("/shelf", { maxRedirects: 0 })).status()).toBe(307);
+  expect((await client.get("/library", { maxRedirects: 0 })).status()).toBe(307);
   await client.dispose();
 });
 

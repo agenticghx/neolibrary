@@ -10,7 +10,7 @@ export const pages: PageCase[] = [
   { name: "invite-closed", path: "/invite/not-a-real-invite", signedIn: false },
   { name: "path", path: "/", signedIn: true },
   { name: "book-not-available", path: "/", signedIn: true, click: "The Grid (not available yet)" },
-  { name: "shelf-empty", path: "/shelf", signedIn: true },
+  { name: "library", path: "/library", signedIn: true },
   { name: "data", path: "/data", signedIn: true },
   { name: "agents", path: "/agents", signedIn: true },
   { name: "stats", path: "/stats", signedIn: true },

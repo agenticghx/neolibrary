@@ -786,7 +786,7 @@ export function Reader(props: {
       <header className={styles.bar}>
         {/* Left, as in Kindle: leave the book, and the table of contents. */}
         <div className={styles.lead}>
-          <Link href="/shelf" className={`${styles.tool} ${styles.leadTool}`} aria-label="Back to your shelf" title="Back to your shelf">
+          <Link href="/" className={`${styles.tool} ${styles.leadTool}`} aria-label="Back to your library" title="Back to your library">
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M10 2.5 4.5 8l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

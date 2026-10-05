@@ -15,7 +15,7 @@ const reader = (page: Page) => page.getByTestId("reader");
 const cfiStart = (cfi: string | null) => (cfi ?? "").split(",")[0];
 
 async function openJekyll(page: Page) {
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByTestId("shelf").getByRole("link", { name: /^The Strange Case/ }).click();
   await expect(page.getByRole("heading", { name: /^The Strange Case/, level: 1 })).toBeVisible();
   await page.getByRole("link", { name: /^(Read|Continue reading)$/ }).click();
@@ -56,7 +56,7 @@ test("open a book, turn pages, change the text size, reload: same spot", async (
   await expect.poll(async () => cfiStart(await reader(page).getAttribute("data-cfi"))).toBe(cfiStart(before));
 
   // The shelf and book page show the progress too.
-  await page.goto("/shelf");
+  await page.goto("/library");
   await expect(page.getByTestId("shelf").getByText(/% read$/).first()).toBeVisible();
 });
 
@@ -75,7 +75,7 @@ test("scripts inside a book never run", async ({ page }) => {
   const evil = readableEpub("Trap Book", [
     `<p>Nothing to see.</p><script>document.title = "pwned"; try { parent.document.title = "pwned"; parent.postMessage("pwned", "*"); } catch (e) {}</script><img src="x" onerror="parent.document.title='pwned'"/>`,
   ]);
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByLabel("Choose files").setInputFiles({ name: "trap.epub", mimeType: "application/epub+zip", buffer: Buffer.from(evil) });
   await expect(page.getByTestId("upload-results").getByText("Added to your shelf")).toBeVisible();
   await page.evaluate(() => {
@@ -91,9 +91,9 @@ test("scripts inside a book never run", async ({ page }) => {
   expect(await page.evaluate(() => (window as unknown as { __msgs?: string[] }).__msgs ?? [])).not.toContain("pwned");
 });
 
-// Like Kindle: on the left of the top bar, a back arrow to the shelf and the
+// Like Kindle: on the left of the top bar, a back arrow to the library and the
 // table of contents, which opens on the left; reading is not disturbed.
-test("the back arrow leaves the book for the shelf; contents open on the left without moving the page", async ({ page }) => {
+test("the back arrow leaves the book for the library; contents open on the left without moving the page", async ({ page }) => {
   await openJekyll(page);
   const host = page.locator("foliate-view");
   const before = await host.boundingBox();
@@ -128,9 +128,10 @@ test("the back arrow leaves the book for the shelf; contents open on the left wi
   }
   await page.setViewportSize({ width: 1280, height: 800 });
 
-  await page.getByRole("link", { name: "Back to your shelf" }).click();
-  await expect(page).toHaveURL(/\/shelf$/);
-  await expect(page.getByRole("heading", { name: "Your library", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  await expect(page).toHaveURL(/:\d+\/$/);
+  // Home (until M14 step 3 rebuilds it, Home shows the reader's first Path).
+  await expect(page.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
 });
 
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
@@ -220,7 +221,7 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
     p.drawText(`Part ${i + 1}`, { x: 72, y: 700, size: 18, font });
     p.drawText(text, { x: 72, y: 660, size: 11, font });
   });
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByLabel("Choose files").setInputFiles({ name: "discourse.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
   await expect(page.getByTestId("upload-results").getByText("Added to your shelf")).toBeVisible();
   // Labelled by what each title offers: narration is EPUB only, so this PDF is Read only, while an

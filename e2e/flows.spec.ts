@@ -105,7 +105,7 @@ test.describe("signed in", () => {
     await expect(guest.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
 
     // An empty shelf offers three free classics; one click, and they can be read.
-    await guest.goto("/shelf");
+    await guest.goto("/library");
     await guest.getByRole("button", { name: "Add three free classics" }).click();
     for (const title of ["Frankenstein", "The Strange Case of Dr. Jekyll and Mr. Hyde", "The Time Machine"]) {
       await expect(guest.getByTestId("shelf").getByRole("link", { name: new RegExp(`^${title}`) })).toBeVisible();

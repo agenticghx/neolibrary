@@ -15,7 +15,7 @@ test.describe.configure({ mode: "serial" });
 const fixture = (name: string) => path.join("fixtures", "books", name);
 
 test("three public-domain books land on the shelf with their titles and covers", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByLabel("Choose files").setInputFiles([
     fixture("stevenson-jekyll-and-hyde.epub"),
     fixture("shelley-frankenstein.epub"),
@@ -38,7 +38,7 @@ test("three public-domain books land on the shelf with their titles and covers",
 });
 
 test("a book page shows what the file told us", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByTestId("shelf").getByRole("link", { name: /^The Time Machine/ }).click();
   await expect(page.getByRole("heading", { name: "The Time Machine", level: 1 })).toBeVisible();
   await expect(page.getByText("H. G. Wells")).toBeVisible();
@@ -51,7 +51,7 @@ const GRID_TEXT = `<h1>The wires</h1>${Array.from(
 ).join("")}`;
 
 test("a file matching a title not available yet attaches to it and lights up the path", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByLabel("Choose files").setInputFiles({
     name: "the-grid.epub",
     mimeType: "application/epub+zip",
@@ -70,7 +70,7 @@ test("a file matching a title not available yet attaches to it and lights up the
 });
 
 test("duplicates, other file types and DRM-protected books are refused politely", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const drm = zipSync({
     mimetype: strToU8("application/epub+zip"),
     "META-INF/container.xml": strToU8('<container><rootfiles><rootfile full-path="c.opf"/></rootfiles></container>'),
@@ -90,7 +90,7 @@ test("duplicates, other file types and DRM-protected books are refused politely"
 });
 
 test("cover links are signed, short-lived and only for their owner", async ({ page, browser }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const src = await page.getByTestId("shelf").locator("img").first().getAttribute("src");
   expect(src).toMatch(/^\/api\/files\/covers\/[0-9a-f-]+\/[0-9a-f-]+\.svg\?exp=\d+&sig=/);
   const ok = await page.request.get(src!);
@@ -106,7 +106,7 @@ test("cover links are signed, short-lived and only for their owner", async ({ pa
 // M3 (c): finding books on the shelf.
 
 test("search and sort the shelf", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const shelf = page.getByTestId("shelf");
   const titles = () => shelf.locator("li").evaluateAll((els) => els.map((e) => e.querySelector("span[class*=itemTitle]")!.textContent));
 
@@ -123,7 +123,7 @@ test("search and sort the shelf", async ({ page }) => {
 });
 
 test("collections group books and filter the shelf", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByRole("button", { name: "+ New collection" }).click();
   await page.getByLabel("Collection name").fill("Gothic");
   await page.getByRole("button", { name: "Create" }).click();
@@ -132,7 +132,7 @@ test("collections group books and filter the shelf", async ({ page }) => {
 
   // Add two books from their pages.
   for (const title of [/^Frankenstein/, /^The Strange Case/]) {
-    await page.goto("/shelf");
+    await page.goto("/library");
     await page.getByTestId("shelf").getByRole("link", { name: title }).click();
     const toggle = page.getByRole("button", { name: "Gothic" });
     await expect(toggle).toHaveAttribute("aria-pressed", "false");
@@ -140,15 +140,21 @@ test("collections group books and filter the shelf", async ({ page }) => {
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
   }
 
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByRole("link", { name: "Gothic 2" }).click();
   await expect(page.getByTestId("shelf").locator("li")).toHaveCount(2);
   await expect(page.getByTestId("shelf").getByRole("link", { name: /^The Time Machine/ })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Delete collection" }).click();
-  await expect(page).toHaveURL(/\/shelf$/);
+  await expect(page).toHaveURL(/\/library$/);
   await expect(page.getByRole("link", { name: /^Gothic/ })).toHaveCount(0);
   await expect(page.getByText("4 books.")).toBeVisible();
+});
+
+test("old /shelf links land on /library, keeping their query", async ({ page }) => {
+  await page.goto("/shelf?sort=title&q=wells");
+  await expect(page).toHaveURL(/\/library\?sort=title&q=wells$/);
+  await expect(page.getByRole("heading", { name: "Your library", level: 1 })).toBeVisible();
 });
 
 test("the library can be downloaded, and import never overwrites", async ({ page, browser }) => {

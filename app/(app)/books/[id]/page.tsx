@@ -42,7 +42,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className={styles.backIcon}>
           <path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
-        Path
+        Library
       </Link>
       <div className={styles.layout}>
         <Cover

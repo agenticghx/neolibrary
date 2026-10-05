@@ -24,7 +24,7 @@ const engine = () => (test.info().project.name.includes("safari") ? "-safari" : 
 const BOOK = new Uint8Array(readFileSync("fixtures/books/stevenson-jekyll-and-hyde.epub"));
 
 test("an audiobook package is uploaded in parts, checked, and becomes read-aloud tracks; it can be removed", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
   const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
   const paragraphs = extractSections(BOOK).filter((s) => s.kind === "paragraph").slice(20, 23);
@@ -87,7 +87,7 @@ test("an audiobook package is uploaded in parts, checked, and becomes read-aloud
 // default it passes on at most 10 MB of a request body. A package zip with
 // its audio inside can be larger, so this sends one of about 12 MB.
 test("a package .zip larger than 10 MB, audio inside, arrives whole", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
   const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
   const paragraphs = extractSections(BOOK).filter((s) => s.kind === "paragraph").slice(40, 140);
@@ -108,7 +108,7 @@ test("a package .zip larger than 10 MB, audio inside, arrives whole", async ({ p
 // The same 10 MB cut applied to book uploads (the shelf allows books up to
 // 200 MB): a 12 MB EPUB, the Jekyll and Hyde file padded with an unused file.
 test("a book file larger than 10 MB uploads whole", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const padded = unzipSync(BOOK);
   padded["OEBPS/padding.bin"] = Uint8Array.from({ length: 12 * 1024 * 1024 }, (_, i) => (i * 2654435761) >>> 24);
   const epub = zipSync(padded, { level: 0 });
@@ -129,7 +129,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   const AxeBuilder = (await import("@axe-core/playwright")).default;
   const imports = async (bookId: string) => (await (await page.request.get(`/api/books/${bookId}/readalong`)).json()).imports as { status: string; title: string }[];
 
-  await page.goto("/shelf");
+  await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
   const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
   const paragraphs = extractSections(BOOK).filter((s) => s.kind === "paragraph").slice(10, 14);
@@ -243,7 +243,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const path = await import("node:path");
-  await page.goto("/shelf");
+  await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string; fileType?: string }[];
   const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
   const paragraphs = extractSections(BOOK).filter((s) => s.kind === "paragraph").slice(40, 140);
@@ -348,7 +348,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
 // The upload routes skip proxy.ts (so large bodies are not cut at 10 MB);
 // they must still refuse a signed-out upload, before reading it.
 test("a signed-out upload of 12 MB is refused by the upload routes themselves", async ({ page, browser }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
   const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
   const anon = await browser.newContext({ storageState: { cookies: [], origins: [] } });
@@ -424,7 +424,7 @@ function readAlong(chapters: { title: string; said: Said[]; notSpoken?: string[]
 }
 
 async function jekyllId(page: Page) {
-  await page.goto("/shelf");
+  await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
   return books.find((b) => b.title.startsWith("The Strange Case"))!.id;
 }
@@ -1149,7 +1149,7 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   expect([last1.w, expected[first2].word]).toEqual(["in", "most"]);
   expect(expected[first2].startMs - last1.end * 1000).toBeLessThan(50);
   // On the shelf this PDF says Read and listen through its uploaded audiobook alone (narration is EPUB only).
-  await page.goto("/shelf");
+  await page.goto("/library");
   const onShelf = page.getByTestId("shelf").getByRole("listitem").filter({ hasText: "Read-Along Test Pages" });
   await expect(onShelf.getByText("Read and listen", { exact: true })).toBeVisible();
 
