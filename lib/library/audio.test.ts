@@ -139,6 +139,8 @@ describe("the book's own audiobook in the player (M13 (d))", () => {
     ]);
     expect(r.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(5, 10).map((p) => p.id));
     expect(r.paragraphs.map((p) => p.file)).toEqual([0, 0, 0, 1, 1]);
+    // Places on a page are for PDF books only (M13 (e)): an EPUB's paragraphs carry none.
+    expect(r.paragraphs.filter((p) => "inPage" in p)).toEqual([]);
     expect(r.paragraphs.map((p) => p.cfi)).toEqual(ps.slice(5, 10).map((p) => p.cfi));
     for (const p of r.paragraphs) {
       // Times are times in the file: a stretch of it, word by word.
@@ -202,6 +204,32 @@ describe("the audiobook's paragraphs, in parts (M13 (d))", () => {
     const waiting = await startImport(database.db, storage, ownerId, bookId, zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
     expect(await readingPart(database.db, ownerId, bookId, waiting.id, 0)).toBeNull();
   });
+
+  it("ends a part once it holds enough words (a PDF paragraph can be a whole page), with at least one paragraph", async () => {
+    const ps = paragraphs();
+    const { zip } = buildPackage({ bookBytes, chapters: [{ title: "Five", paragraphs: ps.slice(5, 10).map((p) => p.text), inBook: ps.slice(5, 10).map((p) => p.chapterIndex) }] });
+    const imp = await startImport(database.db, storage, ownerId, bookId, zip());
+    // By default the five paragraphs come in one part.
+    expect((await uploadedReading(database.db, ownerId, bookId, 0))!.more).toBeNull();
+    // A budget of one word: one paragraph a part.
+    const one = (await uploadedReading(database.db, ownerId, bookId, 0, 200, 1))!;
+    expect(one.paragraphs.map((p) => p.sectionId)).toEqual([ps[5].id]);
+    expect(one.more).toBe(ps[6].position);
+    // A budget one word over the first paragraph: the part ends with the paragraph that reaches it.
+    const budget = one.paragraphs[0].words.length + 1;
+    const two = (await uploadedReading(database.db, ownerId, bookId, 0, 200, budget))!;
+    expect(two.paragraphs.map((p) => p.sectionId)).toEqual([ps[5].id, ps[6].id]);
+    expect(two.more).toBe(ps[7].position);
+    // Reading on part by part gives every paragraph once, in order.
+    const seen = two.paragraphs.map((p) => p.sectionId);
+    for (let at = two.more; at !== null; ) {
+      const next = (await readingPart(database.db, ownerId, bookId, imp.id, at, 200, budget))!;
+      expect(next.paragraphs.length).toBeGreaterThan(0);
+      seen.push(...next.paragraphs.map((p) => p.sectionId));
+      at = next.more;
+    }
+    expect(seen).toEqual(ps.slice(5, 10).map((p) => p.id));
+  });
 });
 
 describe("where reading aloud starts in a PDF", () => {
@@ -237,5 +265,99 @@ describe("where reading aloud starts in a PDF", () => {
     expect((await passageFor(database.db, ownerId, id, { cfi: "epubcfi(/6/6)" })).id).toBe(ps[2].id);
     // Past the last page with text, there is nothing to read.
     await expect(passageFor(database.db, ownerId, id, { cfi: "epubcfi(/6/8)" })).rejects.toThrow("nothing to read");
+  });
+});
+
+describe("an audiobook of a PDF book (M13 (e))", () => {
+  /**
+   * A PDF drawn here (no copyrighted text), laid out as Samuel's Kuhn is: on
+   * each page a running head drawn first, at the top (its own paragraph,
+   * never read aloud), then the body, then the page number, drawn last. A
+   * paragraph has three lines, so that the page's usual line step (the
+   * median, which the paragraph split uses) is the step within a paragraph.
+   */
+  async function pdfBook() {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    doc.setTitle("Pages Read Aloud");
+    const font = await doc.embedFont(StandardFonts.TimesRoman);
+    const pages = [
+      {
+        head: "Introduction",
+        paragraphs: [
+          ["A careful reader learns to trust the slow and normal-", "scientific habit of looking twice at a page, and", "then once more before turning it."],
+          ["Then a second paragraph begins, and it ends", "with a plain sentence of its own, as the", "last words on this page."],
+        ],
+      },
+      {
+        head: "Pages Read Aloud",
+        paragraphs: [
+          ["The next page opens with a short line of", "plain words for the voice to read, and then", "a third line to make the page look usual."],
+          ["And a last paragraph closes the test, in", "three short lines, each of them", "read aloud like the rest."],
+        ],
+      },
+    ];
+    pages.forEach(({ head, paragraphs }, n) => {
+      const page = doc.addPage([612, 792]);
+      page.drawText(head, { x: 72, y: 750, size: 9, font });
+      let y = 700;
+      for (const lines of paragraphs) {
+        for (const line of lines) {
+          page.drawText(line, { x: 72, y, size: 12, font });
+          y -= 15;
+        }
+        y -= 20;
+      }
+      page.drawText(String(n + 1), { x: 300, y: 40, size: 9, font });
+    });
+    return new Uint8Array(await doc.save());
+  }
+
+  it("says where each word is on its page, in non-space characters, in every part, counting the running head", async () => {
+    const bytes = await pdfBook();
+    const id = (await importBook(database.db, storage, ownerId, { name: "pages.pdf", bytes })).bookId;
+    const ps = (await getSections(database.db, ownerId, id)).filter((x) => x.kind === "paragraph");
+    expect(ps.map((p) => [p.chapterIndex, p.text])).toEqual([
+      [0, "Introduction"],
+      [0, "A careful reader learns to trust the slow and normal- scientific habit of looking twice at a page, and then once more before turning it."],
+      [0, "Then a second paragraph begins, and it ends with a plain sentence of its own, as the last words on this page."],
+      [0, "1"],
+      [1, "Pages Read Aloud"],
+      [1, "The next page opens with a short line of plain words for the voice to read, and then a third line to make the page look usual."],
+      [1, "And a last paragraph closes the test, in three short lines, each of them read aloud like the rest."],
+      [1, "2"],
+    ]);
+    const body = [ps[1], ps[2], ps[5], ps[6]];
+    // Read as the narrator would: the broken word whole, the running heads and page numbers not read; a pause after each paragraph.
+    const said = [body[0].text.replace("normal- scientific", "normal-scientific"), ...body.slice(1).map((p) => p.text)];
+    const { zip } = buildPackage({ bookBytes: bytes, chapters: [{ title: "One", paragraphs: said, inBook: [0, 0, 1, 1], pauses: [0.8, 0.8, 0.8] }] });
+    const imp = await startImport(database.db, storage, ownerId, id, zip());
+    expect(imp.status).toBe("ready");
+    // In parts of three paragraphs: the second part starts in the middle of
+    // page 2, so its places must count the page's running head and the
+    // paragraph before it, which is in the first part.
+    const first = (await uploadedReading(database.db, ownerId, id, 0, 3))!;
+    const rest = (await readingPart(database.db, ownerId, id, imp.id, first.more!, 3))!;
+    expect(first.paragraphs.map((p) => p.sectionId)).toEqual(body.slice(0, 3).map((p) => p.id));
+    expect(rest).toMatchObject({ paragraphs: [{ sectionId: body[3].id }], more: null });
+    const all = [...first.paragraphs, ...rest.paragraphs];
+    // Each page's text without spaces: a word's place there is the word itself (spaces removed).
+    const pageText = (n: number) => ps.filter((p) => p.chapterIndex === n).map((p) => p.text.replace(/\s+/g, "")).join("");
+    for (const p of all) {
+      const text = ps.find((x) => x.id === p.sectionId)!.text;
+      expect(p.inPage, p.sectionId).toHaveLength(p.words.length);
+      p.words.forEach(([, , from, to], k) => {
+        const [a, b] = p.inPage![k];
+        expect(pageText(p.chapterIndex).slice(a, b)).toBe(text.slice(from, to).replace(/\s+/g, ""));
+      });
+    }
+    // The last part's first word comes after page 2's running head and first paragraph.
+    expect(rest.paragraphs[0].inPage![0][0]).toBe(("PagesReadAloud" + body[2].text).replace(/\s+/g, "").length);
+    // Every word read aloud has its time and place, the broken word as one word across the line break.
+    const words = all.flatMap((p) => p.words.map(([, , from, to]) => ps.find((x) => x.id === p.sectionId)!.text.slice(from, to)));
+    expect(words).toHaveLength(said.join(" ").split(" ").length);
+    expect(words).toContain("normal- scientific");
+    // The pause after each paragraph is in the audio: the next paragraph starts 0.8 s later.
+    expect(all[1].startMs - all[0].endMs).toBeGreaterThanOrEqual(800);
   });
 });

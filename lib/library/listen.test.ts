@@ -100,3 +100,24 @@ describe("an audiobook that begins further on (M13 (d))", () => {
     expect((await listenInfo(database.db, ownerId, bookId, { cfi: chapter2[0].cfi }, withFake)).audiobook!.begins).toBeNull();
   });
 });
+
+describe("Listen in a PDF book (M13 (e))", () => {
+  it("offers only the book's own audiobook: made voices cannot be placed on a PDF page yet", async () => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.TimesRoman);
+    doc.addPage([612, 792]).drawText("One short paragraph on the only page of this test.", { x: 72, y: 700, size: 12, font });
+    const bytes = new Uint8Array(await doc.save());
+    const id = (await importBook(database.db, storage, ownerId, { name: "one.pdf", bytes })).bookId;
+    const before = await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake);
+    expect(before).toMatchObject({ fileType: "pdf", voices: [], estimate: null, track: null, audiobook: null });
+    const [p] = (await getSections(database.db, ownerId, id)).filter((x) => x.kind === "paragraph");
+    const { zip } = buildPackage({ bookBytes: bytes, chapters: [{ title: "One", paragraphs: [p.text], inBook: [0] }] });
+    const imp = await startImport(database.db, storage, ownerId, id, zip());
+    const after = await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake);
+    expect(after.voices).toEqual([{ id: `upload:${imp.id}`, name: AUDIOBOOK_NAME }]);
+    expect(after.audiobook!.paragraphs[0].inPage).toHaveLength(p.text.split(" ").length);
+    // An EPUB still offers the made voices.
+    expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake)).fileType).toBe("epub");
+  });
+});

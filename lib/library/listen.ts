@@ -1,6 +1,6 @@
 import { and, count, eq, gt, lt } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { sections } from "@/lib/db/schema";
+import { books, sections } from "@/lib/db/schema";
 import { getSpeechModel } from "@/lib/speech";
 import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
 import { estimateSpeech, passageFor, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
@@ -32,6 +32,8 @@ export type ListenInfo = {
    * begins, and whether that is near.
    */
   audiobook: (UploadedReading & { begins: { label: string; nearby: boolean } | null }) | null;
+  /** In a PDF book only the audiobook is offered: a made voice's word times could not be placed on a PDF page yet. */
+  fileType: "epub" | "pdf";
 };
 
 /**
@@ -49,20 +51,24 @@ export async function listenInfo(
   speech: () => SpeechModel = getSpeechModel,
 ): Promise<ListenInfo> {
   const passage = await passageFor(db, ownerId, bookId, q.cfi ? { cfi: q.cfi } : { sectionId: q.section ?? "" });
+  const [book] = await db.select({ fileType: books.fileType }).from(books).where(eq(books.id, bookId));
+  const fileType = book?.fileType === "pdf" ? "pdf" : "epub";
   // Only when the bar opens (a place in the book): reading on in a made voice asks by `section`.
   const reading = q.cfi ? await uploadedReading(db, ownerId, bookId, passage.position) : null;
   const audiobook = reading ? { ...reading, begins: await beginsAt(db, bookId, passage, reading.paragraphs[0]) } : null;
   let voices: { id: string; name: string }[] = [];
   let track: Track | null = null;
-  let configured = true;
-  try {
-    const model = speech();
-    voices = await model.voices();
-    const voice = q.voice && !q.voice.startsWith("upload:") ? q.voice : voices[0]?.id;
-    if (voice) track = await storedTrack(db, ownerId, model, voice, passage);
-  } catch (e) {
-    if (!(e instanceof SpeechNotConfigured)) throw e;
-    configured = false;
+  let configured = fileType === "epub";
+  if (configured) {
+    try {
+      const model = speech();
+      voices = await model.voices();
+      const voice = q.voice && !q.voice.startsWith("upload:") ? q.voice : voices[0]?.id;
+      if (voice) track = await storedTrack(db, ownerId, model, voice, passage);
+    } catch (e) {
+      if (!(e instanceof SpeechNotConfigured)) throw e;
+      configured = false;
+    }
   }
   return {
     passage: { id: passage.id, cfi: passage.cfi, position: passage.position, nextId: passage.nextId, characters: passage.text.length },
@@ -70,6 +76,7 @@ export async function listenInfo(
     track,
     estimate: configured ? estimateSpeech(passage) : null,
     audiobook,
+    fileType,
   };
 }
 

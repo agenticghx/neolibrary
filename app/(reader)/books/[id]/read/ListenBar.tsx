@@ -42,8 +42,12 @@ export function ListenBar({
 }: {
   bookId: string;
   startCfi: string;
-  /** Highlight a word of a paragraph (character offsets into its text); returns the word's text, or null if it is not on the page yet. */
-  onWord: (passageCfi: string, from: number, to: number) => string | null;
+  /**
+   * Highlight a word of a paragraph (character offsets into its text; in a
+   * PDF also `inPage`, its place on the page in non-space characters);
+   * returns the word's text, or null if it is not on the page yet.
+   */
+  onWord: (passageCfi: string, from: number, to: number, inPage?: [number, number]) => string | null;
   /** Show a paragraph (turning the page if needed); `resume`: going on after a pause, show the word being read. */
   onPassage: (passageCfi: string, opts?: { resume?: boolean }) => void;
   onClose: () => void;
@@ -297,8 +301,8 @@ export function ListenBar({
     if (s.word < 0 || s.word === lastWord.current) return;
     const p = ab.paragraphs[s.index];
     const [, , from, to] = p.words[s.word];
-    const text = onWord(p.cfi, from, to);
-    // Not on the page yet (a chapter still opening): try again on the next frame.
+    const text = onWord(p.cfi, from, to, p.inPage?.[s.word]);
+    // Not on the page yet (a chapter or PDF page still opening): try again on the next frame.
     if (text === null) return;
     lastWord.current = s.word;
     setWord(text);
@@ -443,11 +447,13 @@ export function ListenBar({
               : info.audiobook!.begins && !info.audiobook!.begins.nearby && !bookStarted
                 ? `Your audiobook begins further on (${info.audiobook!.begins.label}): Play turns to it.`
                 : "Your audiobook: free to play."
-        : info.estimate === null
-          ? "Reading aloud is not set up yet: the owner needs to add an ElevenLabs key."
-          : info.track && info.track.voice === voice
-            ? "Saved audio: free to play."
-            : `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;
+        : info.fileType === "pdf"
+          ? "In a PDF book, Listen plays your own audiobook: add one on the book's page."
+          : info.estimate === null
+            ? "Reading aloud is not set up yet: the owner needs to add an ElevenLabs key."
+            : info.track && info.track.voice === voice
+              ? "Saved audio: free to play."
+              : `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;
 
   return (
     <div className={styles.listenBar} role="region" aria-label="Read aloud" data-word={word} data-passage={passageCfi}>

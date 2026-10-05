@@ -418,6 +418,18 @@ Steps (one PR each):
   (`Reader.tsx`: `disabled={… || props.fileType === "pdf"}`). Draw the
   highlight in the PDF viewer's text layer and turn pages by page number.
   Also in Safari's engine.
+  *Built 2026-10-05 (branch `m13-pdf-player-v2`; what changed from the plan
+  is in `docs/m13-player-plan.md`, "What (e) built"):* Listen in a PDF book
+  plays its uploaded audiobook; each word is found in the page's text layer
+  by counting non-space characters from the top of the page (the server
+  sends each word's count) and lit there over its printed letters; the page
+  turns as soon as its last word is over, and a page turned back from while
+  it is read comes back; the text layer is built once per page shown and
+  laid out again when the size changes, with the picture; the server reads
+  PDFs with pdf.js's character maps, as the reader does; a part of the
+  paragraph list stops at about 8,000 words. Words the matcher misses in
+  Kuhn (before footnote numbers, broken across pages) are listed there as a
+  follow-up.
 - **(f) Live**: deploy (backup first), import the Frankenstein test package
   and the corrected Kuhn package, Samuel reads along.
 

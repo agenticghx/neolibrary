@@ -232,8 +232,9 @@ What the skeptics found:
   text.** The server (`lib/library/pdf-sections.ts:41-53`) concatenates items
   with **no** separator and adds a space only when the baseline drops (not
   for a paragraph break, not when it rises). So running heads and page
-  numbers get glued onto words: the demo PDF has
-  `irreducibleIntroductionx`, `distinguishedIntroduction xv 13`. The text
+  numbers get glued onto words: the Descartes demo PDF has
+  `irreducibleIntroductionx`, `distinguishedIntroduction xv 13` (Samuel's
+  Kuhn draws its running head first, so there it is its own paragraph). The text
   layer has one span per item plus `<br>` after end-of-line items, positioned
   by percentages, so spaces do not line up.
 - **Proposed mapping:** count **non-whitespace characters**. A paragraph's
@@ -267,6 +268,100 @@ matching fixture package, play across two paragraphs and a page break, check
 every word in order within 0.1 s by reading `CSS.highlights` in the page
 iframe, and that the page turns when the audio crosses it. Screenshots
 (phone/desktop, light/dark) of a highlighted PDF word.
+
+## What (e) built (2026-10-05)
+
+Written for the session that does (f), and for Samuel. Built on branch
+`m13-pdf-player-v2`; evidence in the `PROGRESS.md` Log. Three reviewers
+(the reader in the browser, the server, the tests) read it and a skeptic
+checked each finding: 17 confirmed, 1 uncertain, none refuted. What was done
+about each is below.
+
+- **What you get:** in a PDF book, **Listen** plays the book's own
+  audiobook, and each word lights up on the page as it is spoken, over its
+  printed letters. Made voices still cannot be placed on a PDF page, so a
+  PDF without an audiobook says "In a PDF book, Listen plays your own
+  audiobook: add one on the book's page."
+- **How a word is found on the page:** as planned, by counting non-space
+  characters from the top of the page. The server sends each word's count
+  with its times (`inPage` in `lib/library/audio.ts`, from every paragraph
+  on that page, including the running head and those outside the part being
+  sent); the reader walks the page's text layer (pdf.js's invisible copy of
+  the page's text over its picture) to the same count (`rangeForNonSpace`,
+  `lib/reader/text-range.ts`) and lights it with the CSS highlight in that
+  page's frame. Spaces do not matter, so a running head glued onto a word
+  does not move the count. The browser test checks that the page's text
+  layer and the server's text for the page are the same characters.
+- **The text layer is built once per page shown** (`lib/reader/pdf-book.ts`),
+  at the same time as the picture, not after it, and a new size lays the
+  same text out again (pdf.js's `TextLayer.update`) at the moment the new
+  picture is ready. It used to be thrown away and built again on every
+  resize; two of those under way at once (a window being dragged) could
+  leave pieces of both, and words would be lit on the wrong text (review
+  finding, "major"). An older drawing still under way is cancelled; a
+  drawing at the size already shown is skipped.
+- **Page turns:** the player turns the page as soon as the last word on it
+  is over (as in (d)), and a sentence that runs on across a page break with
+  no pause works: in the browser test, page 2 was shown 17 to 50 ms after
+  page 1's last word ended, and its first word was lit about 20 ms after it
+  began (Chromium and WebKit, laptop; the limit is 100 ms). A probe on
+  Samuel's Kuhn PDF (a temporary test, not kept, run on the laptop) measured
+  the time from a page turn to its text layer being ready: median 22 ms in
+  Chromium and 33 ms in WebKit; at phone size with 3 pixels per point, 21 and
+  34 ms; with Chromium's processor slowed 4 times, 33 to 42 ms. So drawing
+  the next page ahead of time, which a reviewer proposed, was not needed;
+  a real iPhone is tried at (f).
+- **A page turned back from while it is read comes back** at the next word
+  (as an EPUB's pages follow the voice); a page turned to ahead is left
+  alone. While a page is opening, the reader does not ask for it again
+  (foliate shows one page at a time and fails on a second request).
+- **Rotated pages:** pdf.js's three rules that turn the text layer with a
+  page printed sideways were missing; added, with a test on a page turned a
+  quarter turn.
+- **Character maps on the server:** the server now opens PDFs with pdf.js's
+  character maps, as the reader does. Without them, text in some fonts
+  (Chinese, Japanese, Korean) was missing on the server but shown on the
+  page, and every word after it on that page was lit on the wrong letters.
+- **Parts by words too:** a part of the paragraph list stops at 200
+  paragraphs or about 8,000 words (always at least one paragraph). Kuhn's
+  PDF paragraphs are often whole pages, so 200 of them were most of the
+  book. Measured on Kuhn with a reviewer's script (`size.mjs`, re-run with
+  the word cap): the first part was 200 paragraphs, 181 of 221 pages,
+  54,969 words, 2.16 MB (0.74 MB compressed) every time Listen opened; it
+  is now 37 paragraphs, 8,006 words, 0.31 MB (0.11 MB compressed).
+- **Tests:** the test PDF is laid out as Kuhn is (running head drawn first,
+  page number last, footnotes in smaller type with italics, so pdf.js sends
+  the page's text in two pieces), and every word read aloud must light up,
+  page 2's first word too, which follows page 1's last with no pause; the
+  unit test sends parts of three paragraphs so that a part starts in the
+  middle of a page. Earlier comments said the running head glued onto the
+  last word was "as in the Kuhn PDF": that was the Descartes demo PDF; Kuhn
+  draws its running head first, so it is a paragraph of its own.
+
+**Found by the review, not fixed here** (older code from steps (b) and (c):
+the matcher and the PDF text reader; each needs the audiobook imported again
+to take effect, so they belong in a follow-up). Counted on Samuel's own
+narration of Kuhn (`kuhn-ssr-word-timings.json`) against his PDF with this
+branch's code, by a reviewer's script re-run for this note
+(`node <scratchpad>/skeptic-srv/verify1.mjs anchor`): 67,270 of 67,824
+spoken words matched (99.18%). Words that never light up:
+
+1. **168 words before a footnote number** ("research.2"): the number is
+   raised, the server adds a space only when the line goes down, so it is
+   glued on, and the narrator does not say it.
+2. **46 words broken across a page** ("phe-" / "nomena"): both halves stay
+   unlit, because the matcher joins a broken word only within one paragraph
+   and each PDF page is its own paragraphs. The page then turns one word
+   early.
+3. **4 suspended hyphens** ("pre- and post-"), joined into one word that is
+   never said.
+4. 553 others, mostly numbers and abbreviations read out differently
+   ("1962" said as "nineteen sixty-two", "i.e." as "that is").
+
+Also not done: a check in the reader that the server's text and the page's
+text layer agree (the server now uses the same character maps, and the
+browser test compares them for its page, but a PDF that differs in some
+other way would light words in the wrong place without a warning).
 
 ## Other engine differences worth knowing
 

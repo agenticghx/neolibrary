@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { unzipSync, zipSync } from "fflate";
-import { extractSections } from "@/lib/library/sections";
+import { extractPdfSections } from "@/lib/library/pdf-sections";
+import { extractSections, type Section } from "@/lib/library/sections";
 import { buildPackage } from "@/lib/readalong/fixture";
 import { expectEveryWordOnTime, expectNoStall, recording, recordPlayer, type Spoken } from "./listen";
 import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
@@ -237,7 +238,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
 
 // The checks above use a 2 MB package (one part). These use one big enough
 // for two 8 MB parts, a slowed-down network to see the steps, and the PDF.
-test("a two-part upload is announced once, can be cancelled, and the PDF page says when it will play", async ({ page }) => {
+test("a two-part upload is announced once, can be cancelled, and the PDF book page says to press Listen", async ({ page }) => {
   test.setTimeout(120_000);
   const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
@@ -338,10 +339,10 @@ test("a two-part upload is announced once, can be cancelled, and the PDF page sa
   await section.getByRole("button", { name: "Remove Long reading" }).click();
   await expect(section).not.toContainText("Ready · added");
 
-  // A PDF book says its player comes in the next update.
+  // A PDF book plays its audiobook too (M13 (e)): the page says to press Listen.
   const pdf = books.find((b) => b.title === "Discourse on the Method")!;
   await page.goto(`/books/${pdf.id}`);
-  await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("Playing it in a PDF book comes in the next update of the app");
+  await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("Then press Listen in the book to play it.");
 });
 
 // The upload routes skip proxy.ts (so large bodies are not cut at 10 MB);
@@ -939,4 +940,376 @@ test("M13 (d): offline, the bar says reading aloud needs the internet; a removed
   expect((await page.request.delete(`/api/books/${bookId}/readalong/${imp.id}`)).status()).toBe(204);
   await bar.getByRole("button", { name: "Play" }).click();
   await expect(bar).toContainText("Your audiobook could not be played. Reload the page and try again.", { timeout: 15_000 });
+});
+
+// M13 (e): read along in a PDF. Two pages drawn here (no copyrighted text),
+// laid out as Samuel's Kuhn is: on each page a running head drawn first, at
+// the top, then the body, then the page number, drawn last. Page 1 has a
+// word broken across lines ("normal-" / "scientific") and ends in the middle
+// of a sentence that goes on at the top of page 2. Page 2 ends with two
+// footnotes in smaller type, with a word in italics: pdf.js sends a page's
+// text in pieces, a new piece at a change of type once ten lines are
+// waiting, so this page's text comes in two. The narrator reads the broken
+// word whole and straight on across the page break (no pause there), does
+// not read the running heads, page numbers or footnotes, and pauses after
+// each paragraph.
+async function readAlongPdf() {
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  // (The shelf knows a book by its title: a new layout of this file needs a new title.)
+  doc.setTitle("Read-Along Test Pages");
+  doc.setAuthor("Neolibrary tests");
+  // Fixed dates (pdf-lib stamps the time otherwise), so every run makes the same file: a
+  // second run finds the book already on the shelf, and the package must match that file.
+  doc.setCreationDate(new Date("2026-01-01T00:00:00Z"));
+  doc.setModificationDate(new Date("2026-01-01T00:00:00Z"));
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  const italic = await doc.embedFont(StandardFonts.TimesRomanItalic);
+  // Three lines or more to a paragraph, so that a page's usual line step (the median, which the paragraph split uses) is the step within one.
+  const pages = [
+    {
+      head: "Introduction",
+      paragraphs: [
+        ["A careful reader learns to trust the slow and normal-", "scientific habit of looking twice at a page, and", "then once more before turning it."],
+        ["Then a second paragraph begins, and it runs on", "to the foot of the page and over the break", "without a pause, as a sentence does in"],
+      ],
+    },
+    {
+      head: "Pages Read Aloud",
+      paragraphs: [
+        ["most real books, and then it comes to", "an end of its own, a little way down", "the next page."],
+        ["The next part opens with a short line of", "plain words for the voice to read, and then", "a third line to make the page look usual."],
+        ["And a last paragraph closes the test, in", "three short lines, each of them", "read aloud like the rest."],
+      ],
+      notes: [
+        ["1. A first note in smaller type, which the narrator"],
+        ["does not read, as notes are often left out of an"],
+        ["audiobook; the next one has a word in ", "italics", "."],
+        ["2. A second note, also left unread."],
+      ],
+    },
+  ];
+  pages.forEach(({ head, paragraphs, notes }, n) => {
+    const page = doc.addPage([612, 792]);
+    page.drawText(head, { x: 72, y: 750, size: 9, font });
+    let y = 700;
+    for (const lines of paragraphs) {
+      for (const line of lines) {
+        page.drawText(line, { x: 72, y, size: 12, font });
+        y -= 15;
+      }
+      y -= 20;
+    }
+    for (const parts of notes ?? []) {
+      let x = 72;
+      parts.forEach((part, k) => {
+        const f = k === 1 ? italic : font;
+        page.drawText(part, { x, y, size: 9, font: f });
+        x += f.widthOfTextAtSize(part, 9);
+      });
+      y -= 11;
+    }
+    page.drawText(String(n + 1), { x: 300, y: 40, size: 9, font });
+  });
+  const bytes = new Uint8Array(await doc.save({ useObjectStreams: false }));
+  /** Where a word of a line on page 2 is printed (points from the page's left edge): from the font's own widths. */
+  const printedAt = (before: string, word: string) => ({ left: 72 + font.widthOfTextAtSize(before, 12), width: font.widthOfTextAtSize(word, 12) });
+  const ps = (await extractPdfSections(bytes)).filter((x) => x.kind === "paragraph");
+  // What the narrator reads: not the running heads, page numbers or footnotes.
+  const body = ps.filter((p) => !["Introduction", "Pages Read Aloud", "1", "2"].includes(p.text) && !p.text.startsWith("1. "));
+  const said = [body[0].text.replace("normal- scientific", "normal-scientific"), ...body.slice(1).map((p) => p.text), TAIL];
+  const pkg = buildPackage({
+    bookBytes: bytes,
+    title: "Pages read aloud",
+    chapters: [{ title: "One", paragraphs: said, inBook: [...body.map((p) => p.chapterIndex), null], pauses: [0.8, 0, 0.8, 0.8, 0.8] }],
+  });
+  return { bytes, ps, body, pkg, printedAt };
+}
+
+/** Uploads the PDF and its package; returns the book, the import, and every word the server placed, with its time. */
+async function uploadPdfReading(page: Page, bytes: Uint8Array, pkg: ReturnType<typeof buildPackage>, ps: Section[]) {
+  const upload = await page.request.post("/api/books", { multipart: { files: { name: "pages-read-aloud.pdf", mimeType: "application/pdf", buffer: Buffer.from(bytes) } } });
+  const added = (await upload.json()).results[0];
+  expect(["added", "duplicate"]).toContain(added.status);
+  const bookId = added.bookId as string;
+  const res = await page.request.post(`/api/books/${bookId}/readalong`, { data: Buffer.from(pkg.zip()), headers: { "content-type": "application/zip" } });
+  const body = await res.json();
+  expect(body.error ?? null).toBeNull();
+  expect(body.import.status).toBe("ready");
+  // The words as the page shows them (no space where a line breaks), with their times, from the server.
+  const info = await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: "epubcfi(/6/2)" })}`)).json();
+  expect(info.fileType).toBe("pdf");
+  expect(info.voices).toEqual([{ id: `upload:${body.import.id}`, name: "Your audiobook" }]);
+  const expected: Spoken[] = (info.audiobook.paragraphs as { sectionId: string; cfi: string; file: number; words: [number, number, number, number][] }[]).flatMap((p) =>
+    p.words.map(([startMs, , from, to]) => ({ word: ps.find((x) => x.id === p.sectionId)!.text.slice(from, to).replace(/\s+/g, ""), startMs, file: p.file, cfi: p.cfi })),
+  );
+  return { bookId, importId: body.import.id as string, expected };
+}
+
+/** The text lit in the book's page now, if any. */
+const litNow = (page: Page) =>
+  page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const h = (doc?.defaultView as unknown as { CSS: { highlights?: Map<string, Set<Range>> } } | null)?.CSS.highlights?.get("nl-spoken");
+      if (h) return [...h].map((r) => r.toString()).join(" ");
+    }
+    return null;
+  });
+
+/** The lit word's box on the page, in points from the page picture's top left corner (`width` points wide). */
+const litBox = (page: Page, width: number) =>
+  page.evaluate((pageWidth) => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const h = (doc?.defaultView as unknown as { CSS: { highlights?: Map<string, Set<Range>> } } | null)?.CSS.highlights?.get("nl-spoken");
+      const canvas = doc?.querySelector("#canvas canvas");
+      if (!h || !canvas) continue;
+      const c = canvas.getBoundingClientRect();
+      const r = [...h][0].getBoundingClientRect();
+      const scale = c.width / pageWidth; // CSS pixels per point
+      return { left: (r.left - c.left) / scale, top: (r.top - c.top) / scale, width: r.width / scale, height: r.height / scale };
+    }
+    return null;
+  }, width);
+
+/** Counts the page's text layer redraws from now on (window.redraws_). */
+const countRedraws = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { redraws_: number };
+    w.redraws_ = 0;
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+    for (const { doc } of view.renderer.getContents()) doc?.addEventListener("nl-textlayer", () => w.redraws_++);
+  });
+const redraws = (page: Page) => page.evaluate(() => (window as unknown as { redraws_: number }).redraws_);
+
+test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page break, each word lit in the page's text, on time", async ({ page }) => {
+  test.setTimeout(120_000);
+  const { bytes, ps, body, pkg, printedAt } = await readAlongPdf();
+  // The running heads, page numbers and footnotes are paragraphs of their own, never read aloud.
+  expect(ps.map((p) => p.text)).toEqual([
+    "Introduction",
+    body[0].text,
+    body[1].text,
+    "1",
+    "Pages Read Aloud",
+    body[2].text,
+    body[3].text,
+    body[4].text,
+    "1. A first note in smaller type, which the narrator does not read, as notes are often left out of an audiobook; the next one has a word in italics. 2. A second note, also left unread.",
+    "2",
+  ]);
+  const { bookId, importId, expected } = await uploadPdfReading(page, bytes, pkg, ps);
+  // Every word the narrator read is there, with the package's own time: the broken word as one.
+  const timings = JSON.parse(Buffer.from(pkg.files["timings/01.json"]).toString()).words as { w: string; start: number; end: number }[];
+  const tail = TAIL.split(" ").length;
+  expect(expected.map((w) => [w.word, w.startMs])).toEqual(timings.slice(0, -tail).map((w) => [w.w, Math.round(w.start * 1000)]));
+  expect(expected.map((w) => w.word)).toContain("normal-scientific");
+  expect(new Set(expected.map((w) => w.cfi))).toEqual(new Set(["epubcfi(/6/2)", "epubcfi(/6/4)"]));
+  // Page 1's last word runs straight into page 2's first: no pause in the reading there.
+  const first2 = expected.findIndex((w) => w.cfi === "epubcfi(/6/4)");
+  const last1 = timings[first2 - 1];
+  expect([last1.w, expected[first2].word]).toEqual(["in", "most"]);
+  expect(expected[first2].startMs - last1.end * 1000).toBeLessThan(50);
+
+  await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader).toHaveAttribute("data-cfi", "epubcfi(/6/2)");
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Your audiobook: free to play.");
+  await recordPlayer(page);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected.at(-1)!.startMs + 300);
+  const { frames, events } = await recording(page);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+
+  // Every word, in order, each within a tenth of a second, lit in the page's own text layer and on screen:
+  // page 2's first word too, though it follows page 1's last with no pause.
+  const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
+  expect(paragraphs).toEqual(["epubcfi(/6/2)", "epubcfi(/6/4)"]);
+  // The page turned only once page 1's last word had been said.
+  const turned = frames.find((f) => f[6] === "epubcfi(/6/4)");
+  expect(turned, "the reader turned to page 2").toBeDefined();
+  expect(turned![0] * 1000, "turned after page 1's last word").toBeGreaterThanOrEqual(last1.end * 1000);
+  const litFirst = frames.find((f) => f[3] === expected[first2].word && f[6] === "epubcfi(/6/4)")!;
+  console.log(
+    `page 2 shown ${Math.round(turned![0] * 1000 - last1.end * 1000)} ms after page 1's last word ended; its first word lit ${Math.round(litFirst[0] * 1000 - expected[first2].startMs)} ms after it began`,
+  );
+  // One audio element, loaded once and never reloaded; no pause, no stall, no seek after the first.
+  expect(names(events).filter((n) => n === "loadstart")).toHaveLength(1);
+  for (const n of ["emptied", "abort", "error", "pause"]) expect(names(events)).not.toContain(n);
+  expect(names(events).filter((n) => n === "seeking").length).toBeLessThanOrEqual(1);
+  const started = frames.findIndex((f) => !f[4]);
+  expect(frames.slice(started).filter((f) => f[4])).toEqual([]);
+  expectNoStall(frames);
+
+  // A new size redraws the page: the word being read stays lit over its printed letters
+  // (measured against the font's own widths, in points).
+  const word = expected[expected.findIndex((w) => w.word === "opens")];
+  const printed = printedAt("The next part ", "opens");
+  await page.evaluate((t) => {
+    document.querySelector("audio")!.currentTime = t;
+  }, (word.startMs + 50) / 1000);
+  await expect(bar).toHaveAttribute("data-word", word.word);
+  const lies = async () => {
+    // Polled: after a resize the picture is drawn again before it and the text change size together.
+    const close = (b: Awaited<ReturnType<typeof litBox>>) => !!b && Math.abs(b.left - printed.left) < 4 && Math.abs(b.width - printed.width) < 4;
+    await expect.poll(async () => close(await litBox(page, 612)), { timeout: 5000 }).toBe(true).catch(() => undefined);
+    const box = (await litBox(page, 612))!;
+    expect(Math.abs(box.left - printed.left), `"opens" lit ${box.left.toFixed(1)} pt from the left, printed at ${printed.left.toFixed(1)}`).toBeLessThan(4);
+    expect(Math.abs(box.width - printed.width), `"opens" lit ${box.width.toFixed(1)} pt wide, printed ${printed.width.toFixed(1)}`).toBeLessThan(4);
+  };
+  const AxeBuilder = (await import("@axe-core/playwright")).default;
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      const resize = page.viewportSize()?.width !== w;
+      await countRedraws(page);
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      // A new width redraws the page: wait for it, so the check is on the new drawing.
+      if (resize) await expect.poll(() => redraws(page), { timeout: 10_000 }).toBeGreaterThan(0);
+      await expect.poll(() => litNow(page), { timeout: 5000 }).toBe(word.word);
+      await lies();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-pdf-audiobook-${name}-${scheme}${engine()}.png` });
+    }
+  }
+  // Sizes changed one after another, without waiting (a window dragged, a phone turned). The
+  // page's text is laid out again for each size, never thrown away and built again: two
+  // rebuilds under way at once (pdf.js adds a page's text in pieces) could leave pieces of
+  // both, and the word being read would be lit on the wrong text. So the text is the same
+  // text as before (marked here), there once, with the word being read lit over its letters.
+  const layer = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+      const l = view.renderer.getContents()[0].doc!.querySelector(".textLayer")!;
+      return { marked: l.querySelector("span[data-marked]") !== null, text: l.textContent!.replace(/\s+/g, "") };
+    });
+  await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+    view.renderer.getContents()[0].doc!.querySelector(".textLayer span")!.setAttribute("data-marked", "");
+  });
+  await countRedraws(page);
+  for (const [w, h] of [[700, 700], [1000, 760], [1280, 800]]) await page.setViewportSize({ width: w, height: h });
+  await expect.poll(() => redraws(page), { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(500);
+  const after = await layer();
+  expect(after.marked, "the same text, laid out again").toBe(true);
+  expect(after.text).toBe(ps.filter((p) => p.chapterIndex === 1).map((p) => p.text.replace(/\s+/g, "")).join(""));
+  await expect.poll(() => litNow(page), { timeout: 5000 }).toBe(word.word);
+  await lies();
+  await page.emulateMedia({ colorScheme: "light" });
+  expect((await page.request.delete(`/api/books/${bookId}/readalong/${importId}`)).status()).toBe(204);
+});
+
+test("M13 (e): in a PDF, a page turned back from while it is read comes back; Pause, turning away and Play go on on the word's page", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { bytes, ps, pkg } = await readAlongPdf();
+  const { bookId, importId, expected } = await uploadPdfReading(page, bytes, pkg, ps);
+  await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/4)")}`);
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
+  const page2 = expected.filter((w) => w.cfi === "epubcfi(/6/4)");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, page2[0].startMs + 50);
+  const prev = () => page.evaluate(() => (document.querySelector("foliate-view") as unknown as { prev(): Promise<void> }).prev());
+
+  // Playing, the reader turns back to page 1: the next word brings page 2 back, lit on screen.
+  await recordPlayer(page);
+  await prev();
+  const back = page2.find((w) => w.startMs > page2[0].startMs + 1500)!;
+  await playUntil(page, back.startMs + 300);
+  const { frames } = await recording(page);
+  expect(frames.some((f) => f[6] === "epubcfi(/6/2)"), "the reader was on page 1 for a while").toBe(true);
+  const lit = frames.filter((f) => f[0] * 1000 >= back.startMs && f[3]);
+  expect(lit.length, `"${back.word}" lit`).toBeGreaterThan(0);
+  expect(lit.every((f) => f[6] === "epubcfi(/6/4)" && f[8] === true)).toBe(true);
+
+  // Paused, the reader turns back again; Play goes on with page 2 shown and the word lit.
+  await bar.getByRole("button", { name: "Pause" }).click();
+  const word = await bar.getAttribute("data-word");
+  await prev();
+  await expect(reader).toHaveAttribute("data-cfi", "epubcfi(/6/2)");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(reader).toHaveAttribute("data-cfi", "epubcfi(/6/4)");
+  await expect.poll(() => litNow(page), { timeout: 5000 }).not.toBeNull();
+  expect(page2.map((w) => w.word)).toContain(word);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  expect((await page.request.delete(`/api/books/${bookId}/readalong/${importId}`)).status()).toBe(204);
+});
+
+test("M13 (e): on a PDF page printed sideways, the word being read is lit over its letters", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { PDFDocument, StandardFonts, degrees } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  doc.setTitle("A Page Turned Sideways");
+  doc.setCreationDate(new Date("2026-01-01T00:00:00Z"));
+  doc.setModificationDate(new Date("2026-01-01T00:00:00Z"));
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  const pdfPage = doc.addPage([612, 792]);
+  const lines = ["A table too wide for the page is often printed", "across it, and the page is turned a quarter", "turn so that it can be read on its side."];
+  lines.forEach((line, k) => pdfPage.drawText(line, { x: 72, y: 700 - 15 * k, size: 12, font }));
+  // Shown a quarter turn clockwise: as a landscape page, its lines running down.
+  pdfPage.setRotation(degrees(90));
+  const bytes = new Uint8Array(await doc.save({ useObjectStreams: false }));
+  const ps = (await extractPdfSections(bytes)).filter((x) => x.kind === "paragraph");
+  expect(ps.map((p) => p.text)).toEqual([lines.join(" ")]);
+  const pkg = buildPackage({ bookBytes: bytes, title: "Sideways", chapters: [{ title: "One", paragraphs: [ps[0].text, TAIL], inBook: [0, null] }] });
+  const upload = await page.request.post("/api/books", { multipart: { files: { name: "sideways.pdf", mimeType: "application/pdf", buffer: Buffer.from(bytes) } } });
+  const bookId = (await upload.json()).results[0].bookId as string;
+  const res = await page.request.post(`/api/books/${bookId}/readalong`, { data: Buffer.from(pkg.zip()), headers: { "content-type": "application/zip" } });
+  const imp = (await res.json()).import;
+  expect(imp.status).toBe("ready");
+  const timings = JSON.parse(Buffer.from(pkg.files["timings/01.json"]).toString()).words as { w: string; start: number }[];
+  const word = timings.find((w) => w.w === "wide")!;
+
+  // Where "wide" is printed, on the page as shown (points), from pdf.js's own page geometry.
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const task = pdfjs.getDocument({ data: new Uint8Array(bytes), disableFontFace: true, standardFontDataUrl: `${process.cwd()}/node_modules/pdfjs-dist/standard_fonts/` });
+  const viewport = (await (await task.promise).getPage(1)).getViewport({ scale: 1 });
+  const x0 = 72 + font.widthOfTextAtSize("A table too ", 12);
+  const [ax, ay] = viewport.convertToViewportPoint(x0, 700);
+  const [bx, by] = viewport.convertToViewportPoint(x0 + font.widthOfTextAtSize("wide", 12), 700);
+  await task.destroy();
+  expect(viewport.width).toBe(792);
+  expect(Math.abs(ax - bx)).toBeLessThan(0.01); // the line runs down the page as shown
+
+  await page.goto(`/books/${bookId}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, word.start * 1000 + 50);
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+  await expect(bar).toHaveAttribute("data-word", "wide");
+  await expect.poll(() => litNow(page), { timeout: 5000 }).toBe("wide");
+  const box = (await litBox(page, 792))!;
+  // The lit box runs down the page along the printed word, and lies across its line.
+  expect(box.height, `lit ${box.width.toFixed(1)} pt wide, ${box.height.toFixed(1)} pt high`).toBeGreaterThan(box.width);
+  expect(Math.abs(box.top - Math.min(ay, by)), `lit from ${box.top.toFixed(1)} pt down, printed from ${Math.min(ay, by).toFixed(1)}`).toBeLessThan(4);
+  expect(Math.abs(box.height - Math.abs(by - ay)), `lit ${box.height.toFixed(1)} pt long, printed ${Math.abs(by - ay).toFixed(1)}`).toBeLessThan(4);
+  expect(ax, `the line at ${ax.toFixed(1)} pt, lit from ${box.left.toFixed(1)} to ${(box.left + box.width).toFixed(1)}`).toBeGreaterThan(box.left - 2);
+  expect(ax).toBeLessThan(box.left + box.width + 2);
+  expect((await page.request.delete(`/api/books/${bookId}/readalong/${imp.id}`)).status()).toBe(204);
+});
+
+test("M13 (e): in a PDF without an audiobook, Listen says how to add one", async ({ page }) => {
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const pdf = books.find((b) => b.title === "Discourse on the Method")!;
+  await page.goto(`/books/${pdf.id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("In a PDF book, Listen plays your own audiobook: add one on the book's page.");
+  await expect(bar.getByRole("button", { name: "Play" })).toBeDisabled();
 });
