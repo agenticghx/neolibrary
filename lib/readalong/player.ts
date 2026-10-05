@@ -9,21 +9,28 @@ import { wordAt, type WordTiming } from "@/lib/speech/timings";
  *
  * The audio plays straight on from one paragraph into the next: seeking costs
  * time (Safari's engine takes 1 to 2 s when the bytes are not downloaded yet),
- * and natural pauses between paragraphs belong to the reading. Only a long
- * stretch of audio that matches nothing on the page (a spoken heading or a
- * footnote the book does not print, a stretch the matcher could not place) is
- * skipped.
+ * and what is between paragraphs usually belongs to the reading: pauses, a
+ * chapter title read aloud, a word the matcher could not place on the page.
+ * Only a long stretch with nothing on the page (a footnote or a passage the
+ * book does not print, an introduction) is skipped.
  */
 export type PlayerParagraph = { file: number; startMs: number; endMs: number; words: WordTiming[] };
 
 /**
- * Audio with no words on the page that is longer than this, between two
- * paragraphs of the same file, is skipped; shorter gaps (pauses, a short
- * spoken heading such as "Chapter Three", about half a second) play through.
+ * Audio with no words on the page that lasts longer than this, between two
+ * paragraphs of the same file, is skipped. Anything shorter plays: a pause,
+ * a chapter title ("Chapter Two. The Route to Normal Science." is 3 or 4 s),
+ * a paragraph's last words that did not get times.
  */
-export const SKIP_GAP_MS = 1500;
+export const SKIP_GAP_MS = 6000;
 /** After a paragraph's last word, this much more plays before a long gap is skipped (the end of the word's sound). */
 export const WORD_TAIL_MS = 250;
+/**
+ * The page turns to the next paragraph as soon as this one's last word is
+ * over; a skip waits this much longer, so that a new chapter (or PDF page),
+ * which takes a moment to open, is there when the next word is spoken.
+ */
+export const TURN_LEAD_MS = 600;
 /**
  * The audio must be this far before a paragraph's start before the player
  * counts it as back in the paragraph before: a seek lands a few
@@ -57,16 +64,24 @@ export function follow(ps: PlayerParagraph[], index: number, file: number, t: nu
   while (i > 0 && ps[i - 1].file === file && t < ps[i].startMs - BACK_TOLERANCE_MS) i--;
   const p = ps[i];
   const next = ps[i + 1];
-  const over = Boolean(next) && t > p.endMs + WORD_TAIL_MS;
-  if (over) {
-    if (next.file === file && next.startMs - p.endMs > SKIP_GAP_MS) return { kind: "seek", index: i + 1, toMs: next.startMs };
-    if (next.file !== file && t > p.endMs + SKIP_GAP_MS) return { kind: "load", index: i + 1 };
+  if (next && next.file === file && next.startMs - p.endMs > SKIP_GAP_MS && t > p.endMs + WORD_TAIL_MS + TURN_LEAD_MS) {
+    return { kind: "seek", index: i + 1, toMs: next.startMs };
   }
-  return { kind: "play", index: i, word: wordAt(p.words, t), ahead: over ? i + 1 : null };
+  if (next && next.file !== file && t > p.endMs + SKIP_GAP_MS) return { kind: "load", index: i + 1 };
+  return { kind: "play", index: i, word: wordAt(p.words, t), ahead: next && t > p.endMs ? i + 1 : null };
 }
 
 /** When the file ends: the paragraph to load next (the next one, in another file), or null to stop. */
 export function afterEnded(ps: PlayerParagraph[], index: number, file: number): number | null {
   for (let i = Math.max(index, 0); i < ps.length; i++) if (ps[i].file !== file) return i;
   return null;
+}
+
+/**
+ * Where to start a new file when the audiobook reads on into it (ms): from
+ * the file's beginning, so its chapter title is heard, unless the file has a
+ * long stretch before its first paragraph (then at that paragraph).
+ */
+export function fileStart(p: PlayerParagraph): number {
+  return p.startMs <= SKIP_GAP_MS ? 0 : p.startMs;
 }

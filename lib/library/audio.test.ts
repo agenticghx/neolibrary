@@ -12,7 +12,7 @@ import { startImport } from "@/lib/readalong/importer";
 import { FAKE_SECONDS_PER_CHAR, FakeSpeech } from "@/lib/speech/fake";
 import { speechCost } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
-import { estimateSpeech, listTracks, passageFor, speakPassage, uploadedReading } from "./audio";
+import { estimateSpeech, listTracks, passageFor, readingPart, speakPassage, uploadedReading } from "./audio";
 import { fileOwner, importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -154,6 +154,10 @@ describe("the book's own audiobook in the player (M13 (d))", () => {
     // From paragraph 7 on; from the end of the book, nothing.
     expect((await uploadedReading(database.db, ownerId, bookId, ps[7].position))!.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(7, 10).map((p) => p.id));
     expect((await uploadedReading(database.db, ownerId, bookId, ps.at(-1)!.position))!.paragraphs).toEqual([]);
+    // Each paragraph says where it is in reading order.
+    expect(r.paragraphs.map((p) => p.position)).toEqual(ps.slice(5, 10).map((p) => p.position));
+    expect(r.partsUrl).toBe(`/api/books/${bookId}/readalong/${imp.id}/reading`);
+    expect(r.more).toBeNull();
     // The tracks themselves carry the stretch and the import (Track used to drop them).
     const tracks = (await listTracks(database.db, ownerId, bookId)).filter((t) => t.source === "upload");
     expect(tracks).toHaveLength(5);
@@ -174,6 +178,29 @@ describe("the book's own audiobook in the player (M13 (d))", () => {
     const waiting = await startImport(database.db, storage, ownerId, bookId, zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
     expect(waiting.status).toBe("uploading");
     expect((await uploadedReading(database.db, ownerId, bookId, 0))!.importId).toBe(imp.id);
+  });
+});
+
+describe("the audiobook's paragraphs, in parts (M13 (d))", () => {
+  it("sends a part at a time, says where the next part starts, and gives the next parts to the owner of a finished import only", async () => {
+    const ps = paragraphs();
+    const { zip } = buildPackage({ bookBytes, chapters: [{ title: "Five", paragraphs: ps.slice(5, 10).map((p) => p.text), inBook: ps.slice(5, 10).map((p) => p.chapterIndex) }] });
+    const imp = await startImport(database.db, storage, ownerId, bookId, zip());
+    const first = (await uploadedReading(database.db, ownerId, bookId, 0, 2))!;
+    expect(first.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(5, 7).map((p) => p.id));
+    expect(first.more).toBe(ps[7].position);
+    const second = (await readingPart(database.db, ownerId, bookId, imp.id, first.more!, 2))!;
+    expect(second.paragraphs.map((p) => p.sectionId)).toEqual(ps.slice(7, 9).map((p) => p.id));
+    const last = (await readingPart(database.db, ownerId, bookId, imp.id, second.more!, 2))!;
+    expect(last).toMatchObject({ paragraphs: [{ sectionId: ps[9].id }], more: null });
+    // Nothing for another reader, another import, or one still uploading.
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+    expect(await readingPart(database.db, other, bookId, imp.id, 0)).toBeNull();
+    expect(await readingPart(database.db, ownerId, bookId, crypto.randomUUID(), 0)).toBeNull();
+    const { files } = buildPackage({ bookBytes, chapters: [{ title: "x", paragraphs: [ps[20].text], inBook: [ps[20].chapterIndex] }] });
+    const waiting = await startImport(database.db, storage, ownerId, bookId, zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
+    expect(await readingPart(database.db, ownerId, bookId, waiting.id, 0)).toBeNull();
   });
 });
 

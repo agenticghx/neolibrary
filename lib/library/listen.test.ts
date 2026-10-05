@@ -22,7 +22,7 @@ let storage: MemoryStorage;
 let ownerId: string;
 let bookId: string;
 let bookBytes: Uint8Array;
-let paragraphs: { id: string; text: string; cfi: string; chapterIndex: number }[];
+let paragraphs: { id: string; text: string; cfi: string; chapterIndex: number; position: number }[];
 const noKey = () => getSpeechModel({});
 const fake = new FakeSpeech();
 const withFake = () => fake;
@@ -64,8 +64,13 @@ describe("what the Listen bar gets", () => {
     expect(info.estimate).toBeGreaterThan(0);
     expect(info.passage.id).toBe(paragraphs[6].id);
     expect(info.audiobook!.paragraphs.map((p) => p.sectionId)).toEqual(paragraphs.slice(6, 8).map((p) => p.id));
-    // Before the audiobook's first paragraph: it starts at that one.
-    expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[2].cfi }, withFake)).audiobook!.paragraphs[0].sectionId).toBe(paragraphs[5].id);
+    // At the reading position: nothing to say about where it begins.
+    expect(info.audiobook!.begins).toBeNull();
+    expect(info.passage.position).toBe(paragraphs[6].position);
+    // Before the audiobook's first paragraph, but near (the chapter before is a few paragraphs back): it starts at that one.
+    const near = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[2].cfi }, withFake);
+    expect(near.audiobook!.paragraphs[0].sectionId).toBe(paragraphs[5].id);
+    expect(near.audiobook!.begins).toEqual({ label: "Story of the Door", nearby: true });
     // After its last: it is offered, but has nothing from here on.
     expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[9].cfi }, withFake)).audiobook!.paragraphs).toEqual([]);
     // Asking with the audiobook's voice looks up the first made voice's stored track, not the audiobook.
@@ -79,5 +84,19 @@ describe("what the Listen bar gets", () => {
     const info = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake);
     expect(info.voices.map((v) => v.id)).toEqual(["fake-ada", "fake-ben"]);
     expect(info.audiobook).toBeNull();
+  });
+});
+
+describe("an audiobook that begins further on (M13 (d))", () => {
+  it("names the chapter where it begins, and does not count it as near", async () => {
+    // A package of chapter 2's opening paragraphs only, opened in chapter 1.
+    const chapter2 = paragraphs.filter((p) => p.chapterIndex === paragraphs[33].chapterIndex).slice(0, 3);
+    const { zip } = buildPackage({ bookBytes, chapters: [{ title: "Two", paragraphs: chapter2.map((p) => p.text), inBook: chapter2.map((p) => p.chapterIndex) }] });
+    await startImport(database.db, storage, ownerId, bookId, zip());
+    const far = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[8].cfi }, withFake);
+    expect(far.audiobook!.paragraphs[0].sectionId).toBe(chapter2[0].id);
+    expect(far.audiobook!.begins).toEqual({ label: "Search for Mr. Hyde", nearby: false });
+    // Opened in its own chapter, at its first paragraph: it begins here.
+    expect((await listenInfo(database.db, ownerId, bookId, { cfi: chapter2[0].cfi }, withFake)).audiobook!.begins).toBeNull();
   });
 });

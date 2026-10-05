@@ -120,7 +120,9 @@ shortens the link expiry and plays past it.
 ## What (d) built (2026-10-04)
 
 Written for the session that builds (e), and for Samuel. Built on branch
-`m13-epub-player`; evidence in the `PROGRESS.md` Log.
+`m13-epub-player`; evidence in the `PROGRESS.md` Log. Then five reviewers
+(player, server, tests, regressions, wording) read it, a skeptic checked
+each finding, and every confirmed one was fixed (listed at the end).
 
 - **Problem 1, links that expire:** the plan's second option. The audio is
   served by `GET /api/books/<id>/readalong/<importId>/audio/<n>`, checked by
@@ -129,38 +131,61 @@ Written for the session that builds (e), and for Samuel. Built on branch
   test checks instead that the address has no `exp`/`sig`, that ranges come
   with the cookie alone, and that a signed-out request gets 401. Serving the
   bytes is shared with `/api/files` in `lib/serve-file.ts`, which also sends
-  a large file asked for whole in 8 MB pieces instead of reading it whole.
+  a large file asked for whole in pieces instead of reading it whole.
 - **Problem 2, closed ranges:** `servedRange` caps every form (open, closed,
-  suffix) at 8 MB. A browser test starts a 16 MB audiobook more than 8 MB in
-  and checks, in Chromium and WebKit, that every answer is at most 8 MB and
-  the words still light up on time.
+  suffix) at 8 MB. The browser tests run with the cap at 64 KB
+  (`FILES_MAX_RANGE_BYTES`, `TEST_MAX_RANGE` in `e2e/pages.ts`), so every
+  test that plays audio runs past the end of several answers, and checks
+  that the player asked for the rest in time (and that the audio never
+  stalled: the audio clock keeps pace with the wall clock).
 - **Problem 3, reloading:** one audio element; its source is set only when
-  the file number changes. The test counts `loadstart` events: one per file.
+  the file number changes. The tests count `loadstart` events: one per file.
 - **Problems 4 to 7:** `Track` has the three fields; `listenInfo`
   (`lib/library/listen.ts`) looks the audiobook up before the voice service,
   so it is offered with no ElevenLabs key (unit test with an environment
-  without the key); audiobook mode never asks for made-on-demand audio.
-- **Problem 8, offline:** if the audio fails while offline, the bar says the
-  audiobook needs an internet connection.
+  without the key); audiobook mode never asks for made-on-demand audio. The
+  ElevenLabs voice list is now kept for ten minutes and waited on for at most
+  3 s, so a slow ElevenLabs cannot hold the audiobook up.
+- **Problem 8, offline:** the bar says reading aloud needs an internet
+  connection, both when Listen is opened offline and when the audio fails
+  offline (browser test with the network turned off).
 - **Changes from the plan:**
   - The response lists the timed paragraphs *from the reading position on*
-    (no `startIndex`): smaller for a long book, and an empty list means the
-    audiobook ends before here (the bar says so).
+    (no `startIndex`), 200 at a time: `more` says where the next part
+    starts, `partsUrl` serves it, and the bar asks for it 40 paragraphs
+    before it runs out. An empty list means the audiobook ends before here.
+  - The audiobook is the default voice only when it begins near the reading
+    position (same chapter, or within 10 paragraphs). Further on, the bar
+    says where it begins ("begins further on (Search for Mr. Hyde): Play
+    turns to it") and a made voice is the default, so Play never takes the
+    reader chapters ahead unasked (it would also move their saved place).
   - `estimate` stays null without a key: Play is enabled by choosing "Your
     audiobook", so the note for a made voice stays honest.
   - A whole PDF page now starts reading at its first paragraph
     (`passageFor` used to pick the page's last; every PDF paragraph has its
     page's address). (e) needs this.
   - The per-frame logic is a pure function, `follow` in
-    `lib/readalong/player.ts`, with its own tests: untimed audio shorter than
-    1.5 s plays through; longer is skipped by a seek; a file with nothing
-    more on the page hands over to the next file; and **the page turns to the
-    next paragraph as soon as the last word before it is over**, so a new
-    chapter (or, in (e), a PDF page) has opened by the time its first word is
-    spoken. Without this, a new chapter only began opening at its first word.
+    `lib/readalong/player.ts`, with its own tests. What lies between
+    paragraphs plays: pauses, a chapter title read aloud, a paragraph's last
+    words that got no time. Only untimed audio longer than **6 s** is
+    skipped by a seek. The page turns to the next paragraph **as soon as the
+    last word before it is over**, and a skip waits 0.85 s more, so a new
+    chapter (or PDF page) has opened before its first word. A file with
+    nothing more on the page for 6 s hands over to the next file, which
+    starts at its beginning (its chapter title is heard).
+  - The Listen bar is a row of the reader's grid between the page and the
+    foot, not floating over the page: on a phone it used to hide the last
+    three lines, where the word being read was.
+  - Switching voices hands the place over (a made voice reads on from the
+    audiobook's paragraph, and back); made-voice audio still being fetched
+    when the voice changes is dropped.
+  - Play after a pause brings back the page being read if the reader turned
+    away. "Loading your audiobook…" shows when the audio has waited for
+    data for more than 0.6 s.
   - A word is counted as lit only when it was found on the page, so a word
     asked for while a chapter is still opening is tried again on the next
-    frame. No test isolates this (the early page turn hides it in the tests).
+    frame; an error in one frame (a chapter half-opened) no longer stops the
+    per-frame loop for the rest of the session.
 - **Found while testing (step (b), not fixed here):** the matcher anchors a
   chapter's audio at the first place in the book chapter where its first
   four words agree. A package that starts mid-chapter can be placed wrongly
@@ -169,6 +194,11 @@ Written for the session that builds (e), and for Samuel. Built on branch
   chapter's start, so it is unlikely there; the book map's `quote` and
   paragraph order could anchor it more firmly. The browser tests use
   paragraphs checked to be placed exactly.
+- **Engines:** CI runs WebKit on Linux, which plays media through GStreamer,
+  not Safari's AVFoundation; the read-along tests accept a whole-file answer
+  to a request that asked for no range (Linux WebKit's way). The closed
+  whole-file range ("bytes=0-<last>") is Safari-on-Mac behaviour, checked by
+  local Mac runs. Real Safari on an iPhone has not been tried: that is (f).
 
 ## (e) PDF player
 

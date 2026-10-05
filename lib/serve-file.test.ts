@@ -1,7 +1,10 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { MAX_RANGE } from "./http-range";
 import { serveStoredFile } from "./serve-file";
-import { MemoryStorage, type Storage } from "./storage";
+import { LocalStorage, MemoryStorage, type Storage } from "./storage";
 
 const req = (range?: string) => new Request("http://localhost/f", { headers: range ? { range } : {} });
 /** Byte-for-byte equal (a plain toEqual on 20 MB is too slow). */
@@ -58,6 +61,23 @@ describe("sending stored files (books, covers, audio)", () => {
     expect(same(await res.arrayBuffer(), data)).toBe(true);
     expect(watched.get).not.toHaveBeenCalled();
     expect(reads).toEqual([MAX_RANGE, MAX_RANGE, size - 2 * MAX_RANGE]);
+  });
+
+  it("streams a large file from the disk storage the browser tests use, byte for byte", async () => {
+    const size = 2 * MAX_RANGE + 12345;
+    const disk = new LocalStorage(mkdtempSync(path.join(tmpdir(), "serve-")));
+    const data = new Uint8Array(size);
+    for (let i = 0; i < size; i++) data[i] = (i * 13) % 253;
+    await disk.put("books/u1/b1/big.epub", data, "application/epub+zip");
+    const res = await serveStoredFile(req(), disk, "books/u1/b1/big.epub");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-length")).toBe(String(size));
+    expect(res.headers.get("content-type")).toBe("application/epub+zip");
+    expect(same(await res.arrayBuffer(), data)).toBe(true);
+    // And a range from the middle, capped.
+    const mid = await serveStoredFile(req(`bytes=${MAX_RANGE - 10}-`), disk, "books/u1/b1/big.epub");
+    expect(mid.headers.get("content-range")).toBe(`bytes ${MAX_RANGE - 10}-${2 * MAX_RANGE - 11}/${size}`);
+    expect(same(await mid.arrayBuffer(), data.slice(MAX_RANGE - 10, 2 * MAX_RANGE - 10))).toBe(true);
   });
 
   it("sends a small file whole, and says when there is none", async () => {

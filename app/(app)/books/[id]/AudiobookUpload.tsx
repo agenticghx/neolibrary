@@ -163,7 +163,7 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
           </details>
           <p className={styles.notesSummary}>
             {playsHere
-              ? "To read along, open the book and press Listen: your audiobook plays from where you are, and each word lights up as it is spoken."
+              ? "To read along, open the book and press Listen: your audiobook plays from where you are (or from where it begins), and each word lights up as it is spoken."
               : "Playing it in a PDF book comes in the next update of the app. Until then it is checked and kept ready here."}
           </p>
           <div className={styles.audiobookActions}>

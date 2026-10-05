@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { ADMIN_STATE, SETUP_CODE } from "./e2e/pages";
+import { ADMIN_STATE, SETUP_CODE, TEST_MAX_RANGE } from "./e2e/pages";
 
 // Without this, Playwright's offline mode (context.setOffline) does not reach
 // service workers: a worker's own fetches still get through, so an "offline"
@@ -86,6 +86,6 @@ export default defineConfig({
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { PGLITE_DIR: ".data/e2e", FILES_DIR: ".data/e2e-files", SETUP_CODE, AI_FAKE: "1" },
+    env: { PGLITE_DIR: ".data/e2e", FILES_DIR: ".data/e2e-files", SETUP_CODE, AI_FAKE: "1", FILES_MAX_RANGE_BYTES: String(TEST_MAX_RANGE) },
   },
 });

@@ -229,6 +229,8 @@ export type ReadingParagraph = {
   cfi: string;
   /** Its chapter (EPUB spine index) or page (PDF, from 0). */
   chapterIndex: number;
+  /** Its place in reading order (sections.position). */
+  position: number;
   /** Which of the audiobook's files it is in (an index into `files`). */
   file: number;
   /** Its stretch of that file, in milliseconds from the file's start. */
@@ -238,33 +240,81 @@ export type ReadingParagraph = {
   words: WordTiming[];
 };
 
+/** A part of an audiobook's paragraphs, and where the next part starts (a sections.position), if there is more. */
+export type ReadingPart = { paragraphs: ReadingParagraph[]; more: number | null };
+
 /** A book's uploaded audiobook, from a place in the book on (M13 (d)). */
-export type UploadedReading = {
+export type UploadedReading = ReadingPart & {
   importId: string;
   /** How the Listen bar names it among the voices: "upload:<importId>". */
   voice: string;
   title: string | null;
   /** Its audio files, each played from one address (see the audio route). */
   files: { url: string; mime: string }[];
-  /** The paragraphs that have word times, from the reading position on, in reading order; empty when the audiobook ends before it. */
-  paragraphs: ReadingParagraph[];
+  /** Where the next part of `paragraphs` is asked for (add `?from=<more>`). */
+  partsUrl: string;
 };
 
 /**
- * The book's uploaded audiobook (the newest finished import; a finished
- * import replaces the earlier ones), with the paragraphs it reads from
- * `fromPosition` (a sections.position) on. Paragraphs where no spoken word
- * matched have no track and are not listed; nor is any track without words.
- * The audio is served by app/api/books/[id]/readalong/[importId]/audio/[n].
+ * Paragraphs are sent in parts of this many (a whole book's word times are a
+ * few MB): the Listen bar asks for the next part well before it reaches the
+ * end of the one it has.
  */
-export async function uploadedReading(db: Db, ownerId: string, bookId: string, fromPosition: number): Promise<UploadedReading | null> {
+export const READING_PART = 200;
+
+async function readyImport(db: Db, ownerId: string, bookId: string, importId?: string) {
   const [imp] = await db
     .select({ id: readalongImports.id, title: readalongImports.title, audio: readalongImports.audio })
     .from(readalongImports)
-    .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.bookId, bookId), eq(readalongImports.status, "ready")))
+    .where(
+      and(
+        eq(readalongImports.ownerId, ownerId),
+        eq(readalongImports.bookId, bookId),
+        eq(readalongImports.status, "ready"),
+        ...(importId ? [eq(readalongImports.id, importId)] : []),
+      ),
+    )
     .orderBy(desc(readalongImports.createdAt))
     .limit(1);
+  return imp ?? null;
+}
+
+/**
+ * The book's uploaded audiobook (the newest finished import; a finished
+ * import replaces the earlier ones), with the first part of the paragraphs
+ * it reads from `fromPosition` (a sections.position) on. Paragraphs where no
+ * spoken word matched have no track and are not listed; nor is any track
+ * without words. The audio is served by
+ * app/api/books/[id]/readalong/[importId]/audio/[n], further parts by
+ * .../reading (see readingPart).
+ */
+export async function uploadedReading(db: Db, ownerId: string, bookId: string, fromPosition: number, part = READING_PART): Promise<UploadedReading | null> {
+  const imp = await readyImport(db, ownerId, bookId);
   if (!imp) return null;
+  return {
+    importId: imp.id,
+    voice: `upload:${imp.id}`,
+    title: imp.title,
+    files: imp.audio.map((a, i) => ({ url: `/api/books/${bookId}/readalong/${imp.id}/audio/${i}`, mime: a.mime })),
+    partsUrl: `/api/books/${bookId}/readalong/${imp.id}/reading`,
+    ...(await paragraphsOf(db, ownerId, bookId, imp, fromPosition, part)),
+  };
+}
+
+/** The next part of a finished import's paragraphs, from `fromPosition` on; null if the import is not this owner's, or not finished. */
+export async function readingPart(db: Db, ownerId: string, bookId: string, importId: string, fromPosition: number, part = READING_PART): Promise<ReadingPart | null> {
+  const imp = await readyImport(db, ownerId, bookId, importId);
+  return imp ? paragraphsOf(db, ownerId, bookId, imp, fromPosition, part) : null;
+}
+
+async function paragraphsOf(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  imp: { id: string; audio: { key: string }[] },
+  fromPosition: number,
+  part: number,
+): Promise<ReadingPart> {
   const rows = await db
     .select({
       sectionId: audioTracks.sectionId,
@@ -274,6 +324,7 @@ export async function uploadedReading(db: Db, ownerId: string, bookId: string, f
       words: audioTracks.words,
       cfi: sections.cfi,
       chapterIndex: sections.chapterIndex,
+      position: sections.position,
     })
     .from(audioTracks)
     .innerJoin(sections, and(eq(sections.bookId, audioTracks.bookId), eq(sections.id, audioTracks.sectionId)))
@@ -285,19 +336,14 @@ export async function uploadedReading(db: Db, ownerId: string, bookId: string, f
         gte(sections.position, fromPosition),
       ),
     )
-    .orderBy(asc(sections.position));
+    .orderBy(asc(sections.position))
+    .limit(part + 1);
   const fileOf = new Map(imp.audio.map((a, i) => [a.key, i]));
   const paragraphs: ReadingParagraph[] = [];
-  for (const r of rows) {
+  for (const r of rows.slice(0, part)) {
     const file = fileOf.get(r.audioKey);
     if (file === undefined || !r.words.length || r.startMs === null || r.endMs === null) continue;
-    paragraphs.push({ sectionId: r.sectionId, cfi: r.cfi, chapterIndex: r.chapterIndex, file, startMs: r.startMs, endMs: r.endMs, words: r.words });
+    paragraphs.push({ sectionId: r.sectionId, cfi: r.cfi, chapterIndex: r.chapterIndex, position: r.position, file, startMs: r.startMs, endMs: r.endMs, words: r.words });
   }
-  return {
-    importId: imp.id,
-    voice: `upload:${imp.id}`,
-    title: imp.title,
-    files: imp.audio.map((a, i) => ({ url: `/api/books/${bookId}/readalong/${imp.id}/audio/${i}`, mime: a.mime })),
-    paragraphs,
-  };
+  return { paragraphs, more: rows[part]?.position ?? null };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_VOICES, ElevenLabsSpeech } from "./elevenlabs";
+import { DEFAULT_VOICES, ElevenLabsSpeech, VOICES_FOR_MS, VOICES_WAIT_SECONDS } from "./elevenlabs";
 import { FakeSpeech, wav } from "./fake";
 import { getSpeechModel } from "./index";
 import { SpeechNotConfigured, speechCost, usdPer1kChars } from "./model";
@@ -37,6 +37,30 @@ describe("ElevenLabsSpeech", () => {
     expect(sent.headers.get("xi-api-key")).toBe(KEY);
     expect(sent.body).toEqual({ text: "Hi.", model_id: "eleven_multilingual_v2", next_text: "More." });
   });
+
+  it("asks for the voice list at most every ten minutes, and waits for it at most a few seconds, without retrying", async () => {
+    let asked = 0;
+    const api = fakeApi(() => {
+      asked++;
+      return { body: { voices: [{ voice_id: "v1", name: "Grace" }] } };
+    });
+    const model = new ElevenLabsSpeech(KEY, undefined, { fetch: api.fetch });
+    expect(await model.voices(0)).toEqual([{ id: "v1", name: "Grace" }]);
+    expect(await model.voices(VOICES_FOR_MS - 1)).toEqual([{ id: "v1", name: "Grace" }]);
+    expect(asked).toBe(1);
+    await model.voices(VOICES_FOR_MS);
+    expect(asked).toBe(2);
+    // ElevenLabs does not answer: the ready-made voices after a few seconds, asked once.
+    let hung = 0;
+    const silent = (async (_url: string | URL | Request, init?: RequestInit) => {
+      hung++;
+      return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)));
+    }) as typeof globalThis.fetch;
+    const started = Date.now();
+    expect(await new ElevenLabsSpeech(KEY, undefined, { fetch: silent }).voices()).toEqual(DEFAULT_VOICES);
+    expect(Date.now() - started).toBeLessThan((VOICES_WAIT_SECONDS + 2) * 1000);
+    expect(hung).toBe(1);
+  }, 15_000);
 
   it("lists the account's voices, or two ready-made ones if that fails, and explains errors", async () => {
     const ok = fakeApi(() => ({ body: { voices: [{ voice_id: "v1", name: "Grace" }] } }));
@@ -78,6 +102,9 @@ describe("timings, costs and choosing a voice", () => {
     expect(getSpeechModel()).toBeInstanceOf(FakeSpeech);
     expect(getSpeechModel({ AI_FAKE: "1" })).toBeInstanceOf(FakeSpeech);
     expect(getSpeechModel({ ELEVENLABS_API_KEY: KEY })).toBeInstanceOf(ElevenLabsSpeech);
+    // One client per key, so its voice list is kept between requests.
+    expect(getSpeechModel({ ELEVENLABS_API_KEY: KEY })).toBe(getSpeechModel({ ELEVENLABS_API_KEY: KEY }));
+    expect(getSpeechModel({ ELEVENLABS_API_KEY: "another-key" })).not.toBe(getSpeechModel({ ELEVENLABS_API_KEY: KEY }));
     expect(() => getSpeechModel({})).toThrow(SpeechNotConfigured);
   });
 });

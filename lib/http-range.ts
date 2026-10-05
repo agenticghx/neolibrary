@@ -22,8 +22,13 @@ export function byteRange(header: string | null, size: number): [number, number]
   return [start, end];
 }
 
-/** The most one range request returns (bytes): M13 audiobooks can be hundreds of MB. */
-export const MAX_RANGE = 8 * 1024 * 1024;
+/**
+ * The most one range request returns (bytes): M13 audiobooks can be hundreds
+ * of MB. FILES_MAX_RANGE_BYTES sets it lower for the browser tests (64 KB,
+ * playwright.config.ts), so that every test that plays audio runs past the
+ * end of several answers and proves the browser asks for the rest in time.
+ */
+export const MAX_RANGE = Number(process.env.FILES_MAX_RANGE_BYTES) > 0 ? Math.floor(Number(process.env.FILES_MAX_RANGE_BYTES)) : 8 * 1024 * 1024;
 
 /**
  * The bytes to send for a request: like byteRange, but never more than

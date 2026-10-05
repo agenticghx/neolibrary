@@ -638,9 +638,15 @@ export function Reader(props: {
     const { index, anchor } = v.resolveCFI(passageCfi);
     const doc = v.renderer.getContents().find((c) => c.index === index)?.doc;
     if (!doc) return null;
-    const start = anchor(doc).startContainer;
-    const el = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
-    const range = el ? rangeForOffsets(el, from, to) : null;
+    let range: Range | null = null;
+    try {
+      const start = anchor(doc).startContainer;
+      const el = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
+      range = el ? rangeForOffsets(el, from, to) : null;
+    } catch {
+      // A chapter that is still opening has an empty document for a moment: not there yet.
+      return null;
+    }
     if (!range) return null;
     const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
@@ -771,6 +777,11 @@ export function Reader(props: {
         ) : null}
       </div>
 
+      {/* Between the book and the foot, so it never covers the page's last lines. */}
+      {listening && where.cfi ? (
+        <ListenBar bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
+      ) : null}
+
       <footer className={styles.foot}>
         <span className={styles.chapter}>
           <span className={styles.chapterName}>{where.chapter}</span>
@@ -808,10 +819,6 @@ export function Reader(props: {
           </span>
         </span>
       </footer>
-
-      {listening && where.cfi ? (
-        <ListenBar bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
-      ) : null}
 
       {selection ? (
         <SelectionBar
