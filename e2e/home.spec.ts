@@ -59,13 +59,25 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   await expect(item.getByText("Read and listen", { exact: true })).toBeVisible(); // an EPUB, narration on in tests
   await expect(item.locator('[data-mark="notes"]')).toHaveCount(1); // it has notes: the folded corner
   await expect(page.getByRole("heading", { name: /^Your library \d+ titles$/ })).toBeVisible();
+  // Every cover fits its grid cell (a long title once drew a cover two cells wide, over its neighbour).
+  const overflow = await grid.locator(":scope > li").evaluateAll((items) =>
+    items.flatMap((li) => {
+      const cover = li.querySelector("figure")!.getBoundingClientRect();
+      const cell = li.getBoundingClientRect();
+      return cover.width > cell.width + 0.5 ? [`${li.textContent?.slice(0, 30)}: ${Math.round(cover.width)} > ${Math.round(cell.width)}`] : [];
+    }),
+  );
+  expect(overflow).toEqual([]);
 
   // Hidden Machinery's titles wait in one closed group, not in the grid.
   const group = page.locator("details").filter({ has: page.getByText(/^Not available yet \(\d+\)$/) });
   await expect(group).not.toHaveAttribute("open");
-  await expect(grid.getByRole("link", { name: "Chip War (not available yet)" })).toHaveCount(0);
+  await expect(grid.getByRole("link", { name: /^Chip War/ })).toHaveCount(0);
   await group.locator("summary").click();
-  await expect(group.getByRole("link", { name: "Chip War (not available yet)", exact: true })).toBeVisible();
+  const waiting = group.getByRole("link", { name: /^Chip War/ });
+  await expect(waiting).toBeVisible();
+  await expect(waiting).toContainText("Not available yet");
+  await expect(waiting.locator("img")).toHaveCount(0); // a greyed cover, no picture
 
   // Import opens the file picker; Choose files is there too.
   const chooser = page.waitForEvent("filechooser");

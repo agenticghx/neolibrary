@@ -9,8 +9,11 @@
   list-style: none;
 }
 
+/* One column as wide as the grid cell: a column sized by its content let a long title on one line
+   widen a cover past its cell (Discourse on the Method drew 405 px wide in a 173 px cell). */
 .item {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
   justify-items: start;
   color: inherit;
