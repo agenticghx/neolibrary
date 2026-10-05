@@ -947,9 +947,9 @@ test("M13 (d): offline, the bar says reading aloud needs the internet; a removed
 // the top, then the body, then the page number, drawn last. Page 1 has a
 // word broken across lines ("normal-" / "scientific") and ends in the middle
 // of a sentence that goes on at the top of page 2. Page 2 ends with two
-// footnotes in smaller type, with a word in italics: pdf.js sends a page's
-// text in pieces, a new piece at a change of type once ten lines are
-// waiting, so this page's text comes in two. The narrator reads the broken
+// footnotes in smaller type (one word in italics): with them the page has
+// more than ten pieces of text, and pdf.js sends a page's text ten pieces at
+// a time, so this page's text comes in two (checked: 10 + 10). The narrator reads the broken
 // word whole and straight on across the page break (no pause there), does
 // not read the running heads, page numbers or footnotes, and pauses after
 // each paragraph.
@@ -1073,6 +1073,43 @@ const litBox = (page: Page, width: number) =>
     return null;
   }, width);
 
+/**
+ * Whether the lit word can be seen: the share of its box on screen showing
+ * the highlight's tint (the text layer's letters are see-through, so only
+ * the tint shows), and the same for a box of its size just after it on the
+ * line. A PDF page is white in every theme, and the tint is the same.
+ */
+async function tintSeen(page: Page) {
+  const box = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const win = doc?.defaultView as unknown as (Window & { CSS: { highlights?: Map<string, Set<Range>> } }) | null;
+      const h = win?.CSS.highlights?.get("nl-spoken");
+      if (!h || !win?.frameElement) continue;
+      const r = [...h][0].getBoundingClientRect();
+      const f = win.frameElement.getBoundingClientRect();
+      return { x: f.left + r.left, y: f.top + r.top, width: r.width, height: r.height };
+    }
+    return null;
+  });
+  expect(box, "a word is lit").not.toBeNull();
+  // Inside the box (a pixel in from each edge), and the same size just after it.
+  const clip = (dx: number) => ({ x: Math.ceil(box!.x + dx) + 1, y: Math.ceil(box!.y) + 1, width: Math.floor(box!.width) - 2, height: Math.floor(box!.height) - 2 });
+  const share = async (dx: number) =>
+    page.evaluate(async (b64) => {
+      const img = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: "image/png" }));
+      const canvas = new OffscreenCanvas(img.width, img.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, img.width, img.height).data;
+      // rgb(156 196 182 / 0.5) over white paper: about (206, 226, 219).
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 206) < 12 && Math.abs(d[i + 1] - 226) < 12 && Math.abs(d[i + 2] - 219) < 12) n++;
+      return n / (d.length / 4);
+    }, (await page.screenshot({ clip: clip(dx) })).toString("base64"));
+  return { lit: await share(0), after: await share(box!.width + 2) };
+}
+
 /** Counts the page's text layer redraws from now on (window.redraws_). */
 const countRedraws = (page: Page) =>
   page.evaluate(() => {
@@ -1174,6 +1211,10 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
       if (resize) await expect.poll(() => redraws(page), { timeout: 10_000 }).toBeGreaterThan(0);
       await expect.poll(() => litNow(page), { timeout: 5000 }).toBe(word.word);
       await lies();
+      // And it can be seen: tinted on screen, the next word on its line not.
+      const seen = await tintSeen(page);
+      expect(seen.lit, `share of "opens" tinted: ${seen.lit.toFixed(2)}`).toBeGreaterThan(0.25);
+      expect(seen.after, `share of the box after it tinted: ${seen.after.toFixed(2)}`).toBeLessThan(0.05);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -1301,6 +1342,40 @@ test("M13 (e): on a PDF page printed sideways, the word being read is lit over i
   expect(ax, `the line at ${ax.toFixed(1)} pt, lit from ${box.left.toFixed(1)} to ${(box.left + box.width).toFixed(1)}`).toBeGreaterThan(box.left - 2);
   expect(ax).toBeLessThan(box.left + box.width + 2);
   expect((await page.request.delete(`/api/books/${bookId}/readalong/${imp.id}`)).status()).toBe(204);
+});
+
+test("M13 (e): a PDF page whose picture could not be drawn (no canvas memory left) is drawn when asked for again at the same size", async ({ page }) => {
+  // The page's picture gets no canvas until the test says so, as when an iPhone has used up its canvas memory.
+  await page.addInitScript(() => {
+    const w = window as unknown as { noCanvas_: boolean };
+    w.noCanvas_ = true;
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      // pdf.js asks for its own canvases with options; the page's picture without.
+      if (w.noCanvas_ && type === "2d" && rest.length === 0 && this.width > 300) return null;
+      return (get as (this: HTMLCanvasElement, type: string, ...rest: unknown[]) => RenderingContext | null).call(this, type, ...rest);
+    } as typeof get;
+  });
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const pdf = books.find((b) => b.title === "Discourse on the Method")!;
+  await page.goto(`/books/${pdf.id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const shown = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+      const doc = view.renderer.getContents()[0]?.doc;
+      return { picture: !!doc?.querySelector("#canvas canvas"), text: doc?.querySelector(".textLayer span") !== null && !!doc };
+    });
+  // No picture, but the page's text is there (and so is the word being read, when there is one).
+  await expect.poll(shown, { timeout: 10_000 }).toEqual({ picture: false, text: true });
+  // Memory again; the page shown asked for again at the same size (foliate does this when the shown
+  // page is chosen again; the book opens where it was last read, so not necessarily page 1): drawn now.
+  await page.evaluate(() => {
+    (window as unknown as { noCanvas_: boolean }).noCanvas_ = false;
+    const view = document.querySelector("foliate-view") as unknown as { goTo(i: number): Promise<void>; renderer: { getContents(): { doc: Document | null }[] } };
+    return view.goTo(Number(view.renderer.getContents()[0].doc!.documentElement.dataset.page));
+  });
+  await expect.poll(shown, { timeout: 10_000 }).toEqual({ picture: true, text: true });
 });
 
 test("M13 (e): in a PDF without an audiobook, Listen says how to add one", async ({ page }) => {

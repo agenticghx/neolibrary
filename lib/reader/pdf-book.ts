@@ -6,6 +6,7 @@
  * in its npm release; uses pdfjs-dist (Apache-2.0).
  */
 type Pdfjs = typeof import("pdfjs-dist");
+type TextContent = Awaited<ReturnType<import("pdfjs-dist").PDFPageProxy["getTextContent"]>>;
 
 // From pdf.js 6.4's own stylesheet (pdfjs-dist/web/pdf_viewer.css, ".textLayer"):
 // invisible, selectable text over the canvas. pdf.js sets each span's
@@ -60,14 +61,34 @@ export async function makePdfBook(file: Blob) {
   const pdf = await task.promise;
 
   /**
-   * A shown page: the size it is drawn at (or being drawn at), which drawing
-   * is the newest, its text layer and the size that is laid out for, and the
-   * picture being drawn, if any. foliate asks for a drawing every time the
+   * A shown page: the size it is drawn at or being drawn at (NaN after a
+   * drawing failed), which drawing is the newest, its text layer and the
+   * size that is laid out for, and the picture being drawn, if any. foliate asks for a drawing every time the
    * page's frame changes size, many times while a window is dragged, without
    * waiting for the last one.
    */
   type Shown = { scale: number; run: number; text: InstanceType<Pdfjs["TextLayer"]> | null; laidOut: number; drawing: { cancel(): void } | null };
   const shown = new WeakMap<Document, Shown>();
+  /**
+   * The text of the page after the one shown, fetched ahead (pdf.js reads a
+   * page's text in its worker, which takes tens of milliseconds on a slow
+   * machine): when the reading turns to it, its text layer is built at once
+   * and the first word on it can be lit on time. Null while it is fetched;
+   * the last few pages only.
+   */
+  const textAhead = new Map<number, TextContent | null>();
+  const fetchTextOf = (pageNumber: number) => {
+    if (pageNumber > pdf.numPages || textAhead.has(pageNumber)) return;
+    textAhead.set(pageNumber, null);
+    pdf
+      .getPage(pageNumber)
+      .then((p) => p.getTextContent())
+      .then(
+        (text) => textAhead.has(pageNumber) && textAhead.set(pageNumber, text),
+        () => textAhead.delete(pageNumber),
+      );
+    if (textAhead.size > 4) textAhead.delete(textAhead.keys().next().value!);
+  };
   const unexpected = (e: unknown) => {
     if (!(e instanceof pdfjsLib.AbortException) && !(e instanceof pdfjsLib.RenderingCancelledException)) console.warn(e);
   };
@@ -101,8 +122,13 @@ export async function makePdfBook(file: Blob) {
     if (!state.text) {
       sizeTo();
       const container = doc.querySelector(".textLayer") as HTMLElement;
-      state.text = new pdfjsLib.TextLayer({ textContentSource: page.streamTextContent(), container, viewport });
+      // Built at once (a newer drawing must find it there): from the text fetched ahead if it has
+      // arrived, or else as pdf.js reads it. (A stream made here to wait for the text broke the
+      // page's text layer in WebKit: pdf.js found no text in it.)
+      const textContentSource = textAhead.get(pageNumber) ?? page.streamTextContent();
+      state.text = new pdfjsLib.TextLayer({ textContentSource, container, viewport });
       state.laidOut = scale;
+      fetchTextOf(pageNumber + 1);
       state.text.render().then(() => {
         const end = doc.createElement("div");
         end.className = "endOfContent";
@@ -116,13 +142,22 @@ export async function makePdfBook(file: Blob) {
     canvas.height = viewport.height;
     canvas.width = viewport.width;
     const context = canvas.getContext("2d");
-    // None when the browser is out of canvas memory (iPhones have a limit): the text is still there.
-    if (!context) return console.warn(`Page ${pageNumber}: no canvas to draw on`);
+    // None when the browser is out of canvas memory (iPhones have a limit):
+    // the text is still there, and the next request, even at this size, tries again.
+    if (!context) {
+      state.scale = NaN;
+      return console.warn(`Page ${pageNumber}: no canvas to draw on`);
+    }
     const drawing = page.render({ canvas, canvasContext: context, viewport });
     state.drawing = drawing;
     try {
       await drawing.promise;
     } catch (e) {
+      // Cancelled by a newer drawing, which carries on; or failed: the next request tries again.
+      if (state.run === run) {
+        state.drawing = null;
+        state.scale = NaN;
+      }
       unexpected(e);
       return;
     }

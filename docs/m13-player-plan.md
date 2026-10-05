@@ -272,10 +272,19 @@ iframe, and that the page turns when the audio crosses it. Screenshots
 ## What (e) built (2026-10-05)
 
 Written for the session that does (f), and for Samuel. Built on branch
-`m13-pdf-player-v2`; evidence in the `PROGRESS.md` Log. Three reviewers
-(the reader in the browser, the server, the tests) read it and a skeptic
-checked each finding: 17 confirmed, 1 uncertain, none refuted. What was done
-about each is below.
+`m13-pdf-player-v2` (PR #67); evidence in the `PROGRESS.md` Log. Three
+reviewers (the reader in the browser, the server, the tests) read it and a
+skeptic checked each finding: 17 confirmed, 1 uncertain, none refuted. Then
+five more reviewers tried to break the fixes, again with a skeptic each: 7
+confirmed (all minor) and 6 small wording points, all dealt with below.
+
+Words used here: a PDF page in the reader is a **picture** of the page with
+a **text layer** over it (pdf.js's invisible copy of the page's text, laid
+over the printed letters, which is what can be selected and lit). Each page
+is shown in its own **frame** (an embedded page inside the reader) by
+**foliate**, the open-source library the reader uses to show books. A
+**running head** is the line at the top of a printed page with the book's or
+chapter's title.
 
 - **What you get:** in a PDF book, **Listen** plays the book's own
   audiobook, and each word lights up on the page as it is spoken, over its
@@ -284,44 +293,62 @@ about each is below.
   audiobook: add one on the book's page."
 - **How a word is found on the page:** as planned, by counting non-space
   characters from the top of the page. The server sends each word's count
-  with its times (`inPage` in `lib/library/audio.ts`, from every paragraph
-  on that page, including the running head and those outside the part being
-  sent); the reader walks the page's text layer (pdf.js's invisible copy of
-  the page's text over its picture) to the same count (`rangeForNonSpace`,
-  `lib/reader/text-range.ts`) and lights it with the CSS highlight in that
-  page's frame. Spaces do not matter, so a running head glued onto a word
-  does not move the count. The browser test checks that the page's text
-  layer and the server's text for the page are the same characters.
+  with its times (`inPage` in `lib/library/audio.ts`, counting every
+  paragraph on that page, including the running head and paragraphs outside
+  the part being sent); the reader walks the page's text layer to the same
+  count (`rangeForNonSpace`, `lib/reader/text-range.ts`) and lights it with
+  the CSS highlight in that page's frame. Spaces do not matter, so a running
+  head glued onto a word does not move the count. The browser test checks
+  that the page's text layer and the server's text for the page are the
+  same characters, and that the lit word can be seen (its box on screen
+  shows the highlight's tint; the next word's does not).
 - **The text layer is built once per page shown** (`lib/reader/pdf-book.ts`),
   at the same time as the picture, not after it, and a new size lays the
   same text out again (pdf.js's `TextLayer.update`) at the moment the new
-  picture is ready. It used to be thrown away and built again on every
-  resize; two of those under way at once (a window being dragged) could
-  leave pieces of both, and words would be lit on the wrong text (review
-  finding, "major"). An older drawing still under way is cancelled; a
-  drawing at the size already shown is skipped.
+  picture is ready, so picture and text always match. It used to be thrown
+  away and built again on every size change; two of those under way at once
+  (a window being dragged) could leave pieces of both, and words would be
+  lit on the wrong text (review finding, "major"). An older drawing still
+  under way is cancelled; a drawing at the size already shown or being
+  drawn is skipped; after a drawing that failed (an iPhone out of canvas
+  memory gives no canvas), the next request draws again, even at the same
+  size (found by the second review; a browser test fakes the missing
+  canvas).
 - **Page turns:** the player turns the page as soon as the last word on it
   is over (as in (d)), and a sentence that runs on across a page break with
-  no pause works: in the browser test, page 2 was shown 17 to 50 ms after
-  page 1's last word ended, and its first word was lit about 20 ms after it
-  began (Chromium and WebKit, laptop; the limit is 100 ms). A probe on
-  Samuel's Kuhn PDF (a temporary test, not kept, run on the laptop) measured
-  the time from a page turn to its text layer being ready: median 22 ms in
-  Chromium and 33 ms in WebKit; at phone size with 3 pixels per point, 21 and
-  34 ms; with Chromium's processor slowed 4 times, 33 to 42 ms. So drawing
-  the next page ahead of time, which a reviewer proposed, was not needed;
-  a real iPhone is tried at (f).
+  no pause works. The browser test logs how late page 2's first word is lit
+  (the limit is 100 ms). On CI (run 37267636340): 28 ms in Chromium and
+  79 ms in WebKit, the Safari engine, which on Linux is slower. So the
+  reader now fetches the next page's text while a page is shown (pdf.js
+  reads a page's text in a background worker, which takes tens of
+  milliseconds on a slow machine), and builds the new page's text layer from
+  it at once; on the laptop afterwards, 20 ms (Chromium) and 13 ms (WebKit).
+  The new CI figures are in the PR. A probe on Samuel's Kuhn PDF (a
+  temporary test, not kept in the repo; its code, commands and output are in
+  the transcript of the Claude session of 2026-10-05) measured, before that change, the time from a page
+  turn to its text layer being ready: median 22 ms in Chromium and 33 ms in
+  WebKit on the laptop; in a phone-size window (390 px wide) at an iPhone's 3
+  device pixels per screen pixel, 21 and 34 ms; with Chromium's processor
+  slowed 4 times, 33 to 42 ms. A real iPhone is the check at (f); if the
+  first word of a new page is late there, drawing the next page ahead too
+  is the next step.
 - **A page turned back from while it is read comes back** at the next word
   (as an EPUB's pages follow the voice); a page turned to ahead is left
-  alone. While a page is opening, the reader does not ask for it again
-  (foliate shows one page at a time and fails on a second request).
+  alone. A page that is still opening is not asked for again, neither by
+  the player's own turn nor by the turn back (foliate shows one page at a
+  time and fails on a second request for the page it is opening).
 - **Rotated pages:** pdf.js's three rules that turn the text layer with a
   page printed sideways were missing; added, with a test on a page turned a
   quarter turn.
 - **Character maps on the server:** the server now opens PDFs with pdf.js's
-  character maps, as the reader does. Without them, text in some fonts
-  (Chinese, Japanese, Korean) was missing on the server but shown on the
-  page, and every word after it on that page was lit on the wrong letters.
+  character maps (tables some fonts need to turn their codes into letters),
+  as the reader does. Without them, text in some fonts (Chinese, Japanese,
+  Korean) was missing on the server but shown on the page, and every word
+  after it on that page was lit on the wrong letters. This applies to PDFs
+  added from now on: a PDF already on the shelf keeps the text read when it
+  was added, and the app has no way yet to read a book's text again (an
+  upload of the same title is refused as a duplicate). Samuel's Kuhn is not
+  affected (with the maps, 0 of its 222 pages read differently).
 - **Parts by words too:** a part of the paragraph list stops at 200
   paragraphs or about 8,000 words (always at least one paragraph). Kuhn's
   PDF paragraphs are often whole pages, so 200 of them were most of the
@@ -330,21 +357,34 @@ about each is below.
   54,969 words, 2.16 MB (0.74 MB compressed) every time Listen opened; it
   is now 37 paragraphs, 8,006 words, 0.31 MB (0.11 MB compressed).
 - **Tests:** the test PDF is laid out as Kuhn is (running head drawn first,
-  page number last, footnotes in smaller type with italics, so pdf.js sends
-  the page's text in two pieces), and every word read aloud must light up,
-  page 2's first word too, which follows page 1's last with no pause; the
-  unit test sends parts of three paragraphs so that a part starts in the
-  middle of a page. Earlier comments said the running head glued onto the
-  last word was "as in the Kuhn PDF": that was the Descartes demo PDF; Kuhn
-  draws its running head first, so it is a paragraph of its own.
+  page number last, footnotes in smaller type); page 2 has more than ten
+  pieces of text, so pdf.js sends it in two (10 + 10), the case the old
+  drawing code got wrong. Every word read aloud must light up, page 2's
+  first word too, which follows page 1's last with no pause. The unit test
+  sends parts of three paragraphs so that a part starts in the middle of a
+  page. Earlier comments said the running head glued onto the last word was
+  "as in the Kuhn PDF": that was the Descartes demo PDF; Kuhn draws its
+  running head first, so it is a paragraph of its own.
 
-**Found by the review, not fixed here** (older code from steps (b) and (c):
-the matcher and the PDF text reader; each needs the audiobook imported again
-to take effect, so they belong in a follow-up). Counted on Samuel's own
-narration of Kuhn (`kuhn-ssr-word-timings.json`) against his PDF with this
-branch's code, by a reviewer's script re-run for this note
-(`node <scratchpad>/skeptic-srv/verify1.mjs anchor`): 67,270 of 67,824
-spoken words matched (99.18%). Words that never light up:
+**Found by the review, not fixed here.** These are in the matcher (step
+(b)) and in the server's PDF text reader (`lib/library/pdf-sections.ts`,
+from M4 (d); this branch changes it only to add the character maps). Each
+fix needs the audiobook imported again, so they belong in a follow-up.
+Counted on Samuel's own narration of Kuhn (`kuhn-ssr-word-timings.json`)
+against his PDF with this branch's code, with reviewers' scripts re-run for
+this note: 67,270 of 67,824 spoken words matched (99.18%;
+`node <scratchpad>/skeptic-srv/verify1.mjs anchor`).
+
+Where the 554 spoken words that matched nothing fall
+(`verify-e/claims-lens/spoken-attrib.mjs`): 155 next to a footnote number,
+43 across a page break, 8 in suspended hyphens, 259 next to other printed
+words without a time (numbers, roman numerals and abbreviations read out
+differently, and a few other mismatches), 61 where these mix, and 28 not
+printed at all (chapter announcements such as "Postscript, nineteen
+sixty-nine, part one").
+
+Printed words in read paragraphs that never light up (`verify1.mjs` and
+`verify-e/claims-lens/groups2.mjs`):
 
 1. **168 words before a footnote number** ("research.2"): the number is
    raised, the server adds a space only when the line goes down, so it is
@@ -355,13 +395,16 @@ spoken words matched (99.18%). Words that never light up:
    early.
 3. **4 suspended hyphens** ("pre- and post-"), joined into one word that is
    never said.
-4. 553 others, mostly numbers and abbreviations read out differently
-   ("1962" said as "nineteen sixty-two", "i.e." as "that is").
+4. **553 others:** 362 are two blocks of footnotes inside read paragraphs
+   (pages 72 and 79) that the narrator does not read, so they are rightly
+   unlit; 176 sit next to numbers, roman numerals or abbreviations read out
+   differently; 15 are other mismatches.
 
 Also not done: a check in the reader that the server's text and the page's
-text layer agree (the server now uses the same character maps, and the
-browser test compares them for its page, but a PDF that differs in some
-other way would light words in the wrong place without a warning).
+text layer agree (they come from the same pdf.js with the same character
+maps, and the browser test compares them for its page, but a PDF that
+differed some other way would light words in the wrong place without a
+warning).
 
 ## Other engine differences worth knowing
 

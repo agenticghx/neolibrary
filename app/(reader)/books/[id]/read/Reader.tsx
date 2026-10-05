@@ -35,7 +35,8 @@ type FoliateView = HTMLElement & {
   next(): Promise<void>;
   close(): void;
   book: { toc?: TocItem[]; dir?: string };
-  renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[] };
+  /** `index`: in a PDF, the page shown, or being opened once a turn has begun. */
+  renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[]; readonly index?: number };
   getCFI(index: number, range: Range): string;
   resolveCFI(cfi: string): { index: number; anchor: (doc: Document) => Range };
   addAnnotation(a: { value: string }): Promise<unknown>;
@@ -148,6 +149,15 @@ function lightPdfWord(doc: Document, [a, b]: [number, number]): string | null {
   return range.toString();
 }
 
+/** The PDF page foliate shows, or is opening once a turn has begun (-1 before the first: foliate's getter throws then). */
+function pageOpening(v: FoliateView) {
+  try {
+    return v.renderer.index ?? -1;
+  } catch {
+    return -1;
+  }
+}
+
 /** A PDF page's index from its address (epubcfi(/6/2) is the first page), or -1. */
 function pdfPage(cfi: string) {
   const n = Number(/^epubcfi\(\/6\/(\d+)\)$/.exec(cfi)?.[1]) / 2 - 1;
@@ -189,7 +199,7 @@ export function Reader(props: {
   const turning = useRef(false);
   /** Where the word lit by read aloud is (its CFI): going on after a pause returns to its page. */
   const litCfi = useRef<string | null>(null);
-  /** The word lit in a PDF page (M13 (e)), drawn again when the page's text layer is rebuilt. */
+  /** The word lit in a PDF page (M13 (e)), lit again when the page's text layer is complete or laid out for a new size. */
   const spokenPdf = useRef<{ page: number; at: [number, number] } | null>(null);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
@@ -340,8 +350,8 @@ export function Reader(props: {
         });
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
-          // A PDF page's text layer is rebuilt when it is shown, zoomed or
-          // resized: light the spoken word again on the new text.
+          // A PDF page's text layer is complete (the page was just shown) or
+          // was laid out for a new size: light the spoken word on it again.
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
             const w = spokenPdf.current;
             if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at);
@@ -680,7 +690,7 @@ export function Reader(props: {
       // again, as an EPUB's pages follow the voice (a page turned to ahead is
       // left alone). Not while a turn is on its way: foliate shows one page at
       // a time, and asking again for a page still opening fails.
-      if (!turning.current && page > pdfPage(whereCfi.current ?? "")) {
+      if (!turning.current && pageOpening(v) !== page && page > pdfPage(whereCfi.current ?? "")) {
         turning.current = true;
         void v
           .goTo(passageCfi)
@@ -740,8 +750,10 @@ export function Reader(props: {
       void v.goTo(target);
       return;
     }
-    // A PDF page opens in its own frame: until it is open, the word being read
-    // does not ask for it again (see highlightWord).
+    // A PDF page opens in its own frame. Not asked for again while it opens
+    // (foliate fails on that); and until it is open, the word being read does
+    // not ask for it either (see highlightWord).
+    if (pageOpening(v) === pdfPage(target)) return;
     turning.current = true;
     void v
       .goTo(target)
