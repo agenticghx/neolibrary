@@ -74,11 +74,14 @@ export default async function LibraryPage({
         </form>
       ) : null}
 
-      {everything.length ? (
+      {/* Collections show even before the first book, so New collection (also in the sidebar) always works. */}
+      {everything.length || collectionList.length || sp.new === "collection" ? (
         <section className={styles.browse} aria-label="Browse your library">
-          <Suspense>
-            <Controls />
-          </Suspense>
+          {everything.length ? (
+            <Suspense>
+              <Controls />
+            </Suspense>
+          ) : null}
           <nav className={styles.chips} aria-label="Collections">
             <Link href={chipHref()} className={styles.chip} aria-current={active ? undefined : "page"}>
               All

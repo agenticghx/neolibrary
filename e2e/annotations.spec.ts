@@ -195,6 +195,8 @@ test("notes on a pillar and on the whole path", async ({ page }) => {
 
   await page.goto(`/search?q=${encodeURIComponent("fab tour")}`);
   await expect(page.getByRole("region", { name: "Your notes" })).toContainText("Note · Semiconductors");
+  // A note on a pillar opens its Path.
+  await expect(page.getByRole("region", { name: "Your notes" }).getByRole("link", { name: /Note · Semiconductors/ })).toHaveAttribute("href", "/paths/hidden-machinery");
 
   await page.goto("/");
   await semis.getByRole("button", { name: /^Remove note/ }).click();

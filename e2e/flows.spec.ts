@@ -83,8 +83,21 @@ test.describe("signed in", () => {
     await expect(guest.getByRole("heading", { name: "Good to see you, Ada" })).toBeVisible();
 
     // A new reader starts with an empty library and can add the starter path.
+    const guestSidebar = guest.getByRole("complementary", { name: "Sidebar" });
+    await expect(guestSidebar.getByRole("link", { name: /^Hidden Machinery/ })).toHaveCount(0);
     await guest.getByRole("button", { name: "Add this path" }).click();
+    await expect(guest).toHaveURL(/\/paths\/hidden-machinery$/);
     await expect(guest.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
+    // The sidebar lists it at once; /paths lists it and no longer offers it.
+    await expect(guestSidebar.getByRole("link", { name: /^Hidden Machinery/ })).toHaveAttribute("aria-current", "page");
+    await guest.goto("/paths");
+    await expect(guest.getByRole("main").getByRole("link", { name: "Hidden Machinery", exact: true })).toBeVisible();
+    await expect(guest.getByRole("button", { name: "Add this path" })).toHaveCount(0);
+    // A reader who is not an admin is not offered Invite.
+    await expect(guestSidebar.getByRole("link", { name: "Invite", exact: true })).toHaveCount(0);
+    // New collection works before the first book.
+    await guestSidebar.getByRole("link", { name: "New collection", exact: true }).click();
+    await expect(guest.getByLabel("Collection name")).toBeVisible();
 
     // Readers cannot reach admin pages.
     expect((await guest.goto("/admin/invites"))?.status()).toBe(404);

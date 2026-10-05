@@ -9,12 +9,14 @@ import styles from "./Shell.module.css";
 /**
  * On a phone: a round button with the reader's initial opens the account
  * links and Sign out (on desktop they sit at the foot of the sidebar).
- * Closes on a new page, on Escape and on a tap outside.
+ * Closes on a new page, on Escape (focus goes back to the button), on a tap
+ * outside, and when focus leaves it.
  */
 export function AccountMenu({ name, admin }: { name: string; admin: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const box = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
   const id = useId();
   const [shownFor, setShownFor] = useState(pathname);
   if (shownFor !== pathname) {
@@ -23,7 +25,11 @@ export function AccountMenu({ name, admin }: { name: string; admin: boolean }) {
   }
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      toggle.current?.focus();
+    };
     const onDown = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onDown);
@@ -33,8 +39,16 @@ export function AccountMenu({ name, admin }: { name: string; admin: boolean }) {
     };
   }, [open]);
   return (
-    <div className={styles.account} ref={box}>
+    <div
+      className={styles.account}
+      ref={box}
+      onBlur={(e) => {
+        // Focus moved to something outside (Tab past the last link). A tap on the panel's text moves focus nowhere.
+        if (open && e.relatedTarget && !box.current?.contains(e.relatedTarget as Node)) setOpen(false);
+      }}
+    >
       <button
+        ref={toggle}
         type="button"
         className={styles.initial}
         aria-expanded={open}

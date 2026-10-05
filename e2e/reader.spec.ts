@@ -77,7 +77,7 @@ test("scripts inside a book never run", async ({ page }) => {
   ]);
   await page.goto("/library");
   await page.getByLabel("Choose files").setInputFiles({ name: "trap.epub", mimeType: "application/epub+zip", buffer: Buffer.from(evil) });
-  await expect(page.getByTestId("upload-results").getByText("Added to your shelf")).toBeVisible();
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
   await page.evaluate(() => {
     (window as unknown as { __msgs: string[] }).__msgs = [];
     addEventListener("message", (e) => (window as unknown as { __msgs: string[] }).__msgs.push(String(e.data)));
@@ -223,7 +223,7 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   });
   await page.goto("/library");
   await page.getByLabel("Choose files").setInputFiles({ name: "discourse.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
-  await expect(page.getByTestId("upload-results").getByText("Added to your shelf")).toBeVisible();
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
   // Labelled by what each title offers: narration is EPUB only, so this PDF is Read only, while an
   // EPUB says Read and listen (the tests' fake voice counts as narration).
   const shelfItem = (title: string) => page.getByTestId("shelf").getByRole("listitem").filter({ hasText: title });

@@ -130,7 +130,7 @@ const UNNUMBERED = ["master", "suggested"];
 /**
  * The reader's Paths with how many numbered pillars are started (a pillar is
  * started when any of its books has progress), for the sidebar's "3 of 18".
- * Two small queries, not a whole Path view each: this runs on every page.
+ * Three small queries, not a whole Path view each: this runs on every page.
  */
 export async function listPathsWithProgress(db: Db, ownerId: string) {
   const list = await listPaths(db, ownerId);

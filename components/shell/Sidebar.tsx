@@ -21,18 +21,15 @@ type Props = {
   collections: { id: string; name: string }[];
 };
 
-function Item({ href, icon, label, meta, metaHidden }: { href: string; icon: IconName; label: string; meta?: string; metaHidden?: string }) {
+function Item({ href, icon, label, meta }: { href: string; icon: IconName; label: string; meta?: React.ReactNode }) {
   return (
     <li>
       <NavLink href={href} className={styles.item}>
-        <Icon name={icon} className={styles.icon} />
-        <span className={styles.itemLabel}>{label}</span>
-        {meta ? (
-          <span className={styles.itemMeta}>
-            {meta}
-            {metaHidden ? <span className="visually-hidden"> {metaHidden}</span> : null}
-          </span>
-        ) : null}
+        <Icon name={icon} className={[styles.icon, icon === "plus" ? styles.add : ""].join(" ")} />
+        <span className={styles.itemText}>
+          <span className={styles.itemLabel}>{label}</span>
+          {meta ? <span className={styles.itemMeta}>{meta}</span> : null}
+        </span>
       </NavLink>
     </li>
   );
@@ -41,13 +38,13 @@ function Item({ href, icon, label, meta, metaHidden }: { href: string; icon: Ico
 /** Desktop navigation (M14, "Home on desktop A"): Home, the library's filters, Paths, Collections, and the account. */
 export function Sidebar({ user, paths, collections }: Props) {
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} aria-label="Sidebar">
       <Link href="/" className={styles.brand}>
         <Mark size={28} />
         <span className={styles.wordmark}>Neolibrary</span>
       </Link>
       {/* No search button: the /search page has its own button named "Search" (tests find it by that name). */}
-      <form action="/search" className={styles.search} role="search">
+      <form action="/search" className={styles.search} role="search" aria-label="Search your library">
         <label htmlFor="sidebar-search" className="visually-hidden">
           Search your library
         </label>
@@ -71,9 +68,20 @@ export function Sidebar({ user, paths, collections }: Props) {
         </p>
         <ul className={styles.group} aria-labelledby="nav-paths">
           {paths.map((p) => (
-            <Item key={p.id} href={`/paths/${p.slug}`} icon="path" label={p.title} meta={`${p.started} of ${p.total}`} metaHidden="pillars started" />
+            <Item
+              key={p.id}
+              href={`/paths/${p.slug}`}
+              icon="path"
+              label={p.title}
+              meta={
+                <>
+                  {p.started} of {p.total}
+                  <span className="visually-hidden"> pillars</span> started
+                </>
+              }
+            />
           ))}
-          <Item href="/paths" icon="plus" label="New path" />
+          <Item href="/paths?new=path" icon="plus" label="New path" />
         </ul>
         <p className={styles.groupLabel} id="nav-collections">
           Collections

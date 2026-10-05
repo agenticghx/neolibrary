@@ -11,6 +11,7 @@ export const pages: PageCase[] = [
   { name: "path", path: "/", signedIn: true },
   { name: "book-not-available", path: "/", signedIn: true, click: "The Grid (not available yet)" },
   { name: "library", path: "/library", signedIn: true },
+  { name: "paths", path: "/paths", signedIn: true },
   { name: "data", path: "/data", signedIn: true },
   { name: "agents", path: "/agents", signedIn: true },
   { name: "stats", path: "/stats", signedIn: true },

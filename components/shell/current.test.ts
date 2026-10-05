@@ -29,6 +29,8 @@ describe("isCurrent", () => {
     expect(isCurrent("/paths/hidden-machinery", ...at("/paths/hidden-machinery"))).toBe(true);
     expect(isCurrent("/paths/hidden-machinery", ...at("/paths/other"))).toBe(false);
     expect(isCurrent("/paths", ...at("/paths/hidden-machinery"))).toBe(false);
+    expect(isCurrent("/paths?new=path", ...at("/paths"))).toBe(false);
+    expect(isCurrent("/paths?new=path", ...at("/paths?new=path"))).toBe(true);
     expect(isCurrent("/paths", ...at("/paths/hidden-machinery"), "section")).toBe(true);
     expect(isCurrent("/paths", ...at("/pathsx"), "section")).toBe(false);
     expect(isCurrent("/library", ...at("/library?show=want"), "section")).toBe(true);

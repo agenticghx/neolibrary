@@ -99,6 +99,23 @@ describe("seeding the Hidden Machinery path", () => {
     await progress(master.slots[0].book.id, 0.5); // the master key is not numbered either
     const [after] = await listPathsWithProgress(database.db, ownerId);
     expect(after).toMatchObject({ started: 1, total: numbered.length });
+
+    // A second Path sharing a book counts its own pillars only.
+    await seedPath(database.db, ownerId, {
+      slug: "short",
+      title: "Short",
+      description: "",
+      sourceUrl: "",
+      pillars: [
+        { slug: "a", title: "A", group: "main", books: [{ kind: "N", title: "The Grid", author: "Gretchen Bakke" }] },
+        { slug: "b", title: "B", group: "main", books: [{ kind: "N", title: "A book nobody started", author: "" }] },
+      ],
+    });
+    const both = await listPathsWithProgress(database.db, ownerId);
+    expect(both.map((p) => [p.slug, p.started, p.total])).toEqual([
+      ["hidden-machinery", 1, numbered.length],
+      ["short", 1, 2],
+    ]);
   });
 
   it("keeps each person's library separate", async () => {

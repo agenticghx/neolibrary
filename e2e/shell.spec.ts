@@ -1,11 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { hiddenMachinery } from "../data/paths/hidden-machinery";
 
 // M14 step 2: the sidebar on desktop; tabs, a top strip and an account menu on
 // a phone. Runs after the uploads project (the library has books), before the
 // reader. Never signs the owner out (the other projects share the session).
 
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Main" });
+const aside = (page: Page) => page.getByRole("complementary", { name: "Sidebar" });
+// No book on the Path has progress yet when this project runs (the reader comes later).
+const PILLARS = hiddenMachinery.pillars.filter((p) => p.group !== "master" && p.group !== "suggested").length;
 
 // In order, one at a time: one test adds and removes a collection the others would see.
 test.describe.configure({ mode: "default" });
@@ -25,8 +29,8 @@ test.describe("desktop sidebar", () => {
       ["Audiobooks", /\/library\?show=audiobooks$/, "Your library"],
       ["PDFs", /\/library\?show=pdfs$/, "Your library"],
       // A Path shows how many of its numbered pillars are started.
-      [/^Hidden Machinery \d+ of \d+ pillars started$/, /\/paths\/hidden-machinery$/, "Hidden Machinery"],
-      ["New path", /\/paths$/, "Your paths"],
+      [`Hidden Machinery 0 of ${PILLARS} pillars started`, /\/paths\/hidden-machinery$/, "Hidden Machinery"],
+      ["New path", /\/paths\?new=path$/, "Your paths"],
     ];
     for (const [name, url, heading] of cases) {
       const link = sidebar(page).getByRole("link", typeof name === "string" ? { name, exact: true } : { name });
@@ -44,15 +48,32 @@ test.describe("desktop sidebar", () => {
     await expect(page.getByRole("button", { name: "Search" })).toHaveCount(1);
 
     // The foot: account links, Invite for an admin, and Sign out.
-    for (const [name, url] of [
-      ["Reading stats", /\/stats$/],
-      ["Your data", /\/data$/],
-      ["Invite", /\/admin\/invites$/],
+    // The foot stays in view on a laptop screen (the links above it scroll).
+    await expect(aside(page).getByRole("button", { name: "Sign out" })).toBeInViewport();
+    for (const [name, url, heading] of [
+      ["Reading stats", /\/stats$/, "Reading stats"],
+      ["Your data", /\/data$/, "No lock-in"],
+      ["Invite", /\/admin\/invites$/, "Invite people"],
     ] as const) {
-      await page.getByRole("complementary").getByRole("link", { name, exact: true }).click();
+      await aside(page).getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(url);
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     }
-    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+
+    // /paths lists the Path with its count, and offers no reading list already added.
+    await page.goto("/paths");
+    await expect(page.getByRole("main").getByText(`0 of ${PILLARS} pillars started`)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add this path" })).toHaveCount(0);
+  });
+
+  test("the first Tab offers to skip the navigation", async ({ page }) => {
+    await page.goto("/library");
+    await page.keyboard.press("Tab");
+    const skip = page.getByRole("link", { name: "Skip to the page" });
+    await expect(skip).toBeFocused();
+    await expect(skip).toBeInViewport();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#content")).toBeFocused();
   });
 
   test("a new collection appears in the sidebar at once, and leaves with it", async ({ page }) => {
@@ -88,6 +109,7 @@ test.describe("phone", () => {
       await expect(page).toHaveURL(url);
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
       await expect(tabs.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "page");
+      await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
     }
     // A Path page counts as the Paths tab.
@@ -118,7 +140,17 @@ test.describe("phone", () => {
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(results.violations.map((v) => `${scheme} ${v.id}: ${v.nodes.map((n) => `${n.target.join(" ")} (${n.any[0]?.message ?? ""})`).join("; ")}`)).toEqual([]);
     }
+    // Escape closes it and gives focus back to the button.
+    await page.getByRole("link", { name: "Your data", exact: true }).focus();
     await page.keyboard.press("Escape");
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(button).toBeFocused();
+    // A tap outside closes it, and so does the button again.
+    await button.click();
+    await page.getByRole("heading", { level: 1 }).click();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.click();
+    await button.click();
     await expect(button).toHaveAttribute("aria-expanded", "false");
 
     // It closes when a link inside it opens another page.

@@ -18,6 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [paths, collections] = await Promise.all([listPathsWithProgress(db, user.id), listCollections(db, user.id)]);
   return (
     <div className={styles.shell}>
+      <a href="#content" className={styles.skip}>
+        Skip to the page
+      </a>
       <Sidebar user={user} paths={paths} collections={collections} />
       <div className={styles.column}>
         <header className={styles.phoneBar}>
@@ -27,7 +30,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <AccountMenu name={user.name} admin={user.role === "admin"} />
         </header>
-        {children}
+        <div id="content" tabIndex={-1} className={styles.content}>
+          {children}
+        </div>
       </div>
       <TabBar />
     </div>

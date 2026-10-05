@@ -20,7 +20,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <main className={styles.main}>
       <p className={styles.eyebrow}>Search</p>
       <h1 className={styles.title}>Find a passage</h1>
-      <form action="/search" className={styles.form} role="search">
+      <form action="/search" className={styles.form} role="search" aria-label="Search inside your books">
         <label htmlFor="q" className="visually-hidden">
           Search inside your books
         </label>
@@ -51,7 +51,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 .join(", ") + "."}
         </p>
       ) : (
-        <p className={styles.summary}>Searches the text of every book on your shelf, and your highlights and notes. Put a minus before a word to leave it out.</p>
+        <p className={styles.summary}>Searches the text of every book in your library, and your highlights and notes. Put a minus before a word to leave it out.</p>
       )}
       {noteHits.length ? (
         <section className={styles.book} aria-labelledby="your-notes">

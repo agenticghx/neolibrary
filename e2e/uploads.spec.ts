@@ -22,7 +22,7 @@ test("three public-domain books land on the shelf with their titles and covers",
     fixture("wells-the-time-machine.epub"),
   ]);
   const results = page.getByTestId("upload-results");
-  await expect(results.getByText("Added to your shelf")).toHaveCount(3);
+  await expect(results.getByText("Added to your library")).toHaveCount(3);
 
   const shelf = page.getByTestId("shelf");
   for (const title of ["The Strange Case of Dr. Jekyll and Mr. Hyde", "Frankenstein", "The Time Machine"]) {
@@ -83,7 +83,7 @@ test("duplicates, other file types and DRM-protected books are refused politely"
     { name: "locked.epub", mimeType: "application/epub+zip", buffer: Buffer.from(drm) },
   ]);
   const results = page.getByTestId("upload-results");
-  await expect(results.getByText("Already on your shelf")).toBeVisible();
+  await expect(results.getByText("Already in your library")).toBeVisible();
   await expect(results.getByText("Only EPUB and PDF files can be added.")).toBeVisible();
   await expect(results.getByText(/DRM-protected/)).toBeVisible();
   await expect(page.getByText("4 books.")).toBeVisible();
@@ -114,11 +114,11 @@ test("search and sort the shelf", async ({ page }) => {
   await expect(page).toHaveURL(/sort=title/);
   await expect.poll(titles).toEqual(["Frankenstein", "The Grid", "The Strange Case of Dr. Jekyll and Mr. Hyde", "The Time Machine"]);
 
-  await page.getByRole("searchbox", { name: "Search your shelf" }).fill("wells");
+  await page.getByRole("searchbox", { name: "Filter by title or author" }).fill("wells");
   await expect(page).toHaveURL(/q=wells/);
   await expect.poll(titles).toEqual(["The Time Machine"]);
 
-  await page.getByRole("searchbox", { name: "Search your shelf" }).fill("no such book");
+  await page.getByRole("searchbox", { name: "Filter by title or author" }).fill("no such book");
   await expect(page.getByText("Nothing matches “no such book”.")).toBeVisible();
 });
 
@@ -154,8 +154,10 @@ test("collections group books and filter the shelf", async ({ page }) => {
 });
 
 test("old /shelf links land on /library, keeping their query", async ({ page }) => {
-  await page.goto("/shelf?sort=title&q=wells");
-  await expect(page).toHaveURL(/\/library\?sort=title&q=wells$/);
+  await page.goto("/shelf");
+  await expect(page).toHaveURL(/\/library$/);
+  await page.goto("/shelf?sort=title&q=wells&c=a&c=b");
+  await expect(page).toHaveURL(/\/library\?sort=title&q=wells&c=a&c=b$/);
   await expect(page.getByRole("heading", { name: "Your library", level: 1 })).toBeVisible();
 });
 
@@ -197,6 +199,8 @@ test("the library can be downloaded, and import never overwrites", async ({ page
   await guest.goto("/data");
   await guest.getByLabel("Library file (.json)").setInputFiles({ name: "lib.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(small)) });
   await expect(guest.getByRole("status")).toHaveText("Brought back 1 books, 0 paths and 1 collections.");
+  // The sidebar shows the imported collection without a reload.
+  await expect(guest.getByRole("complementary", { name: "Sidebar" }).getByRole("link", { name: "Stoics", exact: true })).toBeVisible();
   const back = await (await ctx.request.get("/api/export")).json();
   expect(back.books.map((b: { title: string }) => b.title)).toEqual(["Meditations"]);
   expect(back.collections[0]).toMatchObject({ name: "Stoics", bookIds: [bookId] });
