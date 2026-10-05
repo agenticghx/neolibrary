@@ -20,8 +20,10 @@ export type FixtureChapter = {
   paragraphs: string[];
   /** Words (by index in the chapter) the narrator skipped. */
   notSpoken?: number[];
-  /** For each paragraph, the book chapter (EPUB spine index) it is in, or null if it is not in the book. */
+  /** For each paragraph, the book chapter (EPUB spine index) or PDF page (from 0) it is in, or null if it is not in the book. */
   inBook?: (number | null)[];
+  /** Seconds of silence after each paragraph, as a narrator pauses (default: one character's pause). */
+  pauses?: number[];
 };
 
 export function buildPackage(opts: { bookBytes: Uint8Array; chapters: FixtureChapter[]; title?: string }) {
@@ -34,8 +36,16 @@ export function buildPackage(opts: { bookBytes: Uint8Array; chapters: FixtureCha
     const id = String(n).padStart(2, "0");
     const text = c.paragraphs.join("\n\n") + "\n";
     const skip = new Set(c.notSpoken ?? []);
+    // Where each paragraph starts in the chapter's text (they are joined by a blank line).
+    const starts = c.paragraphs.map((_, k) => c.paragraphs.slice(0, k).reduce((n, p) => n + p.length + 2, 0));
+    let paragraph = 0;
     let clock = 0;
     const words: WordTiming[] = [...text.matchAll(/\S+/g)].map((m, i) => {
+      // Into a new paragraph: add the pause after the one before (if any).
+      while (paragraph + 1 < starts.length && m.index! >= starts[paragraph + 1]) {
+        clock += c.pauses?.[paragraph] ?? 0;
+        paragraph += 1;
+      }
       if (skip.has(i)) return { w: m[0], from: m.index!, to: m.index! + m[0].length, start: null, end: null, score: null, source: "not_spoken" };
       const start = r3(clock);
       const end = r3(clock + m[0].length * SECONDS_PER_CHAR);

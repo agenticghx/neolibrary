@@ -47,7 +47,7 @@ function step(p: UploadProgress) {
   }
 }
 
-export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string; imports: ImportSummary[]; fileType: "epub" | "pdf" }) {
+export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: ImportSummary[] }) {
   const router = useRouter();
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [message, setMessage] = useState("");
@@ -66,8 +66,6 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
   const cancel = useRef<AbortController | null>(null);
   const ready = imports.find((i) => i.status === "ready") ?? null;
   const unfinished = imports.filter((i) => i.status === "uploading");
-  // M13 (d) plays an audiobook in EPUB books; PDF books follow in (e).
-  const playsHere = fileType !== "pdf";
 
   // An upload stops when the reader leaves this page (and the browser asks first).
   useEffect(() => {
@@ -162,9 +160,8 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
             </ul>
           </details>
           <p className={styles.notesSummary}>
-            {playsHere
-              ? "To read along, open the book and press Listen: your audiobook plays from where you are (or from where it begins), and each word lights up as it is spoken."
-              : "Playing it in a PDF book comes in the next update of the app. Until then it is checked and kept ready here."}
+            To read along, open the book and press Listen: your audiobook plays from where you are (or from where it begins), and each word lights up as it
+            is spoken.
           </p>
           <div className={styles.audiobookActions}>
             <button
@@ -182,10 +179,7 @@ export function AudiobookUpload({ bookId, imports, fileType }: { bookId: string;
       ) : (
         <p className={styles.notesSummary}>
           Add an audiobook of this book to read along with it: each word lights up as it is spoken. Choose the read-along folder made on your laptop
-          with the readalong-audio skill (it holds the audio, the scripts and the word timings).
-          {playsHere
-            ? " Then press Listen in the book to play it."
-            : " Playing it in a PDF book comes in the next update of the app; until then the audiobook is checked against this book and kept ready."}
+          with the readalong-audio skill (it holds the audio, the scripts and the word timings). Then press Listen in the book to play it.
         </p>
       )}
 

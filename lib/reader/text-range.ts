@@ -43,3 +43,50 @@ export function positionsForOffsets(el: Element, from: number, to: number): { st
   }
   return start && end ? { start, end } : null;
 }
+
+/** Not a space, as both sides count: the server placing words (lib/library/audio.ts) and the reader finding them. */
+const isSpace = (unit: string) => /\s/.test(unit);
+
+/**
+ * How many non-space string units come before each position of a text (one
+ * more entry than the text is long). Counted in JavaScript string units, one
+ * by one, exactly as positionsForNonSpace walks a text layer.
+ */
+export function nonSpaceBefore(text: string): number[] {
+  const out = [0];
+  for (let i = 0; i < text.length; i++) out.push(out[i] + (isSpace(text[i]) ? 0 : 1));
+  return out;
+}
+
+/**
+ * M13 (e): a word on a PDF page, found by counting non-space characters from
+ * the top of the page's text layer (pdf.js draws one span per piece of text,
+ * positioned by percentages, and the server joined the same pieces with
+ * spaces in other places), so spaces never have to line up. `from`/`to`
+ * count non-space characters, end exclusive.
+ */
+export function rangeForNonSpace(layer: Element, from: number, to: number): Range | null {
+  const at = positionsForNonSpace(layer, from, to);
+  if (!at) return null;
+  const range = layer.ownerDocument.createRange();
+  range.setStart(at.start[0], at.start[1]);
+  range.setEnd(at.end[0], at.end[1]);
+  return range;
+}
+
+export function positionsForNonSpace(layer: Element, from: number, to: number): { start: [Node, number]; end: [Node, number] } | null {
+  if (to <= from) return null;
+  const walker = layer.ownerDocument.createTreeWalker(layer, 4 /* NodeFilter.SHOW_TEXT */);
+  let index = 0;
+  let start: [Node, number] | null = null;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.nodeValue ?? "";
+    for (let i = 0; i < text.length; i++) {
+      if (isSpace(text[i])) continue;
+      if (index === from) start = [node, i];
+      if (index === to - 1) return start ? { start, end: [node, i + 1] } : null;
+      index += 1;
+    }
+  }
+  return null;
+}

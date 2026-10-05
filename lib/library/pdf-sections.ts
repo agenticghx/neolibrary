@@ -17,6 +17,11 @@ export async function extractPdfSections(bytes: Uint8Array): Promise<Section[]> 
     disableFontFace: true,
     // Only text is read here, but pdf.js warns without its font folder.
     standardFontDataUrl: `${process.cwd()}/node_modules/pdfjs-dist/standard_fonts/`,
+    // The character maps the reader's pdf.js uses too (public/pdfjs/cmaps is a copy): without them,
+    // text in some fonts (Chinese, Japanese, Korean) is not read here but is on the page, and the
+    // read-along highlight, which counts characters from the top of the page, lands on other words.
+    cMapUrl: `${process.cwd()}/node_modules/pdfjs-dist/cmaps/`,
+    cMapPacked: true,
   });
   const pdf = await task.promise;
   const out: Section[] = [];

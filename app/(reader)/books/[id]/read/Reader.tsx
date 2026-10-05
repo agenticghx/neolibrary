@@ -16,7 +16,8 @@ import { useReadingTracker } from "./useReadingTracker";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
-import { rangeForOffsets } from "@/lib/reader/text-range";
+import { TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
+import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -34,7 +35,8 @@ type FoliateView = HTMLElement & {
   next(): Promise<void>;
   close(): void;
   book: { toc?: TocItem[]; dir?: string };
-  renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[] };
+  /** `index`: in a PDF, the page shown, or being opened once a turn has begun. */
+  renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[]; readonly index?: number };
   getCFI(index: number, range: Range): string;
   resolveCFI(cfi: string): { index: number; anchor: (doc: Document) => Range };
   addAnnotation(a: { value: string }): Promise<unknown>;
@@ -133,6 +135,35 @@ function themeColors(el: Element, s: ReaderSettings) {
   return colors;
 }
 
+/**
+ * Read along in a PDF (M13 (e)): lights non-space characters [a, b) of a
+ * page's text layer, in that page's own frame; returns their text, or null
+ * if the text layer is not drawn yet.
+ */
+function lightPdfWord(doc: Document, [a, b]: [number, number]): string | null {
+  const layer = doc.querySelector(".textLayer");
+  const range = layer ? rangeForNonSpace(layer, a, b) : null;
+  if (!range) return null;
+  const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
+  win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
+  return range.toString();
+}
+
+/** The PDF page foliate shows, or is opening once a turn has begun (-1 before the first: foliate's getter throws then). */
+function pageOpening(v: FoliateView) {
+  try {
+    return v.renderer.index ?? -1;
+  } catch {
+    return -1;
+  }
+}
+
+/** A PDF page's index from its address (epubcfi(/6/2) is the first page), or -1. */
+function pdfPage(cfi: string) {
+  const n = Number(/^epubcfi\(\/6\/(\d+)\)$/.exec(cfi)?.[1]) / 2 - 1;
+  return Number.isInteger(n) && n >= 0 ? n : -1;
+}
+
 /** How long a book may take to open before the reader says it could not be opened. */
 const OPEN_TIMEOUT_MS = 30_000;
 
@@ -168,6 +199,8 @@ export function Reader(props: {
   const turning = useRef(false);
   /** Where the word lit by read aloud is (its CFI): going on after a pause returns to its page. */
   const litCfi = useRef<string | null>(null);
+  /** The word lit in a PDF page (M13 (e)), lit again when the page's text layer is complete or laid out for a new size. */
+  const spokenPdf = useRef<{ page: number; at: [number, number] } | null>(null);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
@@ -317,6 +350,12 @@ export function Reader(props: {
         });
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
+          // A PDF page's text layer is complete (the page was just shown) or
+          // was laid out for a new size: light the spoken word on it again.
+          doc.addEventListener(TEXT_LAYER_EVENT, () => {
+            const w = spokenPdf.current;
+            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at);
+          });
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
           doc.addEventListener("pointerdown", () => trackerRef.current.onActivity());
@@ -634,9 +673,34 @@ export function Reader(props: {
   // Read aloud: highlight the word being spoken, inside the book's own frame
   // (CSS Custom Highlight API, so the book's text is not touched), and turn
   // the page when the voice reaches the end of it.
-  const highlightWord = (passageCfi: string, from: number, to: number): string | null => {
+  const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number]): string | null => {
     const v = view.current;
     if (!v) return null;
+    // A PDF (M13 (e)): the word's place on its page in non-space characters,
+    // in the page's text layer; its page is turned to by the player.
+    if (props.fileType === "pdf") {
+      const page = pdfPage(passageCfi);
+      if (!inPage || page < 0) return null;
+      spokenPdf.current = { page, at: inPage };
+      // Going on after a pause returns to this page.
+      litCfi.current = passageCfi;
+      const doc = v.renderer.getContents().find((c) => c.doc?.documentElement?.dataset.page === String(page))?.doc;
+      if (doc) return lightPdfWord(doc, inPage);
+      // Not shown: the reader turned back from it while it is read. Turn to it
+      // again, as an EPUB's pages follow the voice (a page turned to ahead is
+      // left alone). Not while a turn is on its way: foliate shows one page at
+      // a time, and asking again for a page still opening fails.
+      if (!turning.current && pageOpening(v) !== page && page > pdfPage(whereCfi.current ?? "")) {
+        turning.current = true;
+        void v
+          .goTo(passageCfi)
+          .catch(() => undefined)
+          .finally(() => {
+            turning.current = false;
+          });
+      }
+      return null;
+    }
     const { index, anchor } = v.resolveCFI(passageCfi);
     const doc = v.renderer.getContents().find((c) => c.index === index)?.doc;
     if (!doc) return null;
@@ -681,11 +745,27 @@ export function Reader(props: {
     if (!v) return;
     const target = opts.resume && litCfi.current ? litCfi.current : passageCfi;
     const at = CFI.collapse(target);
-    if (!visible || CFI.compare(at, CFI.collapse(visible)) < 0 || CFI.compare(at, CFI.collapse(visible, true)) > 0) void v.goTo(target);
+    if (visible && CFI.compare(at, CFI.collapse(visible)) >= 0 && CFI.compare(at, CFI.collapse(visible, true)) <= 0) return;
+    if (props.fileType !== "pdf") {
+      void v.goTo(target);
+      return;
+    }
+    // A PDF page opens in its own frame. Not asked for again while it opens
+    // (foliate fails on that); and until it is open, the word being read does
+    // not ask for it either (see highlightWord).
+    if (pageOpening(v) === pdfPage(target)) return;
+    turning.current = true;
+    void v
+      .goTo(target)
+      .catch(() => undefined)
+      .finally(() => {
+        turning.current = false;
+      });
   };
 
   const stopListening = () => {
     litCfi.current = null;
+    spokenPdf.current = null;
     for (const { doc } of view.current?.renderer.getContents() ?? []) {
       (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
     }
@@ -824,8 +904,8 @@ export function Reader(props: {
             type="button"
             className={styles.listenButton}
             aria-pressed={listening}
-            disabled={!where.cfi || props.fileType === "pdf"}
-            title={props.fileType === "pdf" ? "Reading aloud works for EPUB books" : "Read aloud"}
+            disabled={!where.cfi}
+            title="Read aloud"
             onClick={() => (listening ? stopListening() : setListening(true))}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">

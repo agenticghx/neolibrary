@@ -81,8 +81,11 @@ export default defineConfig({
     { name: "readalong-safari", testMatch: /readalong\.spec\.ts/, dependencies: ["readalong"], use: { ...desktop, browserName: "webkit" } },
   ],
   webServer: {
-    // A fresh in-process database (PGlite) for every run.
-    command: `rm -rf .data/e2e && npm run build && npx next start -p ${port}`,
+    // A fresh in-process database (PGlite) for every run. Idle connections are
+    // kept 120 s (the default is 5 s): a test's requests reuse connections, and
+    // one sent just as the server closed it failed with "read ECONNRESET" on CI
+    // (run 37267636340, after 6 s idle).
+    command: `rm -rf .data/e2e && npm run build && npx next start -p ${port} --keepAliveTimeout 120000`,
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

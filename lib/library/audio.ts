@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, gt, gte } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import { capsFromEnv, checkCaps, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, readalongImports, sections } from "@/lib/db/schema";
+import { nonSpaceBefore } from "@/lib/reader/text-range";
 import { speechCost, type SpeechModel } from "@/lib/speech/model";
 import { wordTimings, type WordTiming } from "@/lib/speech/timings";
 import type { Storage } from "@/lib/storage";
@@ -238,6 +239,13 @@ export type ReadingParagraph = {
   endMs: number;
   /** [startMs, endMs, from, to]: times in the file, offsets into the paragraph's text. */
   words: WordTiming[];
+  /**
+   * PDF books only (M13 (e)): where each word is on its page, counted in
+   * non-space characters from the top of the page's text (end exclusive).
+   * The page's text layer in the reader holds the same characters, spaced
+   * differently, so the reader finds each word by this count.
+   */
+  inPage?: [number, number][];
 };
 
 /** A part of an audiobook's paragraphs, and where the next part starts (a sections.position), if there is more. */
@@ -261,6 +269,13 @@ export type UploadedReading = ReadingPart & {
  * end of the one it has.
  */
 export const READING_PART = 200;
+/**
+ * ...and of about this many words at most (always at least one paragraph):
+ * a PDF "paragraph" is often a whole page (Kuhn's are marked by indents, not
+ * space), so 200 of them would be most of a book. 8,000 words is about an
+ * hour of listening and about 300 KB of times and places.
+ */
+export const READING_WORDS = 8000;
 
 async function readyImport(db: Db, ownerId: string, bookId: string, importId?: string) {
   const [imp] = await db
@@ -288,7 +303,14 @@ async function readyImport(db: Db, ownerId: string, bookId: string, importId?: s
  * app/api/books/[id]/readalong/[importId]/audio/[n], further parts by
  * .../reading (see readingPart).
  */
-export async function uploadedReading(db: Db, ownerId: string, bookId: string, fromPosition: number, part = READING_PART): Promise<UploadedReading | null> {
+export async function uploadedReading(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  fromPosition: number,
+  part = READING_PART,
+  words = READING_WORDS,
+): Promise<UploadedReading | null> {
   const imp = await readyImport(db, ownerId, bookId);
   if (!imp) return null;
   return {
@@ -297,14 +319,22 @@ export async function uploadedReading(db: Db, ownerId: string, bookId: string, f
     title: imp.title,
     files: imp.audio.map((a, i) => ({ url: `/api/books/${bookId}/readalong/${imp.id}/audio/${i}`, mime: a.mime })),
     partsUrl: `/api/books/${bookId}/readalong/${imp.id}/reading`,
-    ...(await paragraphsOf(db, ownerId, bookId, imp, fromPosition, part)),
+    ...(await paragraphsOf(db, ownerId, bookId, imp, fromPosition, part, words)),
   };
 }
 
 /** The next part of a finished import's paragraphs, from `fromPosition` on; null if the import is not this owner's, or not finished. */
-export async function readingPart(db: Db, ownerId: string, bookId: string, importId: string, fromPosition: number, part = READING_PART): Promise<ReadingPart | null> {
+export async function readingPart(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  importId: string,
+  fromPosition: number,
+  part = READING_PART,
+  words = READING_WORDS,
+): Promise<ReadingPart | null> {
   const imp = await readyImport(db, ownerId, bookId, importId);
-  return imp ? paragraphsOf(db, ownerId, bookId, imp, fromPosition, part) : null;
+  return imp ? paragraphsOf(db, ownerId, bookId, imp, fromPosition, part, words) : null;
 }
 
 async function paragraphsOf(
@@ -314,6 +344,7 @@ async function paragraphsOf(
   imp: { id: string; audio: { key: string }[] },
   fromPosition: number,
   part: number,
+  words: number,
 ): Promise<ReadingPart> {
   const rows = await db
     .select({
@@ -338,12 +369,51 @@ async function paragraphsOf(
     )
     .orderBy(asc(sections.position))
     .limit(part + 1);
+  // Up to `part` paragraphs, stopping once `words` words are in (at least one paragraph).
+  let kept = 0;
+  let count = 0;
+  while (kept < Math.min(rows.length, part) && (kept === 0 || count < words)) count += rows[kept++].words.length;
+  const taken = rows.slice(0, kept);
   const fileOf = new Map(imp.audio.map((a, i) => [a.key, i]));
+  const [book] = await db.select({ fileType: books.fileType }).from(books).where(eq(books.id, bookId));
+  const pages = book?.fileType === "pdf" && taken.length ? await pageOffsets(db, bookId, new Set(taken.map((r) => r.chapterIndex))) : null;
   const paragraphs: ReadingParagraph[] = [];
-  for (const r of rows.slice(0, part)) {
+  for (const r of taken) {
     const file = fileOf.get(r.audioKey);
     if (file === undefined || !r.words.length || r.startMs === null || r.endMs === null) continue;
-    paragraphs.push({ sectionId: r.sectionId, cfi: r.cfi, chapterIndex: r.chapterIndex, position: r.position, file, startMs: r.startMs, endMs: r.endMs, words: r.words });
+    const p: ReadingParagraph = { sectionId: r.sectionId, cfi: r.cfi, chapterIndex: r.chapterIndex, position: r.position, file, startMs: r.startMs, endMs: r.endMs, words: r.words };
+    if (pages) {
+      const at = pages.get(r.sectionId);
+      if (!at) continue;
+      p.inPage = r.words.map(([, , from, to]) => [at.base + at.before[from], at.base + at.before[to]]);
+    }
+    paragraphs.push(p);
   }
-  return { paragraphs, more: rows[part]?.position ?? null };
+  return { paragraphs, more: rows[kept]?.position ?? null };
+}
+
+/**
+ * For PDF paragraphs on the given pages (M13 (e)): where each paragraph
+ * starts on its page in non-space characters (the paragraphs before it on
+ * that page), and the count before each position of its own text.
+ */
+async function pageOffsets(db: Db, bookId: string, pages: Set<number>) {
+  const rows = await db
+    .select({ id: sections.id, chapterIndex: sections.chapterIndex, text: sections.text })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), inArray(sections.chapterIndex, [...pages])))
+    .orderBy(asc(sections.position));
+  const out = new Map<string, { base: number; before: number[] }>();
+  let page = -1;
+  let base = 0;
+  for (const r of rows) {
+    if (r.chapterIndex !== page) {
+      page = r.chapterIndex;
+      base = 0;
+    }
+    const before = nonSpaceBefore(r.text);
+    out.set(r.id, { base, before });
+    base += before[r.text.length];
+  }
+  return out;
 }
