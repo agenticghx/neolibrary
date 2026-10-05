@@ -322,8 +322,13 @@ chapter's title.
   reader now fetches the next page's text while a page is shown (pdf.js
   reads a page's text in a background worker, which takes tens of
   milliseconds on a slow machine), and builds the new page's text layer from
-  it at once; on the laptop afterwards, 20 ms (Chromium) and 13 ms (WebKit).
-  The new CI figures are in the PR. A probe on Samuel's Kuhn PDF (a
+  it at once. Afterwards, on CI (run 37272057858): 22 ms in Chromium and
+  68 ms in WebKit, where page 2 appeared 98 ms after page 1's last word
+  ended. One run each, so whether fetching ahead helped on CI's WebKit is
+  not shown: the runs vary by tens of milliseconds, and WebKit there keeps
+  about 30 ms to spare. What remains is the page turn itself (foliate opening
+  the new page's frame). On the laptop: 20 to 25 ms (Chromium) and 13 to
+  22 ms (WebKit). A probe on Samuel's Kuhn PDF (a
   temporary test, not kept in the repo; its code, commands and output are in
   the transcript of the Claude session of 2026-10-05) measured, before that change, the time from a page
   turn to its text layer being ready: median 22 ms in Chromium and 33 ms in
