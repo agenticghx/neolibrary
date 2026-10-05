@@ -22,7 +22,9 @@ Samuel's recorded words win; fix this file.
 3. Baseline: on a fresh branch from `origin/main`, run `npm run check` and
    `npx playwright test --ignore-snapshots` (on the Mac; reference
    screenshots are Linux images, see §8). Paste both summary lines into
-   Iteration 1. Do not start a step on a red baseline.
+   Iteration 1. Do not start a step on a red baseline. One CI-only
+   intermittent failure is already known (`readalong.spec.ts:727` in
+   WebKit; §11).
 4. Work the steps in §5 in order. **One step = one branch = one pull
    request.** Branch names start with `m14-` so the auto-merge Action takes
    them (it only merges branches starting with `m` or `claude/`).
@@ -875,6 +877,20 @@ issue. Each has a default in §4.
 - **CI's WebKit page-turn timing** (79, 68, 92 ms against a 100 ms limit in
   one M13 test) may flake; if it does, follow
   `docs/learning-loop-2026-10-05.md` §E.1 before changing anything.
+- **A known intermittent failure on CI's WebKit, already on `main`:**
+  `e2e/readalong.spec.ts:727` "a long audiobook plays from far into its
+  file, its audio arriving in capped pieces" (project `readalong-safari`)
+  failed on two docs-only PRs: #68 (run 37296828074: `"was" (word 1) shown
+  117 ms after it starts`) and #72 (run 37348223223: `playUntil` timed out
+  after 45 s, `currentTime` never reached its target, i.e. the audio
+  stalled far into the file). Both PRs changed only Markdown, so the code
+  on `main` is the cause. Every M14 PR will meet it. Before step 6a (which
+  moves this player), make it an iteration of its own: download the trace
+  (`gh run download <run> -n playwright-report`), list the audio requests
+  and their ranges and times around the stall, and decide flake versus real
+  stall with that evidence (lesson 7). Until then, a re-run of only this
+  failure is acceptable for docs-only PRs; for code PRs, look at the trace
+  first.
 - **Screenshot churn**: step 2 changes every signed-in reference image;
   keep step 2 free of other visual changes so the diff is reviewable.
 - **Scope creep**: "Listen only" uploads, a hand-made Want to Read list,
