@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hiddenMachinery } from "@/data/paths/hidden-machinery";
 import type { Database } from "@/lib/db/client";
-import { books } from "@/lib/db/schema";
+import { books, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { createFirstAdmin, createInvite, acceptInvite } from "@/lib/auth/service";
 import { choosePillar, getBook, getPathView, normaliseTitle, pillarProgress, seedPath, type SlotView } from "./paths";
@@ -51,6 +51,30 @@ describe("seeding the Hidden Machinery path", () => {
     const semis = view.pillars.find((p) => p.slug === "semiconductors")!;
     expect(semis.slots[0].book).toMatchObject({ id: mine.id, available: { read: true, listen: true } });
     expect(view.available).toBe(1);
+  });
+
+  it("labels titles by an uploaded audiobook when narration is off; only a finished upload counts", async () => {
+    const add = async (title: string, fileType: "epub" | "pdf") =>
+      (await database.db.insert(books).values({ ownerId, title, author: "", fileKey: `books/${title}.${fileType}`, fileType }).returning())[0].id;
+    const chipWar = await add("Chip War", "epub");
+    const grid = await add("The Grid", "pdf");
+    const stoft = await add("Power System Economics", "pdf");
+    const audiobook = (bookId: string, status: "uploading" | "ready") =>
+      database.db.insert(readalongImports).values({ ownerId, bookId, status, manifest: {}, report: { chapters: [], paragraphs: 0 }, audio: [] });
+    await audiobook(grid, "ready");
+    await audiobook(stoft, "uploading");
+    await seedPath(database.db, ownerId, hiddenMachinery);
+
+    const view = (await getPathView(database.db, ownerId, "hidden-machinery", () => null, false))!;
+    const slot = (id: string) => view.pillars.flatMap((p) => p.slots).find((s) => s.book.id === id)!;
+    expect(slot(grid).book.available).toEqual({ read: true, listen: true });
+    expect(slot(stoft).book.available).toEqual({ read: true, listen: false });
+    expect(slot(chipWar).book.available).toEqual({ read: true, listen: false });
+    expect(view.available).toBe(3);
+
+    expect((await getBook(database.db, ownerId, grid, false))!.available).toEqual({ read: true, listen: true });
+    expect((await getBook(database.db, ownerId, chipWar, false))!.available).toEqual({ read: true, listen: false });
+    expect((await getBook(database.db, ownerId, chipWar, true))!.available).toEqual({ read: true, listen: true });
   });
 
   it("keeps each person's library separate", async () => {

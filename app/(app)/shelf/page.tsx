@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { Cover } from "@/components/Cover";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { audiobookBookIds, availabilityLabel, availabilityOf, narrationOn } from "@/lib/library/availability";
+import { availabilityLabel, availabilityOf } from "@/lib/library/availability";
+import { audiobookBookIds, narrationOn } from "@/lib/library/listenable";
 import { coverSigner } from "@/lib/library/covers";
 import { listCollections, listShelf, parseSort } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
@@ -52,7 +53,7 @@ export default async function ShelfPage({
   return (
     <main className={styles.main}>
       <header className={styles.head}>
-        <p className={styles.eyebrow}>Your shelf</p>
+        <p className={styles.eyebrow}>Library</p>
         <h1 className={styles.title}>Your library</h1>
         <p className={styles.lede}>
           {everything.length === 0

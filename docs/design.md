@@ -80,8 +80,8 @@ text `--leading-ui` (1.4). Headings balance their lines (`text-wrap: balance`).
 | `--highlight` | `#cfe0d8` | `#2c4743` | highlighted passages |
 | `--highlight-active` | `#9cc4b6` | `#3f6a63` | the word being spoken |
 | `--machine-bg` / `--machine-rule` | `#ece6f0` / `#7a6a8c` | `#2a2a3a` / `#a796bb` | AI-written text |
-| `--cover-navy`, `--cover-green` | | | owned book covers |
-| `--cover-unowned` | `#d9d3c7` | `#2b3a41` | wanted but not owned |
+| `--cover-navy`, `--cover-green` | | | covers of titles you can read or listen to |
+| `--cover-empty` | `#d9d3c7` | `#2b3a41` | a title not available yet (undyed cloth) |
 
 No pure black or pure white anywhere.
 
@@ -92,7 +92,7 @@ No pure black or pure white anywhere.
 - Radii: `--radius-sm` 3px (highlights, cover spine), `--radius-md` 6px
   (buttons, inputs, cards), `--radius-lg` 10px (large panels).
 - Shadows: `--shadow-cover` (books feel like objects), `--shadow-raised`
-  (popovers). Unowned books have no shadow: they are not on the shelf yet.
+  (popovers). Titles not available yet have no shadow: nothing is there to pick up yet.
 
 ## Motion
 
@@ -107,9 +107,11 @@ highlight.
 - **Mark** (`components/Mark.tsx`): an open book with a teal doorway in the
   spine. Also the browser icon (`app/icon.svg`).
 - **Cover** (`components/Cover.tsx`): a plain typographic cover (title, slot
-  letter N or E, a darker spine edge). Owned covers are navy or green cloth;
-  unowned ones are dimmed and captioned "Not owned". Never copies real cover
-  art.
+  letter N or E, a darker spine edge). Titles you can read or listen to are
+  navy or green cloth; a title not available yet is greyed (undyed cloth).
+  Each cover is captioned by availability: Read and listen, Read only, Listen
+  only, or Not available yet (`lib/library/availability.ts`). Never copies
+  real cover art.
 - **AuthShell** (`components/AuthShell.tsx`): the quiet room around the
   sign-in, setup and invitation forms (mark, wordmark, "By invitation only").
 - **ActionForm / Field** (`components/ActionForm.tsx`, styles in

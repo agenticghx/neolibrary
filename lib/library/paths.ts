@@ -2,7 +2,8 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
-import { audiobookBookIds, availabilityOf, isAvailable, narrationOn, type Availability } from "./availability";
+import { availabilityOf, isAvailable, type Availability } from "./availability";
+import { audiobookBookIds, narrationOn } from "./listenable";
 
 /**
  * Study Paths: a Path holds Pillars in reading order; a Pillar holds ordered

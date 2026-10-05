@@ -22,6 +22,16 @@ describe("Cover", () => {
     expect(html).toContain('aria-label="50% read"');
   });
 
+  it("draws a title that can only be read in its colour, with its image and a plain name", () => {
+    const html = renderToStaticMarkup(
+      <Cover title="Discourse" available={{ read: true, listen: false }} imageUrl="/cover.jpg" progress={0.25} href="/books/z" />,
+    );
+    expect(html).toContain('<img src="/cover.jpg"');
+    expect(html).toContain('aria-label="Discourse"');
+    expect(html).toContain("Read only");
+    expect(html).toContain('aria-label="25% read"');
+  });
+
   it("leaves the label out when the page shows it itself", () => {
     const html = renderToStaticMarkup(<Cover title="Chip War" available={{ read: true, listen: false }} caption={false} />);
     expect(html).not.toContain("Read only");

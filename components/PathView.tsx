@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
 import type { Annotation } from "@/lib/library/annotations";
-import { isAvailable } from "@/lib/library/availability";
+import { availabilityLabel } from "@/lib/library/availability";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
 import styles from "./PathView.module.css";
@@ -116,7 +116,7 @@ function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; no
                 <li key={s.id}>
                   <Link href={`/books/${s.book.id}`}>{s.book.title}</Link>
                   <span className={styles.author}> · {s.book.author}</span>
-                  {isAvailable(s.book.available) ? null : <span className={styles.notYet}> · not available yet</span>}
+                  <span className={styles.label}> · {availabilityLabel(s.book.available)}</span>
                 </li>
               ))}
             </ul>

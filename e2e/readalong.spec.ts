@@ -1148,6 +1148,10 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   const last1 = timings[first2 - 1];
   expect([last1.w, expected[first2].word]).toEqual(["in", "most"]);
   expect(expected[first2].startMs - last1.end * 1000).toBeLessThan(50);
+  // On the shelf this PDF says Read and listen through its uploaded audiobook alone (narration is EPUB only).
+  await page.goto("/shelf");
+  const onShelf = page.getByTestId("shelf").getByRole("listitem").filter({ hasText: "Read-Along Test Pages" });
+  await expect(onShelf.getByText("Read and listen", { exact: true })).toBeVisible();
 
   await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
   const reader = page.getByTestId("reader");

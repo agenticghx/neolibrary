@@ -1,9 +1,3 @@
-import { and, eq, inArray } from "drizzle-orm";
-import type { Db } from "@/lib/db/client";
-import { readalongImports } from "@/lib/db/schema";
-import { getSpeechModel } from "@/lib/speech";
-import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
-
 /**
  * What a title offers (M14, D1). Every title in the library is the reader's;
  * it is labelled by what can be done with it (Samuel's rule, docs/plan.md,
@@ -12,6 +6,8 @@ import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
  * - listen: it has an uploaded audiobook that finished uploading, or it is an
  *   EPUB and narration (ElevenLabs, made on demand) is switched on. Narration
  *   is EPUB only: its word times cannot be placed on a PDF page yet.
+ * Pure, so a browser-side part can import it; the lookups that need the
+ * database or the voice service are in ./listenable.ts.
  */
 export type Availability = { read: boolean; listen: boolean };
 
@@ -37,31 +33,4 @@ export function availabilityOf(
 ): Availability {
   const read = book.fileKey !== null;
   return { read, listen: hasAudiobook || (read && book.fileType === "epub" && narration) };
-}
-
-/** Whether narration is switched on: the fake voice in tests, ElevenLabs with a key, otherwise off. */
-export function narrationOn(speech: () => SpeechModel = getSpeechModel): boolean {
-  try {
-    speech();
-    return true;
-  } catch (e) {
-    if (e instanceof SpeechNotConfigured) return false;
-    throw e;
-  }
-}
-
-/** Of `bookIds`, the ones with an uploaded audiobook that finished uploading (one query). */
-export async function audiobookBookIds(db: Db, ownerId: string, bookIds: string[]): Promise<Set<string>> {
-  if (!bookIds.length) return new Set();
-  const rows = await db
-    .selectDistinct({ bookId: readalongImports.bookId })
-    .from(readalongImports)
-    .where(
-      and(
-        eq(readalongImports.ownerId, ownerId),
-        eq(readalongImports.status, "ready"),
-        inArray(readalongImports.bookId, [...new Set(bookIds)]),
-      ),
-    );
-  return new Set(rows.map((r) => r.bookId));
 }

@@ -223,9 +223,15 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   await page.goto("/shelf");
   await page.getByLabel("Choose files").setInputFiles({ name: "discourse.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
   await expect(page.getByTestId("upload-results").getByText("Added to your shelf")).toBeVisible();
+  // Labelled by what each title offers: narration is EPUB only, so this PDF is Read only, while an
+  // EPUB says Read and listen (the tests' fake voice counts as narration).
+  const shelfItem = (title: string) => page.getByTestId("shelf").getByRole("listitem").filter({ hasText: title });
+  await expect(shelfItem("Discourse on the Method").getByText("Read only", { exact: true })).toBeVisible();
+  await expect(shelfItem("The Strange Case").getByText("Read and listen", { exact: true })).toBeVisible();
 
   await page.getByTestId("shelf").getByRole("link", { name: /^Discourse on the Method/ }).click();
   await expect(page.getByText(/PDF · 3 pages/)).toBeVisible();
+  await expect(page.getByText("Read only · 0% read")).toBeVisible();
   await page.getByRole("link", { name: "Read", exact: true }).click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);

@@ -189,9 +189,13 @@
   gap: var(--space-1);
 }
 
-.author,
-.notYet {
+.author {
   color: var(--ink-500);
+}
+
+.label {
+  color: var(--ink-700);
+  font-weight: var(--weight-semibold);
 }
 
 .unverified {

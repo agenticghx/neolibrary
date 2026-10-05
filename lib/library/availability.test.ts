@@ -5,7 +5,8 @@ import { books, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { SpeechNotConfigured } from "@/lib/speech/model";
 import { FakeSpeech } from "@/lib/speech/fake";
-import { audiobookBookIds, availabilityLabel, availabilityOf, narrationOn, NOT_YET } from "./availability";
+import { availabilityLabel, availabilityOf, NOT_YET } from "./availability";
+import { audiobookBookIds, narrationOn } from "./listenable";
 
 describe("availabilityLabel", () => {
   it("names each of the four cases", () => {

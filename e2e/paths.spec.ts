@@ -29,7 +29,7 @@ test("the owner's library opens on the Hidden Machinery path, in reading order",
   expect(masterBox!.y).toBeGreaterThan(lastPillarBox!.y);
   await expect(page.getByRole("link", { name: "Seeing Like a State (not available yet)" })).toBeVisible();
 
-  // No book file yet: every title is greyed and labelled, and "you are here" is on pillar 01.
+  // No book file yet: titles are greyed and labelled, and "you are here" is on pillar 01.
   await expect(page.getByText("Not available yet", { exact: true }).first()).toBeVisible();
   const here = page.getByText("You are here");
   await expect(here).toHaveCount(1);
