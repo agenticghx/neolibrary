@@ -224,7 +224,12 @@ names.
   `listenableBookIds(db, ownerId, bookIds): Promise<Set<string>>` (one query
   on `readalong_imports` with `status = "ready"`; today the only helper,
   `readyImport` in `lib/library/audio.ts:280`, is per book and not
-  exported).
+  exported). **Every place that draws a Cover or a label must compute
+  `listen` with it**: `getPathView` and `getBook` in `lib/library/paths.ts`,
+  the shelf grid (`app/(app)/shelf/page.tsx`), the book page and the
+  `/design` sample. Today they all derive `owned` from `fileKey` alone; if
+  one is missed, its headphones mark never shows and its label always says
+  "Read only".
 - `components/Cover.tsx`: replace the `owned` prop with `available`
   (`Availability`); the greyed style when neither; the link label says
   "(not available yet)"; the caption shows the availability label. Rename
@@ -290,6 +295,26 @@ sidebar (desktop, at least 48rem wide) and bottom tabs plus an account menu
 - `/library`: move the shelf page to `app/(app)/library/page.tsx` (keep the
   current content for now; filters come in step 4); `app/(app)/shelf/
   page.tsx` becomes a `redirect` to `/library` with the same query.
+- **Every `/shelf` reference, not just links**: run
+  `grep -rn '"/shelf\|`/shelf' app lib components e2e` and update each hit.
+  On 2026-10-05 that was `app/(app)/actions.ts:49-50` (`revalidatePath` and
+  the redirect to `/shelf?c=` after making a collection), `:60-61`, `:69`,
+  `:117` (a stale `revalidatePath("/shelf")` leaves `/library` showing old
+  data), `layout.tsx:19`, `shelf/page.tsx:42`, `Reader.tsx:789`, and 22
+  `page.goto("/shelf")` lines in the browser tests (those keep working
+  through the redirect, but move them to `/library` so the tests say what
+  they mean).
+- **Paths pages exist from this step**, because the sidebar links to them:
+  `app/(app)/paths/page.tsx` (a plain list of your Paths, plus the Hidden
+  Machinery reading list offer) and `app/(app)/paths/[slug]/page.tsx`
+  (renders today's `PathView` unchanged; step 5 redesigns it). Until step 5,
+  "+ New path" points to `/paths`.
+- **No duplicate accessible names.** The sidebar adds a search box and
+  collection links to every page. Label the sidebar search "Search your
+  library" with no button of its own named "Search" (submit with Enter, or
+  a button named "Search the library"), because `e2e/reader.spec.ts:159`
+  clicks the `/search` page's button by the unscoped name "Search".
+  Collection links show the name only (see Tests).
 - Reader back arrow (`Reader.tsx:789`, "Back to your shelf", `/shelf`) →
   "Back to your library", `/`. Book page back link (`books/[id]/page.tsx:
   38-42`, "Path", `/`) → "Library", `/`. Search note results without a book
@@ -298,7 +323,8 @@ sidebar (desktop, at least 48rem wide) and bottom tabs plus an account menu
   equal to the tab bar height (a token).
 
 **Tests.**
-- Update: `e2e/reader.spec.ts:96-133` (destination and heading),
+- Update: `e2e/pages.ts:13` `shelf-empty` → `library` at `/library`;
+  `e2e/reader.spec.ts:96-133` (destination and heading),
   `e2e/flows.spec.ts:93-94` (Sign out now in the sidebar or account menu),
   `e2e/uploads.spec.ts:127, 141, 147` (scope collection links to the
   Library page's chips: `getByRole("navigation", { name: "Collections" })`
@@ -374,10 +400,10 @@ Machinery.
   53-67, 157`, `annotations.spec.ts:178-203`, `stats.spec.ts:72-98`.
 - `e2e/flows.spec.ts:83-87, 105`: the invited reader sees the empty Home
   ("Good to see you, Ada"), adds the reading list, lands on
-  `/paths/hidden-machinery` (step 5 builds that page; until then the
-  existing Path view at `/` must move to that address in this step, see
-  gotcha).
-- `e2e/pages.ts`: `path` → `/paths/hidden-machinery`; new `home` → `/`.
+  `/paths/hidden-machinery` (the page exists from step 2; `addPathAction`
+  must redirect there, see gotchas).
+- `e2e/pages.ts`: `path` → `/paths/hidden-machinery`; new `home` → `/`;
+  new `paths` → `/paths`.
 - New `e2e/home.spec.ts` in a new Playwright project `home` placed after
   `stats` (chain: stats → home → agents). By then Jekyll has a saved
   position, highlights and notes (reader and annotations projects). Assert:
@@ -407,9 +433,16 @@ restore the saved view from `localStorage`: the reload test fails.
 **Gotchas.**
 - The visual and a11y projects run right after `setup` with almost no
   data, so a Home screenshot with Continue must come from `home.spec.ts`.
-- Moving the Path view off `/` happens here (Home replaces it), so in this
-  step add `app/(app)/paths/[slug]/page.tsx` rendering the existing
-  `PathView` unchanged; step 5 then redesigns it.
+- The Path view leaves `/` in this step (Home replaces it); its new address
+  `/paths/[slug]` already exists from step 2.
+- `addPathAction` (`app/(app)/actions.ts:36-41`) only revalidates `/`. It
+  must now revalidate `/`, `/paths` and the new Path, and `redirect` to
+  `/paths/hidden-machinery`; `flows.spec.ts` and `auth.setup.ts` expect to
+  land there.
+- `?listen=1` cannot start audio by itself in Safari (`play()` must run
+  inside a click; M13 learned this). The reader opens with the Read aloud
+  bar ready and the reader presses Play. The home test asserts the bar is
+  present, not that time advances. Step 6b removes the detour.
 - Remove `isNotNull(books.fileKey)` nowhere; title-only books get their own
   query (D3).
 
@@ -642,6 +675,7 @@ check fails.
 |---|---|---|
 | `e2e/auth.setup.ts:19` | h1 "Hidden Machinery" after set-up | 3 |
 | `e2e/pages.ts:11` `path` | Path view at `/` | 3 |
+| `e2e/pages.ts:13` `shelf-empty` | `/shelf`, "Books you own" | 1 (wording), 2 (route) |
 | `e2e/pages.ts:12` `book-wanted` | link "The Grid (not owned)" on `/` | 1, 3 |
 | `e2e/flows.spec.ts:23` | "Hidden Machinery" absent when signed out | 3 (keep: still absent) |
 | `e2e/flows.spec.ts:83-87, 105` | empty Home greeting, "Add this path", h1 on `/` | 3 |
@@ -655,6 +689,8 @@ check fails.
 | `e2e/annotations.spec.ts:178-203` | pillar/path notes on `/` | 3, 5 |
 | `e2e/stats.spec.ts:72-98` | Hidden Machinery pillar stats | holds if set-up adds the Path |
 | `e2e/agents.spec.ts:35` | `/shelf` gives 307 with a bad token | 2 |
+| `e2e/reader.spec.ts:159` | unscoped button "Search" on `/search` | 2 (sidebar must not add another) |
+| 22 `page.goto("/shelf")` lines (`reader`, `uploads`, `readalong`, `annotations`, `flows` specs) | the shelf route | 2 (work through the redirect; move to `/library`) |
 | `e2e/audio.spec.ts:130-134` | Speed `<select>`; Stop removes the bar | 6a, 6b |
 | `e2e/readalong.spec.ts` (all player tests) | one audio element, `loadstart` counts, bar below the book | 6a |
 | `lib/library/shelf.test.ts:44` | only books with a file | stays true (D3) |
