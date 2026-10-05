@@ -29,8 +29,8 @@ describe("importing books", () => {
   it("adds an EPUB with its file, cover and contents", async () => {
     const r = await importBook(database.db, storage, ownerId, fixture("wells-the-time-machine.epub"));
     expect(r).toMatchObject({ status: "added", title: "The Time Machine" });
-    const { book, owned } = (await getBook(database.db, ownerId, r.bookId))!;
-    expect(owned).toBe(true);
+    const { book, available } = (await getBook(database.db, ownerId, r.bookId))!;
+    expect(available.read).toBe(true);
     expect(book).toMatchObject({ author: "H. G. Wells", fileType: "epub", language: "en-GB" });
     expect(book.toc.length).toBeGreaterThan(3);
     expect((await storage.get(book.fileKey!))?.contentType).toBe("application/epub+zip");
@@ -44,7 +44,7 @@ describe("importing books", () => {
     expect(book).toMatchObject({ title: "Meditations on First Philosophy", fileType: "pdf", coverKey: null });
   });
 
-  it("attaches a file to the wanted book with the same title, keeping the list's wording", async () => {
+  it("attaches a file to the title waiting for it, keeping the list's wording", async () => {
     await seedPath(database.db, ownerId, hiddenMachinery);
     const r = await importBook(database.db, storage, ownerId, {
       name: "chip-war.epub",
@@ -53,8 +53,8 @@ describe("importing books", () => {
     expect(r).toMatchObject({ status: "attached", title: "Chip War" });
     const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
     const slot = view.pillars.find((p) => p.slug === "semiconductors")!.slots[0];
-    expect(slot.book).toMatchObject({ id: r.bookId, owned: true, title: "Chip War" });
-    expect(view.owned).toBe(1);
+    expect(slot.book).toMatchObject({ id: r.bookId, available: { read: true }, title: "Chip War" });
+    expect(view.available).toBe(1);
   });
 
   it("reports a second copy of a book already on the shelf as a duplicate", async () => {

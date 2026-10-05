@@ -190,7 +190,7 @@
 }
 
 .author,
-.notOwned {
+.notYet {
   color: var(--ink-500);
 }
 

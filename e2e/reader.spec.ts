@@ -130,7 +130,7 @@ test("the back arrow leaves the book for the shelf; contents open on the left wi
 
   await page.getByRole("link", { name: "Back to your shelf" }).click();
   await expect(page).toHaveURL(/\/shelf$/);
-  await expect(page.getByRole("heading", { name: "Books you own", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your library", level: 1 })).toBeVisible();
 });
 
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {

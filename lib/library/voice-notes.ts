@@ -44,10 +44,10 @@ export async function createVoiceNote(
   const durationMs = Math.max(0, Math.min(Number(input.durationMs) || 0, MAX_MS));
   const now = opts.now?.() ?? new Date();
   // Check the book before paying for a transcript.
-  const owned = /^[0-9a-f-]{36}$/i.test(input.bookId)
+  const mine = /^[0-9a-f-]{36}$/i.test(input.bookId)
     ? await db.select({ id: books.id }).from(books).where(and(eq(books.id, input.bookId), eq(books.ownerId, ownerId)))
     : [];
-  if (!owned.length) throw new AnnotationError("Book not found.");
+  if (!mine.length) throw new AnnotationError("Book not found.");
   if (!isCfi(input.cfi)) throw new AnnotationError("That is not a place in the book.");
   const id = crypto.randomUUID();
   const audioKey = `audio/${ownerId}/${input.bookId}/notes/${id}.${ext}`;

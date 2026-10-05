@@ -2,11 +2,13 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
+import { audiobookBookIds, availabilityOf, isAvailable, narrationOn, type Availability } from "./availability";
 
 /**
  * Study Paths: a Path holds Pillars in reading order; a Pillar holds ordered
- * slots (N, E, extras, master key) that point at books. Books not owned yet
- * are "wanted": they exist without a file and show dimmed.
+ * slots (N, E, extras, master key) that point at books. A title with nothing
+ * to read or listen to yet exists without a file and shows greyed until its
+ * file is added (labels: lib/library/availability.ts).
  */
 
 /** Lower-case, no punctuation, subtitle dropped: "Chip War: The Fight…" → "chip war". */
@@ -29,11 +31,11 @@ export async function seedPath(db: Db, ownerId: string, seed: SeedPath): Promise
       .where(and(eq(paths.ownerId, ownerId), eq(paths.slug, seed.slug)));
     if (existing) return existing.id;
 
-    const owned = await tx
+    const libraryBooks = await tx
       .select({ id: books.id, title: books.title })
       .from(books)
       .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
-    const byTitle = new Map(owned.map((b) => [normaliseTitle(b.title), b.id]));
+    const byTitle = new Map(libraryBooks.map((b) => [normaliseTitle(b.title), b.id]));
 
     const [path] = await tx
       .insert(paths)
@@ -66,7 +68,7 @@ export async function seedPath(db: Db, ownerId: string, seed: SeedPath): Promise
 export type SlotView = {
   id: string;
   kind: SlotKind;
-  book: Pick<Book, "id" | "title" | "author" | "progress" | "unverified"> & { owned: boolean; coverUrl: string | null };
+  book: Pick<Book, "id" | "title" | "author" | "progress" | "unverified"> & { available: Availability; coverUrl: string | null };
 };
 
 export type PillarView = {
@@ -90,8 +92,9 @@ export type PathView = {
   pillars: PillarView[];
   /** "You are here": the pillar being read now, or the next one to start. */
   currentPillarId: string | null;
-  owned: number;
-  wanted: number;
+  /** Distinct titles with something to read or listen to, and those with nothing yet. */
+  available: number;
+  notYet: number;
 };
 
 const CORE: SlotKind[] = ["N", "E", "master"];
@@ -125,6 +128,7 @@ export async function getPathView(
   ownerId: string,
   slug: string,
   signCover: (key: string | null) => string | null = () => null,
+  narration: boolean = narrationOn(),
 ): Promise<PathView | null> {
   const [path] = await db
     .select()
@@ -148,6 +152,12 @@ export async function getPathView(
         )
         .orderBy(asc(slots.position))
     : [];
+  const audiobooks = await audiobookBookIds(
+    db,
+    ownerId,
+    slotRows.map((r) => r.book.id),
+  );
+  const availableOf = (b: Book) => availabilityOf(b, audiobooks.has(b.id), narration);
 
   let number = 0;
   const pillarViews: PillarView[] = pillarRows.map((p) => {
@@ -162,7 +172,7 @@ export async function getPathView(
           author: r.book.author,
           progress: r.book.progress,
           unverified: r.book.unverified,
-          owned: r.book.fileKey !== null,
+          available: availableOf(r.book),
           coverUrl: signCover(r.book.coverKey),
         },
       }));
@@ -178,8 +188,8 @@ export async function getPathView(
       ...pillarProgress(slotList),
     };
   });
-  const distinct = new Map(slotRows.map((r) => [r.book.id, r.book.fileKey !== null]));
-  const owned = [...distinct.values()].filter(Boolean).length;
+  const distinct = new Map(slotRows.map((r) => [r.book.id, isAvailable(availableOf(r.book))]));
+  const available = [...distinct.values()].filter(Boolean).length;
   return {
     id: path.id,
     slug: path.slug,
@@ -187,13 +197,13 @@ export async function getPathView(
     description: path.description,
     pillars: pillarViews,
     currentPillarId: choosePillar(pillarViews),
-    owned,
-    wanted: distinct.size - owned,
+    available,
+    notYet: distinct.size - available,
   };
 }
 
 /** One book with the places it appears in the user's Paths. */
-export async function getBook(db: Db, ownerId: string, id: string) {
+export async function getBook(db: Db, ownerId: string, id: string, narration: boolean = narrationOn()) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
   const [book] = await db
     .select()
@@ -206,5 +216,6 @@ export async function getBook(db: Db, ownerId: string, id: string) {
     .innerJoin(pillars, eq(pillars.id, slots.pillarId))
     .innerJoin(paths, eq(paths.id, pillars.pathId))
     .where(eq(slots.bookId, book.id));
-  return { book, owned: book.fileKey !== null, places };
+  const audiobook = (await audiobookBookIds(db, ownerId, [book.id])).has(book.id);
+  return { book, available: availabilityOf(book, audiobook, narration), places };
 }

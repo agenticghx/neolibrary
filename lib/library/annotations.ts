@@ -230,7 +230,7 @@ async function createTargetNote(
   id?: string,
 ): Promise<Annotation> {
   if (typeof targetId !== "string" || !/^[0-9a-f-]{36}$/i.test(targetId)) throw new AnnotationError("Not found.");
-  const owned =
+  const target =
     targetType === "path"
       ? await db.select({ id: paths.id }).from(paths).where(and(eq(paths.id, targetId), eq(paths.ownerId, ownerId)))
       : await db
@@ -238,7 +238,7 @@ async function createTargetNote(
           .from(pillars)
           .innerJoin(paths, eq(paths.id, pillars.pathId))
           .where(and(eq(pillars.id, targetId), eq(paths.ownerId, ownerId)));
-  if (!owned.length) throw new AnnotationError("Not found.");
+  if (!target.length) throw new AnnotationError("Not found.");
   const text = body.slice(0, MAX_BODY);
   if (!text.trim()) throw new AnnotationError("Write something in the note.");
   const annotationId = id ?? crypto.randomUUID();

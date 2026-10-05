@@ -35,11 +35,11 @@ describe("seeding the Hidden Machinery path", () => {
       ["E", "Power System Economics"],
     ]);
     expect(view.pillars.at(-1)!.slots[0].book.title).toBe("Seeing Like a State");
-    expect(view.owned).toBe(0);
-    expect(view.wanted).toBeGreaterThan(100);
+    expect(view.available).toBe(0);
+    expect(view.notYet).toBeGreaterThan(100);
   });
 
-  it("is idempotent and attaches to a book the user already owns", async () => {
+  it("is idempotent and attaches to a book already in the library", async () => {
     const [mine] = await database.db
       .insert(books)
       .values({ ownerId, title: "Chip War: The Fight for the World's Most Critical Technology", author: "Chris Miller", fileKey: "books/x.epub", fileType: "epub" })
@@ -49,8 +49,8 @@ describe("seeding the Hidden Machinery path", () => {
     expect(again).toBe(first);
     const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
     const semis = view.pillars.find((p) => p.slug === "semiconductors")!;
-    expect(semis.slots[0].book).toMatchObject({ id: mine.id, owned: true });
-    expect(view.owned).toBe(1);
+    expect(semis.slots[0].book).toMatchObject({ id: mine.id, available: { read: true, listen: true } });
+    expect(view.available).toBe(1);
   });
 
   it("keeps each person's library separate", async () => {
@@ -80,7 +80,7 @@ describe("you are here", () => {
   const slot = (id: string, kind: SlotView["kind"], progress: number): SlotView => ({
     id,
     kind,
-    book: { id, title: id, author: "", progress, unverified: false, owned: true, coverUrl: null },
+    book: { id, title: id, author: "", progress, unverified: false, available: { read: true, listen: false }, coverUrl: null },
   });
 
   it("points at the first unfinished core book in a pillar", () => {

@@ -21,7 +21,7 @@ export default async function ReadPage({
   const user = await requireUser();
   const db = await getDb();
   const found = await getBook(db, user.id, (await params).id);
-  if (!found || !found.owned || !found.book.fileType) notFound();
+  if (!found || !found.available.read || !found.book.fileType) notFound();
   const { book } = found;
   // ?at=<cfi> (e.g. from a search result) opens at that spot instead of the saved one.
   const at = (await searchParams).at;

@@ -166,6 +166,11 @@
   font-size: var(--text-sm);
 }
 
+.available {
+  color: var(--ink-700);
+  font-weight: var(--weight-semibold);
+}
+
 /* A heading that receives focus after an upload (so keyboard users continue
    from the section). The ring shows after keyboard use, not after a click. */
 .landing:focus:not(:focus-visible) {

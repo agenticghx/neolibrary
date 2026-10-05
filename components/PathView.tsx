@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
 import type { Annotation } from "@/lib/library/annotations";
+import { isAvailable } from "@/lib/library/availability";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
 import styles from "./PathView.module.css";
@@ -19,7 +21,7 @@ function SlotCover({ slot, current }: { slot: SlotView; current: boolean }) {
       title={slot.book.title}
       slot={slot.kind}
       tone={tone(slot)}
-      owned={slot.book.owned}
+      available={slot.book.available}
       size="sm"
       href={`/books/${slot.book.id}`}
       progress={slot.book.progress}
@@ -112,9 +114,9 @@ function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; no
             <ul>
               {extras.map((s) => (
                 <li key={s.id}>
-                  <a href={`/books/${s.book.id}`}>{s.book.title}</a>
+                  <Link href={`/books/${s.book.id}`}>{s.book.title}</Link>
                   <span className={styles.author}> · {s.book.author}</span>
-                  {s.book.owned ? null : <span className={styles.notOwned}> · not owned</span>}
+                  {isAvailable(s.book.available) ? null : <span className={styles.notYet}> · not available yet</span>}
                 </li>
               ))}
             </ul>
@@ -143,7 +145,7 @@ export function PathView({ path, notes = new Map() }: { path: PathData; notes?: 
       <header className={styles.head}>
         <h1 className={styles.title}>{path.title}</h1>
         <p className={styles.subtitle}>
-          {numbered.length} pillars · Read N, then E · {path.owned} owned, {path.wanted} wanted
+          {numbered.length} pillars · Read N, then E · {path.available} available, {path.notYet} not available yet
         </p>
         <p className={styles.description}>{path.description}</p>
         <TargetNotes targetType="path" targetId={path.id} label={`Note on ${path.title}`} notes={notes.get(path.id) ?? []} />
