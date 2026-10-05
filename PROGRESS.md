@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Proxy body-limit fix and EPUB unzip limits (see 2026-10-04 21:30 Log), then a dedicated session for M13 (d)/(e) players from docs/m13-player-plan.md.
+next_action: EPUB unzip limits (lib/library/ebook.ts, sections.ts with safeUnzip), then a dedicated session for M13 (d)/(e) players from docs/m13-player-plan.md.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-04
 shared_copy: none
@@ -121,6 +121,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-04 21:50 · Claude (laptop) · Fix: upload routes skip the sign-in proxy; 10 MB default restored
+- **Done:** #63 raised Next.js's `proxyClientMaxBodySize` to 210 MB so books over 10 MB could upload. A reviewer agent pointed out that the proxy holds the whole body **before** the sign-in check, so even a signed-out request could make the server hold 210 MB. Now the two upload routes (`POST /api/books` and `/api/books/<id>/readalong/…`) are left out of `proxy.ts`'s matcher: they check the session themselves (`currentUser()` first) before reading any body, so a signed-out upload is refused without being held. Every other route still goes through the proxy, back at the 10 MB default (the setting is removed from `next.config.ts`).
+- **Key paths:** `proxy.ts` (matcher), `next.config.ts`, `e2e/readalong.spec.ts` (new test: signed-out 12 MB uploads to all three upload routes get 401; `/api/export` still 401 through the proxy)
+- **Commands that worked:** `npx playwright test --project=readalong --ignore-snapshots` → `174 passed`; with the matcher change undone, the two 12 MB upload tests fail (`2 failed`), so the bypass is what lets them through. `npm run check` → all green.
+- **Known issues / blockers:** none new.
+- **Exact next steps:** EPUB unzip limits (`lib/library/ebook.ts`, `sections.ts` with `safeUnzip`), then the dedicated M13 (d)/(e) session.
 ### 2026-10-04 21:30 · Claude (laptop) · M13 (c3): "Your audiobook" on the book page (upload with progress), reviewed by agents
 - **Done:** The book page of a book you own now has a **"Your audiobook"** section. Choose the read-along folder (made on the laptop by the `readalong-audio` skill) or, on phones, a .zip of it (up to 50 MB). The browser zips only the files the manifest names, checks every audio file's fingerprint on the computer first (8 MB at a time, `lib/readalong/sha256.ts`), sends the audio in 8 MB parts with a progress bar (the screen reader hears the steps, not every part), then the server checks it all and makes the read-aloud tracks. Cancel, Remove, Replace, and unfinished uploads (shown honestly, removable) are handled; focus returns to the section; copy says plainly that playing it comes in the next update (and for PDFs after EPUBs). Built in three rounds with workflows: 5 readers mapped the code first; 4 reviewers found 24 problems, 2 skeptics each confirmed 21; I fixed them; 4 checkers plus a critic found 11 more gaps and 4 problems my fixes caused; all fixed. Notable fixes: a **zip bomb** guard (own zip reader with zlib capped at each entry's declared size, `lib/readalong/zipread.ts`); the finish step runs once (a database claim) and a lost answer is recovered by asking, not by finishing twice; 503s from the hosting retried; request bodies read with a hard limit even without a length (`lib/readalong/http.ts`); local storage now enforces the bucket's 5 MB minimum part size. Also fixed an old accessibility bug: the cover's "62% read" bar was a labelled `<span>` that screen readers ignored (`components/Cover.tsx`, `role="img"`). Docs: `docs/m13-player-plan.md` (the (d)/(e) plan, checked by skeptics in Chromium and WebKit) and `docs/plan.md` M13 now match what was built.
 - **Key paths:** `app/(app)/books/[id]/{AudiobookUpload.tsx,page.tsx,page.module.css}`, `lib/readalong/{upload-client,sha256,zipread,http,importer,package}.ts` (+ tests), `lib/storage/index.ts`, `components/Cover.tsx`, `types/webkitdirectory.d.ts`, `e2e/readalong.spec.ts`, `playwright.config.ts` (project `readalong-safari`), `docs/m13-player-plan.md`, `docs/plan.md`
