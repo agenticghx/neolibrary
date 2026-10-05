@@ -4,8 +4,9 @@ import { useActionState, useState } from "react";
 import { createCollectionAction, type CollectionState } from "../actions";
 import styles from "./page.module.css";
 
-export function NewCollection() {
-  const [open, setOpen] = useState(false);
+/** "+ New collection"; opens at once when the sidebar's New collection link brought the reader here. */
+export function NewCollection({ startOpen = false }: { startOpen?: boolean }) {
+  const [open, setOpen] = useState(startOpen);
   const [state, action, pending] = useActionState<CollectionState, FormData>(createCollectionAction, { error: null });
   if (!open)
     return (

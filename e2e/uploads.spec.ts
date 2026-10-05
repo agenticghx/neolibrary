@@ -127,7 +127,9 @@ test("collections group books and filter the shelf", async ({ page }) => {
   await page.getByRole("button", { name: "+ New collection" }).click();
   await page.getByLabel("Collection name").fill("Gothic");
   await page.getByRole("button", { name: "Create" }).click();
-  await expect(page.getByRole("link", { name: "Gothic 0" })).toHaveAttribute("aria-current", "page");
+  // The library page's collection chips (the sidebar lists collections too, by name only).
+  const chips = page.getByRole("navigation", { name: "Collections" });
+  await expect(chips.getByRole("link", { name: "Gothic 0" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("No books in this collection yet.")).toBeVisible();
 
   // Add two books from their pages.
@@ -141,7 +143,7 @@ test("collections group books and filter the shelf", async ({ page }) => {
   }
 
   await page.goto("/library");
-  await page.getByRole("link", { name: "Gothic 2" }).click();
+  await chips.getByRole("link", { name: "Gothic 2" }).click();
   await expect(page.getByTestId("shelf").locator("li")).toHaveCount(2);
   await expect(page.getByTestId("shelf").getByRole("link", { name: /^The Time Machine/ })).toHaveCount(0);
 

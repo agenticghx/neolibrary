@@ -62,6 +62,10 @@
   --z-raised: 10;
   --z-overlay: 100;
 
+  /* App shell (M14): the sidebar on desktop, the tab bar on a phone. */
+  --sidebar-width: 16rem;
+  --tabbar-height: 4.5rem;
+
   /* Light theme colours: warm paper, deep ink, oxidised teal */
   --paper: #f3ede1;          /* page background */
   --paper-raised: #faf6ee;   /* cards, popovers */

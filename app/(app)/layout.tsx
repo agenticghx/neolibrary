@@ -1,32 +1,35 @@
 import Link from "next/link";
 import { Mark } from "@/components/Mark";
+import { AccountMenu } from "@/components/shell/AccountMenu";
+import { Sidebar } from "@/components/shell/Sidebar";
+import { TabBar } from "@/components/shell/TabBar";
+import styles from "@/components/shell/Shell.module.css";
 import { requireUser } from "@/lib/auth/session";
-import { signOutAction } from "./actions";
-import styles from "./layout.module.css";
+import { getDb } from "@/lib/db";
+import { listPathsWithProgress } from "@/lib/library/paths";
+import { listCollections } from "@/lib/library/shelf";
 
 // Everything under (app) needs a signed-in user, checked against the database.
+// The shell (M14): a sidebar on desktop; on a phone, a top strip with the
+// account menu and four tabs at the bottom.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const db = await getDb();
+  const [paths, collections] = await Promise.all([listPathsWithProgress(db, user.id), listCollections(db, user.id)]);
   return (
     <div className={styles.shell}>
-      <header className={styles.bar}>
-        <Link href="/" className={styles.brand}>
-          <Mark size={26} />
-          <span className={styles.wordmark}>Neolibrary</span>
-        </Link>
-        <nav aria-label="Main" className={styles.nav}>
-          <Link href="/">Path</Link>
-          <Link href="/library">Library</Link>
-          <Link href="/search">Search</Link>
-          {user.role === "admin" ? <Link href="/admin/invites">Invite</Link> : null}
-          <form action={signOutAction}>
-            <button type="submit" className={styles.signOut}>
-              Sign out
-            </button>
-          </form>
-        </nav>
-      </header>
-      {children}
+      <Sidebar user={user} paths={paths} collections={collections} />
+      <div className={styles.column}>
+        <header className={styles.phoneBar}>
+          <Link href="/" className={styles.brand}>
+            <Mark size={26} />
+            <span className={styles.wordmark}>Neolibrary</span>
+          </Link>
+          <AccountMenu name={user.name} admin={user.role === "admin"} />
+        </header>
+        {children}
+      </div>
+      <TabBar />
     </div>
   );
 }

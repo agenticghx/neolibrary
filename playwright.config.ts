@@ -46,8 +46,10 @@ export default defineConfig({
     },
     // 4. Uploads change the shelf and the path, so they run last.
     { name: "uploads", testMatch: /uploads\.spec\.ts/, dependencies: ["flows"], use: { ...desktop } },
+    // 4b. The app shell (M14): sidebar, phone tabs, account menu, on a library with books.
+    { name: "shell", testMatch: /shell\.spec\.ts/, dependencies: ["uploads"], use: { ...desktop, storageState: ADMIN_STATE } },
     // 5. The reader opens a book uploaded in step 4.
-    { name: "reader", testMatch: /reader\.spec\.ts/, dependencies: ["uploads"], use: { ...desktop } },
+    { name: "reader", testMatch: /reader\.spec\.ts/, dependencies: ["shell"], use: { ...desktop } },
     // 6. Highlights, notes and bookmarks in a book the reader tests opened.
     { name: "annotations", testMatch: /annotations\.spec\.ts/, dependencies: ["reader"], use: { ...desktop } },
     // 7. AI tools (fake AI) in the same book.

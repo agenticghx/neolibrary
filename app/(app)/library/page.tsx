@@ -22,7 +22,7 @@ const progressLabel = (p: number) => (p >= 1 ? "Finished" : p > 0 ? `${Math.roun
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; q?: string; c?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string }>;
 }) {
   const user = await requireUser();
   const db = await getDb();
@@ -93,7 +93,7 @@ export default async function LibraryPage({
                 {c.name} <span className={styles.chipCount}>{c.count}</span>
               </Link>
             ))}
-            <NewCollection />
+            <NewCollection key={sp.new ?? ""} startOpen={sp.new === "collection"} />
           </nav>
           {active ? (
             <form action={deleteCollectionAction} className={styles.collectionBar}>
