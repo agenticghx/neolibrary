@@ -36,8 +36,11 @@ export async function revokeInviteAction(data: FormData) {
 export async function addPathAction(data: FormData) {
   const user = await requireUser();
   const seed = STARTER_PATHS[String(data.get("slug"))];
-  if (seed) await seedPath(await getDb(), user.id, seed);
-  revalidatePath("/");
+  if (!seed) return;
+  await seedPath(await getDb(), user.id, seed);
+  // The sidebar on every page lists the Paths.
+  revalidatePath("/", "layout");
+  redirect(`/paths/${seed.slug}`);
 }
 
 export type CollectionState = { error: string | null };
@@ -46,8 +49,8 @@ export async function createCollectionAction(_: CollectionState, data: FormData)
   const user = await requireUser();
   try {
     const c = await createCollection(await getDb(), user.id, String(data.get("name") ?? ""));
-    revalidatePath("/shelf");
-    redirect(`/shelf?c=${c.id}`);
+    revalidatePath("/", "layout");
+    redirect(`/library?c=${c.id}`);
   } catch (e) {
     if (e instanceof CollectionError) return { error: e.message };
     throw e;
@@ -57,8 +60,8 @@ export async function createCollectionAction(_: CollectionState, data: FormData)
 export async function deleteCollectionAction(data: FormData) {
   const user = await requireUser();
   await deleteCollection(await getDb(), user.id, String(data.get("id")));
-  revalidatePath("/shelf");
-  redirect("/shelf");
+  revalidatePath("/", "layout");
+  redirect("/library");
 }
 
 export async function toggleCollectionAction(data: FormData) {
@@ -66,7 +69,7 @@ export async function toggleCollectionAction(data: FormData) {
   const bookId = String(data.get("bookId"));
   await setInCollection(await getDb(), user.id, String(data.get("collectionId")), bookId, data.get("inside") === "1");
   revalidatePath(`/books/${bookId}`);
-  revalidatePath("/shelf");
+  revalidatePath("/library");
 }
 
 /** A note on a pillar or a whole path (from the Path view). */
@@ -77,13 +80,14 @@ export async function addTargetNoteAction(data: FormData) {
   const body = String(data.get("body") ?? "");
   if (!body.trim()) return;
   await createAnnotation(await getDb(), user.id, { kind: "note", targetType, targetId: String(data.get("targetId")), body });
-  revalidatePath("/");
+  // Path notes show on the Path's page and (until Home changes) on Home.
+  revalidatePath("/", "layout");
 }
 
 export async function removeNoteAction(data: FormData) {
   const user = await requireUser();
   await deleteAnnotation(await getDb(), user.id, String(data.get("id")));
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 export type TokenState = { error: string | null; token: string | null };
@@ -114,6 +118,5 @@ export async function revokeTokenAction(data: FormData) {
 export async function addSampleBooksAction() {
   const user = await requireUser();
   await addSampleBooks(await getDb(), await getStorage(), user.id);
-  revalidatePath("/shelf");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }

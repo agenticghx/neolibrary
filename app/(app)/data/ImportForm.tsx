@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import forms from "@/components/forms.module.css";
 
 export function ImportForm() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -14,6 +16,8 @@ export function ImportForm() {
       const res = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/json" }, body: await file.text() });
       const json = await res.json();
       setMessage(res.ok ? `Brought back ${json.books} books, ${json.paths} paths and ${json.collections} collections.` : json.error);
+      // The sidebar lists Paths and collections: show the imported ones without a reload.
+      if (res.ok) router.refresh();
     } catch {
       setMessage("The import failed and nothing was changed.");
     } finally {

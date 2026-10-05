@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
@@ -122,6 +122,50 @@ export async function listPaths(db: Db, ownerId: string) {
     .from(paths)
     .where(eq(paths.ownerId, ownerId))
     .orderBy(asc(paths.createdAt));
+}
+
+/** Groups that are not numbered pillars of a Path (its master key; agent suggestions). */
+const UNNUMBERED = ["master", "suggested"];
+
+/**
+ * The reader's Paths with how many numbered pillars are started (a pillar is
+ * started when any of its books has progress), for the sidebar's "3 of 18".
+ * Three small queries, not a whole Path view each: this runs on every page.
+ */
+export async function listPathsWithProgress(db: Db, ownerId: string) {
+  const list = await listPaths(db, ownerId);
+  if (!list.length) return [];
+  const pillarRows = await db
+    .select({ id: pillars.id, pathId: pillars.pathId, group: pillars.group })
+    .from(pillars)
+    .where(
+      inArray(
+        pillars.pathId,
+        list.map((p) => p.id),
+      ),
+    );
+  const numbered = pillarRows.filter((p) => !UNNUMBERED.includes(p.group));
+  const startedRows = numbered.length
+    ? await db
+        .selectDistinct({ pillarId: slots.pillarId })
+        .from(slots)
+        .innerJoin(books, eq(books.id, slots.bookId))
+        .where(
+          and(
+            inArray(
+              slots.pillarId,
+              numbered.map((p) => p.id),
+            ),
+            gt(books.progress, 0),
+            isNull(books.deletedAt),
+          ),
+        )
+    : [];
+  const started = new Set(startedRows.map((r) => r.pillarId));
+  return list.map((p) => {
+    const own = numbered.filter((x) => x.pathId === p.id);
+    return { ...p, total: own.length, started: own.filter((x) => started.has(x.id)).length };
+  });
 }
 
 export async function getPathView(

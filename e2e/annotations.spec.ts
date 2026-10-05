@@ -110,7 +110,7 @@ async function bookId(page: Page) {
 
 // M5 "Done when" (part): export produces a Markdown file containing them.
 test("export notes as Markdown and W3C JSON; importing the same file adds nothing", async ({ page }) => {
-  await page.goto("/shelf");
+  await page.goto("/library");
   await page.getByTestId("shelf").getByRole("link", { name: /^The Strange Case/ }).click();
   const notes = page.getByRole("region", { name: "Your notes" });
   await expect(notes).toContainText("1 highlights · 1 notes on the book · 1 bookmarks");
@@ -195,6 +195,8 @@ test("notes on a pillar and on the whole path", async ({ page }) => {
 
   await page.goto(`/search?q=${encodeURIComponent("fab tour")}`);
   await expect(page.getByRole("region", { name: "Your notes" })).toContainText("Note · Semiconductors");
+  // A note on a pillar opens its Path.
+  await expect(page.getByRole("region", { name: "Your notes" }).getByRole("link", { name: /Note · Semiconductors/ })).toHaveAttribute("href", "/paths/hidden-machinery");
 
   await page.goto("/");
   await semis.getByRole("button", { name: /^Remove note/ }).click();

@@ -6,9 +6,9 @@ import type { UploadOutcome } from "@/app/api/books/route";
 import styles from "./page.module.css";
 
 const MESSAGES = {
-  added: "Added to your shelf",
+  added: "Added to your library",
   attached: "Added to a title that was waiting for it",
-  duplicate: "Already on your shelf",
+  duplicate: "Already in your library",
 } as const;
 
 /** Drag-and-drop (or pick) EPUB and PDF files; several at once. */
