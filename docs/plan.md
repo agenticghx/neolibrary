@@ -494,7 +494,8 @@ What Samuel confirmed (2026-10-05):
   matches an upload to a wanted book by title). Each Path gets its own page
   (today's Path view moves there).
 - **Collections** stay unordered.
-- **A mini-player** keeps the audiobook playing while you move around the
+- **A mini-player**, on desktop and phone, always with back 15 s,
+  play/pause and forward 15 s (Samuel, 2026-10-05), keeps the audiobook playing while you move around the
   app. Today the player lives only in the reader
   (`app/(reader)/books/[id]/read/ListenBar.tsx`) and stops when you leave the
   book; the reader is a separate route group (a folder of pages with its own
@@ -513,8 +514,11 @@ Candidate signature touches, each using data Apple Books does not have:
    resumes both reading and listening at the same paragraph (the app
    saves the reading position, `books.position`, and read-along maps text to
    audio time) and shows the last thing you highlighted or noted in that book.
-2. **Covers that show your study.** Progress as a cloth bookmark ribbon,
-   a mark when a book has your notes, a mark when it has read-along audio;
+2. **Covers that show your study.** Progress as a fill: a bar, the cover
+   or the spine fills up as you read (Samuel, 2026-10-05: "the ribbon for
+   completion status won't work. use the fill percentage for progress";
+   which fill is his pick on the mockups). A mark when a book has your
+   notes, a mark when it has read-along audio;
    on a Path, a placeholder is plain undyed cloth that takes its colour when
    you upload the book. Home shows the next book on each Path, with "import
    it" when you do not own it yet.
