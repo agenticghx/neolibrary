@@ -117,6 +117,7 @@ Never blocks the loop. Newest first.
 
 ## Decisions
 
+- 2026-10-05 · Never "owned" / "not owned": everything in the library is Samuel's. Each title is labelled by what is available: Read and listen, Read only, Listen only, or Not available yet (greyed, with a way to add the file); such titles appear in the library too · by Samuel
 - 2026-10-05 · M14 picks on the mockups: Home on desktop A (covers in a grid); phone A (grid) with a Grid / Spines toggle; mini-player B (the sentence being read, back/forward 15 s, Go to the page, Think aloud) plus a speed the reader chooses; progress A (a bar under the cover fills); Continue B (last note, Read from here / Listen from here). Path page layout and the two Home extras not picked yet · by Samuel
 - 2026-10-05 · The library, not a Path, is the home page: Home = "Continue" at the top, then the whole library with Import. Apple Books' structure (sidebar with Library filters by kind and status, Paths, Collections; a mini-player across pages) with Neolibrary's own look. Paths = ordered curricula with greyed-out placeholders that fill in on upload; Collections = unordered groups. Innovate, "not just copy cat" · by Samuel
 - 2026-10-04 · Samuel stops supervising; sessions work alone to the goal in `docs/done.md` (implement → verify → merge → loop). Items only Samuel can give go under "Waiting on Samuel" and never block · by Samuel
@@ -133,6 +134,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 13:40 · Claude (laptop) · Rule: titles are labelled by availability, never "owned"
+- **Done:** Samuel: "stop with book you own and do not own bs! a book i upload is book i own! uploaded books titles can still appear they are just unavailable to read or listen or both!" Wrote the rule into `docs/plan.md` ("The library comes first") and into M14 (b), which now must remove the "owned" wording from the app and its tests. Updated the canvas: the Path page and the picks boards label titles Read and listen / Read only / Listen only / Not available yet, with a greyed title-only book in the library grid; the notes and an image caption no longer say "own".
+- **Key paths:** `docs/plan.md`; `PROGRESS.md`; the canvas. App places with the old wording (to change in M14 (b)): `app/(app)/shelf/page.tsx` ("Books you own"), `components/Cover.tsx` ("Not owned", "(not owned)"), `components/PathView.tsx` ("· not owned"), `lib/library/paths.ts` (comment); tests: `e2e/pages.ts`, `e2e/paths.spec.ts`, `e2e/reader.spec.ts`, `e2e/uploads.spec.ts`.
+- **Commands that worked:** `grep -rln "Not owned\|not owned\|Books you own" e2e components lib app` → the files above.
+- **Known issues / blockers:** none.
+- **Exact next steps:** M14 (b), including the wording change and its tests.
 
 ### 2026-10-05 13:10 · Claude (laptop) · Samuel's M14 picks recorded and drawn together
 - **Done:** Samuel picked one option per part: Home on desktop A (grid); phone A (grid) with a toggle to the spine view; mini-player B plus a speed he can choose; progress A (a bar under the cover fills); Continue B (last note, Read from here / Listen from here). Wrote them into `docs/plan.md` M14 ("Samuel's picks"), replacing the five candidates; reworked steps (b)–(f) and "Done when" to match. Added a "Your picks" row to the canvas: the phone in grid and spine view with the Grid / Spines toggle, Continue B and player B with speed; and player B with its speed menu open, on desktop and phone, light and dark.

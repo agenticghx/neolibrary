@@ -46,9 +46,18 @@ annotations, many learning materials … not a hidden machinery library."
   innovated, "not just copy cat" (see M14).
 - **Paths are curricula: ordered reading plans** such as Hidden Machinery
   (pillars, a narrative book first, a deeper book second). A Path may list
-  books you do not own yet: they show as greyed-out placeholders and become
-  fully visible when you upload them. A Path is one group in the sidebar,
-  not the home page. Notes can still attach to a Path or a Pillar.
+  titles that have no book file or audio yet: they show greyed out and
+  become fully visible when you add the file. A Path is one group in the
+  sidebar, not the home page. Notes can still attach to a Path or a Pillar.
+- **Everything in the library is yours; never say "owned" or "not owned"**
+  (Samuel, 2026-10-05: "a book I upload is a book I own! uploaded books
+  titles can still appear they are just unavailable to read or listen or
+  both!"). Every title says what is available: **Read and listen**, **Read
+  only** (a book file, no audio), **Listen only** (audio, no book file), or
+  **Not available yet** (a title with neither: greyed cover, with a way to
+  add the file). Titles with nothing available yet appear in the library
+  too, not only on Paths. The older sections below that say "owned" or
+  "unowned" mean exactly this.
 - **Collections are unordered groups of materials**, as in Apple Books.
 - **A book and its audiobook are one item** you can read and listen to
   together (M13), not two separate items as in Apple Books.
@@ -542,7 +551,13 @@ Steps:
   Home, Library, Paths, Search); "Continue" (B); the whole library as a grid
   with fill bars and the marks; Import; the phone's Grid / Spines toggle
   (remembered on that device); Hidden Machinery offered, not added at
-  set-up.
+  set-up. Every title labelled by availability (Read and listen, Read only,
+  Listen only, Not available yet), and the "owned" wording removed from the
+  app: "Books you own" (`app/(app)/shelf/page.tsx`), "Not owned" and "(not
+  owned)" (`components/Cover.tsx`), "· not owned" (`components/PathView.tsx`),
+  the comment in `lib/library/paths.ts`, and the browser tests that look for
+  those words (`e2e/pages.ts`, `paths.spec.ts`, `reader.spec.ts`,
+  `uploads.spec.ts`).
 - **(c)** Library filters by kind and status.
 - **(d)** Paths: their own pages, and making your own Path.
 - **(e)** The mini-player (B, with speed) across pages.
