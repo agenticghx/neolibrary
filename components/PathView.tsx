@@ -89,7 +89,7 @@ function Pillar({ pillar, here, notes, readingList }: { pillar: PillarView; here
       </header>
       {readingList ? null : pillar.slots.length ? (
         // Your own Path: every title in the order you gave it, each with how to read it (M14 step 5).
-        <ol className={styles.ownTitles}>
+        <ol className={styles.ownTitles} role="list">
           {pillar.slots.map((s) => (
             <li key={s.id} className={styles.slot}>
               <span className={styles.how}>{KIND_WORDS[s.kind]}</span>
@@ -98,15 +98,17 @@ function Pillar({ pillar, here, notes, readingList }: { pillar: PillarView; here
           ))}
         </ol>
       ) : (
-        <p className={styles.noTitles}>No titles yet.</p>
+        <p className={styles.noTitles}>No titles yet. Edit the path to add some.</p>
       )}
       {readingList && core.length ? (
         <ol className={styles.pair}>
           {core.map((s) => (
             <li key={s.id} className={styles.slot}>
-              <span className={styles.kind} aria-label={s.kind === "N" ? "Story first" : "Go deeper"}>
+              {/* The reading list's letter, read out as its words (a label on a plain span may be skipped). */}
+              <span className={styles.kind} aria-hidden="true">
                 {s.kind}
               </span>
+              <span className="visually-hidden">{s.kind === "N" ? "Narrative, read first" : "Engineering, read second"}</span>
               <SlotCover slot={s} current={s.id === pillar.currentSlotId && pillar.status !== "not-started"} />
             </li>
           ))}

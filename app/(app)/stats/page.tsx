@@ -166,11 +166,11 @@ export default async function StatsPage() {
           {kinds.length > 0 ? (
             <section aria-labelledby="by-kind" className={styles.list}>
               <h2 id="by-kind" className={styles.listTitle}>
-                Story first and Go deeper
+                By how to read it
               </h2>
               <p className={own.note}>
                 How each title is marked on its Path: Story first (N) is read first, for the story; Go deeper (E) is read
-                next, to go further.
+                next, to go further; Any order whenever you like.
               </p>
               <table className={own.table} data-testid="stats-kinds">
                 <Head first="How to read it" />

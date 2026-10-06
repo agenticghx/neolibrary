@@ -25,6 +25,11 @@ export function TitleList({ slug, headingId, titles }: { slug: string; headingId
   const [state, act, pending] = useActionState(moveOrRemoveTitleAction, start);
   const box = useRef<HTMLDivElement>(null);
   const asked = useRef<{ op: TitleOp; slotId: string; index: number; order: string } | null>(null);
+  // Set the moment a change is sent (a double click's second click can come before React shows it as pending).
+  const sending = useRef(false);
+  useEffect(() => {
+    if (!pending) sending.current = false;
+  }, [pending, state]);
 
   useEffect(() => {
     const a = asked.current;
@@ -36,13 +41,15 @@ export function TitleList({ slug, headingId, titles }: { slug: string; headingId
     // Leave focus alone if the reader has gone elsewhere (Safari never focuses a clicked button, so the body is normal here).
     if (at && at !== document.body && at !== heading && !box.current?.contains(at)) return;
     const want = focusAfter(titles, a);
-    ((want && box.current?.querySelector<HTMLElement>(`[data-focus="${want}"]`)) || heading)?.focus();
+    const button = want ? box.current?.querySelector<HTMLButtonElement>(`[data-focus="${want}"]`) : null;
+    (button && !button.disabled ? button : heading)?.focus();
   }, [titles, pending, headingId]);
 
   return (
     <div ref={box} className={styles.titleList}>
       {titles.length ? (
-        <ol className={styles.titles}>
+        // role="list": Safari drops a list's role when its markers are hidden.
+        <ol className={styles.titles} role="list">
           {titles.map((t, i) => (
             <li key={t.id} className={styles.title}>
               <span className={styles.titleText}>
@@ -58,8 +65,9 @@ export function TitleList({ slug, headingId, titles }: { slug: string; headingId
                     action={act}
                     onSubmit={(e) => {
                       // One change at a time: a second click while the first is on its way does nothing.
-                      if (pending) e.preventDefault();
-                      else asked.current = { op, slotId: t.id, index: i, order: orderOf(titles) };
+                      if (pending || sending.current) return e.preventDefault();
+                      sending.current = true;
+                      asked.current = { op, slotId: t.id, index: i, order: orderOf(titles) };
                     }}
                   >
                     <input type="hidden" name="slotId" value={t.id} />

@@ -57,7 +57,8 @@
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled="true"] {
   cursor: progress;
   opacity: 0.85;
 }

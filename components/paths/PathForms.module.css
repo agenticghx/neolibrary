@@ -42,11 +42,11 @@
   cursor: pointer;
 }
 
-.small:disabled {
+.small[aria-disabled="true"] {
   cursor: progress;
 }
 
-.small:hover:not(:disabled) {
+.small:hover:not([aria-disabled="true"]) {
   background-color: var(--accent-strong);
 }
 

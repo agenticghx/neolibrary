@@ -1,6 +1,9 @@
 /* Editing a Path (M14 step 5). */
 
 .back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem; /* a 44 px target */
   color: var(--ink-900);
   text-decoration-color: var(--accent);
 }

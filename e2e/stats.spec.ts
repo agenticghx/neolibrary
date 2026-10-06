@@ -100,6 +100,7 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   await expect(page.getByRole("heading", { level: 2, name: "By section", exact: true })).toBeVisible();
   await expect(page.getByTestId("stats-pillars").getByRole("columnheader").first()).toHaveText("Section");
   await expect(page.getByTestId("stats-kinds").getByRole("rowheader")).toHaveText(["Story first (N)"]);
+  await expect(page.getByRole("heading", { level: 2, name: "By how to read it", exact: true })).toBeVisible();
   await expect(page.getByRole("main")).not.toContainText(/pillar|narrative/i);
   const compare = page.getByTestId("stats-compare");
   await expect(compare).toContainText("238 words per minute for non-fiction");

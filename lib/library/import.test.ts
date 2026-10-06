@@ -93,6 +93,32 @@ describe("importing books", () => {
     expect(view.available).toBe(1);
   });
 
+  it("attaches a dropped file to the waiting title by the same author when two share a short title, either way round", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery); // "Chip War" by Miller, waiting
+    const [other] = await database.db.insert(books).values({ ownerId, title: "Chip War", author: "Ann Other" }).returning();
+    const theirs = await importBook(database.db, storage, ownerId, { name: "other.epub", bytes: tinyEpub("Chip War", "Ann Other") });
+    expect(theirs).toMatchObject({ status: "attached", bookId: other.id });
+    const miller = await importBook(database.db, storage, ownerId, {
+      name: "chip-war.epub",
+      bytes: tinyEpub("Chip War: The Fight for the World's Most Critical Technology", "Chris Miller"),
+    });
+    expect(miller).toMatchObject({ status: "attached", title: "Chip War" });
+    expect(miller.bookId).not.toBe(other.id);
+    // A third author's Chip War is a book of its own, not a copy of either.
+    expect(await importBook(database.db, storage, ownerId, { name: "third.epub", bytes: tinyEpub("Chip War", "Someone Else") })).toMatchObject({ status: "added" });
+  });
+
+  it("asks the reader to choose when more than one waiting title could be the file", async () => {
+    await database.db.insert(books).values([
+      { ownerId, title: "Poems", author: "" },
+      { ownerId, title: "Poems", author: "" },
+    ]);
+    await expect(importBook(database.db, storage, ownerId, { name: "poems.epub", bytes: tinyEpub("Poems", "John Keats") })).rejects.toThrow(
+      "More than one title waiting in your library could be this book. Open the right one and use Choose the book file.",
+    );
+    expect((await database.db.select({ fileKey: books.fileKey }).from(books)).every((b) => b.fileKey === null)).toBe(true);
+  });
+
   it("reports a second copy of a book already on the shelf as a duplicate", async () => {
     const a = await importBook(database.db, storage, ownerId, fixture("shelley-frankenstein.epub"));
     const b = await importBook(database.db, storage, ownerId, fixture("shelley-frankenstein.epub"));

@@ -20,6 +20,7 @@ import {
   removeTitle,
   renamePath,
   sameAuthor,
+  sameBook,
   seedPath,
   slugify,
   type SlotView,
@@ -342,6 +343,53 @@ describe("your own Paths (M14 step 5, D10)", () => {
     ]);
   });
 
+  it("picks the book whose whole title was typed when others share its short title", async () => {
+    const [poems] = await database.db.insert(books).values({ ownerId, title: "Poems", author: "John Keats" }).returning();
+    await database.db.insert(books).values({ ownerId, title: "Poems: Selected and Annotated", author: "John Keats" });
+    const path = await createPath(database.db, ownerId, { title: "Verse" });
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    expect(await addTitle(database.db, ownerId, s.id, { title: "poems", author: "Keats" })).toMatchObject({ bookId: poems.id, reused: true });
+  });
+
+  it("lists a book once per section, but lets it sit in two sections", async () => {
+    const [frank] = await database.db.insert(books).values({ ownerId, title: "Frankenstein", author: "Mary Shelley", fileKey: "books/f.epub", fileType: "epub" }).returning();
+    const path = await createPath(database.db, ownerId, { title: "Monsters" });
+    const one = await addSection(database.db, ownerId, path.id, "One");
+    const two = await addSection(database.db, ownerId, path.id, "Two");
+    await addTitle(database.db, ownerId, one.id, { bookId: frank.id });
+    await expect(addTitle(database.db, ownerId, one.id, { bookId: frank.id })).rejects.toThrow("Frankenstein is already in this section.");
+    await expect(addTitle(database.db, ownerId, one.id, { title: "Frankenstein", author: "Shelley" })).rejects.toThrow("already in this section");
+    await addTitle(database.db, ownerId, two.id, { bookId: frank.id });
+    expect(await order(path.slug)).toEqual([
+      ["One", ["extra:Frankenstein"]],
+      ["Two", ["extra:Frankenstein"]],
+    ]);
+  });
+
+  it("checks every id before it reaches the database: 36 characters that are not one are not found", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Ids" });
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    const bad = "-".repeat(36);
+    await expect(renamePath(database.db, ownerId, bad, { title: "X" })).rejects.toThrow("That path was not found.");
+    await expect(addSection(database.db, ownerId, bad, "X")).rejects.toThrow("That path was not found.");
+    await expect(addTitle(database.db, ownerId, bad, { title: "X" })).rejects.toThrow("That section was not found.");
+    await expect(addTitle(database.db, ownerId, s.id, { bookId: bad })).rejects.toThrow("That book was not found.");
+    await expect(moveTitle(database.db, ownerId, bad, "up")).rejects.toThrow("That title was not found.");
+  });
+
+  it("orders titles with the same place by their id, on the Path and when moving", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Ties" });
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    const a = await addTitle(database.db, ownerId, s.id, { title: "A" });
+    const b = await addTitle(database.db, ownerId, s.id, { title: "B" });
+    await database.db.update(slots).set({ position: 0 }).where(inArray(slots.id, [a.slotId, b.slotId])); // two adds at the same moment
+    const byId = [a, b].sort((x, y) => x.slotId.localeCompare(y.slotId)).map((x) => (x === a ? "extra:A" : "extra:B"));
+    expect((await order(path.slug))[0][1]).toEqual(byId);
+    const second = byId[1] === "extra:A" ? a : b;
+    expect(await moveTitle(database.db, ownerId, second.slotId, "up")).toMatchObject({ place: 1, count: 2 });
+    expect((await order(path.slug))[0][1]).toEqual([...byId].reverse());
+  });
+
   it("refuses to change a reading list: its name, sections and titles stay as the list has them", async () => {
     await seedPath(database.db, ownerId, hiddenMachinery);
     const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
@@ -469,8 +517,9 @@ describe("your own Paths (M14 step 5, D10)", () => {
       .returning();
     const [santi] = await database.db.insert(books).values({ ownerId, title: "三体" }).returning();
     const path = await createPath(database.db, ownerId, { title: "Systems" });
-    const s = await addSection(database.db, ownerId, path.id, "One");
-    const add = (title: string, author: string) => addTitle(database.db, ownerId, s.id, { title, author });
+    let n = 0; // a section per title: a section lists a book once (tested below)
+    const add = async (title: string, author: string) =>
+      addTitle(database.db, ownerId, (await addSection(database.db, ownerId, path.id, `S${(n += 1)}`)).id, { title, author });
     // Another author's book is another title, even when the short titles match.
     const smith = await add("Chaos: A Very Short Introduction", "Leonard Smith");
     expect(smith.reused).toBe(false);
@@ -479,29 +528,56 @@ describe("your own Paths (M14 step 5, D10)", () => {
     expect(await add("chaos", "Gleick, James")).toMatchObject({ bookId: gleick.id, reused: true, title: "Chaos: Making a New Science", author: "James Gleick" });
     expect((await add("The Grid", "Gretchen Bakke")).reused).toBe(true);
     expect(await add("The Grid", "Philip Schewe")).toMatchObject({ reused: false });
-    // More than one could be meant: the reader is asked, not guessed for.
-    await expect(add("Chaos", "")).rejects.toThrow("More than one book in your library is called Chaos.");
+    // More than one could be meant: the reader is asked, not guessed for (and not asked for an author already typed).
+    await expect(add("Chaos", "")).rejects.toThrow("More than one book in your library is called Chaos. Add the author");
     await expect(add("the grid", "")).rejects.toThrow("More than one book");
+    const [smith2] = await database.db.insert(books).values({ ownerId, title: "Chaos: The Science of Predictable Random Motion", author: "Leonard A. Smith" }).returning();
+    await expect(add("Chaos", "Smith")).rejects.toThrow("More than one book in your library could be Chaos by Smith. Choose it from your library.");
+    expect(smith2.id).not.toBe(smith.bookId);
     // The whole title typed exactly picks one of them.
     expect(await add("Chaos: A Very Short Introduction", "")).toMatchObject({ bookId: smith.bookId, reused: true });
     // Titles with no Latin letters compare whole, not as an empty short title.
     expect(await add("量子", "")).toMatchObject({ reused: false });
     expect(await add("三体", "")).toMatchObject({ bookId: santi.id, reused: true });
     const all = await database.db.select().from(books);
-    expect(all.filter((b) => normaliseTitle(b.title) === "chaos").map((b) => b.author).sort()).toEqual(["James Gleick", "Leonard Smith"]);
+    expect(all.filter((b) => normaliseTitle(b.title) === "chaos").map((b) => b.author).sort()).toEqual(["James Gleick", "Leonard A. Smith", "Leonard Smith"]);
     expect(all.filter((b) => normaliseTitle(b.title) === "the grid").map((b) => b.author).sort()).toEqual(["Bakke", "Philip Schewe"]);
   });
 });
 
 describe("sameAuthor", () => {
-  it("ignores case, accents, punctuation, word order and initials; a blank author agrees with any", () => {
+  it("compares surnames: case, accents, punctuation, order, initials and particles do not matter; a blank author agrees with any", () => {
     expect(sameAuthor("Gleick, James", "James Gleick")).toBe(true);
     expect(sameAuthor("Thomas S. Kuhn", "KUHN")).toBe(true);
+    expect(sameAuthor("Kuhn, Thomas S.", "T. S. Kuhn")).toBe(true);
     expect(sameAuthor("Leibbrandt & de Terán", "Gottfried Leibbrandt")).toBe(true);
     expect(sameAuthor("Dietrich Dörner", "Dorner")).toBe(true);
+    expect(sameAuthor("Brealey, Myers & Allen", "Richard Brealey")).toBe(true);
+    expect(sameAuthor("Ursula K. Le Guin", "Le Guin, Ursula")).toBe(true);
+    expect(sameAuthor("Mary Wollstonecraft Shelley", "Shelley, Mary")).toBe(true);
     expect(sameAuthor("", "James Gleick")).toBe(true);
     expect(sameAuthor("James Gleick", "Leonard Smith")).toBe(false);
     expect(sameAuthor("Leibbrandt & de Terán", "Jean de Florette")).toBe(false);
     expect(sameAuthor("Wu", "Xu")).toBe(false);
+  });
+
+  it("does not take a shared given name for the same author", () => {
+    expect(sameAuthor("John Donne", "John Keats")).toBe(false);
+    expect(sameAuthor("Dylan Thomas", "Thomas Hardy")).toBe(false);
+    expect(sameAuthor("William Butler Yeats", "William Carlos Williams")).toBe(false);
+    expect(sameAuthor("Tim Wu", "Tim Harford")).toBe(false);
+  });
+});
+
+describe("sameBook", () => {
+  it("keeps two volumes apart: two different subtitles are two books, one without a subtitle can be either", () => {
+    const v1 = { title: "The Feynman Lectures on Physics: Volume I", author: "Richard P. Feynman" };
+    expect(sameBook("The Feynman Lectures on Physics: Volume II", "Richard Feynman", v1)).toBe(false);
+    expect(sameBook("The Feynman Lectures on Physics: Volume I", "", v1)).toBe(true);
+    expect(sameBook("The Feynman Lectures on Physics", "Feynman", v1)).toBe(true);
+    expect(sameBook("chaos", "Gleick, James", { title: "Chaos: Making a New Science", author: "James Gleick" })).toBe(true);
+    expect(sameBook("Chaos: A Very Short Introduction", "", { title: "Chaos: Making a New Science", author: "James Gleick" })).toBe(false);
+    expect(sameBook("三体", "", { title: "三体", author: "" })).toBe(true);
+    expect(sameBook("量子", "", { title: "三体", author: "" })).toBe(false);
   });
 });

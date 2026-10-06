@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { startTransition, useActionState, useEffect, useId, useRef } from "react";
 import { addSectionAction, addTitleAction, createPathAction, renamePathAction, type PathFormState } from "@/app/(app)/actions";
 import forms from "@/components/forms.module.css";
 import { KIND_CHOICES } from "@/lib/library/path-words";
@@ -9,11 +9,39 @@ import styles from "./PathForms.module.css";
 
 const start: PathFormState = { error: null, done: null };
 
+/**
+ * Runs a Path form's server action (M14 step 5). It submits through
+ * onSubmit, not <form action>: React empties a form after its action runs,
+ * even when the server refused it, and the reader would have to type
+ * everything again. One send at a time; the pressed button stays enabled
+ * (aria-disabled while sending), so keyboard focus stays on it. After a
+ * success the fields are cleared, unless `keep` (the name form keeps them).
+ */
+function usePathForm(action: (state: PathFormState, data: FormData) => Promise<PathFormState>, keep = false) {
+  const [state, dispatch, pending] = useActionState(action, start);
+  const form = useRef<HTMLFormElement>(null);
+  const sending = useRef(false);
+  useEffect(() => {
+    if (!pending) sending.current = false;
+  }, [pending, state]);
+  useEffect(() => {
+    if (!keep && state.done && !state.error) form.current?.reset();
+  }, [state, keep]);
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (pending || sending.current) return;
+    sending.current = true;
+    const data = new FormData(e.currentTarget);
+    startTransition(() => dispatch(data));
+  };
+  return { state, pending, form, onSubmit };
+}
+
 /** Name a new Path (M14 step 5); it opens for editing. */
 export function NewPathForm() {
-  const [state, action, pending] = useActionState(createPathAction, start);
+  const { state, pending, form, onSubmit } = usePathForm(createPathAction);
   return (
-    <form action={action} className={forms.form}>
+    <form ref={form} onSubmit={onSubmit} className={forms.form}>
       <label className={forms.label} htmlFor="path-title">
         Name
       </label>
@@ -22,7 +50,7 @@ export function NewPathForm() {
         What it is for (optional)
       </label>
       <textarea id="path-description" name="description" className={forms.input} rows={3} maxLength={2000} />
-      <button type="submit" className={forms.button} disabled={pending}>
+      <button type="submit" className={forms.button} aria-disabled={pending || undefined}>
         Make the path
       </button>
       <Outcome state={state} pending={pending} />
@@ -31,9 +59,9 @@ export function NewPathForm() {
 }
 
 export function RenamePathForm({ pathId, slug, title, description }: { pathId: string; slug: string; title: string; description: string }) {
-  const [state, action, pending] = useActionState(renamePathAction, start);
+  const { state, pending, form, onSubmit } = usePathForm(renamePathAction, true);
   return (
-    <form action={action} className={forms.form}>
+    <form ref={form} onSubmit={onSubmit} className={forms.form}>
       <input type="hidden" name="pathId" value={pathId} />
       <input type="hidden" name="slug" value={slug} />
       <label className={forms.label} htmlFor="rename-title">
@@ -44,8 +72,8 @@ export function RenamePathForm({ pathId, slug, title, description }: { pathId: s
         What it is for (optional)
       </label>
       <textarea id="rename-description" name="description" className={forms.input} rows={3} maxLength={2000} defaultValue={description} />
-      <button type="submit" className={forms.button} disabled={pending}>
-        Save name
+      <button type="submit" className={forms.button} aria-disabled={pending || undefined}>
+        Save
       </button>
       <Outcome state={state} pending={pending} />
     </form>
@@ -53,10 +81,10 @@ export function RenamePathForm({ pathId, slug, title, description }: { pathId: s
 }
 
 export function AddSectionForm({ pathId, slug }: { pathId: string; slug: string }) {
-  const [state, action, pending] = useActionState(addSectionAction, start);
+  const { state, pending, form, onSubmit } = usePathForm(addSectionAction);
   const id = useId();
   return (
-    <form action={action} className={styles.inline}>
+    <form ref={form} onSubmit={onSubmit} className={styles.inline}>
       <input type="hidden" name="pathId" value={pathId} />
       <input type="hidden" name="slug" value={slug} />
       <label className={forms.label} htmlFor={id}>
@@ -64,7 +92,7 @@ export function AddSectionForm({ pathId, slug }: { pathId: string; slug: string 
       </label>
       <div className={styles.row}>
         <input id={id} name="title" className={forms.input} maxLength={120} placeholder="e.g. Revolutions" required />
-        <button type="submit" className={styles.small} disabled={pending}>
+        <button type="submit" className={styles.small} aria-disabled={pending || undefined}>
           Add section
         </button>
       </div>
@@ -106,13 +134,13 @@ export function AddTitleForms({
   slug: string;
   library: { id: string; title: string; author: string }[];
 }) {
-  const [fromLibrary, addFromLibrary, pendingLibrary] = useActionState(addTitleAction, start);
-  const [newTitle, addNew, pendingNew] = useActionState(addTitleAction, start);
+  const { state: libraryState, pending: libraryPending, form: libraryForm, onSubmit: onLibrarySubmit } = usePathForm(addTitleAction);
+  const { state: newState, pending: newPending, form: newForm, onSubmit: onNewSubmit } = usePathForm(addTitleAction);
   const id = useId();
   return (
     <div className={styles.addTitle}>
       {library.length ? (
-        <form action={addFromLibrary} className={styles.inline} aria-label={`Add a book from your library to ${sectionTitle}`}>
+        <form ref={libraryForm} onSubmit={onLibrarySubmit} className={styles.inline} aria-label={`Add a book from your library to ${sectionTitle}`}>
           <input type="hidden" name="pillarId" value={pillarId} />
           <input type="hidden" name="slug" value={slug} />
           <div className={styles.row}>
@@ -132,14 +160,14 @@ export function AddTitleForms({
               </select>
             </div>
             <HowToRead id={`${id}-kind-l`} />
-            <button type="submit" className={styles.small} disabled={pendingLibrary}>
+            <button type="submit" className={styles.small} aria-disabled={libraryPending || undefined}>
               Add<span className="visually-hidden">{` a book from your library to ${sectionTitle}`}</span>
             </button>
           </div>
-          <Outcome state={fromLibrary} pending={pendingLibrary} />
+          <Outcome state={libraryState} pending={libraryPending} />
         </form>
       ) : null}
-      <form action={addNew} className={styles.inline} aria-label={`Add a new title to ${sectionTitle}`}>
+      <form ref={newForm} onSubmit={onNewSubmit} className={styles.inline} aria-label={`Add a new title to ${sectionTitle}`}>
         <input type="hidden" name="pillarId" value={pillarId} />
         <input type="hidden" name="slug" value={slug} />
         <span className={forms.label}>A title not in your library yet</span>
@@ -157,11 +185,11 @@ export function AddTitleForms({
             <input id={`${id}-author`} name="author" className={forms.input} maxLength={120} />
           </div>
           <HowToRead id={`${id}-kind-n`} />
-          <button type="submit" className={styles.small} disabled={pendingNew}>
+          <button type="submit" className={styles.small} aria-disabled={newPending || undefined}>
             Add<span className="visually-hidden">{` a new title to ${sectionTitle}`}</span>
           </button>
         </div>
-        <Outcome state={newTitle} pending={pendingNew} />
+        <Outcome state={newState} pending={newPending} />
       </form>
     </div>
   );

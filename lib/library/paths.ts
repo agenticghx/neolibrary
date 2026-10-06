@@ -435,34 +435,85 @@ export async function addSection(db: Db, ownerId: string, pathId: string, title:
 /** Words that are not part of a person's name: joining words and name particles. */
 const NOT_NAMES = new Set(["and", "the", "with", "by", "et", "al", "ed", "eds", "jr", "sr", "de", "da", "di", "du", "del", "der", "den", "des", "la", "le", "van", "von"]);
 
-/** An author's name words: lower case, no accents or punctuation, initials and particles dropped ("Kuhn, Thomas S." → kuhn, thomas). */
-export function authorWords(author: string): Set<string> {
-  return new Set(
-    author
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 1 && !NOT_NAMES.has(w)),
-  );
+/** A name's words: lower case, no accents or punctuation, initials and particles dropped ("Thomas S. Kuhn" → thomas, kuhn). */
+const nameWords = (name: string) =>
+  name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 1 && !NOT_NAMES.has(w));
+
+/**
+ * The surnames in an author line. With "&", "and" or ";" the line lists
+ * people, and commas separate them too ("Brealey, Myers & Allen" → brealey,
+ * myers, allen); one comma alone is "Surname, Given names" ("Le Guin,
+ * Ursula K." → guin); otherwise each person's last name word ("Thomas S.
+ * Kuhn" → kuhn).
+ */
+function surnames(author: string): Set<string> {
+  const list = /&|;|\sand\s/i.test(author);
+  const people = author.split(list ? /&|;|\sand\s|,/i : /;/);
+  const comma = !list && (author.match(/,/g) ?? []).length === 1;
+  const out = new Set<string>();
+  for (const person of people) {
+    const words = nameWords(comma ? person.split(",")[0] : person);
+    if (comma) words.forEach((w) => out.add(w));
+    else if (words.length) out.add(words[words.length - 1]);
+  }
+  return out;
 }
 
-/** Two authors agree when either is blank or they share a name word ("Bakke" and "Gretchen Bakke"; "Gleick, James" and "James Gleick"). */
+/**
+ * Two authors agree when either is blank or a surname matches ("Gleick,
+ * James" and "James Gleick"; "Bakke" and "Gretchen Bakke"). A shared given
+ * name does not count ("John Donne" and "John Keats" are two authors).
+ */
 export function sameAuthor(a: string, b: string): boolean {
-  const x = authorWords(a);
-  const y = authorWords(b);
+  const x = surnames(a);
+  const y = surnames(b);
   return !x.size || !y.size || [...x].some((w) => y.has(w));
 }
 
 /** Lower case, spaces made one: for comparing whole titles. */
-const plain = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+export const plainTitle = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/** The whole title, normalised as normaliseTitle does but keeping any subtitle. */
+const wholeTitle = (title: string) =>
+  title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/**
+ * Whether a title and author could be this library book: the same short
+ * title (a title with no Latin letters: the same whole title), authors that
+ * agree, and not two different subtitles ("Volume I" and "Volume II" are
+ * two books; "Chaos" can be "Chaos: Making a New Science").
+ */
+export function sameBook(title: string, author: string, book: { title: string; author: string }): boolean {
+  const key = normaliseTitle(title);
+  if (!key) return plainTitle(book.title) === plainTitle(title) && sameAuthor(author, book.author);
+  if (normaliseTitle(book.title) !== key || !sameAuthor(author, book.author)) return false;
+  const subtitled = (t: string) => wholeTitle(t) !== normaliseTitle(t);
+  return !(subtitled(title) && subtitled(book.title) && wholeTitle(title) !== wholeTitle(book.title));
+}
+
+/** The one book a title could be, among those sameBook allows: the only one, or the one whose whole title matches; undefined when none or several. */
+export function pickBook<T extends { title: string }>(candidates: T[], title: string): T | undefined {
+  if (candidates.length === 1) return candidates[0];
+  const exact = candidates.filter((b) => plainTitle(b.title) === plainTitle(title));
+  return exact.length === 1 ? exact[0] : undefined;
+}
 
 /**
  * Adds a title at the end of a section: a book in the library, or a new
  * title (name and author) with nothing available yet. A new title reuses a
- * library book with the same short title only when the authors agree (or
- * either is blank); another author makes a separate title. When more than
- * one book could be meant, it asks for the author.
+ * library book only when it could be that book (sameBook: short title,
+ * author, subtitle); otherwise it makes a separate title. When more than one
+ * book could be meant, it asks. A book already in the section is refused.
  */
 export async function addTitle(
   db: Db,
@@ -488,21 +539,29 @@ export async function addTitle(
     const title = clean(input.title);
     if (!title) throw new PathError("Give the title a name.");
     const author = clean(input.author);
-    const key = normaliseTitle(title);
     const mine = await db
       .select(fields)
       .from(books)
       .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
-    // The same short title (a title with no Latin letters: the same whole title) and an author that agrees.
-    const same = mine.filter((b) => (key ? normaliseTitle(b.title) === key : plain(b.title) === plain(title)) && sameAuthor(author, b.author));
-    const exact = same.filter((b) => plain(b.title) === plain(title));
-    const match = same.length === 1 ? same[0] : exact.length === 1 ? exact[0] : undefined;
+    const same = mine.filter((b) => sameBook(title, author, b));
+    const match = pickBook(same, title);
     if (!match && same.length > 1) {
-      throw new PathError(`More than one book in your library is called ${title}. Add the author to say which, or choose it from your library.`);
+      throw new PathError(
+        author
+          ? `More than one book in your library could be ${title} by ${author}. Choose it from your library.`
+          : `More than one book in your library is called ${title}. Add the author to say which, or choose it from your library.`,
+      );
     }
     reused = Boolean(match);
-    book = match ?? (await db.insert(books).values({ ownerId, title, author }).returning(fields))[0];
+    if (!match) book = (await db.insert(books).values({ ownerId, title, author }).returning(fields))[0];
+    else book = match;
   }
+  // A reading plan lists a book once per section.
+  const [twice] = await db
+    .select({ id: slots.id })
+    .from(slots)
+    .where(and(eq(slots.pillarId, pillarId), eq(slots.bookId, book.id)));
+  if (twice) throw new PathError(`${book.title} is already in this section.`);
   const positions = await db.select({ position: slots.position }).from(slots).where(eq(slots.pillarId, pillarId));
   const position = positions.reduce((max, s) => Math.max(max, s.position + 1), 0);
   const [slot] = await db.insert(slots).values({ pillarId, position, kind, bookId: book.id }).returning({ id: slots.id });

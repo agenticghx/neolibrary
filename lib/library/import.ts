@@ -3,7 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { ImportError, readBook } from "./ebook";
-import { normaliseTitle, UUID } from "./paths";
+import { pickBook, sameBook, UUID } from "./paths";
 import { buildSections } from "./sections-store";
 
 export type ImportResult =
@@ -12,9 +12,12 @@ export type ImportResult =
 
 /**
  * Adds an uploaded file to the owner's library:
- * - a wanted book (no file yet) with the same title gets the file attached,
- *   so it lights up in its Path instead of appearing twice;
- * - a title already on the shelf with a file is reported as a duplicate;
+ * - a wanted book (no file yet) that it could be (lib/library/paths.ts
+ *   sameBook: the same short title, an author that agrees, no two different
+ *   subtitles) gets the file attached, so it lights up in its Path instead
+ *   of appearing twice; when several waiting titles could be it, the reader
+ *   is asked to choose (Choose the book file on the right title);
+ * - a book already on the shelf with a file is reported as a duplicate;
  * - otherwise a new book is created.
  * With `attachTo` (M14 step 5: "Add the book file" on a title not available
  * yet), the file goes to that title whatever its name: it must be the
@@ -40,15 +43,19 @@ export async function importBook(
     if (target.fileKey) throw new ImportError("That title already has its book file.");
     wanted = target;
   } else {
-    const key = normaliseTitle(info.title);
     const mine = await db
-      .select({ id: books.id, title: books.title, fileKey: books.fileKey })
+      .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey })
       .from(books)
       .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
-    const sameTitle = mine.filter((b) => normaliseTitle(b.title) === key);
-    const withFile = sameTitle.find((b) => b.fileKey);
+    // Typed titles (M14 step 5) can make two waiting titles with one short title and two authors: the author decides.
+    const same = mine.filter((b) => sameBook(info.title, info.author, b));
+    const withFile = same.find((b) => b.fileKey);
     if (withFile) return { status: "duplicate", bookId: withFile.id, title: withFile.title };
-    wanted = sameTitle.find((b) => !b.fileKey);
+    const waiting = same.filter((b) => !b.fileKey);
+    wanted = pickBook(waiting, info.title);
+    if (!wanted && waiting.length > 1) {
+      throw new ImportError("More than one title waiting in your library could be this book. Open the right one and use Choose the book file.");
+    }
   }
 
   const bookId =

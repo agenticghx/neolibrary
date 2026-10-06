@@ -15,6 +15,7 @@
 
 .title {
   font-size: var(--text-3xl);
+  overflow-wrap: anywhere; /* a one-word name longer than a phone is wide */
 }
 
 .lede {

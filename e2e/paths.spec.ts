@@ -18,6 +18,12 @@ test("the owner's library opens on the Hidden Machinery path, in reading order",
   const expected = hiddenMachinery.pillars.filter((p) => p.group !== "master").map((p) => p.title);
   expect(pillarTitles).toEqual(expected);
 
+  // The letters are read out as the reading list's own words.
+  const first = page.getByTestId("pillar").first();
+  await expect(first.getByText("Narrative, read first", { exact: true })).toHaveCount(1);
+  await expect(first.getByText("Engineering, read second", { exact: true })).toHaveCount(1);
+  await expect(first.locator("ol li > span:first-child").first()).toHaveAttribute("aria-hidden", "true");
+
   // N before E inside every pillar that has both.
   for (const pillar of await page.getByTestId("pillar").all()) {
     const kinds = await pillar.locator("ol li > span:first-child").allTextContents();

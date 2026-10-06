@@ -153,7 +153,7 @@ export async function renamePathAction(_: PathFormState, data: FormData): Promis
     throw e;
   }
   pathPages(String(data.get("slug")));
-  return { error: null, done: "Saved." };
+  return { error: null, done: "Saved the name and description." };
 }
 
 export async function addSectionAction(_: PathFormState, data: FormData): Promise<PathFormState> {

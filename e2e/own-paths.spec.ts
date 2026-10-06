@@ -57,6 +57,9 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   // An empty Path's edit page starts with what to do next; the description kept its line break.
   const h2s = page.getByRole("main").getByRole("heading", { level: 2 });
   await expect(h2s).toHaveText(["Next: add a first section", "Name"]);
+  expect((await page.getByRole("link", { name: "See the path" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const inSidebar = page.getByRole("complementary", { name: "Sidebar" });
+  await expect(inSidebar.getByRole("link", { name: /^Philosophy of science No sections yet$/ })).toBeVisible();
   await expect(page.getByLabel("What it is for (optional)")).toHaveValue("How science changes its mind.\nAnd why it takes so long.");
   await fourLooks(page, "path-edit-empty", () => expect(h2s.first()).toHaveText("Next: add a first section"));
 
@@ -93,12 +96,13 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
 
   await addSection("Revolutions");
   await expect(h2s).toHaveText(["Name", "Revolutions"]);
+  await expect(inSidebar.getByRole("link", { name: /^Philosophy of science 0 of 1 section started$/ })).toBeVisible();
 
   // The Path page with a section and no titles yet.
   await page.goto("/paths/philosophy-of-science");
   await expect(page.getByTestId("pillar")).toHaveCount(1);
   await expect(page.getByText("1 section · 0 available, 0 not available yet")).toBeVisible();
-  await expect(onPath(page, "Revolutions").getByText("No titles yet.")).toBeVisible();
+  await expect(onPath(page, "Revolutions").getByText("No titles yet. Edit the path to add some.", { exact: true })).toBeVisible();
   await expect(page.getByText("No sections yet.")).toHaveCount(0);
   await page.goto("/paths/philosophy-of-science/edit");
 
@@ -173,6 +177,12 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   await expect(page.getByText("Philosophy of science › Revolutions · Story first")).toBeVisible();
   await expect(page.getByRole("main").locator("figure").getByText(/^[NE]$/)).toHaveCount(0);
   await expect(page.getByText("Not available yet. Add the book file (EPUB or PDF) and it attaches here.")).toBeVisible();
+  // A file that is not a book is refused in words, and keyboard focus stays on the picker for the next try.
+  const picker = page.getByLabel("Choose the book file");
+  await picker.focus();
+  await picker.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Not a book.") });
+  await expect(page.getByTestId("attach-status")).toHaveText("Only EPUB and PDF files can be added.");
+  await expect(picker).toBeFocused();
   await page.getByLabel("Choose the book file").setInputFiles({
     name: "kuhn.pdf",
     mimeType: "application/pdf",
@@ -235,26 +245,59 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   await newInFiction.getByRole("button", { name: "Add a new title to Fiction about science", exact: true }).click();
   await expect(newInFiction.getByRole("status")).toHaveText("Added Frankenstein by Mary Shelley: it was already in your library, so this is the same book.");
 
-  // Another author's book is another title, even when the short titles match; the same author written another way is the same book.
+  // Another author's book is another title, even when the short titles match.
   await addNew("Revolutions", "Chaos: Making a New Science", "James Gleick", "Any order");
   await addNew("Revolutions", "Chaos: A Very Short Introduction", "Leonard Smith", "Any order");
   expect(await titlesIn(page, "Revolutions")).toEqual(["The Structure of Scientific Revolutions", "Chaos: Making a New Science", "Chaos: A Very Short Introduction"]);
+  // Two books could be meant: the reader is asked, and what they typed and chose stays in the form.
+  const newTitleIn = section(page, "Fiction about science").getByRole("form", { name: "Add a new title to Fiction about science" });
+  await newTitleIn.getByLabel("Title").fill("Chaos");
+  await newTitleIn.getByLabel("How to read it").selectOption({ label: "Story first" });
+  await newTitleIn.getByRole("button", { name: "Add a new title to Fiction about science", exact: true }).click();
+  await expect(newTitleIn.getByRole("status")).toHaveText("More than one book in your library is called Chaos. Add the author to say which, or choose it from your library.");
+  await expect(newTitleIn.getByLabel("Title")).toHaveValue("Chaos");
+  await expect(newTitleIn.getByLabel("How to read it")).toHaveValue("N");
+  // With the author (written another way), it is that book, and the message names it.
+  await newTitleIn.getByLabel("Author").fill("Gleick");
+  await newTitleIn.getByRole("button", { name: "Add a new title to Fiction about science", exact: true }).click();
+  await expect(newTitleIn.getByRole("status")).toHaveText(
+    "Added Chaos: Making a New Science by James Gleick: it was already in your library, so this is the same book.",
+  );
+  await expect(newTitleIn.getByLabel("Title")).toHaveValue(""); // cleared after a success
+  // A section lists a book once.
   const newInRevolutions = section(page, "Revolutions").getByRole("form", { name: "Add a new title to Revolutions" });
   await newInRevolutions.getByLabel("Title").fill("chaos");
   await newInRevolutions.getByLabel("Author").fill("Gleick");
   await newInRevolutions.getByRole("button", { name: "Add a new title to Revolutions", exact: true }).click();
+  await expect(newInRevolutions.getByRole("status")).toHaveText("Chaos: Making a New Science is already in this section.");
+  // A title typed without its author that matches one book joins it, and says how to undo a wrong guess.
+  await newInRevolutions.getByLabel("Title").fill("The Grid");
+  await newInRevolutions.getByLabel("Author").fill("");
+  await newInRevolutions.getByRole("button", { name: "Add a new title to Revolutions", exact: true }).click();
   await expect(newInRevolutions.getByRole("status")).toHaveText(
-    "Added Chaos: Making a New Science by James Gleick: it was already in your library, so this is the same book.",
+    "Added The Grid by Bakke: it was already in your library, so this is the same book. If you meant another book, remove it and add it again with its author.",
   );
+  // A double click moves a title one place, not two.
+  await section(page, "Revolutions").getByRole("button", { name: "Move down The Structure of Scientific Revolutions" }).dblclick();
+  await expect(section(page, "Revolutions").getByTestId("titles-status")).toHaveText("Moved The Structure of Scientific Revolutions to 2 of 4.");
+  expect(await titlesIn(page, "Revolutions")).toEqual(["Chaos: Making a New Science", "The Structure of Scientific Revolutions", "Chaos: A Very Short Introduction", "The Grid"]);
+  // Adding from the keyboard keeps focus on the Add button that was pressed.
+  const libraryIn = section(page, "Revolutions").getByRole("form", { name: "Add a book from your library to Revolutions" });
+  await libraryIn.getByLabel("From your library").selectOption({ label: "Frankenstein, by Mary Shelley" });
+  const addFromLibrary = libraryIn.getByRole("button", { name: "Add a book from your library to Revolutions", exact: true });
+  await addFromLibrary.focus();
+  await page.keyboard.press("Enter");
+  await expect(libraryIn.getByRole("status")).toHaveText("Added Frankenstein.");
+  await expect(addFromLibrary).toBeFocused();
 
-  // Renaming: the description can change. (Saving twice shows "Saved." twice; that a screen reader reads it
+  // Renaming: the description can change. (Saving twice shows the message twice; that a screen reader reads it
   // again is the Outcome unit test's job: the line is empty while the form sends.)
   const name = page.getByRole("region", { name: "Name", exact: true });
   await name.getByLabel("What it is for (optional)").fill("How science changes its mind.");
-  await name.getByRole("button", { name: "Save name" }).click();
-  await expect(name.getByRole("status")).toHaveText("Saved.");
-  await name.getByRole("button", { name: "Save name" }).click();
-  await expect(name.getByRole("status")).toHaveText("Saved.");
+  await name.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(name.getByRole("status")).toHaveText("Saved the name and description.");
+  await name.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(name.getByRole("status")).toHaveText("Saved the name and description.");
   await page.goto("/paths/philosophy-of-science");
   expect(await page.getByText("How science changes its mind.").innerText()).toBe("How science changes its mind.");
 
@@ -273,6 +316,12 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
 
 test("a Path named Constructor is your own: sections and Edit path", async ({ page }) => {
   await page.goto("/paths/new");
+  // A name of spaces is refused in words, and the description stays.
+  await page.getByLabel("Name").fill("   ");
+  await page.getByLabel("What it is for (optional)").fill("Kept after a refusal.");
+  await page.getByRole("button", { name: "Make the path" }).click();
+  await expect(page.getByText("Give the path a name.")).toBeVisible();
+  await expect(page.getByLabel("What it is for (optional)")).toHaveValue("Kept after a refusal.");
   await page.getByLabel("Name").fill("Constructor");
   await page.getByRole("button", { name: "Make the path" }).click();
   await expect(page).toHaveURL(/\/paths\/constructor\/edit$/);
@@ -287,4 +336,15 @@ test("a Path named Constructor is your own: sections and Edit path", async ({ pa
   await page.getByLabel("New section").press("Enter");
   await expect(page.getByTestId("edit-section")).toHaveCount(1);
   await expect(page.getByLabel("New section")).toBeFocused();
+
+  // A one-word name longer than a phone is wide wraps instead of pushing the page sideways.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/paths/new");
+  await page.getByLabel("Name").fill("Pneumonoultramicroscopicsilicovolcanoconiosis");
+  await page.getByRole("button", { name: "Make the path" }).click();
+  await expect(page).toHaveURL(/\/paths\/pneumonoultramicroscopicsilicovolcanoconiosis\/edit$/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.goto("/paths/pneumonoultramicroscopicsilicovolcanoconiosis");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

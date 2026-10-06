@@ -56,14 +56,15 @@ export function AttachFile({ bookId, hasFile, readLinkId }: { bookId: string; ha
       {hasFile ? null : (
         <label className={styles.pick}>
           Choose the book file
+          {/* Not disabled while sending: that would drop keyboard focus; a second pick is ignored instead. */}
           <input
             type="file"
             accept={ACCEPT}
             className="visually-hidden"
-            disabled={busy}
+            aria-disabled={busy || undefined}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void send(f);
+              if (f && !busy) void send(f);
               e.target.value = "";
             }}
           />
