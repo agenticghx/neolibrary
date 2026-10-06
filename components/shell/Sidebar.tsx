@@ -1,3 +1,4 @@
+import Form from "next/form";
 import Link from "next/link";
 import { signOutAction } from "@/app/(app)/actions";
 import { Mark } from "@/components/Mark";
@@ -45,13 +46,14 @@ export function Sidebar({ user, paths, collections }: Props) {
         <span className={styles.wordmark}>Neolibrary</span>
       </Link>
       {/* No search button: the /search page has its own button named "Search" (tests find it by that name). */}
-      <form action="/search" className={styles.search} role="search" aria-label="Search your library">
+      {/* Form, not form: searching moves within the app (reading aloud goes on), not to a whole new page. */}
+      <Form action="/search" className={styles.search} role="search" aria-label="Search your library">
         <label htmlFor="sidebar-search" className="visually-hidden">
           Search your library
         </label>
         <Icon name="search" className={styles.searchIcon} />
         <input id="sidebar-search" type="search" name="q" placeholder="Search books and notes" className={styles.searchInput} />
-      </form>
+      </Form>
       <nav aria-label="Main" className={styles.nav}>
         <ul className={styles.group}>
           <Item href="/" icon="home" label="Home" />

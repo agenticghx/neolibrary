@@ -20,7 +20,7 @@ export function CrossLinksPanel({ links }: { links: CrossLink[] }) {
               </p>
               <blockquote className={styles.noteQuote}>“{l.quote.length > 220 ? `${l.quote.slice(0, 220)}…` : l.quote}”</blockquote>
               {l.note ? <p className={styles.noteBody}>{l.note}</p> : null}
-              {/* A link, not a page load: reading aloud goes on while you move to the other book. */}
+              {/* A link within the app, not a whole new page (the app's read-aloud player lives across pages). */}
               <Link className={styles.backLink} href={`/books/${l.bookId}/read?at=${encodeURIComponent(l.cfi)}`}>
                 Open in {l.bookTitle}
               </Link>

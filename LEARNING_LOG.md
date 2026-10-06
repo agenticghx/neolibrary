@@ -1096,3 +1096,60 @@ browser mutations.
   the highlight whatever the player does, so only the new test sees it.
 **Lesson.** Move logic first, untouched; change only what it talks to. A
 portal let the bar keep its timing and look while its owner moved.
+
+### Iteration 47 · 2026-10-06 11:47 (the traced run's log; from its file) · Step 6a: one failure that would not come back · unexplained
+
+**Hypothesis.** The new tests or the provider made `readalong.spec.ts:661`
+(a phone, large text, the page turning as the voice reads) fail. In one of
+two local whole runs, its audio was paused at 6.6 s.
+**Evaluation.**
+- The player diagnostic from that run.
+- The test alone, then the read-along group, then a whole run with a
+  temporary tracer. The tracer wraps `HTMLMediaElement.prototype.pause`
+  inside `recordPlayer` (`e2e/listen.ts`), so every call records its stack
+  and whether the element is still in the page, and `playUntil`'s
+  diagnostic prints them.
+**Result.**
+- **The failing run:** the element was still in the page, with one load and
+  no error. Its events were `play`, `waiting`, `loadstart`, `playing`, then
+  `pause` at 6.6 s. Only two lines in the app call `pause()`: changing the
+  voice and the Pause button. The test does neither before its check.
+- **A first repeat of the test alone was invalid:** `--repeat-each 6` ran
+  the copies in parallel, and their imports into one book collided.
+- **Then 9 passes:** 4 alone with one worker, the read-along group twice
+  (`23 passed`), the traced whole run (`263 passed (6.8m)`), and #85's CI
+  in both engines.
+**Lesson.** `--repeat-each` repeats in parallel unless `--workers 1`: a
+repeat run of one test tests something else. A failure that will not come
+back gets a trap (the tracer above), not a story.
+
+### Iteration 48 · 2026-10-06 11:59 · Step 6a review, and its fixes · success (CI to come)
+
+**Hypothesis.** Reviewers holding the mapped constraints find what a green
+suite cannot: behaviour at the new joints (leave, come back, switch book).
+**Evaluation.** Four reviewers (tests, reader, app shell, moved logic),
+each with one analyst's report, read #85's diff; a skeptic per reviewer
+followed. I checked each finding below against the code before fixing it.
+**Result.** Five problems were real, plus one note:
+1. **Back on a book still read aloud, the reader attached before its book
+   had opened.** The "show where it is" call was lost, and × could throw,
+   leaving the audio playing. Now the reader attaches only once the book
+   is open, and closing the bar copes with a half-open book.
+2. **The new test clicked × before the book was open** (a race on slower
+   machines). It now waits for the book, then checks that a word is lit
+   again.
+3. **Opening another book kept the first one playing, with no bar.** Now
+   opening another book stops it, as before; the question is Open unknowns
+   row 9.
+4. **Both search boxes loaded a whole new page, which ended reading aloud.**
+   They are now `next/form`.
+5. **A Listen never played outlived the reader**, and came back later with
+   expired audio links. Now only a session that has played goes on, and
+   Home's "Listen from here" always starts at the reading position.
+6. **(Note)** Back-to-back local runs against one reused server can hit the
+   sign-in limit. No code change.
+
+Whole suite on these fixes before the last one (`fresh`): `265 passed (6.8m)`.
+**Lesson.** A refactor that makes state outlive a page creates new joints;
+test each one (leave, return, switch, search, sign out), not only the old
+paths.
