@@ -52,6 +52,8 @@ export type Player = {
   attach: (page: PlayerPage, bookId: string, startCfi: string, fresh?: boolean) => () => void;
   /** Stop reading aloud: the audio goes, as when the bar was closed. */
   stop: () => void;
+  /** Where the app's pages put the mini-player (M14 step 6b); returns the call that takes it away. */
+  attachMini: (slot: HTMLElement) => () => void;
 };
 
 const PlayerContext = createContext<Player | null>(null);
@@ -73,6 +75,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   /** `started`: it has played. Only then does it outlive the reader (one never played would come back later with stale data). */
   const [session, setSession] = useState<{ id: number; bookId: string; startCfi: string; started: boolean } | null>(null);
   const [page, setPage] = useState<PlayerPage | null>(null);
+  const [miniSlot, setMiniSlot] = useState<HTMLElement | null>(null);
   const nextId = useRef(0);
 
   // Signed out: nothing plays on the sign-in page. (Adjusting state to a new
@@ -95,13 +98,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
   const started = useCallback((id: number) => setSession((s) => (s && s.id === id && !s.started ? { ...s, started: true } : s)), []);
   const stop = useCallback(() => setSession(null), []);
+  const attachMini = useCallback((slot: HTMLElement) => {
+    setMiniSlot(slot);
+    return () => setMiniSlot((current) => (current === slot ? null : current));
+  }, []);
   const bookId = session?.bookId ?? null;
-  const player = useMemo(() => ({ bookId, attach, stop }), [bookId, attach, stop]);
+  const player = useMemo(() => ({ bookId, attach, stop, attachMini }), [bookId, attach, stop, attachMini]);
 
   return (
     <PlayerContext.Provider value={player}>
       {session ? (
-        <ListenSession key={session.id} bookId={session.bookId} startCfi={session.startCfi} page={page} onStarted={() => started(session.id)} />
+        <ListenSession
+          key={session.id}
+          bookId={session.bookId}
+          startCfi={session.startCfi}
+          page={page}
+          miniSlot={miniSlot}
+          onStarted={() => started(session.id)}
+        />
       ) : null}
       {children}
     </PlayerContext.Provider>

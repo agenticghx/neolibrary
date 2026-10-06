@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { firstVoice, loadSpeed, noteFor, saveSpeed, SPEED_KEY, usd, type Info, type NoteState } from "./session";
+import { firstVoice, loadSpeed, noteFor, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, type Info, type NoteState } from "./session";
 
 const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
@@ -114,3 +114,17 @@ describe("the speed kept on this device", () => {
     expect(loadSpeed(null)).toBe(1);
   });
 });
+
+describe("the mini-player's words", () => {
+  it("shortens a numbered chapter and keeps a titled one", () => {
+    expect(shortChapter("Chapter V")).toBe("Ch. V");
+    expect(shortChapter("CHAPTER 12 ")).toBe("Ch. 12");
+    expect(shortChapter("Story of the Door")).toBe("Story of the Door");
+    expect(shortChapter("")).toBe("");
+  });
+
+  it("names speeds as the design does", () => {
+    expect([0.75, 1, 1.25, 1.5, 1.75, 2].map(speedLabel)).toEqual(["0.75×", "1.0×", "1.25×", "1.5×", "1.75×", "2.0×"]);
+  });
+});
+

@@ -89,3 +89,9 @@ export function noteFor(s: NoteState): string {
   if (info.track && info.track.voice === s.voice) return "Saved audio: free to play.";
   return `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;
 }
+
+/** "Chapter V" as the mini-player says it: "Ch. V". A chapter with a title keeps it. */
+export const shortChapter = (label: string) => label.trim().replace(/^chapter\s+/i, "Ch. ");
+
+/** A speed as the player shows it: "1.0×", "1.25×", "2.0×". */
+export const speedLabel = (speed: number) => `${Number.isInteger(speed) ? speed.toFixed(1) : speed}×`;

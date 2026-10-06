@@ -1483,3 +1483,164 @@ test("M13 (e): in a PDF without an audiobook, Listen says how to add one", async
   await expect(bar).toContainText("In a PDF book, Listen plays your own audiobook: add one on the book's page.");
   await expect(bar.getByRole("button", { name: "Play" })).toBeDisabled();
 });
+
+// M14 step 6b: away from the reader, a mini-player at the foot of every page reads on.
+// An audiobook of 30 paragraphs (a few minutes), so 15 s skips stay inside it.
+async function miniReading(page: Page) {
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([{ title: "Mini", said: PARAGRAPHS.slice(40, 70).map((_, k) => 40 + k) }], "Mini reading");
+  await importReading(page, bookId, zip(), expected);
+  return { bookId, expected };
+}
+const audioTime = (page: Page) => page.evaluate(() => document.querySelector("audio")!.currentTime);
+
+test("M14 (6b): leaving the reader, the mini-player reads on: the sentence with its word lit, 15 s back and forward, and back to the page", async ({ page }) => {
+  test.setTimeout(120_000);
+  const { bookId, expected } = await miniReading(page);
+  const bar = await openListening(page, bookId, 40);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected[3].startMs + 100);
+
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini).toBeVisible();
+  await expect(mini).toContainText("The Strange Case of Dr. Jekyll and Mr. Hyde");
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The word being said, inside its sentence, moves on in reading order.
+  const seen: string[] = [];
+  await expect
+    .poll(
+      async () => {
+        const w = await mini.locator("mark").textContent().catch(() => null);
+        if (w && seen.at(-1) !== w) seen.push(w);
+        return seen.length;
+      },
+      { timeout: 20_000 },
+    )
+    .toBeGreaterThanOrEqual(3);
+  let k = 0;
+  for (const w of seen) {
+    while (k < expected.length && expected[k].word !== w) k++;
+    expect(k, `"${w}" in reading order, among ${seen.join(" ")}`).toBeLessThan(expected.length);
+  }
+  // (innerText: the sentence as shown; the phone's shorter one is in the page but hidden.)
+  const sentence = await mini.locator("p").first().innerText();
+  expect(PARAGRAPHS.slice(40, 70).some((p) => p.text.includes(sentence!.replace(/^…/, "").trim().slice(0, 40)))).toBe(true);
+
+  // Forward 15 s, then back 15 s (time goes on while the test clicks).
+  const t0 = await audioTime(page);
+  await mini.getByRole("button", { name: "Forward 15 seconds" }).click();
+  const t1 = await audioTime(page);
+  expect(t1 - t0).toBeGreaterThan(14.9);
+  expect(t1 - t0).toBeLessThan(16);
+  // The reading position follows the voice into the paragraph it now reads (listening counts as reading).
+  const cfis = PARAGRAPHS.slice(41, 70).map((p) => p.cfi);
+  await expect
+    .poll(async () => {
+      const books = (await (await page.request.get("/api/export")).json()).books as { id: string; position: string | null }[];
+      return cfis.includes(books.find((b) => b.id === bookId)!.position ?? "");
+    })
+    .toBe(true);
+  await mini.getByRole("button", { name: "Back 15 seconds" }).click();
+  const t2 = await audioTime(page);
+  expect(t1 - t2).toBeGreaterThan(14);
+  expect(t1 - t2).toBeLessThan(15.1);
+  // ...and the lit word goes back with it.
+  const near = expected.filter((w) => w.startMs >= t2 * 1000 - 500 && w.startMs <= t2 * 1000 + 4000).map((w) => w.word);
+  await expect.poll(() => mini.locator("mark").textContent(), { timeout: 10_000 }).toBeTruthy();
+  expect(near).toContain(await mini.locator("mark").textContent());
+  // At the start of the file, back 15 s stops at its start.
+  await page.evaluate(() => (document.querySelector("audio")!.currentTime = 5));
+  await mini.getByRole("button", { name: "Back 15 seconds" }).click();
+  expect(await audioTime(page)).toBeLessThan(1);
+
+  // Go to the page: the reader opens there, its own bar playing, the word lit; no mini-player in the reader.
+  await mini.getByRole("link", { name: "Go to the page" }).click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const back = page.getByRole("region", { name: "Read aloud" });
+  await expect(back.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(back).toHaveAttribute("data-word", /\S+/);
+  await expect(page.getByRole("region", { name: "Now playing" })).toHaveCount(0);
+  await back.getByRole("button", { name: "Stop reading aloud" }).click();
+  await expect(page.locator("audio")).toHaveCount(0);
+});
+
+test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { bookId, expected } = await miniReading(page);
+  const bar = await openListening(page, bookId, 40);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected[1].startMs + 100);
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  const pill = mini.getByRole("button", { name: "Playback speed: 1.0 times" });
+  await pill.click();
+  await expect(pill).toHaveAttribute("aria-expanded", "true");
+  const menu = mini.getByRole("group", { name: "Choose a speed" });
+  await expect(menu.getByRole("button")).toHaveText(["0.75×", "1.0×", "1.25×", "1.5×", "1.75×", "2.0×"]);
+  await expect(menu.getByRole("button", { name: "1.0×" })).toHaveAttribute("aria-pressed", "true");
+  await menu.getByRole("button", { name: "1.5×" }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(mini.getByRole("button", { name: "Playback speed: 1.5 times" })).toBeFocused();
+  expect(await page.evaluate(() => document.querySelector("audio")!.playbackRate)).toBe(1.5);
+  await expect(mini).toContainText("at 1.5×");
+  // Escape closes the menu.
+  await mini.getByRole("button", { name: "Playback speed: 1.5 times" }).click();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  // A new page load ends the session; the next Listen starts at 1.5x.
+  const again = await openListening(page, bookId, 40);
+  await expect(again.getByLabel("Speed")).toHaveValue("1.5");
+  await again.getByRole("button", { name: "Play" }).click();
+  await expect(again.getByRole("button", { name: "Pause" })).toBeVisible();
+  expect(await page.evaluate(() => document.querySelector("audio")!.playbackRate)).toBe(1.5);
+  await again.getByRole("button", { name: "Stop reading aloud" }).click();
+});
+
+test("M14 (6b): the mini-player sits at the foot of the page, above the tabs on a phone, hides nothing, and looks right", async ({ page }) => {
+  test.setTimeout(120_000);
+  const AxeBuilder = (await import("@axe-core/playwright")).default;
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir("screenshots", { recursive: true });
+  const { bookId, expected } = await miniReading(page);
+  const bar = await openListening(page, bookId, 40);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await playUntil(page, expected[2].startMs + 100);
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.locator("mark")).toBeVisible();
+  // Held still, so every look shows the same word.
+  await mini.getByRole("button", { name: "Pause" }).click();
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      // At the top of the long page the bar is on screen (held at the foot)...
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect(mini).toBeInViewport();
+      // ...and at its end it hides nothing: the page ends above it, and it ends above the tabs.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      const box = (await mini.boundingBox())!;
+      const content = (await page.locator("#content").boundingBox())!;
+      expect(content.y + content.height, `${name}: the page ends above the mini-player`).toBeLessThanOrEqual(box.y + 1);
+      if (name === "phone") {
+        const tabs = (await page.getByRole("navigation", { name: "Tabs" }).boundingBox())!;
+        expect(box.y + box.height, "the mini-player ends above the tabs").toBeLessThanOrEqual(tabs.y + 1);
+      } else {
+        expect(box.x, "beside the sidebar, not over it").toBeGreaterThanOrEqual(256);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: `screenshots/miniplayer-${name}-${scheme}${engine()}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+});
+

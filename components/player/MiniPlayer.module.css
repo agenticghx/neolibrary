@@ -1,0 +1,298 @@
+/* Where the app's pages put the mini-player: no box of its own, so the bar is a child of the column. */
+.slot {
+  display: contents;
+}
+
+/* The mini-player (M14 step 6b; the design's "PicksPlayer"): a raised bar held at the foot of the
+   app's column while a book is read aloud. It keeps its own place at the end of the column, so a
+   page scrolled to its end shows its last line above the bar, never under it. */
+.bar {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 var(--space-5) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+  color: var(--ink-900);
+}
+
+.sentence {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--text-read);
+  line-height: var(--leading-read);
+}
+
+.lit {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--highlight-active);
+  color: var(--ink-900);
+}
+
+/* The whole sentence on a wide screen; from a little before the word on a phone. */
+.narrow {
+  display: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cover {
+  flex: none;
+  width: 30px;
+  height: 45px;
+  border-radius: var(--radius-sm);
+  background-color: var(--cover-green);
+  box-shadow: var(--shadow-cover);
+}
+
+.book {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.where {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+}
+
+.skip,
+.play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.skip {
+  width: 44px;
+  height: 44px;
+  background-color: transparent;
+  color: var(--ink-900);
+}
+
+.play {
+  width: 48px;
+  height: 48px;
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.skip:disabled,
+.play:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.skip:hover:not(:disabled) {
+  background-color: var(--paper-sunken);
+}
+
+.play:hover:not(:disabled) {
+  background-color: var(--accent-strong);
+}
+
+.icon {
+  width: 24px;
+  height: 24px;
+}
+
+.playIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.gap {
+  flex: 0 0 var(--space-5);
+}
+
+.speedBox {
+  position: relative;
+  flex: none;
+}
+
+/* Ink on the raised bar with an accent border: accent-coloured text there is below 4.5:1 in the dark look. */
+.speed {
+  min-width: 60px;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 220px;
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.menuTitle {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.speeds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.speedChoice {
+  min-height: 44px;
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.speedChoice[aria-pressed="true"] {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.goTo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.goToIcon {
+  width: 18px;
+  height: 18px;
+}
+
+@media (width <= 48rem) {
+  .bar {
+    bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + var(--space-2));
+    margin: 0 var(--space-3) var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .sentence {
+    font-size: var(--text-sm);
+  }
+
+  .wide {
+    display: none;
+  }
+
+  .narrow {
+    display: inline;
+  }
+
+  /* Phone: the book on its own line, then one row of speed, back, play, forward and the page. */
+  .row {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-1);
+  }
+
+  .cover,
+  .gap {
+    display: none;
+  }
+
+  .book {
+    flex: 1 0 100%;
+    flex-direction: row;
+    order: -2;
+    gap: var(--space-1);
+    color: var(--ink-500);
+    font-size: var(--text-xs);
+  }
+
+  /* One line: a long title gives way (with "…"); the chapter and the time left stay whole. */
+  .title {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+  }
+
+  .where {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .where::before {
+    content: "· ";
+  }
+
+  .speedBox {
+    order: -1;
+  }
+
+  .speed {
+    min-width: 52px;
+    border-color: var(--rule);
+  }
+
+  .goToText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .goTo {
+    padding: 0;
+    width: 44px;
+    justify-content: center;
+  }
+}
