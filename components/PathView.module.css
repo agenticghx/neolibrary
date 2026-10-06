@@ -10,6 +10,7 @@
 
 .title {
   font-size: var(--text-3xl);
+  overflow-wrap: anywhere; /* a one-word name longer than a phone is wide */
 }
 
 .subtitle {
@@ -22,6 +23,7 @@
   max-width: var(--measure-read);
   color: var(--ink-700);
   line-height: var(--leading-read);
+  white-space: pre-line; /* a description keeps the reader's line breaks */
 }
 
 .track {
@@ -138,6 +140,11 @@
   font-weight: var(--weight-regular);
 }
 
+/* Your own Path's section names (M14 step 5): a long one-word name wraps (the reading list's names are short). */
+.ownPillarTitle {
+  overflow-wrap: anywhere;
+}
+
 .question {
   color: var(--ink-500);
   font-size: var(--text-sm);
@@ -171,6 +178,30 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+/* Your own Path's section (M14 step 5): every title in order, its word above its cover, the covers' tops in line. */
+.ownTitles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+/* "Story first", "Go deeper", "Any order": the edit page's words, in its small capitals. */
+.how {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.noTitles {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
 }
 
 .extras {
@@ -386,3 +417,31 @@
     padding: var(--space-5);
   }
 }
+
+/* The title, and Edit path beside it (M14 step 5). */
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+
+/* Ink text with an accent border: accent text on paper is under 4.5:1 in dark mode on raised panels. */
+.edit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--ink-900);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.edit:hover {
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+}
+

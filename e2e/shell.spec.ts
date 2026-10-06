@@ -30,7 +30,7 @@ test.describe("desktop sidebar", () => {
       ["PDFs", /\/library\?show=pdfs$/, "PDFs"],
       // A Path shows how many of its numbered pillars are started.
       [`Hidden Machinery 0 of ${PILLARS} pillars started`, /\/paths\/hidden-machinery$/, "Hidden Machinery"],
-      ["New path", /\/paths\?new=path$/, "Your paths"],
+      ["New path", /\/paths\/new$/, "A new path"],
     ];
     for (const [name, url, heading] of cases) {
       const link = sidebar(page).getByRole("link", typeof name === "string" ? { name, exact: true } : { name });

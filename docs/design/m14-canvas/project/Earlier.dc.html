@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Earlier prototypes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&amp;family=Source+Serif+4:opsz,wght@8..60,500&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1280px; box-sizing: border-box; padding: 40px 48px; background: #f3ede1; color: #243239; font-family: 'Source Sans 3', 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 24px">
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <h2 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 500; font-size: 31px">Earlier prototypes</h2>
+    <span style="font-size: 16px; color: #3c4b52">Pictures made by Codex on 2026-10-03, before the app was built (docs/design/prototypes/). The first two put the Path on the home page, which you have now changed.</span>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px">
+    <sc-for list="{{shots}}" as="s" hint-placeholder-count="9">
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: 8px">
+        <img src="{{s.src}}" alt="{{s.alt}}" style="width: 100%; height: 300px; object-fit: contain; background: #e9e1d1; border-radius: 6px">
+        <figcaption style="font-size: 15px; color: #3c4b52">{{s.caption}}</figcaption>
+      </figure>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1280}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var shots = [
+      { src: '/_blob/4c39b3c2f00497648b8658975f8c4b5e', caption: '01 · The Path shelf, desktop, light', alt: 'Hidden Machinery path with pillar columns of cloth book covers, light theme' },
+      { src: '/_blob/bd756476f41859f536e6f0f3c821138b', caption: '02 · The Path shelf, desktop, dark', alt: 'Hidden Machinery path in the dark theme' },
+      { src: '/_blob/605106bf49575b7becf3ae7fd502f1bd', caption: '03 · The reader, desktop, light', alt: 'Prototype of the reader on desktop, light theme' },
+      { src: '/_blob/02f62f484ff306419c41676411d37e7d', caption: '04 · The reader with an AI rewrite, desktop, dark', alt: 'Prototype of the reader showing an AI rewrite, dark theme' },
+      { src: '/_blob/d21e199d769bc96d21a44d07ccedcadb', caption: '05 · Read and listen, phone, light', alt: 'Phone reader with the spoken words highlighted and a player at the bottom' },
+      { src: '/_blob/8771ced3ab6717f2a5e019da500ecea0', caption: '06 · A concept card (a silicon wafer)', alt: 'Prototype of a concept card about a silicon wafer' },
+      { src: '/_blob/d6b2ca1b6b0a8233eac6d916c30d588c', caption: '07 · Greyed covers for titles not available yet (old wording on the image)', alt: 'Six undyed cloth covers for titles with no book file or audio yet' },
+      { src: '/_blob/96b6ac3dce18b15935623b4114a6e3d7', caption: '08 · App icon', alt: 'Prototype of the Neolibrary app icon' },
+      { src: '/_blob/9bb03a69fd464ecb0c2fe00469df1c53', caption: '09 · Sign-in, dark', alt: 'Prototype of the sign-in page, dark theme' }
+    ];
+    return { shots: shots };
+  }
+}
+</script>
+</body>
+</html>

@@ -36,6 +36,16 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 21 | 2026-10-06 00:35 | 3 CI | #75 passes on CI | run 37392862541 | flake (rerun) | a name containing another control's label breaks getByLabel |
 | 22 | 2026-10-06 01:00 | CI flakes | Why WebKit read-along tests fail on CI | 4 CI failures; a trace; worker count | partial (cause narrowed) | a late word at a page break is drawing time, not the network |
 | 23 | 2026-10-06 01:30 | 4 rebase; `main` CI | Step 4 on `main` is the tree that passed; `main` is green after #75 | `git diff --stat`; `npm run check`; run 37397581699 | success; flake on `main` | build output left by another branch breaks type checking |
+| 24 | 2026-10-06 02:07 | 4 CI, merge | #76 passes CI and merges as checked | run 37399604844 (2 attempts); `git diff --stat 55376be origin/main` | flake, then success | the same word late three times is a cause, not chance |
+| 25 | 2026-10-06 ~02:00 | CI flakes | The late word at the PDF page break is WebKit drawing the page | per-frame recordings decoded from two CI traces (read-only agent) | partial (cause located) | the check that failed read a hidden attribute; the visible highlight was on time |
+| 26 | 2026-10-06 02:40 | 5 review fixes | Every step-5 review finding can be fixed without changing Hidden Machinery, each guarded by a test that fails without it | 13-analyst locate workflow + critic; 404 unit tests; 29 unit mutations; 3 browser runs | success (browser mutations and second review running) | read the critic even when the fixes are in: it found two of my own mistakes |
+| 27 | 2026-10-06 02:52 | 5 browser mutations | Browser mutations can run on a database snapshot taken after `home` | B1 on the snapshot | failure (method), redone with a control | a snapshot needs its login state; never skip the control run |
+| 28 | 2026-10-06 03:10 | 5 browser mutations | Each step-5 UI fix has a browser test that fails without it | 2 control runs + 29 browser mutations on a snapshot | success | read where each mutation fails, not just that it fails |
+| 29 | 2026-10-06 03:35 | 5 second review | The committed fixes (85ede30) are ready | 5 lens reviewers, 2 skeptics per finding, a critic | failure (29 findings, none refuted), fixed in two rounds | a fix can create the bug it guards against elsewhere: check every other caller |
+| 30 | 2026-10-06 03:41 | 5 round-2 mutations | Each second-review fix has a test that fails without it | 2 controls + 12 browser and 9 unit mutations | success, one survivor explained | a guard you cannot make fail in a test is a claim, not a check: say so |
+| 31 | 2026-10-06 03:56 | 5 round 3 | The critic's additions hold, each with a failing-without-it test | 13 unit + 3 browser mutations; chain 200 passed | success | |
+| 32 | 2026-10-06 04:13 | 5 whole suite | Step 5 passes the whole suite from a fresh database | 2 whole runs | flake, then success | a timing check that fails once is one sample: run it again before deciding |
+| 33 | 2026-10-06 04:40 | 5 CI (#77) | Only the planned images differ; Hidden Machinery's page does not | run 37431776866 | success (images refreshed) | an image passing within tolerance is not proof it is unchanged |
 
 ## Lessons so far
 
@@ -522,3 +532,236 @@ checking after switching branches: clear it before `npm run check`.
 failure of the known kind, re-run the failed job. The investigation stays
 before step 6a.
 
+### Iteration 24 · 2026-10-06 02:07 · Step 4 CI and merge (#76) · flake, then success
+
+**Hypothesis.** #76 (55376be: step 4 rebased, ledger) passes CI and merges
+as the checked commit.
+**Evaluation.** CI run 37399604844; `gh run rerun 37399604844 --failed`;
+after the merge, `git diff --stat 55376be origin/main`.
+**Result.** Attempt 1: lint, types, unit, Postgres, hygiene pass; browser
+`1 failed`, `4 did not run`, `243 passed (14.8m)`: `readalong.spec.ts:1123`
+(readalong-safari), `"most" (word 51) shown 100 ms after it starts` (the
+check needs under 100). Every visual test passed, so step 4 changed no
+reference image, as predicted. Attempt 2 (the failed job only): `248 passed
+(15.3m)`. Merged with `--match-head-commit`: `main` cb5018b; the diff
+printed nothing.
+**Interpretation.** Third failure at the same word: 116 ms (#75 run 1),
+112 ms (`main`, run 37397581699), 100 ms (#76). A cause that repeats at one
+place, not chance.
+**Lesson.** When a flake keeps landing on the same assertion, stop
+re-running and find what the assertion actually reads (Iteration 25).
+**Next experiment.** Rebase step 5 onto `main`; the investigation stays
+after step 5 and 3b, as the handoff orders.
+
+### Iteration 25 · 2026-10-06 ~02:00 · WebKit read-along on CI · partial (cause located)
+
+**Hypothesis.** The late word 51 at the PDF page break (`:1123`) is WebKit
+drawing the next PDF page.
+**Evaluation.** A read-only agent decoded the test's own per-frame
+recording (stored in each trace) from `main`'s run 37397581699 and #75's
+run 37392862541 (attempt 1), lined up with the trace's events (clock
+caveat: about 3 ms).
+**Result.** The page's own highlight lit "most" on time, 30.5 ms and 47 ms
+after the word starts. What failed is the Listen bar's `data-word`
+attribute (React state, `ListenBar.tsx:459`, shown nowhere on screen): two
+frames later, because the page's main thread was blocked 49 ms and 62 ms
+right after the page turn. In both runs pdf.js logged `Cannot load system
+font: Times-Italic` inside the longest gap: page 2 is the first to use
+italic (a footnote), and with `useSystemFonts` on, pdf.js first tries 16
+local font names, which all fail on CI's Linux. Passing WebKit runs light
+words 29-91 ms late (Chromium 9-29 ms); the median over all 117 words is
+25.4 ms. The other signatures are separate: `:727` "117 ms" is an EPUB
+(one 106 ms gap right after a 640 s seek), `:727` "stall" is WebKit's
+media pipeline (range requests cancelled, then 45 s of nothing), and
+`:241` is Playwright's `setInputFiles` on the folder picker hanging while
+the page already said "Done.".
+**Interpretation.** Not M14 code, and not the drawing of the page as such:
+a font lookup on first use blocks the thread, and the bar's update waits
+behind it. The 100 ms limit stays.
+**Lesson.** Before calling a timing failure a flake, find out what the
+failing check reads: here a hidden attribute lagged the visible highlight.
+**Next experiment.** In the investigation (after step 5 and 3b): load the
+next page's fonts and drawing ahead (`lib/reader/pdf-book.ts`), add
+`performance.mark`s around the turn and print the phase times before the
+assertion (today the timing line prints only when the test passes);
+compare five CI runs before and after. `useSystemFonts: false` would also
+remove the lookup, but changes how PDFs without their own fonts look: a
+choice for Samuel. Files: the session's scratchpad `flake/`
+(`main-recording.json`, `pr75a1-recording.json`, `decode.py`).
+
+### Iteration 26 · 2026-10-06 02:40 · Step 5 review fixes · success (browser mutations and a second review still running)
+
+**Hypothesis.** All findings of the two step-5 reviews (handoff §4b) can be
+fixed without changing Hidden Machinery, each guarded by a test that fails
+without its fix.
+**Action.** A read-only workflow: 13 analysts each confirmed a cluster of
+findings against the code (file:line, a minimal fix, the guarding test),
+then a critic checked coverage and conflicts. Every finding held; one was
+wider than reported (focus is lost on every Move down: React re-inserts the
+moved row). Fixes in 85ede30 (list in the commit message). Rebased first:
+`git rebase --onto origin/main 456c475` in a worktree, ledger conflicts
+resolved keeping both sides' entries; `git diff --stat 55d9016 HEAD` showed
+only PROGRESS.md and LEARNING_LOG.md.
+**Evaluation.** `npm run check`; unit mutations with `scripts/m14/mutate.py`;
+`npx playwright test --project own-paths --ignore-snapshots` from a fresh
+database; the screenshots.
+**Result.** `Tests 404 passed | 2 skipped (406)`. Unit mutations: 29 run, all
+caught in the end; three needed a better check first: D9 (CRLF to LF
+removed) survived because trimming each line also strips "\r" (a lone "\r"
+test now catches it); D11's patch matched twice and was refused; U8 (a loose
+id check in getBook) survived until a test asked getBook for 36 hyphens.
+Browser: `200 passed (2.1m)` three times. The screenshots showed three
+things the tests could not: covers bottom-aligned (a progress bar lifted
+one cover 12 px), hover borders where the last click was, and the other
+test's "Constructor" Path in the sidebar; fixed (top alignment, mouse moved
+away, tests in order). The critic, read after the fixes were in, found two
+mistakes of mine: my sentence in `docs/done.md` relaxed Samuel's definition
+of done (reverted; pages that need data are listed in `e2e/pages.ts` with
+the spec that covers them, so CI still requires their screenshots), and a
+keyed list moved the add-section form, taking focus out of "New section"
+(now fixed places, guarded by an Enter-then-focus test).
+**Interpretation.** The pending-blank status line, the per-section status
+and focus, and the reading-list lock cover the review; the upload race
+(S4) is in `docs/plan.md` "Later".
+**Lesson.** Moving a DOM node takes focus away: keep a form that must keep
+focus in a fixed place rather than in a list that reorders. And: React
+skips a form action when onSubmit calls preventDefault (react-dom's
+`defaultPrevented` branch), so a second click can be ignored without
+disabling, and dimming, every button.
+**Next experiment.** Browser mutations B1-B28 from a database snapshot
+taken after the `home` project (`scratchpad/mut-snap.sh`); a second review
+of 85ede30 (five lenses, two skeptics per finding); then the full suite,
+the PR, and CI's images.
+
+### Iteration 27 · 2026-10-06 02:52 · Step 5 browser mutations · failure (of the method), redone
+
+**Hypothesis.** Browser mutations run faster on a copy of the database
+taken after the `home` project: build the mutated app, serve it on the
+copy, run only `own-paths` with `--no-deps`.
+**Evaluation.** The first mutation of the batch, B1 (focus after Move and
+Remove removed).
+**Result.** `2 failed`, and both tests failed at their very first step
+(`getByLabel("Name").fill`, 30 s): the pages never loaded signed in. The
+saved login (`e2e/.auth/admin.json`) came from a later fresh run than the
+database copy, so its session was unknown there. Every mutation would
+have "failed", which reads as "caught". Stopped the batch (tree clean, no
+backup left), and redid it: the snapshot now holds the login state too,
+and the batch starts with control runs (no mutation; they must pass, or
+the batch stops).
+**Lesson.** A browser mutation is only evidence next to a control run on
+the same setup. A test environment copied from one run must carry
+everything that run made (database, files, saved logins).
+**Next experiment.** The batch with its controls.
+
+### Iteration 28 · 2026-10-06 03:10 (the batch's log; from its file) · Step 5 browser mutations · success
+
+**Hypothesis.** Each step-5 UI fix has a browser test that fails without it.
+**Evaluation.** The scratchpad's `mut-browser.sh`: a fresh chain to `home`
+(`198 passed (1.9m)`), a snapshot of its database, files and saved login;
+then for each mutation: build the broken app, serve it on a copy of the
+snapshot, run `own-paths` (or the Hidden Machinery tests in `flows`) with
+`--no-deps`; restore the file, check its checksum. Two mutations needing
+the earlier projects ran from a fresh database (`scripts/m14/mut-chain.sh`).
+**Result.** Controls (no mutation): `2 passed (10.5s)` and `3 passed (1.0s)`.
+Mutations B1-B28 (29 runs): every one failed a test, each at the assertion
+meant for it (focus after Move, focus on Read, the empty Path's heading
+order, the add form's message and focus after the first section, the
+attach message, the dimmed button's opacity, the sidebar's and /paths'
+words, the hidden text on Add, the visible "How to read it", line breaks,
+no letters on your own covers, the status naming the title, the stale tab
+with no error page and with its message, the chosen kind, the last Move
+down disabled, "Any order", authors in the library list, both directions
+of the reading-list flag, both kinds of place on the book page, the cover
+letter, Edit path and the edit page refused for Hidden Machinery, /stats'
+words, Hidden Machinery's sidebar words); every file restored.
+**Lesson.** A failing test is evidence only when it fails where it should:
+the log's `> line |` shows which assertion stopped the run.
+**Next experiment.** The second review's findings; then the full suite and
+the PR.
+
+### Iteration 29 · 2026-10-06 03:35 (the critic's report; from its file) · Step 5 second review · failure (of 85ede30), fixed
+
+**Hypothesis.** The committed fixes (85ede30) are ready for a PR.
+**Evaluation.** A workflow: five reviewers (correctness, UI words, access,
+"could each test fail?", regressions) read the commit through git only
+(the working tree was being mutated); two skeptics tried to refute each
+finding; a critic judged them and looked for what all missed.
+**Result.** 29 findings, 0 of 58 skeptic verdicts refuted any. The worst:
+my own C5 fix (typed titles match by author) made two waiting titles with
+one short title possible, while uploads still matched by short title only,
+so a dropped file could attach to the wrong title for good. Others: a
+shared given name counted as the same author (John Donne / John Keats);
+two volumes joined; the forms emptied what was typed when the server
+refused it (React resets a form after its action; `ActionForm` already
+worked around it); disabled buttons dropped keyboard focus; Hidden
+Machinery's N/E were read out with your-Path words; a book twice in one
+section; tests that could not fail. The critic added: a surname-only rule
+splits "Liu Cixin" / "Cixin Liu"; seeding Hidden Machinery has the same
+title-only join; a removed typo stays in the library for ever; a blank
+typed author is never filled in. Fixed in c2d5f16 and 420d9c7 (one
+shared `sameBook` / `pickBook` for typed titles, uploads and seeding;
+the forms on `ActionForm`'s pattern).
+**Lesson.** A fix can create the bug it prevents elsewhere: when a rule
+changes for one caller (typed titles), check every other caller of the
+same idea (uploads, seeding).
+
+### Iteration 30 · 2026-10-06 03:41 (the batch's log; from its file) · Step 5 round-2 mutations · success, one survivor explained
+
+**Evaluation.** `scratchpad/mut-browser2.sh` on the snapshot (controls first)
+and `scripts/m14/mutate.py`.
+**Result.** Controls `2 passed (11.6s)`, `1 passed (919ms)`. Browser
+B30-B41 and B37: 12 of 13 caught at their assertions. B33 (the
+same-moment ref removed from the Move guard) survived: React shows the
+form as sending before Playwright's second click; B33b (no guard at all)
+was caught (`to 3 of 4` instead of `2 of 4`). Unit R1-R9: R5 (no
+whole-title preference) survived because the subtitle rule had left one
+candidate in the old test; a new test (Poems / Poems: Selected) catches it.
+**Lesson.** When a guard cannot be made to fail in a test, say so in the
+PR instead of counting it as covered.
+
+### Iteration 31 · 2026-10-06 03:56 (the last chain run; from its file) · Step 5 round 3 · success
+
+**Evaluation.** Unit R10-R21 (`mutate.py`); browser B42-B44 with a control;
+`npx playwright test --project own-paths` from a fresh database.
+**Result.** All 12 unit mutations caught (people rule both ways, other
+scripts, seeding, blank author, the four "keep the book" conditions,
+empty sections, ties with fixed ids), after pinning two conditions no
+test reached (a typed title in a collection, or with a note). Browser:
+control `2 passed (11.9s)`; B42-B44 caught. Chain `200 passed (2.1m)`
+(three runs). `npx vitest run`: `417 passed | 2 skipped`.
+
+### Iteration 32 · 2026-10-06 04:13 · Step 5 whole suite · flake, then success
+
+**Hypothesis.** Step 5 (420d9c7 and its docs) passes the whole browser suite
+from a fresh database.
+**Evaluation.** `rm -rf .data/e2e .data/e2e-files && npx playwright test
+--ignore-snapshots`, twice; `npm run check`.
+**Result.** First run: `1 failed`, `4 did not run`, `254 passed (7.0m)`:
+`readalong.spec.ts:1225` (readalong-safari), "share of opens tinted: 0.00"
+(the check that the reader paints the word being read after a resize; its
+timing checks at the page break passed: page 2's first word lit 24 ms
+after it began). Second run: `259 passed (6.7m)`. `npm run check`:
+`Tests 417 passed | 2 skipped (419)`.
+**Interpretation.** A WebKit painting-time check in the reader, which
+step 5 does not touch, failed once on the Mac; the same code passed the
+next run. Another sample for the investigation before step 6a.
+**Lesson.** A timing or painting check that fails once is one sample: run
+the whole suite again before deciding, and record both runs.
+
+### Iteration 33 · 2026-10-06 04:40 · Step 5 CI (#77) · success (images refreshed)
+
+**Hypothesis.** On CI only the planned reference images differ (`paths`,
+`book-not-available`, new `path-new`), and `path` (Hidden Machinery) does
+not.
+**Evaluation.** CI run 37431776866 on fdb6fc5; its report
+(`gh run download 37431776866 -n playwright-report`).
+**Result.** Lint, types, unit, Postgres, hygiene pass. Browser: `10 failed`,
+`138 did not run`, `111 passed (4.2m)`: `paths` (4 looks), `path-new` (4,
+no reference yet), `book-not-available` (the two phone looks). `path`
+passed in all four looks: Hidden Machinery's page is unchanged. The
+desktop `book-not-available` passed within the 0.2% tolerance although the
+page gained "Choose the book file" (pale border on a pale page; its
+actual is not saved for a passing test), so its reference keeps the old
+picture. Looked at all ten actual images, then copied them in.
+**Lesson.** A screenshot that passes within tolerance can still show an
+old picture (as Iteration 7 found): say so in the PR.

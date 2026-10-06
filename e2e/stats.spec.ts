@@ -96,6 +96,12 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   // The Time Machine is on no Path, so the N group is The Grid alone.
   await expect(page.getByTestId("wpm-kind-N")).toHaveText(gridWpm);
   await expect(page.getByTestId("stats-kinds").getByRole("row")).toHaveCount(2); // header + N
+  // Words true for every Path (this page mixes reading lists and your own Paths): sections, Story first, Go deeper.
+  await expect(page.getByRole("heading", { level: 2, name: "By section", exact: true })).toBeVisible();
+  await expect(page.getByTestId("stats-pillars").getByRole("columnheader").first()).toHaveText("Section");
+  await expect(page.getByTestId("stats-kinds").getByRole("rowheader")).toHaveText(["Story first (N)"]);
+  await expect(page.getByRole("heading", { level: 2, name: "By how to read it", exact: true })).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText(/pillar|narrative/i);
   const compare = page.getByTestId("stats-compare");
   await expect(compare).toContainText("238 words per minute for non-fiction");
   await expect(compare).toContainText("260 for fiction");

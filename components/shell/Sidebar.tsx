@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/(app)/actions";
 import { Mark } from "@/components/Mark";
+import { partsWord } from "@/lib/library/path-words";
 import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
 import styles from "./Shell.module.css";
@@ -17,7 +18,7 @@ export const LIBRARY_LINKS: { label: string; href: string; icon: IconName }[] = 
 
 type Props = {
   user: { name: string; role: string };
-  paths: { id: string; slug: string; title: string; started: number; total: number }[];
+  paths: { id: string; slug: string; title: string; started: number; total: number; readingList: boolean }[];
   collections: { id: string; name: string }[];
 };
 
@@ -74,14 +75,18 @@ export function Sidebar({ user, paths, collections }: Props) {
               icon="path"
               label={p.title}
               meta={
-                <>
-                  {p.started} of {p.total}
-                  <span className="visually-hidden"> pillars</span> started
-                </>
+                p.total ? (
+                  <>
+                    {p.started} of {p.total}
+                    <span className="visually-hidden">{` ${partsWord(p.readingList, p.total)}`}</span> started
+                  </>
+                ) : (
+                  "No sections yet"
+                )
               }
             />
           ))}
-          <Item href="/paths?new=path" icon="plus" label="New path" />
+          <Item href="/paths/new" icon="plus" label="New path" />
         </ul>
         <p className={styles.groupLabel} id="nav-collections">
           Collections

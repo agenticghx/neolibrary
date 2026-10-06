@@ -586,6 +586,21 @@ Public sign-up with separate libraries, payments if ever needed, mobile
 apps, shared reading groups. (Aligning audiobook narration Samuel owns is now
 M13.) Note that Audible audio is DRM-protected and can't be used.
 
+Found in M14's step-5 review, kept out of M14 (rare for one reader): two
+uploads to the same waiting title at the same moment (two tabs or devices)
+can leave a stored file that no book points at, or a book whose file and
+details come from different uploads. The race is older than step 5 (it is
+in matching an upload to a title by its name too). The fix is small: a
+storage name per upload, write the file to the book only while the title
+still has none, and delete the losing upload's files.
+
+Also from that review: about twenty older id checks (notes, reading
+positions, the agent API, read-along) still accept any 36 characters of
+digits, letters a-f and hyphens, so a forged request with a malformed id
+reaches the database and gets an error page instead of "not found". Use the
+shared `UUID` check from `lib/library/paths.ts` everywhere. Not reachable
+from the app's own pages.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

@@ -48,6 +48,8 @@ describe("shelf", () => {
     expect(await titles({ sort: "author" })).toEqual(["Dracula", "the Time Machine", "Frankenstein"]);
     expect(await titles({ sort: "progress" })).toEqual(["Dracula", "Frankenstein", "the Time Machine"]);
     expect(parseSort("nonsense")).toBe("recent");
+    // Names every object inherits are not sorts (?sort=constructor crashed the page).
+    for (const inherited of ["constructor", "toString", "__proto__", "hasOwnProperty"]) expect(parseSort(inherited)).toBe("recent");
   });
 
   it("searches title and author, case-insensitively, treating % and _ literally", async () => {
@@ -85,6 +87,7 @@ describe("filters (M14 D5)", () => {
     expect((await shown("all")).length).toBe(3 + 7);
     expect(await shown("nonsense")).toEqual(await shown("all"));
     expect(parseShow("want")).toBe("want");
+    for (const inherited of ["constructor", "toString", "__proto__", "hasOwnProperty"]) expect(parseShow(inherited)).toBe("all");
   });
 });
 

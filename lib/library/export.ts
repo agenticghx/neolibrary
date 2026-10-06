@@ -163,10 +163,10 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
   const bookRows = await db.select().from(books).where(eq(books.ownerId, ownerId)).orderBy(asc(books.createdAt), asc(books.id));
   const pathRows = await db.select().from(paths).where(eq(paths.ownerId, ownerId)).orderBy(asc(paths.createdAt), asc(paths.id));
   const pillarRows = pathRows.length
-    ? await db.select().from(pillars).where(inArray(pillars.pathId, pathRows.map((p) => p.id))).orderBy(asc(pillars.position))
+    ? await db.select().from(pillars).where(inArray(pillars.pathId, pathRows.map((p) => p.id))).orderBy(asc(pillars.position), asc(pillars.id))
     : [];
   const slotRows = pillarRows.length
-    ? await db.select().from(slots).where(inArray(slots.pillarId, pillarRows.map((p) => p.id))).orderBy(asc(slots.position))
+    ? await db.select().from(slots).where(inArray(slots.pillarId, pillarRows.map((p) => p.id))).orderBy(asc(slots.position), asc(slots.id))
     : [];
   const collectionRows = await db
     .select()

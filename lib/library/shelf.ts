@@ -12,7 +12,7 @@ export const SORTS = {
 export type Sort = keyof typeof SORTS;
 
 export function parseSort(value: unknown): Sort {
-  return typeof value === "string" && value in SORTS ? (value as Sort) : "recent";
+  return typeof value === "string" && Object.hasOwn(SORTS, value) ? (value as Sort) : "recent";
 }
 
 /**
@@ -32,7 +32,7 @@ export const SHOWS = {
 export type Show = keyof typeof SHOWS;
 
 export function parseShow(value: unknown): Show {
-  return typeof value === "string" && value in SHOWS ? (value as Show) : "all";
+  return typeof value === "string" && Object.hasOwn(SHOWS, value) ? (value as Show) : "all";
 }
 
 export async function listShelf(

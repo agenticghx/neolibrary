@@ -2,6 +2,7 @@ import Link from "next/link";
 import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
 import type { Annotation } from "@/lib/library/annotations";
 import { availabilityLabel } from "@/lib/library/availability";
+import { KIND_WORDS, partsWord } from "@/lib/library/path-words";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
 import styles from "./PathView.module.css";
@@ -15,11 +16,12 @@ const GROUPS: Record<string, string> = {
 
 const tone = (s: SlotView) => (s.kind === "E" ? "green" : "navy");
 
-function SlotCover({ slot, current }: { slot: SlotView; current: boolean }) {
+/** A title's cover; the N or E letter on it belongs to the reading list only (your own Paths say the words). */
+function SlotCover({ slot, current, letter = true }: { slot: SlotView; current: boolean; letter?: boolean }) {
   return (
     <Cover
       title={slot.book.title}
-      slot={slot.kind}
+      slot={letter ? slot.kind : undefined}
       tone={tone(slot)}
       available={slot.book.available}
       size="sm"
@@ -66,7 +68,7 @@ function TargetNotes({ targetType, targetId, label, notes }: { targetType: "pill
   );
 }
 
-function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; notes: Annotation[] }) {
+function Pillar({ pillar, here, notes, readingList }: { pillar: PillarView; here: boolean; notes: Annotation[]; readingList: boolean }) {
   const core = pillar.slots.filter((s) => s.kind === "N" || s.kind === "E");
   const extras = pillar.slots.filter((s) => s.kind === "extra");
   const showExtrasAsCovers = core.length === 0;
@@ -80,24 +82,39 @@ function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; no
       ) : null}
       <header className={styles.pillarHead}>
         {pillar.number ? <span className={styles.number}>{String(pillar.number).padStart(2, "0")}</span> : null}
-        <h3 id={`p-${pillar.slug}`} className={styles.pillarTitle}>
+        <h3 id={`p-${pillar.slug}`} className={readingList ? styles.pillarTitle : `${styles.pillarTitle} ${styles.ownPillarTitle}`}>
           {pillar.title}
         </h3>
         {pillar.question ? <p className={styles.question}>{pillar.question}</p> : null}
       </header>
-      {core.length ? (
+      {readingList ? null : pillar.slots.length ? (
+        // Your own Path: every title in the order you gave it, each with how to read it (M14 step 5).
+        <ol className={styles.ownTitles} role="list">
+          {pillar.slots.map((s) => (
+            <li key={s.id} className={styles.slot}>
+              <span className={styles.how}>{KIND_WORDS[s.kind]}</span>
+              <SlotCover slot={s} current={s.id === pillar.currentSlotId && pillar.status !== "not-started"} letter={false} />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className={styles.noTitles}>No titles yet. Edit the path to add some.</p>
+      )}
+      {readingList && core.length ? (
         <ol className={styles.pair}>
           {core.map((s) => (
             <li key={s.id} className={styles.slot}>
-              <span className={styles.kind} aria-label={s.kind === "N" ? "Narrative, read first" : "Engineering, read second"}>
+              {/* The reading list's letter, read out as its words (a label on a plain span may be skipped). */}
+              <span className={styles.kind} aria-hidden="true">
                 {s.kind}
               </span>
+              <span className="visually-hidden">{s.kind === "N" ? "Narrative, read first" : "Engineering, read second"}</span>
               <SlotCover slot={s} current={s.id === pillar.currentSlotId && pillar.status !== "not-started"} />
             </li>
           ))}
         </ol>
       ) : null}
-      {extras.length ? (
+      {readingList && extras.length ? (
         showExtrasAsCovers ? (
           <ul className={styles.extraCovers}>
             {extras.map((s) => (
@@ -131,38 +148,59 @@ function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; no
   );
 }
 
-export function PathView({ path, notes = new Map() }: { path: PathData; notes?: Map<string, Annotation[]> }) {
+export function PathView({ path, notes = new Map(), editHref }: { path: PathData; notes?: Map<string, Annotation[]>; editHref?: string }) {
+  // A built-in reading list keeps its own words (pillars, the eighteen systems,
+  // the master key) and cannot be edited; a Path the reader made has sections (M14 step 5, D10).
+  const readingList = path.readingList;
   const numbered = path.pillars.filter((p) => p.number > 0);
   const master = path.pillars.filter((p) => p.group === "master");
-  const groups = Object.keys(GROUPS)
-    .map((g) => ({ key: g, title: GROUPS[g], pillars: path.pillars.filter((p) => p.group === g) }))
-    .filter((g) => g.pillars.length);
+  const groups = readingList
+    ? Object.keys(GROUPS)
+        .map((g) => ({ key: g, title: GROUPS[g], pillars: path.pillars.filter((p) => p.group === g) }))
+        .filter((g) => g.pillars.length)
+    : [{ key: "sections", title: "Sections", pillars: path.pillars.filter((p) => p.group !== "master") }].filter((g) => g.pillars.length);
   const done = numbered.filter((p) => p.status === "done").length;
   const hereIndex = numbered.findIndex((p) => p.id === path.currentPillarId);
 
   return (
     <div className={styles.path}>
       <header className={styles.head}>
-        <h1 className={styles.title}>{path.title}</h1>
+        {editHref && !readingList ? (
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>{path.title}</h1>
+            <Link href={editHref} className={styles.edit}>
+              Edit path
+            </Link>
+          </div>
+        ) : (
+          <h1 className={styles.title}>{path.title}</h1>
+        )}
         <p className={styles.subtitle}>
-          {numbered.length} pillars · Read N, then E · {path.available} available, {path.notYet} not available yet
+          {readingList
+            ? `${numbered.length} pillars · Read N, then E · `
+            : `${numbered.length} ${numbered.length === 1 ? "section" : "sections"} · `}
+          {path.available} available, {path.notYet} not available yet
         </p>
-        <p className={styles.description}>{path.description}</p>
+        {path.description ? <p className={styles.description}>{path.description}</p> : null}
         <TargetNotes targetType="path" targetId={path.id} label={`Note on ${path.title}`} notes={notes.get(path.id) ?? []} />
-        <ol className={styles.track} aria-label={`${done} of ${numbered.length} pillars finished`}>
-          {numbered.map((p, i) => (
-            <li
-              key={p.id}
-              className={[
-                styles.stop,
-                p.status === "done" ? styles.stopDone : "",
-                i === hereIndex ? styles.stopHere : "",
-              ].join(" ")}
-              title={p.title}
-            />
-          ))}
-        </ol>
+        {numbered.length ? (
+          <ol className={styles.track} aria-label={`${done} of ${numbered.length} ${partsWord(readingList, numbered.length)} finished`}>
+            {numbered.map((p, i) => (
+              <li
+                key={p.id}
+                className={[
+                  styles.stop,
+                  p.status === "done" ? styles.stopDone : "",
+                  i === hereIndex ? styles.stopHere : "",
+                ].join(" ")}
+                title={p.title}
+              />
+            ))}
+          </ol>
+        ) : null}
       </header>
+
+      {!path.pillars.length ? <p className={styles.description}>No sections yet. Edit the path to add some.</p> : null}
 
       {groups.map((g) => (
         <section key={g.key} className={styles.group} aria-labelledby={`g-${g.key}`}>
@@ -171,7 +209,7 @@ export function PathView({ path, notes = new Map() }: { path: PathData; notes?: 
           </h2>
           <div className={styles.grid}>
             {g.pillars.map((p) => (
-              <Pillar key={p.id} pillar={p} here={p.id === path.currentPillarId} notes={notes.get(p.id) ?? []} />
+              <Pillar key={p.id} pillar={p} here={p.id === path.currentPillarId} notes={notes.get(p.id) ?? []} readingList={readingList} />
             ))}
           </div>
         </section>
