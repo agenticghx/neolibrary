@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { firstVoice, loadSpeed, noteFor, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withPart, type Info, type NoteState } from "./session";
+import { firstVoice, loadSpeed, noteFor, playsHere, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withPart, type Info, type NoteState } from "./session";
 
 const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
@@ -136,5 +136,18 @@ describe("withPart", () => {
     expect(next.more).toBeNull();
     expect(next.chapters).toEqual({ 0: "Chapter I", 1: "Chapter II" });
     expect(next.importId).toBe("i1");
+  });
+});
+
+describe("playsHere", () => {
+  it("plays on Home only an audiobook with something from the reading position on, going on from near it", () => {
+    expect(playsHere({ audiobook: audiobook() })).toBe(true);
+    expect(playsHere({ audiobook: audiobook({ begins: { label: "Chapter II", nearby: true } }) })).toBe(true);
+    // It ends before the reading position: the reader says so, with Play off.
+    expect(playsHere({ audiobook: audiobook({ paragraphs: [] }) })).toBe(false);
+    // It begins further on: the reader says where, and waits.
+    expect(playsHere({ audiobook: audiobook({ begins: { label: "Chapter IX", nearby: false } }) })).toBe(false);
+    expect(playsHere({ audiobook: null })).toBe(false);
+    expect(playsHere(null)).toBe(false);
   });
 });

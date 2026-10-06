@@ -63,6 +63,12 @@ export type Player = {
    * is over, as Safari requires. Whatever was being read aloud stops.
    */
   playHere: (bookId: string, startCfi: string, info: Info) => void;
+  /**
+   * Go on with the book already in the player (Home's "Listen from here" for
+   * it): Play if it is paused, inside the tap; nothing if it is playing. Its
+   * place is the reading position, which follows the player.
+   */
+  resume: () => void;
 };
 
 const PlayerContext = createContext<Player | null>(null);
@@ -112,13 +118,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setMiniSlot(slot);
     return () => setMiniSlot((current) => (current === slot ? null : current));
   }, []);
+  /** The live session's Play (set by the session as it renders), for resume. */
+  const playLive = useRef<(() => void) | null>(null);
+  const resume = useCallback(() => playLive.current?.(), []);
   const playHere = useCallback((bookId: string, startCfi: string, info: Info) => {
     const id = ++nextId.current;
     // Now, not after the tap: the session mounts and presses Play while the tap is still being handled.
     flushSync(() => setSession({ id, bookId, startCfi, started: false, prepared: info }));
   }, []);
   const bookId = session?.bookId ?? null;
-  const player = useMemo(() => ({ bookId, attach, stop, attachMini, playHere }), [bookId, attach, stop, attachMini, playHere]);
+  const player = useMemo(() => ({ bookId, attach, stop, attachMini, playHere, resume }), [bookId, attach, stop, attachMini, playHere, resume]);
 
   return (
     <PlayerContext.Provider value={player}>
@@ -130,6 +139,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           page={page}
           miniSlot={miniSlot}
           prepared={session.prepared}
+          playRef={playLive}
           onStarted={() => started(session.id)}
         />
       ) : null}
