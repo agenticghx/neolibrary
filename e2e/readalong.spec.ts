@@ -1670,6 +1670,49 @@ test("M14 (6b): a listen started on Home that cannot play says so in the mini-pl
   await expect(mini.getByRole("status").first()).toContainText("could not be played");
 });
 
+test("M14 (6b): 15 s skips go on into the next audio file, and back into the one before", async ({ page }) => {
+  test.setTimeout(90_000);
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([
+    { title: "One", said: [32, OUTRO] },
+    { title: "Two", said: ["Chapter Two. Search for Mr. Hyde.", 33] },
+  ]);
+  await importReading(page, bookId, zip(), expected);
+  const bar = await openListening(page, bookId, 32);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  await bar.getByRole("button", { name: "Pause" }).click();
+  await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
+  // Moved, while paused, to paragraph 32's last word: a few seconds before the first file is left.
+  const last32 = expected.filter((w) => w.cfi === PARAGRAPHS[32].cfi).at(-1)!;
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), (last32.startMs + 50) / 1000);
+  await expect(bar).toHaveAttribute("data-word", last32.word);
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  const where = () =>
+    page.evaluate(() => {
+      const a = document.querySelector("audio")!;
+      return { file: Number(/\/audio\/(\d+)$/.exec(a.getAttribute("src") ?? "")?.[1]), t: a.currentTime, paused: a.paused };
+    });
+  const shows = async (i: number) => PARAGRAPHS[i].text.includes((await mini.locator("p").first().innerText()).replace(/^…/, "").trim().slice(0, 30));
+
+  // Forward 15 s: on into the second file (what was left of the first counted), still paused; the bar follows.
+  await mini.getByRole("button", { name: "Forward 15 seconds" }).click();
+  await expect.poll(async () => (await where()).file).toBe(1);
+  await expect.poll(async () => (await where()).t).toBeGreaterThan(0);
+  const there = await where();
+  expect(there.paused).toBe(true);
+  expect(there.t).toBeLessThan(15);
+  await expect.poll(() => shows(33)).toBe(true);
+
+  // Back 15 s: back into the first file, at paragraph 32, still paused.
+  await mini.getByRole("button", { name: "Back 15 seconds" }).click();
+  await expect.poll(async () => (await where()).file).toBe(0);
+  await expect.poll(() => shows(32)).toBe(true);
+  expect((await where()).paused).toBe(true);
+});
+
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
   test.setTimeout(90_000);
   const { bookId, expected } = await miniReading(page);
