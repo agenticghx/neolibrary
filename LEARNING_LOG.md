@@ -1025,3 +1025,36 @@ update. Then the whole suite from a fresh database, and `npm run check`.
   `Tests 417 passed | 2 skipped (419)`.
 **Lesson.** A delay is not an ordering: to reproduce a race, make the same
 thing come first, not only later.
+
+### Iteration 45 · 2026-10-06 10:59 · Flake step 3 (the next PDF page drawn ahead); steps 4, 2 and 3 in one pull request · success (CI to come)
+
+**Hypothesis.** If the next page is drawn ahead, small and thrown away, its
+fonts load while this page is read, so no font is loaded between page 2's
+turn and its first word.
+**Action.** `warmUp` in `pdf-book.ts`, started once a page is drawn: one
+page at a time, a page already shown skipped, stopped when the book
+closes. The page-break test checks that no font load starts between page
+2's turn request and its first lit word.
+**Evaluation.** The step-3 tests run on the code before step 3, then with
+it: the page-break test alone, in both engines, from the snapshot taken
+after `offline` (scratchpad `proof-warm.sh`). Then the whole suite from a
+fresh database, on steps 1, 5, 4, 2 and 3 together.
+**Result.**
+- **Before step 3:** `1 failed` in both engines with "a font was loaded at
+  the page turn": the italic font loaded 18 ms (Chromium) and 12 ms (WebKit)
+  before page 2's first word began.
+- **With it:** `1 passed` (25.5 s, 25.9 s).
+- **Whole suite:** `261 passed (6.8m)`.
+- **#82 (step 4)** passed CI, and its log is the proof the plan asked for.
+  WebKit on Linux asked `no range → 0; no range → 200; bytes=10247084- →
+  206; bytes=10247084- → 206`: nothing after the far request starts below
+  it, where the failing runs went back to byte 7,348,224.
+- **But #82 could not merge.** Each stacked branch adds its ledger entry at
+  the same place, so after #81's squash merge, git saw two different
+  insertions there. GitHub runs no checks on a pull request that conflicts,
+  which is why #83 never got any. Steps 4, 2 and 3 now go in one pull
+  request (`m14-flake-fixes`, the same tree as the one tested here), so CI
+  runs once instead of three times.
+**Lesson.** Stacked branches that each write the same ledger lines do not
+merge after a squash: git compares the insertions, not their meaning. To
+save CI rounds, put the steps in one pull request with a commit each.

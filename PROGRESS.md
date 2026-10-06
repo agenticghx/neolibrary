@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Flake steps 1 and 5 are merged (#80, #81; main 5bd4991). Steps 4, 2 and 3 are stacked draft PRs (m14-flake-d-gstreamer #82, m14-flake-b-bar, m14-flake-c-pdf-warmup): merge each in that order when green (step 4's proof is its CI log's audio requests line). Then step 6a. Samuel finds the pace slow: keep verification to what changes an outcome.
+next_action: Flake steps 1 and 5 are merged (#80, #81; main 5bd4991). Steps 4, 2 and 3 are one draft PR from m14-flake-fixes (it replaces #82 and #83): merge it when green, then step 6a. Samuel finds the pace slow: keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,21 +19,15 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 10:51 UTC).** Flake steps 1 and 5 are merged
-(#80, #81; `main` 5bd4991); step 1's baseline and the full-chain check are
-recorded (LEARNING_LOG Iterations 42-43). Three stacked draft pull requests
-remain, each branch on top of the one before, so each merges without a
-conflict in this file once the one below it has merged:
-1. #82 `m14-flake-d-gstreamer` (step 4, no on-disk audio for CI's WebKit).
-   Its first CI run is the proof: in the browser job's log, the line
-   `[readalong-safari] audio requests:` must show no request starting below
-   the far one (`bytes=N-`, N above 8 MB). If one does, withdraw the step.
-2. `m14-flake-b-bar` (step 2, the bar's word written when it is lit).
-3. `m14-flake-c-pdf-warmup` (step 3, the next PDF page drawn ahead).
-Merge each when its CI is green (re-run a known WebKit flake once). No more
-sampling runs per step (Iteration 43): harvest ordinary CI afterwards with
-the command at the end of `docs/m14-flake/plan.md` §2. Then step 6a
-(`docs/m14-home-plan.md` §5).
+**Resume M14 here (2026-10-06, 10:59 UTC).** Flake steps 1 and 5 are merged
+(#80, #81; `main` 5bd4991). Steps 4, 2 and 3 are one draft pull request
+from `m14-flake-fixes` (it replaces #82 and #83, closed: their stacked
+ledger entries conflicted after #81's squash merge; LEARNING_LOG
+Iteration 45). Each step is a commit with its own proof. Merge it when its
+CI is green (re-run a known WebKit flake once), then confirm `main`. Then
+harvest ordinary CI for the page-break test now and then (the command at
+the end of `docs/m14-flake/plan.md` §2) instead of sampling runs. Then
+step 6a (`docs/m14-home-plan.md` §5).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -165,6 +159,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 06:59 (local; 10:59 UTC) · Claude (laptop) · Flake step 3 built; steps 4, 2 and 3 in one draft PR (replacing #82 and #83)
+- **Done:**
+  - **Step 3** (`pdf-book.ts`, `warmUp`): the next PDF page is drawn ahead, small and thrown away, so its fonts load before the turn. Proved both ways, in both engines (Iteration 45).
+  - **#82 (step 4) passed CI**, and its log shows the go-back audio request is gone. But it could not merge: the stacked ledger entries conflicted after #81's squash merge, and GitHub ran no checks at all on #83 for the same reason.
+  - **Steps 4, 2 and 3 are now one pull request** from `m14-flake-fixes`, rebased onto `main` with a commit per step. Its tree is the one tested locally (`git diff --stat m14-flake-c-pdf-warmup m14-flake-fixes` printed nothing), so CI runs once, not three times.
+- **Key paths:** `lib/reader/pdf-book.ts`, `lib/perf-marks.ts`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iteration 45).
+- **Commands that worked:**
+  - `scratchpad/proof-warm.sh old|new`: before step 3, `1 failed` in both engines ("a font was loaded at the page turn"); with it, `1 passed` in both.
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` on steps 1-5 → `261 passed (6.8m)`; `npm run check` → `Tests 417 passed | 2 skipped (419)`.
+  - `git rebase --onto origin/main 1f0bb82 m14-flake-fixes`.
+  - `git merge-tree --write-tree origin/main <branch>` shows a conflict before GitHub does.
+- **Known issues / blockers:** none new. Stacking branches whose ledger entries sit in the same place does not save CI rounds after a squash merge.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 06:51 (local; 10:51 UTC) · Claude (laptop) · Flake step 5 merged (#81); CI's full chain sampled; flake step 2 pushed as a draft PR (stacked on #82); why the project is slow
 - **Done:**
