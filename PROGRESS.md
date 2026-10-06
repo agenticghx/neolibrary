@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 is live (054051c, 15:46 UTC; verdict issue #90). The review's fixes for Home's one-tap Listen are a PR from m14-e2-home-fixes: merge when green. Then 6c (m14-e3-think-aloud) with its review fixes, as its own PR; then deploy both (back up first). Then 2b, and the WebKit-after-seek stall on CI.
+next_action: #92 (6c) in CI: merge when green, then back up and deploy main (#91 crash fix + #92), comment on #90. Then 2b's PR (m14-e2-skip-across, built and tested). Then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -195,6 +195,26 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 12:42 (local; 16:42 UTC) · Claude (laptop) · #91 merged; #92 (6c) in CI; 6b part 2b built (skips across audiobook files)
+- **Done:**
+  - **#91** merged as 7df87b9 (CI `276 passed (18.3m)`); `git diff --stat 496714d origin/main` printed nothing.
+  - **#92** (6c, Think aloud, with its review fixes) opened.
+  - **6b part 2b** on `m14-e2-skip-across` (Iteration 55):
+    - a 15 s skip crosses into the next or previous audiobook file, counting only audio that plays, and stays paused if paused;
+    - a jump away from the reader shows its paragraph at once.
+- **Key paths:** `lib/player/skip.ts` (+ test), `components/player/ListenSession.tsx`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iteration 55).
+- **Commands that worked:**
+  - `npx vitest run lib/player/skip.test.ts` → `Tests 15 passed (15)`; `npm run check` → `Tests 460 passed | 2 skipped (462)`.
+  - `scratchpad/run6b.sh readalong|readalong-safari` → `7 passed` each.
+  - The mutation "a skip into another file does nothing" was caught at `readalong.spec.ts:1702`.
+- **Known issues / blockers:**
+  - Back into a file whose paragraphs are not loaded (before the first part fetched) stops at the file's start, as before. It would need the parts route to give the part before.
+  - My first two mutation runs had broken builds (see Iteration 55).
+- **Exact next steps:**
+  1. When #92 is green and merged: back up, deploy `main` (#91, #92), check the site, and comment on #90.
+  2. Then `git rebase --onto origin/main m14-e3-think-aloud m14-e2-skip-across`, push, and open 2b's PR.
+  3. Then the WebKit stall on CI (flake plan S4).
 
 ### 2026-10-06 12:19 (local; 16:19 UTC) · Claude (laptop) · 6c's review fixes done; its PR waits on #91
 - **Done:**

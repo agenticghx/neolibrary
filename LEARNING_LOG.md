@@ -1459,3 +1459,44 @@ test.
 anyway: click the dimmed link, press Escape mid-recording. And a quote
 taken from the last of the tied paragraphs cannot tell the tie-break from
 the old rule.
+
+### Iteration 55 · 2026-10-06 16:42 · Step 6b, part 2b (skips across audiobook files) · success (CI to come)
+
+**Hypothesis.** A 15 s skip can cross into the file before or after with
+the same rule as within a file: count only audio that plays. Forward that
+means leaving where `follow` leaves the file and starting the next where
+playing starts it; back, it means entering the file before at its last
+word's end.
+**Action.**
+- **`skipAcross`** (`lib/player/skip.ts`): pure, with helpers for the
+  stretches playing jumps over.
+- **The session** loads the other file at that time, and plays on only if
+  it was playing.
+- **A browser test** with a two-file reading.
+**Evaluation.**
+- Unit tests, including a sweep that every landing plays on.
+- The browser test in both engines.
+- A mutation: a skip into another file does nothing.
+- `npm run check`.
+**Result.**
+- **Unit tests:** `Tests 15 passed (15)` in `skip.test.ts`.
+- **The browser test found a bug.** After a skip back into the first file,
+  the mini-player still showed paragraph 33. Following only notices a
+  change of paragraph, the skip had set the paragraph itself, and the
+  landing was just after the last word, where no word is lit. Now a jump
+  away from the reader shows its paragraph at once.
+- **The 6b tests:** `7 passed` in each engine; the made-voice test
+  `1 passed`; `npm run check` → `Tests 460 passed | 2 skipped (462)`.
+- **The mutation:** caught at `readalong.spec.ts:1702` (the file stayed the
+  first).
+- **Two broken mutation runs of mine:**
+  - one used a function the file no longer imports;
+  - one left TypeScript unreachable code (`never`).
+
+  Both builds failed, and the tests ran on a stale build. The script printed
+  "BUILD FAILED", but I read the test lines first.
+**Lesson.**
+- **Read a mutation run's build result before its test result.** A broken
+  build makes the tests meaningless either way.
+- **A skip lands where following would not have taken the player,** so
+  anything that following normally updates must be set there too.
