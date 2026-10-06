@@ -1627,11 +1627,32 @@ test("M14 (6b): Listen from here on Home plays the book's own audiobook there, i
   await expect(page.getByTestId("reader")).toHaveCount(0);
   // From the reading position: paragraph 41's words, lit in the mini-player as they are said.
   const first = expected.find((w) => w.cfi === PARAGRAPHS[41].cfi)!;
-  expect(await audioTime(page)).toBeGreaterThanOrEqual(first.startMs / 1000 - 0.05);
+  // Its start is set once the file's length is known: wait for it, but not so long that audio started at 0
+  // could get there by playing.
+  await page.waitForFunction((t) => document.querySelector("audio")!.currentTime >= t, first.startMs / 1000 - 0.05, { timeout: 1_000 });
   await playUntil(page, first.startMs + 800);
   await expect(mini.locator("mark")).toBeVisible();
   const sentence = (await mini.locator("p").first().innerText()).replace(/^…/, "").trim();
   expect(PARAGRAPHS[41].text).toContain(sentence.slice(0, 30));
+
+  // A second tap goes on with the book in the player, not back to where Home began: the same audio plays on.
+  const before = await page.evaluate(() => {
+    const a = document.querySelector("audio")!;
+    (window as unknown as { heard: HTMLAudioElement }).heard = a;
+    return a.currentTime;
+  });
+  await listen.click();
+  await page.waitForFunction((t) => document.querySelector("audio")!.currentTime > t + 0.2, before);
+  const same = () => page.evaluate(() => document.querySelector("audio") === (window as unknown as { heard: HTMLAudioElement }).heard);
+  expect(await same()).toBe(true);
+  // Paused, a tap goes on from there.
+  await mini.getByRole("button", { name: "Pause" }).click();
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  const paused = await audioTime(page);
+  await listen.click();
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+  expect(await audioTime(page)).toBeGreaterThanOrEqual(paused);
+  expect(await same()).toBe(true);
 });
 
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {

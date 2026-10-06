@@ -1323,3 +1323,51 @@ audio only from a tap.
   start after the tap) to prove the test can see it.
 - **In WebKit tests, move the audio while it is paused** unless the move
   while playing is what is being tested.
+
+### Iteration 53 · 2026-10-06 16:06 · Step 7 (deploy), and the review of 2a and 6c · success (CI to come)
+
+**Hypothesis.** M14 can go live as it stands (steps 1 to 6b part 2a), with a
+backup whose restore is checked. A review of 2a and 6c (workflow
+`wf_6783e4a9-544`: logic, looks and server-and-tests reviewers, then a
+skeptic per finding) finds what the tests missed.
+**Action.**
+- **Deploy:**
+  - backed up production with `pg_dump` over Railway's SSH (host key checked
+    against the ledger's), and restored it into a throwaway Postgres 18;
+  - `railway up` from a separate worktree of `main`, because the review's
+    agents were reading the main checkout;
+  - opened the "M14 verdict" issue (#90).
+- **2a's fixes,** on `m14-e2-home-fixes` (this PR; 6c's go in its own PR):
+  - **`playsHere`:** one tap plays only an audiobook with something from the
+    reading position on, going on from near it;
+  - **on mount, Play is pressed only as the button could be;**
+  - **a second tap carries on with the book in the player** (`resume`);
+  - **Home keeps the Listen data for four minutes;**
+  - **a screen reader hears that playing started;**
+  - **the racy one-time time check became a bounded wait.**
+**Evaluation.**
+- The deploy checks: health, sign-in, the M14 routes, and the database's
+  counts before and after.
+- The review's verdicts.
+- Unit tests, the 6b tests in both engines, and two mutations.
+**Result.**
+- **The deploy:**
+  - production before: `1|129|19|0019_annotation_agent` (users, books,
+    migrations, latest);
+  - backup: 1,129,203 bytes; restore exit 0, with the same counts;
+  - Railway: `SUCCESS` at 15:46 UTC;
+  - after: health `200`; sign-in `200`; `/library` and `/paths` `307` to
+    sign-in; database `1|129|20|0020_readalong_imports`.
+- **The review:** 28 findings confirmed, 0 refuted. The high one, a crash on
+  Home's one tap when the audiobook has nothing from the reading position
+  on, was found by all three reviewers. It cannot happen on the live site
+  yet: production has 0 read-along imports.
+- **Tests:** `Tests 453 passed | 2 skipped (455)`; the 6b tests `5 passed` in
+  each engine; Home's Continue test `1 passed`.
+- **Mutations:**
+  - no "has something to play" rule: `1 failed` (unit);
+  - no same-book branch: caught at `readalong.spec.ts:1647` (a new audio
+    element).
+**Lesson.** Run the review before merging, not after. Here #89 merged on
+green CI while its review was still running, and the review found a
+crash. For the next step, open the PR only after the review's fixes.

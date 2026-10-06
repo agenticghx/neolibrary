@@ -66,6 +66,18 @@ export function firstVoice(info: Pick<Info, "voices" | "audiobook">): string {
   return bookFirst ? ab.voice : ((made ?? info.voices[0])?.id ?? "");
 }
 
+/**
+ * Whether Home's "Listen from here" may play the book's own audiobook in one
+ * tap (M14 step 6b): only when it has something to play from the reading
+ * position on, and goes on from near it. Otherwise the reader opens, and its
+ * bar says why (the audiobook ends before here, or begins further on) and
+ * waits for Play.
+ */
+export function playsHere(info: Pick<Info, "audiobook"> | null): boolean {
+  const ab = info?.audiobook;
+  return !!ab && ab.paragraphs.length > 0 && (!ab.begins || ab.begins.nearby);
+}
+
 /** Everything the bar's note depends on. */
 export type NoteState = {
   error: string | null;

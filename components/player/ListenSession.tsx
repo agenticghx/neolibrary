@@ -39,6 +39,7 @@ export function ListenSession({
   miniSlot,
   onStarted,
   prepared,
+  playRef,
 }: {
   bookId: string;
   startCfi: string;
@@ -49,6 +50,8 @@ export function ListenSession({
   onStarted: () => void;
   /** Started on Home (M14 step 6b): the Listen data, fetched before the tap. It plays as it mounts. */
   prepared?: Info;
+  /** Where the session puts its Play for the provider's resume (Home's Listen from here for this book). */
+  playRef?: { current: (() => void) | null };
 }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [info, setInfo] = useState<Info | null>(prepared ?? null);
@@ -636,7 +639,19 @@ export function ListenSession({
   useLayoutEffect(() => {
     if (!pressPlay.current) return;
     pressPlay.current = false;
-    view.toggle();
+    // Only as the button could be pressed (Home checks first: lib/player/session.ts, playsHere).
+    if (!view.disabled) view.toggle();
+  });
+  // Play for the provider's resume: only when paused, and only as the button could be pressed.
+  useLayoutEffect(() => {
+    if (!playRef) return;
+    const go = () => {
+      if (!playing && !view.disabled) view.toggle();
+    };
+    playRef.current = go;
+    return () => {
+      if (playRef.current === go) playRef.current = null;
+    };
   });
 
   return (
