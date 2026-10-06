@@ -32,6 +32,21 @@
   line-height: var(--leading-read);
 }
 
+/* What went wrong, or "Loading your audiobook…"; empty, it stays in the page (for screen readers) but takes no room. */
+.status {
+  margin: 0;
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}
+
+.status:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
 .lit {
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
@@ -175,8 +190,10 @@
   cursor: pointer;
 }
 
+/* Above the Think aloud panel when both are open: the last one opened is on top. */
 .menu {
   position: absolute;
+  z-index: var(--z-raised);
   right: 0;
   bottom: calc(100% + var(--space-2));
   display: flex;
@@ -237,6 +254,11 @@
   text-underline-offset: 3px;
 }
 
+.goTo[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .goToIcon {
   width: 18px;
   height: 18px;
@@ -291,6 +313,15 @@
   font-family: var(--font-serif);
   font-size: var(--text-sm);
   line-height: var(--leading-read);
+}
+
+.thinkWarn {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--accent);
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+  font-size: var(--text-sm);
 }
 
 .thinkActions {

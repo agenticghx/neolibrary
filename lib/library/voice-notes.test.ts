@@ -85,13 +85,18 @@ describe("voice notes (M8)", () => {
     expect(out.annotation).toMatchObject({ cfi: para.cfi, sectionId: para.id, quote: { exact: "A sentence of it.", prefix: "", suffix: "" } });
   });
 
-  it("in a PDF, a page's place (what Think aloud sends there) belongs to the page's last paragraph", async () => {
+  it("in a PDF, a note at a page's place (what Think aloud sends there) belongs to the paragraph it quotes", async () => {
     const file = new Uint8Array(readFileSync(new URL("../../fixtures/books/descartes-meditation-one.pdf", import.meta.url)));
     const pdfId = (await importBook(database.db, storage, ownerId, { name: "m.pdf", bytes: file })).bookId;
     const onPage = (await getSections(database.db, ownerId, pdfId)).filter((s) => s.kind === "paragraph" && s.cfi === pageCfi(0));
     expect(onPage.length).toBeGreaterThan(1);
-    const out = await createVoiceNote(database.db, storage, new FakeTranscriber(), ownerId, { ...input(), bookId: pdfId, cfi: pageCfi(0), quote: { exact: onPage[0].text.slice(0, 30) } });
-    expect(out.annotation).toMatchObject({ cfi: pageCfi(0), sectionId: onPage.at(-1)!.id });
+    // A page's paragraphs all share its place: the quote says which one (spaced as the reader's text layer may space it).
+    const quoted = onPage[0].text.slice(0, 40).replace(/ /g, "  ");
+    const out = await createVoiceNote(database.db, storage, new FakeTranscriber(), ownerId, { ...input(), bookId: pdfId, cfi: pageCfi(0), quote: { exact: quoted } });
+    expect(out.annotation).toMatchObject({ cfi: pageCfi(0), sectionId: onPage[0].id });
+    // A quote from none of them: the page's last paragraph, as before.
+    const other = await createVoiceNote(database.db, storage, new FakeTranscriber(), ownerId, { ...input(), bookId: pdfId, cfi: pageCfi(0), quote: { exact: "Words found nowhere on this page." } });
+    expect(other.annotation.sectionId).toBe(onPage.at(-1)!.id);
   });
 
   it("keeps the recording even when transcription fails or the cap is reached", async () => {

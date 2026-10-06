@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { VoiceRecorder } from "@/components/notes/VoiceRecorder";
+import { VoiceRecorder, type RecorderState } from "@/components/notes/VoiceRecorder";
 import { FilledIcon, Icon } from "@/components/shell/icons";
 import { SPEEDS, speedLabel } from "@/lib/player/session";
 import styles from "./MiniPlayer.module.css";
@@ -12,6 +12,8 @@ import styles from "./MiniPlayer.module.css";
 export type MiniView = {
   /** The book's title. */
   title: string;
+  /** What went wrong, or that the audiobook is loading ("" when all is well). */
+  status: string;
   /** The sentence being read, and the word being said in it ([from, to), offsets into `sentence`; null: none yet). */
   sentence: string;
   lit: [number, number] | null;
@@ -88,9 +90,42 @@ export function MiniPlayer({ view }: { view: MiniView }) {
   const after = lit ? sentence.slice(lit[1]) : "";
   const at = lit ? lit[0] : 0;
   const speed = <SpeedMenu speed={view.speed} onChange={view.setSpeed} />;
-  // Think aloud: where the voice note goes (set when the panel opens, with the reading paused), and whether it is saved.
+  // Think aloud: where the voice note goes (set when the panel opens, with the reading paused), whether it is
+  // saved, and the recorder's state.
   const [thought, setThought] = useState<Thought | null>(null);
   const [saved, setSaved] = useState(false);
+  const [recorder, setRecorder] = useState<RecorderState>("idle");
+  // Going to the page was tried while a recording would be lost.
+  const [warned, setWarned] = useState(false);
+  const thinkButton = useRef<HTMLButtonElement>(null);
+  const afterSave = useRef<HTMLButtonElement>(null);
+  // Closing the panel now would lose a recording (being made, made, or being saved): only Back or Discard may.
+  const losing = !!thought && !saved && recorder !== "idle";
+  const closeThought = (focus: boolean) => {
+    setThought(null);
+    setWarned(false);
+    setRecorder("idle");
+    if (focus) thinkButton.current?.focus();
+  };
+  // Saved: the next step (Resume, or Close) has the keyboard.
+  useEffect(() => {
+    if (saved) afterSave.current?.focus();
+  }, [saved]);
+  // Escape closes the panel, unless that would lose a recording. Focus goes back to the button only from the bar
+  // (or from nowhere, Safari's case after a click): a keyboard user on the page stays where they are.
+  useEffect(() => {
+    if (!thought || losing) return;
+    const escape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const from = document.activeElement;
+      setThought(null);
+      setWarned(false);
+      setRecorder("idle");
+      if (!from || from === document.body || bar.current?.contains(from)) thinkButton.current?.focus();
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [thought, losing]);
 
   return (
     <section ref={bar} className={styles.bar} aria-label="Now playing" data-miniplayer="">
@@ -99,6 +134,10 @@ export function MiniPlayer({ view }: { view: MiniView }) {
         <span className={styles.narrow}>{fromNear(before, at, 60, 40)}</span>
         {word ? <mark className={styles.lit}>{word}</mark> : null}
         {after}
+      </p>
+      {/* Always in the page, so a screen reader reads out a message that comes later; empty, it takes no room. */}
+      <p className={styles.status} role="status">
+        {view.status}
       </p>
       <div className={styles.row}>
         {/* A small cloth swatch, as in the design (the book's own cover is not kept by the player). */}
@@ -132,16 +171,33 @@ export function MiniPlayer({ view }: { view: MiniView }) {
         </button>
         <span className={styles.gap} />
         <span className={styles.speedWide}>{speed}</span>
-        <Link href={view.pageHref} className={styles.goTo}>
+        <Link
+          href={view.pageHref}
+          className={styles.goTo}
+          aria-disabled={losing || undefined}
+          onClick={(e) => {
+            // Leaving for the reader would throw an unsaved recording away.
+            if (!losing) return;
+            e.preventDefault();
+            setWarned(true);
+          }}
+        >
           <Icon name="book" className={styles.goToIcon} />
           <span className={styles.goToText}>Go to the page</span>
         </Link>
         <button
+          ref={thinkButton}
           type="button"
           className={styles.think}
           aria-expanded={!!thought}
+          // Not while the next paragraph is being prepared: it would start reading by itself during the recording.
+          disabled={!thought && view.busy}
           onClick={() => {
-            if (thought) return;
+            // A second press closes the panel, unless that would lose a recording.
+            if (thought) {
+              if (!losing) closeThought(false);
+              return;
+            }
             setSaved(false);
             setThought(view.thinkAloud());
           }}
@@ -152,20 +208,29 @@ export function MiniPlayer({ view }: { view: MiniView }) {
       </div>
       {thought ? (
         <section className={styles.thinkPanel} aria-label="Think aloud">
-          <p className={styles.thinkLabel}>{saved ? "Saved to your notes, at this sentence:" : "A voice note at this sentence:"}</p>
+          <p className={styles.thinkLabel} role="status">
+            {saved ? "Saved to your notes, at this sentence:" : "A voice note at this sentence:"}
+          </p>
           <blockquote className={styles.thinkQuote}>{thought.quote}</blockquote>
+          {warned && losing ? (
+            <p className={styles.thinkWarn} role="alert">
+              Save or discard this voice note first: going to the page now would lose it.
+            </p>
+          ) : null}
           {saved ? (
             <div className={styles.thinkActions}>
-              <button type="button" className={styles.thinkClose} onClick={() => setThought(null)}>
+              <button ref={thought.wasPlaying ? undefined : afterSave} type="button" className={styles.thinkClose} onClick={() => closeThought(true)}>
                 Close
               </button>
               {thought.wasPlaying ? (
                 <button
+                  ref={afterSave}
                   type="button"
                   className={styles.thinkResume}
                   onClick={() => {
-                    setThought(null);
-                    view.toggle();
+                    closeThought(true);
+                    // Plays only if paused (inside the click, as Safari needs).
+                    if (!view.playing) view.toggle();
                   }}
                 >
                   Resume reading aloud
@@ -174,11 +239,12 @@ export function MiniPlayer({ view }: { view: MiniView }) {
             </div>
           ) : (
             <VoiceRecorder
+              onStateChange={setRecorder}
               onSave={async (recording, durationMs) => {
                 await view.saveThought(recording, durationMs, thought);
                 setSaved(true);
               }}
-              onBack={() => setThought(null)}
+              onBack={() => closeThought(true)}
             />
           )}
         </section>

@@ -617,6 +617,8 @@ export function ListenSession({
   const firstChapter = isBook ? (info?.audiobook?.chapters[info.audiobook.paragraphs[0]?.chapterIndex ?? -1] ?? "") : (info?.passage.chapter ?? "");
   const mini: MiniView = {
     title: info?.book.title ?? "",
+    // What went wrong, or that the audiobook is loading (the reader's bar says the rest; the design has no line for it).
+    status: error ?? (isBook && loading ? "Loading your audiobook…" : ""),
     sentence: shownText.slice(around.start, around.end),
     lit: lit ? [lit.from - around.start, lit.to - around.start] : null,
     chapter: shortChapter(heard ? heard.chapter : firstChapter),

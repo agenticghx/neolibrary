@@ -27,7 +27,9 @@
   gap: var(--space-2);
 }
 
+/* Both kinds of button are at least 44 px tall: a finger's width. */
 .tool {
+  min-height: 44px;
   padding: var(--space-1) var(--space-3);
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-md);
@@ -44,6 +46,7 @@
 }
 
 .primaryTool {
+  min-height: 44px;
   padding: var(--space-1) var(--space-4);
   border: 0;
   border-radius: var(--radius-md);

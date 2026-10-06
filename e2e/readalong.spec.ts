@@ -1655,6 +1655,21 @@ test("M14 (6b): Listen from here on Home plays the book's own audiobook there, i
   expect(await same()).toBe(true);
 });
 
+test("M14 (6b): a listen started on Home that cannot play says so in the mini-player", async ({ page }) => {
+  test.setTimeout(60_000);
+  const { bookId } = await miniReading(page);
+  expect((await page.request.put(`/api/books/${bookId}/position`, { data: { cfi: PARAGRAPHS[41].cfi, fraction: 0.3 } })).status()).toBe(204);
+  await page.goto("/");
+  const card = page.getByTestId("continue-card").filter({ hasText: "The Strange Case of Dr. Jekyll and Mr. Hyde" });
+  const listen = card.getByRole("link", { name: "Listen from here" });
+  await expect(listen).toHaveAttribute("data-here", "");
+  // The audiobook's audio cannot be fetched.
+  await page.route("**/readalong/**/audio/**", (r) => r.abort());
+  await listen.click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("status").first()).toContainText("could not be played");
+});
+
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
   test.setTimeout(90_000);
   const { bookId, expected } = await miniReading(page);
