@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Steps 6a and 6b part 1 are merged (#85-#87; main 5ab0837). The 6b review's fixes are a PR from m14-e2-fixes: merge when CI is green. Then 6b part 2 (Listen from here on Home for an audiobook, one tap; skips across audiobook files), 6c (Think aloud), 7 (deploy; back up first). Keep verification to what changes an outcome.
+next_action: M14 steps 1-6b part 1 and the 6b review's fixes are merged (#73-#88; main 487bc12). Part 2a (Listen from here on Home plays the audiobook in one tap) is a PR from m14-e2-home-listen: merge when CI is green. Then step 7 (back up, deploy, M14 verdict issue), then 6c (Think aloud) and 2b (skips across files), deployed after.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,24 +19,23 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 14:05 UTC).** Steps 6a and 6b part 1 are
-merged (#85, #86, #87; `main` 5ab0837). The fixes for the 6b review's 19
-findings are a pull request from `m14-e2-fixes` (Iteration 50): merge it
-when CI is green, after checking `git diff --stat <head> origin/main` is
-empty. Then 6b part 2:
-- "Listen from here" on Home plays the book's own audiobook there, in the
-  same tap, without opening the reader. A made voice keeps opening the
-  reader (Open unknowns row 10, default (a)). Safari starts audio only
-  inside the tap, so Home must fetch the Listen data before the tap, start
-  the session synchronously in it (`flushSync`) and call `play()` there.
-  `PlayerProvider.attach` serves only an open reader today.
-- Skips across audiobook files, and back before the first part fetched
-  (the parts route needs a way to ask for the part before).
+**Resume M14 here (2026-10-06, 14:21 UTC).** Merged: steps 1 to 6a, 6b
+part 1 and the 6b review's fixes (#73 to #88; `main` 487bc12). Part 2a,
+"Listen from here" on Home playing the book's own audiobook in one tap
+(Iteration 51), is a pull request from `m14-e2-home-listen`: merge it when
+CI is green, then check `git diff --stat <head> origin/main` is empty.
+
+Then, in this order (changed 2026-10-06 so Samuel can try M14 sooner):
+1. **Step 7, deploy:** back up first (migration 0020 runs at this deploy),
+   then deploy, check the live site, and open the "M14 verdict" issue
+   (`docs/m14-home-plan.md` step 7).
+2. **6c, Think aloud** (`docs/m14-home-plan.md` 6c).
+3. **6b part 2b, skips across audiobook files**, and back before the first
+   part fetched (the parts route needs a way to ask for the part before).
+   An edge case: a 15 s skip at a chapter file's very start or end.
 
 Not a gap: reading time is not counted while listening, by design
-(`useReadingTracker.ts:21`, M10).
-
-Then 6c (Think aloud) and step 7 (deploy; back up first). Design:
+(`useReadingTracker.ts:21`, M10). Design:
 `docs/design/m14-canvas/project/PicksPlayer.dc.html`.
 
 **Testing on the laptop with AirPods connected** (Iteration 50): WebKit's
@@ -151,7 +150,7 @@ Never blocks the loop. Newest first.
 | 7 | WebKit flakes D1 (`docs/m14-flake/plan.md` §3): may a PDF that does not carry its own fonts be drawn with pdf.js's look-alike fonts (Foxit Serif for Times, Liberation Sans for Helvetica and Arial) on every device? It removes a 40-60 ms font lookup at a page turn on CI's Linux; Kuhn carries all its fonts except Arial on 1 page of 222; the Descartes demo PDF would look different. Default: no (keep today's look). | Samuel | 2026-10-13 | open (default applies) |
 | 8 | WebKit flakes D2 and D3: run CI's WebKit without GStreamer's on-disk audio mode (Linux only; none of your devices use it), and let the reader write the Listen bar's hidden word attribute at the moment it lights a word (tests read it; nothing on screen shows it; the 100 ms limit stays). Default: yes to both. | Samuel | 2026-10-13 | open (defaults apply) |
 | 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
-| 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default applies) |
+| 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default (a) applies; built 2026-10-06 for the audiobook case: one tap plays on Home) |
 
 ## Decisions
 
@@ -178,7 +177,22 @@ Never blocks the loop. Newest first.
 
 ## Log
 
-### 2026-10-06 10:05 (local; 14:05 UTC) · Claude (laptop) · M14 step 6b part 1 merged (#87); the review's 19 findings fixed, PR from m14-e2-fixes
+### 2026-10-06 10:21 (local; 14:21 UTC) · Claude (laptop) · The 6b review's fixes merged (#88); part 2a (Listen from here on Home, one tap) as a PR
+- **Done:**
+  - **#88** merged as 487bc12, by the auto-merge Action once CI was green (`274 passed (16.2m)`, both engines); `git diff --stat f0c3c02 origin/main` printed nothing.
+  - **6b part 2a** on `m14-e2-home-listen` (Iteration 51). On Home, for a book with its own audiobook, "Listen from here" plays it there, from the reading position, in the mini-player, in the same tap. A made voice still opens the reader (row 10, default (a)).
+  - **Order changed** (see "Exact next steps"): deploy next, so Samuel can try M14; 6c and part 2b after.
+- **Key paths:** `components/home/{ListenHere,ContinueCard}.tsx`, `components/player/{PlayerProvider,ListenSession}.tsx`, `app/(app)/page.tsx`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iteration 51).
+- **Commands that worked:**
+  - `scratchpad/run6b.sh readalong|readalong-safari` → `5 passed` each; `scratchpad/run-snap.sh home-continue home "Continue shows the book opened last"` → `1 passed`; the made-voice 6b test → `1 passed`.
+  - `scratchpad/mut-6bfix.sh`: without `flushSync` the test still passed (React already applies a click's update inside it); started one tick after the tap → caught at `readalong.spec.ts:1622`.
+  - `git rebase --onto origin/main m14-e2-fixes m14-e2-home-listen`.
+- **Known issues / blockers:**
+  - Home fetches the audiobook's Listen data on each visit for a Continue card with an audiobook (at most 8,000 words of text and timings).
+  - Real Safari on an iPhone is the final check of the one-tap start: Samuel, after the deploy.
+- **Exact next steps:** as "Exact next steps" above.
+
+### 2026-10-06 10:00 (local; 14:00 UTC; first written as 14:05, corrected from the clock) · Claude (laptop) · M14 step 6b part 1 merged (#87); the review's 19 findings fixed, PR from m14-e2-fixes
 - **Done:**
   - **#87** (6b part 1, the mini-player) merged as 5ab0837.
   - **The 6b review** (workflow `wf_36df385f-c88`: logic, looks and server reviewers, a skeptic per finding) confirmed 19 findings, some the same seen twice. All are fixed on `m14-e2-fixes` (Iteration 50):
