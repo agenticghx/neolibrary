@@ -23,11 +23,11 @@ test.describe("desktop sidebar", () => {
     const cases: [string | RegExp, RegExp, string][] = [
       ["Home", /:\d+\/$/, "Home"],
       ["All", /\/library$/, "Your library"],
-      ["Want to Read", /\/library\?show=want$/, "Your library"],
-      ["Finished", /\/library\?show=finished$/, "Your library"],
-      ["Books", /\/library\?show=books$/, "Your library"],
-      ["Audiobooks", /\/library\?show=audiobooks$/, "Your library"],
-      ["PDFs", /\/library\?show=pdfs$/, "Your library"],
+      ["Want to Read", /\/library\?show=want$/, "Want to Read"],
+      ["Finished", /\/library\?show=finished$/, "Finished"],
+      ["Books", /\/library\?show=books$/, "Books"],
+      ["Audiobooks", /\/library\?show=audiobooks$/, "Audiobooks"],
+      ["PDFs", /\/library\?show=pdfs$/, "PDFs"],
       // A Path shows how many of its numbered pillars are started.
       [`Hidden Machinery 0 of ${PILLARS} pillars started`, /\/paths\/hidden-machinery$/, "Hidden Machinery"],
       ["New path", /\/paths\?new=path$/, "Your paths"],

@@ -163,6 +163,19 @@
   width: auto;
 }
 
+/* The filters as chips: phone only (the sidebar has them on desktop). */
+.filters {
+  display: none;
+}
+
+.chipsLabel {
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -305,4 +318,16 @@
 
 .samplesButton:hover {
   background-color: var(--accent-strong);
+}
+
+@media (width <= 48rem) {
+  .filters {
+    display: flex;
+  }
+
+  /* Finger-sized chips on a phone. */
+  .chip,
+  .chipAdd {
+    min-height: 2.75rem;
+  }
 }

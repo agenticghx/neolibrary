@@ -5,7 +5,7 @@ import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
 import styles from "./Shell.module.css";
 
-/** The library's own filters (M14 step 4 makes each one filter; until then each opens the whole library). */
+/** The library's filters (M14 D5; /library?show=…, lib/library/shelf.ts SHOWS). */
 export const LIBRARY_LINKS: { label: string; href: string; icon: IconName }[] = [
   { label: "All", href: "/library", icon: "library" },
   { label: "Want to Read", href: "/library?show=want", icon: "want" },

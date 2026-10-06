@@ -32,6 +32,10 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 17 | 2026-10-05 22:28 | 3 | Home looks like the mockup | screenshots; a measurement in the browser | failure then success | measure a layout bug before guessing at it |
 | 18 | 2026-10-05 22:36 | 3 | Step 3 green from a fresh database; Home's checks catch breaks | full suite on 7732a13; 4 browser mutations | success | |
 | 19 | 2026-10-06 00:05 | 3 review | Step 3 is ready (review) | three reviewers; 12 unit + 4 browser mutations; 2 full runs | partial | a shared variable in zsh is one word; check a mutation printed test counts |
+| 20 | 2026-10-06 00:25 | 4 | Each filter shows exactly its titles; each rule has a failing test | shelf.test; home.spec (from the export); 7 mutations; 2 reviewers | success | an expected list computed from data can be empty: guard it, or test where the data exists |
+| 21 | 2026-10-06 00:35 | 3 CI | #75 passes on CI | run 37392862541 | flake (rerun) | a name containing another control's label breaks getByLabel |
+| 22 | 2026-10-06 01:00 | CI flakes | Why WebKit read-along tests fail on CI | 4 CI failures; a trace; worker count | partial (cause narrowed) | a late word at a page break is drawing time, not the network |
+| 23 | 2026-10-06 01:30 | 4 rebase; `main` CI | Step 4 on `main` is the tree that passed; `main` is green after #75 | `git diff --stat`; `npm run check`; run 37397581699 | success; flake on `main` | build output left by another branch breaks type checking |
 
 ## Lessons so far
 
@@ -423,4 +427,98 @@ order-dependent test). Judged timing flakes; CI on Linux decides.
 **Lesson.** In zsh, `$VAR` holding two paths is one argument: pass them
 separately, and treat "exit 1 with no test counts" as "did not run".
 **Next experiment.** Push step 3; read CI; refresh images.
+
+### Iteration 20 · 2026-10-06 00:25 · Step 4 (filters) · success
+
+**Hypothesis.** `/library?show=…` shows exactly D5's titles, with counts
+that agree, and every rule has a test that fails without it.
+**Action.** `listShelf({ show })` (want, finished, books, pdfs,
+audiobooks); the page's heading, count and phone chips; a unit test on a
+fixture library; a browser test that works out each filter's expected
+titles from `/api/export`; mutations; two reviewers.
+**Result.** Unit `5 passed`; browser `189 passed (1.9m)` up to `home`.
+Mutations: F1 Audiobooks from narration tracks → the unit test fails with
+the wrong title (its first run failed for a missing import instead: redone
+with the import, so the failure is the assertion); F2 Finished from 0.99;
+F3 Want to Read with opened books at 0%; F4 Audiobooks counting uploads
+still uploading; F5 heading ignoring the filter (shell.spec:39); F6 chips
+hidden on a phone (home.spec:223); F7 Want to Read without its waiting
+titles (:216): all caught. Reviews: the browser check for Audiobooks was
+empty (no audiobook exists before the read-along project; now checked
+there too); wrong empty messages with a collection or search; two counts
+that disagreed on Want to Read; two "All" chips; 31 px chips; filters away
+from the collections. Fixed (4b64e02). Kept "Your library" as the whole
+library's heading (the plan said "All"; recorded in Decisions).
+**Lesson.** A mutation that crashes (a missing import) is not the
+assertion failing: read the error, not just the red mark. An expected
+list worked out from data needs a "not empty" guard, or a test where the
+data exists.
+
+### Iteration 21 · 2026-10-06 00:35 · Step 3 CI and step 4 suite · flake, then success
+
+**Hypothesis.** #75 (970a19b, images refreshed) passes CI; step 4 passes
+the whole suite locally.
+**Result.** CI run 37392862541: lint, types, unit, Postgres pass; browser
+`242 passed`, `1 failed`: `readalong.spec.ts:1123` in readalong-safari,
+`"most" (word 51) shown 116 ms after it starts` (limit 100). Word 51 is
+the first word after the PDF page break (page 1's last word runs straight
+into it), so the extra time is WebKit drawing the next PDF page on CI.
+Step 3 does not touch page turns or PDF drawing; the test passed on CI
+for steps 1 and 2 and in every local run. Judged the known WebKit timing
+margin (build plan §11); failed job re-run. Added to the list for the
+timing investigation before step 6a. Step 4 locally: first full run
+`1 failed` (uploads.spec:113): renaming the library's search area to
+"Search and sort" made `getByLabel("Sort")` match two elements (names
+match by substring); renamed "Search titles"; then `248 passed (6.5m)`.
+**Lesson.** A new accessible name must not contain another control's
+label: Playwright (and some screen readers' search) match substrings.
+
+### Iteration 22 · 2026-10-06 01:00 · WebKit read-along on CI · partial (cause narrowed)
+
+**Hypothesis.** The intermittent readalong-safari failures on CI are
+caused by M14 changes, or by tests running at once.
+**Evaluation.** The four failures so far, a trace, CI's worker count.
+**Result.** #68 `:727` "was" lit 117 ms late; #72 `:727` audio stalled
+(`playUntil` 45 s); #75 run 1 `:1123` "most" (word 51, first after the
+PDF page break) lit 116 ms late; #75 run 2 `:241` a two-part upload never
+reached "Done." (2 min). Two of these were on docs-only PRs: `main`'s
+code fails the same way. The `:1123` trace: the audiobook's file came in
+one 34 ms request, nothing was pending at the page break, so the late
+word is WebKit drawing the next PDF page. CI runs `using 1 worker`, and
+readalong.spec is `serial`: no test competes for the CPU. So: WebKit on a
+small CI machine sometimes needs over 100 ms to light the first word on a
+new page, and sometimes stalls (audio or upload) outright.
+**Interpretation.** Not M14. Loosening the 100 ms limit would weaken a
+test the product depends on. The causes to remove are product work: draw
+the next PDF page before the reading reaches it; find what stalls WebKit
+(its media pipeline on Linux, or the capped range requests).
+**Next experiment.** Before step 6a (build plan §11): pre-render the next
+page and measure the page-turn latency on CI; trace a stall with the
+audio requests and their ranges.
+
+### Iteration 23 · 2026-10-06 01:30 · Step 4 rebased; `main`'s CI after #75 · success; flake on `main`
+
+**Hypothesis.** Step 4 rebased onto `main` (after #75's squash-merge) is
+the tree that passed locally, and `main` is green after the merge.
+**Evaluation.** `git diff --stat 456c475 HEAD` after
+`git rebase --onto origin/main 970a19b m14-c-filters`; `npm run check` on
+ba46766; `main`'s push CI, run 37397581699.
+**Result.** The diff printed nothing: the rebased tree equals 456c475,
+where the full suite gave `248 passed (6.5m)` (Iteration 21), so the
+suite was not re-run. `npm run check` first failed type checking:
+`.next/types/validator.ts` named `paths/[slug]/edit/page.js` and
+`paths/new/page.js`, pages of the step-5 build left in `.next`; after
+`rm -rf .next/types`: `Tests 377 passed | 2 skipped (379)`. `main`'s CI:
+lint, types, unit, Postgres pass; browser `1 failed`, `4 did not run`,
+`242 passed (14.8m)`: `readalong.spec.ts:1123` (readalong-safari),
+`"most" (word 51) shown 112 ms after it starts`.
+**Interpretation.** The fifth WebKit read-along failure on CI and the
+second at the same word (#75's first run: 116 ms). The page-break delay
+is systematic on CI's WebKit, not rare; `main` is red for it, not for
+step 4.
+**Lesson.** Build output from another branch (`.next/types`) breaks type
+checking after switching branches: clear it before `npm run check`.
+**Next experiment.** Push step 4 as a draft PR; on a WebKit read-along
+failure of the known kind, re-run the failed job. The investigation stays
+before step 6a.
 

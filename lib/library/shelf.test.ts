@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
-import { books } from "@/lib/db/schema";
+import { audioTracks, books, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import {
   collectionsForBook,
@@ -10,6 +10,7 @@ import {
   deleteCollection,
   listCollections,
   listShelf,
+  parseShow,
   parseSort,
   setInCollection,
 } from "./shelf";
@@ -53,6 +54,37 @@ describe("shelf", () => {
     expect(await titles({ q: "time" })).toEqual(["the Time Machine"]);
     expect(await titles({ q: "SHELLEY" })).toEqual(["Frankenstein"]);
     expect(await titles({ q: "%" })).toEqual([]);
+  });
+});
+
+describe("filters (M14 D5)", () => {
+  it("show exactly their titles; All is unchanged", async () => {
+    const add = async (title: string, values: Partial<typeof books.$inferInsert>) =>
+      (await database.db.insert(books).values({ ownerId, title, author: "", fileKey: `books/x/${title}`, fileType: "epub", ...values }).returning())[0].id;
+    // Beside the fixtures above (Frankenstein 0.5, the Time Machine 0.1, Dracula 1, a title with no file):
+    await add("Never opened", { progress: 0 });
+    await add("Opened, still at 0%", { progress: 0, lastOpenedAt: new Date() });
+    await add("Almost done", { progress: 0.999, lastOpenedAt: new Date() });
+    await add("A PDF", { fileType: "pdf", progress: 0 });
+    const withAudiobook = await add("With an audiobook", { progress: 0.2, lastOpenedAt: new Date() });
+    const narratedOnly = await add("Narrated only", { progress: 0.3, lastOpenedAt: new Date() });
+    await database.db.insert(readalongImports).values({ ownerId, bookId: withAudiobook, status: "ready", manifest: {}, report: { chapters: [], paragraphs: 0 }, audio: [] });
+    const uploading = await add("Audiobook still uploading", { progress: 0.4, lastOpenedAt: new Date() });
+    await database.db.insert(readalongImports).values({ ownerId, bookId: uploading, status: "uploading", manifest: {}, report: { chapters: [], paragraphs: 0 }, audio: [] });
+    await database.db.insert(audioTracks).values({ ownerId, bookId: narratedOnly, sectionId: "s1", source: "tts", voice: "v", cacheKey: "k", inputHash: "h", audioKey: "a", mime: "audio/mpeg", durationMs: 1, words: [] });
+
+    const shown = async (show: string) => (await titles({ show: parseShow(show), sort: "title" })).sort();
+    expect(await shown("want")).toEqual(["A PDF", "Never opened"]);
+    expect(await shown("finished")).toEqual(["Dracula"]);
+    expect(await shown("books")).toEqual(
+      ["Almost done", "Audiobook still uploading", "Dracula", "Frankenstein", "Narrated only", "Never opened", "Opened, still at 0%", "With an audiobook", "the Time Machine"].sort(),
+    );
+    expect(await shown("pdfs")).toEqual(["A PDF"]);
+    expect(await shown("audiobooks")).toEqual(["With an audiobook"]);
+    // All: every book with a file, as before the filters existed.
+    expect((await shown("all")).length).toBe(3 + 7);
+    expect(await shown("nonsense")).toEqual(await shown("all"));
+    expect(parseShow("want")).toBe("want");
   });
 });
 

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 3 (Home) PR: refresh its reference images from CI, merge when green; then step 4 (library filters) on m14-c-filters.
+next_action: Step 4 (library filters) is a draft PR from m14-c-filters, rebased on main; merge it when CI is green, then rebase step 5 (m14-d-paths) and apply the review fixes in docs/m14-handoff-2026-10-06.md §4b (that file reaches main with step 5).
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -18,6 +18,14 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+**Resume M14 here (2026-10-06, 01:32 UTC).** Steps 1-3 are merged. Step 4
+(library filters) is a draft PR from `m14-c-filters`: merge it when CI is
+green (a WebKit read-along failure is the known CI flake: re-run the
+failed job). Then step 5 (your own Paths) from `m14-d-paths`, with the
+review fixes; its handoff, `docs/m14-handoff-2026-10-06.md`, is on that
+branch and says what comes after (3b, the WebKit flake investigation,
+step 6).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -120,6 +128,7 @@ Never blocks the loop. Newest first.
 
 ## Decisions
 
+- 2026-10-06 · The whole library's page keeps the heading "Your library"; the filters use their names ("Want to Read", "Finished", "Books", "Audiobooks", "PDFs"). The build plan's step 4 said the heading would read "All"; a heading that only says "All" means little, and the sidebar already says All · by Claude (default; Samuel can overrule)
 - 2026-10-05 · M14 build-plan questions answered: (1) ElevenLabs narration counts as "Listen" ("of course yes"): with narration on, every EPUB is Read and listen; a PDF needs an uploaded audiobook; (2) titles not available yet sit in one closed group "Not available yet (N)" at the end of the grid; (3) "Want to Read" is automatic: everything not started; (4) "grid is default", with a View button to switch to spines on both desktop and phone; (5) your own Paths are sections of ordered titles (Story first / Go deeper / plain), no "Read last" marker for now · by Samuel
 - 2026-10-05 · The headphones mark on a cover and the Library's "Audiobooks" filter stay tied to an uploaded audiobook, not to narration (with narration on they would otherwise cover every EPUB and tell titles apart no more) · by Claude (default; Samuel can overrule in the M14 verdict issue)
 - 2026-10-05 · Never "owned" / "not owned": everything in the library is Samuel's. Each title is labelled by what is available: Read and listen, Read only, Listen only, or Not available yet (greyed, with a way to add the file); such titles appear in the library too · by Samuel
@@ -139,6 +148,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 21:32 (local; 01:32 UTC 2026-10-06) · Claude (laptop) · M14 step 4 rebased on `main` and pushed as a draft PR
+- **Done:** Step 3 is in `main` unchanged (`git diff --stat 970a19b origin/main` printed nothing). Rebased step 4 (library filters) onto `main`; the tree is identical to the one that passed the whole suite before (`git diff --stat 456c475 HEAD` printed nothing), so the suite was not re-run. `main`'s own CI after #75 failed one WebKit read-along test (`readalong.spec.ts:1123`: word 51 lit 112 ms late at a PDF page break), the known CI flake, now seen on `main` too. Copied the flake analysis (learning log Iteration 22) onto this branch and added Iteration 23. Opened step 4 as a draft PR.
+- **Key paths:** step 4: `lib/library/shelf.ts` (+ test), `app/(app)/library/page.tsx` (+ CSS, `Controls.tsx`), `components/shell/Sidebar.tsx`, `e2e/home.spec.ts`, `e2e/shell.spec.ts`, `e2e/readalong.spec.ts`; `LEARNING_LOG.md` (Iterations 22-23).
+- **Commands that worked:** `git rebase --onto origin/main 970a19b m14-c-filters`; `rm -rf .next/types && npm run check` → `Tests 377 passed | 2 skipped (379)`; `gh api repos/sahuno/neolibrary/actions/jobs/112057120443/logs` (`main`'s failed browser job).
+- **Known issues / blockers:** WebKit read-along tests fail intermittently on CI (five failures so far, two at the same word); re-run the failed job until the investigation before step 6a removes the cause. After switching from the step-5 branch, `npm run check` fails on stale `.next/types`: delete that folder first.
+- **Exact next steps:** when the step-4 PR's CI is green (re-run a known WebKit flake; refresh any changed reference image from CI's report): mark it ready, `gh pr merge <n> --squash --match-head-commit <sha>`, check that `git diff --stat <sha> origin/main` prints nothing. Then step 5: `git rebase --onto origin/main 456c475 m14-d-paths`, the review fixes in the handoff §4b, a draft PR. Then 3b, the WebKit flake investigation, step 6a.
 
 ### 2026-10-06 00:05 · Claude (laptop) · M14 step 2 merged (#74); step 3 reviewed, fixed and pushed
 - **Done:** #74 (step 2) merged as b018c34 after CI passed with its 44 refreshed images; `main` equals the checked tree. Step 3 rebased on `main`; three reviewers found an AI agent's note shown as the reader's own on Continue, a folded corner that never drew, spine lettering under the contrast minimum, marks with no words, a tall phone card, the drop hint on phones, same-width EPUB spines, drops outside the page body opening the file, and 12 test gaps; all fixed with tests (f64068d). Mutation checks H12-H23 each caught. Pushed `m14-b3-home` as a draft PR.
