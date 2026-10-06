@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: #93 (2b, skips across audiobook files, review fixes in) waits on CI: merge when green, then deploy (back up first). Then the WebKit-after-seek stall on CI. Samuel's verdict: #90.
+next_action: Every M14 step is live (main 9a19ccb, deployed 17:52 UTC). Wait for Samuel's verdict (#90) and fix what he flags, one PR each. Meanwhile, the WebKit-after-seek stall on CI (flake plan S4). Not built: back into an unloaded chapter; Think aloud inside the reader.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,21 +19,29 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 16:56 UTC).** M14 is live through Think aloud and
-the review's fixes: `main` 9d733f9, deployed 16:55 UTC after a checked backup.
-The "M14 verdict" issue is #90; a comment there lists what is new. Next:
-1. **6b part 2b** (15 s skips across audiobook files) is a PR from
-   `m14-e2-skip-across`: merge it when CI is green, then deploy (back up
-   first).
+**Resume M14 here (2026-10-06, 17:52 UTC).** Every step of the M14 plan
+is merged and live: `main` 9a19ccb, deployed 17:52 UTC after a checked
+backup. That is steps 1 to 7, with Think aloud (6c) and skips across
+audiobook files (6b part 2b). The "M14 verdict" issue is #90; two comments
+there list what is new. Next:
+1. **Samuel's verdict** (#90): record it in the Log, fix what he flags (one PR
+   per fix, reviewed before merging), and settle Open unknowns rows 5, 6
+   and 10.
 2. **WebKit on Linux (CI) sometimes stands still right after the audio's
-   position is set** (runs 37478603601, 37484095289): look into it from the
-   flake plan's S4 (`docs/m14-flake/plan.md`).
-3. **Not yet built:** back into a chapter that has not been loaded (before the
-   first part fetched; the parts route would need a "before" mode); and
-   Think aloud from inside the reader (selecting text and adding a voice
-   note already works there).
-4. **When Samuel's verdict comes** (#90): record it, fix what he flags (one
-   PR per fix), and settle Open unknowns rows 5, 6 and 10.
+   position is set** (runs 37478603601, 37484095289; each needed a re-run or
+   a test change). Start from the flake plan's S4 (`docs/m14-flake/plan.md`).
+   One idea to test on CI before adopting: a player that notices it has not
+   moved for 2 s while playing, and re-seeks.
+3. **Not built yet:**
+   - back into a chapter that has not been loaded (before the first part
+     fetched; the parts route needs a "before" mode);
+   - Think aloud from inside the reader (selecting text and adding a voice
+     note already works there).
+
+**How this session worked** (2026-10-06): each step ran build, then tests in
+both engines, then mutations, then a review workflow (reviewers plus a
+skeptic per finding), with the PR held as a draft until the review's fixes
+were in. Reviews found 19, 28 and 7 real problems the tests had missed.
 
 Not a gap: reading time is not counted while listening, by design
 (`useReadingTracker.ts:21`, M10). Design:
@@ -83,9 +91,9 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **M14 verdict** (#90, from 2026-10-06): M14 is live, with Think aloud and the fixes for Home's one-tap Listen (deployed 16:55 UTC). Try it on your phone and laptop, and answer the four questions in the issue. Uploading an audiobook to the live site is safe now.
+- **M14 verdict** (#90, from 2026-10-06): all of M14 is live (deployed 17:52 UTC), with Think aloud and 15 s skips across a chapter's audio files. Try it on your phone and laptop, and answer the four questions in the issue. Uploading an audiobook to the live site is safe.
 
-- **GitHub Actions minutes** (information, from 2026-10-06; nothing to do unless you want to). The repo is private, so GitHub's CI minutes are limited. By my count, this month's CI jobs since 1 October come to about 2,361 minutes: 610 jobs, each rounded up to a whole minute, as GitHub bills them. I added up each job's start and end times, because GitHub's usage page reports 0 to my login. GitHub's free plan has included 2,000 minutes a month for private repos, and CI still runs, so either your plan includes more or your billing month starts later than the 1st. I cannot see your plan or your limits. If CI ever stops starting jobs, this is the likely reason. I will not raise any limit. The flake plan's remaining sampling is about 200-300 minutes (its estimate). To check, open GitHub → Settings → Billing and plans.
+- **GitHub Actions minutes** (information, from 2026-10-06; nothing to do unless you want to). The repo is private, so GitHub's CI minutes are limited. Recounted on 2026-10-06 at 17:57 UTC: since 1 October, 722 finished jobs in 290 runs come to 3,165 minutes, each job rounded up to a whole minute, as GitHub bills them (CI 2,971, the auto-merge 148, timing samples 46). That day alone used 1,177 minutes in 34 CI runs, 5 of them re-runs. I added up each job's start and end times, because GitHub's usage page reports 0 to my login. GitHub's free plan has included 2,000 minutes a month for private repos, and CI still runs, so either your plan includes more or your billing month starts later than the 1st. I cannot see your plan or your limits. If CI ever stops starting jobs, this is the likely reason. I will not raise any limit. The flake plan's remaining sampling is about 200-300 minutes (its estimate). To check, open GitHub → Settings → Billing and plans.
 
 - **M14 step 5 defaults** (nothing to do unless you disagree): see Decisions 2026-10-06 (Hidden Machinery not editable, "Any order", how a title finds its book, /stats words) and Open unknowns row 6 (renaming or removing a section, deleting a Path; no reference images for your own Path's pages).
 
@@ -179,6 +187,23 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 13:52 (local; 17:52 UTC) · Claude (laptop) · #93 merged and deployed: every M14 step is live
+- **Done:**
+  - **#93** (6b part 2b, skips across audiobook files, with its review fixes) merged as 9a19ccb, by the auto-merge once the PR was marked ready (CI `281 passed (16.3m)`); `git diff --stat 920d35b origin/main` printed nothing.
+  - **Deployed `main` 9a19ccb** at 17:52 UTC (Railway deployment 7c3208c5 is the active one):
+    - the backup first, `~/Backups/neolibrary/prod-before-m14-20261006T1749Z.sql` (1,135,105 bytes); restored with the same counts;
+    - after: health `200`; sign-in `200`; `/library` `307` to sign-in; database `1|129|20|0020_readalong_imports`.
+  - **Commented on #90:** 2b is live; every M14 step is live.
+- **Key paths:** `PROGRESS.md` (this ledger-only PR).
+- **Commands that worked:**
+  - `zsh scratchpad/backup.sh` → `pg_dump exit=0`, `restore exit=0`.
+  - `zsh scratchpad/deploy.sh`, then `railway deployment list ... --json` until `SUCCESS`.
+  - `gh pr ready 93` after the review's fixes: the auto-merge (`.github/workflows/auto-merge.yml`) skips drafts and merged it once ready and green.
+- **Known issues / blockers:**
+  - The WebKit stall on CI, and the two items not built (see "Exact next steps").
+  - Samuel's verdict is pending (#90).
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 13:29 (local; 17:29 UTC) · Claude (laptop) · 2b reviewed (7 findings) and fixed; #93 ready for CI
 - **Done:**
