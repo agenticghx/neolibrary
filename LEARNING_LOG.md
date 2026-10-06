@@ -1058,3 +1058,41 @@ fresh database, on steps 1, 5, 4, 2 and 3 together.
 **Lesson.** Stacked branches that each write the same ledger lines do not
 merge after a squash: git compares the insertions, not their meaning. To
 save CI rounds, put the steps in one pull request with a commit each.
+
+### Iteration 46 · 2026-10-06 11:24 · Step 6a (one player for the app) · success (CI to come)
+
+**Hypothesis.** If the reader's player logic moves, unchanged, into a
+provider in the root layout that owns the one `<audio>`, and the reader
+only attaches itself (word lighting, page turns, where to draw the bar),
+then every existing player test passes unchanged and the audio goes on
+when the reader is left.
+**Action.**
+- `components/player/PlayerProvider.tsx` and `ListenSession.tsx`:
+  ListenBar's logic, moved as it was. The bar is drawn into the reader
+  through a portal (React drawing a component's output inside another
+  element), so it renders in the same step as before, with no extra update
+  in between.
+- The bar's buttons stay in the reader with its styles.
+- `lib/player/session.ts` holds the first voice and the bar's note, with
+  unit tests.
+- Closing the bar unmounts the session, as before. `/sign-in` stops it.
+- The cross-link is now a `<Link>`.
+**Evaluation.** The whole suite from a fresh database. A snapshot after
+the `ai` project, then the `audio` project alone: a control run, and four
+browser mutations.
+**Result.**
+- **Whole suite:** `261 passed (6.8m)`, every existing test unchanged
+  except one added URL wait in the cross-link test. `npm run check` →
+  `Tests 426 passed | 2 skipped (428)`.
+- **Control:** `7 passed (12.7s)`.
+- **The four mutations,** each caught by a new test:
+  - reloading the audio on leaving the reader: `audio.spec.ts:175`, the
+    time never moved past where it was;
+  - stop only pausing: `:190`, the element still in the page;
+  - sign-out not stopping: `:214`;
+  - the bar not shown again for its book: `:187`.
+- **Not as the plan expected:** it thought `audio.spec.ts:132-134` would
+  catch "stop only pauses". In this design the reader removes its bar and
+  the highlight whatever the player does, so only the new test sees it.
+**Lesson.** Move logic first, untouched; change only what it talks to. A
+portal let the bar keep its timing and look while its owner moved.

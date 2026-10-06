@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Flake steps 1 and 5 are merged (#80, #81; main 5bd4991). Steps 4, 2 and 3 are one draft PR from m14-flake-fixes (it replaces #82 and #83): merge it when green, then step 6a. Samuel finds the pace slow: keep verification to what changes an outcome.
+next_action: The WebKit flake fixes are all merged (#80, #81, #84; main eda84e1). Step 6a (one player for the app) is a draft PR from m14-e1-player-core: merge when green, then 6b (the mini-player outside the reader), 6c, 7. Samuel finds the pace slow: keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,15 +19,15 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 10:59 UTC).** Flake steps 1 and 5 are merged
-(#80, #81; `main` 5bd4991). Steps 4, 2 and 3 are one draft pull request
-from `m14-flake-fixes` (it replaces #82 and #83, closed: their stacked
-ledger entries conflicted after #81's squash merge; LEARNING_LOG
-Iteration 45). Each step is a commit with its own proof. Merge it when its
-CI is green (re-run a known WebKit flake once), then confirm `main`. Then
-harvest ordinary CI for the page-break test now and then (the command at
-the end of `docs/m14-flake/plan.md` §2) instead of sampling runs. Then
-step 6a (`docs/m14-home-plan.md` §5).
+**Resume M14 here (2026-10-06, 11:24 UTC).** The WebKit flake plan's
+steps 1-5 are merged (#80, #81, #84; `main` eda84e1). Its step 6 (stricter
+check, optional) and step 7 (Samuel's D1, default no) are left. Step 6a,
+one read-aloud player for the app, is a draft pull request from
+`m14-e1-player-core`: merge it when green (re-run a known WebKit flake
+once). Then 6b, the mini-player outside the reader (`docs/m14-home-plan.md`
+§5 "6b"). The player is `components/player/` (ListenSession draws the
+reader's bar through a portal; a page attaches with `usePlayer().attach`).
+Then 6c and step 7 (deploy, back up first).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -159,6 +159,21 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 07:24 (local; 11:24 UTC) · Claude (laptop) · WebKit flake fixes merged (#84); M14 step 6a (one player for the app) pushed as a draft PR
+- **Done:**
+  - **#84** (flake steps 4, 2 and 3) merged as eda84e1 on its first CI run (`261 passed (16.1m)`); `git diff --stat 4a788f3 origin/main` printed nothing. Its WebKit timing record shows each fix at the page turn: the bar written 0.4 ms after the word was lit, no font load at the turn, the longest gap between frames 43 ms, and no go-back audio request.
+  - **Step 6a** on `m14-e1-player-core`. Reading aloud now lives in a provider in the root layout and goes on when the reader is left. The reader attaches itself while open, and the bar is back when you return to the book. Closing the bar or signing out stops it. All existing player tests pass unchanged (Iteration 46).
+  - A read-only workflow (four analysts and a critic) mapped the constraints for 6a. A review of the diff against them runs alongside the PR's CI.
+- **Key paths:** `components/player/{PlayerProvider,ListenSession}.tsx`, `lib/player/session.ts` (+ test), `app/layout.tsx`, `app/(reader)/books/[id]/read/{Reader,ListenBar,CrossLinksPanel}.tsx`, `reader.module.css` (`.listenSlot`), `e2e/audio.spec.ts` (two new tests), `e2e/ai.spec.ts` (a URL wait), `LEARNING_LOG.md` (Iteration 46).
+- **Commands that worked:**
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` → `261 passed (6.8m)`; `npm run check` → `Tests 426 passed | 2 skipped (428)`.
+  - A snapshot after `ai` (`--project ai` → `177 passed (1.2m)`), then `scratchpad/mut-audio.sh` (the `audio` project alone): control `7 passed`; mutations M1-M4 each `1 failed`.
+  - `gh pr merge 84 --squash --match-head-commit 4a788f3…`.
+- **Known issues / blockers:**
+  - While a book is read aloud, opening another book's reader shows no bar for the first one, so its audio can only be stopped from its own book. The mini-player (6b) should cover that case.
+  - The reading tracker counts listening only while the reader is open (6b: "position while listening outside the reader").
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 06:59 (local; 10:59 UTC) · Claude (laptop) · Flake step 3 built; steps 4, 2 and 3 in one draft PR (replacing #82 and #83)
 - **Done:**
