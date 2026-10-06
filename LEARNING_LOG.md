@@ -32,6 +32,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 17 | 2026-10-05 22:28 | 3 | Home looks like the mockup | screenshots; a measurement in the browser | failure then success | measure a layout bug before guessing at it |
 | 18 | 2026-10-05 22:36 | 3 | Step 3 green from a fresh database; Home's checks catch breaks | full suite on 7732a13; 4 browser mutations | success | |
 | 19 | 2026-10-06 00:05 | 3 review | Step 3 is ready (review) | three reviewers; 12 unit + 4 browser mutations; 2 full runs | partial | a shared variable in zsh is one word; check a mutation printed test counts |
+| 20 | 2026-10-06 00:25 | 4 | Each filter shows exactly its titles; each rule has a failing test | shelf.test; home.spec (from the export); 7 mutations; 2 reviewers | success | an expected list computed from data can be empty: guard it, or test where the data exists |
+| 21 | 2026-10-06 00:35 | 3 CI | #75 passes on CI | run 37392862541 | flake (rerun) | a name containing another control's label breaks getByLabel |
 
 ## Lessons so far
 
@@ -423,4 +425,49 @@ order-dependent test). Judged timing flakes; CI on Linux decides.
 **Lesson.** In zsh, `$VAR` holding two paths is one argument: pass them
 separately, and treat "exit 1 with no test counts" as "did not run".
 **Next experiment.** Push step 3; read CI; refresh images.
+
+### Iteration 20 · 2026-10-06 00:25 · Step 4 (filters) · success
+
+**Hypothesis.** `/library?show=…` shows exactly D5's titles, with counts
+that agree, and every rule has a test that fails without it.
+**Action.** `listShelf({ show })` (want, finished, books, pdfs,
+audiobooks); the page's heading, count and phone chips; a unit test on a
+fixture library; a browser test that works out each filter's expected
+titles from `/api/export`; mutations; two reviewers.
+**Result.** Unit `5 passed`; browser `189 passed (1.9m)` up to `home`.
+Mutations: F1 Audiobooks from narration tracks → the unit test fails with
+the wrong title (its first run failed for a missing import instead: redone
+with the import, so the failure is the assertion); F2 Finished from 0.99;
+F3 Want to Read with opened books at 0%; F4 Audiobooks counting uploads
+still uploading; F5 heading ignoring the filter (shell.spec:39); F6 chips
+hidden on a phone (home.spec:223); F7 Want to Read without its waiting
+titles (:216): all caught. Reviews: the browser check for Audiobooks was
+empty (no audiobook exists before the read-along project; now checked
+there too); wrong empty messages with a collection or search; two counts
+that disagreed on Want to Read; two "All" chips; 31 px chips; filters away
+from the collections. Fixed (4b64e02). Kept "Your library" as the whole
+library's heading (the plan said "All"; recorded in Decisions).
+**Lesson.** A mutation that crashes (a missing import) is not the
+assertion failing: read the error, not just the red mark. An expected
+list worked out from data needs a "not empty" guard, or a test where the
+data exists.
+
+### Iteration 21 · 2026-10-06 00:35 · Step 3 CI and step 4 suite · flake, then success
+
+**Hypothesis.** #75 (970a19b, images refreshed) passes CI; step 4 passes
+the whole suite locally.
+**Result.** CI run 37392862541: lint, types, unit, Postgres pass; browser
+`242 passed`, `1 failed`: `readalong.spec.ts:1123` in readalong-safari,
+`"most" (word 51) shown 116 ms after it starts` (limit 100). Word 51 is
+the first word after the PDF page break (page 1's last word runs straight
+into it), so the extra time is WebKit drawing the next PDF page on CI.
+Step 3 does not touch page turns or PDF drawing; the test passed on CI
+for steps 1 and 2 and in every local run. Judged the known WebKit timing
+margin (build plan §11); failed job re-run. Added to the list for the
+timing investigation before step 6a. Step 4 locally: first full run
+`1 failed` (uploads.spec:113): renaming the library's search area to
+"Search and sort" made `getByLabel("Sort")` match two elements (names
+match by substring); renamed "Search titles"; then `248 passed (6.5m)`.
+**Lesson.** A new accessible name must not contain another control's
+label: Playwright (and some screen readers' search) match substrings.
 

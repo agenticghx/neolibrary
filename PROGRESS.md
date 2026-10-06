@@ -120,6 +120,7 @@ Never blocks the loop. Newest first.
 
 ## Decisions
 
+- 2026-10-06 · The whole library's page keeps the heading "Your library"; the filters use their names ("Want to Read", "Finished", "Books", "Audiobooks", "PDFs"). The build plan's step 4 said the heading would read "All"; a heading that only says "All" means little, and the sidebar already says All · by Claude (default; Samuel can overrule)
 - 2026-10-05 · M14 build-plan questions answered: (1) ElevenLabs narration counts as "Listen" ("of course yes"): with narration on, every EPUB is Read and listen; a PDF needs an uploaded audiobook; (2) titles not available yet sit in one closed group "Not available yet (N)" at the end of the grid; (3) "Want to Read" is automatic: everything not started; (4) "grid is default", with a View button to switch to spines on both desktop and phone; (5) your own Paths are sections of ordered titles (Story first / Go deeper / plain), no "Read last" marker for now · by Samuel
 - 2026-10-05 · The headphones mark on a cover and the Library's "Audiobooks" filter stay tied to an uploaded audiobook, not to narration (with narration on they would otherwise cover every EPUB and tell titles apart no more) · by Claude (default; Samuel can overrule in the M14 verdict issue)
 - 2026-10-05 · Never "owned" / "not owned": everything in the library is Samuel's. Each title is labelled by what is available: Read and listen, Read only, Listen only, or Not available yet (greyed, with a way to add the file); such titles appear in the library too · by Samuel
