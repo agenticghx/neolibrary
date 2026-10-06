@@ -1595,3 +1595,53 @@ picker because of a fault: missing from the list, or adding failing.
 **Lesson.**
 - **Build a test's input from literal numbers, not from the constant it tests.** My first tests made their zips from `EPUB_ZIP_LIMITS`. With the limit mutated to `Infinity`, `epubWithEntries(Infinity)` died inside the helper ("Too many properties to enumerate"): the test failed for the wrong reason.
 - **After switching branches, rebuild before trusting `tsc`.** The control failed `tsc` (exit 2) on `.next/types` left by V5's build (`app/(app)/import/page.js` not found); `npm run build` cleared it.
+
+### Iteration 58 · 2026-10-06 23:17 · M14 follow-up V3a (the Import page; the drop areas removed) · success (CI to come: CI is not starting jobs)
+
+**Hypothesis.** One Import page can take books and your own audiobooks,
+with Home's Import going there and no drop areas elsewhere, and the tests
+that added books from the Library or Home pass from the Import page.
+**Action.**
+- **The first run's failure, fixed:** Home says "Your library is empty."
+  again; the link to Import is a second sentence (`e2e/auth.setup.ts:17`
+  matches the full stop).
+- **What the move left unused, removed:** the old Import button (it opened
+  the file picker inside Home's drop strip) and the hint's phone-only hiding.
+- **The V3a test made real:** it adds a read-along package (.zip) to the
+  chosen book on the Import page, checks the book's import list, removes it
+  again, and checks the page in four looks (accessibility, fits the screen).
+- **The empty Library's text** asked for books with no way to add them
+  there; it now links to the Import page.
+**Evaluation.** The whole suite from a fresh database (three runs); the V3a
+test from the snapshot after `ai`; two mutations, each after a control run;
+the screenshots.
+**Result.**
+- **Run 1:** `1 failed`, `134 did not run`: my new locator
+  `getByRole("region", { name: "Your audiobook" })` also matched "Add your
+  audiobook to a book". Fixed with `exact: true`.
+- **The V3a test, from the snapshot:** failed on the fits-the-screen check:
+  the page was 553 px wide in a 390 px screen. The book list's longest title
+  set the grid column's width. Fixed (`minmax(0, 1fr)`, `min-width: 0`);
+  then `1 passed`.
+- **Run 2:** `291 passed (7.6m)`.
+- **Run 3, on the squashed commit 72bde33:** `1 failed`, `11 did not run`,
+  `279 passed (7.6m)`: WebKit's tint check in the PDF read-along test
+  (`share of "opens" tinted: 0.00`), the same failure as Iteration 32, in
+  code V3a does not touch; sound on the built-in speakers. The whole
+  `readalong-safari` project rerun on the same build: `30 passed (2.7m)`.
+- **Mutations** (controls `1 passed`): Home's Import pointing to `/library`,
+  caught at `home.spec.ts:108`; the audiobook list with books without a
+  file, caught at `uploads.spec.ts:227` (`+ Received + 125`).
+- **`npm run check`:** `Tests 462 passed | 2 skipped (464)`.
+- **CI for #97 never started:** "The job was not started because recent
+  account payments have failed or your spending limit needs to be
+  increased" (run 37541928335). Draft PR #98 waits for it too.
+**Lesson.**
+- **Check a page in the state it reaches after a choice,** not only as it
+  first opens: the overflow appeared only with books in the library, which
+  the page screenshots (an empty library) never show.
+- **Playwright matches names as substrings by default:** "Add your audiobook
+  to a book" contains "Your audiobook". Use `exact: true` when one name
+  contains another.
+- **A CI job that fails in 2 seconds with no steps is not a test result:**
+  read its annotation before re-running anything.
