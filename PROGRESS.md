@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 5 merged (#77, main 8cd0b49). Step 3b (account button on Home only; sidebar scroll edge) is a draft PR from m14-b2b-account-home: CI will fail every signed-in reference image once; look at each, copy them in, merge when green. Then the WebKit flake investigation (a design workflow has its plan; learning log Iteration 25), then step 6a.
+next_action: Steps 1-5 and 3b are merged (#78, main 35d9e97). The reading-time fix (m14-fix-reading-leave) is a draft PR: merge when green. Then the WebKit flake plan (docs/m14-flake/plan.md), step 1 first (measure, change no check), then steps 2-5 one PR each; then step 6a.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,16 +19,16 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 08:18 UTC).** Steps 1-5 are merged (step 5:
-#77, `main` 8cd0b49). Step 3b (Samuel's choice B: the account button on
-Home only, no strip on other pages; plus a soft edge where the sidebar's
-links scroll) is a draft PR from `m14-b2b-account-home`. Its first CI run
-fails every signed-in reference image (phones lose the strip; desktop
-gains the sidebar edge): download the report, look at each actual image,
-copy them in (`docs/m14-handoff-2026-10-06.md` §6), merge when green. Then
-the WebKit flake investigation (learning log Iteration 25 has the cause; a
-design workflow's plan is in the newest Log entry's next steps), then step
-6a (`docs/m14-home-plan.md` §5).
+**Resume M14 here (2026-10-06, 09:15 UTC).** Steps 1-5 and 3b are merged
+(#78, `main` 35d9e97). A fix for reading time lost on leaving (found on
+#78's CI) is a draft PR from `m14-fix-reading-leave`: merge when green.
+Then the WebKit read-along flakes: `docs/m14-flake/plan.md` (a design
+workflow's plan, with its patches beside it) in its order: step 1 measures
+and changes no check (it adds a GitHub workflow that runs one test many
+times), then steps 2-5 one PR each (the bar's word written when it is lit;
+the next PDF page drawn ahead; CI's WebKit without GStreamer's on-disk
+audio; folder picks that cannot hang). Then step 6a
+(`docs/m14-home-plan.md` §5).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -131,6 +131,8 @@ Never blocks the loop. Newest first.
 | 4 | M14 defaults the build plan sets (`docs/m14-home-plan.md` §4 and §10): does ElevenLabs narration count as "Listen" (default no); titles not available yet in one closed group at the end of the grid (default yes); "Want to Read" = everything not started (default yes); spine view phone only (default yes); own Paths = sections of ordered titles (default yes). | Samuel | 2026-10-19 | closed 2026-10-05: narration counts (yes); closed group (yes); Want to Read automatic (yes); View switch Grid / Spines on desktop and phone, Grid default; own Paths as drawn, no "Read last" marker (see Decisions) |
 | 5 | M14 step 2 (phone): the account button (your initial: Reading stats, Your data, Invite, Sign out) sits in a slim top strip on every page, not only on Home as the build plan's D9 said, so Sign out is reachable everywhere. Keep the strip, or (a) put the button in each page's own header row, or (b) keep the strip and hide the small heading above each page title on a phone? Also: when the app is installed on an iPhone home screen, should it fill the screen edge to edge (`viewport-fit: cover`; needs a check on a real iPhone, as M13 (f) does)? Default until answered: strip on every page; no edge-to-edge. | Samuel | 2026-10-19 | answered 2026-10-06: B (Home only, beside Import); edge to edge decided after the deploy, on Samuel's iPhone |
 | 6 | M14 step 5 left out (not in D10): renaming a section, removing a section, deleting a Path. Add them (a section with notes would stay until its notes are removed; a deleted Path's notes would be kept in your data)? Also: your own Path's pages (its edit page and its page) need data the screenshot projects do not have, so each PR shows them in four looks with the accessibility check, but there are no reference images to compare against. Accept that, or add a second set of screenshot projects that runs after own-paths? Default: not built; no reference images. | Samuel | 2026-10-20 | open (default applies) |
+| 7 | WebKit flakes D1 (`docs/m14-flake/plan.md` §3): may a PDF that does not carry its own fonts be drawn with pdf.js's look-alike fonts (Foxit Serif for Times, Liberation Sans for Helvetica and Arial) on every device? It removes a 40-60 ms font lookup at a page turn on CI's Linux; Kuhn carries all its fonts except Arial on 1 page of 222; the Descartes demo PDF would look different. Default: no (keep today's look). | Samuel | 2026-10-13 | open (default applies) |
+| 8 | WebKit flakes D2 and D3: run CI's WebKit without GStreamer's on-disk audio mode (Linux only; none of your devices use it), and let the reader write the Listen bar's hidden word attribute at the moment it lights a word (tests read it; nothing on screen shows it; the 100 ms limit stays). Default: yes to both. | Samuel | 2026-10-13 | open (defaults apply) |
 
 ## Decisions
 
@@ -156,6 +158,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 05:15 (local; 09:15 UTC) · Claude (laptop) · M14 step 3b merged (#78); a reading-time bug found on its CI, fixed; the WebKit flake plan written
+- **Done:** #78 (step 3b) merged as 35d9e97 after its images were refreshed (26 phone images, each looked at) and a re-run of the browser job (`261 passed (15.7m)`); `git diff --stat 1902338 origin/main` printed nothing. Its CI's one failure (`stats.spec.ts`, 60 s of 90) was a real bug, older than M14: leaving the reader right after a timed save lost up to 30 s of reading (the trace showed the 90-s save aborted and no save on leaving). Fixed on `m14-fix-reading-leave` (the save on leaving always goes) with a test that holds the timed save in flight. A read-only design workflow wrote the plan to remove the WebKit read-along flakes: `docs/m14-flake/plan.md`, with its patches and recordings beside it (the scratchpad copies would not last).
+- **Key paths:** `app/(reader)/books/[id]/read/useReadingTracker.ts`, `e2e/stats.spec.ts`, `docs/m14-flake/` (README, plan, `timing-measurement.patch`, `bar-fix.diff`, `pdf-warmup.diff`, recordings), `LEARNING_LOG.md` (Iterations 35-37).
+- **Commands that worked:** `npx playwright test --project stats --ignore-snapshots` (fresh database) → `193 passed (1.8m)`; `scripts/m14/mut-chain.sh` with the old line → `1 failed` at `stats.spec.ts:101`; `git apply --check` for each of the three plan patches on `main`.
+- **Known issues / blockers:** the WebKit read-along flake as before (6 of 17 CI runs of `:1123`, per the plan's count); Samuel's decisions D1-D3 for it are in Open unknowns rows 7-8 (defaults apply).
+- **Exact next steps:** merge the reading-time fix when green; then the flake plan's step 1 (`m14-flake-a-measure`: `git apply docs/m14-flake/timing-measurement.patch` with the plan's two edits), then steps 2-5; then step 6a.
 
 ### 2026-10-06 04:18 (local; 08:18 UTC) · Claude (laptop) · M14 step 5 merged (#77); step 3b built and pushed as a draft PR
 - **Done:** #77 (step 5) passed CI on its second run after the ten reference images were refreshed from the first (each looked at; Hidden Machinery's `path` passed unchanged in all four looks), and merged as 8cd0b49 (`git diff --stat f50d552 origin/main` printed nothing). Step 3b on `m14-b2b-account-home` (rebased onto `main` as 7dc453d): the phone strip is gone, every page starts with its own title, and the account button sits in Home's title row beside Import on phones (canvas row B, an outlined initial); the sidebar's scrolling links get a soft edge while there is more to scroll (two Paths cut a line in half at laptop height). Learning log Iterations 33-34, two new lessons (read the clock; control runs), and two corrected times.

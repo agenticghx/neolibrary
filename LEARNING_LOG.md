@@ -48,6 +48,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 33 | 2026-10-06 07:57 | 5 CI (#77) | Only the planned images differ; Hidden Machinery's page does not | run 37431776866 | success (images refreshed) | an image passing within tolerance is not proof it is unchanged |
 | 34 | 2026-10-06 08:16 | 5 merged; 3b | #77 merges as checked; 3b (account button on Home, sidebar edge) works | run 37433148408; `git diff --stat`; shell chain | success | |
 | 35 | 2026-10-06 08:36 | 3b CI (#78) | Only the phone images differ (the strip is gone) | run 37435892671 | success (images refreshed) | |
+| 36 | 2026-10-06 08:49 | 3b CI (#78) | #78 passes CI | run 37437423658 and its trace | failure (a real bug older than M14), job re-run, then success | "not caused by this PR" is not "a flake" |
+| 37 | 2026-10-06 09:15 | fix: reading time | Leaving right after a timed save keeps the sitting's last seconds | stats chain; the old code as a mutation | success | make a race happen on purpose: hold the request |
 
 ## Lessons so far
 
@@ -808,3 +810,38 @@ title row with the filled Import and the outlined initial, tabs at the
 foot. Copied all 26 in. The desktop images passed within the 0.2%
 tolerance: the soft edge is that faint, so their references keep the old
 picture (as with `book-not-available` on desktop, Iteration 33).
+
+### Iteration 36 · 2026-10-06 08:49 (CI run 37437423658 finished; from GitHub) · Step 3b CI (#78) · failure (a real bug, older than M14), job re-run
+
+**Hypothesis.** #78 (1902338, images refreshed) passes CI.
+**Evaluation.** CI run 37437423658; the failed test's trace (network log).
+**Result.** `1 failed`, `66 did not run`, `194 passed (7.2m)`:
+`stats.spec.ts:84`, the sitting's active time `60` where at least `90`
+was due. The trace: three saves of the sitting, at 30 s and 60 s (204)
+and at 90 s, `net::ERR_ABORTED`, sent as the test was already leaving
+for /stats; no save on leaving followed. The reading tracker
+(`useReadingTracker.ts`) marks totals as sent when it sends them, so the
+save on leaving (keepalive, which survives the page closing) skipped the
+same totals, and the timed save was cut off by the navigation. Not step
+3b's code: up to 30 s of reading can be lost when a reader leaves right
+after a timed save (M10). Re-ran the failed job; the fix goes in its own
+PR, with a test that holds the 90-s save in flight and then leaves.
+**Lesson.** "Not caused by this PR" is not "a flake": a failure outside
+the PR can still be a real bug; read the trace, then fix it on its own.
+
+### Iteration 37 · 2026-10-06 09:15 · Fix: reading time lost on leaving · success
+
+**Hypothesis.** A save on leaving that always goes (keepalive, even with
+the same totals as the timed save) keeps the sitting's last seconds when
+the timed save is cut off by the leaving.
+**Action.** `useReadingTracker.ts`: `if (body === s.sent && !keepalive)
+return;`. `stats.spec.ts` holds the timed save at 90 s in flight (Playwright
+`page.route`) until the reader has been left, as a slow network would.
+**Evaluation.** `npx playwright test --project stats --ignore-snapshots`
+from a fresh database; the old line as a mutation (`scripts/m14/mut-chain.sh`).
+**Result.** With the fix: `193 passed (1.8m)`. With the old line: `1 failed`
+at `stats.spec.ts:101`, the sitting's time stuck below 90 (the same
+failure as CI run 37437423658, now on every run). #78 merged after its
+re-run (`261 passed (15.7m)`; `main` 35d9e97).
+**Lesson.** A race can be made to happen on purpose: hold the request with
+`page.route` until the step that cuts it off has run.
