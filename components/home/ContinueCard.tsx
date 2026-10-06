@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Cover } from "@/components/Cover";
 import type { Annotation } from "@/lib/library/annotations";
 import type { LibraryItem } from "@/lib/library/home";
+import { ListenHere } from "./ListenHere";
 import styles from "./Home.module.css";
 
 const MAX = 220;
@@ -16,10 +17,11 @@ export function noteShown(note: Annotation): { label: string; text: string; high
 
 /**
  * Continue (Samuel's pick B): the book, where you are, your last note or
- * highlight in it, and Read from here / Listen from here (D7). Listen opens the
- * reader with the Read aloud bar; step 6 makes it play on Home instead.
+ * highlight in it, and Read from here / Listen from here (D7). Listen plays
+ * the book's own audiobook here, in the mini-player (M14 step 6b); otherwise
+ * it opens the reader with the Read aloud bar (ListenHere).
  */
-export function ContinueCard({ item, chapter, note }: { item: LibraryItem; chapter: string | null; note: Annotation | null }) {
+export function ContinueCard({ item, chapter, note, at }: { item: LibraryItem; chapter: string | null; note: Annotation | null; at: string | null }) {
   const shown = note ? noteShown(note) : null;
   const pct = Math.round(item.progress * 100);
   const titleId = `continue-${item.id}`;
@@ -55,12 +57,12 @@ export function ContinueCard({ item, chapter, note }: { item: LibraryItem; chapt
             Read from here
           </Link>
           {item.available.listen ? (
-            <Link href={`/books/${item.id}/read?listen=1`} className={styles.secondary}>
+            <ListenHere bookId={item.id} at={item.audiobook ? at : null} className={styles.secondary}>
               <svg className={styles.listenIcon} width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                 <path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z" />
               </svg>
               Listen from here
-            </Link>
+            </ListenHere>
           ) : null}
       </div>
     </article>
