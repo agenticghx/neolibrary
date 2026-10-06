@@ -11,6 +11,16 @@ const port = Number(process.env.PORT ?? 3100);
 const phone = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
 const desktop = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 };
 const looks = { testMatch: /(visual|a11y)\.spec\.ts/, dependencies: ["setup"] };
+/**
+ * Playwright's headless WebKit on Linux (CI) is WebKit's WPE build, which plays audio through GStreamer. Once a page
+ * calls play(), that build copies the whole audio file to a temporary file ("on-disk buffering") and, after a seek
+ * far ahead, goes back for the bytes it skipped. WebKit's own code calls this mode deadlock-prone and turns it off
+ * for looping media; CI run 37348223223 stalled for 45 s right after such a go-back request. Safari on a Mac or an
+ * iPhone plays audio through Apple's own media system and never uses this mode; on a Mac this variable does nothing.
+ * Playwright's env replaces the browser's whole environment, hence the spread. readalong.spec.ts checks that no
+ * request goes back (the only proof that the variable reaches WebKit).
+ */
+const noMediaDiskCache = { env: { ...process.env, WPE_SHELL_DISABLE_MEDIA_DISK_CACHE: "1" } };
 
 export default defineConfig({
   testDir: "e2e",
@@ -84,7 +94,7 @@ export default defineConfig({
     // 14. Read-along audiobooks the reader uploads (M13), last: it changes a book's read-aloud audio.
     { name: "readalong", testMatch: /readalong\.spec\.ts/, dependencies: ["offline"], use: { ...desktop } },
     // 15. The same in Safari's engine (WebKit): Samuel reads in Safari, and folder picking differs by engine.
-    { name: "readalong-safari", testMatch: /readalong\.spec\.ts/, dependencies: ["readalong"], use: { ...desktop, browserName: "webkit" } },
+    { name: "readalong-safari", testMatch: /readalong\.spec\.ts/, dependencies: ["readalong"], use: { ...desktop, browserName: "webkit", launchOptions: noMediaDiskCache } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run. Idle connections are

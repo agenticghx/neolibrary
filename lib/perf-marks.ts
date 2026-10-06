@@ -17,9 +17,11 @@ export type MarkName =
   | "nl:textlayer-ready" // ... and is complete (the text-layer event fires next)
   | "nl:draw-start" // pdf-book.ts: a page's picture (canvas) is being drawn
   | "nl:draw-done" // ... and is now in the page
+  | "nl:warmup-start" // pdf-book.ts: the next page is being drawn ahead, small and thrown away, to load its fonts
+  | "nl:warmup-done" // ... and is drawn
   | "nl:lit" // a word was highlighted, by the player's frame ("word") or by its page's text arriving ("text-layer")
   | "nl:word-wait" // the player's word is not on the page yet; it tries again on the next frame
-  | "nl:bar-set"; // the Listen bar asked React to show a word (data-word follows when React commits)
+  | "nl:bar-set"; // the reader recorded the lit word on the Listen bar (data-word), in the same step as it lit it (Reader.tsx, recordLit)
 
 type Detail = Record<string, string | number | boolean | null>;
 

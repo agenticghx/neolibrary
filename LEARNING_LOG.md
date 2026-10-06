@@ -913,3 +913,148 @@ the page is closed (`dom.js`, `waitForInputEvent.catch(() => {})`); the
 page there also showed "Done.".
 **Lesson.** A limit on one step proves nothing when the whole test's limit
 is the same: set it lower, or the failure lands somewhere else.
+
+### Iteration 41 · 2026-10-06 10:07 (the read-along run's log; from its file) · Flake step 4 (no on-disk audio for CI's WebKit) · partial (the proof is CI's first run)
+
+**Hypothesis.** With `WPE_SHELL_DISABLE_MEDIA_DISK_CACHE=1`, CI's WebKit
+(WPE, GStreamer) no longer copies the audio to disk, so after the jump far
+into the file no request goes back for the bytes it skipped, and the
+stall that followed such a request (CI run 37348223223) cannot happen.
+**Action.** The variable on the `readalong-safari` project
+(`playwright.config.ts`); the far-into-the-file test logs every audio
+request and, when every request is open-ended (Linux WebKit), checks that
+none after the far one starts lower; `playUntil` prints the player's state
+if the audio never gets there.
+**Evaluation.** The whole read-along file in both engines, from the
+snapshot taken after `offline`. A Mac cannot show the effect (its WebKit
+plays audio through Apple's media system); it can show that WebKit still
+starts with the replaced environment and that the check is skipped there.
+**Result.** `23 passed (2.1m)` (Chromium), `23 passed (2.3m)` (WebKit). The
+log lines: Chromium `bytes=0- → 206; bytes=11075584- → 206`; WebKit on the
+Mac only closed ranges (`bytes=0-1`, `bytes=0-15863883`, then pieces from
+`bytes=11272192-15859711` on), so the check did not run there. Whether the
+variable reaches WebKit on Linux is for the PR's first CI run to show; if a
+go-back request still appears there, the step is withdrawn.
+**Lesson.** When only CI can show an effect, say in advance what the first
+CI run must show and what would withdraw the change.
+
+### Iteration 42 · 2026-10-06 10:26 (timing-samples run 37448727457 finished; from GitHub) · Flake step 1 baseline · measurement, no fix
+
+**Hypothesis.** `main` (0cc07de) fails the WebKit page-break test often
+enough to measure fixes against: 3 or more failures or near misses in 30
+(step 1's "Done when").
+**Evaluation.** `gh workflow run timing-samples.yml -f refs=main -f
+machines=3 -f repeats=10` (the quick shape: the owner's account, then only
+this test), the Summary job's table, and the 30 runs' own records (`gh run
+download 37448727457`). Times are in ms after the voice begins page 2's
+first word ("most"), as median / 90th percentile / maximum.
+**Result.**
+- Failed 6 of 30. Near misses (a word at 80 ms or more, the failures
+  included): 13, so 7 runs came within 20 ms of failing.
+- The bar's word at a frame: 70 / 117 / 163. The book's highlight at a
+  frame: 57 / 161 / 173.
+- Lighting a word to writing the bar's word (`barWrittenClock` minus
+  `litSet`): 4.4 / 33.4 / 58.5, in 29 runs.
+- The bar's frame later than the book's: 3 runs of 29 (16, 13 and 72 ms
+  later). In one more run the bar never showed the word at a frame.
+- Each run's font load held the page: 39 / 51 / 55. This is the first
+  direct measurement of the system-font lookup, and every run had one that
+  failed.
+- The longest gap between frames within 0.4 s of the word: 67 / 142 / 182.
+- The six failures are of two kinds:
+  - **Five are in a machine's first runs** (machine 1, runs 0-2; machine 3,
+    runs 0-1). The word was lit 18-82 ms after it began, but the frame that
+    showed it came at 100-173 ms (the longest gaps between frames: 73-182
+    ms). So the highlight a reader sees was late too, not only the bar.
+  - **One is the kind CI shows** (machine 3, run 7). The word was lit at 34
+    ms by the page's text arriving, React wrote the bar at 92, and the bar's
+    frame came at 117 while the book's was at 45.
+  - Machine 2 never failed. Its font loads held the page 18-29 ms, against
+    33-55 on the others.
+**Lesson.** A sample of repeats is not a sample of the same thing: the
+first runs on a fresh machine differ from later ones and from CI's full
+suite. Look at the runs one by one before trusting a table. The plan's
+check of the quick shape against the full chain (`-f shape=suite`)
+decides whether these numbers can judge a fix.
+
+### Iteration 43 · 2026-10-06 10:47 (timing-samples run 37450233481 finished; from GitHub) · Flake step 1: the quick shape against CI's · measurement, no fix
+
+**Hypothesis.** The quick shape (the owner's account, then only the
+page-break test) measures what CI's full suite sees. The plan trusts it
+only if the medians of the two agree within one frame.
+**Evaluation.** `gh workflow run timing-samples.yml -f refs=main -f
+machines=1 -f repeats=5 -f shape=suite`, its five WebKit runs one by one.
+**Result.** 3 of 5 failed. For page 2's first word, the bar's frame and the
+highlight's frame came at a median of 93.5 and 84.7 ms. The quick shape
+gave 69.9 and 57.1 over all 30 runs, and 50.8 and 48.6 over its later runs.
+That is more than a frame apart, so the quick shape does not stand for CI.
+The failures:
+- Two are the bar trailing React: lit at 23 and 19 ms, React wrote the
+  bar at 85 and 90, and the bar's frame came at 104 and 114 while the
+  book's was at 30 and 87.
+- One is a stretch of 226 ms with no frame drawn ("real", word 52, shown
+  at 169 ms on both).
+**Lesson.** Measure where the failure lives: CI's full chain fails
+differently, and more often, than a quick run of the one test. A sampling
+run that costs about 20 runner-minutes a machine is dear, so from here on
+each step is proved by its own check that fails without it and by its
+pull request's CI run, and ordinary CI is harvested afterwards.
+
+### Iteration 44 · 2026-10-06 10:49 · Flake step 2 (the bar's word written when it is lit) · success (CI to come)
+
+**Hypothesis.** Writing the bar's word in the same step as the word is
+lit removes the bar's lag behind React, the main kind of failure on CI
+(Iterations 39, 42 and 43).
+**Action.** `recordLit` in `Reader.tsx` at all three places a word is lit.
+The bar keeps no word state. Step 1's `nl:bar-set` mark moves into
+`recordLit`. `expectEveryWordOnTime` checks that the bar and the book
+change on the same frame.
+**Evaluation.** The new check replayed on the three saved CI recordings
+(scratchpad `sameframe.py`). A live try on a Mac: the old code with a
+40 ms busy task queued right after each lit word, ahead of React's
+update. Then the whole suite from a fresh database, and `npm run check`.
+**Result.**
+- **Replay:** the check fails all three recordings, at the words CI failed
+  at. "most" (word 51) on frame 553 against 551, in both the `main` and
+  #75 recordings; "and" (word 10) on frame 106 against 105, in `:727`'s.
+- **Live try:** the old code still passed (`3 passed`, with and without the
+  busy task). WebKit on a Mac ran React's update before the next frame
+  even then, whereas on CI a frame came between them (Iteration 39). So a
+  Mac cannot show this, as the plan said; the replay and CI are the proof.
+- **With the change** (on steps 1, 5 and 4): `261 passed (6.7m)`;
+  `Tests 417 passed | 2 skipped (419)`.
+**Lesson.** A delay is not an ordering: to reproduce a race, make the same
+thing come first, not only later.
+
+### Iteration 45 · 2026-10-06 10:59 · Flake step 3 (the next PDF page drawn ahead); steps 4, 2 and 3 in one pull request · success (CI to come)
+
+**Hypothesis.** If the next page is drawn ahead, small and thrown away, its
+fonts load while this page is read, so no font is loaded between page 2's
+turn and its first word.
+**Action.** `warmUp` in `pdf-book.ts`, started once a page is drawn: one
+page at a time, a page already shown skipped, stopped when the book
+closes. The page-break test checks that no font load starts between page
+2's turn request and its first lit word.
+**Evaluation.** The step-3 tests run on the code before step 3, then with
+it: the page-break test alone, in both engines, from the snapshot taken
+after `offline` (scratchpad `proof-warm.sh`). Then the whole suite from a
+fresh database, on steps 1, 5, 4, 2 and 3 together.
+**Result.**
+- **Before step 3:** `1 failed` in both engines with "a font was loaded at
+  the page turn": the italic font loaded 18 ms (Chromium) and 12 ms (WebKit)
+  before page 2's first word began.
+- **With it:** `1 passed` (25.5 s, 25.9 s).
+- **Whole suite:** `261 passed (6.8m)`.
+- **#82 (step 4)** passed CI, and its log is the proof the plan asked for.
+  WebKit on Linux asked `no range → 0; no range → 200; bytes=10247084- →
+  206; bytes=10247084- → 206`: nothing after the far request starts below
+  it, where the failing runs went back to byte 7,348,224.
+- **But #82 could not merge.** Each stacked branch adds its ledger entry at
+  the same place, so after #81's squash merge, git saw two different
+  insertions there. GitHub runs no checks on a pull request that conflicts,
+  which is why #83 never got any. Steps 4, 2 and 3 now go in one pull
+  request (`m14-flake-fixes`, the same tree as the one tested here), so CI
+  runs once instead of three times.
+**Lesson.** Stacked branches that each write the same ledger lines do not
+merge after a squash: git compares the insertions, not their meaning. To
+save CI rounds, put the steps in one pull request with a commit each.

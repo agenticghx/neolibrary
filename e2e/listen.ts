@@ -161,7 +161,7 @@ export async function recordPlayer(page: Page) {
       const [text, onScreen] = lit();
       return [a.currentTime, bar.getAttribute("data-word") ?? "", bar.getAttribute("data-passage") ?? "", text, a.paused, fileNow(), reader.getAttribute("data-cfi") ?? "", performance.now(), onScreen, 0];
     };
-    // The moment React writes the bar's word or paragraph, or the reader's place:
+    // The moment the page writes the bar's word or paragraph, or the reader's place:
     // the frames below see a change only at the start of the next frame.
     const written = new MutationObserver((records) => {
       const clock = performance.now();
@@ -238,7 +238,7 @@ export function clockAt(frames: Frame[], w: Spoken) {
   return near.length >= 5 ? w.startMs - median(near.map((f) => f[0] * 1000 - f[7])) : NaN;
 }
 
-/** The bar's word as React wrote it, as frames (only the time, word, file and clock are filled in). */
+/** The bar's word as it was written, as frames (only the time, word, file and clock are filled in). */
 const writtenFrames = (rec: Recording): Frame[] =>
   rec.changes.filter((c) => c[0] === "data-word").map(([, value, clock, time, file]) => [time, value, "", null, false, file, "", clock, null, 0]);
 
@@ -246,7 +246,8 @@ const writtenFrames = (rec: Recording): Frame[] =>
  * The highlight landed on every word in order, none skipped and none extra,
  * each within a tenth of a second of when the audio starts it, both in the
  * bar's record and in the book's own highlight, up to where the audio got
- * to; with `onScreen`, each lit word was also inside the page on screen
+ * to, the bar recording each word on the same frame the book lit it; with
+ * `onScreen`, each lit word was also inside the page on screen
  * within that tenth of a second (the page turned in time); and the
  * paragraphs followed one another. `expected` is in reading order; a word may
  * not repeat the one before it (a repeat would not show as a change, so the
@@ -259,6 +260,15 @@ export function expectEveryWordOnTime(frames: Frame[], expected: Spoken[], opts:
   for (const f of frames) if (f[5] >= 0) reached.set(f[5], Math.max(reached.get(f[5]) ?? 0, f[0] * 1000));
   // Every word that started at least 120 ms before the audio got there must have been shown.
   const due = expected.filter((w) => w.startMs <= (reached.get(w.file) ?? -Infinity) - 120).length;
+  // The bar records each word in the same step as the book lights it (Reader.tsx, recordLit), so the two
+  // change on the same frame. Recorded later (React state), it trailed the highlight by up to two frames.
+  const lit = changes(frames, 3);
+  changes(frames, 1).forEach((s, i) =>
+    expect({ word: s.value, frame: s.at }, `bar: "${s.value}" (word ${i}) recorded on another frame than the book lit it`).toEqual({
+      word: lit[i]?.value,
+      frame: lit[i]?.at,
+    }),
+  );
   for (const col of [1, 3] as const) {
     const seen = changes(frames, col);
     const name = col === 1 ? "bar" : "book highlight";
@@ -313,7 +323,7 @@ export type WordTiming = {
   /** As checked today: the audio's time at the start of the first frame that showed it, in the bar and in the book. */
   barFrame: number | null;
   litFrame: number | null;
-  /** The bar's word when React wrote it: by the audio's time then, and by the page's clock (clockAt). */
+  /** The bar's word when it was written: by the audio's time then, and by the page's clock (clockAt). */
   barWritten: number | null;
   barWrittenClock: number | null;
   /** The book's highlight once the first frame that painted it was done: by the audio's time, and by the page's clock. */

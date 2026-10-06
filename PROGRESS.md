@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Flake step 1 is merged (#80, main 0cc07de) and its baseline is running (timing-samples run 37448727457). Steps 5, 4 and 2 are stacked PRs in that order (m14-flake-e-folder, m14-flake-d-gstreamer, m14-flake-b-bar): merge each when green, record the baseline, compare step 2 with its parent; then step 3; then step 6a.
+next_action: Flake steps 1 and 5 are merged (#80, #81; main 5bd4991). Steps 4, 2 and 3 are one draft PR from m14-flake-fixes (it replaces #82 and #83): merge it when green, then step 6a. Samuel finds the pace slow: keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,23 +19,15 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 10:22 UTC).** The WebKit read-along flakes,
-in the order of `docs/m14-flake/plan.md`. Step 1 (measure) is merged (#80,
-`main` 0cc07de), and its baseline is running: timing-samples run
-37448727457 (`main`, 3 machines x 10). When it ends, record it in
-`LEARNING_LOG.md` as "measurement, no fix" with the plan's columns (step 1's
-"Done when"; 3 or more near misses or failures in 30, or add machines).
-Steps 5, 4 and 2 are stacked pull requests, each branch on top of the one
-before, so that each merges without a conflict in this file:
-`m14-flake-e-folder` (step 5, folder picks), then `m14-flake-d-gstreamer`
-(step 4, no on-disk audio for CI's WebKit; its first CI run is the proof:
-read the `audio requests:` log line), then `m14-flake-b-bar` (step 2, the
-bar's word written when it is lit). Merge them in that order, each when
-green. Compare step 2 with its parent in one dispatch: `gh workflow run
-timing-samples.yml -f refs="m14-flake-d-gstreamer m14-flake-b-bar" -f
-machines=3 -f repeats=10`. Then step 3 (the next PDF page drawn ahead;
-`docs/m14-flake/pdf-warmup.diff` no longer applies on top of step 1's
-marks: apply it by hand). Then step 6a (`docs/m14-home-plan.md` §5).
+**Resume M14 here (2026-10-06, 10:59 UTC).** Flake steps 1 and 5 are merged
+(#80, #81; `main` 5bd4991). Steps 4, 2 and 3 are one draft pull request
+from `m14-flake-fixes` (it replaces #82 and #83, closed: their stacked
+ledger entries conflicted after #81's squash merge; LEARNING_LOG
+Iteration 45). Each step is a commit with its own proof. Merge it when its
+CI is green (re-run a known WebKit flake once), then confirm `main`. Then
+harvest ordinary CI for the page-break test now and then (the command at
+the end of `docs/m14-flake/plan.md` §2) instead of sampling runs. Then
+step 6a (`docs/m14-home-plan.md` §5).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -167,6 +159,63 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 06:59 (local; 10:59 UTC) · Claude (laptop) · Flake step 3 built; steps 4, 2 and 3 in one draft PR (replacing #82 and #83)
+- **Done:**
+  - **Step 3** (`pdf-book.ts`, `warmUp`): the next PDF page is drawn ahead, small and thrown away, so its fonts load before the turn. Proved both ways, in both engines (Iteration 45).
+  - **#82 (step 4) passed CI**, and its log shows the go-back audio request is gone. But it could not merge: the stacked ledger entries conflicted after #81's squash merge, and GitHub ran no checks at all on #83 for the same reason.
+  - **Steps 4, 2 and 3 are now one pull request** from `m14-flake-fixes`, rebased onto `main` with a commit per step. Its tree is the one tested locally (`git diff --stat m14-flake-c-pdf-warmup m14-flake-fixes` printed nothing), so CI runs once, not three times.
+- **Key paths:** `lib/reader/pdf-book.ts`, `lib/perf-marks.ts`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iteration 45).
+- **Commands that worked:**
+  - `scratchpad/proof-warm.sh old|new`: before step 3, `1 failed` in both engines ("a font was loaded at the page turn"); with it, `1 passed` in both.
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` on steps 1-5 → `261 passed (6.8m)`; `npm run check` → `Tests 417 passed | 2 skipped (419)`.
+  - `git rebase --onto origin/main 1f0bb82 m14-flake-fixes`.
+  - `git merge-tree --write-tree origin/main <branch>` shows a conflict before GitHub does.
+- **Known issues / blockers:** none new. Stacking branches whose ledger entries sit in the same place does not save CI rounds after a squash merge.
+- **Exact next steps:** as "Exact next steps" above.
+
+### 2026-10-06 06:51 (local; 10:51 UTC) · Claude (laptop) · Flake step 5 merged (#81); CI's full chain sampled; flake step 2 pushed as a draft PR (stacked on #82); why the project is slow
+- **Done:**
+  - **#81 (step 5)** merged as 5bd4991: CI `261 passed (15.9m)`; `git diff --stat 1f0bb82 origin/main` printed nothing.
+  - **The full-chain sample** (Iteration 43): 3 of 5 runs failed. Its medians are more than a frame above the quick shape's, so the quick shape does not stand for CI. From here on, each step is proved by its own check that fails without it, plus its pull request's CI run, not by sampling runs (about 20 runner-minutes a machine in the full-chain shape).
+  - **Step 2** on `m14-flake-b-bar`, on top of #82:
+    - The reader writes the bar's word in the same step as it lights it (`recordLit`), and the bar keeps no word state.
+    - A check that the bar and the book change on the same frame. It fails all three saved CI recordings at the failed words.
+    - A Mac cannot make the old code fail: a 40 ms busy task did not change the order there (Iteration 44).
+  - **Samuel asked why building the project is so slow.** Answered from GitHub's records of the last 14 pull requests:
+    - Every merge waits for an 18-minute browser job: 261 tests one after another, in 18 groups that wait on each other.
+    - The WebKit page-turn test fails about 1 run in 5 (6 of 30 today), so 6 of the 14 needed a re-run.
+    - A change to how pages look needs two CI rounds, because the reference images are made on GitHub's Linux machines.
+    - Each step is reviewed and mutation-tested by design. Step 5 took 6.1 hours, mostly two review rounds.
+    - Once open, a PR merged in 0.3 to 1.8 hours.
+- **Key paths:** `app/(reader)/books/[id]/read/{Reader,ListenBar}.tsx`, `lib/perf-marks.ts`, `e2e/listen.ts`, `LEARNING_LOG.md` (Iterations 43-44).
+- **Commands that worked:**
+  - `gh workflow run timing-samples.yml -f refs=main -f machines=1 -f repeats=5 -f shape=suite`; `gh run download <id>`, then a per-run table of `samples.jsonl`.
+  - `python3 scratchpad/sameframe.py <recordings>` (the new check on the saved CI recordings).
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` on steps 1, 5, 4 and 2 → `261 passed (6.7m)`; `npm run check` → `Tests 417 passed | 2 skipped (419)`.
+  - `gh pr list --state merged --limit 14 --json number,createdAt,mergedAt` and `gh run list --branch <b> --json attempt` (the pace numbers).
+- **Known issues / blockers:**
+  - The WebKit page-turn failures until steps 2-3 merge.
+  - The next speed-up after them: run the browser tests on several GitHub machines at once (only some groups can, since most wait on the one before), and make reference images without a second CI round. Each is its own PR, after Samuel says which matters more to him than step 6a.
+- **Exact next steps:** as "Exact next steps" above.
+
+### 2026-10-06 06:31 (local; 10:31 UTC) · Claude (laptop) · Flake step 1's baseline recorded; flake step 4 (no on-disk audio for CI's WebKit) pushed as a draft PR, stacked on step 5
+- **Done:**
+  - **Step 4** on `m14-flake-d-gstreamer`, on top of step 5 (#81). `playwright.config.ts` starts the WebKit read-along project with `WPE_SHELL_DISABLE_MEDIA_DISK_CACHE=1` (decision D2, default yes). The far-into-the-file test logs every audio request and, on Linux WebKit, checks that none after the far one starts lower. `playUntil` prints the player's state if the audio never gets there. A Mac cannot show the effect, so the PR's first CI run is the proof (Iteration 41).
+  - **Step 1's baseline** (Iteration 42; its "Done when"), timing-samples run 37448727457, `main` x 30:
+    - 6 failed and 13 near misses, which meets the bar.
+    - Five of the six failures came in a machine's first runs, with no frame for up to 182 ms, so the visible highlight was late too.
+    - One is CI's kind: React wrote the bar's word 58 ms after it was lit.
+  - **A check of the quick shape against the full chain** is running: timing-samples run 37450233481, `-f shape=suite`, 1 machine x 5.
+- **Key paths:** `playwright.config.ts`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iterations 41-42).
+- **Commands that worked:**
+  - `git rebase --onto m14-flake-e-folder d78bf8b m14-flake-d-gstreamer`.
+  - The whole read-along file from the snapshot after `offline`, with steps 1, 5 and 4 together: `23 passed (2.1m)` (Chromium), `23 passed (2.3m)` (WebKit). The WebKit run on the Mac asked closed ranges only (`bytes=0-15863883`, ...), so the new check is skipped there.
+  - `gh run download 37448727457` and a per-run table of the 30 `samples.jsonl` records.
+- **Known issues / blockers:**
+  - If CI's WebKit still sends a request back below the far one, withdraw step 4; the check names it: "a request went back for skipped bytes".
+  - The quick shape's first runs per machine are slower than later ones. Until the suite-shape check is read, compare steps on later runs only.
+- **Exact next steps:** as "Exact next steps" above. Also: read run 37450233481 and compare its medians with the baseline's later runs (machine 2 and the others from run 3 on).
 
 ### 2026-10-06 06:22 (local; 10:22 UTC) · Claude (laptop) · Flake step 1 merged (#80); its baseline started; flake step 5 (folder picks) pushed as a draft PR
 - **Done:** #80 (step 1) merged as 0cc07de. Its first CI run failed only on the known WebKit flake, the first one measured with the new recorder: the bar's word waited for React behind a failed italic-font lookup that held the page 38 ms (Iteration 39). The re-run passed: `261 passed (16.0m)`. `git diff --stat fe10e3f origin/main` printed nothing. The baseline is dispatched: timing-samples run 37448727457 (`main` 0cc07de, 3 machines x 10). Step 5 on `m14-flake-e-folder` (tests only): `chooseFolder` at the four folder picks of `readalong.spec.ts`. One change from the plan: the extra event goes to `input[webkitdirectory]`, not to the label, which changes once a reading is ready. It is proved in both engines with Playwright made to miss the event (Iteration 40). Steps 4 and 2 are built and committed on stacked branches (`m14-flake-d-gstreamer`, `m14-flake-b-bar`). Actions minutes noted under Waiting on Samuel.
