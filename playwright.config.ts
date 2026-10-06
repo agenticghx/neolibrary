@@ -40,7 +40,7 @@ export default defineConfig({
     // 3. Behaviour: access rules, invitations, sign-in.
     {
       name: "flows",
-      testMatch: /(flows|paths)\.spec\.ts/,
+      testMatch: /\/(flows|paths)\.spec\.ts$/, // whole names: "own-paths.spec.ts" belongs to its own project
       dependencies: ["desktop-light", "desktop-dark", "phone-light", "phone-dark"],
       use: { ...desktop },
     },
@@ -75,8 +75,10 @@ export default defineConfig({
     { name: "safari", testMatch: /safari\.spec\.ts/, dependencies: ["reader"], use: { ...desktop, browserName: "webkit" } },
     // 11b. Home (M14): Continue, the library, the View switch; after the reading the earlier projects did.
     { name: "home", testMatch: /home\.spec\.ts/, dependencies: ["stats"], use: { ...desktop } },
+    // 11c. Your own Paths (M14 step 5): makes one and adds a book file to a waiting title.
+    { name: "own-paths", testMatch: /own-paths\.spec\.ts/, dependencies: ["home"], use: { ...desktop } },
     // 12. Agents: API tokens (M11).
-    { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["home"], use: { ...desktop } },
+    { name: "agents", testMatch: /agents\.spec\.ts/, dependencies: ["own-paths"], use: { ...desktop } },
     // 13. Offline (M12): service worker, download for offline.
     { name: "offline", testMatch: /offline\.spec\.ts/, dependencies: ["agents"], use: { ...desktop } },
     // 14. Read-along audiobooks the reader uploads (M13), last: it changes a book's read-aloud audio.

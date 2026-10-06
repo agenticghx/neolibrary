@@ -20,7 +20,7 @@ export default async function PathPage({ params }: { params: Promise<{ slug: str
   const notes = await notesForPath(db, user.id, path.id);
   return (
     <main className={styles.main}>
-      <PathView path={path} notes={notes} />
+      <PathView path={path} notes={notes} editHref={`/paths/${path.slug}/edit`} />
     </main>
   );
 }

@@ -18,7 +18,12 @@ export default async function PathsPage() {
   return (
     <main className={styles.main}>
       <p className={styles.eyebrow}>Paths</p>
-      <h1 className={styles.title}>Your paths</h1>
+      <div className={styles.titleRow}>
+        <h1 className={styles.title}>Your paths</h1>
+        <Link href="/paths/new" className={styles.newPath}>
+          New path
+        </Link>
+      </div>
       <p className={styles.lede}>
         A path is a reading plan in order: pillars of books, each with a story to read first and a deeper book to read
         second. Titles not available yet wait on the path until you add their file.

@@ -386,3 +386,31 @@
     padding: var(--space-5);
   }
 }
+
+/* The title, and Edit path beside it (M14 step 5). */
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+
+/* Ink text with an accent border: accent text on paper is under 4.5:1 in dark mode on raised panels. */
+.edit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--ink-900);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.edit:hover {
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+}
+

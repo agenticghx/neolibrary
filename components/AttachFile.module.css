@@ -1,0 +1,32 @@
+.attach {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+/* Ink text with an accent border (accent text on raised panels is under 4.5:1 in dark mode). */
+.pick {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--ink-900);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.pick:hover {
+  background-color: var(--paper-raised);
+}
+
+.pick:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.message {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}

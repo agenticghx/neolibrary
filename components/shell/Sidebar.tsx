@@ -81,7 +81,7 @@ export function Sidebar({ user, paths, collections }: Props) {
               }
             />
           ))}
-          <Item href="/paths?new=path" icon="plus" label="New path" />
+          <Item href="/paths/new" icon="plus" label="New path" />
         </ul>
         <p className={styles.groupLabel} id="nav-collections">
           Collections

@@ -1,0 +1,52 @@
+/* Making and editing your own Paths (M14 step 5). */
+
+.inline {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.row > input,
+.row > select {
+  flex: 1 1 10rem;
+  width: auto;
+}
+
+.small {
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.small:disabled {
+  cursor: progress;
+}
+
+.small:hover:not(:disabled) {
+  background-color: var(--accent-strong);
+}
+
+.addTitle {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border-hair) dashed var(--rule);
+  border-radius: var(--radius-md);
+}
+
+.done {
+  min-height: 1lh;
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}

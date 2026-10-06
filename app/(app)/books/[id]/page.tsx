@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AttachFile } from "@/components/AttachFile";
 import { Cover } from "@/components/Cover";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -156,6 +157,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               ? ` · ${Math.round(book.progress * 100)}% read`
               : ". Add the book file (EPUB or PDF) and it attaches here."}
           </p>
+          {hasFile ? null : <AttachFile bookId={book.id} />}
         </div>
       </div>
     </main>

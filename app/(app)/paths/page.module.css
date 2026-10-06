@@ -76,3 +76,33 @@
     font-size: var(--text-read-phone);
   }
 }
+
+.form {
+  max-width: 36rem;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.newPath {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.newPath:hover {
+  background-color: var(--accent-strong);
+  color: var(--on-accent);
+}
+

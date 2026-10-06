@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createInvite, revokeInvite } from "@/lib/auth/service";
 import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
-import { seedPath } from "@/lib/library/paths";
+import { addSection, addTitle, createPath, moveTitle, PathError, removeTitle, renamePath, seedPath } from "@/lib/library/paths";
 import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
 import { STARTER_PATHS } from "@/lib/library/seed";
 import { addSampleBooks } from "@/lib/library/samples";
@@ -120,3 +120,82 @@ export async function addSampleBooksAction() {
   await addSampleBooks(await getDb(), await getStorage(), user.id);
   revalidatePath("/", "layout");
 }
+
+/* Your own Paths (M14 step 5). Every change refreshes the whole layout: the sidebar lists the Paths. */
+
+export type PathFormState = { error: string | null; done?: string | null };
+
+const pathPages = (slug: string) => {
+  revalidatePath("/", "layout");
+  revalidatePath(`/paths/${slug}`);
+  revalidatePath(`/paths/${slug}/edit`);
+};
+
+export async function createPathAction(_: PathFormState, data: FormData): Promise<PathFormState> {
+  const user = await requireUser();
+  let slug: string;
+  try {
+    slug = (await createPath(await getDb(), user.id, { title: data.get("title"), description: data.get("description") })).slug;
+  } catch (e) {
+    if (e instanceof PathError) return { error: e.message };
+    throw e;
+  }
+  pathPages(slug);
+  redirect(`/paths/${slug}/edit`);
+}
+
+export async function renamePathAction(_: PathFormState, data: FormData): Promise<PathFormState> {
+  const user = await requireUser();
+  try {
+    await renamePath(await getDb(), user.id, String(data.get("pathId")), { title: data.get("title"), description: data.get("description") });
+  } catch (e) {
+    if (e instanceof PathError) return { error: e.message };
+    throw e;
+  }
+  pathPages(String(data.get("slug")));
+  return { error: null, done: "Saved." };
+}
+
+export async function addSectionAction(_: PathFormState, data: FormData): Promise<PathFormState> {
+  const user = await requireUser();
+  try {
+    await addSection(await getDb(), user.id, String(data.get("pathId")), data.get("title"));
+  } catch (e) {
+    if (e instanceof PathError) return { error: e.message };
+    throw e;
+  }
+  pathPages(String(data.get("slug")));
+  return { error: null, done: "Section added." };
+}
+
+export async function addTitleAction(_: PathFormState, data: FormData): Promise<PathFormState> {
+  const user = await requireUser();
+  let reused = false;
+  try {
+    const bookId = String(data.get("bookId") ?? "");
+    reused = (
+      await addTitle(await getDb(), user.id, String(data.get("pillarId")), {
+        ...(bookId ? { bookId } : { title: data.get("title"), author: data.get("author") }),
+        kind: data.get("kind"),
+      })
+    ).reused;
+  } catch (e) {
+    if (e instanceof PathError) return { error: e.message };
+    throw e;
+  }
+  pathPages(String(data.get("slug")));
+  return { error: null, done: reused ? "Added: that title was already in your library, so it is the same book." : "Added." };
+}
+
+export async function moveTitleAction(data: FormData) {
+  const user = await requireUser();
+  await moveTitle(await getDb(), user.id, String(data.get("slotId")), data.get("direction") === "up" ? "up" : "down");
+  pathPages(String(data.get("slug")));
+}
+
+export async function removeTitleAction(data: FormData) {
+  const user = await requireUser();
+  await removeTitle(await getDb(), user.id, String(data.get("slotId")));
+  pathPages(String(data.get("slug")));
+}
+

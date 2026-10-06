@@ -2,6 +2,7 @@ import Link from "next/link";
 import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
 import type { Annotation } from "@/lib/library/annotations";
 import { availabilityLabel } from "@/lib/library/availability";
+import { STARTER_PATHS } from "@/lib/library/seed";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
 import styles from "./PathView.module.css";
@@ -89,7 +90,7 @@ function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; no
         <ol className={styles.pair}>
           {core.map((s) => (
             <li key={s.id} className={styles.slot}>
-              <span className={styles.kind} aria-label={s.kind === "N" ? "Narrative, read first" : "Engineering, read second"}>
+              <span className={styles.kind} aria-label={s.kind === "N" ? "Story first" : "Go deeper"}>
                 {s.kind}
               </span>
               <SlotCover slot={s} current={s.id === pillar.currentSlotId && pillar.status !== "not-started"} />
@@ -131,21 +132,36 @@ function Pillar({ pillar, here, notes }: { pillar: PillarView; here: boolean; no
   );
 }
 
-export function PathView({ path, notes = new Map() }: { path: PathData; notes?: Map<string, Annotation[]> }) {
+export function PathView({ path, notes = new Map(), editHref }: { path: PathData; notes?: Map<string, Annotation[]>; editHref?: string }) {
+  // A built-in reading list keeps its own words (pillars, the eighteen systems,
+  // the master key); a Path the reader made has sections (M14 step 5, D10).
+  const readingList = path.slug in STARTER_PATHS;
   const numbered = path.pillars.filter((p) => p.number > 0);
   const master = path.pillars.filter((p) => p.group === "master");
-  const groups = Object.keys(GROUPS)
-    .map((g) => ({ key: g, title: GROUPS[g], pillars: path.pillars.filter((p) => p.group === g) }))
-    .filter((g) => g.pillars.length);
+  const groups = readingList
+    ? Object.keys(GROUPS)
+        .map((g) => ({ key: g, title: GROUPS[g], pillars: path.pillars.filter((p) => p.group === g) }))
+        .filter((g) => g.pillars.length)
+    : [{ key: "sections", title: "Sections", pillars: path.pillars.filter((p) => p.group !== "master") }].filter((g) => g.pillars.length);
   const done = numbered.filter((p) => p.status === "done").length;
   const hereIndex = numbered.findIndex((p) => p.id === path.currentPillarId);
 
   return (
     <div className={styles.path}>
       <header className={styles.head}>
-        <h1 className={styles.title}>{path.title}</h1>
+        <div className={styles.titleRow}>
+          <h1 className={styles.title}>{path.title}</h1>
+          {editHref ? (
+            <Link href={editHref} className={styles.edit}>
+              Edit path
+            </Link>
+          ) : null}
+        </div>
         <p className={styles.subtitle}>
-          {numbered.length} pillars · Read N, then E · {path.available} available, {path.notYet} not available yet
+          {readingList
+            ? `${numbered.length} pillars · Read N, then E · `
+            : `${numbered.length} ${numbered.length === 1 ? "section" : "sections"} · `}
+          {path.available} available, {path.notYet} not available yet
         </p>
         <p className={styles.description}>{path.description}</p>
         <TargetNotes targetType="path" targetId={path.id} label={`Note on ${path.title}`} notes={notes.get(path.id) ?? []} />
@@ -163,6 +179,8 @@ export function PathView({ path, notes = new Map() }: { path: PathData; notes?: 
           ))}
         </ol>
       </header>
+
+      {!path.pillars.length ? <p className={styles.description}>No sections yet. Edit the path to add some.</p> : null}
 
       {groups.map((g) => (
         <section key={g.key} className={styles.group} aria-labelledby={`g-${g.key}`}>
