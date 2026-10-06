@@ -485,8 +485,39 @@ async function openListening(page: Page, bookId: string, at: number) {
  */
 const TAIL = "And that is where this part of the reading ends.";
 
-const playUntil = (page: Page, ms: number) =>
-  page.waitForFunction((t) => document.querySelector("audio")!.currentTime * 1000 >= t, ms, { timeout: 45_000 });
+/**
+ * Waits until the audio reaches `ms`. If it never does, prints what the player was doing first, so a stall on CI
+ * can be read from the log alone (run 37348223223 timed out before the test read the player's events).
+ * readyState 2 with a "waiting" event: WebKit paused to buffer. readyState 4, not paused, no "waiting": the media
+ * pipeline froze while the element thought it was playing.
+ */
+async function playUntil(page: Page, ms: number) {
+  try {
+    await page.waitForFunction((t) => document.querySelector("audio")!.currentTime * 1000 >= t, ms, { timeout: 45_000 });
+  } catch (e) {
+    const player = await page
+      .evaluate(() => {
+        const a = document.querySelector("audio")!;
+        const spans = (r: TimeRanges) => Array.from({ length: r.length }, (_, i) => [r.start(i), r.end(i)]);
+        const w = window as unknown as { events_?: [string, number][]; frames_?: unknown[] };
+        return {
+          src: a.getAttribute("src"),
+          currentTime: a.currentTime,
+          paused: a.paused,
+          seeking: a.seeking,
+          readyState: a.readyState,
+          networkState: a.networkState,
+          error: a.error ? { code: a.error.code, message: a.error.message } : null,
+          buffered: spans(a.buffered),
+          events: w.events_ ?? null,
+          frames: w.frames_ ? { count: w.frames_.length, first: w.frames_[0], last: w.frames_.at(-1) } : null,
+        };
+      })
+      .catch((err: Error) => `the page did not answer: ${err.message}`);
+    console.log(`playUntil: the audio never reached ${ms} ms. The player: ${JSON.stringify(player)}`);
+    throw e;
+  }
+}
 
 /** Every answer the server gave for an import's audio: the range asked for, the status, and the range sent. */
 function watchAnswers(page: Page, importId: string) {
@@ -769,6 +800,16 @@ test("M13 (d): a long audiobook plays from far into its file, its audio arriving
   const second = from.findIndex((w) => w.cfi !== from[0].cfi);
   await playUntil(page, from[second + 3].startMs + 300);
   const { frames } = await recording(page);
+  console.log(`[${test.info().project.name}] audio requests: ${answers.map((a) => `${a.asked ?? "no range"} → ${a.status}`).join("; ")}`);
+  // WebKit on Linux (CI) asks only open-ended ranges, or none: after the seek far into the file, no request may go
+  // back for the bytes it skipped. GStreamer's on-disk mode does, and stalled on it (playwright.config.ts,
+  // noMediaDiskCache). Safari's engine on a Mac asks closed ranges, so this is not checked there.
+  if (engine() === "-safari" && answers.every((a) => a.asked === null || openEnded(a.asked))) {
+    const starts = answers.map((a) => (openEnded(a.asked) ? Number(/\d+/.exec(a.asked!)![0]) : -1));
+    const seek = starts.findIndex((s) => s >= 8 * 1024 * 1024);
+    expect(seek, "a request far into the file").toBeGreaterThanOrEqual(0);
+    expect(starts.slice(seek + 1).filter((s) => s >= 0 && s < starts[seek]), "a request went back for skipped bytes").toEqual([]);
+  }
   await page.evaluate(() => document.querySelector("audio")!.pause());
   expectEveryWordOnTime(frames, from, { minWords: second + 3, onScreen: true });
   expectNoStall(frames);
