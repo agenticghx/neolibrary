@@ -207,7 +207,9 @@ those items below and win over anything else in this file.
 - **D9 · Phone navigation.** Bottom tabs: Home, Library, Paths, Search.
   Collections are the chips on the Library tab. Reading stats, Your data,
   Invite and Sign out sit in an account menu behind a round initial button
-  at the top right of Home.
+  at the top right of Home. (Built first as a strip on every page; Samuel
+  chose Home only on 2026-10-06, option B on the canvas: the strip goes,
+  the button sits in Home's title row beside Import.)
 - **D10 · Your own Paths (step 5).** A Path has a name, an optional
   description, and sections (stored as pillars). Each section holds titles
   in order (stored as slots). Each title is a library book, or a new

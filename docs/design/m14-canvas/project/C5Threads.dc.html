@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Candidate 5: Threads across books</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&amp;display=swap">
+<style>
+body{margin:0}
+.t-light{--paper:#f3ede1;--raised:#faf6ee;--ink:#243239;--ink2:#3c4b52;--ink3:#5a676c;--rule:#d6ccba;--accent:#376963;--accentx:#2a524d;--hl:#cfe0d8;--navy:#22384a;--green:#2e5a50;--shr:0 1px 2px #2432391a,0 8px 24px -8px #24323929}
+.t-dark{--paper:#1b282f;--raised:#22323a;--ink:#e7ddc9;--ink2:#cdc3b0;--ink3:#a49d8e;--rule:#34454d;--accent:#6b9f95;--accentx:#8bbab0;--hl:#2c4743;--navy:#2a4459;--green:#346659;--shr:0 1px 2px #0000004d,0 10px 28px -10px #0006}
+a{color:var(--accent)}a:hover{color:var(--accentx)}
+</style>
+</helmet>
+<div style="width: 1200px; height: 980px; display: flex; flex-direction: column; font-family: 'Source Sans 3', 'Segoe UI', sans-serif; font-size: 17px; line-height: 1.4">
+  <sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+    <div class="{{t.cls}}" style="flex: 1 1 0; box-sizing: border-box; padding: 28px 40px; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; gap: 14px">
+      <span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--ink3)">{{t.label}}</span>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 500; font-size: 25px">An idea you keep returning to</h2>
+        <span style="font-size: 15px; color: var(--ink2)">Two of your highlights, in different books, share the words <strong>danger</strong> and <strong>nature</strong>.</span>
+      </div>
+      <div style="display: flex; align-items: stretch; gap: 16px">
+        <sc-for list="{{quotes}}" as="q" hint-placeholder-count="2">
+          <figure style="flex: 1 1 0; margin: 0; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border-radius: 10px; background: var(--raised); box-shadow: var(--shr)">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span aria-hidden="true" style="flex: none; width: 22px; height: 33px; border-radius: 2px 3px 3px 2px; background: {{q.bg}}"></span>
+              <div style="display: flex; flex-direction: column">
+                <span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 18px">{{q.book}}</span>
+                <span style="font-size: 13px; color: var(--ink3)">{{q.author}} · your highlight</span>
+              </div>
+            </div>
+            <blockquote style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.6"><span style="background: var(--hl); padding: 1px 2px; border-radius: 2px">{{q.text}}</span></blockquote>
+          </figure>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: 14px; color: var(--ink3)">
+        <span>Found by matching the words of your own highlights. No AI.</span>
+        <a href="#" style="font-weight: 600; font-size: 15px">Open both side by side</a>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var quotes = [
+      { book: 'Frankenstein', author: 'Mary Shelley', bg: 'var(--green)', text: 'Learn from me, if not by my precepts, at least by my example, how dangerous is the acquirement of knowledge, and how much happier that man is who believes his native town to be the world, than he who aspires to become greater than his nature will allow.' },
+      { book: 'The Time Machine', author: 'H. G. Wells', bg: 'var(--navy)', text: 'It is a law of nature we overlook, that intellectual versatility is the compensation for change, danger, and trouble.' }
+    ];
+    return { themes: [{ label: 'Light', cls: 't-light' }, { label: 'Dark', cls: 't-dark' }], quotes: quotes };
+  }
+}
+</script>
+</body>
+</html>

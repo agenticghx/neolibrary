@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone: where the account button goes (A, B, C)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&amp;display=swap">
+<style>
+body{margin:0}
+.t-light{--paper:#f3ede1;--empty:#d9d3c7;--emptyink:#4a5458;--raised:#faf6ee;--sunken:#e9e1d1;--ink:#243239;--ink2:#3c4b52;--ink3:#5a676c;--rule:#d6ccba;--accent:#376963;--onaccent:#faf6ee;--navy:#22384a;--green:#2e5a50;--coverink:#f0e8d8;--shc:0 1px 1px #24323914,0 6px 14px #24323924,0 18px 30px -12px #2432392e;--shr:0 1px 2px #2432391a,0 8px 24px -8px #24323929}
+.t-dark{--paper:#1b282f;--empty:#2b3a41;--emptyink:#b5ad9e;--raised:#22323a;--sunken:#152026;--ink:#e7ddc9;--ink2:#cdc3b0;--ink3:#a49d8e;--rule:#34454d;--accent:#6b9f95;--onaccent:#12201f;--navy:#2a4459;--green:#346659;--coverink:#f0e8d8;--shc:0 1px 1px #0000004d,0 8px 18px #00000059,0 20px 34px -14px #00000073;--shr:0 1px 2px #0000004d,0 10px 28px -10px #0006}
+a{color:var(--ink)}
+</style>
+</helmet>
+<div style="width: 1560px; height: 2860px; box-sizing: border-box; padding: 24px 32px; display: flex; flex-direction: column; gap: 40px; background: #e4ded3; font-family: 'Source Sans 3', 'Segoe UI', sans-serif">
+  <sc-for list="{{rows}}" as="row" hint-placeholder-count="3">
+    <div style="display: flex; gap: 32px; align-items: flex-start">
+      <div style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 8px; padding-top: 40px">
+        <span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 56px; line-height: 1; color: #243239">{{row.key}}</span>
+        <span style="font-size: 18px; font-weight: 600; color: #243239; line-height: 1.3">{{row.label}}</span>
+      </div>
+      <sc-for list="{{row.screens}}" as="sc" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span style="font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #3c4b52">{{sc.caption}}</span>
+          <div class="{{themeCls}}" style="position: relative; width: 390px; height: 844px; overflow: hidden; border-radius: 36px; border: 1px solid #00000026; background: var(--paper); color: var(--ink); box-shadow: 0 24px 50px -24px #00000066; font-size: 16px; line-height: 1.4">
+
+            <sc-if value="{{sc.strip}}" hint-placeholder-val="{{ false }}">
+              <header style="display: flex; align-items: center; justify-content: space-between; height: 68px; box-sizing: border-box; padding: 12px 16px; border-bottom: 1px solid var(--rule)">
+                <span style="display: inline-flex; align-items: center; gap: 10px">
+                  <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round"><path d="M16 9.5C12.8 7 8.6 6.4 4 7v17.5c4.6-.6 8.8 0 12 2.5 3.2-2.5 7.4-3.1 12-2.5V7c-4.6-.6-8.8 0-12 2.5Z"></path><path d="M13.2 26V16.5a2.8 2.8 0 0 1 5.6 0V26" style="fill: var(--accent); stroke: var(--accent)"></path></svg>
+                  <span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; font-weight: 500">Neolibrary</span>
+                </span>
+                <button type="button" aria-label="Account: Samuel Ahuno" aria-expanded="{{sc.menuOpenText}}" style="width: 44px; height: 44px; border: none; border-radius: 999px; background: var(--accent); color: var(--onaccent); font: inherit; font-weight: 600; cursor: pointer">S</button>
+              </header>
+            </sc-if>
+
+            <div style="padding: 20px 16px 0; display: flex; flex-direction: column; gap: 14px">
+              <sc-if value="{{sc.isHome}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+                  <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 500; font-size: 39px; line-height: 1.1">Home</h1>
+                  <span style="display: inline-flex; gap: 10px">
+                    <button type="button" aria-label="Import" style="width: 44px; height: 44px; border: none; border-radius: 999px; background: var(--accent); color: var(--onaccent); display: grid; place-items: center; cursor: pointer">
+                      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg>
+                    </button>
+                    <sc-if value="{{sc.titleInitial}}" hint-placeholder-val="{{ false }}">
+                      <button type="button" aria-label="Account: Samuel Ahuno" aria-expanded="{{sc.menuOpenText}}" style="width: 44px; height: 44px; border: 1px solid var(--accent); border-radius: 999px; background: var(--raised); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer">S</button>
+                    </sc-if>
+                  </span>
+                </div>
+                <article style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--raised); box-shadow: var(--shr)">
+                  <div style="display: flex; gap: 12px; align-items: center">
+                    <div style="flex: none; width: 46px; height: 69px; border-radius: 2px 4px 4px 2px; background: var(--navy); box-shadow: var(--shc)"></div>
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                      <span style="font-family: 'Source Serif 4', Georgia, serif; font-size: 16px; line-height: 1.2">The Strange Case of Dr. Jekyll and Mr. Hyde</span>
+                      <span style="font-size: 13px; color: var(--ink3)">Search for Mr. Hyde · 12%</span>
+                    </div>
+                  </div>
+                  <p style="margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--paper); border: 1px solid var(--rule); font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 15px">A thought left for Home.</p>
+                  <div style="display: flex; gap: 8px">
+                    <a href="#" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 6px; background: var(--accent); color: var(--onaccent); text-decoration: none; font-weight: 600; font-size: 15px">Read from here</a>
+                    <a href="#" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 6px; border: 1px solid var(--accent); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px">Listen from here</a>
+                  </div>
+                </article>
+                <h2 style="margin: 4px 0 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 500; font-size: 22px">Your library</h2>
+              </sc-if>
+
+              <sc-if value="{{sc.isLib}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3)">Library</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: -8px">
+                  <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-weight: 500; font-size: 39px; line-height: 1.1">Your library</h1>
+                  <sc-if value="{{sc.titleInitial}}" hint-placeholder-val="{{ false }}">
+                    <button type="button" aria-label="Account: Samuel Ahuno" aria-expanded="{{sc.menuOpenText}}" style="flex: none; width: 44px; height: 44px; border: 1px solid var(--accent); border-radius: 999px; background: var(--raised); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer">S</button>
+                  </sc-if>
+                </div>
+                <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; color: var(--ink2)">6 books.</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <sc-for list="{{chips}}" as="c" hint-placeholder-count="4">
+                    <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; font-size: 14px">{{c.label}}</span>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+                <sc-for list="{{covers}}" as="b" hint-placeholder-count="6">
+                  <div style="display: flex; flex-direction: column; gap: 5px">
+                    <div style="width: 100%; aspect-ratio: 2 / 3; box-sizing: border-box; padding: 8px; border-radius: 2px 5px 5px 2px; background: {{b.bg}}; color: var(--coverink); box-shadow: var(--shc); display: grid; place-items: center; text-align: center; font-family: 'Source Serif 4', Georgia, serif; font-size: 13px; line-height: 1.15">{{b.title}}</div>
+                    <span style="font-size: 12px; color: var(--ink2); font-weight: 600">{{b.avail}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-if value="{{sc.menuOpen}}" hint-placeholder-val="{{ false }}">
+              <div role="group" aria-label="Account" style="position: absolute; right: 16px; top: {{sc.menuTop}}; width: 220px; box-sizing: border-box; display: flex; flex-direction: column; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--rule); background: var(--raised); box-shadow: var(--shr)">
+                <span style="padding: 10px 0 6px; font-weight: 600">Samuel Ahuno</span>
+                <a href="#" style="display: flex; align-items: center; min-height: 44px; text-decoration-color: var(--accent)">Reading stats</a>
+                <a href="#" style="display: flex; align-items: center; min-height: 44px; text-decoration-color: var(--accent)">Your data</a>
+                <a href="#" style="display: flex; align-items: center; min-height: 44px; text-decoration-color: var(--accent)">Invite</a>
+                <button type="button" style="display: flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink2); font: inherit; text-decoration: underline; text-decoration-color: var(--accent); cursor: pointer">Sign out</button>
+              </div>
+            </sc-if>
+
+            <nav aria-label="Tabs" style="position: absolute; left: 0; right: 0; bottom: 0; height: 76px; box-sizing: border-box; padding: 6px 8px 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--sunken); border-top: 1px solid var(--rule)">
+              <sc-for list="{{sc.tabs}}" as="tab" hint-placeholder-count="4">
+                <a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{tab.color}}; font-size: 12px; font-weight: {{tab.weight}}">
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round"><path d="{{tab.d}}"></path></svg>
+                  {{tab.label}}
+                </a>
+              </sc-for>
+            </nav>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1560,"height":2860}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var theme = this.props.theme ?? 'light';
+    var TABS = [
+      ['Home', 'M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z'],
+      ['Library', 'M4 5h3v14H4zM9 5h3v14H9zM14.5 5.6l2.9-.8 3.6 13.6-2.9.8z'],
+      ['Paths', 'M6 21a2 2 0 1 1 0-4a2 2 0 0 1 0 4zM18 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4zM8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8'],
+      ['Search', 'M11 5a6 6 0 1 1 0 12a6 6 0 0 1 0-12zM20 20l-4.5-4.5']
+    ];
+    var tabs = function (active) {
+      return TABS.map(function (t) {
+        var on = t[0] === active;
+        return { label: t[0], d: t[1], color: on ? 'var(--accent)' : 'var(--ink2)', weight: on ? '600' : '400' };
+      });
+    };
+    var screen = function (o) {
+      return {
+        caption: o.caption, isHome: o.page === 'home', isLib: o.page === 'lib', strip: !!o.strip, titleInitial: !!o.titleInitial,
+        menuOpen: !!o.menuOpen, menuOpenText: o.menuOpen ? 'true' : 'false', menuTop: o.menuTop || '0px',
+        tabs: tabs(o.page === 'home' ? 'Home' : 'Library')
+      };
+    };
+    var rows = [
+      { key: 'A', label: 'A strip on every page, with your initial (what the app does today)', screens: [
+        screen({ caption: 'Home', page: 'home', strip: true }),
+        screen({ caption: 'Library page', page: 'lib', strip: true }),
+        screen({ caption: 'Account menu open (any page)', page: 'lib', strip: true, menuOpen: true, menuTop: '62px' })
+      ] },
+      { key: 'B', label: 'On Home only, beside Import; other pages start with their title (recommended)', screens: [
+        screen({ caption: 'Home', page: 'home', titleInitial: true }),
+        screen({ caption: 'Library page', page: 'lib' }),
+        screen({ caption: 'Account menu open (from Home)', page: 'home', titleInitial: true, menuOpen: true, menuTop: '72px' })
+      ] },
+      { key: 'C', label: 'In every page’s title row', screens: [
+        screen({ caption: 'Home', page: 'home', titleInitial: true }),
+        screen({ caption: 'Library page', page: 'lib', titleInitial: true }),
+        screen({ caption: 'Account menu open (any page)', page: 'lib', titleInitial: true, menuOpen: true, menuTop: '106px' })
+      ] }
+    ];
+    var chips = [['All', true], ['Want to Read', false], ['Finished', false], ['Books', false]].map(function (c) {
+      return { label: c[0], bg: c[1] ? 'var(--accent)' : 'transparent', fg: c[1] ? 'var(--onaccent)' : 'var(--ink2)', border: c[1] ? 'var(--accent)' : 'var(--rule)' };
+    });
+    var covers = [['Discourse on the Method', 'navy', 'Read only'], ['The Grid', 'green', 'Read and listen'], ['The Time Machine', 'navy', 'Read and listen'], ['Frankenstein', 'green', 'Read and listen'], ['Jekyll and Hyde', 'navy', 'Read and listen'], ['Trap Book', 'green', 'Read and listen']].map(function (b) {
+      return { title: b[0], bg: 'var(--' + b[1] + ')', avail: b[2] };
+    });
+    return { themeCls: theme === 'dark' ? 't-dark' : 't-light', rows: rows, chips: chips, covers: covers };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "C4Question.dc.html": {
+      "h": 840,
+      "title": "Extra: one question on Home (one option so far)",
+      "w": 1200,
+      "x": 0,
+      "y": 8780
+    },
+    "C5Threads.dc.html": {
+      "h": 980,
+      "title": "Extra: threads across books (one option so far)",
+      "w": 1200,
+      "x": 1280,
+      "y": 8780
+    },
+    "Continue.dc.html": {
+      "h": 840,
+      "title": "Continue \u00b7 options A, B",
+      "w": 1200,
+      "x": 0,
+      "y": 6040
+    },
+    "Earlier.dc.html": {
+      "h": 1280,
+      "title": "Earlier prototypes (Codex images, 2026-10-03)",
+      "w": 1440,
+      "x": 0,
+      "y": 10180
+    },
+    "HomeB.dc.html": {
+      "expand": "fill",
+      "h": 1280,
+      "title": "Home \u00b7 desktop \u00b7 option B: a shelf of spines",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "HomeDark.dc.html": {
+      "expand": "fill",
+      "h": 1280,
+      "title": "Home \u00b7 desktop \u00b7 option A: covers in a grid \u00b7 dark",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "HomePhone.dc.html": {
+      "h": 940,
+      "title": "Home \u00b7 phone \u00b7 option A: covers in a grid",
+      "w": 880,
+      "x": 0,
+      "y": 1700
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 1280,
+      "title": "Home \u00b7 desktop \u00b7 option A: covers in a grid \u00b7 light",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "PathPage.dc.html": {
+      "expand": "fill",
+      "h": 1060,
+      "title": "A Path page (one option so far)",
+      "w": 1440,
+      "x": 0,
+      "y": 7300
+    },
+    "PhoneB.dc.html": {
+      "h": 940,
+      "title": "Home \u00b7 phone \u00b7 option B: a shelf of spines",
+      "w": 880,
+      "x": 960,
+      "y": 1700
+    },
+    "Players.dc.html": {
+      "h": 1320,
+      "title": "Mini-player \u00b7 options A, B, C",
+      "w": 1200,
+      "x": 0,
+      "y": 3060
+    },
+    "Progress.dc.html": {
+      "h": 820,
+      "title": "Progress on covers \u00b7 options A, B, C",
+      "w": 1440,
+      "x": 0,
+      "y": 4800
+    },
+    "PicksHome.dc.html": {
+      "expand": "fill",
+      "h": 1460,
+      "title": "Your picks \u00b7 Home on desktop (A, with Continue B, progress bars, player B with speed)",
+      "w": 1440,
+      "x": 0,
+      "y": -1900
+    },
+    "PicksPhone.dc.html": {
+      "h": 940,
+      "title": "Your picks \u00b7 Home on a phone (A, with the Grid / Spines toggle)",
+      "w": 880,
+      "x": 1520,
+      "y": -1900
+    },
+    "PicksPlayer.dc.html": {
+      "h": 980,
+      "title": "Your picks \u00b7 mini-player B with speed",
+      "w": 1200,
+      "x": 2480,
+      "y": -1900
+    },
+    "AccountButton.dc.html": {
+      "x": 0,
+      "y": -5200,
+      "w": 1560,
+      "h": 2860,
+      "title": "Decided: B, the account button on Home only (options A, B, C)"
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-05T11:40:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "baseNote": {
+      "fill": "teal",
+      "text": "Agreed for both: Home = Continue at the top, then your whole library with Import; sidebar with Library filters, Paths and Collections; a mini-player with back 15, play/pause and forward 15.\n\nA = covers in a grid, each with a bar that fills as you read.\nB = a shelf of spines; each spine fills from the bottom as you read.\n\nB in dark: select the board, Tweaks, theme = dark.\n\nBooks, notes and numbers are samples, not your real library.",
+      "w": 460,
+      "x": 4560,
+      "y": 0
+    },
+    "c4Note": {
+      "text": "One question on Home\n\nOne question from the question bank of a chapter you marked wrong, to recall before you read on (retrieval practice: recalling a fact strengthens memory more than rereading it).\n\nUses: question banks and your right/wrong marks (M6). Needs the Claude key on the live site to have questions at all.",
+      "w": 460,
+      "x": 2560,
+      "y": 8780
+    },
+    "c5Note": {
+      "text": "Threads across books\n\nTwo of your highlights from different books that share key words, shown together.\n\nUses: the cross-book matcher (M6), which compares word stems, not AI. It finds shared words, so some threads will be weak.",
+      "w": 460,
+      "x": 3100,
+      "y": 8780
+    },
+    "continueNote": {
+      "text": "A = plain: cover, title, chapter and a fill bar.\nB = also shows your last note (or highlight) in that book, and offers Read from here or Listen from here, both starting at the same paragraph.",
+      "w": 460,
+      "x": 1280,
+      "y": 6040
+    },
+    "pathNote": {
+      "fill": "teal",
+      "text": "A Path has a reading order (story first, then the deeper book). Every title says what you can do with it: Read and listen, Read only, Listen only, or Not available yet. A title with nothing to read or listen to yet is greyed, and takes its colour when you add the book or audio.\n\nCorrected from the 2026-10-03 prototype: in How systems fail, Meltdown is the story (N) and Normal Accidents the deeper book (E), as in your reading list.\n\nOnly one layout so far; say if you want options here too.",
+      "w": 460,
+      "x": 1520,
+      "y": 7300
+    },
+    "playerNote": {
+      "text": "All three have back 15 s, play/pause and forward 15 s, on desktop and phone.\n\nA = compact, like Apple Books; a thin line along the bottom fills with the chapter.\nB = shows the sentence being read, with the word lit; Go to the page; Think aloud records a voice note on that sentence.\nC = a scrubber you can drag, times, speed (1.0\u00d7) and Think aloud.",
+      "w": 460,
+      "x": 1280,
+      "y": 3060
+    },
+    "progressNote": {
+      "text": "No ribbon, as you asked: progress is a fill.\n\nA = a bar under the cover fills (what the app does today).\nB = the cover fills with a lighter tone from the bottom.\nC = the spine fills with amber from the bottom.\n\nKept on all three: folded corner = your notes; headphones = audio to read along; amber tick = finished.",
+      "w": 460,
+      "x": 1520,
+      "y": 4800
+    },
+    "rowBase": {
+      "kind": "title1",
+      "maxW": 4480,
+      "text": "Home on desktop: option A or B",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "rowContinue": {
+      "kind": "title1",
+      "maxW": 1740,
+      "text": "Continue: option A or B",
+      "w": 240,
+      "x": 0,
+      "y": 5740
+    },
+    "rowEarlier": {
+      "kind": "title1",
+      "maxW": 1440,
+      "text": "Earlier prototypes (2026-10-03)",
+      "w": 240,
+      "x": 0,
+      "y": 9880
+    },
+    "rowExtras": {
+      "kind": "title1",
+      "maxW": 3600,
+      "text": "Optional extras for Home (one option each so far)",
+      "w": 240,
+      "x": 0,
+      "y": 8480
+    },
+    "rowPath": {
+      "kind": "title1",
+      "maxW": 1980,
+      "text": "Paths are curricula (one option so far)",
+      "w": 240,
+      "x": 0,
+      "y": 7000
+    },
+    "rowPhone": {
+      "kind": "title1",
+      "maxW": 1840,
+      "text": "Home on a phone: option A or B",
+      "w": 240,
+      "x": 0,
+      "y": 1400
+    },
+    "rowPlayer": {
+      "kind": "title1",
+      "maxW": 1740,
+      "text": "Mini-player: option A, B or C",
+      "w": 240,
+      "x": 0,
+      "y": 2760
+    },
+    "rowProgress": {
+      "kind": "title1",
+      "maxW": 1980,
+      "text": "Progress on covers: option A, B or C",
+      "w": 240,
+      "x": 0,
+      "y": 4500
+    },
+    "rowPicks": {
+      "kind": "title1",
+      "maxW": 3680,
+      "text": "Your picks (2026-10-05)",
+      "w": 240,
+      "x": 0,
+      "y": -2200
+    },
+    "picksNote": {
+      "fill": "green",
+      "text": "Your picks, drawn together:\n\nHome on desktop: A, covers in a grid.\nHome on a phone: A, with a Grid / Spines toggle.\nMini-player: B (the sentence being read) plus a speed you choose.\nProgress: A, a bar under the cover fills.\nContinue: B, your last note, Read from here / Listen from here.\nEvery title is labelled by what is available: Read and listen, Read only, Listen only, or Not available yet (greyed). Fabless shows the last one.\n\nThe option boards below are kept for reference. Dark: select a board, Tweaks, theme = dark (the player board shows both).",
+      "w": 460,
+      "x": 3760,
+      "y": -1900
+    },
+    "rowAccount": {
+      "kind": "title1",
+      "maxW": 2200,
+      "text": "Decided (2026-10-06): the account button on a phone, B",
+      "w": 240,
+      "x": 0,
+      "y": -5500
+    },
+    "accountNote": {
+      "fill": "green",
+      "w": 460,
+      "x": 1640,
+      "y": -5200,
+      "text": "On a phone there is no sidebar, so Reading stats, Your data, Invite and Sign out sit behind a round button with your initial (S).\n\nA = a strip at the top of every page (what the app does today). Always one tap; every page loses about 68 px of height.\nB = the button sits on Home only, beside Import. Every other page starts straight with its title. From another page: tap Home, then S.\nC = the button in every page's own title row. Always one tap, no strip; every page's header carries it.\n\nSamuel chose B on 2026-10-06 (Claude's recommendation: it is your Phone A mockup, and these links are rarely used).\n\nDark: select the board, Tweaks, theme = dark.\nBooks and numbers are samples."
+    }
+  },
+  "order": [
+    "AccountButton.dc.html",
+    "PicksHome.dc.html",
+    "PicksPhone.dc.html",
+    "PicksPlayer.dc.html",
+    "Main.dc.html",
+    "HomeDark.dc.html",
+    "HomeB.dc.html",
+    "HomePhone.dc.html",
+    "PhoneB.dc.html",
+    "Players.dc.html",
+    "Progress.dc.html",
+    "Continue.dc.html",
+    "PathPage.dc.html",
+    "C4Question.dc.html",
+    "C5Threads.dc.html",
+    "Earlier.dc.html"
+  ],
+  "pages": [],
+  "title": "Neolibrary Home Prototypes"
+}

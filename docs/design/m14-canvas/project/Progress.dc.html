@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Progress on covers: options A, B and C</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&amp;display=swap">
+<style>
+body{margin:0}
+.t-light{--paper:#f3ede1;--raised:#faf6ee;--ink:#243239;--ink2:#3c4b52;--ink3:#5a676c;--rule:#d6ccba;--accent:#376963;--navy:#22384a;--green:#2e5a50;--coverink:#f0e8d8;--amber:#e0a43a;--shc:0 1px 1px #24323914,0 6px 14px #24323924,0 18px 30px -12px #2432392e}
+.t-dark{--paper:#1b282f;--raised:#22323a;--ink:#e7ddc9;--ink2:#cdc3b0;--ink3:#a49d8e;--rule:#34454d;--accent:#6b9f95;--navy:#2a4459;--green:#346659;--coverink:#f0e8d8;--amber:#e0a43a;--shc:0 1px 1px #0000004d,0 8px 18px #00000059,0 20px 34px -14px #00000073}
+</style>
+</helmet>
+<div style="width: 1440px; height: 820px; display: flex; flex-direction: column; font-family: 'Source Sans 3', 'Segoe UI', sans-serif; font-size: 17px; line-height: 1.4">
+  <sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+    <div class="{{t.cls}}" style="flex: 1 1 0; box-sizing: border-box; padding: 24px 40px; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; gap: 14px">
+      <span style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--ink3)">{{t.label}} · the same four books at 0%, 34%, 69% and finished</span>
+      <div style="display: flex; gap: 36px">
+
+        <section style="flex: 1 1 0; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">A · A bar under the cover fills up</h2>
+          <div style="display: flex; gap: 14px">
+            <sc-for list="{{covers}}" as="c" hint-placeholder-count="4">
+              <div style="width: 96px; display: flex; flex-direction: column; gap: 8px">
+                <div style="position: relative; width: 96px; height: 144px; box-sizing: border-box; padding: 10px 8px; border-radius: 2px 5px 5px 2px; background: {{c.bg}}; color: var(--coverink); box-shadow: var(--shc); display: grid; place-items: center; text-align: center; font-family: 'Source Serif 4', Georgia, serif; font-size: {{c.fs}}; line-height: 1.15; overflow: hidden">
+                  <span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 0; width: 6px; background: currentColor; opacity: 0.12"></span>
+                  <span style="position: relative">{{c.title}}</span>
+                  <sc-if value="{{c.notes}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; background: var(--paper); clip-path: polygon(0 0, 100% 0, 100% 100%)"></span><span aria-hidden="true" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; background: #f0e8d870; clip-path: polygon(0 0, 0 100%, 100% 100%)"></span></sc-if>
+                  <sc-if value="{{c.audio}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position: absolute; left: 10px; bottom: 8px; width: 22px; height: 22px; border-radius: 999px; background: #f0e8d82e; display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" style="fill: none; stroke: var(--coverink); stroke-width: 2.2; stroke-linejoin: round"><path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"></path></svg></span></sc-if>
+                  <sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position: absolute; right: 8px; bottom: 8px; width: 22px; height: 22px; border-radius: 999px; background: var(--amber); display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" style="fill: none; stroke: #243239; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></sc-if>
+                </div>
+                <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink2)">{{c.pct}}<span style="flex: 1; display: block; height: 4px; border-radius: 999px; background: var(--rule); overflow: hidden"><span style="display: block; height: 100%; width: {{c.w}}; background: var(--accent)"></span></span></span>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin: 0; font-size: 14px; color: var(--ink2)">What the app does today. Easiest to read exactly.</p>
+        </section>
+
+        <section style="flex: 1 1 0; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">B · The cover itself fills up from the bottom</h2>
+          <div style="display: flex; gap: 14px">
+            <sc-for list="{{covers}}" as="c" hint-placeholder-count="4">
+              <div style="width: 96px; display: flex; flex-direction: column; gap: 8px">
+                <div style="position: relative; width: 96px; height: 144px; box-sizing: border-box; padding: 10px 8px; border-radius: 2px 5px 5px 2px; background: {{c.bg}}; color: var(--coverink); box-shadow: var(--shc); display: grid; place-items: center; text-align: center; font-family: 'Source Serif 4', Georgia, serif; font-size: {{c.fs}}; line-height: 1.15; overflow: hidden">
+                  <span aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: {{c.w}}; background: #f0e8d830; border-top: 1.5px solid #f0e8d899"></span>
+                  <span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 0; width: 6px; background: currentColor; opacity: 0.12"></span>
+                  <span style="position: relative">{{c.title}}</span>
+                  <sc-if value="{{c.notes}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; background: var(--paper); clip-path: polygon(0 0, 100% 0, 100% 100%)"></span><span aria-hidden="true" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; background: #f0e8d870; clip-path: polygon(0 0, 0 100%, 100% 100%)"></span></sc-if>
+                  <sc-if value="{{c.audio}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position: absolute; left: 10px; bottom: 8px; width: 22px; height: 22px; border-radius: 999px; background: #f0e8d82e; display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" style="fill: none; stroke: var(--coverink); stroke-width: 2.2; stroke-linejoin: round"><path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"></path></svg></span></sc-if>
+                  <sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position: absolute; right: 8px; bottom: 8px; width: 22px; height: 22px; border-radius: 999px; background: var(--amber); display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" style="fill: none; stroke: #243239; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></sc-if>
+                </div>
+                <span style="font-size: 13px; color: var(--ink2)">{{c.read}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin: 0; font-size: 14px; color: var(--ink2)">Like a glass filling. The book keeps its colour, so it never looks like a title with nothing to read or listen to yet.</p>
+        </section>
+
+        <section style="flex: 1 1 0; display: flex; flex-direction: column; gap: 12px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">C · The spine fills up from the bottom</h2>
+          <div style="display: flex; gap: 14px">
+            <sc-for list="{{covers}}" as="c" hint-placeholder-count="4">
+              <div style="width: 96px; display: flex; flex-direction: column; gap: 8px">
+                <div style="position: relative; width: 96px; height: 144px; box-sizing: border-box; padding: 10px 8px 10px 16px; border-radius: 2px 5px 5px 2px; background: {{c.bg}}; color: var(--coverink); box-shadow: var(--shc); display: grid; place-items: center; text-align: center; font-family: 'Source Serif 4', Georgia, serif; font-size: {{c.fs}}; line-height: 1.15; overflow: hidden">
+                  <span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 0; width: 9px; background: #00000033"></span>
+                  <span aria-hidden="true" style="position: absolute; bottom: 0; left: 0; width: 9px; height: {{c.w}}; background: var(--amber)"></span>
+                  <span style="position: relative">{{c.title}}</span>
+                  <sc-if value="{{c.notes}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; background: var(--paper); clip-path: polygon(0 0, 100% 0, 100% 100%)"></span><span aria-hidden="true" style="position: absolute; top: 0; right: 0; width: 20px; height: 20px; background: #f0e8d870; clip-path: polygon(0 0, 0 100%, 100% 100%)"></span></sc-if>
+                  <sc-if value="{{c.audio}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="position: absolute; left: 16px; bottom: 8px; width: 22px; height: 22px; border-radius: 999px; background: #f0e8d82e; display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" style="fill: none; stroke: var(--coverink); stroke-width: 2.2; stroke-linejoin: round"><path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"></path></svg></span></sc-if>
+                  <sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position: absolute; right: 8px; bottom: 8px; width: 22px; height: 22px; border-radius: 999px; background: var(--amber); display: grid; place-items: center"><svg width="13" height="13" viewBox="0 0 24 24" style="fill: none; stroke: #243239; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></sc-if>
+                </div>
+                <span style="font-size: 13px; color: var(--ink2)">{{c.read}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin: 0; font-size: 14px; color: var(--ink2)">Quieter: the title area stays clean. Works on spines too (Home option B).</p>
+        </section>
+
+      </div>
+      <p style="margin: 0; font-size: 14px; color: var(--ink3)">Kept on all three: folded corner = your notes are in it; headphones = you can listen while you read; amber tick = finished.</p>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var raw = [
+      ['The Time Machine', 'green', 0, false, false, '13px'],
+      ['Frankenstein', 'green', 0.34, true, true, '12px'],
+      ['The Structure of Scientific Revolutions', 'navy', 0.69, true, true, '10px'],
+      ['Strange Case of Dr Jekyll and Mr Hyde', 'navy', 1, true, false, '10px']
+    ];
+    var covers = raw.map(function (r) {
+      var p = r[2];
+      return {
+        title: r[0], bg: 'var(--' + r[1] + ')', notes: r[3], audio: r[4], fs: r[5],
+        done: p >= 1, w: Math.round(p * 100) + '%',
+        pct: p >= 1 ? 'Done' : Math.round(p * 100) + '%',
+        read: p >= 1 ? 'Finished' : p > 0 ? Math.round(p * 100) + '% read' : 'Unread'
+      };
+    });
+    return { themes: [{ label: 'Light', cls: 't-light' }, { label: 'Dark', cls: 't-dark' }], covers: covers };
+  }
+}
+</script>
+</body>
+</html>
