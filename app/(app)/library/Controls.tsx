@@ -34,7 +34,7 @@ export function Controls() {
   }, [q]);
 
   return (
-    <div className={styles.controls} role="search" aria-label="Filter your library">
+    <div className={styles.controls} role="search" aria-label="Search and sort">
       <label className={styles.searchLabel}>
         <span className="visually-hidden">Filter by title or author</span>
         <input

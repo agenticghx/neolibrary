@@ -14,7 +14,11 @@ import { Dropzone } from "./Dropzone";
 import { NewCollection } from "./NewCollection";
 import styles from "./page.module.css";
 
-export const metadata: Metadata = { title: "Library" };
+/** The tab's title follows the filter ("Want to Read · Neolibrary"). */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ show?: string }> }): Promise<Metadata> {
+  const show = parseShow((await searchParams).show);
+  return { title: show === "all" ? "Library" : SHOWS[show] };
+}
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage({
@@ -36,7 +40,6 @@ export default async function LibraryPage({
   const items = await libraryItems(db, user.id, shelf, await coverSigner());
   // All and Want to Read (no search, no collection) end with the titles not available yet (D3, D5).
   const waiting = !sp.q && !active && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id)) : [];
-  const shown = items.length + waiting.length;
   const chipHref = (c?: string) => {
     const p = new URLSearchParams();
     if (show !== "all") p.set("show", show);
@@ -54,25 +57,15 @@ export default async function LibraryPage({
         <h1 className={styles.title}>{show === "all" ? "Your library" : SHOWS[show]}</h1>
         <p className={styles.lede}>
           {show !== "all"
-            ? `${shown} ${shown === 1 ? "title" : "titles"}.`
+            ? <>
+                <span>{`${items.length} ${items.length === 1 ? "title" : "titles"}${waiting.length ? `, and ${waiting.length} not available yet` : ""}.`}</span>{" "}
+                <Link href="/library">Show the whole library</Link>
+              </>
             : everything.length === 0
               ? "Nothing here yet. Add your own DRM-free books."
               : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
         </p>
       </header>
-      {/* On a phone the Library tab shows the filters as chips (on desktop they are in the sidebar). */}
-      <nav className={styles.filters} aria-label="Filters">
-        {Object.entries(SHOWS).map(([key, label]) => (
-          <Link
-            key={key}
-            href={key === "all" ? "/library" : `/library?show=${key}`}
-            className={styles.chip}
-            aria-current={show === key ? "page" : undefined}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
       <Dropzone />
       {everything.length === 0 ? (
         <form action={addSampleBooksAction} className={styles.samples}>
@@ -94,9 +87,24 @@ export default async function LibraryPage({
               <Controls />
             </Suspense>
           ) : null}
+          {/* On a phone the Library tab shows the filters as chips, just above the collections (on desktop they are in the sidebar). */}
+          <nav className={[styles.chips, styles.filters].join(" ")} aria-label="Filters">
+            <span className={styles.chipsLabel}>Show</span>
+            {Object.entries(SHOWS).map(([key, label]) => (
+              <Link
+                key={key}
+                href={key === "all" ? "/library" : `/library?show=${key}`}
+                className={styles.chip}
+                aria-current={show === key ? "page" : undefined}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
           <nav className={styles.chips} aria-label="Collections">
+            <span className={styles.chipsLabel}>Collections</span>
             <Link href={chipHref()} className={styles.chip} aria-current={active ? undefined : "page"}>
-              All
+              All collections
             </Link>
             {collectionList.map((c) => (
               <Link
@@ -131,9 +139,9 @@ export default async function LibraryPage({
           ) : (
             <p className={styles.empty}>
               {sp.q
-                ? `Nothing matches “${sp.q}”.`
+                ? `Nothing matches “${sp.q}”${show !== "all" ? ` in ${SHOWS[show]}` : ""}.`
                 : active
-                  ? "No books in this collection yet."
+                  ? `No books in this collection${show !== "all" ? ` under ${SHOWS[show]}` : ""} yet.`
                   : `No books here yet${waiting.length ? "; the titles not available yet are below" : ""}.`}
             </p>
           )}

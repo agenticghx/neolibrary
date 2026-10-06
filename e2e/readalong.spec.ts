@@ -1152,6 +1152,11 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   await page.goto("/library");
   const onShelf = page.getByTestId("shelf").getByRole("listitem").filter({ hasText: "Read-Along Test Pages" });
   await expect(onShelf.getByText("Read and listen", { exact: true })).toBeVisible();
+  // The Audiobooks filter lists it (an uploaded audiobook), and no book that only has narration.
+  await page.goto("/library?show=audiobooks");
+  const withAudio = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();
+  expect(withAudio).toContain("Read-Along Test Pages");
+  expect(withAudio).not.toContain("Frankenstein");
 
   await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
   const reader = page.getByTestId("reader");

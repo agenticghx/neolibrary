@@ -212,8 +212,9 @@ test("each library filter shows exactly its titles, with the right count", async
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(want.heading);
     const titles = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();
     expect(titles.sort(), show).toEqual(want.grid.map((b) => b.title).sort());
-    const total = want.grid.length + want.waiting;
-    await expect(page.getByText(`${total} ${total === 1 ? "title" : "titles"}.`, { exact: true })).toBeVisible();
+    const n = want.grid.length;
+    const line = `${n} ${n === 1 ? "title" : "titles"}${want.waiting ? `, and ${want.waiting} not available yet` : ""}.`;
+    await expect(page.getByText(line, { exact: true })).toBeVisible();
     await expect(page.getByText(/^Not available yet \(\d+\)$/)).toHaveCount(want.waiting ? 1 : 0);
   }
   // On a phone, the Library tab offers the same filters as chips.

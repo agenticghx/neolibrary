@@ -76,8 +76,9 @@ describe("filters (M14 D5)", () => {
     const shown = async (show: string) => (await titles({ show: parseShow(show), sort: "title" })).sort();
     expect(await shown("want")).toEqual(["A PDF", "Never opened"]);
     expect(await shown("finished")).toEqual(["Dracula"]);
-    expect(await shown("books")).not.toContain("A PDF");
-    expect(await shown("books")).toContain("Never opened");
+    expect(await shown("books")).toEqual(
+      ["Almost done", "Audiobook still uploading", "Dracula", "Frankenstein", "Narrated only", "Never opened", "Opened, still at 0%", "With an audiobook", "the Time Machine"].sort(),
+    );
     expect(await shown("pdfs")).toEqual(["A PDF"]);
     expect(await shown("audiobooks")).toEqual(["With an audiobook"]);
     // All: every book with a file, as before the filters existed.
