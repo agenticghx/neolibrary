@@ -1309,6 +1309,17 @@ audio only from a tap.
 - **Mutation 2, the session started one tick after the tap**
   (`setTimeout`): caught at `readalong.spec.ts:1622`, with `play()` outside
   the tap.
-**Lesson.** A mutation that survives can be telling the truth: here it
-showed the guarantee comes from React itself. Then break the property for
-real (a start after the tap) to prove the test can see it.
+- **CI round 1** (run 37478603601): `272 passed`, then one failure in WebKit,
+  in #88's "paused in the reader, then left". The test moved the audio while
+  it played, and WebKit on Linux stood still after the seek, at 14.49 s:
+  not paused, no error, the whole file loaded. Nothing in this PR runs in
+  that path.
+- **The fix:** the test now pauses first, then moves while paused, and waits
+  for the bar to light the word. It still catches its mutation (no fill on
+  leaving): `1 failed` at `:1591`.
+**Lesson.**
+- **A mutation that survives can be telling the truth:** here it showed the
+  guarantee comes from React itself. Then break the property for real (a
+  start after the tap) to prove the test can see it.
+- **In WebKit tests, move the audio while it is paused** unless the move
+  while playing is what is being tested.

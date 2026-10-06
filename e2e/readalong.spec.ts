@@ -1572,15 +1572,16 @@ test("M14 (6b): paused in the reader, then left: the mini-player shows where the
   test.setTimeout(90_000);
   const { bookId, expected } = await miniReading(page);
   const bar = await openListening(page, bookId, 40);
+  // It plays (so it goes on after the reader), then is paused, and moved on into the third paragraph while
+  // paused. (Moved while playing, WebKit on Linux once stood still after the seek: CI run 37478603601.)
   await bar.getByRole("button", { name: "Play" }).click();
   await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
-  // On into the third paragraph, then Pause there.
-  const k = expected.findIndex((w) => w.cfi === PARAGRAPHS[42].cfi);
-  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), expected[k + 2].startMs / 1000);
-  await playUntil(page, expected[k + 3].startMs + 50);
   await bar.getByRole("button", { name: "Pause" }).click();
   await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
-  const word = await bar.getAttribute("data-word");
+  const k = expected.findIndex((w) => w.cfi === PARAGRAPHS[42].cfi);
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), (expected[k + 3].startMs + 50) / 1000);
+  await expect(bar).toHaveAttribute("data-word", expected[k + 3].word);
+  const word = expected[k + 3].word;
 
   await page.getByRole("link", { name: "Back to your library" }).click();
   const mini = page.getByRole("region", { name: "Now playing" });

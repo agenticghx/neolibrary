@@ -190,6 +190,7 @@ Never blocks the loop. Newest first.
 - **Known issues / blockers:**
   - Home fetches the audiobook's Listen data on each visit for a Continue card with an audiobook (at most 8,000 words of text and timings).
   - Real Safari on an iPhone is the final check of the one-tap start: Samuel, after the deploy.
+  - **CI round 1** (run 37478603601): `272 passed`, then one WebKit failure in #88's "paused in the reader, then left" test. The audio stood still after the test moved it while playing. The test now pauses before moving, and still catches its mutation (Iteration 51).
 - **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 10:00 (local; 14:00 UTC; first written as 14:05, corrected from the clock) · Claude (laptop) · M14 step 6b part 1 merged (#87); the review's 19 findings fixed, PR from m14-e2-fixes
