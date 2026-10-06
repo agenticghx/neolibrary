@@ -6,7 +6,9 @@ import { Cover } from "@/components/Cover";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
+import { KIND_WORDS } from "@/lib/library/path-words";
 import { getBook } from "@/lib/library/paths";
+import { isReadingList } from "@/lib/library/seed";
 import { NotesExport, NotesImport } from "@/components/NotesExport";
 import { listAnnotations } from "@/lib/library/annotations";
 import { availabilityLabel } from "@/lib/library/availability";
@@ -20,7 +22,8 @@ import styles from "./page.module.css";
 export const metadata: Metadata = { title: "Book" };
 export const dynamic = "force-dynamic";
 
-const KIND = { N: "narrative, read first", E: "engineering & economics, read second", extra: "extra", master: "master key, read last" };
+/** A reading list's own words for its kinds of title (your own Paths use KIND_WORDS: Story first, Go deeper, Any order). */
+const LIST_KIND = { N: "narrative, read first", E: "engineering & economics, read second", extra: "extra", master: "master key, read last" };
 
 export default async function BookPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -35,7 +38,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   // M13: uploaded read-along audiobooks, only for a book whose file is here.
   const audiobooks = hasFile && book.fileType ? await listImports(await getDb(), user.id, book.id) : [];
   const count = (k: string) => marks.filter((a) => a.kind === k).length;
-  const firstKind = places[0]?.kind;
+  // The cover's N or E letter comes from a reading list only (your own Paths say the words instead).
+  const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
 
   return (
     <main className={styles.main}>
@@ -48,8 +52,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
       <div className={styles.layout}>
         <Cover
           title={book.title}
-          slot={firstKind}
-          tone={firstKind === "E" ? "green" : "navy"}
+          slot={shown && isReadingList(shown.pathSlug) ? shown.kind : undefined}
+          tone={shown?.kind === "E" ? "green" : "navy"}
           available={available}
           caption={false}
           progress={book.progress}
@@ -59,7 +63,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
           <h1 className={styles.title}>{book.title}</h1>
           {book.author ? <p className={styles.author}>{book.author}</p> : null}
           {hasFile && book.fileType ? (
-            <Link href={`/books/${book.id}/read`} className={styles.read}>
+            <Link id="read-book" href={`/books/${book.id}/read`} className={styles.read}>
               {book.progress > 0 ? "Continue reading" : "Read"}
             </Link>
           ) : null}
@@ -67,7 +71,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
             <ul className={styles.places}>
               {places.map((p) => (
                 <li key={`${p.pathSlug}-${p.pillarSlug}-${p.kind}`}>
-                  {p.path} › {p.pillar} · <span className={styles.kind}>{KIND[p.kind]}</span>
+                  {p.path} › {p.pillar} · <span className={styles.kind}>{(isReadingList(p.pathSlug) ? LIST_KIND : KIND_WORDS)[p.kind]}</span>
                 </li>
               ))}
             </ul>
@@ -157,7 +161,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               ? ` · ${Math.round(book.progress * 100)}% read`
               : ". Add the book file (EPUB or PDF) and it attaches here."}
           </p>
-          {hasFile ? null : <AttachFile bookId={book.id} />}
+          {/* Always here, so its message outlives the refresh that brings the file (it draws nothing for a book that had one). */}
+          <AttachFile bookId={book.id} hasFile={hasFile} readLinkId="read-book" />
         </div>
       </div>
     </main>

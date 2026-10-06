@@ -36,6 +36,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 21 | 2026-10-06 00:35 | 3 CI | #75 passes on CI | run 37392862541 | flake (rerun) | a name containing another control's label breaks getByLabel |
 | 22 | 2026-10-06 01:00 | CI flakes | Why WebKit read-along tests fail on CI | 4 CI failures; a trace; worker count | partial (cause narrowed) | a late word at a page break is drawing time, not the network |
 | 23 | 2026-10-06 01:30 | 4 rebase; `main` CI | Step 4 on `main` is the tree that passed; `main` is green after #75 | `git diff --stat`; `npm run check`; run 37397581699 | success; flake on `main` | build output left by another branch breaks type checking |
+| 24 | 2026-10-06 02:07 | 4 CI, merge | #76 passes CI and merges as checked | run 37399604844 (2 attempts); `git diff --stat 55376be origin/main` | flake, then success | the same word late three times is a cause, not chance |
+| 25 | 2026-10-06 ~02:00 | CI flakes | The late word at the PDF page break is WebKit drawing the page | per-frame recordings decoded from two CI traces (read-only agent) | partial (cause located) | the check that failed read a hidden attribute; the visible highlight was on time |
 
 ## Lessons so far
 
@@ -521,4 +523,61 @@ checking after switching branches: clear it before `npm run check`.
 **Next experiment.** Push step 4 as a draft PR; on a WebKit read-along
 failure of the known kind, re-run the failed job. The investigation stays
 before step 6a.
+
+### Iteration 24 · 2026-10-06 02:07 · Step 4 CI and merge (#76) · flake, then success
+
+**Hypothesis.** #76 (55376be: step 4 rebased, ledger) passes CI and merges
+as the checked commit.
+**Evaluation.** CI run 37399604844; `gh run rerun 37399604844 --failed`;
+after the merge, `git diff --stat 55376be origin/main`.
+**Result.** Attempt 1: lint, types, unit, Postgres, hygiene pass; browser
+`1 failed`, `4 did not run`, `243 passed (14.8m)`: `readalong.spec.ts:1123`
+(readalong-safari), `"most" (word 51) shown 100 ms after it starts` (the
+check needs under 100). Every visual test passed, so step 4 changed no
+reference image, as predicted. Attempt 2 (the failed job only): `248 passed
+(15.3m)`. Merged with `--match-head-commit`: `main` cb5018b; the diff
+printed nothing.
+**Interpretation.** Third failure at the same word: 116 ms (#75 run 1),
+112 ms (`main`, run 37397581699), 100 ms (#76). A cause that repeats at one
+place, not chance.
+**Lesson.** When a flake keeps landing on the same assertion, stop
+re-running and find what the assertion actually reads (Iteration 25).
+**Next experiment.** Rebase step 5 onto `main`; the investigation stays
+after step 5 and 3b, as the handoff orders.
+
+### Iteration 25 · 2026-10-06 ~02:00 · WebKit read-along on CI · partial (cause located)
+
+**Hypothesis.** The late word 51 at the PDF page break (`:1123`) is WebKit
+drawing the next PDF page.
+**Evaluation.** A read-only agent decoded the test's own per-frame
+recording (stored in each trace) from `main`'s run 37397581699 and #75's
+run 37392862541 (attempt 1), lined up with the trace's events (clock
+caveat: about 3 ms).
+**Result.** The page's own highlight lit "most" on time, 30.5 ms and 47 ms
+after the word starts. What failed is the Listen bar's `data-word`
+attribute (React state, `ListenBar.tsx:459`, shown nowhere on screen): two
+frames later, because the page's main thread was blocked 49 ms and 62 ms
+right after the page turn. In both runs pdf.js logged `Cannot load system
+font: Times-Italic` inside the longest gap: page 2 is the first to use
+italic (a footnote), and with `useSystemFonts` on, pdf.js first tries 16
+local font names, which all fail on CI's Linux. Passing WebKit runs light
+words 29-91 ms late (Chromium 9-29 ms); the median over all 117 words is
+25.4 ms. The other signatures are separate: `:727` "117 ms" is an EPUB
+(one 106 ms gap right after a 640 s seek), `:727` "stall" is WebKit's
+media pipeline (range requests cancelled, then 45 s of nothing), and
+`:241` is Playwright's `setInputFiles` on the folder picker hanging while
+the page already said "Done.".
+**Interpretation.** Not M14 code, and not the drawing of the page as such:
+a font lookup on first use blocks the thread, and the bar's update waits
+behind it. The 100 ms limit stays.
+**Lesson.** Before calling a timing failure a flake, find out what the
+failing check reads: here a hidden attribute lagged the visible highlight.
+**Next experiment.** In the investigation (after step 5 and 3b): load the
+next page's fonts and drawing ahead (`lib/reader/pdf-book.ts`), add
+`performance.mark`s around the turn and print the phase times before the
+assertion (today the timing line prints only when the test passes);
+compare five CI runs before and after. `useSystemFonts: false` would also
+remove the lookup, but changes how PDFs without their own fonts look: a
+choice for Samuel. Files: the session's scratchpad `flake/`
+(`main-recording.json`, `pr75a1-recording.json`, `decode.py`).
 

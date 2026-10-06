@@ -3,17 +3,11 @@
 import { useActionState, useId } from "react";
 import { addSectionAction, addTitleAction, createPathAction, renamePathAction, type PathFormState } from "@/app/(app)/actions";
 import forms from "@/components/forms.module.css";
+import { KIND_CHOICES } from "@/lib/library/path-words";
+import { Outcome } from "./Outcome";
 import styles from "./PathForms.module.css";
 
 const start: PathFormState = { error: null, done: null };
-
-function Outcome({ state }: { state: PathFormState }) {
-  return (
-    <p role="status" className={state.error ? forms.error : styles.done}>
-      {state.error ?? state.done ?? ""}
-    </p>
-  );
-}
 
 /** Name a new Path (M14 step 5); it opens for editing. */
 export function NewPathForm() {
@@ -31,7 +25,7 @@ export function NewPathForm() {
       <button type="submit" className={forms.button} disabled={pending}>
         Make the path
       </button>
-      <Outcome state={state} />
+      <Outcome state={state} pending={pending} />
     </form>
   );
 }
@@ -49,11 +43,11 @@ export function RenamePathForm({ pathId, slug, title, description }: { pathId: s
       <label className={forms.label} htmlFor="rename-description">
         What it is for (optional)
       </label>
-      <textarea id="rename-description" name="description" className={forms.input} rows={2} maxLength={2000} defaultValue={description} />
+      <textarea id="rename-description" name="description" className={forms.input} rows={3} maxLength={2000} defaultValue={description} />
       <button type="submit" className={forms.button} disabled={pending}>
         Save name
       </button>
-      <Outcome state={state} />
+      <Outcome state={state} pending={pending} />
     </form>
   );
 }
@@ -74,26 +68,26 @@ export function AddSectionForm({ pathId, slug }: { pathId: string; slug: string 
           Add section
         </button>
       </div>
-      <Outcome state={state} />
+      <Outcome state={state} pending={pending} />
     </form>
   );
 }
 
-const KINDS = [
-  ["N", "Story first"],
-  ["E", "Go deeper"],
-  ["extra", "Plain"],
-] as const;
-
-function KindSelect({ id }: { id: string }) {
+/** "How to read it": Story first, Go deeper or Any order (stored as N, E, extra). A visible label: the words need it. */
+function HowToRead({ id }: { id: string }) {
   return (
-    <select id={id} name="kind" className={forms.input} defaultValue="extra">
-      {KINDS.map(([value, label]) => (
-        <option key={value} value={value}>
-          {label}
-        </option>
-      ))}
-    </select>
+    <div className={styles.field}>
+      <label className={forms.label} htmlFor={id}>
+        How to read it
+      </label>
+      <select id={id} name="kind" className={forms.input} defaultValue="extra">
+        {KIND_CHOICES.map((k) => (
+          <option key={k.value} value={k.value}>
+            {k.label}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -110,7 +104,7 @@ export function AddTitleForms({
   pillarId: string;
   sectionTitle: string;
   slug: string;
-  library: { id: string; title: string }[];
+  library: { id: string; title: string; author: string }[];
 }) {
   const [fromLibrary, addFromLibrary, pendingLibrary] = useActionState(addTitleAction, start);
   const [newTitle, addNew, pendingNew] = useActionState(addTitleAction, start);
@@ -121,29 +115,28 @@ export function AddTitleForms({
         <form action={addFromLibrary} className={styles.inline} aria-label={`Add a book from your library to ${sectionTitle}`}>
           <input type="hidden" name="pillarId" value={pillarId} />
           <input type="hidden" name="slug" value={slug} />
-          <label className={forms.label} htmlFor={`${id}-book`}>
-            From your library
-          </label>
           <div className={styles.row}>
-            <select id={`${id}-book`} name="bookId" className={forms.input} required defaultValue="">
-              <option value="" disabled>
-                Choose a book
-              </option>
-              {library.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.title}
+            <div className={styles.field}>
+              <label className={forms.label} htmlFor={`${id}-book`}>
+                From your library
+              </label>
+              <select id={`${id}-book`} name="bookId" className={forms.input} required defaultValue="">
+                <option value="" disabled>
+                  Choose a book
                 </option>
-              ))}
-            </select>
-            <label className="visually-hidden" htmlFor={`${id}-kind-l`}>
-              Kind
-            </label>
-            <KindSelect id={`${id}-kind-l`} />
+                {library.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.author ? `${b.title}, by ${b.author}` : b.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <HowToRead id={`${id}-kind-l`} />
             <button type="submit" className={styles.small} disabled={pendingLibrary}>
-              Add
+              Add<span className="visually-hidden">{` a book from your library to ${sectionTitle}`}</span>
             </button>
           </div>
-          <Outcome state={fromLibrary} />
+          <Outcome state={fromLibrary} pending={pendingLibrary} />
         </form>
       ) : null}
       <form action={addNew} className={styles.inline} aria-label={`Add a new title to ${sectionTitle}`}>
@@ -151,23 +144,24 @@ export function AddTitleForms({
         <input type="hidden" name="slug" value={slug} />
         <span className={forms.label}>A title not in your library yet</span>
         <div className={styles.row}>
-          <label className="visually-hidden" htmlFor={`${id}-title`}>
-            Title
-          </label>
-          <input id={`${id}-title`} name="title" className={forms.input} maxLength={120} placeholder="Title" required />
-          <label className="visually-hidden" htmlFor={`${id}-author`}>
-            Author
-          </label>
-          <input id={`${id}-author`} name="author" className={forms.input} maxLength={120} placeholder="Author" />
-          <label className="visually-hidden" htmlFor={`${id}-kind-n`}>
-            Kind
-          </label>
-          <KindSelect id={`${id}-kind-n`} />
+          <div className={styles.field}>
+            <label className={forms.label} htmlFor={`${id}-title`}>
+              Title
+            </label>
+            <input id={`${id}-title`} name="title" className={forms.input} maxLength={120} required />
+          </div>
+          <div className={styles.field}>
+            <label className={forms.label} htmlFor={`${id}-author`}>
+              Author
+            </label>
+            <input id={`${id}-author`} name="author" className={forms.input} maxLength={120} />
+          </div>
+          <HowToRead id={`${id}-kind-n`} />
           <button type="submit" className={styles.small} disabled={pendingNew}>
-            Add
+            Add<span className="visually-hidden">{` a new title to ${sectionTitle}`}</span>
           </button>
         </div>
-        <Outcome state={newTitle} />
+        <Outcome state={newTitle} pending={pendingNew} />
       </form>
     </div>
   );

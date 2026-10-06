@@ -27,7 +27,8 @@ const words = (n: number) => n.toLocaleString("en-GB");
 /** "28 Sep" for the week starting 2026-09-28 (weeks are counted in UTC). */
 const weekLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
-const KIND_LABEL = { N: "N · narrative, read first", E: "E · engineering, read second", master: "Master key", extra: "Extras" } as const;
+/** Words true for every Path (this page mixes them): your own Paths' words, with the reading list's letters (M14 step 5). */
+const KIND_LABEL = { N: "Story first (N)", E: "Go deeper (E)", master: "Master key", extra: "Any order" } as const;
 
 /** Time, words and words per minute cells shared by the group tables. */
 function Numbers({ g, testId }: { g: Pick<GroupStats, "activeSeconds" | "words" | "wpm">; testId?: string }) {
@@ -137,15 +138,15 @@ export default async function StatsPage() {
 
           <section aria-labelledby="by-pillar" className={styles.list}>
             <h2 id="by-pillar" className={styles.listTitle}>
-              By pillar
+              By section
             </h2>
             {pillars.length === 0 ? (
               <p className={styles.empty}>None of the books you have read sit on a Path yet.</p>
             ) : (
               <>
-                <p className={own.note}>A book that sits in two pillars counts in both.</p>
+                <p className={own.note}>A book that sits in two sections counts in both.</p>
                 <table className={own.table} data-testid="stats-pillars">
-                  <Head first="Pillar" />
+                  <Head first="Section" />
                   <tbody>
                     {pillars.map((p) => (
                       <tr key={p.pillarId}>
@@ -165,14 +166,14 @@ export default async function StatsPage() {
           {kinds.length > 0 ? (
             <section aria-labelledby="by-kind" className={styles.list}>
               <h2 id="by-kind" className={styles.listTitle}>
-                N and E books
+                Story first and Go deeper
               </h2>
               <p className={own.note}>
-                On a Path, each pillar pairs a narrative book (N), read first, with an engineering book (E) that explains
-                the machinery.
+                How each title is marked on its Path: Story first (N) is read first, for the story; Go deeper (E) is read
+                next, to go further.
               </p>
               <table className={own.table} data-testid="stats-kinds">
-                <Head first="Slot" />
+                <Head first="How to read it" />
                 <tbody>
                   {kinds.map((k) => (
                     <tr key={k.kind}>

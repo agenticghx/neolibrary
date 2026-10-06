@@ -20,6 +20,11 @@
   font-size: var(--text-lg);
 }
 
+.titleList {
+  display: grid;
+  gap: var(--space-2);
+}
+
 .titles {
   display: grid;
   gap: var(--space-2);
@@ -86,8 +91,9 @@
   cursor: pointer;
 }
 
+/* Cannot act here (the first title's Move up, the last one's Move down): dimmed like the reader's steps (reader.module.css .step:disabled). */
 .button:disabled {
-  color: var(--ink-500);
+  opacity: 0.6;
   cursor: default;
 }
 

@@ -1,8 +1,11 @@
 /**
  * Pages covered by the screenshot and accessibility checks. Add new pages here.
  * `signedIn: false` pages are checked as a logged-out visitor.
+ * `spec`: a page that needs data the looks projects do not have yet (they run right after set-up). The named spec
+ * writes its four screenshots and runs the accessibility check in each look; visual.spec and a11y.spec skip it,
+ * and CI's grid check still requires the four images. Such a page has no reference image to compare against.
  */
-export type PageCase = { name: string; path: string; signedIn: boolean; click?: string };
+export type PageCase = { name: string; path: string; signedIn: boolean; click?: string; spec?: string };
 
 /** `click`: after opening `path`, follow the link with this accessible name. */
 export const pages: PageCase[] = [
@@ -13,6 +16,10 @@ export const pages: PageCase[] = [
   { name: "book-not-available", path: "/paths/hidden-machinery", signedIn: true, click: "The Grid (not available yet)" },
   { name: "library", path: "/library", signedIn: true },
   { name: "paths", path: "/paths", signedIn: true },
+  { name: "path-new", path: "/paths/new", signedIn: true },
+  { name: "path-edit-empty", path: "/paths/philosophy-of-science/edit", signedIn: true, spec: "own-paths.spec.ts" },
+  { name: "path-edit", path: "/paths/philosophy-of-science/edit", signedIn: true, spec: "own-paths.spec.ts" },
+  { name: "path-own", path: "/paths/philosophy-of-science", signedIn: true, spec: "own-paths.spec.ts" },
   { name: "data", path: "/data", signedIn: true },
   { name: "agents", path: "/agents", signedIn: true },
   { name: "stats", path: "/stats", signedIn: true },

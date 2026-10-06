@@ -3,7 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { ImportError, readBook } from "./ebook";
-import { normaliseTitle } from "./paths";
+import { normaliseTitle, UUID } from "./paths";
 import { buildSections } from "./sections-store";
 
 export type ImportResult =
@@ -30,7 +30,7 @@ export async function importBook(
   const info = await readBook(file.bytes, file.name);
   let wanted: { id: string; title: string } | undefined;
   if (opts.attachTo) {
-    const [target] = /^[0-9a-f-]{36}$/i.test(opts.attachTo)
+    const [target] = UUID.test(opts.attachTo)
       ? await db
           .select({ id: books.id, title: books.title, fileKey: books.fileKey })
           .from(books)

@@ -219,7 +219,14 @@ those items below and win over anything else in this file.
   confirmed this shape on 2026-10-05 and chose **no "Read last" marker**
   for now (the database's `master` slot kind, used by Hidden Machinery's
   *Seeing Like a State*, stays available to add later without a
-  migration).
+  migration). As built (step 5, after review): the choice is a visible
+  "How to read it" with **Story first**, **Go deeper** or **Any order**
+  (the plain entry; "Plain" clashed with the AI setting of that name); a
+  Path page draws your own Path's titles in your order, each with its
+  word; every title counts toward finishing a section of your own Path; a
+  typed title joins a library book only when the authors agree. A built-in
+  reading list (Hidden Machinery) keeps its words and order and has no
+  Edit path (by Claude, default).
 - **D11 · One player for the whole app (step 6).** One audio element lives
   in the root layout. The reader, when open, lends the player its page
   turning and word lighting. Outside the reader the mini-player shows the

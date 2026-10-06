@@ -6,7 +6,7 @@ import { createInvite, revokeInvite } from "@/lib/auth/service";
 import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
 import { addSection, addTitle, createPath, moveTitle, PathError, removeTitle, renamePath, seedPath } from "@/lib/library/paths";
 import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
-import { STARTER_PATHS } from "@/lib/library/seed";
+import { starterPath } from "@/lib/library/seed";
 import { addSampleBooks } from "@/lib/library/samples";
 import { getStorage } from "@/lib/storage";
 import { createApiToken, revokeApiToken, TokenError } from "@/lib/auth/tokens";
@@ -35,7 +35,7 @@ export async function revokeInviteAction(data: FormData) {
 
 export async function addPathAction(data: FormData) {
   const user = await requireUser();
-  const seed = STARTER_PATHS[String(data.get("slug"))];
+  const seed = starterPath(String(data.get("slug")));
   if (!seed) return;
   await seedPath(await getDb(), user.id, seed);
   // The sidebar on every page lists the Paths.
@@ -158,44 +158,63 @@ export async function renamePathAction(_: PathFormState, data: FormData): Promis
 
 export async function addSectionAction(_: PathFormState, data: FormData): Promise<PathFormState> {
   const user = await requireUser();
+  let section: { title: string };
   try {
-    await addSection(await getDb(), user.id, String(data.get("pathId")), data.get("title"));
+    section = await addSection(await getDb(), user.id, String(data.get("pathId")), data.get("title"));
   } catch (e) {
     if (e instanceof PathError) return { error: e.message };
     throw e;
   }
   pathPages(String(data.get("slug")));
-  return { error: null, done: "Section added." };
+  return { error: null, done: `Added the section ${section.title}.` };
 }
 
+/** Adds a title to a section; the message names the book, so a repeated "Added" is still news to a screen reader. */
 export async function addTitleAction(_: PathFormState, data: FormData): Promise<PathFormState> {
   const user = await requireUser();
-  let reused = false;
+  const bookId = String(data.get("bookId") ?? "");
+  const typedAuthor = String(data.get("author") ?? "").trim();
+  let added: Awaited<ReturnType<typeof addTitle>>;
   try {
-    const bookId = String(data.get("bookId") ?? "");
-    reused = (
-      await addTitle(await getDb(), user.id, String(data.get("pillarId")), {
-        ...(bookId ? { bookId } : { title: data.get("title"), author: data.get("author") }),
-        kind: data.get("kind"),
-      })
-    ).reused;
+    added = await addTitle(await getDb(), user.id, String(data.get("pillarId")), {
+      ...(bookId ? { bookId } : { title: data.get("title"), author: data.get("author") }),
+      kind: data.get("kind"),
+    });
   } catch (e) {
     if (e instanceof PathError) return { error: e.message };
     throw e;
   }
   pathPages(String(data.get("slug")));
-  return { error: null, done: reused ? "Added: that title was already in your library, so it is the same book." : "Added." };
+  if (!added.reused || bookId) return { error: null, done: `Added ${added.title}.` };
+  // A typed title that turned out to be a book already in the library: say which one, and how to undo a wrong guess.
+  const name = added.author ? `${added.title} by ${added.author}` : added.title;
+  const undo = typedAuthor ? "" : " If you meant another book, remove it and add it again with its author.";
+  return { error: null, done: `Added ${name}: it was already in your library, so this is the same book.${undo}` };
 }
 
-export async function moveTitleAction(data: FormData) {
+/**
+ * Moves a title up or down, or takes it off its section, and says what
+ * happened ("Moved Against Method to 1 of 2."). A title already gone (another
+ * tab) changes nothing: the line says so, and the page shows the Path as it is now.
+ */
+export async function moveOrRemoveTitleAction(_: PathFormState, data: FormData): Promise<PathFormState> {
   const user = await requireUser();
-  await moveTitle(await getDb(), user.id, String(data.get("slotId")), data.get("direction") === "up" ? "up" : "down");
+  const slotId = String(data.get("slotId"));
+  const op = data.get("op");
+  let done: string;
+  try {
+    if (op === "remove") {
+      done = `Removed ${(await removeTitle(await getDb(), user.id, slotId)).title}. It stays in your library.`;
+    } else {
+      const moved = await moveTitle(await getDb(), user.id, slotId, op === "up" ? "up" : "down");
+      done = `Moved ${moved.title} to ${moved.place} of ${moved.count}.`;
+    }
+  } catch (e) {
+    if (!(e instanceof PathError)) throw e;
+    pathPages(String(data.get("slug")));
+    return { error: e.message, done: null };
+  }
   pathPages(String(data.get("slug")));
-}
-
-export async function removeTitleAction(data: FormData) {
-  const user = await requireUser();
-  await removeTitle(await getDb(), user.id, String(data.get("slotId")));
-  pathPages(String(data.get("slug")));
+  return { error: null, done };
 }
 

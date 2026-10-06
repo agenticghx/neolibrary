@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StarterPaths } from "@/components/StarterPaths";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { partsWord } from "@/lib/library/path-words";
 import { listPathsWithProgress } from "@/lib/library/paths";
 import { STARTER_PATHS } from "@/lib/library/seed";
 import styles from "./page.module.css";
@@ -25,8 +26,8 @@ export default async function PathsPage() {
         </Link>
       </div>
       <p className={styles.lede}>
-        A path is a reading plan in order: pillars of books, each with a story to read first and a deeper book to read
-        second. Titles not available yet wait on the path until you add their file.
+        A path is a reading plan: sections of titles, in order. Titles not available yet wait on the path until you add
+        their file.
       </p>
       {list.length ? (
         <ul className={styles.list}>
@@ -36,7 +37,7 @@ export default async function PathsPage() {
                 {p.title}
               </Link>
               <span className={styles.itemMeta}>
-                {p.started} of {p.total} pillars started
+                {p.total ? `${p.started} of ${p.total} ${partsWord(p.readingList, p.total)} started` : "No sections yet"}
               </span>
             </li>
           ))}

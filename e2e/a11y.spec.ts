@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { pages } from "./pages";
 
-for (const { name, path, signedIn, click } of pages) {
+for (const { name, path, signedIn, click } of pages.filter((p) => !p.spec)) {
   test(`${name} has no accessibility or contrast violations`, async ({ page }) => {
     if (!signedIn) await page.context().clearCookies();
     await page.goto(path);

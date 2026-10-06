@@ -50,6 +50,15 @@ describe("adding the book file to a chosen title (M14 step 5)", () => {
     await expect(importBook(database.db, storage, ownerId, fixture("wells-the-time-machine.epub"), { attachTo: mine })).rejects.toThrow("already has its book file");
     await expect(importBook(database.db, storage, ownerId, fixture("wells-the-time-machine.epub"), { attachTo: "not-an-id" })).rejects.toThrow("not found");
   });
+
+  it("refuses a deleted title and an id that is not one: nothing is stored and no book is made from the file", async () => {
+    const [gone] = await database.db.insert(books).values({ ownerId, title: "Gone", deletedAt: new Date() }).returning();
+    await expect(importBook(database.db, storage, ownerId, fixture("descartes-meditation-one.pdf"), { attachTo: gone.id })).rejects.toThrow("That title was not found.");
+    // 36 characters that are not an id: refused in words, not by the database.
+    await expect(importBook(database.db, storage, ownerId, fixture("descartes-meditation-one.pdf"), { attachTo: "-".repeat(36) })).rejects.toThrow("That title was not found.");
+    expect(await database.db.select({ id: books.id, fileKey: books.fileKey }).from(books)).toEqual([{ id: gone.id, fileKey: null }]);
+    expect(await storage.get(`books/${ownerId}/${gone.id}.pdf`)).toBeNull();
+  });
 });
 
 describe("importing books", () => {

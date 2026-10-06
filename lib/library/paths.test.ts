@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hiddenMachinery } from "@/data/paths/hidden-machinery";
 import type { Database } from "@/lib/db/client";
-import { books, readalongImports } from "@/lib/db/schema";
+import { books, readalongImports, slots } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { createFirstAdmin, createInvite, acceptInvite } from "@/lib/auth/service";
 import {
@@ -15,13 +15,16 @@ import {
   listPathsWithProgress,
   moveTitle,
   normaliseTitle,
+  PathError,
   pillarProgress,
   removeTitle,
   renamePath,
+  sameAuthor,
   seedPath,
   slugify,
   type SlotView,
 } from "./paths";
+import { isReadingList, starterPath } from "./seed";
 
 let database: Database;
 let ownerId: string;
@@ -53,6 +56,20 @@ describe("seeding the Hidden Machinery path", () => {
     expect(view.pillars.at(-1)!.slots[0].book.title).toBe("Seeing Like a State");
     expect(view.available).toBe(0);
     expect(view.notYet).toBeGreaterThan(100);
+    expect(view.currentPillarId).toBe(view.pillars[0].id);
+    expect(view.readingList).toBe(true);
+  });
+
+  it("keeps the reading list's order of reading: a finished pillar is done, and You are here stays on the first not done", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    const banking = view.pillars.find((p) => p.slug === "banking")!;
+    const core = banking.slots.filter((x) => x.kind === "N" || x.kind === "E").map((x) => x.book.id);
+    expect(core.length).toBeGreaterThan(0);
+    await database.db.update(books).set({ progress: 1 }).where(inArray(books.id, core));
+    const after = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    expect(after.pillars.find((p) => p.slug === "banking")).toMatchObject({ status: "done", currentSlotId: null });
+    expect(after.currentPillarId).toBe(after.pillars[0].id);
   });
 
   it("is idempotent and attaches to a book already in the library", async () => {
@@ -99,7 +116,7 @@ describe("seeding the Hidden Machinery path", () => {
     const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
     const numbered = view.pillars.filter((p) => p.number > 0);
     const [before] = await listPathsWithProgress(database.db, ownerId);
-    expect(before).toMatchObject({ slug: "hidden-machinery", title: "Hidden Machinery", started: 0, total: numbered.length });
+    expect(before).toMatchObject({ slug: "hidden-machinery", title: "Hidden Machinery", started: 0, total: numbered.length, readingList: true });
 
     const progress = (id: string, value: number, deleted = false) =>
       database.db
@@ -128,9 +145,9 @@ describe("seeding the Hidden Machinery path", () => {
       ],
     });
     const both = await listPathsWithProgress(database.db, ownerId);
-    expect(both.map((p) => [p.slug, p.started, p.total])).toEqual([
-      ["hidden-machinery", 1, numbered.length],
-      ["short", 1, 2],
+    expect(both.map((p) => [p.slug, p.started, p.total, p.readingList])).toEqual([
+      ["hidden-machinery", 1, numbered.length, true],
+      ["short", 1, 2, false],
     ]);
   });
 
@@ -148,6 +165,11 @@ describe("seeding the Hidden Machinery path", () => {
       pillar: "Electricity & the grid",
       path: "Hidden Machinery",
     });
+  });
+
+  it("finds no book for an id that is not one, without asking the database", async () => {
+    expect(await getBook(database.db, ownerId, "-".repeat(36))).toBeNull(); // Postgres would reject it with an error
+    expect(await getBook(database.db, ownerId, "not-an-id")).toBeNull();
   });
 
   it("marks agent suggestions as unverified", async () => {
@@ -173,6 +195,16 @@ describe("you are here", () => {
     });
   });
 
+  it("counts every title in your own Path, in its order; a reading list's extras stay optional", () => {
+    const plainOnly = [slot("a", "extra", 1), slot("b", "extra", 1)];
+    expect(pillarProgress(plainOnly, false)).toEqual({ currentSlotId: null, status: "done" });
+    expect(pillarProgress(plainOnly)).toEqual({ currentSlotId: null, status: "reading" });
+    expect(pillarProgress([slot("a", "extra", 1), slot("b", "extra", 0)], false)).toEqual({ currentSlotId: "b", status: "reading" });
+    const mixed = [slot("n", "N", 1), slot("e", "E", 1), slot("x", "extra", 0)];
+    expect(pillarProgress(mixed, false)).toEqual({ currentSlotId: "x", status: "reading" });
+    expect(pillarProgress(mixed)).toEqual({ currentSlotId: null, status: "done" });
+  });
+
   it("picks the pillar being read, else the next one to start", () => {
     const p = (id: string, status: "not-started" | "reading" | "done", group = "main") => ({ id, status, group });
     expect(choosePillar([p("a", "done"), p("b", "not-started"), p("c", "reading")])).toBe("c");
@@ -190,11 +222,12 @@ describe("your own Paths (M14 step 5, D10)", () => {
     const path = await createPath(database.db, ownerId, { title: "Philosophy of science", description: "How science changes." });
     expect(path.slug).toBe("philosophy-of-science");
     const first = await addSection(database.db, ownerId, path.id, "Revolutions");
+    expect(first.title).toBe("Revolutions");
     const second = await addSection(database.db, ownerId, path.id, "Fiction about science");
     await addTitle(database.db, ownerId, first.id, { title: "The Structure of Scientific Revolutions", author: "Thomas S. Kuhn", kind: "N" });
     await addTitle(database.db, ownerId, first.id, { title: "Against Method", author: "Paul Feyerabend", kind: "E" });
     const reused = await addTitle(database.db, ownerId, second.id, { bookId: frank.id, kind: "extra" });
-    expect(reused.bookId).toBe(frank.id);
+    expect(reused).toMatchObject({ bookId: frank.id, title: "Frankenstein", author: "Mary Shelley" });
     expect(await order(path.slug)).toEqual([
       ["Revolutions", ["N:The Structure of Scientific Revolutions", "E:Against Method"]],
       ["Fiction about science", ["extra:Frankenstein"]],
@@ -212,16 +245,22 @@ describe("your own Paths (M14 step 5, D10)", () => {
     const b = await addTitle(database.db, ownerId, s.id, { title: "B" });
     const c = await addTitle(database.db, ownerId, s.id, { title: "C" });
     const titles = async () => (await order(path.slug))[0][1];
-    await moveTitle(database.db, ownerId, a.slotId, "up"); // the first stays first
+    // Each move says where the title is now ("Moved C to 2 of 3").
+    expect(await moveTitle(database.db, ownerId, a.slotId, "up")).toEqual({ title: "A", place: 1, count: 3 }); // the first stays first
     expect(await titles()).toEqual(["extra:A", "extra:B", "extra:C"]);
-    await moveTitle(database.db, ownerId, c.slotId, "up");
+    expect(await moveTitle(database.db, ownerId, c.slotId, "up")).toEqual({ title: "C", place: 2, count: 3 });
     expect(await titles()).toEqual(["extra:A", "extra:C", "extra:B"]);
-    await moveTitle(database.db, ownerId, a.slotId, "down");
+    expect(await moveTitle(database.db, ownerId, a.slotId, "down")).toEqual({ title: "A", place: 2, count: 3 });
     expect(await titles()).toEqual(["extra:C", "extra:A", "extra:B"]);
-    await moveTitle(database.db, ownerId, b.slotId, "down"); // the last stays last
+    expect(await moveTitle(database.db, ownerId, b.slotId, "down")).toEqual({ title: "B", place: 3, count: 3 }); // the last stays last
     expect(await titles()).toEqual(["extra:C", "extra:A", "extra:B"]);
-    await removeTitle(database.db, ownerId, a.slotId);
+    expect(await removeTitle(database.db, ownerId, a.slotId)).toEqual({ title: "A" });
     expect(await titles()).toEqual(["extra:C", "extra:B"]);
+    // A title already gone (a second click, another tab) is a PathError, which the page's actions ignore.
+    await expect(removeTitle(database.db, ownerId, a.slotId)).rejects.toBeInstanceOf(PathError);
+    await expect(moveTitle(database.db, ownerId, a.slotId, "up")).rejects.toBeInstanceOf(PathError);
+    // So is an id that is not one, before it reaches the database.
+    await expect(removeTitle(database.db, ownerId, "-".repeat(36))).rejects.toBeInstanceOf(PathError);
     // The book stays in the library.
     expect((await database.db.select().from(books)).some((x) => x.id === a.bookId)).toBe(true);
   });
@@ -264,5 +303,205 @@ describe("your own Paths (M14 step 5, D10)", () => {
     await expect(removeTitle(database.db, other.id, t.slotId)).rejects.toThrow("not found");
     await expect(renamePath(database.db, other.id, path.id, { title: "Taken" })).rejects.toThrow("not found");
   });
+
+  it("keeps titles in the order added; a kind other than Story first or Go deeper is Any order", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Kinds" });
+    const s = await addSection(database.db, ownerId, path.id, "Mixed");
+    const titles: [string, unknown][] = [
+      ["Popper", "extra"],
+      ["Kuhn", "N"],
+      ["Feyerabend", "E"],
+      ["Forged master", "master"],
+      ["Forged kind", "bogus"],
+      ["No kind", undefined],
+    ];
+    for (const [title, kind] of titles) await addTitle(database.db, ownerId, s.id, { title, kind });
+    expect(await order(path.slug)).toEqual([
+      ["Mixed", ["extra:Popper", "N:Kuhn", "E:Feyerabend", "extra:Forged master", "extra:Forged kind", "extra:No kind"]],
+    ]);
+  });
+
+  it("moves a title only within its own section", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Two sections" });
+    const one = await addSection(database.db, ownerId, path.id, "One");
+    const two = await addSection(database.db, ownerId, path.id, "Two");
+    await addTitle(database.db, ownerId, one.id, { title: "A" });
+    const b = await addTitle(database.db, ownerId, one.id, { title: "B" });
+    const c = await addTitle(database.db, ownerId, two.id, { title: "C" });
+    const d = await addTitle(database.db, ownerId, two.id, { title: "D" });
+    const rows = async () =>
+      (await database.db.select({ id: slots.id, pillarId: slots.pillarId, position: slots.position }).from(slots)).sort((x, y) => x.id.localeCompare(y.id));
+    const before = await rows();
+    expect(await moveTitle(database.db, ownerId, b.slotId, "down")).toEqual({ title: "B", place: 2, count: 2 }); // last in One: not into Two
+    expect(await moveTitle(database.db, ownerId, c.slotId, "up")).toEqual({ title: "C", place: 1, count: 2 }); // first in Two: not into One
+    expect(await rows()).toEqual(before);
+    await moveTitle(database.db, ownerId, d.slotId, "up");
+    expect(await order(path.slug)).toEqual([
+      ["One", ["extra:A", "extra:B"]],
+      ["Two", ["extra:D", "extra:C"]],
+    ]);
+  });
+
+  it("refuses to change a reading list: its name, sections and titles stay as the list has them", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const view = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    const before = await order("hidden-machinery");
+    const [first] = view.pillars;
+    const locked = "A reading list cannot be changed.";
+    await expect(renamePath(database.db, ownerId, view.id, { title: "Mine now" })).rejects.toThrow(locked);
+    await expect(addSection(database.db, ownerId, view.id, "Extra")).rejects.toThrow(locked);
+    await expect(addTitle(database.db, ownerId, first.id, { title: "A book of my own" })).rejects.toThrow(locked);
+    await expect(moveTitle(database.db, ownerId, first.slots[0].id, "down")).rejects.toThrow(locked);
+    await expect(removeTitle(database.db, ownerId, first.slots[0].id)).rejects.toThrow(locked);
+    expect(await order("hidden-machinery")).toEqual(before);
+    expect((await getPathView(database.db, ownerId, "hidden-machinery"))!.title).toBe("Hidden Machinery");
+    expect((await database.db.select().from(books)).some((b) => b.title === "A book of my own")).toBe(false);
+  });
+
+  it("a Path named Constructor is the reader's own, not a reading list", async () => {
+    expect(isReadingList("hidden-machinery")).toBe(true);
+    expect(starterPath("hidden-machinery")).toBe(hiddenMachinery);
+    for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+      expect(isReadingList(name)).toBe(false);
+      expect(starterPath(name)).toBeUndefined();
+    }
+    const path = await createPath(database.db, ownerId, { title: "Constructor" });
+    expect(path.slug).toBe("constructor");
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    await addTitle(database.db, ownerId, s.id, { title: "A" });
+    expect(await order("constructor")).toEqual([["One", ["extra:A"]]]);
+    expect((await getPathView(database.db, ownerId, "constructor"))!.readingList).toBe(false);
+    expect((await listPathsWithProgress(database.db, ownerId)).find((p) => p.slug === "constructor")!.readingList).toBe(false);
+  });
+
+  it("finishes a section of plain titles in your own Path; Hidden Machinery's plain-only pillars are unchanged", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const path = await createPath(database.db, ownerId, { title: "Constructor" }); // not a reading list, whatever `in` says
+    const first = await addSection(database.db, ownerId, path.id, "First");
+    const second = await addSection(database.db, ownerId, path.id, "Second");
+    const a = await addTitle(database.db, ownerId, first.id, { title: "A plain one" });
+    const b = await addTitle(database.db, ownerId, first.id, { title: "Another plain one" });
+    const c = await addTitle(database.db, ownerId, second.id, { title: "Not started" });
+    const replies = (await getPathView(database.db, ownerId, "hidden-machinery"))!.pillars.find((p) => p.slug === "from-the-replies")!;
+    await database.db
+      .update(books)
+      .set({ progress: 1 })
+      .where(inArray(books.id, [a.bookId, b.bookId, ...replies.slots.map((x) => x.book.id)]));
+    const mine = (await getPathView(database.db, ownerId, path.slug))!;
+    expect(mine.readingList).toBe(false);
+    expect(mine.pillars.map((p) => [p.title, p.status, p.currentSlotId])).toEqual([
+      ["First", "done", null],
+      ["Second", "not-started", c.slotId],
+    ]);
+    expect(mine.currentPillarId).toBe(second.id);
+    const hm = (await getPathView(database.db, ownerId, "hidden-machinery"))!;
+    expect(hm.readingList).toBe(true);
+    // Hidden Machinery's rule, kept on purpose: its extras are optional, so a finished plain-only pillar stays "reading".
+    expect(hm.pillars.find((p) => p.slug === "from-the-replies")).toMatchObject({ status: "reading", currentSlotId: null });
+    expect(hm.currentPillarId).toBe(replies.id);
+  });
+
+  it("gives Paths and sections made at the same moment with the same name different addresses", async () => {
+    const made = await Promise.all([createPath(database.db, ownerId, { title: "Twice" }), createPath(database.db, ownerId, { title: "Twice" })]);
+    expect(made.map((p) => p.slug).sort()).toEqual(["twice", "twice-2"]);
+    const both = await Promise.all([addSection(database.db, ownerId, made[0].id, "Same"), addSection(database.db, ownerId, made[0].id, "Same")]);
+    expect(new Set(both.map((x) => x.id)).size).toBe(2);
+    expect((await getPathView(database.db, ownerId, made[0].slug))!.pillars.map((p) => p.slug).sort()).toEqual(["same", "same-2"]);
+  });
+
+  it("keeps a description's line breaks and tidies the rest", async () => {
+    const path = await createPath(database.db, ownerId, {
+      title: "Philosophy of science",
+      description: "How science changes.\r\n\r\n\r\n  Kuhn,   then\tFeyerabend.  \r\nThen fiction.",
+    });
+    expect((await getPathView(database.db, ownerId, path.slug))!.description).toBe("How science changes.\n\nKuhn, then Feyerabend.\nThen fiction.");
+    // The cap counts a line break once (a form sends CRLF), so a full box is not cut short.
+    await renamePath(database.db, ownerId, path.id, { title: "P", description: `${"a".repeat(1000)}\r\n${"b".repeat(999)}` });
+    expect((await getPathView(database.db, ownerId, path.slug))!.description).toBe(`${"a".repeat(1000)}\n${"b".repeat(999)}`);
+    // A lone carriage return (text from an old Mac file) is a line break too, not a space.
+    await renamePath(database.db, ownerId, path.id, { title: "P", description: "One.\rTwo." });
+    expect((await getPathView(database.db, ownerId, path.slug))!.description).toBe("One.\nTwo.");
+  });
+
+  it("renamePath changes, keeps or clears the description", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Energy", description: "Grids." });
+    const description = async () => (await getPathView(database.db, ownerId, path.slug))!.description;
+    await renamePath(database.db, ownerId, path.id, { title: "Energy", description: "Grids.\r\nThen money." });
+    expect(await description()).toBe("Grids.\nThen money.");
+    await renamePath(database.db, ownerId, path.id, { title: "Energy and money" }); // left out: kept
+    expect(await description()).toBe("Grids.\nThen money.");
+    await renamePath(database.db, ownerId, path.id, { title: "Energy and money", description: null }); // missing from the form: kept
+    expect(await description()).toBe("Grids.\nThen money.");
+    await renamePath(database.db, ownerId, path.id, { title: "Energy and money", description: "  " }); // box emptied: cleared
+    expect(await description()).toBe("");
+    expect((await getPathView(database.db, ownerId, path.slug))!.title).toBe("Energy and money");
+  });
+
+  it("caps every text field on the server; a cut leaves no trailing space", async () => {
+    const long = "x".repeat(500);
+    const path = await createPath(database.db, ownerId, { title: long, description: "y".repeat(5000) });
+    const s = await addSection(database.db, ownerId, path.id, long);
+    await addTitle(database.db, ownerId, s.id, { title: long, author: long });
+    const v = (await getPathView(database.db, ownerId, path.slug))!;
+    expect([v.title.length, v.description.length, v.pillars[0].title.length, v.pillars[0].slots[0].book.title.length, v.pillars[0].slots[0].book.author.length]).toEqual([
+      120, 2000, 120, 120, 120,
+    ]);
+    await renamePath(database.db, ownerId, path.id, { title: `${"x".repeat(119)} y` });
+    expect((await getPathView(database.db, ownerId, path.slug))!.title).toBe("x".repeat(119));
+  });
+
+  it("refuses a section, title or Path name that is empty or only spaces", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Blank" });
+    for (const blank of ["", "   ", " \n\t ", null, undefined]) {
+      await expect(addSection(database.db, ownerId, path.id, blank)).rejects.toThrow("Give the section a name.");
+    }
+    expect((await getPathView(database.db, ownerId, path.slug))!.pillars).toEqual([]);
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    await expect(addTitle(database.db, ownerId, s.id, { title: "  ", author: "Someone" })).rejects.toThrow("Give the title a name.");
+    await expect(renamePath(database.db, ownerId, path.id, { title: " \n " })).rejects.toThrow("Give the path a name.");
+  });
+
+  it("joins a typed title to a library book only when the authors agree", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery); // "The Grid" by "Bakke"
+    const [gleick] = await database.db
+      .insert(books)
+      .values({ ownerId, title: "Chaos: Making a New Science", author: "James Gleick", fileKey: "books/c.epub", fileType: "epub" })
+      .returning();
+    const [santi] = await database.db.insert(books).values({ ownerId, title: "三体" }).returning();
+    const path = await createPath(database.db, ownerId, { title: "Systems" });
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    const add = (title: string, author: string) => addTitle(database.db, ownerId, s.id, { title, author });
+    // Another author's book is another title, even when the short titles match.
+    const smith = await add("Chaos: A Very Short Introduction", "Leonard Smith");
+    expect(smith.reused).toBe(false);
+    expect(smith.bookId).not.toBe(gleick.id);
+    // The same author written another way is the same book, which keeps its own name.
+    expect(await add("chaos", "Gleick, James")).toMatchObject({ bookId: gleick.id, reused: true, title: "Chaos: Making a New Science", author: "James Gleick" });
+    expect((await add("The Grid", "Gretchen Bakke")).reused).toBe(true);
+    expect(await add("The Grid", "Philip Schewe")).toMatchObject({ reused: false });
+    // More than one could be meant: the reader is asked, not guessed for.
+    await expect(add("Chaos", "")).rejects.toThrow("More than one book in your library is called Chaos.");
+    await expect(add("the grid", "")).rejects.toThrow("More than one book");
+    // The whole title typed exactly picks one of them.
+    expect(await add("Chaos: A Very Short Introduction", "")).toMatchObject({ bookId: smith.bookId, reused: true });
+    // Titles with no Latin letters compare whole, not as an empty short title.
+    expect(await add("量子", "")).toMatchObject({ reused: false });
+    expect(await add("三体", "")).toMatchObject({ bookId: santi.id, reused: true });
+    const all = await database.db.select().from(books);
+    expect(all.filter((b) => normaliseTitle(b.title) === "chaos").map((b) => b.author).sort()).toEqual(["James Gleick", "Leonard Smith"]);
+    expect(all.filter((b) => normaliseTitle(b.title) === "the grid").map((b) => b.author).sort()).toEqual(["Bakke", "Philip Schewe"]);
+  });
 });
 
+describe("sameAuthor", () => {
+  it("ignores case, accents, punctuation, word order and initials; a blank author agrees with any", () => {
+    expect(sameAuthor("Gleick, James", "James Gleick")).toBe(true);
+    expect(sameAuthor("Thomas S. Kuhn", "KUHN")).toBe(true);
+    expect(sameAuthor("Leibbrandt & de Terán", "Gottfried Leibbrandt")).toBe(true);
+    expect(sameAuthor("Dietrich Dörner", "Dorner")).toBe(true);
+    expect(sameAuthor("", "James Gleick")).toBe(true);
+    expect(sameAuthor("James Gleick", "Leonard Smith")).toBe(false);
+    expect(sameAuthor("Leibbrandt & de Terán", "Jean de Florette")).toBe(false);
+    expect(sameAuthor("Wu", "Xu")).toBe(false);
+  });
+});
