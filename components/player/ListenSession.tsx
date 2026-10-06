@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
-import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, LOADING_AFTER_MS, noteFor, OFFLINE, type Info } from "@/lib/player/session";
+import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, noteFor, OFFLINE, saveSpeed, shortChapter, speedLabel, type Info } from "@/lib/player/session";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
+import { sentenceAt } from "@/lib/player/sentence";
+import { skipInBook, skipInClip } from "@/lib/player/skip";
+import { MiniPlayer, type MiniView } from "./MiniPlayer";
 import type { ListenView, PlayerPage } from "./PlayerProvider";
 
 type Passage = Info["passage"];
@@ -33,18 +36,24 @@ export function ListenSession({
   bookId,
   startCfi,
   page,
+  miniSlot,
   onStarted,
 }: {
   bookId: string;
   startCfi: string;
   page: PlayerPage | null;
+  /** Where the mini-player is drawn away from the reader (M14 step 6b): the app's pages give one; the reader does not. */
+  miniSlot: HTMLElement | null;
   /** It has played (so it goes on when the reader is left). */
   onStarted: () => void;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [voice, setVoice] = useState<string>("");
-  const [speed, setSpeed] = useState(1);
+  // The speed chosen last on this device (M14 step 6b), applied after every new source.
+  const [speed, setSpeed] = useState(loadSpeed);
+  /** The speed now, for audio started after a wait (a speed chosen while it was being prepared must hold). */
+  const speedNow = useRef(speed);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,10 +89,43 @@ export function ListenSession({
     passage.current = cfi;
     setPassageCfi(cfi);
   };
+  /**
+   * Away from the page (M14 step 6b): the paragraph being read, its chapter,
+   * and the word being said in it (`from`/`to`, offsets into `text`; -1:
+   * none yet), worked out from the word times alone, for the mini-player.
+   */
+  const [heard, setHeard] = useState<{ text: string; chapter: string; from: number; to: number } | null>(null);
+  /** Minutes left in the audiobook's file (at this speed), for the mini-player; null for a made voice. */
+  const [left, setLeft] = useState<number | null>(null);
+  const leftShown = useRef<number | null>(null);
+  const howLong = (el: HTMLAudioElement) => {
+    const m = Number.isFinite(el.duration) && el.duration > 0 ? Math.max(0, Math.ceil((el.duration - el.currentTime) / (el.playbackRate || 1) / 60)) : null;
+    if (m !== leftShown.current) {
+      leftShown.current = m;
+      setLeft(m);
+    }
+  };
+  /** Listening away from the reader, the reading position follows the voice, paragraph by paragraph. */
+  const savedAt = useRef("");
+  const savePlace = (sectionId: string) => {
+    if (pageRef.current || savedAt.current === sectionId) return;
+    savedAt.current = sectionId;
+    void fetch(`/api/books/${bookId}/position`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sectionId }),
+      keepalive: true,
+    }).catch(() => {});
+  };
   useEffect(() => {
     pageRef.current = page;
+    // Away from the page: the mini-player shows the word being said from the next frame on.
+    if (!page) {
+      lastWord.current = -1;
+      return;
+    }
     // Back on the book while it reads aloud: show where it is; the word is lit again on the next frame.
-    if (!page || !passage.current) return;
+    if (!passage.current) return;
     lastWord.current = -1;
     shown.current = book.current.index;
     page.onPassage(passage.current, { resume: true });
@@ -121,15 +163,19 @@ export function ListenSession({
     return body.track as Track & { audioUrl: string };
   };
 
-  const playTrack = async (passage: Passage, track: Track & { audioUrl: string }) => {
+  const playTrack = async (passage: Passage, track: Track & { audioUrl: string }, startMs = 0) => {
     const el = audio.current!;
     setInfo((i) => (i ? { ...i, passage, track } : i));
     lastWord.current = -1;
     reading(passage.cfi);
+    setHeard({ text: passage.text, chapter: passage.chapter, from: -1, to: -1 });
+    savePlace(passage.id);
     onPassage(passage.cfi);
     el.src = track.audioUrl;
-    el.defaultPlaybackRate = speed;
-    el.playbackRate = speed;
+    // Set before it loads, the time is where playing starts (back 15 s into the paragraph before).
+    if (startMs > 0) el.currentTime = startMs / 1000;
+    el.defaultPlaybackRate = speedNow.current;
+    el.playbackRate = speedNow.current;
     await el.play();
   };
 
@@ -221,8 +267,8 @@ export function ListenSession({
       );
     }
     // A new file resets the speed to the default one.
-    el.defaultPlaybackRate = speed;
-    el.playbackRate = speed;
+    el.defaultPlaybackRate = speedNow.current;
+    el.playbackRate = speedNow.current;
     book.current = { index: i, file: p.file, played: true, settling };
     setBookStarted(true);
     lastWord.current = -1;
@@ -286,6 +332,11 @@ export function ListenSession({
       book.current.index = s.index;
       lastWord.current = -1;
       reading(ab.paragraphs[s.index].cfi);
+      if (!pageRef.current) {
+        const p = ab.paragraphs[s.index];
+        setHeard({ text: p.text, chapter: ab.chapters[p.chapterIndex] ?? "", from: -1, to: -1 });
+        savePlace(p.sectionId);
+      }
       if (shown.current !== s.index) {
         shown.current = s.index;
         onPassage(ab.paragraphs[s.index].cfi);
@@ -301,9 +352,17 @@ export function ListenSession({
       onPassage(ab.paragraphs[s.ahead].cfi);
     }
     if (ab.more !== null && s.index >= ab.paragraphs.length - ASK_MORE_AT) void askMore();
+    if (!pageRef.current) howLong(el);
     if (s.word < 0 || s.word === lastWord.current) return;
     const p = ab.paragraphs[s.index];
     const [, , from, to] = p.words[s.word];
+    // Away from the page: the word comes from its times and the paragraph's text; nothing waits for a page.
+    if (!pageRef.current) {
+      setHeard({ text: p.text, chapter: ab.chapters[p.chapterIndex] ?? "", from, to });
+      savePlace(p.sectionId);
+      lastWord.current = s.word;
+      return;
+    }
     const text = onWord(p.cfi, from, to, p.inPage?.[s.word]);
     // Not on the page yet (a chapter or PDF page still opening): try again on the next frame.
     if (text === null) {
@@ -320,6 +379,12 @@ export function ListenSession({
     const i = wordAt(t.words, el.currentTime * 1000);
     if (i < 0 || i === lastWord.current) return;
     const [, , from, to] = t.words[i];
+    // Away from the page: the word comes from its times and the paragraph's text.
+    if (!pageRef.current) {
+      setHeard({ text: info.passage.text, chapter: info.passage.chapter, from, to });
+      lastWord.current = i;
+      return;
+    }
     if (onWord(info.passage.cfi, from, to) === null) return;
     lastWord.current = i;
   };
@@ -436,6 +501,46 @@ export function ListenSession({
       });
   };
 
+  /** A made voice, back past the start of this paragraph: the one before, `fromEndMs` before its end (made now if needed). */
+  const readBack = async (sectionId: string, fromEndMs: number) => {
+    const g = generation.current;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice })}`);
+      const body = (await res.json()) as Info;
+      if (!res.ok) throw new Error("The paragraph before could not be found.");
+      const track = body.track ?? (await trackFor(body.passage.id, voice));
+      if (generation.current !== g) return;
+      await playTrack(body.passage, track, Math.max(0, track.durationMs - fromEndMs));
+    } catch (e) {
+      if (generation.current !== g) return;
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Back or forward 15 s (M14 step 6b). An audiobook moves within the file
+   * playing, counting only what plays (lib/player/skip.ts); a made voice
+   * moves within its paragraph, or on to the one before or after.
+   */
+  const skip = (seconds: number) => {
+    const el = audio.current;
+    if (!el?.src || el.readyState < 1 || book.current.settling || !info) return;
+    const t = el.currentTime * 1000;
+    const endMs = Number.isFinite(el.duration) ? el.duration * 1000 : t + Math.abs(seconds) * 1000 + 1;
+    lastWord.current = -1;
+    if (isBook && info.audiobook) {
+      el.currentTime = skipInBook(info.audiobook.paragraphs, book.current.file, t, seconds * 1000, endMs) / 1000;
+      return;
+    }
+    const s = skipInClip(t, seconds * 1000, endMs, { prev: !!info.passage.prevId, next: !!info.passage.nextId });
+    if (s.kind === "seek") el.currentTime = s.toMs / 1000;
+    else if (s.kind === "next") void next();
+    else void readBack(info.passage.prevId!, s.fromEndMs);
+  };
+
   const view: ListenView = {
     passageCfi,
     playing,
@@ -449,11 +554,37 @@ export function ListenSession({
     changeVoice,
     setSpeed: (s) => {
       setSpeed(s);
+      speedNow.current = s;
+      saveSpeed(s);
       if (audio.current) {
         audio.current.defaultPlaybackRate = s;
         audio.current.playbackRate = s;
       }
     },
+  };
+
+  // The mini-player (M14 step 6b): the sentence being read with its word lit, the book, where and how long.
+  const firstText = isBook ? info?.audiobook?.paragraphs[0]?.text : info?.passage.text;
+  const shownText = heard?.text ?? firstText ?? "";
+  const lit = heard && heard.from >= 0 ? heard : null;
+  const around = sentenceAt(shownText, lit ? lit.from : 0);
+  const firstChapter = isBook ? (info?.audiobook?.chapters[info.audiobook.paragraphs[0]?.chapterIndex ?? -1] ?? "") : (info?.passage.chapter ?? "");
+  const mini: MiniView = {
+    title: info?.book.title ?? "",
+    sentence: shownText.slice(around.start, around.end),
+    lit: lit ? [lit.from - around.start, lit.to - around.start] : null,
+    where: [shortChapter(heard ? heard.chapter : firstChapter), isBook && left !== null ? `${left} min left${speed === 1 ? "" : ` at ${speedLabel(speed)}`}` : ""]
+      .filter(Boolean)
+      .join(" · "),
+    playing,
+    busy,
+    disabled: view.disabled,
+    speed,
+    toggle: view.toggle,
+    back: () => skip(-15),
+    forward: () => skip(15),
+    setSpeed: view.setSpeed,
+    pageHref: `/books/${bookId}/read?at=${encodeURIComponent(passageCfi || at)}`,
   };
 
   return (
@@ -475,7 +606,7 @@ export function ListenSession({
         onEnded={onEnded}
         onError={onAudioError}
       />
-      {page ? createPortal(page.renderBar(view), page.slot) : null}
+      {page ? createPortal(page.renderBar(view), page.slot) : miniSlot ? createPortal(<MiniPlayer view={mini} />, miniSlot) : null}
     </>
   );
 }

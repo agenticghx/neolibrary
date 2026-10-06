@@ -121,3 +121,27 @@ describe("Listen in a PDF book (M13 (e))", () => {
     expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake)).fileType).toBe("epub");
   });
 });
+
+// M14 step 6b: away from the page, the mini-player shows the sentence being read, its chapter and the book.
+describe("what the mini-player gets", () => {
+  const chapterOf = async (chapterIndex: number) =>
+    (await getSections(database.db, ownerId, bookId)).find((s) => s.kind === "chapter" && s.chapterIndex === chapterIndex)!.label.trim();
+
+  it("a paragraph's text, the paragraphs before and after it, its chapter and the book", async () => {
+    const info = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[5].cfi }, withFake);
+    expect(info.passage).toMatchObject({ id: paragraphs[5].id, text: paragraphs[5].text, prevId: paragraphs[4].id, nextId: paragraphs[6].id });
+    expect(info.passage.chapter).toBe(await chapterOf(paragraphs[5].chapterIndex));
+    expect(info.passage.chapter).not.toBe("");
+    expect(info.book.title).toMatch(/Jekyll/);
+    // The first paragraph has none before it.
+    expect((await listenInfo(database.db, ownerId, bookId, { section: paragraphs[0].id }, withFake)).passage.prevId).toBeNull();
+  });
+
+  it("each audiobook paragraph's text, and the name of each chapter in the part", async () => {
+    await importAudiobook();
+    const ab = (await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[5].cfi }, withFake)).audiobook!;
+    expect(ab.paragraphs.map((p) => p.text)).toEqual(paragraphs.slice(5, 8).map((p) => p.text));
+    for (const i of new Set(ab.paragraphs.map((p) => p.chapterIndex))) expect(ab.chapters[i]).toBe(await chapterOf(i));
+  });
+});
+

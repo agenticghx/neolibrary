@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 6a is merged (#85, main 09cda06); its review fixes are a draft PR from m14-e1-fixes: merge when green, then 6b (the mini-player outside the reader), 6c, 7. Samuel finds the pace slow: keep verification to what changes an outcome.
+next_action: Step 6a and its review fixes are merged (#85, #86; main 649dda0). Step 6b part 1 (the mini-player) is a draft PR from m14-e2-mini-player: merge when green. Then 6b part 2 (Listen from here on Home: Samuel's decision, Open unknowns row 10; skips across files), 6c, 7. Samuel finds the pace slow: keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,18 +19,18 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 11:59 UTC).** The WebKit flake fixes are all
-merged (#80, #81, #84), and so is step 6a, one read-aloud player for the
-app (#85, `main` 09cda06). A review of 6a found five problems at the new
-joints (leaving, coming back, switching books, searching). Their fixes are
-a draft pull request from `m14-e1-fixes`: merge it when green. Then 6b, the
-mini-player outside the reader (`docs/m14-home-plan.md` §5 "6b"; the
-design is `docs/design/m14-canvas/project/PicksPlayer.dc.html`). It
-should also cover:
-- a paused session that outlives the reader: show it in the mini-player;
-- a made voice reading on, and paying, after the reader is left;
-- the reading time and position while listening outside the reader.
-Then 6c and step 7 (deploy, back up first).
+**Resume M14 here (2026-10-06, 12:45 UTC).** Step 6a and its review fixes
+are merged (#85, #86; `main` 649dda0). Step 6b part 1, the mini-player, is
+a draft pull request from `m14-e2-mini-player`: merge it when green (CI
+also checks its four screenshots, `screenshots/miniplayer-*`). Then 6b part 2:
+- "Listen from here" playing on Home without opening the reader. It needs
+  Samuel's answer to Open unknowns row 10; until then, build only the
+  audiobook case and keep opening the reader for a made voice.
+- Skips across audiobook files, and before the first part fetched.
+- Reading time counted while listening away from the reader.
+
+Then 6c (Think aloud) and step 7 (deploy; back up first). Design:
+`docs/design/m14-canvas/project/PicksPlayer.dc.html`.
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -138,6 +138,7 @@ Never blocks the loop. Newest first.
 | 7 | WebKit flakes D1 (`docs/m14-flake/plan.md` §3): may a PDF that does not carry its own fonts be drawn with pdf.js's look-alike fonts (Foxit Serif for Times, Liberation Sans for Helvetica and Arial) on every device? It removes a 40-60 ms font lookup at a page turn on CI's Linux; Kuhn carries all its fonts except Arial on 1 page of 222; the Descartes demo PDF would look different. Default: no (keep today's look). | Samuel | 2026-10-13 | open (default applies) |
 | 8 | WebKit flakes D2 and D3: run CI's WebKit without GStreamer's on-disk audio mode (Linux only; none of your devices use it), and let the reader write the Listen bar's hidden word attribute at the moment it lights a word (tests read it; nothing on screen shows it; the 100 ms limit stays). Default: yes to both. | Samuel | 2026-10-13 | open (defaults apply) |
 | 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
+| 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default applies) |
 
 ## Decisions
 
@@ -163,6 +164,23 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 08:45 (local; 12:45 UTC) · Claude (laptop) · M14 step 6a review fixes merged (#86); step 6b part 1 (the mini-player) pushed as a draft PR
+- **Done:**
+  - **#86** (the 6a review fixes) merged as 649dda0 (CI `265 passed (13.4m)`); `git diff --stat` against its head printed nothing.
+  - **Step 6b part 1** on `m14-e2-mini-player` (Iteration 49). Away from the reader, the mini-player from Samuel's design keeps reading at the foot of every app page, above the tabs on a phone. It shows the sentence with the word lit, the book, the chapter and the minutes left, the speed menu (kept on the device, now with 1.75x), back and forward 15 s, play/pause, and Go to the page. The reading position follows the voice.
+  - **Server:** paragraph text, chapter names, the paragraph before, the book's name, and `PUT /position {sectionId}`.
+  - **Pure, tested rules:** sentence, skip (counting only what plays), speed.
+- **Key paths:** `components/player/{MiniPlayer,MiniPlayerSlot,ListenSession,PlayerProvider}.tsx`, `components/player/MiniPlayer.module.css`, `components/shell/{icons.tsx,Shell.module.css}`, `app/(app)/layout.tsx`, `lib/player/{sentence,skip,session}.ts` (+ tests), `lib/library/{audio,listen,reading}.ts` (+ tests), `app/api/books/[id]/position/route.ts`, `e2e/readalong.spec.ts`, `e2e/pages.ts`, `LEARNING_LOG.md` (Iteration 49), `PROGRESS.md` (Open unknowns row 10).
+- **Commands that worked:**
+  - `npm run check` → `Tests 450 passed | 2 skipped (452)`; the whole suite from a fresh database → `271 passed (7.2m)`.
+  - `scratchpad/run6b.sh readalong|readalong-safari` (the 6b tests from the snapshot after `offline`) → `3 passed` each.
+  - `scratchpad/mut-6b.sh` → control `3 passed`; M10-M12 each `1 failed` at its check.
+  - `git rebase --onto origin/main m14-e1-fixes m14-e2-mini-player`.
+- **Known issues / blockers:**
+  - Part 2 is still to come: "Listen from here" on Home (Open unknowns row 10); skips across files and before the first part fetched; reading time away from the reader.
+  - The mini-player's cover is a plain swatch, not the book's own cover, whose link expires after 5 minutes.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 07:59 (local; 11:59 UTC) · Claude (laptop) · M14 step 6a merged (#85); its review's fixes pushed as a draft PR
 - **Done:**

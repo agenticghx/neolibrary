@@ -1,3 +1,4 @@
+import { MiniPlayerSlot } from "@/components/player/MiniPlayerSlot";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { SkipLink } from "@/components/shell/SkipLink";
 import { TabBar } from "@/components/shell/TabBar";
@@ -23,6 +24,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div id="content" className={styles.content}>
           {children}
         </div>
+        {/* The mini-player, while a book is read aloud (M14 step 6b): after the page, before the tabs. */}
+        <MiniPlayerSlot />
       </div>
       <TabBar />
     </div>

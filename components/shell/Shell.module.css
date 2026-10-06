@@ -14,6 +14,13 @@
   min-width: 0;
 }
 
+/* While the mini-player shows (M14 step 6b): the column fills the screen, so the player sits at
+   its foot on a short page too. A page with nothing playing is laid out as before. */
+.column:has([data-miniplayer]) {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Sidebar (desktop) */
 
 .sidebar {
@@ -241,6 +248,10 @@
 }
 
 @media (width <= 48rem) {
+  .column:has([data-miniplayer]) {
+    min-height: calc(100dvh - var(--tabbar-height) - env(safe-area-inset-bottom, 0px));
+  }
+
   .shell {
     display: block;
     padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
@@ -354,4 +365,9 @@
 
 .content:focus {
   outline: none;
+}
+
+/* (After .content:focus, for the selectors' order: the column's content grows while the mini-player shows.) */
+.column:has([data-miniplayer]) > .content {
+  flex: 1;
 }

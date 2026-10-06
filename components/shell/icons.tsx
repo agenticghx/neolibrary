@@ -11,7 +11,26 @@ const PATHS = {
   collection: "M4 7h16M4 12h16M4 17h10",
   plus: "M12 5v14M5 12h14",
   search: "M11 5a6 6 0 1 1 0 12a6 6 0 0 1 0-12zM20 20l-4.5-4.5",
+  // The mini-player's skips (M14 step 6b; the design's paths): a turning arrow and "15".
+  back15: "M5 12a7 7 0 1 0 2.1-5M5 4v4h4M10.2 10v5M15.2 10H13v2.2h2.2V15H13",
+  forward15: "M19 12a7 7 0 1 1-2.1-5M19 4v4h-4M9.2 10v5M14.2 10H12v2.2h2.2V15H12",
 } as const;
+
+/** Solid shapes (the mini-player's Play and Pause), filled with the current text colour. */
+const FILLED = {
+  play: "M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9a.8.8 0 0 0-1.2.7z",
+  pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
+} as const;
+
+export type FilledIconName = keyof typeof FILLED;
+
+export function FilledIcon({ name, className }: { name: FilledIconName; className?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+      <path d={FILLED[name]} />
+    </svg>
+  );
+}
 
 export type IconName = keyof typeof PATHS;
 

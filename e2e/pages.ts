@@ -20,6 +20,8 @@ export const pages: PageCase[] = [
   { name: "path-edit-empty", path: "/paths/philosophy-of-science/edit", signedIn: true, spec: "own-paths.spec.ts" },
   { name: "path-edit", path: "/paths/philosophy-of-science/edit", signedIn: true, spec: "own-paths.spec.ts" },
   { name: "path-own", path: "/paths/philosophy-of-science", signedIn: true, spec: "own-paths.spec.ts" },
+  // M14 step 6b: Home with the mini-player, while an audiobook is read aloud (written by readalong.spec.ts).
+  { name: "miniplayer", path: "/", signedIn: true, spec: "readalong.spec.ts" },
   { name: "data", path: "/data", signedIn: true },
   { name: "agents", path: "/agents", signedIn: true },
   { name: "stats", path: "/stats", signedIn: true },
