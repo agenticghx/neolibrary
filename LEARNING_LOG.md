@@ -34,6 +34,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 19 | 2026-10-06 00:05 | 3 review | Step 3 is ready (review) | three reviewers; 12 unit + 4 browser mutations; 2 full runs | partial | a shared variable in zsh is one word; check a mutation printed test counts |
 | 20 | 2026-10-06 00:25 | 4 | Each filter shows exactly its titles; each rule has a failing test | shelf.test; home.spec (from the export); 7 mutations; 2 reviewers | success | an expected list computed from data can be empty: guard it, or test where the data exists |
 | 21 | 2026-10-06 00:35 | 3 CI | #75 passes on CI | run 37392862541 | flake (rerun) | a name containing another control's label breaks getByLabel |
+| 22 | 2026-10-06 01:00 | CI flakes | Why WebKit read-along tests fail on CI | 4 CI failures; a trace; worker count | partial (cause narrowed) | a late word at a page break is drawing time, not the network |
+| 23 | 2026-10-06 01:30 | 4 rebase; `main` CI | Step 4 on `main` is the tree that passed; `main` is green after #75 | `git diff --stat`; `npm run check`; run 37397581699 | success; flake on `main` | build output left by another branch breaks type checking |
 
 ## Lessons so far
 
@@ -470,4 +472,53 @@ timing investigation before step 6a. Step 4 locally: first full run
 match by substring); renamed "Search titles"; then `248 passed (6.5m)`.
 **Lesson.** A new accessible name must not contain another control's
 label: Playwright (and some screen readers' search) match substrings.
+
+### Iteration 22 · 2026-10-06 01:00 · WebKit read-along on CI · partial (cause narrowed)
+
+**Hypothesis.** The intermittent readalong-safari failures on CI are
+caused by M14 changes, or by tests running at once.
+**Evaluation.** The four failures so far, a trace, CI's worker count.
+**Result.** #68 `:727` "was" lit 117 ms late; #72 `:727` audio stalled
+(`playUntil` 45 s); #75 run 1 `:1123` "most" (word 51, first after the
+PDF page break) lit 116 ms late; #75 run 2 `:241` a two-part upload never
+reached "Done." (2 min). Two of these were on docs-only PRs: `main`'s
+code fails the same way. The `:1123` trace: the audiobook's file came in
+one 34 ms request, nothing was pending at the page break, so the late
+word is WebKit drawing the next PDF page. CI runs `using 1 worker`, and
+readalong.spec is `serial`: no test competes for the CPU. So: WebKit on a
+small CI machine sometimes needs over 100 ms to light the first word on a
+new page, and sometimes stalls (audio or upload) outright.
+**Interpretation.** Not M14. Loosening the 100 ms limit would weaken a
+test the product depends on. The causes to remove are product work: draw
+the next PDF page before the reading reaches it; find what stalls WebKit
+(its media pipeline on Linux, or the capped range requests).
+**Next experiment.** Before step 6a (build plan §11): pre-render the next
+page and measure the page-turn latency on CI; trace a stall with the
+audio requests and their ranges.
+
+### Iteration 23 · 2026-10-06 01:30 · Step 4 rebased; `main`'s CI after #75 · success; flake on `main`
+
+**Hypothesis.** Step 4 rebased onto `main` (after #75's squash-merge) is
+the tree that passed locally, and `main` is green after the merge.
+**Evaluation.** `git diff --stat 456c475 HEAD` after
+`git rebase --onto origin/main 970a19b m14-c-filters`; `npm run check` on
+ba46766; `main`'s push CI, run 37397581699.
+**Result.** The diff printed nothing: the rebased tree equals 456c475,
+where the full suite gave `248 passed (6.5m)` (Iteration 21), so the
+suite was not re-run. `npm run check` first failed type checking:
+`.next/types/validator.ts` named `paths/[slug]/edit/page.js` and
+`paths/new/page.js`, pages of the step-5 build left in `.next`; after
+`rm -rf .next/types`: `Tests 377 passed | 2 skipped (379)`. `main`'s CI:
+lint, types, unit, Postgres pass; browser `1 failed`, `4 did not run`,
+`242 passed (14.8m)`: `readalong.spec.ts:1123` (readalong-safari),
+`"most" (word 51) shown 112 ms after it starts`.
+**Interpretation.** The fifth WebKit read-along failure on CI and the
+second at the same word (#75's first run: 116 ms). The page-break delay
+is systematic on CI's WebKit, not rare; `main` is red for it, not for
+step 4.
+**Lesson.** Build output from another branch (`.next/types`) breaks type
+checking after switching branches: clear it before `npm run check`.
+**Next experiment.** Push step 4 as a draft PR; on a WebKit read-along
+failure of the known kind, re-run the failed job. The investigation stays
+before step 6a.
 
