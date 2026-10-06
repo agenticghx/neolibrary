@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 is live with Think aloud and the one-tap fixes (9d733f9, 16:55 UTC; #90 updated). 2b (skips across audiobook files) is a PR from m14-e2-skip-across: merge when green, then deploy (back up first). Then the WebKit-after-seek stall on CI. Samuel's verdict: #90.
+next_action: #93 (2b, skips across audiobook files, review fixes in) waits on CI: merge when green, then deploy (back up first). Then the WebKit-after-seek stall on CI. Samuel's verdict: #90.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -179,6 +179,26 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 13:29 (local; 17:29 UTC) · Claude (laptop) · 2b reviewed (7 findings) and fixed; #93 ready for CI
+- **Done:**
+  - **#93** (2b) was held as a draft while its review ran (workflow `wf_71873196-40c`): 7 confirmed, 0 refuted.
+  - **All fixed** (Iteration 56):
+    - forward carries on through short files;
+    - back stops at the earlier file's start;
+    - a seek-triggered move stays paused;
+    - the reading position is saved;
+    - stronger unit tests, and pinned landing times in the browser test.
+- **Key paths:** `lib/player/skip.ts` (+ test), `components/player/ListenSession.tsx`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iterations 55-56).
+- **Commands that worked:**
+  - `npx vitest run lib/player/skip.test.ts` → `Tests 17 passed (17)`; five unit mutants each `1 failed`.
+  - `scratchpad/run6b.sh readalong|readalong-safari` → `7 passed` each; the ignored-start mutation caught at `readalong.spec.ts:1713`.
+  - `npm run check` → `Tests 462 passed | 2 skipped (464)`.
+- **Known issues / blockers:** back into a chapter that has not been loaded still stops at the file's start (the parts route has no "before" mode).
+- **Exact next steps:**
+  1. Merge #93 when CI is green: the auto-merge skips drafts, so merge by hand with `gh pr merge 93 --squash --match-head-commit <sha>` once ready and green.
+  2. Then deploy it (back up first).
+  3. Then the WebKit stall on CI.
 
 ### 2026-10-06 12:56 (local; 16:56 UTC) · Claude (laptop) · #92 (6c) merged; deployed #91 and #92; 2b's PR opened
 - **Done:**
