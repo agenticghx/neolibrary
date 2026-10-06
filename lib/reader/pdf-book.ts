@@ -96,6 +96,52 @@ export async function makePdfBook(file: Blob) {
   };
 
   /**
+   * The page after the one shown, drawn ahead once into a small canvas that is
+   * then thrown away. Drawing a page is when pdf.js hands the browser each font
+   * the page uses for the first time, and a font the browser must look for
+   * among the device's fonts holds up the page while it looks (CI's Linux
+   * WebKit: a failed lookup for an italic Times held the page 18-55 ms at the
+   * page turn, LEARNING_LOG Iterations 39 and 42). Drawn ahead, that happens
+   * while this page is read; and pdf.js keeps the page's drawing instructions,
+   * so the turn draws without waiting for its worker. The canvas is small
+   * whatever the zoom (pdf.js asks for fonts at 16 to 100 px however small it
+   * draws), so a new size needs nothing here. One page at a time; a page
+   * already shown is skipped.
+   */
+  const warmed = new Set<number>();
+  let warmingUp = false;
+  let closed = false;
+  const warmUp = (pageNumber: number) => {
+    if (closed || warmingUp || pageNumber > pdf.numPages || warmed.has(pageNumber)) return;
+    warmed.add(pageNumber);
+    warmingUp = true;
+    setTimeout(async () => {
+      // In this document, not a page's frame: pdf.js gives fonts to this document (as for the picture below).
+      const canvas = document.createElement("canvas");
+      try {
+        if (closed) return;
+        mark("nl:warmup-start", { page: pageNumber - 1 });
+        const page = await pdf.getPage(pageNumber);
+        if (closed) return;
+        const { width, height } = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: 128 / Math.max(width, height) });
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d");
+        // None when out of canvas memory: the turn loads the fonts, as before.
+        if (context) await page.render({ canvas, canvasContext: context, viewport }).promise;
+        mark("nl:warmup-done", { page: pageNumber - 1 });
+      } catch (e) {
+        unexpected(e); // a book being closed cancels the drawing: not reported
+      } finally {
+        warmingUp = false;
+        // Freed now, not when the canvas is garbage-collected (pdf.js does the same with its own).
+        canvas.width = canvas.height = 0;
+      }
+    }, 0);
+  };
+
+  /**
    * Draws a page at `zoom` in its frame's document. The text layer is built
    * once per showing, at the same time as the picture (the word being read
    * can be lit before the picture is ready); a new size draws a new picture
@@ -134,6 +180,8 @@ export async function makePdfBook(file: Blob) {
       state.text = new pdfjsLib.TextLayer({ textContentSource, container, viewport });
       state.laidOut = scale;
       fetchTextOf(pageNumber + 1);
+      // Shown: its own drawing loads its fonts, so it is never drawn ahead.
+      warmed.add(pageNumber);
       state.text.render().then(() => {
         const end = doc.createElement("div");
         end.className = "endOfContent";
@@ -176,6 +224,8 @@ export async function makePdfBook(file: Blob) {
     doc.querySelector("#canvas")!.replaceChildren(doc.adoptNode(canvas));
     mark("nl:draw-done", { page: pageNumber - 1, scale });
     measure("nl:draw", drawStart, { page: pageNumber - 1, scale });
+    // This page is drawn: the next page's fonts now, while this one is read.
+    warmUp(pageNumber + 1);
     if (state.laidOut !== scale) {
       // The same text, laid out again for the new size: a word lit on it stays lit.
       state.text.update({ viewport });
@@ -234,6 +284,10 @@ ${TEXT_LAYER_CSS}${SPOKEN_CSS}</style>
     resolveHref: async (href: string) => ({ index: await pageIndexOf(href) }),
     splitTOCHref: async (href: string) => [await pageIndexOf(href), null],
     getTOCFragment: (doc: Document) => doc.documentElement,
-    destroy: () => task.destroy(),
+    destroy: () => {
+      // No new drawing ahead; one under way is cancelled by pdf.js's own clean-up.
+      closed = true;
+      return task.destroy();
+    },
   };
 }

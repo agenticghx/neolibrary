@@ -1251,6 +1251,17 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   );
   await reportTiming(rec, expected, { label: "pdf-page-break", focus: first2 });
 
+  // No font is loaded at the page turn: page 2 was drawn ahead while page 1 was read
+  // (pdf-book.ts, warmUp). Without that, pdf.js loads page 2's italic font here, on first use,
+  // and on CI's Linux WebKit the failed lookup held the page 18-55 ms. Pages count from 0.
+  const turnAt = rec.marks.find((m) => m.name === "nl:turn-request" && m.detail?.page === 1)?.t;
+  const litAt = rec.marks.find((m) => m.name === "nl:lit" && m.detail?.page === 1)?.t;
+  expect(turnAt !== undefined && litAt !== undefined, "page 2's turn and first word were marked").toBe(true);
+  expect(
+    rec.fonts.filter((f) => f.t0 >= turnAt! && f.t0 <= litAt!),
+    "a font was loaded at the page turn",
+  ).toEqual([]);
+
   // Every word, in order, each within a tenth of a second, lit in the page's own text layer and on screen:
   // page 2's first word too, though it follows page 1's last with no pause.
   const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
