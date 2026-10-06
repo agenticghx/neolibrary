@@ -1459,3 +1459,83 @@ test.
 anyway: click the dimmed link, press Escape mid-recording. And a quote
 taken from the last of the tied paragraphs cannot tell the tie-break from
 the old rule.
+
+### Iteration 55 · 2026-10-06 16:42 · Step 6b, part 2b (skips across audiobook files) · success (CI to come)
+
+**Hypothesis.** A 15 s skip can cross into the file before or after with
+the same rule as within a file: count only audio that plays. Forward that
+means leaving where `follow` leaves the file and starting the next where
+playing starts it; back, it means entering the file before at its last
+word's end.
+**Action.**
+- **`skipAcross`** (`lib/player/skip.ts`): pure, with helpers for the
+  stretches playing jumps over.
+- **The session** loads the other file at that time, and plays on only if
+  it was playing.
+- **A browser test** with a two-file reading.
+**Evaluation.**
+- Unit tests, including a sweep that every landing plays on.
+- The browser test in both engines.
+- A mutation: a skip into another file does nothing.
+- `npm run check`.
+**Result.**
+- **Unit tests:** `Tests 15 passed (15)` in `skip.test.ts`.
+- **The browser test found a bug.** After a skip back into the first file,
+  the mini-player still showed paragraph 33. Following only notices a
+  change of paragraph, and the skip had set the paragraph itself. Now a jump
+  away from the reader shows its paragraph at once.
+  (Corrected after the review: I first wrote that the landing was "just
+  after the last word". The review's numbers put it at 0, the file's start,
+  where the time was cut off. Why no word was lit there was not checked.)
+- **The 6b tests:** `7 passed` in each engine; the made-voice test
+  `1 passed`; `npm run check` → `Tests 460 passed | 2 skipped (462)`.
+- **The mutation:** caught at `readalong.spec.ts:1702` (the file stayed the
+  first).
+- **Two broken mutation runs of mine:**
+  - one used a function the file no longer imports;
+  - one left TypeScript unreachable code (`never`).
+
+  Both builds failed, and the tests ran on a stale build. The script printed
+  "BUILD FAILED", but I read the test lines first.
+**Lesson.**
+- **Read a mutation run's build result before its test result.** A broken
+  build makes the tests meaningless either way.
+- **A skip lands where following would not have taken the player,** so
+  anything that following normally updates must be set there too.
+
+### Iteration 56 · 2026-10-06 17:29 · Step 6b, part 2b review fixes · success (CI to come)
+
+**Hypothesis.** A review of 2b, run while its PR is held as a draft (the
+auto-merge skips drafts), finds what the tests miss before it merges, not
+after, as happened with #89.
+**Action.**
+- **The review:** workflow `wf_71873196-40c`, a logic lens and a tests lens,
+  a skeptic per finding.
+- **The fixes:**
+  - forward carries on through short files, counting another file only up
+    to its last word's end;
+  - back stops at the earlier file's start;
+  - a seek-triggered move to the next file stays paused;
+  - a skip into another file saves the reading position;
+  - the reviewers' unit cases, and pinned landing times in the browser test.
+**Evaluation.** Unit tests and five unit mutants; the 6b tests in both
+engines; one browser mutation (the start time ignored); `npm run check`.
+**Result.**
+- **The review:** 7 confirmed, 0 refuted. The worst: a paused Forward into a
+  very short file (an epigraph) landed past where playing leaves it, and
+  the next chapter started by itself. Three wrong versions of `skipAcross`
+  passed every unit test I had written.
+- **Unit tests:** `Tests 17 passed (17)`. Each of the five mutants now fails
+  one test: the next file from 0, this file begun at 0, played time ignoring
+  jumps, no carry through short files, no stop at the earlier file's start.
+- **The 6b tests:** `7 passed` in each engine. The ignored start time is
+  caught at `readalong.spec.ts:1713`; before, the test checked only "under
+  15 s".
+- **`npm run check`:** `Tests 462 passed | 2 skipped (464)`.
+**Lesson.**
+- **Hold a PR as a draft while its review runs:** this time the fixes landed
+  before the merge.
+- **My hand-picked cases all had long files.** The reviewers' oracle, which
+  simulated playing tick by tick on random layouts, found the short-file
+  case at once. For rules about edges, test against a simulation of the
+  real thing, not only cases I chose.

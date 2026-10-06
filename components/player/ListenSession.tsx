@@ -8,7 +8,7 @@ import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, not
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import { sentenceAt } from "@/lib/player/sentence";
-import { skipInBook, skipInClip } from "@/lib/player/skip";
+import { skipAcross, skipInClip } from "@/lib/player/skip";
 import { MiniPlayer, type MiniView } from "./MiniPlayer";
 import type { ListenView, PlayerPage } from "./PlayerProvider";
 
@@ -280,11 +280,15 @@ export function ListenSession({
    * its length is known (before any of it is heard): WebKit on Linux stalls
    * on a time set earlier than that, far into a file (seen on CI).
    */
-  const playAudiobookFrom = (i: number, fromFileStart = false) => {
+  /**
+   * Plays the audiobook from paragraph `i`: from its start, from where playing starts its file (`fromFileStart`),
+   * or from `startMs` (a skip into another file). `resume` false: load it there and stay paused.
+   */
+  const playAudiobookFrom = (i: number, fromFileStart = false, startMs?: number, resume = true) => {
     const el = audio.current!;
     const ab = info!.audiobook!;
     const p = ab.paragraphs[i];
-    const at = (fromFileStart ? fileStart(p) : p.startMs) / 1000;
+    const at = (startMs ?? (fromFileStart ? fileStart(p) : p.startMs)) / 1000;
     if (book.current.file !== p.file) el.src = ab.files[p.file].url;
     const settling = el.readyState < 1 && at > 0;
     if (!settling) el.currentTime = at;
@@ -307,9 +311,12 @@ export function ListenSession({
     setBookStarted(true);
     lastWord.current = -1;
     reading(p.cfi);
+    // Away from the page, the mini-player shows this paragraph at once: following only notices a change of
+    // paragraph, and this one is set here (a skip may land where no word is being said).
+    if (!pageRef.current) setHeard({ text: p.text, chapter: ab.chapters[p.chapterIndex] ?? "", from: -1, to: -1 });
     shown.current = i;
     onPassage(p.cfi);
-    return el.play();
+    return resume ? el.play() : Promise.resolve();
   };
 
   const playAudiobook = () => {
@@ -359,7 +366,8 @@ export function ListenSession({
     if (el.readyState < 1 || book.current.settling || el.seeking) return;
     const s = followAudiobook(ab.paragraphs, book.current.index, book.current.file, el.currentTime * 1000);
     if (s.kind === "load") {
-      playAudiobookFrom(s.index, true).catch(playFailed);
+      // On into the next file; paused (a seek moved it here), it stays paused.
+      playAudiobookFrom(s.index, true, undefined, !el.paused).catch(playFailed);
       return;
     }
     if (s.index !== book.current.index) {
@@ -570,7 +578,15 @@ export function ListenSession({
     const endMs = Number.isFinite(el.duration) ? el.duration * 1000 : t + Math.abs(seconds) * 1000 + 1;
     lastWord.current = -1;
     if (isBook && info.audiobook) {
-      el.currentTime = skipInBook(info.audiobook.paragraphs, book.current.file, t, seconds * 1000, endMs) / 1000;
+      const s = skipAcross(info.audiobook.paragraphs, book.current.index, book.current.file, t, seconds * 1000, endMs);
+      if (s.kind === "seek") {
+        el.currentTime = s.toMs / 1000;
+        return;
+      }
+      // Into the next file or the one before (M14 step 6b, part 2b): loaded there, playing on only if it was;
+      // away from the reader, the reading position follows.
+      playAudiobookFrom(s.index, false, s.toMs, !el.paused).catch(playFailed);
+      savePlace(info.audiobook.paragraphs[s.index].sectionId);
       return;
     }
     const s = skipInClip(t, seconds * 1000, endMs, { prev: !!info.passage.prevId, next: !!info.passage.nextId });
