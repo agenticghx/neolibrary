@@ -130,8 +130,7 @@ test("the back arrow leaves the book for the library; contents open on the left 
 
   await page.getByRole("link", { name: "Back to your library" }).click();
   await expect(page).toHaveURL(/:\d+\/$/);
-  // Home (until M14 step 3 rebuilds it, Home shows the reader's first Path).
-  await expect(page.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 });
 
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {

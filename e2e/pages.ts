@@ -8,8 +8,9 @@ export type PageCase = { name: string; path: string; signedIn: boolean; click?: 
 export const pages: PageCase[] = [
   { name: "sign-in", path: "/sign-in", signedIn: false },
   { name: "invite-closed", path: "/invite/not-a-real-invite", signedIn: false },
-  { name: "path", path: "/", signedIn: true },
-  { name: "book-not-available", path: "/", signedIn: true, click: "The Grid (not available yet)" },
+  { name: "home", path: "/", signedIn: true },
+  { name: "path", path: "/paths/hidden-machinery", signedIn: true },
+  { name: "book-not-available", path: "/paths/hidden-machinery", signedIn: true, click: "The Grid (not available yet)" },
   { name: "library", path: "/library", signedIn: true },
   { name: "paths", path: "/paths", signedIn: true },
   { name: "data", path: "/data", signedIn: true },

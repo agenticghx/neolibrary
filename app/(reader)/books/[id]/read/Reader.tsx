@@ -178,6 +178,8 @@ export function Reader(props: {
   fileType: "epub" | "pdf";
   initialCfi: string | null;
   initialFraction: number;
+  /** Open with the Read aloud bar showing (Home's "Listen from here"); the reader still presses Play (Safari needs the click). */
+  startListening?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -188,7 +190,15 @@ export function Reader(props: {
   const [imagesFor, setImagesFor] = useState("");
   const [imagesAt, setImagesAt] = useState<PendingSelection | null>(null);
   const [links, setLinks] = useState<CrossLink[]>([]);
-  const [listening, setListening] = useState(false);
+  const [listening, setListening] = useState(props.startListening ?? false);
+  // ?listen=1 (Home's Listen from here) opens the Read aloud bar once: take it out of the
+  // address, so a reload after closing the bar does not open it again.
+  useEffect(() => {
+    if (!props.startListening) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("listen");
+    window.history.replaceState(window.history.state, "", url);
+  }, [props.startListening]);
   const tracker = useReadingTracker(props.bookId, listening);
   const trackerRef = useRef(tracker);
   useEffect(() => {

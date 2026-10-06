@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #73 (step 1) when its CI re-run is green; rebase and push step 2 (m14-b2-shell, verified locally: 233 passed, mutations caught); refresh its reference images from CI; then step 3 (Home).
+next_action: Step 3 (Home) PR: refresh its reference images from CI, merge when green; then step 4 (library filters) on m14-c-filters.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
-updated: 2026-10-05
+updated: 2026-10-06
 shared_copy: none
 ---
 
@@ -139,6 +139,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 00:05 · Claude (laptop) · M14 step 2 merged (#74); step 3 reviewed, fixed and pushed
+- **Done:** #74 (step 2) merged as b018c34 after CI passed with its 44 refreshed images; `main` equals the checked tree. Step 3 rebased on `main`; three reviewers found an AI agent's note shown as the reader's own on Continue, a folded corner that never drew, spine lettering under the contrast minimum, marks with no words, a tall phone card, the drop hint on phones, same-width EPUB spines, drops outside the page body opening the file, and 12 test gaps; all fixed with tests (f64068d). Mutation checks H12-H23 each caught. Pushed `m14-b3-home` as a draft PR.
+- **Key paths:** `lib/library/home.ts` (+ test), `components/home/` (ContinueCard, Library + test, LibraryViews, SortMenu, CSS), `components/upload/HomeImport.tsx`, `components/Cover.tsx` (marks, fill, mini, decorative), `app/tokens.css` (`--spine-fill` in all five blocks), `app/(app)/page.tsx`, `app/(app)/library/page.tsx`, `app/(reader)/books/[id]/read/{page,Reader}.tsx`, `e2e/home.spec.ts`, `e2e/auth.setup.ts`, `LEARNING_LOG.md` (Iteration 19).
+- **Commands that worked:** `npx vitest run lib/library/home.test.ts components/home/Library.test.tsx` → `16 passed`; unit mutations (scratchpad `mutate.py`, two file arguments) and browser mutations (scratchpad `mut-chain.sh`) each fail a named test; full suite on 7732a13 → `246 passed (6.4m)`.
+- **Known issues / blockers:** real-time audio tests fail intermittently on this Mac under load (a different one each full run: `audio.spec:85`, `safari.spec:42`, `readalong.spec:605`); step 3 does not touch the reader's audio. `safari.spec:42` depends on other projects' data (fails on `main` when run alone). Investigate with the build plan's §11 item before step 6a.
+- **Exact next steps:** read CI on the step 3 PR; refresh its reference images from CI's report (every signed-in page: the sidebar panel now runs the full height; new `home`), merge when green, confirm `main`; then step 4 (library filters, `m14-c-filters`).
+
+### 2026-10-05 18:37 · Claude (laptop) · M14 step 1 merged; step 2 PR #74 with refreshed images; step 3 (Home) built and verified locally
+- **Done:** #73 (step 1) merged as 94d31c8 once CI was green after GitHub's Actions outage; `main` equals the checked tree. Step 2 rebased on `main`, pushed as draft PR #74; its first CI run failed only the 44 planned reference images (11 signed-in pages x 4 looks), each looked at and copied in (16d9603, pushed from a worktree at `../nl-b2-wt`). Step 3 on local branch `m14-b3-home` (on step 2): `lib/library/home.ts` (Continue books, newest note, titles not available yet, books with notes, library items), Home (Continue B with Read / Listen from here, the grid with marks or spines on shelves behind the View switch remembered on the device, Import anywhere on the page, the closed "Not available yet (N)" group, the empty Home with the classics and the reading list), /library on the same grid and switch, `?listen=1` opens the reader's Read aloud bar for a book that can be listened to, set-up no longer adds Hidden Machinery. A layout bug found in the screenshots and fixed with a measuring test (a cover 405 px wide in a 173 px cell). Three reviewers are reviewing step 3.
+- **Key paths:** `lib/library/home.ts` (+ test), `components/home/` (ContinueCard, Library, LibraryViews, SortMenu, CSS), `components/upload/` (useBookUpload, HomeImport), `components/Cover.tsx` (marks, fill size), `app/(app)/page.tsx`, `app/(app)/library/page.tsx`, `app/(reader)/books/[id]/read/page.tsx`, `app/(public)/actions.ts`, `e2e/home.spec.ts` (project `home` after stats), `e2e/auth.setup.ts`, `LEARNING_LOG.md` (Iterations 15-18).
+- **Commands that worked:** full suite on 7732a13 from a fresh database → `246 passed (6.4m)`, exit 0; `npx vitest run lib/library/home.test.ts` → `5 passed`, seven unit mutations each caught; browser mutations with scratchpad `mut-chain.sh` (H8-H11) each caught at a named line; `git rebase --onto origin/main m14-b1-availability m14-b2-shell`, then `git diff --stat` old vs new tip (only the 10 step-1 images differ).
+- **Known issues / blockers:** none blocking. Open unknown 5 (the phone top strip; edge-to-edge on an installed iPhone) waits for Samuel, defaults apply.
+- **Exact next steps:** when #74's CI (run 37382812272) is green: mark ready, merge, confirm `main`; remove the worktree (`git worktree remove ../nl-b2-wt`); fix what the step-3 reviewers confirm; rebase `m14-b3-home` onto `main` (`git rebase --onto origin/main m14-b2-shell m14-b3-home`), push as a draft PR, refresh its reference images from CI (every page with the sidebar panel change, plus `home`), merge; then step 4 (filters).
 
 ### 2026-10-05 17:52 · Claude (laptop) · M14 step 2 reviewed, fixed and mutation-checked (local); step 1 CI re-run
 - **Done:** Step 2 reviews (three agents) confirmed: sidebar foot below the fold at 1280 x 800, New collection dead in an empty library, sidebar stale after a library import, unnamed search landmarks, no skip link, account-menu focus and tap sizes, no iPhone home-bar room, "shelf" wording; all fixed (ba46d87, 9c4b434, c1cf25c) with tests for each and for the gaps the test reviewer listed. A real regression found and fixed on the way: a permanently focusable skip-link wrapper took focus on clicks in WebKit and broke the audiobook section's focus check (`readalong.spec.ts:300`, readalong-safari). One Chromium audio-timing failure (`readalong.spec.ts:605`, "fell 810 ms behind") judged a flake: no audio code changed, the next full run passed. Step 1's CI re-run started once Actions moved from "major outage" to "degraded performance".

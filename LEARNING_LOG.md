@@ -27,6 +27,11 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 12 | 2026-10-05 ~21:15 | 2 review | Step 2 is ready (review) | three reviewer agents | partial | a laptop-height screenshot shows what a scrolling test hides |
 | 13 | 2026-10-05 21:31 | 2 | The review fixes keep the suite green | full suite on ba46d87, 9c4b434, c1cf25c | failure, flake, then success | a focusable wrapper changes where Safari puts focus on click |
 | 14 | 2026-10-05 21:49 | 2 | Each review fix has a test that fails without it | 6 fresh-database mutations | success (one mutation was empty) | a mutation can be a no-op: check it changes behaviour |
+| 15 | 2026-10-05 22:05 | 1 merge | #73 merges with the checked commit | CI run 37371609736; `git diff 61db041 origin/main` | success | squash-merge then rebase the next branch with `--onto` |
+| 16 | 2026-10-05 ~22:15 | 3 | Home's data layer and page work and every rule has a failing test | home.test (5) + 7 unit mutations; `--project home` | failure then success | a test name taken from another page's links can be wrong here |
+| 17 | 2026-10-05 22:28 | 3 | Home looks like the mockup | screenshots; a measurement in the browser | failure then success | measure a layout bug before guessing at it |
+| 18 | 2026-10-05 22:36 | 3 | Step 3 green from a fresh database; Home's checks catch breaks | full suite on 7732a13; 4 browser mutations | success | |
+| 19 | 2026-10-06 00:05 | 3 review | Step 3 is ready (review) | three reviewers; 12 unit + 4 browser mutations; 2 full runs | partial | a shared variable in zsh is one word; check a mutation printed test counts |
 
 ## Lessons so far
 
@@ -332,4 +337,90 @@ mutation passes, first check it changed behaviour, then decide whether
 the test or the mutation is wrong. Filtering with `-g` can remove the
 setup a test depends on.
 **Next experiment.** Push step 2 once #73 merges.
+
+### Iteration 15 · 2026-10-05 22:05 · Step 1 merged · success
+
+**Hypothesis.** #73 can merge: all checks green on the commit CI checked.
+**Evaluation.** `gh pr checks 73`; run 37371609736 jobs with `steps`.
+**Result.** All four checks pass (browser tests 13 steps). Merged
+(squash) as 94d31c8; `git diff 61db041 origin/main` prints nothing, so
+`main` holds exactly the checked tree. Step 2 rebased with `git rebase
+--onto origin/main m14-b1-availability m14-b2-shell`: two conflicts, both
+in `LEARNING_LOG.md` (resolved by keeping the complete copy); the rebased
+tip differs from the old one only by step 1's 10 refreshed images.
+**Lesson.** After a squash-merge, `--onto` replays only the next step's
+commits; compare old and new tips with `git diff --stat` to prove nothing
+was dropped.
+
+### Iteration 16 · 2026-10-05 ~22:15 (estimated) · Step 3 · failure, then success
+
+**Hypothesis.** Home's data layer (`lib/library/home.ts`) and page work,
+and each rule has a test that fails without it.
+**Action.** `home.test.ts` (5 tests); seven unit mutations (oldest note,
+finished or title-only in Continue, deleted not-yet titles, bookmarks fold
+the corner, any annotation kind shown, a ready audiobook ignored); the
+page, grid, spines, View switch, Continue card, Home import; `npx
+playwright test --project home`.
+**Result.** Unit: first run `1 failed` (a bookmark needs a real place in a
+real book; moved beside the imported Jekyll), then `5 passed`; all seven
+mutations caught. Browser: `1 failed` twice, both test errors: "Not
+available yet" matched 126 elements (now the `summary` is clicked), and
+the grid's links are named by their contents, not "Chip War (not
+available yet)" as on a Path. Then `187 passed (1.8m)`.
+**Lesson.** A name a test takes from one page (the Path's cover links)
+may not hold on another (the grid's text links): read the markup.
+
+### Iteration 17 · 2026-10-05 22:28 · Step 3 look · failure, then success
+
+**Hypothesis.** Home matches the mockup at desktop and phone width.
+**Action.** Looked at `home-full-*` screenshots.
+**Result.** Discourse on the Method drew a cover two cells wide over its
+neighbour. Measured in the browser (a small Playwright script on the
+test server): figure 405 px wide in a 173 px cell; "Trap Book" 175 in 173.
+Cause: the item's grid column was sized by its content, so a title on one
+line widened it. Fixed with `grid-template-columns: minmax(0, 1fr)`; a new
+check in home.spec measures every cover against its cell. Also: phone
+buttons now stack ("Listen from here" wrapped); the sidebar panel runs the
+full page height in full-page captures.
+**Lesson.** Measure a layout bug in the browser before changing CSS; then
+turn the measurement into a test (lesson 2 of the plan).
+
+### Iteration 18 · 2026-10-05 22:36 · Step 3 · success
+
+**Hypothesis.** Step 3 (88a57b1, a2ec6d1, 7732a13) is green from a fresh
+database, and its browser checks fail without their fixes.
+**Evaluation.** Full suite on 7732a13; scratchpad `mut-chain.sh`.
+**Result.** `246 passed (6.4m)`, exit 0. Mutations: H8 the saved view not
+restored → home.spec:118 fails (desktop and phone); H9 the inactive view
+not `hidden` → :102; H10 the item column sized by content → :70 (the
+overflow measurement); H11 `?listen=1` ignored → :51 (no Read aloud bar).
+**Next experiment.** Reviews of step 3.
+
+### Iteration 19 · 2026-10-06 00:05 · Step 3 review and fixes · partial (CI decides the flakes)
+
+**Hypothesis.** Step 3 (rebased on `main` after #74 merged) is ready.
+**Action.** Three reviewer agents (correctness; UI against the mockup;
+"could each test fail?"); fixes in f64068d; mutation checks; two full
+suites from a fresh database.
+**Result.** Confirmed and fixed: an AI agent's note shown on Continue as
+"Your last note" (ground rule 5); the folded corner never drew (one
+clip-path clipped both triangles); spine lettering 4.11:1 (light) and
+3.62:1 (dark) over the fill on green, now a darker fill (`--spine-fill`,
+in all five theme blocks, as `lib/tokens.test.ts` requires); marks with no
+words for screen readers; Continue card 470 px tall on a phone and
+stacked buttons on desktop; the drop hint on phones; every EPUB spine the
+same width (EPUBs have no page count: file size now); drops outside
+`<main>` opened the file; `?listen=1` stayed in the address; duplicate
+queries; no not-available group on /library; 12 test gaps. Unit
+mutations H12-H19 each fail a named test (first try printed no counts:
+zsh passed two file names as one word); browser H20-H23 each fail
+(auth.setup:17, home.spec:68, :46, :128; H20's first patch matched twice
+and was refused). Full suites on f64068d: `2 failed` (audio.spec:85,
+safari.spec:42), then `1 failed` (readalong.spec:605); a different
+real-time audio test each run; `uptime` load average 4.61; safari.spec:42
+also fails on `main` b018c34 when run with `--project safari` alone (an
+order-dependent test). Judged timing flakes; CI on Linux decides.
+**Lesson.** In zsh, `$VAR` holding two paths is one argument: pass them
+separately, and treat "exit 1 with no test counts" as "did not run".
+**Next experiment.** Push step 3; read CI; refresh images.
 

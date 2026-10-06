@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser } from "@playwright/test";
 import { ADMIN, ADMIN_STATE } from "./pages";
 
@@ -80,7 +81,10 @@ test.describe("signed in", () => {
     await guest.getByLabel("Email address").fill("ada@example.com");
     await guest.getByLabel("Password").fill("analytical engine");
     await guest.getByRole("button", { name: "Join the library" }).click();
-    await expect(guest.getByRole("heading", { name: "Good to see you, Ada" })).toBeVisible();
+    await expect(guest.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+    await expect(guest.getByText("Good to see you, Ada. Your library is empty.")).toBeVisible();
+    const emptyHome = await new AxeBuilder({ page: guest }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(emptyHome.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
 
     // A new reader starts with an empty library and can add the starter path.
     const guestSidebar = guest.getByRole("complementary", { name: "Sidebar" });
@@ -115,7 +119,7 @@ test.describe("signed in", () => {
     await expect(guest.getByLabel("Email address")).toHaveValue("ada@example.com");
     await guest.getByLabel("Password").fill("analytical engine");
     await guest.getByRole("button", { name: "Sign in" }).click();
-    await expect(guest.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
+    await expect(guest.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 
     // An empty shelf offers three free classics; one click, and they can be read.
     await guest.goto("/library");

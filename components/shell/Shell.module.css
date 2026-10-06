@@ -4,6 +4,10 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100dvh;
+
+  /* The sidebar's panel and edge run the whole height of a long page, behind the pinned sidebar. */
+  background-image:
+    linear-gradient(to right, var(--paper-sunken) calc(var(--sidebar-width) - var(--border-hair)), var(--rule) 0, var(--rule) var(--sidebar-width), transparent 0);
 }
 
 .column {
@@ -232,6 +236,7 @@
   .shell {
     display: block;
     padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+    background-image: none;
   }
 
   .sidebar {

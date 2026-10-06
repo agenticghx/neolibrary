@@ -1,0 +1,133 @@
+/* Home's import (M14 step 3): a whole-page drop target, the Import button, the dashed hint. */
+
+.over {
+  outline: 2px dashed var(--accent);
+  outline-offset: calc(var(--space-2) * -1);
+}
+
+.importButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.importButton:hover {
+  background-color: var(--accent-strong);
+}
+
+.importButton:disabled {
+  cursor: progress;
+}
+
+.zoneWrap {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 2px dashed var(--rule);
+  border-radius: var(--radius-lg);
+}
+
+.zoneIcon {
+  flex: none;
+  color: var(--accent);
+}
+
+.zoneText {
+  flex: 1 1 16rem;
+  color: var(--ink-700);
+}
+
+.pick {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--ink-900);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.pick:hover {
+  background-color: var(--paper-raised);
+}
+
+.pick:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.error {
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}
+
+.results {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+.results li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background-color: var(--paper-sunken);
+}
+
+.results li.resultError {
+  border-left-color: var(--ink-500);
+}
+
+.resultFile {
+  font-family: var(--font-serif);
+  font-weight: var(--weight-medium);
+}
+
+.resultNote {
+  color: var(--ink-700);
+}
+
+@media (width <= 48rem) {
+  .phoneHidden {
+    display: none;
+  }
+
+  .importButton {
+    justify-content: center;
+    width: 2.75rem;
+    padding: 0;
+    border-radius: var(--radius-pill);
+  }
+
+  .importLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Cover } from "@/components/Cover";
+import { LibraryGrid, LibrarySpines, NotYetGroup } from "@/components/home/Library";
+import { LibraryViews } from "@/components/home/LibraryViews";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { availabilityLabel, availabilityOf } from "@/lib/library/availability";
-import { audiobookBookIds, narrationOn } from "@/lib/library/listenable";
 import { coverSigner } from "@/lib/library/covers";
+import { libraryItems, notYetAvailable } from "@/lib/library/home";
 import { listCollections, listShelf, parseSort } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
@@ -17,7 +17,6 @@ import styles from "./page.module.css";
 export const metadata: Metadata = { title: "Library" };
 export const dynamic = "force-dynamic";
 
-const progressLabel = (p: number) => (p >= 1 ? "Finished" : p > 0 ? `${Math.round(p * 100)}% read` : "Unread");
 
 export default async function LibraryPage({
   searchParams,
@@ -34,13 +33,9 @@ export default async function LibraryPage({
     listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id }),
     listShelf(db, user.id),
   ]);
-  const sign = await coverSigner();
-  const audiobooks = await audiobookBookIds(
-    db,
-    user.id,
-    shelf.map((b) => b.id),
-  );
-  const narration = narrationOn();
+  const items = await libraryItems(db, user.id, shelf, await coverSigner());
+  // The whole library (no search, no collection) ends with the titles not available yet (D3).
+  const waiting = !sp.q && !active ? await libraryItems(db, user.id, await notYetAvailable(db, user.id)) : [];
   const chipHref = (c?: string) => {
     const p = new URLSearchParams();
     if (c) p.set("c", c);
@@ -110,28 +105,19 @@ export default async function LibraryPage({
             </form>
           ) : null}
 
-          {shelf.length ? (
-            <ul className={styles.grid} data-testid="shelf">
-              {shelf.map((b) => {
-                const available = availabilityOf(b, audiobooks.has(b.id), narration);
-                return (
-                  <li key={b.id}>
-                    <Link href={`/books/${b.id}`} className={styles.item}>
-                      <Cover title={b.title} available={available} caption={false} imageUrl={sign(b.coverKey)} progress={b.progress} />
-                      <span className={styles.itemTitle}>{b.title}</span>
-                      <span className={styles.itemAuthor}>{b.author}</span>
-                      <span className={styles.itemAvailable}>{availabilityLabel(available)}</span>
-                      <span className={styles.itemProgress}>{progressLabel(b.progress)}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+          {items.length ? (
+            <LibraryViews
+              header={<p className={styles.count}>{items.length === 1 ? "1 title" : `${items.length} titles`}</p>}
+              grid={<LibraryGrid items={items} />}
+              spines={<LibrarySpines items={items} />}
+            />
           ) : (
             <p className={styles.empty}>{sp.q ? `Nothing matches “${sp.q}”.` : "No books in this collection yet."}</p>
           )}
         </section>
       ) : null}
+
+      <NotYetGroup items={waiting} />
 
       <footer className={styles.data}>
         <p>
