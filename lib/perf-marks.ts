@@ -19,7 +19,7 @@ export type MarkName =
   | "nl:draw-done" // ... and is now in the page
   | "nl:lit" // a word was highlighted, by the player's frame ("word") or by its page's text arriving ("text-layer")
   | "nl:word-wait" // the player's word is not on the page yet; it tries again on the next frame
-  | "nl:bar-set"; // the Listen bar asked React to show a word (data-word follows when React commits)
+  | "nl:bar-set"; // the reader recorded the lit word on the Listen bar (data-word), in the same step as it lit it (Reader.tsx, recordLit)
 
 type Detail = Record<string, string | number | boolean | null>;
 

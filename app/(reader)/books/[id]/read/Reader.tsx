@@ -153,6 +153,23 @@ function lightPdfWord(doc: Document, [a, b]: [number, number], via: "word" | "te
   return text;
 }
 
+/**
+ * Records the word read aloud on the Listen bar (its data-word: read by the
+ * tests, shown and announced nowhere) in the same step as the word is lit,
+ * wherever it is lit. Written later, as React state was, the record trailed
+ * the highlight behind any long task: at a PDF page break on CI, a failed
+ * system-font lookup held the page 38 ms and the bar showed the word 90 ms
+ * after the book did (LEARNING_LOG, Iterations 25 and 39). A word already
+ * recorded is not written again.
+ */
+function recordLit(bar: HTMLElement | null, text: string | null) {
+  if (bar && text !== null && bar.getAttribute("data-word") !== text) {
+    bar.setAttribute("data-word", text);
+    mark("nl:bar-set", { text });
+  }
+  return text;
+}
+
 /** The PDF page foliate shows, or is opening once a turn has begun (-1 before the first: foliate's getter throws then). */
 function pageOpening(v: FoliateView) {
   try {
@@ -215,6 +232,8 @@ export function Reader(props: {
   const litCfi = useRef<string | null>(null);
   /** The word lit in a PDF page (M13 (e)), lit again when the page's text layer is complete or laid out for a new size. */
   const spokenPdf = useRef<{ page: number; at: [number, number] } | null>(null);
+  /** The Read aloud bar's element, on which each lit word is recorded (recordLit). */
+  const listenBar = useRef<HTMLDivElement>(null);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
@@ -370,7 +389,7 @@ export function Reader(props: {
           // was laid out for a new size: light the spoken word on it again.
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
             const w = spokenPdf.current;
-            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at, "text-layer");
+            if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(doc, w.at, "text-layer"));
           });
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
@@ -701,7 +720,7 @@ export function Reader(props: {
       // Going on after a pause returns to this page.
       litCfi.current = passageCfi;
       const doc = v.renderer.getContents().find((c) => c.doc?.documentElement?.dataset.page === String(page))?.doc;
-      if (doc) return lightPdfWord(doc, inPage, "word");
+      if (doc) return recordLit(listenBar.current, lightPdfWord(doc, inPage, "word"));
       // Not shown: the reader turned back from it while it is read. Turn to it
       // again, as an EPUB's pages follow the voice (a page turned to ahead is
       // left alone). Not while a turn is on its way: foliate shows one page at
@@ -735,6 +754,7 @@ export function Reader(props: {
     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
     const text = range.toString();
     mark("nl:lit", { index, at: from, text, via: "word" });
+    recordLit(listenBar.current, text);
     const wordCfi = v.getCFI(index, range);
     litCfi.current = wordCfi;
     const visible = whereCfi.current;
@@ -899,7 +919,7 @@ export function Reader(props: {
 
       {/* Between the book and the foot, so it never covers the page's last lines. */}
       {listening && where.cfi ? (
-        <ListenBar bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
+        <ListenBar ref={listenBar} bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
       ) : null}
 
       <footer className={styles.foot}>
