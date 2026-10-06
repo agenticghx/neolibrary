@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import * as CFI from "foliate-js/epubcfi.js";
 import { expectHighlightKeepsUp } from "./listen";
 import { ADMIN, ADMIN_STATE } from "./pages";
 
@@ -338,4 +339,37 @@ test("M14 (6b): with a made voice, the mini-player shows where it was paused, an
   await mini.getByRole("button", { name: "Play", exact: true }).click();
   await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
   await page.waitForFunction(() => document.querySelector("audio")!.currentTime > 0.2);
+});
+
+test("M14 follow-up V2: with a made voice, Go to the page opens where the voice is, playing on, its word lit on the page", async ({ page }) => {
+  test.setTimeout(90_000);
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Saved audio: free to play.");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await page.waitForFunction(() => (document.querySelector("audio")?.currentTime ?? 0) > 1);
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+
+  // Go to the page: the reader opens at the paragraph being read, still playing (Samuel, #90).
+  const goTo = mini.getByRole("link", { name: "Go to the page" });
+  const paragraph = new URL((await goTo.getAttribute("href"))!, "http://localhost").searchParams.get("at")!;
+  await goTo.click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const back = page.getByRole("region", { name: "Read aloud" });
+  await expect(back.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The word being said is lit in the book: the lit text is the bar's word.
+  await expect
+    .poll(async () => {
+      const word = await back.getAttribute("data-word");
+      return !!word && (await spoken(page)) === word;
+    })
+    .toBe(true);
+  // ...on the page in front of the reader: its paragraph lies inside the visible range.
+  const visible = (await reader(page).getAttribute("data-cfi"))!;
+  const start = paragraph.replace(/\)$/, "/1:0)");
+  expect(CFI.compare(start, CFI.collapse(visible)) >= 0 && CFI.compare(start, CFI.collapse(visible, true)) <= 0, `${paragraph} in ${visible}`).toBe(true);
+  await back.getByRole("button", { name: "Stop reading aloud" }).click();
 });
