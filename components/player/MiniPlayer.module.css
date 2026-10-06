@@ -22,8 +22,11 @@
   color: var(--ink-900);
 }
 
+/* At most three lines: the sentence starts a little before the word (MiniPlayer.tsx), so the word stays in sight. */
 .sentence {
+  max-height: calc(var(--text-read) * var(--leading-read) * 3);
   margin: 0;
+  overflow: hidden;
   font-family: var(--font-serif);
   font-size: var(--text-read);
   line-height: var(--leading-read);
@@ -71,9 +74,25 @@
   white-space: nowrap;
 }
 
+/* The chapter and the minutes left: when the line is too long, the chapter gives way (with "…"), never the minutes. */
 .where {
+  display: flex;
+  min-width: 0;
   color: var(--ink-500);
   font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.chapter {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dot,
+.left {
+  flex: none;
+  white-space: pre;
 }
 
 .skip,
@@ -128,9 +147,17 @@
   flex: 0 0 var(--space-5);
 }
 
+/* One speed pill shows: after Forward on a wide screen, first on a phone (so the tab order matches what is seen). */
+.speedWide {
+  flex: none;
+}
+
+.speedPhone {
+  display: none;
+}
+
 .speedBox {
   position: relative;
-  flex: none;
 }
 
 /* Ink on the raised bar with an accent border: accent-coloured text there is below 4.5:1 in the dark look. */
@@ -215,6 +242,29 @@
   height: 18px;
 }
 
+/* Narrower screens (an iPad held upright): no swatch or spacer, and Go to the page as its icon alone. */
+@media (width <= 64rem) {
+  .cover,
+  .gap {
+    display: none;
+  }
+
+  .goToText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .goTo {
+    justify-content: center;
+    width: 44px;
+    padding: 0;
+  }
+}
+
 @media (width <= 48rem) {
   .bar {
     bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + var(--space-2));
@@ -223,6 +273,7 @@
   }
 
   .sentence {
+    max-height: calc(var(--text-sm) * var(--leading-read) * 3);
     font-size: var(--text-sm);
   }
 
@@ -241,11 +292,6 @@
     gap: var(--space-1);
   }
 
-  .cover,
-  .gap {
-    display: none;
-  }
-
   .book {
     flex: 1 0 100%;
     flex-direction: row;
@@ -255,25 +301,42 @@
     font-size: var(--text-xs);
   }
 
-  /* One line: a long title gives way (with "…"); the chapter and the time left stay whole. */
+  /* One line: when it is too long, the title gives way first (three times as fast as the chapter), each with "…". */
   .title {
-    flex: 0 1 auto;
+    flex: 0 3 auto;
     min-width: 0;
     font-family: var(--font-sans);
     font-size: var(--text-xs);
   }
 
+  /* The chapter gives way too (never the minutes), rather than push past the screen; the speed is on its pill. */
   .where {
-    flex: none;
-    white-space: nowrap;
+    flex: 0 1 auto;
+    overflow: hidden;
+  }
+
+  .atSpeed {
+    display: none;
   }
 
   .where::before {
-    content: "· ";
+    flex: none;
+    content: "·\00a0";
   }
 
-  .speedBox {
-    order: -1;
+  .speedWide {
+    display: none;
+  }
+
+  .speedPhone {
+    display: block;
+    flex: none;
+  }
+
+  /* The phone's pill is at the left: its menu opens to the right of it, on the screen. */
+  .menu {
+    right: auto;
+    left: 0;
   }
 
   .speed {
@@ -281,18 +344,4 @@
     border-color: var(--rule);
   }
 
-  .goToText {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .goTo {
-    padding: 0;
-    width: 44px;
-    justify-content: center;
-  }
 }

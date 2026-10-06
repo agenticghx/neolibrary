@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { firstVoice, loadSpeed, noteFor, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, type Info, type NoteState } from "./session";
+import { firstVoice, loadSpeed, noteFor, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withPart, type Info, type NoteState } from "./session";
 
 const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
@@ -128,3 +128,13 @@ describe("the mini-player's words", () => {
   });
 });
 
+describe("withPart", () => {
+  it("adds the next part's paragraphs and where the part after it starts, and keeps the chapter names of every part", () => {
+    const first = audiobook({ more: 2, chapters: { 0: "Chapter I" } });
+    const next = withPart(first, { paragraphs: [{ ...paragraph, sectionId: "s2", chapterIndex: 1, position: 2 }], more: null, chapters: { 1: "Chapter II" } });
+    expect(next.paragraphs.map((p) => p.sectionId)).toEqual(["s1", "s2"]);
+    expect(next.more).toBeNull();
+    expect(next.chapters).toEqual({ 0: "Chapter I", 1: "Chapter II" });
+    expect(next.importId).toBe("i1");
+  });
+});

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 6a and its review fixes are merged (#85, #86; main 649dda0). Step 6b part 1 (the mini-player) is a draft PR from m14-e2-mini-player: merge when green. Then 6b part 2 (Listen from here on Home: Samuel's decision, Open unknowns row 10; skips across files), 6c, 7. Samuel finds the pace slow: keep verification to what changes an outcome.
+next_action: Steps 6a and 6b part 1 are merged (#85-#87; main 5ab0837). The 6b review's fixes are a PR from m14-e2-fixes: merge when CI is green. Then 6b part 2 (Listen from here on Home for an audiobook, one tap; skips across audiobook files), 6c (Think aloud), 7 (deploy; back up first). Keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,18 +19,31 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 12:45 UTC).** Step 6a and its review fixes
-are merged (#85, #86; `main` 649dda0). Step 6b part 1, the mini-player, is
-a draft pull request from `m14-e2-mini-player`: merge it when green (CI
-also checks its four screenshots, `screenshots/miniplayer-*`). Then 6b part 2:
-- "Listen from here" playing on Home without opening the reader. It needs
-  Samuel's answer to Open unknowns row 10; until then, build only the
-  audiobook case and keep opening the reader for a made voice.
-- Skips across audiobook files, and before the first part fetched.
-- Reading time counted while listening away from the reader.
+**Resume M14 here (2026-10-06, 14:05 UTC).** Steps 6a and 6b part 1 are
+merged (#85, #86, #87; `main` 5ab0837). The fixes for the 6b review's 19
+findings are a pull request from `m14-e2-fixes` (Iteration 50): merge it
+when CI is green, after checking `git diff --stat <head> origin/main` is
+empty. Then 6b part 2:
+- "Listen from here" on Home plays the book's own audiobook there, in the
+  same tap, without opening the reader. A made voice keeps opening the
+  reader (Open unknowns row 10, default (a)). Safari starts audio only
+  inside the tap, so Home must fetch the Listen data before the tap, start
+  the session synchronously in it (`flushSync`) and call `play()` there.
+  `PlayerProvider.attach` serves only an open reader today.
+- Skips across audiobook files, and back before the first part fetched
+  (the parts route needs a way to ask for the part before).
+
+Not a gap: reading time is not counted while listening, by design
+(`useReadingTracker.ts:21`, M10).
 
 Then 6c (Think aloud) and step 7 (deploy; back up first). Design:
 `docs/design/m14-canvas/project/PicksPlayer.dc.html`.
+
+**Testing on the laptop with AirPods connected** (Iteration 50): WebKit's
+first playback starts about 1.4 s late, so `expectNoStall` fails, also on
+`main`. And the system can pause the audio by itself. `recordPlayer` now
+traces every `pause()` call: a `pause` event with `pauses: []` came from
+the browser, not the app. CI is the judge for those checks.
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -164,6 +177,34 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 10:05 (local; 14:05 UTC) · Claude (laptop) · M14 step 6b part 1 merged (#87); the review's 19 findings fixed, PR from m14-e2-fixes
+- **Done:**
+  - **#87** (6b part 1, the mini-player) merged as 5ab0837.
+  - **The 6b review** (workflow `wf_36df385f-c88`: logic, looks and server reviewers, a skeptic per finding) confirmed 19 findings, some the same seen twice. All are fixed on `m14-e2-fixes` (Iteration 50):
+    - on a phone, 4 of the 6 speeds were off the screen;
+    - paused in the reader, then left: the wrong sentence, chapter and minutes;
+    - "% read" while listening on a different scale from the reader's (up to 16.6 points apart);
+    - made-voice skips: overlap while playing, starting while paused, a stale flag blocking them;
+    - later parts' chapter names lost; minutes at the old speed;
+    - the bar's height, an iPad-width layout, long chapter names;
+    - the speed menu's closing rules and tab order;
+    - focus hidden behind the bar.
+  - **The new tests found three more,** fixed too: with a made voice the mini-player put the previous paragraph back; Escape never closed the speed menu in Safari; Safari ignores `scroll-padding` when focus moves.
+  - **Testing with AirPods connected** (the Mac's default output): two read-along failures that also happen on `main`, or that no script caused (above, "Testing on the laptop with AirPods connected").
+- **Key paths:** `components/player/{ListenSession,MiniPlayer}.tsx`, `components/player/MiniPlayer.module.css`, `app/globals.css`, `lib/player/session.ts` (+ test), `lib/library/reading.ts` (+ test), `e2e/{readalong,audio}.spec.ts`, `e2e/listen.ts`, `LEARNING_LOG.md` (Iteration 50).
+- **Commands that worked:**
+  - `npm run check` → `Tests 452 passed | 2 skipped (454)`.
+  - `scratchpad/run6b.sh readalong|readalong-safari` → `4 passed` each.
+  - `scratchpad/run-snap.sh madevoice audio "M14 \(6b\)"` → `1 passed`.
+  - The whole suite from a fresh database (final code): `253 passed (5.6m)`, including all 27 Chromium read-along and 10 audio tests. Then WebKit `readalong.spec.ts:582` stalled 1430 ms. The same test on `main` stalled 1436 and 1435 ms.
+  - `scratchpad/mut-6bfix-all.py`: control `4 passed` / `1 passed`. Four mutations, each caught: the phone menu (`:1663`), no fill on leaving (`:1590`), a skip always plays (the made-voice test), no iPad layout (`:1713`). Two unit mutations: `1 failed` each.
+  - `npx tsx scratchpad/progress-compare.mts` → the progress scale now within 2.4, 1.9 and 1.3 points of the reader's on the three test books.
+  - `git rebase --onto origin/main m14-e2-mini-player m14-e2-fixes`.
+- **Known issues / blockers:**
+  - No browser test sees two of the fixes: a made-voice skip while playing pausing before it moves on, and the `settling` reset. Both are reasoned from the code.
+  - The WebKit read-along checks need CI while the laptop's output is Bluetooth.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 08:45 (local; 12:45 UTC) · Claude (laptop) · M14 step 6a review fixes merged (#86); step 6b part 1 (the mini-player) pushed as a draft PR
 - **Done:**

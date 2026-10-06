@@ -499,7 +499,7 @@ async function playUntil(page: Page, ms: number) {
       .evaluate(() => {
         const a = document.querySelector("audio")!;
         const spans = (r: TimeRanges) => Array.from({ length: r.length }, (_, i) => [r.start(i), r.end(i)]);
-        const w = window as unknown as { events_?: [string, number][]; frames_?: unknown[] };
+        const w = window as unknown as { events_?: [string, number][]; pauses_?: [number, string][]; frames_?: unknown[] };
         return {
           src: a.getAttribute("src"),
           currentTime: a.currentTime,
@@ -510,6 +510,7 @@ async function playUntil(page: Page, ms: number) {
           error: a.error ? { code: a.error.code, message: a.error.message } : null,
           buffered: spans(a.buffered),
           events: w.events_ ?? null,
+          pauses: w.pauses_ ?? null,
           frames: w.frames_ ? { count: w.frames_.length, first: w.frames_[0], last: w.frames_.at(-1) } : null,
         };
       })
@@ -1527,12 +1528,17 @@ test("M14 (6b): leaving the reader, the mini-player reads on: the sentence with 
   const sentence = await mini.locator("p").first().innerText();
   expect(PARAGRAPHS.slice(40, 70).some((p) => p.text.includes(sentence!.replace(/^…/, "").trim().slice(0, 40)))).toBe(true);
 
-  // Forward 15 s, then back 15 s (time goes on while the test clicks).
-  const t0 = await audioTime(page);
-  await mini.getByRole("button", { name: "Forward 15 seconds" }).click();
-  const t1 = await audioTime(page);
-  expect(t1 - t0).toBeGreaterThan(14.9);
-  expect(t1 - t0).toBeLessThan(16);
+  // Forward 15 s, then back 15 s: the time read just before and after the click, in one step in the page, so
+  // the audio playing on while the test waits does not count.
+  const skip = (name: string) =>
+    page.evaluate((name) => {
+      const audio = document.querySelector("audio")!;
+      const before = audio.currentTime;
+      document.querySelector<HTMLButtonElement>(`[aria-label="${name}"]`)!.click();
+      return [before, audio.currentTime];
+    }, name);
+  const [t0, t1] = await skip("Forward 15 seconds");
+  expect(t1 - t0).toBeCloseTo(15, 1);
   // The reading position follows the voice into the paragraph it now reads (listening counts as reading).
   const cfis = PARAGRAPHS.slice(41, 70).map((p) => p.cfi);
   await expect
@@ -1541,14 +1547,11 @@ test("M14 (6b): leaving the reader, the mini-player reads on: the sentence with 
       return cfis.includes(books.find((b) => b.id === bookId)!.position ?? "");
     })
     .toBe(true);
-  await mini.getByRole("button", { name: "Back 15 seconds" }).click();
-  const t2 = await audioTime(page);
-  expect(t1 - t2).toBeGreaterThan(14);
-  expect(t1 - t2).toBeLessThan(15.1);
-  // ...and the lit word goes back with it.
+  const [tb, t2] = await skip("Back 15 seconds");
+  expect(tb - t2).toBeCloseTo(15, 1);
+  // ...and the lit word goes back with it (once the seek is done).
   const near = expected.filter((w) => w.startMs >= t2 * 1000 - 500 && w.startMs <= t2 * 1000 + 4000).map((w) => w.word);
-  await expect.poll(() => mini.locator("mark").textContent(), { timeout: 10_000 }).toBeTruthy();
-  expect(near).toContain(await mini.locator("mark").textContent());
+  await expect.poll(async () => near.includes((await mini.locator("mark").textContent()) ?? ""), { timeout: 10_000 }).toBe(true);
   // At the start of the file, back 15 s stops at its start.
   await page.evaluate(() => (document.querySelector("audio")!.currentTime = 5));
   await mini.getByRole("button", { name: "Back 15 seconds" }).click();
@@ -1563,6 +1566,30 @@ test("M14 (6b): leaving the reader, the mini-player reads on: the sentence with 
   await expect(page.getByRole("region", { name: "Now playing" })).toHaveCount(0);
   await back.getByRole("button", { name: "Stop reading aloud" }).click();
   await expect(page.locator("audio")).toHaveCount(0);
+});
+
+test("M14 (6b): paused in the reader, then left: the mini-player shows where the audio is, not where Listen began", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { bookId, expected } = await miniReading(page);
+  const bar = await openListening(page, bookId, 40);
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  // On into the third paragraph, then Pause there.
+  const k = expected.findIndex((w) => w.cfi === PARAGRAPHS[42].cfi);
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), expected[k + 2].startMs / 1000);
+  await playUntil(page, expected[k + 3].startMs + 50);
+  await bar.getByRole("button", { name: "Pause" }).click();
+  await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
+  const word = await bar.getAttribute("data-word");
+
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  // The paragraph and the word where it was paused, and the minutes left.
+  const sentence = (await mini.locator("p").first().innerText()).replace(/^…/, "").trim();
+  expect(PARAGRAPHS[42].text).toContain(sentence.slice(0, 30));
+  await expect(mini.locator("mark")).toHaveText(word!);
+  await expect(mini).toContainText("min left");
 });
 
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
@@ -1629,10 +1656,47 @@ test("M14 (6b): the mini-player sits at the foot of the page, above the tabs on 
       if (name === "phone") {
         const tabs = (await page.getByRole("navigation", { name: "Tabs" }).boundingBox())!;
         expect(box.y + box.height, "the mini-player ends above the tabs").toBeLessThanOrEqual(tabs.y + 1);
+        // The speed menu opens on the screen, every speed in reach.
+        await mini.getByRole("button", { name: "Playback speed: 1.0 times" }).click();
+        for (const choice of await mini.getByRole("group", { name: "Choose a speed" }).getByRole("button").all()) {
+          const c = (await choice.boundingBox())!;
+          expect(c.x, `${await choice.textContent()} on the screen`).toBeGreaterThanOrEqual(0);
+          expect(c.x + c.width, `${await choice.textContent()} on the screen`).toBeLessThanOrEqual(w);
+        }
+        await page.keyboard.press("Escape");
+        await expect(mini.getByRole("group", { name: "Choose a speed" })).toHaveCount(0);
+        await expect(mini.getByRole("button", { name: "Playback speed: 1.0 times" })).toBeFocused();
+        // The minutes left are never cut short, however long the title and chapter (a chapter name 4 times as long, for a moment).
+        const left = mini.getByText(/min left/);
+        const shown = () => left.evaluate((e) => e.scrollWidth <= e.clientWidth && e.getBoundingClientRect().right <= e.parentElement!.getBoundingClientRect().right + 0.5);
+        expect(await shown()).toBe(true);
+        const chapter = mini.getByText("Search for Mr. Hyde", { exact: true });
+        await chapter.evaluate((e) => (e.textContent = "Search for Mr. Hyde ".repeat(4).trim()));
+        expect(await shown()).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "a long chapter name: no sideways scroll").toBe(true);
+        await mini.getByText(/Search for Mr\. Hyde Search/).evaluate((e) => (e.textContent = "Search for Mr. Hyde"));
+        // The photo without the focus ring Escape leaves on the pill.
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       } else {
         expect(box.x, "beside the sidebar, not over it").toBeGreaterThanOrEqual(256);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (scheme === "light") {
+        // Keyboard focus is never left behind the bar: a link or button it covers, once focused, is scrolled clear of it.
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const focused = await page.evaluate(() => {
+          const bar = () => document.querySelector("[data-miniplayer]")!.getBoundingClientRect();
+          const under = [...document.querySelectorAll<HTMLElement>("#content a[href], #content button")].find((e) => {
+            const r = e.getBoundingClientRect();
+            return r.height > 0 && r.bottom > bar().top + 1 && r.top < window.innerHeight;
+          });
+          if (!under) return "nothing under the bar";
+          under.focus();
+          return under.getBoundingClientRect().bottom <= bar().top + 1 ? "clear of the bar" : `behind the bar: ${under.textContent}`;
+        });
+        expect(focused, name).toBe("clear of the bar");
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      }
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -1640,6 +1704,15 @@ test("M14 (6b): the mini-player sits at the foot of the page, above the tabs on 
       await page.screenshot({ path: `screenshots/miniplayer-${name}-${scheme}${engine()}.png` });
     }
   }
+  // An iPad held upright (820 wide, beside the sidebar): no swatch or spacer, and Go to the page as its icon, so the
+  // book's title keeps its room.
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await expect(mini.getByRole("link", { name: "Go to the page" })).toBeVisible();
+  const title = (await mini.getByText("The Strange Case of Dr. Jekyll and Mr. Hyde", { exact: true }).boundingBox())!;
+  expect(title.width, "the title keeps its room").toBeGreaterThan(150);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: `screenshots/miniplayer-tablet${engine()}.png` });
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
 });

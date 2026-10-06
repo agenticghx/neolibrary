@@ -41,7 +41,7 @@ describe("reading position", () => {
   });
 
   // M14 step 6b: listening away from the reader, the position follows the voice, paragraph by paragraph.
-  it("saves the position at a paragraph: its CFI, and its place in the book, kept below 1", async () => {
+  it("saves the position at a paragraph: its CFI, and the share of the book's text before it, kept below 1", async () => {
     const rows = await database.db
       .insert(sections)
       .values(
@@ -61,10 +61,11 @@ describe("reading position", () => {
       .returning({ id: sections.id });
     const t = new Date("2026-10-06T12:00:00Z");
     expect(await savePositionAt(database.db, ownerId, bookId, rows[2].id, t)).toBe(true);
-    expect((await getBook(database.db, ownerId, bookId))!.book).toMatchObject({ position: "epubcfi(/6/2!/4/6)", progress: 0.5, lastOpenedAt: t });
-    // The last paragraph: below 1, so listening to it does not mark the book finished.
+    // Three paragraphs of 12 characters (the chapter row has no text): 12 of 36 come before the second.
+    expect((await getBook(database.db, ownerId, bookId))!.book).toMatchObject({ position: "epubcfi(/6/2!/4/6)", progress: 0.333, lastOpenedAt: t });
+    // The last paragraph: 24 of 36 before it; below 1, so listening to it does not mark the book finished.
     expect(await savePositionAt(database.db, ownerId, bookId, rows[3].id)).toBe(true);
-    expect((await getBook(database.db, ownerId, bookId))!.book.progress).toBe(0.75);
+    expect((await getBook(database.db, ownerId, bookId))!.book.progress).toBe(0.667);
 
     const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
     const { token } = await createInvite(database.db, admin);
@@ -75,5 +76,23 @@ describe("reading position", () => {
     expect(await savePositionAt(database.db, ownerId, bookId, "s-not-in-this-book")).toBe(false);
     expect(await savePositionAt(database.db, ownerId, bookId, "s-1'; drop table books")).toBe(false);
     expect(await savePositionAt(database.db, ownerId, bookId, 42)).toBe(false);
+  });
+
+  it("in a PDF, saves the progress as the reader counts it: up to the end of the paragraph's page", async () => {
+    const pdf = (await database.db.insert(books).values({ ownerId, title: "P", fileKey: "books/p/p.pdf", fileType: "pdf", pageCount: 10 }).returning())[0].id;
+    await database.db.insert(sections).values({
+      bookId: pdf,
+      id: "p-page-4-1",
+      kind: "paragraph",
+      chapterIndex: 3,
+      position: 7,
+      href: "page-4",
+      cfi: "epubcfi(/6/8)",
+      label: "",
+      text: "A paragraph on page 4.",
+    });
+    expect(await savePositionAt(database.db, ownerId, pdf, "p-page-4-1")).toBe(true);
+    // Page 4 of 10 (index 3): the reader shows 40% there (foliate's fixed layout counts to the page's end).
+    expect((await getBook(database.db, ownerId, pdf))!.book).toMatchObject({ position: "epubcfi(/6/8)", progress: 0.4 });
   });
 });
