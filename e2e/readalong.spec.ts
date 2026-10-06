@@ -3,7 +3,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { unzipSync, zipSync } from "fflate";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { extractSections, type Section } from "@/lib/library/sections";
-import { buildPackage } from "@/lib/readalong/fixture";
+import { buildPackage, SECONDS_PER_CHAR } from "@/lib/readalong/fixture";
+import { SKIP_GAP_MS, WORD_TAIL_MS } from "@/lib/readalong/player";
 import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Spoken } from "./listen";
 import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
 
@@ -1685,8 +1686,13 @@ test("M14 (6b): 15 s skips go on into the next audio file, and back into the one
   await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
   // Moved, while paused, to paragraph 32's last word: a few seconds before the first file is left.
   const last32 = expected.filter((w) => w.cfi === PARAGRAPHS[32].cfi).at(-1)!;
-  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), (last32.startMs + 50) / 1000);
+  const t0 = last32.startMs + 50;
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), t0 / 1000);
   await expect(bar).toHaveAttribute("data-word", last32.word);
+  // Where that word ends (the fixture times every character), and where playing leaves the first file: 6 s later,
+  // or at its end.
+  const end32 = last32.startMs + last32.word.length * SECONDS_PER_CHAR * 1000;
+  const leave = Math.min(await page.evaluate(() => document.querySelector("audio")!.duration * 1000), end32 + SKIP_GAP_MS);
   await page.getByRole("link", { name: "Back to your library" }).click();
   const mini = page.getByRole("region", { name: "Now playing" });
   await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
@@ -1703,12 +1709,16 @@ test("M14 (6b): 15 s skips go on into the next audio file, and back into the one
   await expect.poll(async () => (await where()).t).toBeGreaterThan(0);
   const there = await where();
   expect(there.paused).toBe(true);
-  expect(there.t).toBeLessThan(15);
+  // What was left after the first file, from the second file's start (its first paragraph is within 6 s of it).
+  expect(there.t).toBeCloseTo((t0 + 15_000 - leave) / 1000, 1);
   await expect.poll(() => shows(33)).toBe(true);
 
-  // Back 15 s: back into the first file, at paragraph 32, still paused.
+  // Back 15 s from 13.5 s into the second file: 1.5 s back from the end of paragraph 32's last word, still paused.
+  await page.evaluate(() => (document.querySelector("audio")!.currentTime = 13.5));
+  await expect.poll(async () => (await where()).t).toBeCloseTo(13.5, 1);
   await mini.getByRole("button", { name: "Back 15 seconds" }).click();
   await expect.poll(async () => (await where()).file).toBe(0);
+  await expect.poll(async () => (await where()).t).toBeCloseTo((end32 + WORD_TAIL_MS - 1_500) / 1000, 1);
   await expect.poll(() => shows(32)).toBe(true);
   expect((await where()).paused).toBe(true);
 });

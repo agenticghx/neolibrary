@@ -83,24 +83,40 @@ export type SkipStep = { kind: "seek"; toMs: number } | { kind: "load"; index: n
  *   where playing would start it (fileStart);
  * - back past where this file began playing, into the file before, from its
  *   last paragraph's last word (WORD_TAIL_MS after it).
- * It goes only into files whose paragraphs are loaded: with no file after,
- * forward stops just before this file's end (which reads on); with none
- * before (the reading began in this file), back stops at its start.
+ * Another file is counted only up to its last word's end (its length is not
+ * known before it loads): forward carries on through a file too short to
+ * hold the rest. It goes only into files whose paragraphs are loaded: with no
+ * file after, forward stops just before this file's end (which reads on), or
+ * at the last word's end of the last file loaded; with none before (the
+ * reading began in this file), back stops at its start.
  * `index`: the paragraph the player is in; `endMs`: this file's length.
  */
 export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t: number, deltaMs: number, endMs: number): SkipStep {
   const mine = ps.map((p, i) => [p, i] as const).filter(([p]) => p.file === file);
   if (!mine.length) return { kind: "seek", toMs: skipInBook(ps, file, t, deltaMs, endMs) };
   if (deltaMs >= 0) {
-    const next = afterEnded(ps, index, file);
+    let next = afterEnded(ps, index, file);
     if (next === null) return { kind: "seek", toMs: skipInBook(ps, file, t, deltaMs, endMs) };
     const leave = Math.min(endMs, mine[mine.length - 1][0].endMs + SKIP_GAP_MS);
     const land = skipInBook(ps, file, t, deltaMs, Number.POSITIVE_INFINITY);
     if (land < leave) return { kind: "seek", toMs: land };
-    // On into the next file, with what is left over.
-    const f = ps[next].file;
-    const toMs = skipInBook(ps, f, fileStart(ps[next]), land - leave, Number.POSITIVE_INFINITY);
-    return { kind: "load", index: paragraphAt(ps, next, f, toMs), toMs };
+    // On into the next file with what is left over, and on through any file too short to hold it. A file's
+    // length is not known before it loads: it is counted up to its last word's end, where its audio surely is,
+    // so the landing never falls where playing would leave the file (or past its end).
+    let left = land - leave;
+    for (;;) {
+      const f = ps[next].file;
+      const start = fileStart(ps[next]);
+      let last = next;
+      while (last + 1 < ps.length && ps[last + 1].file === f) last++;
+      const cap = Math.max(start, ps[last].endMs + WORD_TAIL_MS);
+      const toMs = skipInBook(ps, f, start, left, Number.POSITIVE_INFINITY);
+      if (toMs < cap) return { kind: "load", index: paragraphAt(ps, next, f, toMs), toMs };
+      const after = afterEnded(ps, next, f);
+      if (after === null) return { kind: "load", index: last, toMs: cap };
+      left -= playedBetween(ps, f, start, cap);
+      next = after;
+    }
   }
   const [firstMine, first] = mine[0];
   const before = first > 0 ? ps[first - 1] : null;
@@ -109,11 +125,13 @@ export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t
   const back = -deltaMs;
   const here = playedBetween(ps, file, begin, Math.min(t, endMs));
   if (!before || back <= here) return { kind: "seek", toMs: Math.max(begin, skipInBook(ps, file, t, deltaMs, endMs)) };
-  // Back into the file before, with what is left over, from its last word's end.
+  // Back into the file before, with what is left over, from its last word's end; no further back than where that
+  // file began playing (as for this one), so it never lands in an opening stretch that playing skips.
   const f = before.file;
   const from = before.endMs + WORD_TAIL_MS;
-  const toMs = skipInBook(ps, f, from, -(back - here), from + 50);
   const firstThere = ps.findIndex((p) => p.file === f);
+  const beginThere = firstThere > 0 ? fileStart(ps[firstThere]) : 0;
+  const toMs = Math.max(beginThere, skipInBook(ps, f, from, -(back - here), from + 50));
   return { kind: "load", index: paragraphAt(ps, firstThere, f, toMs), toMs };
 }
 

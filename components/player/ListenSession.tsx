@@ -366,7 +366,8 @@ export function ListenSession({
     if (el.readyState < 1 || book.current.settling || el.seeking) return;
     const s = followAudiobook(ab.paragraphs, book.current.index, book.current.file, el.currentTime * 1000);
     if (s.kind === "load") {
-      playAudiobookFrom(s.index, true).catch(playFailed);
+      // On into the next file; paused (a seek moved it here), it stays paused.
+      playAudiobookFrom(s.index, true, undefined, !el.paused).catch(playFailed);
       return;
     }
     if (s.index !== book.current.index) {
@@ -582,8 +583,10 @@ export function ListenSession({
         el.currentTime = s.toMs / 1000;
         return;
       }
-      // Into the next file or the one before (M14 step 6b, part 2b): loaded there, playing on only if it was.
+      // Into the next file or the one before (M14 step 6b, part 2b): loaded there, playing on only if it was;
+      // away from the reader, the reading position follows.
       playAudiobookFrom(s.index, false, s.toMs, !el.paused).catch(playFailed);
+      savePlace(info.audiobook.paragraphs[s.index].sectionId);
       return;
     }
     const s = skipInClip(t, seconds * 1000, endMs, { prev: !!info.passage.prevId, next: !!info.passage.nextId });
