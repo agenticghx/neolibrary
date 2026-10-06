@@ -163,6 +163,13 @@
   width: auto;
 }
 
+/* The filters as chips: phone only (the sidebar has them on desktop). */
+.filters {
+  display: none;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -305,4 +312,10 @@
 
 .samplesButton:hover {
   background-color: var(--accent-strong);
+}
+
+@media (width <= 48rem) {
+  .filters {
+    display: flex;
+  }
 }

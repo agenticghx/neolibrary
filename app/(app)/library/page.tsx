@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { libraryItems, notYetAvailable } from "@/lib/library/home";
-import { listCollections, listShelf, parseSort } from "@/lib/library/shelf";
+import { listCollections, listShelf, parseShow, parseSort, SHOWS } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
 import { Dropzone } from "./Dropzone";
@@ -17,27 +17,29 @@ import styles from "./page.module.css";
 export const metadata: Metadata = { title: "Library" };
 export const dynamic = "force-dynamic";
 
-
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string; show?: string }>;
 }) {
   const user = await requireUser();
   const db = await getDb();
   const sp = await searchParams;
   const sort = parseSort(sp.sort);
+  const show = parseShow(sp.show);
   const collectionList = await listCollections(db, user.id);
   const active = collectionList.find((c) => c.id === sp.c) ?? null;
   const [shelf, everything] = await Promise.all([
-    listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id }),
+    listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show }),
     listShelf(db, user.id),
   ]);
   const items = await libraryItems(db, user.id, shelf, await coverSigner());
-  // The whole library (no search, no collection) ends with the titles not available yet (D3).
-  const waiting = !sp.q && !active ? await libraryItems(db, user.id, await notYetAvailable(db, user.id)) : [];
+  // All and Want to Read (no search, no collection) end with the titles not available yet (D3, D5).
+  const waiting = !sp.q && !active && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id)) : [];
+  const shown = items.length + waiting.length;
   const chipHref = (c?: string) => {
     const p = new URLSearchParams();
+    if (show !== "all") p.set("show", show);
     if (c) p.set("c", c);
     if (sp.sort) p.set("sort", sp.sort);
     if (sp.q) p.set("q", sp.q);
@@ -49,13 +51,28 @@ export default async function LibraryPage({
     <main className={styles.main}>
       <header className={styles.head}>
         <p className={styles.eyebrow}>Library</p>
-        <h1 className={styles.title}>Your library</h1>
+        <h1 className={styles.title}>{show === "all" ? "Your library" : SHOWS[show]}</h1>
         <p className={styles.lede}>
-          {everything.length === 0
-            ? "Nothing here yet. Add your own DRM-free books."
-            : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
+          {show !== "all"
+            ? `${shown} ${shown === 1 ? "title" : "titles"}.`
+            : everything.length === 0
+              ? "Nothing here yet. Add your own DRM-free books."
+              : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
         </p>
       </header>
+      {/* On a phone the Library tab shows the filters as chips (on desktop they are in the sidebar). */}
+      <nav className={styles.filters} aria-label="Filters">
+        {Object.entries(SHOWS).map(([key, label]) => (
+          <Link
+            key={key}
+            href={key === "all" ? "/library" : `/library?show=${key}`}
+            className={styles.chip}
+            aria-current={show === key ? "page" : undefined}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
       <Dropzone />
       {everything.length === 0 ? (
         <form action={addSampleBooksAction} className={styles.samples}>
@@ -112,7 +129,13 @@ export default async function LibraryPage({
               spines={<LibrarySpines items={items} />}
             />
           ) : (
-            <p className={styles.empty}>{sp.q ? `Nothing matches “${sp.q}”.` : "No books in this collection yet."}</p>
+            <p className={styles.empty}>
+              {sp.q
+                ? `Nothing matches “${sp.q}”.`
+                : active
+                  ? "No books in this collection yet."
+                  : `No books here yet${waiting.length ? "; the titles not available yet are below" : ""}.`}
+            </p>
           )}
         </section>
       ) : null}

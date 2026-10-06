@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { books, collectionBooks, collections } from "@/lib/db/schema";
+import { books, collectionBooks, collections, readalongImports } from "@/lib/db/schema";
 
-/** The shelf: books the user owns, sorted, searched and filtered by collection. */
+/** The library's books with a file: sorted, searched, filtered (M14 D5) and by collection. */
 export const SORTS = {
   recent: { label: "Recently added", order: [desc(books.updatedAt)] },
   title: { label: "Title", order: [asc(sql`lower(${books.title})`)] },
@@ -15,10 +15,30 @@ export function parseSort(value: unknown): Sort {
   return typeof value === "string" && value in SORTS ? (value as Sort) : "recent";
 }
 
+/**
+ * The library's filters (M14 D5, Samuel 2026-10-05), as the sidebar names them.
+ * Want to Read is automatic: everything not started (never opened, no
+ * progress); its titles not available yet are listed beside it by the page.
+ * Audiobooks counts an uploaded audiobook only, never narration (D1).
+ */
+export const SHOWS = {
+  all: "All",
+  want: "Want to Read",
+  finished: "Finished",
+  books: "Books",
+  audiobooks: "Audiobooks",
+  pdfs: "PDFs",
+} as const;
+export type Show = keyof typeof SHOWS;
+
+export function parseShow(value: unknown): Show {
+  return typeof value === "string" && value in SHOWS ? (value as Show) : "all";
+}
+
 export async function listShelf(
   db: Db,
   ownerId: string,
-  opts: { sort?: Sort; q?: string; collectionId?: string | null } = {},
+  opts: { sort?: Sort; q?: string; collectionId?: string | null; show?: Show } = {},
 ) {
   const q = opts.q?.trim().slice(0, 100);
   const filters = [eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey)];
@@ -33,6 +53,28 @@ export async function listShelf(
       .innerJoin(collections, eq(collections.id, collectionBooks.collectionId))
       .where(and(eq(collections.id, opts.collectionId), eq(collections.ownerId, ownerId)));
     filters.push(inArray(books.id, ids));
+  }
+  switch (opts.show ?? "all") {
+    case "want":
+      filters.push(eq(books.progress, 0), isNull(books.lastOpenedAt));
+      break;
+    case "finished":
+      filters.push(gte(books.progress, 1));
+      break;
+    case "books":
+      filters.push(eq(books.fileType, "epub"));
+      break;
+    case "pdfs":
+      filters.push(eq(books.fileType, "pdf"));
+      break;
+    case "audiobooks": {
+      const ready = db
+        .select({ id: readalongImports.bookId })
+        .from(readalongImports)
+        .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.status, "ready")));
+      filters.push(inArray(books.id, ready));
+      break;
+    }
   }
   return db
     .select()

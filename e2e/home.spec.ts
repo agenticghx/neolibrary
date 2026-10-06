@@ -189,6 +189,43 @@ test("/library has the same View switch", async ({ page }) => {
   await expect(page.getByText(/^Not available yet \(\d+\)$/)).toBeVisible();
 });
 
+// M14 step 4 "Done when": every filter shows exactly its titles (D5), worked out here from the
+// library's own export, so the test holds whatever the earlier projects added.
+test("each library filter shows exactly its titles, with the right count", async ({ page }) => {
+  type B = { id: string; title: string; file: { type: "epub" | "pdf" | null } | null; progress: number; lastOpenedAt: string | null };
+  type Imp = { bookId: string; status: string };
+  const data = (await (await page.request.get("/api/export")).json()) as { books: B[]; readalongImports?: Imp[] };
+  const withFile = data.books.filter((b) => b.file);
+  const titleOnly = data.books.filter((b) => !b.file);
+  const audio = new Set((data.readalongImports ?? []).filter((i) => i.status === "ready").map((i) => i.bookId));
+  const expected: Record<string, { grid: B[]; waiting: number; heading: string }> = {
+    want: { grid: withFile.filter((b) => b.progress === 0 && !b.lastOpenedAt), waiting: titleOnly.length, heading: "Want to Read" },
+    finished: { grid: withFile.filter((b) => b.progress >= 1), waiting: 0, heading: "Finished" },
+    books: { grid: withFile.filter((b) => b.file!.type === "epub"), waiting: 0, heading: "Books" },
+    pdfs: { grid: withFile.filter((b) => b.file!.type === "pdf"), waiting: 0, heading: "PDFs" },
+    audiobooks: { grid: withFile.filter((b) => audio.has(b.id)), waiting: 0, heading: "Audiobooks" },
+  };
+  expect(expected.finished.grid.length, "a finished book exists by now (Trap Book)").toBeGreaterThan(0);
+  expect(expected.pdfs.grid.length, "a PDF exists by now (Discourse on the Method)").toBeGreaterThan(0);
+  for (const [show, want] of Object.entries(expected)) {
+    await page.goto(`/library?show=${show}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(want.heading);
+    const titles = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();
+    expect(titles.sort(), show).toEqual(want.grid.map((b) => b.title).sort());
+    const total = want.grid.length + want.waiting;
+    await expect(page.getByText(`${total} ${total === 1 ? "title" : "titles"}.`, { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Not available yet \(\d+\)$/)).toHaveCount(want.waiting ? 1 : 0);
+  }
+  // On a phone, the Library tab offers the same filters as chips.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/library");
+  const chips = page.getByRole("navigation", { name: "Filters" });
+  await expect(chips.getByRole("link")).toHaveText(["All", "Want to Read", "Finished", "Books", "Audiobooks", "PDFs"]);
+  await chips.getByRole("link", { name: "PDFs" }).click();
+  await expect(page).toHaveURL(/\/library\?show=pdfs$/);
+  await expect(chips.getByRole("link", { name: "PDFs" })).toHaveAttribute("aria-current", "page");
+});
+
 test("Home is accessible, fits a phone, and looks right in light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [
