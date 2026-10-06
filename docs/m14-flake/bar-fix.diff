@@ -1,0 +1,165 @@
+--- a/app/(reader)/books/[id]/read/Reader.tsx
++++ b/app/(reader)/books/[id]/read/Reader.tsx
+@@ -147,6 +147,18 @@
+   const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
+   win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
+   return range.toString();
++}
++
++/**
++ * Records the word read aloud on the Listen bar (its data-word: read by the
++ * tests, shown and announced nowhere) in the same step as the word is lit,
++ * wherever it is lit. Written later, as React state was, the record trailed
++ * the highlight by two frames at a PDF page break on CI (LEARNING_LOG,
++ * Iteration 25). A word already recorded is not written again.
++ */
++function recordLit(bar: HTMLElement | null, text: string | null) {
++  if (bar && text !== null && bar.getAttribute("data-word") !== text) bar.setAttribute("data-word", text);
++  return text;
+ }
+ 
+ /** The PDF page foliate shows, or is opening once a turn has begun (-1 before the first: foliate's getter throws then). */
+@@ -211,6 +223,8 @@
+   const litCfi = useRef<string | null>(null);
+   /** The word lit in a PDF page (M13 (e)), lit again when the page's text layer is complete or laid out for a new size. */
+   const spokenPdf = useRef<{ page: number; at: [number, number] } | null>(null);
++  /** The Read aloud bar's element, on which each lit word is recorded (recordLit). */
++  const listenBar = useRef<HTMLDivElement>(null);
+   const linkedText = useRef("");
+   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
+   const [notes, setNotes] = useState<Annotation[]>([]);
+@@ -364,7 +378,7 @@
+           // was laid out for a new size: light the spoken word on it again.
+           doc.addEventListener(TEXT_LAYER_EVENT, () => {
+             const w = spokenPdf.current;
+-            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at);
++            if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(doc, w.at));
+           });
+           doc.addEventListener("keydown", onKey);
+           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
+@@ -695,7 +709,7 @@
+       // Going on after a pause returns to this page.
+       litCfi.current = passageCfi;
+       const doc = v.renderer.getContents().find((c) => c.doc?.documentElement?.dataset.page === String(page))?.doc;
+-      if (doc) return lightPdfWord(doc, inPage);
++      if (doc) return recordLit(listenBar.current, lightPdfWord(doc, inPage));
+       // Not shown: the reader turned back from it while it is read. Turn to it
+       // again, as an EPUB's pages follow the voice (a page turned to ahead is
+       // left alone). Not while a turn is on its way: foliate shows one page at
+@@ -740,7 +754,7 @@
+         turning.current = false;
+       });
+     }
+-    return range.toString();
++    return recordLit(listenBar.current, range.toString());
+   };
+ 
+   /**
+@@ -889,7 +903,7 @@
+ 
+       {/* Between the book and the foot, so it never covers the page's last lines. */}
+       {listening && where.cfi ? (
+-        <ListenBar bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
++        <ListenBar ref={listenBar} bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
+       ) : null}
+ 
+       <footer className={styles.foot}>
+--- a/app/(reader)/books/[id]/read/ListenBar.tsx
++++ b/app/(reader)/books/[id]/read/ListenBar.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { useEffect, useRef, useState } from "react";
++import { useEffect, useRef, useState, type Ref } from "react";
+ import type { ReadingPart, Track } from "@/lib/library/audio";
+ import type { ListenInfo } from "@/lib/library/listen";
+ import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
+@@ -39,6 +39,7 @@
+   onWord,
+   onPassage,
+   onClose,
++  ref,
+ }: {
+   bookId: string;
+   startCfi: string;
+@@ -51,6 +52,8 @@
+   /** Show a paragraph (turning the page if needed); `resume`: going on after a pause, show the word being read. */
+   onPassage: (passageCfi: string, opts?: { resume?: boolean }) => void;
+   onClose: () => void;
++  /** The bar's element: the reader records on it each word it lights (data-word; Reader.tsx, recordLit). */
++  ref?: Ref<HTMLDivElement>;
+ }) {
+   const audio = useRef<HTMLAudioElement>(null);
+   const [info, setInfo] = useState<Info | null>(null);
+@@ -59,7 +62,6 @@
+   const [playing, setPlaying] = useState(false);
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+-  const [word, setWord] = useState("");
+   const [passageCfi, setPassageCfi] = useState("");
+   const [loading, setLoading] = useState(false);
+   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+@@ -301,11 +303,9 @@
+     if (s.word < 0 || s.word === lastWord.current) return;
+     const p = ab.paragraphs[s.index];
+     const [, , from, to] = p.words[s.word];
+-    const text = onWord(p.cfi, from, to, p.inPage?.[s.word]);
+     // Not on the page yet (a chapter or PDF page still opening): try again on the next frame.
+-    if (text === null) return;
++    if (onWord(p.cfi, from, to, p.inPage?.[s.word]) === null) return;
+     lastWord.current = s.word;
+-    setWord(text);
+   };
+ 
+   const followTrack = () => {
+@@ -315,10 +315,8 @@
+     const i = wordAt(t.words, el.currentTime * 1000);
+     if (i < 0 || i === lastWord.current) return;
+     const [, , from, to] = t.words[i];
+-    const text = onWord(info.passage.cfi, from, to);
+-    if (text === null) return;
++    if (onWord(info.passage.cfi, from, to) === null) return;
+     lastWord.current = i;
+-    setWord(text);
+   };
+ 
+   const follow = () => (isBook ? followBook() : followTrack());
+@@ -455,8 +453,9 @@
+               ? "Saved audio: free to play."
+               : `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;
+ 
++  // data-word is written by the reader as it lights each word (Reader.tsx, recordLit), not by React: keep it out of this JSX.
+   return (
+-    <div className={styles.listenBar} role="region" aria-label="Read aloud" data-word={word} data-passage={passageCfi}>
++    <div ref={ref} className={styles.listenBar} role="region" aria-label="Read aloud" data-passage={passageCfi}>
+       <audio
+         ref={audio}
+         onPlay={() => setPlaying(true)}
+--- a/e2e/listen.ts
++++ b/e2e/listen.ts
+@@ -122,7 +122,8 @@
+  * The highlight landed on every word in order, none skipped and none extra,
+  * each within a tenth of a second of when the audio starts it, both in the
+  * bar's record and in the book's own highlight, up to where the audio got
+- * to; with `onScreen`, each lit word was also inside the page on screen
++ * to, the bar recording each word on the same frame the book lit it; with
++ * `onScreen`, each lit word was also inside the page on screen
+  * within that tenth of a second (the page turned in time); and the
+  * paragraphs followed one another. `expected` is in reading order; a word may
+  * not repeat the one before it (a repeat would not show as a change, so the
+@@ -135,6 +136,15 @@
+   for (const f of frames) if (f[5] >= 0) reached.set(f[5], Math.max(reached.get(f[5]) ?? 0, f[0] * 1000));
+   // Every word that started at least 120 ms before the audio got there must have been shown.
+   const due = expected.filter((w) => w.startMs <= (reached.get(w.file) ?? -Infinity) - 120).length;
++  // The bar records each word in the same step as the book lights it (Reader.tsx, recordLit), so the two
++  // change on the same frame. Recorded later (React state), it trailed the highlight by up to two frames.
++  const lit = changes(frames, 3);
++  changes(frames, 1).forEach((s, i) =>
++    expect({ word: s.value, frame: s.at }, `bar: "${s.value}" (word ${i}) recorded on another frame than the book lit it`).toEqual({
++      word: lit[i]?.value,
++      frame: lit[i]?.at,
++    }),
++  );
+   for (const col of [1, 3] as const) {
+     const seen = changes(frames, col);
+     const name = col === 1 ? "bar" : "book highlight";

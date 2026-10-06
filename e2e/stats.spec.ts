@@ -73,11 +73,28 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   type Row = { id: string; title: string };
   const exported = async () => (await page.request.get("/api/export")).json();
   const grid = ((await exported()).books as Row[]).find((b) => b.title.startsWith("The Grid"))!;
+  // The timed save at 90 s is still on its way when the reader is left (held here, as a slow network
+  // would hold it, then cut off by the leaving): the save on leaving must send the totals again, or
+  // the sitting's last 30 s are lost (CI run 37437423658 recorded 60 of 90).
+  let release = () => {};
+  const left = new Promise<void>((resolve) => (release = resolve));
+  let held = false;
+  await page.route("**/api/books/*/reading", async (route) => {
+    if (!held && (route.request().postDataJSON() as { activeSeconds: number }).activeSeconds >= 90) {
+      held = true;
+      await left;
+      return route.abort().catch(() => undefined);
+    }
+    return route.continue().catch(() => undefined);
+  });
   await page.clock.install({ time: new Date("2026-10-05T10:00:00Z") });
   await page.goto(`/books/${grid.id}/read`);
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await page.clock.runFor(90_000);
+  await expect.poll(() => held, { message: "the timed save at 90 s was sent (and held)" }).toBe(true);
   await page.goto("/stats"); // leaving the reader sends the sitting's totals
+  release();
+  await page.unroute("**/api/books/*/reading");
 
   type Session = { bookId: string; activeSeconds: number; words: number };
   const session = async () => ((await exported()).readingSessions as Session[]).find((s) => s.bookId === grid.id);

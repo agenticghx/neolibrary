@@ -58,7 +58,9 @@ export function useReadingTracker(bookId: string, listening: boolean) {
         words: sum(c.pages),
       }));
       const body = JSON.stringify({ sessionId: s.id, startedAt: s.startedAt, activeSeconds: Math.floor(s.activeMs / 1000), words, pages: s.pages.size, chapters });
-      if (body === s.sent) return;
+      // A save on leaving (keepalive) always goes: the timed save of these same totals may be the
+      // request the leaving itself cut off, and the server keeps one row per sitting.
+      if (body === s.sent && !keepalive) return;
       s.sent = body;
       void fetch(`/api/books/${bookId}/reading`, { method: "POST", headers: { "content-type": "application/json" }, body, keepalive }).catch(() => {
         s.sent = "";

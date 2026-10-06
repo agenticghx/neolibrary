@@ -1,0 +1,966 @@
+--- a/lib/perf-marks.ts
++++ b/lib/perf-marks.ts
+@@ -0,0 +1,40 @@
++/**
++ * Timing marks for the browser tests (the WebKit read-along timing
++ * investigation: LEARNING_LOG Iterations 22 and 25).
++ *
++ * Off for readers: every function returns at its first line unless a test set
++ * window.__nlMarks before the page loaded (e2e/listen.ts, instrument()), so a
++ * reader's browser does no extra work and keeps no entries. On, each call adds
++ * a standard User Timing mark (performance.mark), which the test reads back
++ * and which Safari's and Chrome's own profilers show. Every mark is on the top
++ * page's clock (performance.now()); the test converts it to the audio's time.
++ */
++export type MarkName =
++  | "nl:turn-request" // the reader asked foliate for another PDF page (Reader.tsx)
++  | "nl:frame-load" // foliate's frame for a page or chapter finished loading
++  | "nl:relocate" // foliate reported the new place (data-cfi follows through React)
++  | "nl:textlayer-start" // pdf-book.ts: a page's text layer is being built
++  | "nl:textlayer-ready" // ... and is complete (the text-layer event fires next)
++  | "nl:draw-start" // pdf-book.ts: a page's picture (canvas) is being drawn
++  | "nl:draw-done" // ... and is now in the page
++  | "nl:lit" // a word was highlighted, by the player's frame ("word") or by its page's text arriving ("text-layer")
++  | "nl:word-wait" // the player's word is not on the page yet; it tries again on the next frame
++  | "nl:bar-set"; // the Listen bar asked React to show a word (data-word follows when React commits)
++
++type Detail = Record<string, string | number | boolean | null>;
++
++const on = () => typeof window !== "undefined" && (window as { __nlMarks?: boolean }).__nlMarks === true;
++
++export function mark(name: MarkName, detail: Detail = {}) {
++  if (!on()) return;
++  performance.mark(name, { detail });
++}
++
++/** The page's clock now when marks are on (0 when off): the start of a measure(). */
++export const markTime = () => (on() ? performance.now() : 0);
++
++/** A span from `start` (from markTime()) to now, shown as a bar in the browser's profiler. */
++export function measure(name: `nl:${string}`, start: number, detail: Detail = {}) {
++  if (!on()) return;
++  performance.measure(name, { start, end: performance.now(), detail });
++}
+--- a/lib/reader/pdf-book.ts
++++ b/lib/reader/pdf-book.ts
+@@ -5,6 +5,8 @@
+  * Adapted from foliate-js's pdf.js adapter (MIT, John Factotum), which is not
+  * in its npm release; uses pdfjs-dist (Apache-2.0).
+  */
++import { mark, markTime, measure } from "@/lib/perf-marks";
++
+ type Pdfjs = typeof import("pdfjs-dist");
+ type TextContent = Awaited<ReturnType<import("pdfjs-dist").PDFPageProxy["getTextContent"]>>;
+ 
+@@ -125,7 +127,10 @@
+       // Built at once (a newer drawing must find it there): from the text fetched ahead if it has
+       // arrived, or else as pdf.js reads it. (A stream made here to wait for the text broke the
+       // page's text layer in WebKit: pdf.js found no text in it.)
+-      const textContentSource = textAhead.get(pageNumber) ?? page.streamTextContent();
++      const fetchedAhead = textAhead.get(pageNumber);
++      const textContentSource = fetchedAhead ?? page.streamTextContent();
++      mark("nl:textlayer-start", { page: pageNumber - 1, ahead: fetchedAhead != null });
++      const textStart = markTime();
+       state.text = new pdfjsLib.TextLayer({ textContentSource, container, viewport });
+       state.laidOut = scale;
+       fetchTextOf(pageNumber + 1);
+@@ -133,6 +138,8 @@
+         const end = doc.createElement("div");
+         end.className = "endOfContent";
+         container.append(end);
++        mark("nl:textlayer-ready", { page: pageNumber - 1 });
++        measure("nl:textlayer", textStart, { page: pageNumber - 1 });
+         // The page's text is all there now: a word waiting to be lit can be.
+         doc.dispatchEvent(new Event(TEXT_LAYER_EVENT));
+       }, unexpected);
+@@ -148,6 +155,8 @@
+       state.scale = NaN;
+       return console.warn(`Page ${pageNumber}: no canvas to draw on`);
+     }
++    mark("nl:draw-start", { page: pageNumber - 1, scale });
++    const drawStart = markTime();
+     const drawing = page.render({ canvas, canvasContext: context, viewport });
+     state.drawing = drawing;
+     try {
+@@ -165,6 +174,8 @@
+     state.drawing = null;
+     sizeTo();
+     doc.querySelector("#canvas")!.replaceChildren(doc.adoptNode(canvas));
++    mark("nl:draw-done", { page: pageNumber - 1, scale });
++    measure("nl:draw", drawStart, { page: pageNumber - 1, scale });
+     if (state.laidOut !== scale) {
+       // The same text, laid out again for the new size: a word lit on it stays lit.
+       state.text.update({ viewport });
+--- a/app/(reader)/books/[id]/read/Reader.tsx
++++ b/app/(reader)/books/[id]/read/Reader.tsx
+@@ -16,6 +16,7 @@
+ import { ImagesPanel } from "./ImagesPanel";
+ import { PictureCard } from "./PictureCard";
+ import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
++import { mark } from "@/lib/perf-marks";
+ import { TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
+ import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
+ import { NeedToKnowPanel } from "./NeedToKnowPanel";
+@@ -138,15 +139,18 @@
+ /**
+  * Read along in a PDF (M13 (e)): lights non-space characters [a, b) of a
+  * page's text layer, in that page's own frame; returns their text, or null
+- * if the text layer is not drawn yet.
++ * if the text layer is not drawn yet. `via`: who asked (the player's frame,
++ * or the page's text arriving), for the tests' timing marks.
+  */
+-function lightPdfWord(doc: Document, [a, b]: [number, number]): string | null {
++function lightPdfWord(doc: Document, [a, b]: [number, number], via: "word" | "text-layer"): string | null {
+   const layer = doc.querySelector(".textLayer");
+   const range = layer ? rangeForNonSpace(layer, a, b) : null;
+   if (!range) return null;
+   const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
+   win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
+-  return range.toString();
++  const text = range.toString();
++  mark("nl:lit", { page: Number(doc.documentElement.dataset.page), at: a, text, via });
++  return text;
+ }
+ 
+ /** The PDF page foliate shows, or is opening once a turn has begun (-1 before the first: foliate's getter throws then). */
+@@ -340,6 +344,7 @@
+         setSettings(initial);
+         v.addEventListener("relocate", (e: Event) => {
+           const d = (e as CustomEvent<Relocate>).detail;
++          mark("nl:relocate", { cfi: d.cfi });
+           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+           whereCfi.current = d.cfi;
+           turning.current = false;
+@@ -360,11 +365,12 @@
+         });
+         v.addEventListener("load", (e: Event) => {
+           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
++          mark("nl:frame-load", { index, page: doc.documentElement.dataset.page ?? null });
+           // A PDF page's text layer is complete (the page was just shown) or
+           // was laid out for a new size: light the spoken word on it again.
+           doc.addEventListener(TEXT_LAYER_EVENT, () => {
+             const w = spokenPdf.current;
+-            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at);
++            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at, "text-layer");
+           });
+           doc.addEventListener("keydown", onKey);
+           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
+@@ -695,13 +701,14 @@
+       // Going on after a pause returns to this page.
+       litCfi.current = passageCfi;
+       const doc = v.renderer.getContents().find((c) => c.doc?.documentElement?.dataset.page === String(page))?.doc;
+-      if (doc) return lightPdfWord(doc, inPage);
++      if (doc) return lightPdfWord(doc, inPage, "word");
+       // Not shown: the reader turned back from it while it is read. Turn to it
+       // again, as an EPUB's pages follow the voice (a page turned to ahead is
+       // left alone). Not while a turn is on its way: foliate shows one page at
+       // a time, and asking again for a page still opening fails.
+       if (!turning.current && pageOpening(v) !== page && page > pdfPage(whereCfi.current ?? "")) {
+         turning.current = true;
++        mark("nl:turn-request", { page, by: "word" });
+         void v
+           .goTo(passageCfi)
+           .catch(() => undefined)
+@@ -726,6 +733,8 @@
+     if (!range) return null;
+     const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
+     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
++    const text = range.toString();
++    mark("nl:lit", { index, at: from, text, via: "word" });
+     const wordCfi = v.getCFI(index, range);
+     litCfi.current = wordCfi;
+     const visible = whereCfi.current;
+@@ -740,7 +749,7 @@
+         turning.current = false;
+       });
+     }
+-    return range.toString();
++    return text;
+   };
+ 
+   /**
+@@ -765,6 +774,7 @@
+     // not ask for it either (see highlightWord).
+     if (pageOpening(v) === pdfPage(target)) return;
+     turning.current = true;
++    mark("nl:turn-request", { page: pdfPage(target), by: "passage" });
+     void v
+       .goTo(target)
+       .catch(() => undefined)
+--- a/app/(reader)/books/[id]/read/ListenBar.tsx
++++ b/app/(reader)/books/[id]/read/ListenBar.tsx
+@@ -3,6 +3,7 @@
+ import { useEffect, useRef, useState } from "react";
+ import type { ReadingPart, Track } from "@/lib/library/audio";
+ import type { ListenInfo } from "@/lib/library/listen";
++import { mark } from "@/lib/perf-marks";
+ import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
+ import { wordAt } from "@/lib/speech/timings";
+ import styles from "./reader.module.css";
+@@ -303,9 +304,13 @@
+     const [, , from, to] = p.words[s.word];
+     const text = onWord(p.cfi, from, to, p.inPage?.[s.word]);
+     // Not on the page yet (a chapter or PDF page still opening): try again on the next frame.
+-    if (text === null) return;
++    if (text === null) {
++      mark("nl:word-wait", { i: s.word });
++      return;
++    }
+     lastWord.current = s.word;
+     setWord(text);
++    mark("nl:bar-set", { i: s.word, text });
+   };
+ 
+   const followTrack = () => {
+@@ -319,6 +324,7 @@
+     if (text === null) return;
+     lastWord.current = i;
+     setWord(text);
++    mark("nl:bar-set", { i, text });
+   };
+ 
+   const follow = () => (isBook ? followBook() : followTrack());
+--- a/e2e/listen.ts
++++ b/e2e/listen.ts
+@@ -1,4 +1,6 @@
+-import { expect, type Page } from "@playwright/test";
++import { appendFileSync, writeFileSync } from "node:fs";
++import { cpus } from "node:os";
++import { expect, test, type Page } from "@playwright/test";
+ 
+ /**
+  * Plays the open "Read aloud" bar for 3 seconds of audio and checks that the
+@@ -50,21 +52,85 @@
+  * One frame of an audiobook playing: the audio's time (s), the bar's word and
+  * paragraph, the text lit in the book, whether paused, which audio file (the
+  * number at the end of its address), where the reader is (its CFI), the
+- * clock (ms, performance.now()), and whether the lit word is inside the
+- * page on screen (null when nothing is lit).
++ * clock (ms, performance.now()), whether the lit word is inside the page on
++ * screen (null when nothing is lit), and how long the recorder itself took
++ * to read it (ms; WebKit's clock counts whole milliseconds).
+  */
+-export type Frame = [time: number, word: string, passage: string, lit: string | null, paused: boolean, file: number, where: string, clock: number, onScreen: boolean | null];
++export type Frame = [time: number, word: string, passage: string, lit: string | null, paused: boolean, file: number, where: string, clock: number, onScreen: boolean | null, cost: number];
+ 
++/** A value the page wrote to the bar ("data-word", "data-passage") or the reader ("data-cfi"), at the moment it wrote it: the clock (ms), the audio's time (s) and file then. */
++export type Change = [attr: string, value: string, clock: number, time: number, file: number];
++
++/** A timing mark the app made (lib/perf-marks.ts): its name, its time on the page's clock (ms), and its detail. */
++export type Mark = { name: string; t: number; detail: Record<string, unknown> | null };
++
++/** A font pdf.js asked the page to load (FontFace.load): when, how long the call itself held the page's thread, when it settled (-1: never), and whether it loaded. */
++export type FontLoad = { family: string; style: string; t0: number; sync: number; settled: number; ok: boolean };
++
+ /**
++ * What recordPlayer() saw. `frames`: at the start of each frame, before the
++ * app's own frame callback runs (what every check used until now). `after`:
++ * once each frame's rendering is done, so it shows what that frame painted.
++ * `changes`: each attribute at the moment it was written. Then the audio's
++ * events, the app's timing marks and the fonts (instrument()).
++ */
++export type Recording = {
++  frames: Frame[];
++  after: Frame[];
++  changes: Change[];
++  events: [string, number][];
++  marks: Mark[];
++  fonts: FontLoad[];
++  fontEvents: [type: string, clock: number, faces: string[]][];
++};
++
++/**
++ * Before the page loads (call it before page.goto): turns on the app's timing
++ * marks (lib/perf-marks.ts), and records each font pdf.js asks the page to
++ * load and the page's font events, for reportTiming(). Readers never run this.
++ */
++export async function instrument(page: Page) {
++  await page.addInitScript(() => {
++    if (window !== window.top) return;
++    const w = window as unknown as { __nlMarks: boolean; fonts_: FontLoad[]; fontEvents_: [string, number, string[]][] };
++    w.__nlMarks = true;
++    w.fonts_ = [];
++    w.fontEvents_ = [];
++    // pdf.js asks for a font the PDF does not carry by its local names (useSystemFonts):
++    // how long the call itself holds the page's thread, and whether any name was found.
++    const load = FontFace.prototype.load;
++    FontFace.prototype.load = function (this: FontFace) {
++      const t0 = performance.now();
++      const loading = load.call(this);
++      const entry: FontLoad = { family: this.family, style: this.style, t0, sync: performance.now() - t0, settled: -1, ok: false };
++      w.fonts_.push(entry);
++      loading.then(
++        () => Object.assign(entry, { settled: performance.now(), ok: true }),
++        () => Object.assign(entry, { settled: performance.now() }),
++      );
++      return loading;
++    };
++    for (const type of ["loading", "loadingdone", "loadingerror"] as const) {
++      document.fonts.addEventListener(type, (e) => w.fontEvents_.push([type, performance.now(), e.fontfaces.map((f) => `${f.family} ${f.style} ${f.status}`)]));
++    }
++  });
++}
++
++/**
+  * Records, on every frame from now on, where the open "Read aloud" bar's
+  * audio is and what is lit up, reading the CSS Custom Highlight in the
+  * book's own frame (so a browser without that API cannot pass), and every
+- * event of the audio element (M13 (d)).
++ * event of the audio element (M13 (d)). Each frame is read twice: at its
++ * start (`frames`) and once its rendering is done (`after`); and each change
++ * of the bar's word or paragraph or the reader's place is noted when it is
++ * written (`changes`).
+  */
+ export async function recordPlayer(page: Page) {
+   await page.evaluate(() => {
+-    const w = window as unknown as { frames_: unknown[]; events_: [string, number][] };
++    const w = window as unknown as { frames_: unknown[]; after_: unknown[]; changes_: unknown[]; events_: [string, number][] };
+     w.frames_ = [];
++    w.after_ = [];
++    w.changes_ = [];
+     w.events_ = [];
+     const a = document.querySelector("audio")!;
+     for (const e of ["loadstart", "emptied", "abort", "seeking", "seeked", "waiting", "playing", "play", "pause", "ended", "error", "stalled"]) {
+@@ -89,19 +155,55 @@
+       }
+       return [null, null];
+     };
+-    requestAnimationFrame(function tick() {
+-      const file = Number(/\/audio\/(\d+)$/.exec(a.getAttribute("src") ?? "")?.[1] ?? -1);
++    const fileNow = () => Number(/\/audio\/(\d+)$/.exec(a.getAttribute("src") ?? "")?.[1] ?? -1);
++    const sample = () => {
+       const [text, onScreen] = lit();
+-      w.frames_.push([a.currentTime, bar.getAttribute("data-word") ?? "", bar.getAttribute("data-passage") ?? "", text, a.paused, file, reader.getAttribute("data-cfi") ?? "", performance.now(), onScreen]);
++      return [a.currentTime, bar.getAttribute("data-word") ?? "", bar.getAttribute("data-passage") ?? "", text, a.paused, fileNow(), reader.getAttribute("data-cfi") ?? "", performance.now(), onScreen, 0];
++    };
++    // The moment React writes the bar's word or paragraph, or the reader's place:
++    // the frames below see a change only at the start of the next frame.
++    const written = new MutationObserver((records) => {
++      const clock = performance.now();
++      for (const r of records) {
++        const attr = r.attributeName!;
++        w.changes_.push([attr, (r.target as Element).getAttribute(attr) ?? "", clock, a.currentTime, fileNow()]);
++      }
++    });
++    written.observe(bar, { attributes: true, attributeFilter: ["data-word", "data-passage"] });
++    written.observe(reader, { attributes: true, attributeFilter: ["data-cfi"] });
++    // A message posted during a frame is handled only once that frame's rendering is
++    // done: the "after" sample shows what the frame painted.
++    const timed = (into: unknown[]) => {
++      const start = performance.now();
++      const frame = sample();
++      frame[9] = performance.now() - start;
++      into.push(frame);
++    };
++    const painted = new MessageChannel();
++    painted.port1.onmessage = () => timed(w.after_);
++    requestAnimationFrame(function tick() {
++      timed(w.frames_);
++      painted.port2.postMessage(null);
+       requestAnimationFrame(tick);
+     });
+   });
+ }
+ 
+-export async function recording(page: Page) {
++export async function recording(page: Page): Promise<Recording> {
+   return page.evaluate(() => {
+-    const w = window as unknown as { frames_: Frame[]; events_: [string, number][] };
+-    return { frames: w.frames_, events: w.events_ };
++    const w = window as unknown as {
++      frames_: Frame[];
++      after_?: Frame[];
++      changes_?: Change[];
++      events_: [string, number][];
++      fonts_?: FontLoad[];
++      fontEvents_?: [string, number, string[]][];
++    };
++    const marks = performance
++      .getEntriesByType("mark")
++      .filter((m) => m.name.startsWith("nl:"))
++      .map((m) => ({ name: m.name, t: m.startTime, detail: ((m as PerformanceMark).detail ?? null) as Record<string, unknown> | null }));
++    return { frames: w.frames_, after: w.after_ ?? [], changes: w.changes_ ?? [], events: w.events_, marks, fonts: w.fonts_ ?? [], fontEvents: w.fontEvents_ ?? [] };
+   });
+ }
+ 
+@@ -118,7 +220,28 @@
+   return out;
+ }
+ 
++const median = (xs: number[]) => {
++  const s = [...xs].sort((a, b) => a - b);
++  return s.length ? s[s.length >> 1] : NaN;
++};
++
+ /**
++ * When a word starts on the page's clock (ms): its time in its audio file
++ * minus the audio's lead over the clock, the median over the frames that
++ * played that file within 1.5 s of it. One stale read of the audio's time
++ * (CI run 37392862541: the audio's time moved 5 ms while the clock moved 48)
++ * cannot move a median. NaN without five such frames.
++ */
++export function clockAt(frames: Frame[], w: Spoken) {
++  const near = frames.filter((f) => !f[4] && f[5] === w.file && f[0] > 0.2 && Math.abs(f[0] * 1000 - w.startMs) < 1500);
++  return near.length >= 5 ? w.startMs - median(near.map((f) => f[0] * 1000 - f[7])) : NaN;
++}
++
++/** The bar's word as React wrote it, as frames (only the time, word, file and clock are filled in). */
++const writtenFrames = (rec: Recording): Frame[] =>
++  rec.changes.filter((c) => c[0] === "data-word").map(([, value, clock, time, file]) => [time, value, "", null, false, file, "", clock, null, 0]);
++
++/**
+  * The highlight landed on every word in order, none skipped and none extra,
+  * each within a tenth of a second of when the audio starts it, both in the
+  * bar's record and in the book's own highlight, up to where the audio got
+@@ -127,8 +250,16 @@
+  * paragraphs followed one another. `expected` is in reading order; a word may
+  * not repeat the one before it (a repeat would not show as a change, so the
+  * test could not see it).
++ *
++ * With `timing` (the whole recording), each word's time is read where it
++ * happens instead of at the start of the next frame: the bar's word when
++ * React writes it, and the book's highlight once the frame that paints it is
++ * done; and it is the later of the audio's own time then and the page's
++ * clock against the word's start (clockAt), so neither a stale read of the
++ * audio's time nor the recorder's place in the frame decides it. The limit
++ * stays 100 ms.
+  */
+-export function expectEveryWordOnTime(frames: Frame[], expected: Spoken[], opts: { minWords: number; onScreen?: boolean }) {
++export function expectEveryWordOnTime(frames: Frame[], expected: Spoken[], opts: { minWords: number; onScreen?: boolean; timing?: Recording }) {
+   expected.forEach((w, i) => expect(w.word, `word ${i} repeats the one before it; choose other paragraphs`).not.toBe(expected[i - 1]?.word));
+   // How far the audio got in each file.
+   const reached = new Map<number, number>();
+@@ -136,7 +267,8 @@
+   // Every word that started at least 120 ms before the audio got there must have been shown.
+   const due = expected.filter((w) => w.startMs <= (reached.get(w.file) ?? -Infinity) - 120).length;
+   for (const col of [1, 3] as const) {
+-    const seen = changes(frames, col);
++    const source = !opts.timing ? frames : col === 1 ? writtenFrames(opts.timing) : opts.timing.after;
++    const seen = changes(source, col);
+     const name = col === 1 ? "bar" : "book highlight";
+     expect(seen.length, `${name}: words shown`).toBeGreaterThanOrEqual(opts.minWords);
+     expect(seen.length, `${name}: words shown, of ${due} due`).toBeGreaterThanOrEqual(due);
+@@ -146,11 +278,13 @@
+     ).toEqual(expected.slice(0, seen.length).map((w) => w.word));
+     seen.forEach((s, i) => {
+       expect(s.frame[5], `${name}: "${s.value}" (word ${i}) shown while another file played`).toBe(expected[i].file);
+-      const late = s.frame[0] * 1000 - expected[i].startMs;
++      const byAudio = s.frame[0] * 1000 - expected[i].startMs;
++      const byClock = opts.timing ? s.frame[7] - clockAt(frames, expected[i]) : NaN;
++      const late = Number.isFinite(byClock) ? Math.max(byAudio, byClock) : byAudio;
+       expect(late, `${name}: "${s.value}" (word ${i}) shown ${Math.round(late)} ms after it starts`).toBeLessThan(100);
+       expect(late, `${name}: "${s.value}" (word ${i}) shown before it starts`).toBeGreaterThanOrEqual(-1);
+       if (col === 3 && opts.onScreen) {
+-        const soon = frames.slice(s.at).filter((f) => f[3] === s.value && f[0] * 1000 < expected[i].startMs + 100);
++        const soon = source.slice(s.at).filter((f) => f[3] === s.value && f[0] * 1000 < expected[i].startMs + 100);
+         expect(soon.some((f) => f[8] === true), `"${s.value}" (word ${i}) was not on the page on screen within 0.1 s`).toBe(true);
+       }
+     });
+@@ -179,5 +313,175 @@
+     const end = playing.at(-1)!;
+     const lag = end[7] - begin[7] - (end[0] - begin[0]) * 1000;
+     expect(lag, `file ${file}: the audio fell ${Math.round(lag)} ms behind the clock (stalled)`).toBeLessThan(maxLagMs);
++  }
++}
++
++/** One word's lateness (ms after the voice starts it) by each way of seeing it; null where it was not seen. */
++export type WordTiming = {
++  i: number;
++  word: string;
++  /** As checked today: the audio's time at the start of the first frame that showed it, in the bar and in the book. */
++  barFrame: number | null;
++  litFrame: number | null;
++  /** The bar's word when React wrote it: by the audio's time then, and by the page's clock (clockAt). */
++  barWritten: number | null;
++  barWrittenClock: number | null;
++  /** The book's highlight once the first frame that painted it was done: by the audio's time, and by the page's clock. */
++  litPainted: number | null;
++  litPaintedClock: number | null;
++};
++
++export function wordTimings(rec: Recording, expected: Spoken[]): WordTiming[] {
++  const bar = changes(rec.frames, 1);
++  const lit = changes(rec.frames, 3);
++  const painted = changes(rec.after, 3);
++  const written = changes(writtenFrames(rec), 1);
++  const ms = (x: number) => (Number.isFinite(x) ? Math.round(x * 10) / 10 : null);
++  return expected.map((w, i) => {
++    const start = clockAt(rec.frames, w);
++    const at = (s: { value: string; frame: Frame } | undefined) => (s?.value === w.word ? s.frame : null);
++    const [b, l, p, c] = [at(bar[i]), at(lit[i]), at(painted[i]), at(written[i])];
++    return {
++      i,
++      word: w.word,
++      barFrame: b && ms(b[0] * 1000 - w.startMs),
++      litFrame: l && ms(l[0] * 1000 - w.startMs),
++      barWritten: c && ms(c[0] * 1000 - w.startMs),
++      barWrittenClock: c && ms(c[7] - start),
++      litPainted: p && ms(p[0] * 1000 - w.startMs),
++      litPaintedClock: p && ms(p[7] - start),
++    };
++  });
++}
++
++/** Everything recorded within `ms` of a word's start, in order: [ms from the word's start on the page's clock, what happened]. */
++export function timelineAround(rec: Recording, w: Spoken, ms = 300): [number, string][] {
++  const start = clockAt(rec.frames, w);
++  const near = (t: number) => t >= start - ms && t <= start + ms;
++  const rel = (t: number) => Math.round(t - start);
++  const out: [number, string][] = [];
++  for (const m of rec.marks) if (near(m.t)) out.push([rel(m.t), `${m.name.slice(3)} ${JSON.stringify(m.detail ?? {})}`]);
++  for (const f of rec.fonts) {
++    if (!near(f.t0)) continue;
++    const end = f.settled < 0 ? "never settled" : `${f.ok ? "loaded" : "FAILED"} at ${rel(f.settled)}`;
++    out.push([rel(f.t0), `font ${f.family} ${f.style}: load() held the page ${Math.round(f.sync)} ms; ${end}`]);
+   }
++  for (const [type, t, faces] of rec.fontEvents) if (near(t)) out.push([rel(t), `document.fonts ${type}: ${faces.join(", ")}`]);
++  for (const [attr, value, t] of rec.changes) if (near(t)) out.push([rel(t), `${attr} written: "${value}"`]);
++  rec.frames.forEach((f, k) => {
++    const prev = rec.frames[k - 1];
++    if (!prev || !near(f[7])) return;
++    if (f[7] - prev[7] >= 25) out.push([rel(prev[7]), `no new frame for ${Math.round(f[7] - prev[7])} ms`]);
++    if (prev[3] !== f[3]) out.push([rel(f[7]), f[3] === null ? "frame start: nothing lit" : `frame start: book shows "${f[3]}"`]);
++    if (prev[1] !== f[1]) out.push([rel(f[7]), `frame start: bar shows "${f[1]}"`]);
++    if (f[9] >= 2) out.push([rel(f[7]), `the recorder itself took ${Math.round(f[9])} ms`]);
++  });
++  rec.after.forEach((f, k) => {
++    const prev = rec.after[k - 1];
++    if (prev && near(f[7]) && prev[3] !== f[3]) out.push([rel(f[7]), f[3] === null ? "after paint: nothing lit" : `after paint: book shows "${f[3]}"`]);
++  });
++  return out.sort((a, b) => a[0] - b[0]);
+ }
++
++/** The page turn and lighting around one word, in ms from its start on the page's clock (null: did not happen within 0.4 s). */
++function phasesOf(rec: Recording, w: Spoken) {
++  const start = clockAt(rec.frames, w);
++  const within = (t: number) => t >= start - 400 && t <= start + 400;
++  const first = (name: string, match: (d: Record<string, unknown>) => boolean = () => true) => rec.marks.find((m) => m.name === name && within(m.t) && match(m.detail ?? {}));
++  const rel = (m: Mark | undefined) => (m ? Math.round(m.t - start) : null);
++  const lit = first("nl:lit", (d) => d.text === w.word);
++  const fonts = rec.fonts.filter((f) => within(f.t0));
++  const gaps = rec.frames.flatMap((f, k) => (k && within(f[7]) ? [f[7] - rec.frames[k - 1][7]] : []));
++  return {
++    turnRequest: rel(first("nl:turn-request")),
++    frameLoad: rel(first("nl:frame-load")),
++    relocate: rel(first("nl:relocate")),
++    textlayerStart: rel(first("nl:textlayer-start")),
++    textAhead: (first("nl:textlayer-start")?.detail?.ahead as boolean | undefined) ?? null,
++    textlayerReady: rel(first("nl:textlayer-ready")),
++    drawStart: rel(first("nl:draw-start")),
++    drawDone: rel(first("nl:draw-done")),
++    litSet: rel(lit),
++    litVia: (lit?.detail?.via as string | undefined) ?? null,
++    waits: rec.marks.filter((m) => m.name === "nl:word-wait" && within(m.t)).length,
++    barSet: rel(first("nl:bar-set", (d) => d.text === w.word)),
++    fontLoads: fonts.length,
++    fontFailed: fonts.filter((f) => f.settled >= 0 && !f.ok).length,
++    fontHeldMs: Math.round(Math.max(0, ...fonts.map((f) => f.sync))),
++    longestFrameMs: Math.round(Math.max(0, ...gaps)),
++  };
++}
++
++const TIMING_COLUMNS = ["barFrame", "litFrame", "barWritten", "litPainted"] as const;
++const later = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.max(a, b));
++/** A word's lateness in a column as the check reads it: for the bar written and the highlight painted, the later of the audio's time and the page's clock (the `timing` option). */
++const checked = (r: WordTiming, k: (typeof TIMING_COLUMNS)[number]) =>
++  k === "barWritten" ? later(r.barWritten, r.barWrittenClock) : k === "litPainted" ? later(r.litPainted, r.litPaintedClock) : r[k];
++
++/**
++ * Prints and attaches, before any check runs, how late each word was by each
++ * way of seeing it, and for the word `focus` (an index into `expected`)
++ * everything recorded within 0.3 s of it. One JSON line also goes to the log
++ * (TIMING_JSON, so a CI log is enough to collect it) and, when NL_TIMING_LOG
++ * names a file, to that file, for scripts/timing-summary.mjs.
++ */
++export async function reportTiming(rec: Recording, expected: Spoken[], opts: { label: string; focus?: number }) {
++  const info = test.info();
++  const words = wordTimings(rec, expected);
++  const latest = (k: (typeof TIMING_COLUMNS)[number]) =>
++    words.reduce<WordTiming | null>((m, r) => (checked(r, k) !== null && (m === null || (checked(r, k) ?? 0) > (checked(m, k) ?? 0)) ? r : m), null);
++  const count = (k: (typeof TIMING_COLUMNS)[number], limit: number) => words.filter((r) => (checked(r, k) ?? -Infinity) >= limit).length;
++  // Whether the two new readings behave as they should (needed before the check uses them): each
++  // after-paint sample should come before the next frame starts, and on ordinary words the frame
++  // readings should be about one frame later than the readings where the change happens.
++  const lag = (a: "barFrame" | "litFrame", b: "barWritten" | "litPainted") =>
++    median(words.flatMap((r) => (r[a] !== null && r[b] !== null ? [r[a]! - r[b]!] : [])));
++  const w = opts.focus === undefined ? null : expected[opts.focus];
++  const summary = {
++    label: opts.label,
++    project: info.project.name,
++    repeat: info.repeatEachIndex,
++    sha: process.env.NL_SHA ?? process.env.GITHUB_SHA ?? null,
++    machine: process.env.NL_MACHINE ?? null,
++    trace: process.env.NL_TRACE ?? null,
++    cpu: `${cpus().length} × ${cpus()[0]?.model ?? "?"}`,
++    words: words.length,
++    atLeast100: Object.fromEntries(TIMING_COLUMNS.map((k) => [k, count(k, 100)])),
++    atLeast80: Object.fromEntries(TIMING_COLUMNS.map((k) => [k, count(k, 80)])),
++    latest: Object.fromEntries(
++      TIMING_COLUMNS.map((k) => {
++        const r = latest(k);
++        return [k, r && { i: r.i, word: r.word, ms: checked(r, k) }];
++      }),
++    ),
++    focus: w && { ...words[opts.focus!], phases: phasesOf(rec, w) },
++    fonts: {
++      loads: rec.fonts.length,
++      failed: rec.fonts.filter((f) => f.settled >= 0 && !f.ok).length,
++      heldMaxMs: Math.round(Math.max(0, ...rec.fonts.map((f) => f.sync))),
++    },
++    afterMissing: rec.frames.length - rec.after.length,
++    afterLate: rec.after.filter((f, k) => k + 1 < rec.frames.length && f[7] > rec.frames[k + 1][7]).length,
++    barFrameMinusWritten: Math.round(lag("barFrame", "barWritten") * 10) / 10,
++    litFrameMinusPainted: Math.round(lag("litFrame", "litPainted") * 10) / 10,
++    recorderMaxMs: Math.round(Math.max(0, ...[...rec.frames, ...rec.after].map((f) => f[9] ?? 0))),
++    recorderTotalMs: Math.round([...rec.frames, ...rec.after].reduce((sum, f) => sum + (f[9] ?? 0), 0)),
++  };
++  const lines = [`Timing, ${opts.label} [${info.project.name}]: ms after the voice starts each word (the check today reads barFrame and litFrame; limit 100)`];
++  for (const k of TIMING_COLUMNS) {
++    const r = summary.latest[k];
++    lines.push(`  ${k.padEnd(10)} latest: ${r ? `"${r.word}" (word ${r.i}) ${Math.round(r.ms ?? NaN)} ms` : "none"}; words at 100+: ${summary.atLeast100[k]}, at 80+: ${summary.atLeast80[k]}`);
++  }
++  if (w && summary.focus) {
++    const f = summary.focus;
++    lines.push(`  "${w.word}" (word ${opts.focus}): barFrame ${f.barFrame}, litFrame ${f.litFrame}, barWritten ${f.barWritten}, litPainted ${f.litPainted} (page clock: ${f.barWrittenClock}, ${f.litPaintedClock})`);
++    for (const [t, what] of timelineAround(rec, w)) lines.push(`    ${String(t).padStart(5)} ms  ${what}`);
++  }
++  console.log(lines.join("\n"));
++  console.log(`TIMING_JSON ${JSON.stringify(summary)}`);
++  const file = info.outputPath(`${opts.label}-timing.json`);
++  writeFileSync(file, JSON.stringify({ summary, words, recording: rec }));
++  await info.attach(`${opts.label}-timing.json`, { path: file, contentType: "application/json" });
++  if (process.env.NL_TIMING_LOG) appendFileSync(process.env.NL_TIMING_LOG, `${JSON.stringify(summary)}\n`);
++  return summary;
++}
+--- a/e2e/readalong.spec.ts
++++ b/e2e/readalong.spec.ts
+@@ -4,7 +4,7 @@
+ import { extractPdfSections } from "@/lib/library/pdf-sections";
+ import { extractSections, type Section } from "@/lib/library/sections";
+ import { buildPackage } from "@/lib/readalong/fixture";
+-import { expectEveryWordOnTime, expectNoStall, recording, recordPlayer, type Spoken } from "./listen";
++import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Spoken } from "./listen";
+ import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
+ 
+ // M13 (c2): uploading a read-along package through the real server: the
+@@ -1158,6 +1158,8 @@
+   expect(withAudio).toContain("Read-Along Test Pages");
+   expect(withAudio).not.toContain("Frankenstein");
+ 
++  // The app's timing marks and the fonts pdf.js loads are recorded from the page's first moment.
++  await instrument(page);
+   await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
+   const reader = page.getByTestId("reader");
+   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+@@ -1168,21 +1170,28 @@
+   await recordPlayer(page);
+   await bar.getByRole("button", { name: "Play" }).click();
+   await playUntil(page, expected.at(-1)!.startMs + 300);
+-  const { frames, events } = await recording(page);
++  const rec = await recording(page);
++  const { frames, events } = rec;
+   await page.evaluate(() => document.querySelector("audio")!.pause());
+ 
++  // The timings first, printed and attached to the report, so that a run that fails a check
++  // below still shows them (this line used to print only when every check had passed).
++  const turned = frames.find((f) => f[6] === "epubcfi(/6/4)");
++  const litFirst = frames.find((f) => f[3] === expected[first2].word && f[6] === "epubcfi(/6/4)");
++  console.log(
++    turned && litFirst
++      ? `page 2 shown ${Math.round(turned[0] * 1000 - last1.end * 1000)} ms after page 1's last word ended; its first word lit ${Math.round(litFirst[0] * 1000 - expected[first2].startMs)} ms after it began`
++      : "page 2 was not shown, or its first word was not lit",
++  );
++  await reportTiming(rec, expected, { label: "pdf-page-break", focus: first2 });
++
+   // Every word, in order, each within a tenth of a second, lit in the page's own text layer and on screen:
+   // page 2's first word too, though it follows page 1's last with no pause.
+   const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
+   expect(paragraphs).toEqual(["epubcfi(/6/2)", "epubcfi(/6/4)"]);
+   // The page turned only once page 1's last word had been said.
+-  const turned = frames.find((f) => f[6] === "epubcfi(/6/4)");
+   expect(turned, "the reader turned to page 2").toBeDefined();
+   expect(turned![0] * 1000, "turned after page 1's last word").toBeGreaterThanOrEqual(last1.end * 1000);
+-  const litFirst = frames.find((f) => f[3] === expected[first2].word && f[6] === "epubcfi(/6/4)")!;
+-  console.log(
+-    `page 2 shown ${Math.round(turned![0] * 1000 - last1.end * 1000)} ms after page 1's last word ended; its first word lit ${Math.round(litFirst[0] * 1000 - expected[first2].startMs)} ms after it began`,
+-  );
+   // One audio element, loaded once and never reloaded; no pause, no stall, no seek after the first.
+   expect(names(events).filter((n) => n === "loadstart")).toHaveLength(1);
+   for (const n of ["emptied", "abort", "error", "pause"]) expect(names(events)).not.toContain(n);
+--- a/playwright.timing.config.ts
++++ b/playwright.timing.config.ts
+@@ -0,0 +1,24 @@
++import { defineConfig } from "@playwright/test";
++import base from "./playwright.config";
++
++/**
++ * For the timing-samples workflow (.github/workflows/timing-samples.yml):
++ * the owner's account (the "setup" project), then only the PDF page-break
++ * read-along test in WebKit, as many times as --repeat-each says. Playwright
++ * repeats only the top-level project, not its dependencies
++ * (node_modules/playwright/lib/runner/loadUtils.js: the CLI repeatEach is
++ * applied where type === "top-level"), so the account is made once. The same
++ * server, window size, WebKit and trace setting as the full suite; one
++ * worker, as GitHub's 2-CPU machines give the full suite. NL_TRACE=off turns
++ * the trace off, to measure what recording it costs.
++ */
++const project = (name: string) => base.projects!.find((p) => p.name === name)!;
++
++export default defineConfig({
++  ...base,
++  workers: 1,
++  reporter: [["list"], ["html", { open: "never" }], ["json", { outputFile: "timing/results.json" }]],
++  metadata: { sha: process.env.NL_SHA ?? null, machine: process.env.NL_MACHINE ?? null, trace: process.env.NL_TRACE ?? null },
++  use: { ...base.use, trace: process.env.NL_TRACE === "off" ? "off" : "retain-on-failure" },
++  projects: [project("setup"), { ...project("readalong-safari"), name: "timing-safari", dependencies: ["setup"], grep: /on across a page break/ }],
++});
+--- a/scripts/timing-summary.mjs
++++ b/scripts/timing-summary.mjs
+@@ -0,0 +1,116 @@
++#!/usr/bin/env node
++// Summarises read-along timing samples: the lines the page-break test writes
++// (e2e/listen.ts, reportTiming), one JSON object per run of the test. They
++// come from the timing-samples workflow (each job's timing/samples.jsonl, next
++// to Playwright's own timing/results.json, which also counts runs that ended
++// before writing a line, such as a stall) or from ordinary CI logs (lines
++// containing "TIMING_JSON "). Prints a Markdown table, one row per commit and
++// trace setting (--all: one row for everything, for CI logs); with exactly
++// two rows, how likely their difference is to be chance. --browser=chromium
++// summarises the Chromium runs (a control) instead of WebKit's.
++// --columns=written counts late words by the readings where the change happens
++// (expectEveryWordOnTime's `timing` option) instead of the frame readings.
++//
++//   node scripts/timing-summary.mjs [--all] [--browser=chromium] [--columns=written] <files or folders...>
++import { readdirSync, readFileSync, statSync } from "node:fs";
++import { dirname, join } from "node:path";
++
++const args = process.argv.slice(2);
++const option = (name, fallback) => args.find((a) => a.startsWith(`--${name}=`))?.split("=")[1] ?? fallback;
++const webkit = option("browser", "safari") !== "chromium";
++const ofBrowser = (project) => project.includes("safari") === webkit;
++const [barCol, litCol] = option("columns", "frame") === "written" ? ["barWritten", "litPainted"] : ["barFrame", "litFrame"];
++const files = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => files(join(p, f))) : [p]);
++const all = args.filter((a) => !a.startsWith("--")).flatMap(files);
++const linesOf = (f) =>
++  readFileSync(f, "utf8")
++    .split("\n")
++    .map((l) => l.replace(/^.*?TIMING_JSON /, ""))
++    .filter((l) => l.startsWith("{"))
++    .map((l) => JSON.parse(l))
++    .filter((r) => r.label === "pdf-page-break" && ofBrowser(r.project));
++
++const samples = [];
++/** Runs of the test per commit in Playwright's reports: each run counts, whether or not it wrote a line. */
++const outcomes = new Map();
++for (const fs of Map.groupBy(all, (f) => dirname(f)).values()) {
++  const mine = fs.filter((f) => !f.endsWith("results.json")).flatMap(linesOf);
++  samples.push(...mine);
++  for (const f of fs.filter((f) => f.endsWith("results.json"))) {
++    const report = JSON.parse(readFileSync(f, "utf8"));
++    const sha = report.config?.metadata?.sha ?? mine[0]?.sha ?? "?";
++    const walk = (suite) => {
++      for (const spec of suite.specs ?? [])
++        for (const t of spec.tests ?? [])
++          if (t.projectName !== "setup" && ofBrowser(t.projectName) && /page break/.test(spec.title))
++            for (const r of t.results ?? []) {
++              const o = outcomes.get(sha) ?? { runs: 0, failed: 0 };
++              o.runs += 1;
++              o.failed += r.status === "passed" ? 0 : 1;
++              outcomes.set(sha, o);
++            }
++      for (const s of suite.suites ?? []) walk(s);
++    };
++    for (const s of report.suites ?? []) walk(s);
++  }
++}
++
++const q = (xs, p) => {
++  const s = xs.filter((x) => typeof x === "number" && Number.isFinite(x)).sort((a, b) => a - b);
++  return s.length ? Math.round(s[Math.min(s.length - 1, Math.floor(p * s.length))]) : "–";
++};
++const dist = (xs) => `${q(xs, 0.5)} / ${q(xs, 0.9)} / ${q(xs, 1)}`;
++// The later of the audio's time and the page's clock (what expectEveryWordOnTime's `timing` option checks).
++const later = (a, b) => (a == null ? b : b == null ? a : Math.max(a, b));
++// "Late": a word at 100 ms or more in a column the check reads (the test fails); "near miss": 80 or more.
++const late = (r) => r.atLeast100[barCol] + r.atLeast100[litCol] > 0;
++const near = (r) => r.atLeast80[barCol] + r.atLeast80[litCol] > 0;
++
++const groups = Map.groupBy(samples, (r) => (args.includes("--all") ? "all" : `${(r.sha ?? "?").slice(0, 7)} · trace ${r.trace ?? "as CI"}`));
++console.log(`### Read-along page break in ${webkit ? "WebKit" : "Chromium"}: timing samples (late words counted by ${barCol} and ${litCol})\n`);
++console.log(
++  "Milliseconds after the voice starts page 2's first word, as median / 90th percentile / maximum. The check today reads *bar (frame)* and *lit (frame)*; its limit is 100 ms. *written* and *painted* read the time where it happens (the `timing` option).\n",
++);
++console.log(
++  "| commit · trace | runs | test failed | late ≥100 | near miss ≥80 | bar (frame) | lit (frame) | bar (written) | lit (painted) | font load held the page | longest frame | turn asked → text ready | text ready → bar written | bar frame − written | lit frame − painted | after-paint samples late | machines |",
++);
++console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
++for (const [key, rs] of groups) {
++  // Each run's page-2 word: its lateness by each reading and its phases, in one object.
++  const m = rs.map((r) => ({ ...(r.focus ?? {}), ...(r.focus?.phases ?? {}) }));
++  const o = key === "all" ? undefined : outcomes.get(rs[0].sha ?? "?");
++  const between = (a, b) => m.map((x) => (x[a] != null && x[b] != null ? x[b] - x[a] : null));
++  console.log(
++    `| ${key} | ${o ? o.runs : rs.length} | ${o ? o.failed : "?"} | ${rs.filter(late).length} | ${rs.filter(near).length} | ${dist(m.map((x) => x.barFrame))} | ${dist(m.map((x) => x.litFrame))} | ${dist(m.map((x) => later(x.barWritten, x.barWrittenClock)))} | ${dist(m.map((x) => later(x.litPainted, x.litPaintedClock)))} | ${dist(m.map((x) => x.fontHeldMs))} | ${dist(m.map((x) => x.longestFrameMs))} | ${dist(between("turnRequest", "textlayerReady"))} | ${dist(between("textlayerReady", "barWrittenClock"))} | ${dist(rs.map((r) => r.barFrameMinusWritten))} | ${dist(rs.map((r) => r.litFrameMinusPainted))} | ${dist(rs.map((r) => r.afterLate))} | ${new Set(rs.map((r) => r.machine)).size} |`,
++  );
++}
++
++// Two-sided Fisher exact test on [[a, b], [c, d]]: the chance of a split at least this
++// uneven if both commits behaved the same.
++function fisher(a, b, c, d) {
++  const lf = (n) => {
++    let s = 0;
++    for (let i = 2; i <= n; i++) s += Math.log(i);
++    return s;
++  };
++  const n = a + b + c + d;
++  const r1 = a + b;
++  const c1 = a + c;
++  const p = (x) => Math.exp(lf(r1) + lf(n - r1) + lf(c1) + lf(n - c1) - lf(n) - lf(x) - lf(r1 - x) - lf(c1 - x) - lf(n - r1 - c1 + x));
++  const p0 = p(a);
++  let sum = 0;
++  for (let x = Math.max(0, c1 - (n - r1)); x <= Math.min(r1, c1); x++) if (p(x) <= p0 * (1 + 1e-9)) sum += p(x);
++  return Math.min(1, sum);
++}
++const keys = [...groups.keys()];
++if (keys.length === 2) {
++  const [A, B] = keys.map((k) => groups.get(k));
++  for (const [label, test] of [
++    ["late ≥100", late],
++    ["near miss ≥80", near],
++  ]) {
++    const a = A.filter(test).length;
++    const b = B.filter(test).length;
++    console.log(`\n${label}: ${a} of ${A.length} (${keys[0]}) vs ${b} of ${B.length} (${keys[1]}); Fisher exact p = ${fisher(a, A.length - a, b, B.length - b).toPrecision(2)}`);
++  }
++}
+--- a/.github/workflows/timing-samples.yml
++++ b/.github/workflows/timing-samples.yml
+@@ -0,0 +1,128 @@
++# Measures the read-along page break in WebKit many times on one or two
++# commits, so a fix is judged by numbers, not by one CI run (LEARNING_LOG
++# Iterations 22 and 25). Started by hand only; it changes nothing in the repo
++# and posts nothing on pull requests. Example (before and after a fix):
++#   gh workflow run timing-samples.yml -f refs="main m14-timing-fix" -f machines=3 -f repeats=10
++# A late word is a sample here, not a reason to stop: the sample jobs carry on,
++# and the summary job writes the table to the run's summary page.
++name: Timing samples
++
++on:
++  workflow_dispatch:
++    inputs:
++      refs:
++        description: "Branches or commits to measure, separated by spaces (each must already have the timing marks)"
++        required: true
++        default: main
++      machines:
++        description: "Separate GitHub machines per commit"
++        required: true
++        default: "3"
++      repeats:
++        description: "Runs of the test on each machine"
++        required: true
++        default: "10"
++      trace:
++        description: "Playwright's trace while measuring: as CI records it, or off (to measure what recording costs)"
++        type: choice
++        options: [retain-on-failure, "off"]
++        default: retain-on-failure
++      shape:
++        description: "quick: make the account, then the test; suite: the whole chain of tests first, as CI runs it"
++        type: choice
++        options: [quick, suite]
++        default: quick
++
++permissions:
++  contents: read
++
++jobs:
++  plan:
++    name: Commits and machines
++    runs-on: ubuntu-24.04
++    outputs:
++      matrix: ${{ steps.plan.outputs.matrix }}
++    steps:
++      - uses: actions/checkout@v5
++        with:
++          fetch-depth: 0
++      - id: plan
++        env:
++          REFS: ${{ inputs.refs }}
++          MACHINES: ${{ inputs.machines }}
++        run: |
++          set -euo pipefail
++          include='[]'
++          for ref in $REFS; do
++            sha=$(git rev-parse --verify --quiet "origin/$ref^{commit}" || git rev-parse --verify "$ref^{commit}")
++            for m in $(seq 1 "$MACHINES"); do
++              include=$(jq -c --arg ref "$ref" --arg sha "$sha" --argjson m "$m" '. + [{ref: $ref, sha: $sha, machine: $m}]' <<<"$include")
++            done
++          done
++          echo "matrix={\"include\":$include}" >> "$GITHUB_OUTPUT"
++
++  sample:
++    name: ${{ matrix.ref }} · machine ${{ matrix.machine }}
++    needs: plan
++    runs-on: ubuntu-24.04
++    timeout-minutes: 60
++    strategy:
++      fail-fast: false
++      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
++    steps:
++      - uses: actions/checkout@v5
++        with:
++          ref: ${{ matrix.sha }}
++      - uses: actions/setup-node@v5
++        with:
++          node-version: 22
++          cache: npm
++      - run: npm ci
++      # The same browsers and system packages as ci.yml: the fonts installed decide
++      # how long pdf.js's failing system-font lookups take.
++      - name: Install Chromium and WebKit (Safari's engine)
++        run: npx playwright install --with-deps chromium webkit
++      - name: The page-break test, ${{ inputs.repeats }} times
++        continue-on-error: true
++        env:
++          NL_TIMING_LOG: ${{ github.workspace }}/timing/samples.jsonl
++          NL_SHA: ${{ matrix.sha }}
++          NL_MACHINE: ${{ matrix.ref }}-${{ matrix.machine }}
++          NL_TRACE: ${{ inputs.trace }}
++          SHAPE: ${{ inputs.shape }}
++          REPEATS: ${{ inputs.repeats }}
++        run: |
++          mkdir -p timing
++          if [ "$SHAPE" = quick ]; then
++            npx playwright test -c playwright.timing.config.ts --repeat-each "$REPEATS"
++          else
++            # The whole chain of projects runs once, unfiltered; only readalong-safari's matching test repeats.
++            PLAYWRIGHT_JSON_OUTPUT_FILE=timing/results.json PLAYWRIGHT_HTML_OPEN=never \
++              npx playwright test --project readalong-safari --grep "on across a page break" --repeat-each "$REPEATS" --reporter=list,html,json
++          fi
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: timing-${{ strategy.job-index }}
++          path: |
++            timing/
++            test-results/
++            playwright-report/
++          retention-days: 14
++
++  summary:
++    name: Summary
++    needs: sample
++    if: always()
++    runs-on: ubuntu-24.04
++    steps:
++      - uses: actions/checkout@v5
++      - uses: actions/setup-node@v5
++        with:
++          node-version: 22
++      - uses: actions/download-artifact@v4
++        with:
++          pattern: timing-*
++          path: artifacts
++      - name: Table of the samples
++        run: node scripts/timing-summary.mjs $(find artifacts -path '*/timing/*' \( -name '*.jsonl' -o -name 'results.json' \)) | tee -a "$GITHUB_STEP_SUMMARY"
