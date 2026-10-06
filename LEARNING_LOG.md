@@ -1413,3 +1413,49 @@ skeptic per finding) finds what the tests missed.
 **Lesson.** Run the review before merging, not after. Here #89 merged on
 green CI while its review was still running, and the review found a
 crash. For the next step, open the PR only after the review's fixes.
+
+### Iteration 54 · 2026-10-06 16:19 · Step 6c, review fixes (Think aloud) · success (CI to come)
+
+**Hypothesis.** The review's 6c findings each need a small change in the
+mini-player, the recorder, or `sectionForCfi`, and each can be held by a
+test.
+**Action.**
+- **Think aloud is disabled while the next paragraph is prepared; Resume
+  only plays.**
+- **The recorder reports its state.** The panel then knows when closing
+  would lose a recording: Escape, a second press and Go to the page are
+  held back (Go to the page says why).
+- **Focus and announcements:**
+  - focus goes back to the button;
+  - after saving, focus moves to Resume or Close;
+  - "Saved" is announced.
+- **Smaller fixes:** 44 px recorder buttons; the speed menu above the
+  panel; the mini-player's status line (errors, loading).
+- **In a PDF,** the quote breaks the tie between a page's paragraphs.
+**Evaluation.**
+- The Think aloud test, rewritten: it moves into the paragraph's fifth
+  sentence first, then checks Escape, focus, the held link, the
+  announcement and Resume.
+- A new failed-start test.
+- The unit tests.
+- Four browser mutations and one unit mutation, then the screenshots
+  looked at.
+**Result.**
+- **Tests:** the Think aloud test `1 passed`; the 6b tests `6 passed` in
+  each engine; the made-voice and Home tests `1 passed` each;
+  `npm run check` → `Tests 455 passed | 2 skipped (457)`.
+- **Mutations, each caught:**
+  - no focus after Save (`toBeFocused`);
+  - the link not held back (no warning);
+  - Escape closing while recording (the recording gone);
+  - no status line (`readalong.spec.ts:1670`);
+  - no tie-break (unit: `1 failed`).
+- **Two test slips of my own:**
+  - Playwright will not click a link marked `aria-disabled`, though a person
+    can (`force: true` now, with the attribute checked first);
+  - quoting the page's second paragraph could pass without the tie-break
+    when a page has exactly two, so the test quotes the first.
+**Lesson.** A guard is tested only if the test does what a person would do
+anyway: click the dimmed link, press Escape mid-recording. And a quote
+taken from the last of the tied paragraphs cannot tell the tie-break from
+the old rule.

@@ -196,6 +196,30 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-06 12:19 (local; 16:19 UTC) · Claude (laptop) · 6c's review fixes done; its PR waits on #91
+- **Done:**
+  - **#91** (the fixes for Home's one-tap Listen) is open, with three checks green and the browser tests running.
+  - **6c's review fixes** on `m14-e3-think-aloud` (rebased onto `m14-e2-home-fixes`; Iteration 54):
+    - Think aloud is held while the next paragraph is prepared; Resume only plays;
+    - Escape, a second press and Go to the page never lose a recording;
+    - focus and announcements; 44 px recorder buttons; the speed menu on top;
+    - the mini-player's status line (errors, loading);
+    - in a PDF, the note goes to the paragraph it quotes.
+- **Key paths:** `components/player/{MiniPlayer,ListenSession}.tsx`, `components/player/MiniPlayer.module.css`, `components/notes/VoiceRecorder.{tsx,module.css}`, `lib/library/annotations.ts`, `lib/library/voice-notes.test.ts`, `e2e/{notes,readalong}.spec.ts`, `LEARNING_LOG.md` (Iteration 54).
+- **Commands that worked:**
+  - `scratchpad/run-snap.sh think notes "M14 \(6c\)"` → `1 passed`; `scratchpad/run6b.sh readalong|readalong-safari` → `6 passed` each.
+  - `scratchpad/mut-6c.sh` and `mut-6bfix.sh`: four mutations, each caught.
+  - `npm run check` → `Tests 455 passed | 2 skipped (457)`.
+  - `git rebase --onto m14-e2-home-fixes 4a70f4f m14-e3-think-aloud` (the ledger files conflicted; both entries kept, in time order).
+- **Known issues / blockers:**
+  - Two of the review's findings have no browser test: the hold while preparing (timing), and Resume only playing.
+  - An unsaved recording is still lost if you leave by another way: the Continue card's link, or the browser's Back button. Only the mini-player's own link is held back.
+- **Exact next steps:**
+  1. Merge #91 when green.
+  2. Then `git rebase --onto origin/main m14-e2-home-fixes m14-e3-think-aloud`, push, and open the 6c PR.
+  3. Merge it when green; then back up and deploy (`scratchpad/backup.sh`, `scratchpad/deploy.sh`), and comment on #90.
+  4. Then 2b, and the WebKit stall on CI.
+
 ### 2026-10-06 12:06 (local; 16:06 UTC) · Claude (laptop) · #89 merged; M14 deployed (step 7); the review's fixes for Home's one-tap Listen as a PR
 - **Done:**
   - **#89** merged as 054051c (the re-run `276 passed (13.2m)`); `git diff --stat 4a70f4f origin/main` printed nothing.
