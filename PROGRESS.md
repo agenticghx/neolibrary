@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Flake step 1 is merged (#80, main 0cc07de) and its baseline is running (timing-samples run 37448727457). Steps 5, 4 and 2 are stacked PRs in that order (m14-flake-e-folder, m14-flake-d-gstreamer, m14-flake-b-bar): merge each when green, record the baseline, compare step 2 with its parent; then step 3; then step 6a.
+next_action: Flake steps 1 and 5 are merged (#80, #81; main 5bd4991). Steps 4, 2 and 3 are stacked draft PRs (m14-flake-d-gstreamer #82, m14-flake-b-bar, m14-flake-c-pdf-warmup): merge each in that order when green (step 4's proof is its CI log's audio requests line). Then step 6a. Samuel finds the pace slow: keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,23 +19,21 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 10:22 UTC).** The WebKit read-along flakes,
-in the order of `docs/m14-flake/plan.md`. Step 1 (measure) is merged (#80,
-`main` 0cc07de), and its baseline is running: timing-samples run
-37448727457 (`main`, 3 machines x 10). When it ends, record it in
-`LEARNING_LOG.md` as "measurement, no fix" with the plan's columns (step 1's
-"Done when"; 3 or more near misses or failures in 30, or add machines).
-Steps 5, 4 and 2 are stacked pull requests, each branch on top of the one
-before, so that each merges without a conflict in this file:
-`m14-flake-e-folder` (step 5, folder picks), then `m14-flake-d-gstreamer`
-(step 4, no on-disk audio for CI's WebKit; its first CI run is the proof:
-read the `audio requests:` log line), then `m14-flake-b-bar` (step 2, the
-bar's word written when it is lit). Merge them in that order, each when
-green. Compare step 2 with its parent in one dispatch: `gh workflow run
-timing-samples.yml -f refs="m14-flake-d-gstreamer m14-flake-b-bar" -f
-machines=3 -f repeats=10`. Then step 3 (the next PDF page drawn ahead;
-`docs/m14-flake/pdf-warmup.diff` no longer applies on top of step 1's
-marks: apply it by hand). Then step 6a (`docs/m14-home-plan.md` §5).
+**Resume M14 here (2026-10-06, 10:51 UTC).** Flake steps 1 and 5 are merged
+(#80, #81; `main` 5bd4991); step 1's baseline and the full-chain check are
+recorded (LEARNING_LOG Iterations 42-43). Three stacked draft pull requests
+remain, each branch on top of the one before, so each merges without a
+conflict in this file once the one below it has merged:
+1. #82 `m14-flake-d-gstreamer` (step 4, no on-disk audio for CI's WebKit).
+   Its first CI run is the proof: in the browser job's log, the line
+   `[readalong-safari] audio requests:` must show no request starting below
+   the far one (`bytes=N-`, N above 8 MB). If one does, withdraw the step.
+2. `m14-flake-b-bar` (step 2, the bar's word written when it is lit).
+3. `m14-flake-c-pdf-warmup` (step 3, the next PDF page drawn ahead).
+Merge each when its CI is green (re-run a known WebKit flake once). No more
+sampling runs per step (Iteration 43): harvest ordinary CI afterwards with
+the command at the end of `docs/m14-flake/plan.md` §2. Then step 6a
+(`docs/m14-home-plan.md` §5).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -167,6 +165,31 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 06:51 (local; 10:51 UTC) · Claude (laptop) · Flake step 5 merged (#81); CI's full chain sampled; flake step 2 pushed as a draft PR (stacked on #82); why the project is slow
+- **Done:**
+  - **#81 (step 5)** merged as 5bd4991: CI `261 passed (15.9m)`; `git diff --stat 1f0bb82 origin/main` printed nothing.
+  - **The full-chain sample** (Iteration 43): 3 of 5 runs failed. Its medians are more than a frame above the quick shape's, so the quick shape does not stand for CI. From here on, each step is proved by its own check that fails without it, plus its pull request's CI run, not by sampling runs (about 20 runner-minutes a machine in the full-chain shape).
+  - **Step 2** on `m14-flake-b-bar`, on top of #82:
+    - The reader writes the bar's word in the same step as it lights it (`recordLit`), and the bar keeps no word state.
+    - A check that the bar and the book change on the same frame. It fails all three saved CI recordings at the failed words.
+    - A Mac cannot make the old code fail: a 40 ms busy task did not change the order there (Iteration 44).
+  - **Samuel asked why building the project is so slow.** Answered from GitHub's records of the last 14 pull requests:
+    - Every merge waits for an 18-minute browser job: 261 tests one after another, in 18 groups that wait on each other.
+    - The WebKit page-turn test fails about 1 run in 5 (6 of 30 today), so 6 of the 14 needed a re-run.
+    - A change to how pages look needs two CI rounds, because the reference images are made on GitHub's Linux machines.
+    - Each step is reviewed and mutation-tested by design. Step 5 took 6.1 hours, mostly two review rounds.
+    - Once open, a PR merged in 0.3 to 1.8 hours.
+- **Key paths:** `app/(reader)/books/[id]/read/{Reader,ListenBar}.tsx`, `lib/perf-marks.ts`, `e2e/listen.ts`, `LEARNING_LOG.md` (Iterations 43-44).
+- **Commands that worked:**
+  - `gh workflow run timing-samples.yml -f refs=main -f machines=1 -f repeats=5 -f shape=suite`; `gh run download <id>`, then a per-run table of `samples.jsonl`.
+  - `python3 scratchpad/sameframe.py <recordings>` (the new check on the saved CI recordings).
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` on steps 1, 5, 4 and 2 → `261 passed (6.7m)`; `npm run check` → `Tests 417 passed | 2 skipped (419)`.
+  - `gh pr list --state merged --limit 14 --json number,createdAt,mergedAt` and `gh run list --branch <b> --json attempt` (the pace numbers).
+- **Known issues / blockers:**
+  - The WebKit page-turn failures until steps 2-3 merge.
+  - The next speed-up after them: run the browser tests on several GitHub machines at once (only some groups can, since most wait on the one before), and make reference images without a second CI round. Each is its own PR, after Samuel says which matters more to him than step 6a.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 06:31 (local; 10:31 UTC) · Claude (laptop) · Flake step 1's baseline recorded; flake step 4 (no on-disk audio for CI's WebKit) pushed as a draft PR, stacked on step 5
 - **Done:**

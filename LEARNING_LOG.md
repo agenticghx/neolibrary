@@ -976,3 +976,52 @@ first runs on a fresh machine differ from later ones and from CI's full
 suite. Look at the runs one by one before trusting a table. The plan's
 check of the quick shape against the full chain (`-f shape=suite`)
 decides whether these numbers can judge a fix.
+
+### Iteration 43 · 2026-10-06 10:47 (timing-samples run 37450233481 finished; from GitHub) · Flake step 1: the quick shape against CI's · measurement, no fix
+
+**Hypothesis.** The quick shape (the owner's account, then only the
+page-break test) measures what CI's full suite sees. The plan trusts it
+only if the medians of the two agree within one frame.
+**Evaluation.** `gh workflow run timing-samples.yml -f refs=main -f
+machines=1 -f repeats=5 -f shape=suite`, its five WebKit runs one by one.
+**Result.** 3 of 5 failed. For page 2's first word, the bar's frame and the
+highlight's frame came at a median of 93.5 and 84.7 ms. The quick shape
+gave 69.9 and 57.1 over all 30 runs, and 50.8 and 48.6 over its later runs.
+That is more than a frame apart, so the quick shape does not stand for CI.
+The failures:
+- Two are the bar trailing React: lit at 23 and 19 ms, React wrote the
+  bar at 85 and 90, and the bar's frame came at 104 and 114 while the
+  book's was at 30 and 87.
+- One is a stretch of 226 ms with no frame drawn ("real", word 52, shown
+  at 169 ms on both).
+**Lesson.** Measure where the failure lives: CI's full chain fails
+differently, and more often, than a quick run of the one test. A sampling
+run that costs about 20 runner-minutes a machine is dear, so from here on
+each step is proved by its own check that fails without it and by its
+pull request's CI run, and ordinary CI is harvested afterwards.
+
+### Iteration 44 · 2026-10-06 10:49 · Flake step 2 (the bar's word written when it is lit) · success (CI to come)
+
+**Hypothesis.** Writing the bar's word in the same step as the word is
+lit removes the bar's lag behind React, the main kind of failure on CI
+(Iterations 39, 42 and 43).
+**Action.** `recordLit` in `Reader.tsx` at all three places a word is lit.
+The bar keeps no word state. Step 1's `nl:bar-set` mark moves into
+`recordLit`. `expectEveryWordOnTime` checks that the bar and the book
+change on the same frame.
+**Evaluation.** The new check replayed on the three saved CI recordings
+(scratchpad `sameframe.py`). A live try on a Mac: the old code with a
+40 ms busy task queued right after each lit word, ahead of React's
+update. Then the whole suite from a fresh database, and `npm run check`.
+**Result.**
+- **Replay:** the check fails all three recordings, at the words CI failed
+  at. "most" (word 51) on frame 553 against 551, in both the `main` and
+  #75 recordings; "and" (word 10) on frame 106 against 105, in `:727`'s.
+- **Live try:** the old code still passed (`3 passed`, with and without the
+  busy task). WebKit on a Mac ran React's update before the next frame
+  even then, whereas on CI a frame came between them (Iteration 39). So a
+  Mac cannot show this, as the plan said; the replay and CI are the proof.
+- **With the change** (on steps 1, 5 and 4): `261 passed (6.7m)`;
+  `Tests 417 passed | 2 skipped (419)`.
+**Lesson.** A delay is not an ordering: to reproduce a race, make the same
+thing come first, not only later.
