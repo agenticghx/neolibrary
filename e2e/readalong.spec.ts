@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { unzipSync, zipSync } from "fflate";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { extractSections, type Section } from "@/lib/library/sections";
@@ -20,6 +20,31 @@ test.describe.configure({ mode: "serial" });
 
 /** "-safari" for the WebKit run, so its screenshots do not overwrite Chrome's. */
 const engine = () => (test.info().project.name.includes("safari") ? "-safari" : "");
+
+/**
+ * Chooses a folder in a folder picker as a reader does: the browser lists the folder itself (each file's
+ * path inside it comes from the engine), then fires "input" and "change". Playwright 1.56 waits for that
+ * "input", but asks the page to listen for it only after handing the folder over
+ * (playwright-core/lib/server/dom.js, _setInputFiles). WebKit lists the folder in the background and can
+ * fire "input" before anyone listens; setInputFiles then never returns, though the page has done its work
+ * (CI run 37392862541, attempt 2: the page said "Done." and the call hung until the 2-minute test timeout).
+ * So once the status line shows the page took the folder, one more "input" ends that wait. The page cannot
+ * react to it: React's onChange on a file field listens to "change" only. A second upload would fail the
+ * "announced once" checks below.
+ */
+async function chooseFolder(section: Locator, label: string, dir: string) {
+  // Found by what it is, not by its label: "Choose the read-along folder" reads "Replace with another
+  // folder" once a reading is ready, which can be before the event below is sent.
+  const field = section.locator("input[webkitdirectory]");
+  await Promise.all([
+    section.getByLabel(label).setInputFiles(dir, { timeout: 30_000 }),
+    (async () => {
+      // Any step of an upload, or already "Done." (a small package can finish before the first look).
+      await expect(section.getByTestId("audiobook-status")).toHaveText(/^(Checking |Sending |Done\.$)/, { timeout: 20_000 });
+      await field.dispatchEvent("input", undefined, { timeout: 5_000 });
+    })(),
+  ]);
+}
 
 const BOOK = new Uint8Array(readFileSync("fixtures/books/stevenson-jekyll-and-hyde.epub"));
 
@@ -163,7 +188,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   });
   const folder = section.getByLabel("Choose the read-along folder");
   await expect(folder).toHaveAttribute("webkitdirectory", "");
-  await folder.setInputFiles(root);
+  await chooseFolder(section, "Choose the read-along folder", root);
   await expect(section.getByTestId("audiobook-status")).toHaveText("Done.");
   await expect(section).toContainText("Ready · added");
   await expect(section).toContainText("To read along, open the book and press Listen");
@@ -205,7 +230,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   // Replace: the same folder with a new title takes the old one's place.
   const manifest = JSON.parse(Buffer.from(files["manifest.json"]).toString());
   await writeFile(path.join(root, "manifest.json"), JSON.stringify({ ...manifest, title: "Second reading" }));
-  await section.getByLabel("Replace with another folder").setInputFiles(root);
+  await chooseFolder(section, "Replace with another folder", root);
   await expect(section).toContainText("Second reading");
   await expect(section.getByRole("alert")).toHaveCount(0);
   expect(await imports(bookId)).toMatchObject([{ status: "ready", title: "Second reading" }]);
@@ -283,7 +308,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
     if (route.request().method() === "POST" && zipDelay) await new Promise((r) => setTimeout(r, zipDelay));
     await route.continue();
   });
-  await section.getByLabel("Choose the read-along folder").setInputFiles(root);
+  await chooseFolder(section, "Choose the read-along folder", root);
   await expect(section.getByTestId("audiobook-status")).toHaveText("Done.", { timeout: 20_000 });
   const { said, sent } = await page.evaluate(() => window as unknown as { said: string[]; sent: string[] }).then(async () =>
     page.evaluate(() => {
@@ -301,7 +326,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
 
   // Cancel in the middle of sending: the page says so, and the unfinished upload can be removed.
   partDelay = 20_000; // held while the screen is checked, then cancelled
-  await section.getByLabel("Choose the read-along folder").setInputFiles(root);
+  await chooseFolder(section, "Choose the read-along folder", root);
   const cancel = section.getByRole("button", { name: "Cancel the upload" });
   // Wait until the audio is being sent (the upload exists on the server).
   await expect(section.getByTestId("audiobook-status")).toHaveText(/^Sending the audio/);

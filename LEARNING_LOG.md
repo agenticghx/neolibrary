@@ -867,3 +867,49 @@ Mac, not CI). Whole suite: `261 passed (6.7m)`. The proof grep printed
 nothing.
 **Lesson.** A measurement must not be able to fail the test it measures:
 anything it writes, it writes where it has made sure it can.
+
+### Iteration 39 · 2026-10-06 09:55 (CI run 37444264710, attempt 1, finished; from GitHub) · Flake step 1 CI (#80) · flake, measured for the first time
+
+**Hypothesis.** When `:1123` fails on CI, step 1's recorder prints a
+timeline that names the cause before the check fails.
+**Evaluation.** The browser job's log of CI run 37444264710 (attempt 1).
+**Result.** `1 failed`, `4 did not run`, `256 passed (16.0m)`: the known
+flake, `readalong-safari` `:1123`, `bar: "most" (word 51) shown 118 ms after
+it starts`. The timeline, in ms after the voice began "most": lit at
+28 (the book showed it in the next frame: `litFrame` 27.4, on time);
+at 45 `font g_d0_sf4 italic: load() held the page 38 ms; FAILED at 83`;
+React wrote the bar's `data-word` at 92; the next frame, at 118, showed it.
+That is S1 of the plan in one run: the bar's word waits for React, and
+React waits behind a failed system-font lookup. Steps 2 and 3 remove those
+two waits. The Chromium run of the same test: every word under 40 ms. Re-ran
+the failed job.
+**Lesson.** Measure before fixing: one measured failure showed both causes
+the plan inferred from traces, in the order it predicted.
+
+### Iteration 40 · 2026-10-06 09:56 (the last proof log; from its file) · Flake step 5 (folder picks that cannot hang) · success
+
+**Hypothesis.** If Playwright misses the browser's `input` event for a
+folder, `setInputFiles` never returns, though the page uploads; one more
+`input` once the page shows it took the folder ends that wait.
+**Action.** `chooseFolder` in `readalong.spec.ts` at the four folder picks.
+One change from the plan: the extra event goes to the folder field found
+by `input[webkitdirectory]`, not by its label, because "Choose the
+read-along folder" becomes "Replace with another folder" once a reading is
+ready, and a label lookup after that waits with no limit.
+**Evaluation.** From a snapshot taken after the `offline` project
+(database, files and saved login together), the folder test alone, in both
+engines: control; Playwright made to miss the event (a capture listener
+that stops the browser's first `input`) with a plain pick; the same with
+`chooseFolder`; then the plain pick with a 20 s limit, under the test's 30 s.
+**Result.** Control: `1 passed` (5.0 s Chromium, 5.5 s WebKit). Missed
+event, `chooseFolder`: `1 passed` (5.0 s, 5.6 s). Missed event, plain pick,
+20 s limit: `TimeoutError: locator.setInputFiles: Timeout 20000ms exceeded`
+at the pick, in both engines (21.0 s, 21.3 s). A run that recorded the
+events: `input` stopped at the window, `change` delivered, the page at
+"Done.", the pick still waiting at 20 s. With a 30 s limit (the plan's),
+the test's own 30 s ran out first: Chromium reported the pick; WebKit
+reported the next line, because Playwright's wait swallows the error when
+the page is closed (`dom.js`, `waitForInputEvent.catch(() => {})`); the
+page there also showed "Done.".
+**Lesson.** A limit on one step proves nothing when the whole test's limit
+is the same: set it lower, or the failure lands somewhere else.
