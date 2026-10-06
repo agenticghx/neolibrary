@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { expectHighlightKeepsUp } from "./listen";
-import { ADMIN_STATE } from "./pages";
+import { ADMIN, ADMIN_STATE } from "./pages";
 
 // M7 (a): reading aloud through the API, with the fake voice (AI_FAKE=1 in
 // the test server). The player in the reader comes next.
@@ -142,6 +142,77 @@ test("while playing, the highlight lands on every word in order, on time", async
   await expect(bar).toContainText("Saved audio: free to play.");
   await expectHighlightKeepsUp(page, "That evening, Mr. Utterson came home to his bachelor house in sombre spirits and sat down to dinner without relish.");
   await bar.getByRole("button", { name: "Stop reading aloud" }).click();
+});
+
+// M14 step 6a: one read-aloud player for the app. Leaving the reader, the audio goes on: the same
+// element, its time still moving, never reloaded, emptied or paused. Back in the book, the bar is
+// there again, and closing it stops the audio as before.
+test("reading aloud goes on when the reader is left for Home, and the bar is back with the book", async ({ page }) => {
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Saved audio: free to play.");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  // The paragraph is long enough (the fake voice: 0.03 s a character) to still be playing after the trip.
+  await page.waitForFunction(() => {
+    const a = document.querySelector("audio")!;
+    return a.duration > 8 && a.currentTime > 0.2;
+  });
+  // From here on, anything that reloads, empties or pauses this element is counted.
+  const before = await page.evaluate(() => {
+    const a = document.querySelector("audio")!;
+    const w = window as unknown as { heard: HTMLAudioElement; events: string[] };
+    w.heard = a;
+    w.events = [];
+    for (const e of ["loadstart", "emptied", "abort", "pause"]) a.addEventListener(e, () => w.events.push(e));
+    return a.currentTime;
+  });
+
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Read aloud" })).toHaveCount(0);
+  await page.waitForFunction((t) => (document.querySelector("audio")?.currentTime ?? 0) > t + 0.5, before);
+  expect(
+    await page.evaluate(() => {
+      const w = window as unknown as { heard: HTMLAudioElement; events: string[] };
+      const a = document.querySelector("audio");
+      return { same: a === w.heard, paused: a?.paused, events: w.events, audios: document.querySelectorAll("audio").length };
+    }),
+  ).toEqual({ same: true, paused: false, events: [], audios: 1 });
+
+  // Back to the book: its bar shows the audio still playing, and closing it stops it as before.
+  await page.goBack();
+  const back = page.getByRole("region", { name: "Read aloud" });
+  await expect(back.getByRole("button", { name: "Pause" })).toBeVisible();
+  await back.getByRole("button", { name: "Stop reading aloud" }).click();
+  await expect(back).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { heard: HTMLAudioElement }).heard.isConnected)).toBe(false);
+  expect(await spoken(page)).toBeNull();
+});
+
+// Signing out lands on the sign-in page, without a page load: nothing may play there.
+// (A session of its own: signing it out leaves the other tests' session alone.)
+test("signing out stops reading aloud", async ({ browser }) => {
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const page = await ctx.newPage();
+  await page.goto("/sign-in");
+  await page.getByLabel("Email address").fill(ADMIN.email);
+  await page.getByLabel("Password").fill(ADMIN.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.locator("audio")).toHaveCount(0);
+  await ctx.close();
 });
 
 test("the player is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
