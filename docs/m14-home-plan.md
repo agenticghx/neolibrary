@@ -935,3 +935,145 @@ Still open:
   keep step 2 free of other visual changes so the diff is reviewable.
 - **Scope creep**: "Listen only" uploads, a hand-made Want to Read list,
   a "Read last" marker, the Home extras are out of M14 unless Samuel says so.
+
+## 12. Follow-ups from Samuel's verdict (2026-10-06, issue #90)
+
+*Written for the next Claude session building these, and for Samuel. Each
+item states what Samuel wants (confirmed with him in three rounds on
+2026-10-06), then the changes, the tests, and when it is done. One PR per
+item, reviewed by a workflow before it merges (hold the PR as a draft
+while the review runs: the auto-merge skips drafts).*
+
+Samuel's verdict on "What to try" items 1 to 4:
+- **1 and 2:** the sidebar is right on desktop. The phone tabs are not
+  checked yet (V4).
+- **3:** Paths could not take his own books (V1).
+- **4:** the mini-player works: back and forward 15 s, the speed, and Go to
+  the page, where the reading carries on. He wants the word being said lit
+  on the page it opens (V2).
+- **Import:** he wants it in one place (V3).
+
+### V1 · Paths: your books first in the picker (do first: it blocks Samuel)
+
+**What Samuel wants.** When he builds his own Path, the books he actually
+has, uploaded by him or added by the app like Frankenstein, are easy to
+add. He tried a Path "literature" with a section "man and machine": he
+could not find Frankenstein in the picker, and nothing was added.
+
+**What is known.**
+- `app/(app)/paths/[slug]/edit/page.tsx` (the `library` query) lists
+  every row of `books`, alphabetically, in one native `<select>`
+  (`components/paths/PathForms.tsx`, `AddTitleForms`).
+- On the live database that is 129 rows: 3 with a file (Frankenstein,
+  Jekyll and Hyde, The Time Machine) and 126 Hidden Machinery titles
+  without one, with nothing to tell them apart.
+- The server's list does include Frankenstein: 26th of 129, between
+  "Fragile by Design" and "Frostbite".
+- His "literature" Path has the section and no titles.
+
+**First, reproduce** with a library shaped like his: 3 books with files
+among about 120 without. Find out whether Frankenstein is an option, and
+whether adding it works. If it is absent, find why before changing the
+picker.
+
+**Changes.** Two option groups:
+- "Books you have": books with a file, first;
+- "Titles without a file yet": the rest.
+
+The choice is still one control, and adding still works the same way.
+
+**Tests.** In `own-paths.spec.ts`, the picker's first group holds exactly
+the books with a file (by title), and adding Frankenstein shows it in the
+section.
+
+**Mutation.** One group again: the group check fails.
+
+### V2 · Go to the page lights the word (a made voice)
+
+**What Samuel wants.** Go to the page opens where the voice is, with the
+word being said lit on that page. The reading carries on, which he
+re-tested and confirmed. His case is Frankenstein in an ElevenLabs voice
+("Roger"). The 6b test covers only an uploaded audiobook.
+
+**Test first,** in `audio.spec.ts` (made voice):
+1. Play in the reader, and leave for Home.
+2. Go to the page.
+3. Check: the reader opens; Pause still shows (playing); the bar's
+   `data-word` is set; the reader's lit word (`spoken(page)`) is that word;
+   and its paragraph lies inside the visible range (the CFI range check
+   from `reader.spec.ts`).
+
+**Fix** only what fails, probably where a returning page lights the
+current word in `ListenSession`.
+
+**Mutation.** Skip lighting when a page comes back: the test fails.
+
+### V3 · Import in one place (two PRs)
+
+**What Samuel wants.** One clear place to add things:
+- **Desktop:** an "Import" item at the end of the sidebar's Library list,
+  after PDFs.
+- **Phone:** a fifth tab, "Import".
+- **Home:** keeps only its Import button at the top: no drop strip, and no
+  drop-anywhere.
+- **Library views** (All, Want to Read, Finished, Books, Audiobooks, PDFs,
+  which are one page) lose their drop box.
+- **The Import page takes books and audiobooks,** and says how books are
+  heard.
+
+**How books are heard today** (confirmed with Samuel; the page's words come
+from this):
+- **Every book needs its own file first.**
+- **An EPUB can be read aloud paragraph by paragraph by a made voice
+  (ElevenLabs).** Each paragraph is made the first time it plays, paid per
+  character with the price shown first, then saved and free.
+- **Any book, EPUB or PDF, can get its own audiobook:** a read-along package
+  made on the laptop by the `readalong-audio` skill (audio, script, word
+  timings by forced alignment, and a map of the book). It plays straight
+  through, free. For a PDF it is the only way to hear it.
+
+**V3a · the Import page, and the drop areas removed.**
+- **A new page `/import`:**
+  - **"Add books (EPUB or PDF)":** the existing drop area and Choose files
+    (`components/upload/HomeImport.tsx`, `ImportZone` / `useUpload`);
+  - **"Add your audiobook to a book":** choose one of your books with a
+    file, then its read-along package (reuse
+    `app/(app)/books/[id]/AudiobookUpload.tsx`);
+  - **the line:** "To hear a book, add its file first. Then an EPUB can be
+    read aloud paragraph by paragraph by an AI voice (paid the first time
+    each paragraph plays, then free), or any book, EPUB or PDF, can get your
+    own audiobook, which plays straight through for free."
+- **Home:** keep `ImportButton`; remove `ImportZone` and the drop-anywhere
+  `ImportRoot`.
+- **Library:** remove `Dropzone` (`app/(app)/library/page.tsx`).
+- **The book page keeps its own audiobook upload,** since it is about that
+  book. Ask Samuel only if he objects.
+- **Tests:**
+  - a book uploaded from `/import`;
+  - an audiobook package imported for a chosen book;
+  - Home shows the Import button and no drop strip;
+  - Library shows no drop box;
+  - `/import` in `e2e/pages.ts` (four looks).
+- **Reference images that change:** `home-*` and `library-*`.
+
+**V3b · the shell.** "Import" goes last in the sidebar's LIBRARY list
+(`components/shell/Sidebar.tsx`), and a fifth tab in
+`components/shell/TabBar.tsx`. Every signed-in page's reference images
+change, so this PR has nothing else in it (§11, "Screenshot churn").
+Check that five tabs fit at 390 px with 44 px targets.
+
+**Done when** Samuel's points hold on desktop and phone, and the suites are
+green.
+
+### V4 · Waiting on Samuel
+
+- **The phone tabs on his iPhone,** with the one-tap "Listen from here" in
+  real Safari.
+- **The questions in #90:**
+  - the headphones mark and the Audiobooks filter;
+  - row 10;
+  - edge to edge;
+  - renaming and deleting in Paths;
+  - overall.
+- **Open unknowns row 11:** making narration for a whole book in advance
+  from the Import page. Default: not offered; the page explains.
