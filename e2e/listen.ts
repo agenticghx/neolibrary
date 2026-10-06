@@ -137,6 +137,19 @@ export async function recordPlayer(page: Page) {
     for (const e of ["loadstart", "emptied", "abort", "seeking", "seeked", "waiting", "playing", "play", "pause", "ended", "error", "stalled"]) {
       a.addEventListener(e, () => w.events_.push([e, a.currentTime]));
     }
+    // Who pauses the audio (Iterations 47 and 50: twice it was paused part-way through a file, with no step of the
+    // test asking for it): each pause() called by a script, with where it was called from. A "pause" event with
+    // no call here came from the browser itself.
+    const t = window as unknown as { pauses_: [number, string][]; pauseTraced_?: boolean };
+    t.pauses_ = [];
+    if (!t.pauseTraced_) {
+      t.pauseTraced_ = true;
+      const pause = HTMLMediaElement.prototype.pause;
+      HTMLMediaElement.prototype.pause = function (this: HTMLMediaElement) {
+        t.pauses_.push([this.currentTime, (new Error().stack ?? "").split("\n").slice(2, 8).join(" | ")]);
+        return pause.call(this);
+      };
+    }
     const bar = document.querySelector('[aria-label="Read aloud"]')!;
     const reader = document.querySelector('[data-testid="reader"]')!;
     const view = document.querySelector("foliate-view") as unknown as Element & { renderer: { getContents(): { doc: Document | null }[] } };

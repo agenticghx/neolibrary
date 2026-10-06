@@ -303,3 +303,39 @@ test("the admin's cost counter shows this month's text and voice spending, by bo
   await expect(jekyll).toContainText(/Claude \$0\.\d+ · ElevenLabs \$0\.\d+/);
   await expect(jekyll).not.toContainText("$0.00");
 });
+
+test("M14 (6b): with a made voice, the mini-player shows where it was paused, and a skip while paused stays paused", async ({ page }) => {
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Saved audio: free to play.");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.waitForFunction(() => Number.isFinite(document.querySelector("audio")!.duration));
+  // Paused on "home" (the fake voice: 0.03 s a character; "home" from 0.96 s).
+  await seek(page, 1.0);
+  await expect(bar).toHaveAttribute("data-word", "home");
+  await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  await expect(mini.locator("mark")).toHaveText("home");
+  await expect(mini.locator("p").first()).toContainText("Utterson came home");
+
+  // Forward 15 s from near the paragraph's end: on to the next paragraph, ready and still paused.
+  const first = await page.evaluate(() => {
+    const a = document.querySelector("audio")!;
+    a.currentTime = a.duration - 3;
+    return a.src;
+  });
+  await mini.getByRole("button", { name: "Forward 15 seconds" }).click();
+  await page.waitForFunction((src) => document.querySelector("audio")!.src !== src, first);
+  expect(await page.evaluate(() => document.querySelector("audio")!.paused)).toBe(true);
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  await expect(mini.locator("p").first()).not.toContainText("Utterson came home");
+  // Play reads it from its start.
+  await mini.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.waitForFunction(() => document.querySelector("audio")!.currentTime > 0.2);
+});

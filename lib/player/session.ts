@@ -1,4 +1,4 @@
-import type { Track } from "@/lib/library/audio";
+import type { ReadingPart, Track } from "@/lib/library/audio";
 import type { ListenInfo } from "@/lib/library/listen";
 
 /**
@@ -10,6 +10,15 @@ import type { ListenInfo } from "@/lib/library/listen";
 
 /** What the player has for the paragraph or audiobook at the reading position. */
 export type Info = Omit<ListenInfo, "track"> & { track: (Track & { audioUrl: string }) | null };
+
+/**
+ * An audiobook's reading with the next part fetched added on (M14 step 6b):
+ * its paragraphs, where the part after it starts, and the names of the
+ * chapters of every part so far (the mini-player shows the chapter being read).
+ */
+export function withPart<T extends ReadingPart>(reading: T, part: ReadingPart): T {
+  return { ...reading, paragraphs: [...reading.paragraphs, ...part.paragraphs], more: part.more, chapters: { ...reading.chapters, ...part.chapters } };
+}
 
 export const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 /** Where this device keeps the speed chosen last (M14 step 6b): every session starts at it. */
