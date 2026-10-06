@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build the follow-ups in docs/m14-home-plan.md §12, in order: V1 (Paths: your books first; Frankenstein could not be added: reproduce first), V2 (Go to the page lights the word, made voice), V3a (an Import page), V3b (Import in the sidebar and a fifth phone tab), V5 (whole-book AI narration, an explicit choice; never call ElevenLabs for a whole book until Samuel says so). Then the WebKit-after-seek stall on CI.
+next_action: V1 (your books first in the Path picker) and V2 (a made-voice Go to the page test) are a PR: merge when green, then deploy (back up first). Then V3a (the Import page, on m14-v3a-import, written, not yet run), V3b, V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -198,6 +198,25 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 18:38 (local; 22:38 UTC) · Claude (laptop) · M14 follow-ups V1 and V2 as a PR; #96 merged
+- **Done:**
+  - **#96** (Samuel's whole-book narration rule and plan V5) merged by hand as c1a2526 once its re-run was green; the auto-merge had not acted on the re-run.
+  - **V1:** the Path picker lists "Books you have" first. A reproduction showed nothing was broken: Frankenstein was in the list, and adding it worked. It was lost among 126 titles without a file.
+  - **V2:** a test shows "Go to the page" with a made voice already lights the word on the page and plays on (Iteration 57).
+  - **V3a** (the Import page) is written on `m14-v3a-import`, not yet run.
+- **Key paths:** `components/paths/PathForms.tsx`, `app/(app)/paths/[slug]/edit/page.tsx`, `e2e/own-paths.spec.ts`, `e2e/audio.spec.ts`, `LEARNING_LOG.md` (Iteration 57).
+- **Commands that worked:**
+  - `scratchpad/repro-picker.mts` (Playwright on a copy of the test data) → 134 options with Frankenstein; added → "1 section · 1 available".
+  - `scratchpad/run-snap-home.sh v1 own-paths "."` → `2 passed`; `scratchpad/run-snap.sh v2 audio "V2"` → `1 passed`; both mutations caught.
+  - `npm run check` → `Tests 462 passed | 2 skipped (464)`.
+- **Known issues / blockers:**
+  - **WebKit stall on CI:** the third hit in one day was on #96, a docs-only PR. The events show `stalled` right after the first seek, with no `pause()` call (evidence in this session's scratchpad `stall-evidence.md`).
+  - **The auto-merge does not act on a re-run's success:** merge by hand then.
+- **Exact next steps:**
+  1. Merge this PR when green, then deploy (back up first).
+  2. Then V3a: run its tests, commit the new reference images rendered by CI, and open its PR.
+  3. Then V3b and V5, then the WebKit stall.
 
 ### 2026-10-06 17:46 (local; 21:46 UTC) · Claude (laptop) · Samuel's decision on whole-book AI narration (row 11), and his rule
 - **Done:**
