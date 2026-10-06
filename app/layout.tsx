@@ -5,6 +5,7 @@ import "@fontsource-variable/source-sans-3/wght.css";
 import "./tokens.css";
 import "./globals.css";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { PlayerProvider } from "@/components/player/PlayerProvider";
 
 export const metadata: Metadata = {
   title: { default: "Neolibrary", template: "%s · Neolibrary" },
@@ -23,7 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {children}
+        {/* Read aloud goes on from page to page (M14 step 6a); it plays nothing until a reader opens Listen. */}
+        <PlayerProvider>{children}</PlayerProvider>
         <ServiceWorker />
       </body>
     </html>

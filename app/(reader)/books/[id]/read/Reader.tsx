@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
+import { usePlayer } from "@/components/player/PlayerProvider";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
 import { addToOutbox, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
 import type { CrossLink } from "@/lib/library/crosslinks";
@@ -211,7 +212,9 @@ export function Reader(props: {
   const [imagesFor, setImagesFor] = useState("");
   const [imagesAt, setImagesAt] = useState<PendingSelection | null>(null);
   const [links, setLinks] = useState<CrossLink[]>([]);
-  const [listening, setListening] = useState(props.startListening ?? false);
+  const player = usePlayer();
+  // The bar shows when asked for, or when this book is still being read aloud (the reader was left and is back).
+  const [listening, setListening] = useState(!!props.startListening || player.bookId === props.bookId);
   // ?listen=1 (Home's Listen from here) opens the Read aloud bar once: take it out of the
   // address, so a reload after closing the bar does not open it again.
   useEffect(() => {
@@ -809,8 +812,35 @@ export function Reader(props: {
     for (const { doc } of view.current?.renderer.getContents() ?? []) {
       (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
     }
+    player.stop();
     setListening(false);
   };
+
+  // The app's read-aloud player (components/player): while the bar shows, this
+  // page lights its words, turns its pages and draws its bar. Leaving the
+  // reader takes the page away; the audio goes on.
+  const listenSlot = useRef<HTMLDivElement>(null);
+  const forPlayer = useRef({ highlightWord, showPassage, stopListening });
+  useEffect(() => {
+    forPlayer.current = { highlightWord, showPassage, stopListening };
+  });
+  const { attach } = player;
+  const showsBar = listening && !!where.cfi;
+  useEffect(() => {
+    const slot = listenSlot.current;
+    if (!showsBar || !slot) return;
+    return attach(
+      {
+        slot,
+        onWord: (passageCfi, from, to, inPage) => forPlayer.current.highlightWord(passageCfi, from, to, inPage),
+        onPassage: (passageCfi, opts) => forPlayer.current.showPassage(passageCfi, opts),
+        renderBar: (view) => <ListenBar view={view} ref={listenBar} onClose={() => forPlayer.current.stopListening()} />,
+      },
+      props.bookId,
+      // Where the reader is now: reading aloud starts here (unless this book is already being read aloud).
+      whereCfi.current!,
+    );
+  }, [showsBar, attach, props.bookId]);
 
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
   const percent = Math.round(where.fraction * 100);
@@ -918,9 +948,7 @@ export function Reader(props: {
       </div>
 
       {/* Between the book and the foot, so it never covers the page's last lines. */}
-      {listening && where.cfi ? (
-        <ListenBar ref={listenBar} bookId={props.bookId} startCfi={where.cfi} onWord={highlightWord} onPassage={showPassage} onClose={stopListening} />
-      ) : null}
+      {showsBar ? <div ref={listenSlot} className={styles.listenSlot} /> : null}
 
       <footer className={styles.foot}>
         <span className={styles.chapter}>

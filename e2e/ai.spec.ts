@@ -300,6 +300,8 @@ test("cross-book links: a page that shares ideas with a note in another book say
   await expect(item).toContainText("“You will rejoice to hear”");
   await expect(item).toContainText("A will, a lawyer and a locked safe, as with Utterson.");
   await panel.getByRole("link", { name: "Open in Frankenstein" }).click();
+  // A link within the app (reading aloud goes on): the other book's reader replaces this one once its address is shown.
+  await expect(page).toHaveURL(new RegExp(`/books/${frankenstein}/read`));
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   expect(bookIdOf(page)).toBe(frankenstein);
   const text = await page.evaluate(() => {

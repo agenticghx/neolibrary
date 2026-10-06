@@ -175,6 +175,11 @@
   cursor: default;
 }
 
+/* Where the app's read-aloud player draws the bar (components/player): no box of its own, so the bar sits in the reader's grid as before. */
+.listenSlot {
+  display: contents;
+}
+
 /* A row of the reader's grid (not floating over the page), so the book's
    pages end above it and the word being read is never hidden under it. */
 .listenBar {
