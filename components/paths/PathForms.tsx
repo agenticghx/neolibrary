@@ -119,9 +119,19 @@ function HowToRead({ id }: { id: string }) {
   );
 }
 
+/** A book in the picker: "Title, by Author". */
+const bookOption = (b: { id: string; title: string; author: string }) => (
+  <option key={b.id} value={b.id}>
+    {b.author ? `${b.title}, by ${b.author}` : b.title}
+  </option>
+);
+
 /**
  * Add a title to a section: a book already in the library, or a new title
- * (name and author) that waits, greyed, until its file is added.
+ * (name and author) that waits, greyed, until its file is added. In the
+ * library's list, the books you have (with a file) come first, apart from the
+ * titles still waiting for one: among a reading list's titles, your own books
+ * were easy to miss (Samuel, #90).
  */
 export function AddTitleForms({
   pillarId,
@@ -132,7 +142,7 @@ export function AddTitleForms({
   pillarId: string;
   sectionTitle: string;
   slug: string;
-  library: { id: string; title: string; author: string }[];
+  library: { id: string; title: string; author: string; hasFile: boolean }[];
 }) {
   const { state: libraryState, pending: libraryPending, form: libraryForm, onSubmit: onLibrarySubmit } = usePathForm(addTitleAction);
   const { state: newState, pending: newPending, form: newForm, onSubmit: onNewSubmit } = usePathForm(addTitleAction);
@@ -152,11 +162,10 @@ export function AddTitleForms({
                 <option value="" disabled>
                   Choose a book
                 </option>
-                {library.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.author ? `${b.title}, by ${b.author}` : b.title}
-                  </option>
-                ))}
+                {library.some((b) => b.hasFile) ? <optgroup label="Books you have">{library.filter((b) => b.hasFile).map(bookOption)}</optgroup> : null}
+                {library.some((b) => !b.hasFile) ? (
+                  <optgroup label="Titles without a file yet">{library.filter((b) => !b.hasFile).map(bookOption)}</optgroup>
+                ) : null}
               </select>
             </div>
             <HowToRead id={`${id}-kind-l`} />

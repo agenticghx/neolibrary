@@ -119,6 +119,19 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   await addNew("Revolutions", "Against Method", "Paul Feyerabend", "Go deeper");
   await addSection("Fiction about science");
   const fromLibrary = section(page, "Fiction about science").getByRole("form", { name: "Add a book from your library to Fiction about science" });
+  // Your own books come first, apart from the titles still waiting for a file: exactly the library's books with
+  // a file (Samuel, #90: among a reading list's titles, Frankenstein was easy to miss).
+  const exported = (await (await page.request.get("/api/export")).json()).books as { title: string; author: string; file: unknown }[];
+  const optionText = (b: { title: string; author: string }) => (b.author ? `${b.title}, by ${b.author}` : b.title);
+  const byTitle = (a: string, b: string) => a.toLowerCase().localeCompare(b.toLowerCase());
+  const groups = fromLibrary.getByLabel("From your library").locator("optgroup");
+  await expect(groups).toHaveCount(2);
+  await expect(groups.nth(0)).toHaveAttribute("label", "Books you have");
+  await expect(groups.nth(1)).toHaveAttribute("label", "Titles without a file yet");
+  const have = await groups.nth(0).locator("option").allTextContents();
+  expect(have.slice().sort(byTitle)).toEqual(exported.filter((b) => b.file).map(optionText).sort(byTitle));
+  expect(have).toContain("Frankenstein, by Mary Shelley");
+  expect(await groups.nth(1).locator("option").allTextContents()).not.toContain("Frankenstein, by Mary Shelley");
   await fromLibrary.getByLabel("From your library").selectOption({ label: "Frankenstein, by Mary Shelley" });
   await fromLibrary.getByRole("button", { name: "Add a book from your library to Fiction about science", exact: true }).click();
   await expect(fromLibrary.getByRole("status")).toHaveText("Added Frankenstein.");
