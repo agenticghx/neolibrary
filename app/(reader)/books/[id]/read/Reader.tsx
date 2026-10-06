@@ -16,6 +16,7 @@ import { useReadingTracker } from "./useReadingTracker";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
+import { mark } from "@/lib/perf-marks";
 import { TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
@@ -138,15 +139,18 @@ function themeColors(el: Element, s: ReaderSettings) {
 /**
  * Read along in a PDF (M13 (e)): lights non-space characters [a, b) of a
  * page's text layer, in that page's own frame; returns their text, or null
- * if the text layer is not drawn yet.
+ * if the text layer is not drawn yet. `via`: who asked (the player's frame,
+ * or the page's text arriving), for the tests' timing marks.
  */
-function lightPdfWord(doc: Document, [a, b]: [number, number]): string | null {
+function lightPdfWord(doc: Document, [a, b]: [number, number], via: "word" | "text-layer"): string | null {
   const layer = doc.querySelector(".textLayer");
   const range = layer ? rangeForNonSpace(layer, a, b) : null;
   if (!range) return null;
   const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
   win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
-  return range.toString();
+  const text = range.toString();
+  mark("nl:lit", { page: Number(doc.documentElement.dataset.page), at: a, text, via });
+  return text;
 }
 
 /** The PDF page foliate shows, or is opening once a turn has begun (-1 before the first: foliate's getter throws then). */
@@ -340,6 +344,7 @@ export function Reader(props: {
         setSettings(initial);
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
+          mark("nl:relocate", { cfi: d.cfi });
           setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
           whereCfi.current = d.cfi;
           turning.current = false;
@@ -360,11 +365,12 @@ export function Reader(props: {
         });
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
+          mark("nl:frame-load", { index, page: doc.documentElement.dataset.page ?? null });
           // A PDF page's text layer is complete (the page was just shown) or
           // was laid out for a new size: light the spoken word on it again.
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
             const w = spokenPdf.current;
-            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at);
+            if (w && doc.documentElement.dataset.page === String(w.page)) lightPdfWord(doc, w.at, "text-layer");
           });
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
@@ -695,13 +701,14 @@ export function Reader(props: {
       // Going on after a pause returns to this page.
       litCfi.current = passageCfi;
       const doc = v.renderer.getContents().find((c) => c.doc?.documentElement?.dataset.page === String(page))?.doc;
-      if (doc) return lightPdfWord(doc, inPage);
+      if (doc) return lightPdfWord(doc, inPage, "word");
       // Not shown: the reader turned back from it while it is read. Turn to it
       // again, as an EPUB's pages follow the voice (a page turned to ahead is
       // left alone). Not while a turn is on its way: foliate shows one page at
       // a time, and asking again for a page still opening fails.
       if (!turning.current && pageOpening(v) !== page && page > pdfPage(whereCfi.current ?? "")) {
         turning.current = true;
+        mark("nl:turn-request", { page, by: "word" });
         void v
           .goTo(passageCfi)
           .catch(() => undefined)
@@ -726,6 +733,8 @@ export function Reader(props: {
     if (!range) return null;
     const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
+    const text = range.toString();
+    mark("nl:lit", { index, at: from, text, via: "word" });
     const wordCfi = v.getCFI(index, range);
     litCfi.current = wordCfi;
     const visible = whereCfi.current;
@@ -740,7 +749,7 @@ export function Reader(props: {
         turning.current = false;
       });
     }
-    return range.toString();
+    return text;
   };
 
   /**
@@ -765,6 +774,7 @@ export function Reader(props: {
     // not ask for it either (see highlightWord).
     if (pageOpening(v) === pdfPage(target)) return;
     turning.current = true;
+    mark("nl:turn-request", { page: pdfPage(target), by: "passage" });
     void v
       .goTo(target)
       .catch(() => undefined)

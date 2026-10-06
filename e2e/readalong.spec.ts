@@ -4,7 +4,7 @@ import { unzipSync, zipSync } from "fflate";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { extractSections, type Section } from "@/lib/library/sections";
 import { buildPackage } from "@/lib/readalong/fixture";
-import { expectEveryWordOnTime, expectNoStall, recording, recordPlayer, type Spoken } from "./listen";
+import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Spoken } from "./listen";
 import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
 
 // M13 (c2): uploading a read-along package through the real server: the
@@ -1158,6 +1158,8 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   expect(withAudio).toContain("Read-Along Test Pages");
   expect(withAudio).not.toContain("Frankenstein");
 
+  // The app's timing marks and the fonts pdf.js loads are recorded from the page's first moment.
+  await instrument(page);
   await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
   const reader = page.getByTestId("reader");
   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
@@ -1168,21 +1170,28 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   await recordPlayer(page);
   await bar.getByRole("button", { name: "Play" }).click();
   await playUntil(page, expected.at(-1)!.startMs + 300);
-  const { frames, events } = await recording(page);
+  const rec = await recording(page);
+  const { frames, events } = rec;
   await page.evaluate(() => document.querySelector("audio")!.pause());
+
+  // The timings first, printed and attached to the report, so that a run that fails a check
+  // below still shows them (this line used to print only when every check had passed).
+  const turned = frames.find((f) => f[6] === "epubcfi(/6/4)");
+  const litFirst = frames.find((f) => f[3] === expected[first2].word && f[6] === "epubcfi(/6/4)");
+  console.log(
+    turned && litFirst
+      ? `page 2 shown ${Math.round(turned[0] * 1000 - last1.end * 1000)} ms after page 1's last word ended; its first word lit ${Math.round(litFirst[0] * 1000 - expected[first2].startMs)} ms after it began`
+      : "page 2 was not shown, or its first word was not lit",
+  );
+  await reportTiming(rec, expected, { label: "pdf-page-break", focus: first2 });
 
   // Every word, in order, each within a tenth of a second, lit in the page's own text layer and on screen:
   // page 2's first word too, though it follows page 1's last with no pause.
   const { paragraphs } = expectEveryWordOnTime(frames, expected, { minWords: expected.length, onScreen: true });
   expect(paragraphs).toEqual(["epubcfi(/6/2)", "epubcfi(/6/4)"]);
   // The page turned only once page 1's last word had been said.
-  const turned = frames.find((f) => f[6] === "epubcfi(/6/4)");
   expect(turned, "the reader turned to page 2").toBeDefined();
   expect(turned![0] * 1000, "turned after page 1's last word").toBeGreaterThanOrEqual(last1.end * 1000);
-  const litFirst = frames.find((f) => f[3] === expected[first2].word && f[6] === "epubcfi(/6/4)")!;
-  console.log(
-    `page 2 shown ${Math.round(turned![0] * 1000 - last1.end * 1000)} ms after page 1's last word ended; its first word lit ${Math.round(litFirst[0] * 1000 - expected[first2].startMs)} ms after it began`,
-  );
   // One audio element, loaded once and never reloaded; no pause, no stall, no seek after the first.
   expect(names(events).filter((n) => n === "loadstart")).toHaveLength(1);
   for (const n of ["emptied", "abort", "error", "pause"]) expect(names(events)).not.toContain(n);
