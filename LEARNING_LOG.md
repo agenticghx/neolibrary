@@ -38,6 +38,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 23 | 2026-10-06 01:30 | 4 rebase; `main` CI | Step 4 on `main` is the tree that passed; `main` is green after #75 | `git diff --stat`; `npm run check`; run 37397581699 | success; flake on `main` | build output left by another branch breaks type checking |
 | 24 | 2026-10-06 02:07 | 4 CI, merge | #76 passes CI and merges as checked | run 37399604844 (2 attempts); `git diff --stat 55376be origin/main` | flake, then success | the same word late three times is a cause, not chance |
 | 25 | 2026-10-06 ~02:00 | CI flakes | The late word at the PDF page break is WebKit drawing the page | per-frame recordings decoded from two CI traces (read-only agent) | partial (cause located) | the check that failed read a hidden attribute; the visible highlight was on time |
+| 26 | 2026-10-06 02:40 | 5 review fixes | Every step-5 review finding can be fixed without changing Hidden Machinery, each guarded by a test that fails without it | 13-analyst locate workflow + critic; 404 unit tests; 29 unit mutations; 3 browser runs | success (browser mutations and second review running) | read the critic even when the fixes are in: it found two of my own mistakes |
+| 27 | 2026-10-06 02:52 | 5 browser mutations | Browser mutations can run on a database snapshot taken after `home` | B1 on the snapshot | failure (method), redone with a control | a snapshot needs its login state; never skip the control run |
 
 ## Lessons so far
 
@@ -581,3 +583,66 @@ remove the lookup, but changes how PDFs without their own fonts look: a
 choice for Samuel. Files: the session's scratchpad `flake/`
 (`main-recording.json`, `pr75a1-recording.json`, `decode.py`).
 
+### Iteration 26 · 2026-10-06 02:40 · Step 5 review fixes · success (browser mutations and a second review still running)
+
+**Hypothesis.** All findings of the two step-5 reviews (handoff §4b) can be
+fixed without changing Hidden Machinery, each guarded by a test that fails
+without its fix.
+**Action.** A read-only workflow: 13 analysts each confirmed a cluster of
+findings against the code (file:line, a minimal fix, the guarding test),
+then a critic checked coverage and conflicts. Every finding held; one was
+wider than reported (focus is lost on every Move down: React re-inserts the
+moved row). Fixes in 85ede30 (list in the commit message). Rebased first:
+`git rebase --onto origin/main 456c475` in a worktree, ledger conflicts
+resolved keeping both sides' entries; `git diff --stat 55d9016 HEAD` showed
+only PROGRESS.md and LEARNING_LOG.md.
+**Evaluation.** `npm run check`; unit mutations with `scripts/m14/mutate.py`;
+`npx playwright test --project own-paths --ignore-snapshots` from a fresh
+database; the screenshots.
+**Result.** `Tests 404 passed | 2 skipped (406)`. Unit mutations: 29 run, all
+caught in the end; three needed a better check first: D9 (CRLF to LF
+removed) survived because trimming each line also strips "\r" (a lone "\r"
+test now catches it); D11's patch matched twice and was refused; U8 (a loose
+id check in getBook) survived until a test asked getBook for 36 hyphens.
+Browser: `200 passed (2.1m)` three times. The screenshots showed three
+things the tests could not: covers bottom-aligned (a progress bar lifted
+one cover 12 px), hover borders where the last click was, and the other
+test's "Constructor" Path in the sidebar; fixed (top alignment, mouse moved
+away, tests in order). The critic, read after the fixes were in, found two
+mistakes of mine: my sentence in `docs/done.md` relaxed Samuel's definition
+of done (reverted; pages that need data are listed in `e2e/pages.ts` with
+the spec that covers them, so CI still requires their screenshots), and a
+keyed list moved the add-section form, taking focus out of "New section"
+(now fixed places, guarded by an Enter-then-focus test).
+**Interpretation.** The pending-blank status line, the per-section status
+and focus, and the reading-list lock cover the review; the upload race
+(S4) is in `docs/plan.md` "Later".
+**Lesson.** Moving a DOM node takes focus away: keep a form that must keep
+focus in a fixed place rather than in a list that reorders. And: React
+skips a form action when onSubmit calls preventDefault (react-dom's
+`defaultPrevented` branch), so a second click can be ignored without
+disabling, and dimming, every button.
+**Next experiment.** Browser mutations B1-B28 from a database snapshot
+taken after the `home` project (`scratchpad/mut-snap.sh`); a second review
+of 85ede30 (five lenses, two skeptics per finding); then the full suite,
+the PR, and CI's images.
+
+### Iteration 27 · 2026-10-06 02:52 · Step 5 browser mutations · failure (of the method), redone
+
+**Hypothesis.** Browser mutations run faster on a copy of the database
+taken after the `home` project: build the mutated app, serve it on the
+copy, run only `own-paths` with `--no-deps`.
+**Evaluation.** The first mutation of the batch, B1 (focus after Move and
+Remove removed).
+**Result.** `2 failed`, and both tests failed at their very first step
+(`getByLabel("Name").fill`, 30 s): the pages never loaded signed in. The
+saved login (`e2e/.auth/admin.json`) came from a later fresh run than the
+database copy, so its session was unknown there. Every mutation would
+have "failed", which reads as "caught". Stopped the batch (tree clean, no
+backup left), and redid it: the snapshot now holds the login state too,
+and the batch starts with control runs (no mutation; they must pass, or
+the batch stops).
+**Lesson.** A browser mutation is only evidence next to a control run on
+the same setup. A test environment copied from one run must carry
+everything that run made (database, files, saved logins).
+**Next experiment.** The batch with its controls.

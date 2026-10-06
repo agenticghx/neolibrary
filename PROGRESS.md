@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 4 (library filters) is a draft PR from m14-c-filters, rebased on main; merge it when CI is green, then rebase step 5 (m14-d-paths) and apply the review fixes in docs/m14-handoff-2026-10-06.md §4b (that file reaches main with step 5).
+next_action: Step 4 merged (#76). Step 5 (m14-d-paths, rebased on main, fixes in 85ede30, not pushed yet): read the browser mutation results and the second review, fix what is confirmed, run the full suite, push as a draft PR, refresh the paths/book-not-available/path-new images from CI, merge. Then 3b, the WebKit flake investigation, step 6a.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,13 +19,15 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 01:32 UTC).** Steps 1-3 are merged. Step 4
-(library filters) is a draft PR from `m14-c-filters`: merge it when CI is
-green (a WebKit read-along failure is the known CI flake: re-run the
-failed job). Then step 5 (your own Paths) from `m14-d-paths`, with the
-review fixes; its handoff, `docs/m14-handoff-2026-10-06.md`, is on that
-branch and says what comes after (3b, the WebKit flake investigation,
-step 6).
+**Resume M14 here (2026-10-06, 02:42 UTC).** Steps 1-4 are merged (step 4:
+#76, `main` cb5018b). Step 5 (your own Paths) is on `m14-d-paths`, rebased
+on `main`, with every review fix committed (85ede30), **not pushed yet**.
+Before the PR: read the browser mutation results (B0-B28) and the second
+review (five lenses, two skeptics per finding), fix what they confirm, run
+the whole suite from a fresh database, then push a draft PR (body: the
+handoff §5 text, updated by the newest Log entry). Then 3b, the WebKit
+flake investigation (learning log Iteration 25 has the cause), step 6a.
+The handoff, `docs/m14-handoff-2026-10-06.md`, is on that branch.
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -149,6 +151,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-05 22:42 (local; 02:42 UTC 2026-10-06) · Claude (laptop) · M14 step 4 merged (#76); step 5 rebased, every review finding fixed and tested (not pushed yet)
+- **Done:** #76 (step 4) merged as cb5018b after one known WebKit flake and a re-run of the failed job (`248 passed (15.3m)`); `git diff --stat 55376be origin/main` printed nothing. Step 5 rebased onto `main` in a worktree (ledger conflicts kept both sides; code unchanged: `git diff --stat 55d9016 HEAD` showed only PROGRESS.md and LEARNING_LOG.md). A read-only workflow (13 analysts and a critic) confirmed every step-5 review finding with file:line evidence; all fixed in 85ede30: your own Paths drawn in your order with "how to read it" words; "Plain" renamed "Any order" under a visible "How to read it"; every title counts toward finishing a section of your own Path; Move/Remove report what happened and keep focus; a gone title shows "That title was not found." instead of the error page; status lines name the title; an empty Path starts with "Next: add a first section"; disabled buttons look disabled; descriptions keep line breaks; typed titles match by title and author; simultaneous creates get different addresses; "Choose the book file" keeps its message and focuses Read; Hidden Machinery cannot be edited (no Edit path, edit page not found, actions refuse it) and looks unchanged; Object.hasOwn for reading lists, sorts and filters; a strict id check. Learning log Iterations 24-27 (27: a failed first try at browser mutations, redone with a control run). A read-only agent traced the WebKit flake (Iteration 25): the visible highlight was on time; the bar's hidden attribute lagged behind a 49-62 ms main-thread block when pdf.js looks up an italic system font on CI.
+- **Key paths:** `lib/library/{paths,seed,path-words,import,shelf}.ts` (+ tests), `app/(app)/actions.ts`, `app/(app)/paths/[slug]/edit/{page,TitleList,focus}.tsx`, `components/paths/{PathForms,Outcome}.tsx`, `components/{PathView,AttachFile}.tsx`, `components/shell/Sidebar.tsx`, `app/(app)/{paths,stats,books/[id]}/page.tsx`, `e2e/{own-paths,paths,stats}.spec.ts`, `e2e/pages.ts` (pages with `spec`), `docs/plan.md` (upload race in Later), `docs/m14-home-plan.md` (D10 as built), `LEARNING_LOG.md`.
+- **Commands that worked:** `git rebase --onto origin/main 456c475` (in a worktree, then `git reset --hard` on the branch); `npm run check` → `Tests 404 passed | 2 skipped (406)`; `rm -rf .data/e2e .data/e2e-files && npx playwright test --project own-paths --ignore-snapshots` → `200 passed (2.1m)` (three times); `python3 scripts/m14/mutate.py …` (29 unit mutations, all caught after strengthening three tests).
+- **Known issues / blockers:** the browser mutation batch (scratchpad `mut-browser.sh`, controls first) and the second review were still running at this entry. With two or more Paths, the sidebar's scroll edge cuts a line in half at 1280 x 800 (from step 2; fix with 3b). The upload race (two uploads to one title at once) is in `docs/plan.md` "Later". WebKit read-along flake on CI as before.
+- **Exact next steps:** read the mutation results and the review; fix what is confirmed (mutation-check each fix); full suite from a fresh database; push `m14-d-paths` (force, it was rebased) and open a draft PR; refresh `paths`, `book-not-available` and the new `path-new` images from CI's report after looking at each (`path` must not change); merge when green. Record for Samuel under Waiting on Samuel: Hidden Machinery not editable, "Any order", author matching, neutral /stats words, pages that need data have no reference images.
 
 ### 2026-10-05 21:32 (local; 01:32 UTC 2026-10-06) · Claude (laptop) · M14 step 4 rebased on `main` and pushed as a draft PR
 - **Done:** Step 3 is in `main` unchanged (`git diff --stat 970a19b origin/main` printed nothing). Rebased step 4 (library filters) onto `main`; the tree is identical to the one that passed the whole suite before (`git diff --stat 456c475 HEAD` printed nothing), so the suite was not re-run. `main`'s own CI after #75 failed one WebKit read-along test (`readalong.spec.ts:1123`: word 51 lit 112 ms late at a PDF page break), the known CI flake, now seen on `main` too. Copied the flake analysis (learning log Iteration 22) onto this branch and added Iteration 23. Opened step 4 as a draft PR.
