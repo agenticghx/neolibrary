@@ -102,11 +102,12 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   await expect(waiting).toBeVisible();
   await expect(waiting).toContainText("Not available yet");
 
-  // Import opens the file picker. Files sent from Home are read like the library's:
-  // a book already here, and a file that is not a book (neither changes the library).
-  const chooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Import" }).click();
-  expect((await chooser).isMultiple()).toBe(true);
+  // Import is one place now (Samuel, #90): Home has no drop strip, and its Import goes to the Import page.
+  await expect(page.getByText(/^Drop your DRM-free books/)).toHaveCount(0);
+  await page.getByRole("link", { name: "Import", exact: true }).click();
+  await expect(page).toHaveURL(/\/import$/);
+  // There, files are read like the library's: a book already here, and a file that is not a book.
+  await expect(page.getByLabel("Choose files")).toHaveAttribute("multiple", "");
   await page.getByLabel("Choose files").setInputFiles([
     { name: "wells-the-time-machine.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/wells-the-time-machine.epub") },
     { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") },
@@ -116,7 +117,7 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   await expect(results.getByText("Only EPUB and PDF files can be added.")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "2 files read." })).toBeAttached();
 
-  // A file dropped anywhere, even on the sidebar, is sent, not opened by the browser.
+  // A file dropped anywhere on the Import page, even on the sidebar, is sent, not opened by the browser.
   await page.reload();
   const transfer = await page.evaluateHandle(() => {
     const t = new DataTransfer();
@@ -126,7 +127,8 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   const sidebar = page.getByRole("complementary", { name: "Sidebar" });
   for (const type of ["dragenter", "dragover", "drop"]) await sidebar.dispatchEvent(type, { dataTransfer: transfer });
   await expect(page.getByTestId("upload-results").getByText("Only EPUB and PDF files can be added.")).toBeVisible();
-  await expect(page).toHaveURL(/:\d+\/$/);
+  await expect(page).toHaveURL(/\/import$/);
+  await page.goto("/");
 
   // Sort by title: the grid's first title comes first in the alphabet.
   await page.getByLabel("Sort").selectOption("title");

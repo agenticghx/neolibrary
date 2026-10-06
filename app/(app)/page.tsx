@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ContinueCard } from "@/components/home/ContinueCard";
 import { LibraryGrid, LibrarySpines, NotYetGroup } from "@/components/home/Library";
 import { LibraryViews } from "@/components/home/LibraryViews";
@@ -6,7 +7,7 @@ import { SortMenu } from "@/components/home/SortMenu";
 import styles from "@/components/home/Home.module.css";
 import { AccountMenu } from "@/components/shell/AccountMenu";
 import { StarterPaths } from "@/components/StarterPaths";
-import { ImportButton, ImportRoot, ImportZone } from "@/components/upload/HomeImport";
+import { ImportLink } from "@/components/upload/HomeImport";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
@@ -52,11 +53,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const nothing = !items.length && !waitingItems.length;
 
   return (
-    <ImportRoot className={styles.main}>
+    <main className={styles.main}>
       <header className={styles.head}>
         <h1 className={styles.title}>Home</h1>
         <div className={styles.headActions}>
-          <ImportButton />
+          <ImportLink />
           {/* On a phone the account (Reading stats, Your data, Invite, Sign out) lives here, on Home only
               (Samuel's choice B, 2026-10-06); on desktop it is at the foot of the sidebar. */}
           <div className={styles.phoneOnly}>
@@ -67,8 +68,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
       {nothing ? (
         <>
-          <p className={styles.lede}>Good to see you, {firstName}. Your library is empty.</p>
-          <ImportZone />
+          <p className={styles.lede}>
+            Good to see you, {firstName}. Your library is empty. Add your books on the <Link href="/import">Import</Link> page.
+          </p>
           <SampleOffer />
           <h2 className={styles.sectionTitle}>Start from a reading list</h2>
           <StarterPaths />
@@ -99,7 +101,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <SortMenu />
                   </div>
                 }
-                between={<ImportZone hideOnPhone />}
                 grid={<LibraryGrid items={items} />}
                 spines={<LibrarySpines items={items} />}
               />
@@ -108,8 +109,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 <h2 id="library-h" className={styles.sectionTitle}>
                   Your library
                 </h2>
-                <p className={styles.lede}>No book files yet. Your Paths&apos; titles wait below until you add their files.</p>
-                <ImportZone />
+                <p className={styles.lede}>
+                  No book files yet: add them on the <Link href="/import">Import</Link> page. Your Paths&apos; titles wait below until you add
+                  their files.
+                </p>
                 <SampleOffer />
               </>
             )}
@@ -117,7 +120,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </section>
         </>
       )}
-    </ImportRoot>
+    </main>
   );
 }
 

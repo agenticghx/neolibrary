@@ -156,7 +156,7 @@ test.describe("phone", () => {
       await page.goto("/");
       // Beside Import, in Home's title row.
       const [importBox, buttonBox, titleBox] = [
-        await page.getByRole("button", { name: "Import" }).boundingBox(),
+        await page.getByRole("link", { name: "Import", exact: true }).boundingBox(),
         await button.boundingBox(),
         await page.getByRole("heading", { level: 1, name: "Home" }).boundingBox(),
       ];

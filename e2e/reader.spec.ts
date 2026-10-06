@@ -75,9 +75,10 @@ test("scripts inside a book never run", async ({ page }) => {
   const evil = readableEpub("Trap Book", [
     `<p>Nothing to see.</p><script>document.title = "pwned"; try { parent.document.title = "pwned"; parent.postMessage("pwned", "*"); } catch (e) {}</script><img src="x" onerror="parent.document.title='pwned'"/>`,
   ]);
-  await page.goto("/library");
+  await page.goto("/import");
   await page.getByLabel("Choose files").setInputFiles({ name: "trap.epub", mimeType: "application/epub+zip", buffer: Buffer.from(evil) });
   await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
   await page.evaluate(() => {
     (window as unknown as { __msgs: string[] }).__msgs = [];
     addEventListener("message", (e) => (window as unknown as { __msgs: string[] }).__msgs.push(String(e.data)));
@@ -220,9 +221,10 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
     p.drawText(`Part ${i + 1}`, { x: 72, y: 700, size: 18, font });
     p.drawText(text, { x: 72, y: 660, size: 11, font });
   });
-  await page.goto("/library");
+  await page.goto("/import");
   await page.getByLabel("Choose files").setInputFiles({ name: "discourse.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
   await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
   // Labelled by what each title offers: narration is EPUB only, so this PDF is Read only, while an
   // EPUB says Read and listen (the tests' fake voice counts as narration).
   const shelfItem = (title: string) => page.getByTestId("shelf").getByRole("listitem").filter({ hasText: title });

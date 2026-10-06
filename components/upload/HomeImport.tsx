@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ACCEPT, UPLOAD_MESSAGES, useBookUpload } from "./useBookUpload";
 import styles from "./HomeImport.module.css";
@@ -15,11 +16,12 @@ const useUpload = () => {
 const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes("Files");
 
 /**
- * Home accepts book files dropped anywhere in the window, the sidebar and tabs
- * too (Samuel's pick: "Home = Continue, the library, with Import"); a dropped
- * file never makes the browser leave the app to open it. Only file drags are
- * claimed: text and links behave as usual. A counter of drag enters and
- * leaves keeps the outline steady (Safari gives dragleave no relatedTarget).
+ * The Import page accepts book files dropped anywhere in the window, the
+ * sidebar and tabs too (M14 follow-up V3a: Import is the one place to add
+ * books; Home and the Library no longer take drops); a dropped file never
+ * makes the browser leave the app to open it. Only file drags are claimed:
+ * text and links behave as usual. A counter of drag enters and leaves keeps
+ * the outline steady (Safari gives dragleave no relatedTarget).
  */
 export function ImportRoot({ className, children }: { className?: string; children: React.ReactNode }) {
   const upload = useBookUpload();
@@ -60,39 +62,37 @@ export function ImportRoot({ className, children }: { className?: string; childr
   }, [send]);
   return (
     <Ctx.Provider value={upload}>
-      <main className={[className, over ? styles.over : ""].join(" ")} data-testid="home-drop">
+      <main className={[className, over ? styles.over : ""].join(" ")} data-testid="import-drop">
         {children}
       </main>
     </Ctx.Provider>
   );
 }
 
-/** The Import button beside the page title: opens the file picker (round, icon only, on a phone). */
-export function ImportButton() {
-  const { input, busy } = useUpload();
+/**
+ * Home's Import, beside the page title (M14 follow-up V3a): to the Import page, the one place where books and
+ * audiobooks are added (Samuel, #90). Round, icon only, on a phone.
+ */
+export function ImportLink() {
   return (
-    <button type="button" className={styles.importButton} onClick={() => input.current?.click()} disabled={busy}>
+    <Link href="/import" className={styles.importButton}>
       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 16V4M7 9l5-5 5 5M5 20h14" />
       </svg>
       <span className={styles.importLabel}>Import</span>
-    </button>
+    </Link>
   );
 }
 
-/**
- * The dashed hint, with Choose files, and what happened to each file. On a
- * phone the hint is hidden where the page has books (nothing can be dropped
- * on a phone; the round Import button opens the picker), but the results show.
- */
-export function ImportZone({ hideOnPhone = false }: { hideOnPhone?: boolean }) {
+/** The dashed hint, with Choose files, and what happened to each file. */
+export function ImportZone() {
   const { input, busy, results, error, upload } = useUpload();
   return (
     <div className={styles.zoneWrap}>
       <p role="status" className="visually-hidden">
         {busy ? "Reading your books…" : results.length ? `${results.length === 1 ? "1 file" : `${results.length} files`} read.` : ""}
       </p>
-      <div className={[styles.zone, hideOnPhone ? styles.phoneHidden : ""].join(" ")}>
+      <div className={styles.zone}>
         <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" className={styles.zoneIcon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 16V4M7 9l5-5 5 5M5 20h14" />
         </svg>
