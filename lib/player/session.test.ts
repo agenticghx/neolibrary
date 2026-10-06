@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { firstVoice, noteFor, usd, type Info, type NoteState } from "./session";
+import { firstVoice, loadSpeed, noteFor, saveSpeed, SPEED_KEY, usd, type Info, type NoteState } from "./session";
 
-const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
+const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
   paragraphs: [paragraph],
   more: null,
@@ -11,13 +11,15 @@ const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNulla
   title: "My reading",
   files: [{ url: "/a/0", mime: "audio/mpeg" }],
   partsUrl: "/parts",
+  chapters: {},
   begins: null,
   ...over,
 });
 const made = { id: "fake-ada", name: "Ada" };
 const book = { id: "upload:i1", name: "Your audiobook" };
 const info = (over: Partial<Info> = {}): Info => ({
-  passage: { id: "s1", cfi: "epubcfi(/6/2)", position: 1, nextId: null, characters: 120 },
+  passage: { id: "s1", cfi: "epubcfi(/6/2)", position: 1, nextId: null, prevId: null, characters: 5, text: "Once.", chapter: "" },
+  book: { title: "A book", author: "Someone" },
   voices: [book, made],
   track: null,
   estimate: 0.04,
@@ -83,5 +85,32 @@ describe("noteFor", () => {
     expect(usd(0.009)).toBe("under $0.01");
     expect(usd(0.01)).toBe("about $0.01");
     expect(usd(1.234)).toBe("about $1.23");
+  });
+});
+
+describe("the speed kept on this device", () => {
+  const store = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), m };
+  };
+
+  it("starts at 1, then at the speed chosen last", () => {
+    const s = store();
+    expect(loadSpeed(s)).toBe(1);
+    saveSpeed(1.75, s);
+    expect(s.m.get(SPEED_KEY)).toBe("1.75");
+    expect(loadSpeed(s)).toBe(1.75);
+  });
+
+  it("ignores a speed it does not offer, and a browser that keeps nothing", () => {
+    const s = store();
+    s.m.set(SPEED_KEY, "3");
+    expect(loadSpeed(s)).toBe(1);
+    s.m.set(SPEED_KEY, "fast");
+    expect(loadSpeed(s)).toBe(1);
+    const refusing = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } };
+    expect(loadSpeed(refusing)).toBe(1);
+    expect(() => saveSpeed(1.5, refusing)).not.toThrow();
+    expect(loadSpeed(null)).toBe(1);
   });
 });

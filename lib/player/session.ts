@@ -11,7 +11,30 @@ import type { ListenInfo } from "@/lib/library/listen";
 /** What the player has for the paragraph or audiobook at the reading position. */
 export type Info = Omit<ListenInfo, "track"> & { track: (Track & { audioUrl: string }) | null };
 
-export const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+export const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
+/** Where this device keeps the speed chosen last (M14 step 6b): every session starts at it. */
+export const SPEED_KEY = "nl.playerSpeed";
+type Store = Pick<Storage, "getItem" | "setItem">;
+const deviceStore = (): Store | null => (typeof localStorage === "undefined" ? null : localStorage);
+
+/** The speed chosen last on this device, or 1 (also when the browser keeps nothing, as in a private window). */
+export function loadSpeed(store: Store | null = deviceStore()): number {
+  try {
+    const s = Number(store?.getItem(SPEED_KEY));
+    return SPEEDS.includes(s) ? s : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Keeps the speed for the next session on this device; a browser that keeps nothing just forgets it. */
+export function saveSpeed(speed: number, store: Store | null = deviceStore()) {
+  try {
+    store?.setItem(SPEED_KEY, String(speed));
+  } catch {
+    // Storage refused (a private window, or full): the speed holds for this session only.
+  }
+}
 /** The audiobook's next paragraphs are asked for when this few are left in the part the player has. */
 export const ASK_MORE_AT = 40;
 /** A part that could not be fetched is asked for again after this long. */

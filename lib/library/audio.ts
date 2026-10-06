@@ -68,6 +68,8 @@ export type Passage = {
   /** Its place in reading order (sections.position). */
   position: number;
   nextId: string | null;
+  /** The paragraph before (M14 step 6b: back 15 s past the start of this one's audio goes there). */
+  prevId: string | null;
   previousText: string;
   nextText: string;
 };
@@ -122,6 +124,7 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
     chapterIndex: row.chapterIndex,
     position: row.position,
     nextId: around[i + 1]?.id ?? null,
+    prevId: around[i - 1]?.id ?? null,
     previousText: around[i - 1]?.text.slice(-300) ?? "",
     nextText: around[i + 1]?.text.slice(0, 300) ?? "",
   };
@@ -232,6 +235,8 @@ export type ReadingParagraph = {
   chapterIndex: number;
   /** Its place in reading order (sections.position). */
   position: number;
+  /** Its text (M14 step 6b: away from the page, the mini-player shows the sentence being read from it). */
+  text: string;
   /** Which of the audiobook's files it is in (an index into `files`). */
   file: number;
   /** Its stretch of that file, in milliseconds from the file's start. */
@@ -248,8 +253,12 @@ export type ReadingParagraph = {
   inPage?: [number, number][];
 };
 
-/** A part of an audiobook's paragraphs, and where the next part starts (a sections.position), if there is more. */
-export type ReadingPart = { paragraphs: ReadingParagraph[]; more: number | null };
+/**
+ * A part of an audiobook's paragraphs, where the next part starts (a
+ * sections.position), if there is more, and the name of each chapter (or PDF
+ * page, "Page 3") its paragraphs are in, by chapterIndex.
+ */
+export type ReadingPart = { paragraphs: ReadingParagraph[]; more: number | null; chapters: Record<number, string> };
 
 /** A book's uploaded audiobook, from a place in the book on (M13 (d)). */
 export type UploadedReading = ReadingPart & {
@@ -356,6 +365,7 @@ async function paragraphsOf(
       cfi: sections.cfi,
       chapterIndex: sections.chapterIndex,
       position: sections.position,
+      text: sections.text,
     })
     .from(audioTracks)
     .innerJoin(sections, and(eq(sections.bookId, audioTracks.bookId), eq(sections.id, audioTracks.sectionId)))
@@ -381,7 +391,17 @@ async function paragraphsOf(
   for (const r of taken) {
     const file = fileOf.get(r.audioKey);
     if (file === undefined || !r.words.length || r.startMs === null || r.endMs === null) continue;
-    const p: ReadingParagraph = { sectionId: r.sectionId, cfi: r.cfi, chapterIndex: r.chapterIndex, position: r.position, file, startMs: r.startMs, endMs: r.endMs, words: r.words };
+    const p: ReadingParagraph = {
+      sectionId: r.sectionId,
+      cfi: r.cfi,
+      chapterIndex: r.chapterIndex,
+      position: r.position,
+      text: r.text,
+      file,
+      startMs: r.startMs,
+      endMs: r.endMs,
+      words: r.words,
+    };
     if (pages) {
       const at = pages.get(r.sectionId);
       if (!at) continue;
@@ -389,7 +409,17 @@ async function paragraphsOf(
     }
     paragraphs.push(p);
   }
-  return { paragraphs, more: rows[kept]?.position ?? null };
+  return { paragraphs, more: rows[kept]?.position ?? null, chapters: await chapterNames(db, bookId, new Set(paragraphs.map((p) => p.chapterIndex))) };
+}
+
+/** The name of each chapter (EPUB spine item) or page (PDF, "Page 3") in `indexes`, as the book's sections name them. */
+export async function chapterNames(db: Db, bookId: string, indexes: Set<number>): Promise<Record<number, string>> {
+  if (!indexes.size) return {};
+  const rows = await db
+    .select({ chapterIndex: sections.chapterIndex, label: sections.label })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "chapter"), inArray(sections.chapterIndex, [...indexes])));
+  return Object.fromEntries(rows.filter((r) => r.label.trim()).map((r) => [r.chapterIndex, r.label.trim()]));
 }
 
 /**

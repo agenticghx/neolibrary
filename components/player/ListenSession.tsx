@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
-import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, LOADING_AFTER_MS, noteFor, OFFLINE, type Info } from "@/lib/player/session";
+import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, noteFor, OFFLINE, saveSpeed, type Info } from "@/lib/player/session";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import type { ListenView, PlayerPage } from "./PlayerProvider";
@@ -44,7 +44,8 @@ export function ListenSession({
   const audio = useRef<HTMLAudioElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [voice, setVoice] = useState<string>("");
-  const [speed, setSpeed] = useState(1);
+  // The speed chosen last on this device (M14 step 6b), applied after every new source.
+  const [speed, setSpeed] = useState(loadSpeed);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -449,6 +450,7 @@ export function ListenSession({
     changeVoice,
     setSpeed: (s) => {
       setSpeed(s);
+      saveSpeed(s);
       if (audio.current) {
         audio.current.defaultPlaybackRate = s;
         audio.current.playbackRate = s;

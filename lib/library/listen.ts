@@ -3,7 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { getSpeechModel } from "@/lib/speech";
 import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
-import { estimateSpeech, passageFor, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
+import { chapterNames, estimateSpeech, passageFor, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
 
 /** What the Listen bar shows for "Your audiobook" among the voices (M13 (d)). */
 export const AUDIOBOOK_NAME = "Your audiobook";
@@ -17,8 +17,14 @@ export const AUDIOBOOK_NAME = "Your audiobook";
 export const NEARBY_PARAGRAPHS = 10;
 
 export type ListenInfo = {
-  /** The paragraph at the reading position (or `section`), and the one after it. */
-  passage: { id: string; cfi: string; position: number; nextId: string | null; characters: number };
+  /**
+   * The paragraph at the reading position (or `section`), the ones after and
+   * before it, and (M14 step 6b, for the mini-player away from the page) its
+   * text and its chapter's name ("" when the book gives it none).
+   */
+  passage: { id: string; cfi: string; position: number; nextId: string | null; prevId: string | null; characters: number; text: string; chapter: string };
+  /** The book (M14 step 6b: the mini-player names it). */
+  book: { title: string; author: string };
   /** "Your audiobook" first when the book has one, then the made-on-demand voices (none without a voice key). */
   voices: { id: string; name: string }[];
   /** The stored made-on-demand track for `voice` (or the first such voice), if any. */
@@ -51,7 +57,7 @@ export async function listenInfo(
   speech: () => SpeechModel = getSpeechModel,
 ): Promise<ListenInfo> {
   const passage = await passageFor(db, ownerId, bookId, q.cfi ? { cfi: q.cfi } : { sectionId: q.section ?? "" });
-  const [book] = await db.select({ fileType: books.fileType }).from(books).where(eq(books.id, bookId));
+  const [book] = await db.select({ fileType: books.fileType, title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
   const fileType = book?.fileType === "pdf" ? "pdf" : "epub";
   // Only when the bar opens (a place in the book): reading on in a made voice asks by `section`.
   const reading = q.cfi ? await uploadedReading(db, ownerId, bookId, passage.position) : null;
@@ -70,8 +76,19 @@ export async function listenInfo(
       configured = false;
     }
   }
+  const chapter = (await chapterNames(db, bookId, new Set([passage.chapterIndex])))[passage.chapterIndex] ?? "";
   return {
-    passage: { id: passage.id, cfi: passage.cfi, position: passage.position, nextId: passage.nextId, characters: passage.text.length },
+    passage: {
+      id: passage.id,
+      cfi: passage.cfi,
+      position: passage.position,
+      nextId: passage.nextId,
+      prevId: passage.prevId,
+      characters: passage.text.length,
+      text: passage.text,
+      chapter,
+    },
+    book: { title: book?.title ?? "", author: book?.author ?? "" },
     voices: audiobook ? [{ id: audiobook.voice, name: AUDIOBOOK_NAME }, ...voices] : voices,
     track,
     estimate: configured ? estimateSpeech(passage) : null,

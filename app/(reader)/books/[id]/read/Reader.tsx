@@ -713,7 +713,8 @@ export function Reader(props: {
   // the page when the voice reaches the end of it.
   const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number]): string | null => {
     const v = view.current;
-    if (!v) return null;
+    // Not before the book is open (foliate sets its renderer last), nor in a book that failed to open.
+    if (!v?.renderer) return null;
     // A PDF (M13 (e)): the word's place on its page in non-space characters,
     // in the page's text layer; its page is turned to by the player.
     if (props.fileType === "pdf") {
@@ -784,7 +785,7 @@ export function Reader(props: {
   const showPassage = (passageCfi: string, opts: { resume?: boolean } = {}) => {
     const v = view.current;
     const visible = whereCfi.current;
-    if (!v) return;
+    if (!v?.renderer) return;
     const target = opts.resume && litCfi.current ? litCfi.current : passageCfi;
     const at = CFI.collapse(target);
     if (visible && CFI.compare(at, CFI.collapse(visible)) >= 0 && CFI.compare(at, CFI.collapse(visible, true)) <= 0) return;
@@ -829,7 +830,8 @@ export function Reader(props: {
   const showsBar = listening && !!where.cfi;
   // Only once the book is open: before that the page can neither turn nor light a word (coming back
   // to a book still read aloud, the bar would show while the book opens, and its calls would fail).
-  const ready = status === "ready";
+  // (Opened or failed: a book that could not open still shows the bar, so × can stop its audio.)
+  const ready = status !== "loading";
   useEffect(() => {
     const slot = listenSlot.current;
     if (!showsBar || !ready || !slot) return;
