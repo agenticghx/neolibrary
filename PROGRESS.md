@@ -221,6 +221,23 @@ Never blocks the loop. Newest first.
   - **#89 merged before its review finished.** Lesson: open a PR only after its review's fixes.
 - **Exact next steps:** as "Exact next steps" above.
 
+### 2026-10-06 11:23 (local; 15:23 UTC) · Claude (laptop) · 6c (Think aloud) built and tested; #89 waiting on a CI re-run
+- **Done:**
+  - **#89, CI round 2** (run 37484095289): `254 passed`, then a WebKit stall in `readalong.spec.ts:582`'s screenshot loop. The audio sat at 0.63 s, its start point, with 11.6 s loaded. Same pattern as round 1: WebKit on Linux stood still right after the audio's position was set. The job was re-run (attempt 2).
+  - **6c, Think aloud,** on `m14-e3-think-aloud` (Iteration 52): a mini-player button that pauses the reading and records a voice note at the paragraph being read, quoting the sentence. It saves through the existing route and offers to resume. The recorder moved to `components/notes/`.
+  - **Review workflow** `wf_6783e4a9-544` (three lenses, a skeptic per finding) over 2a and 6c: running.
+- **Key paths:** `components/notes/VoiceRecorder.{tsx,module.css}`, `components/player/{MiniPlayer,ListenSession}.tsx`, `components/player/MiniPlayer.module.css`, `components/shell/icons.tsx`, `e2e/notes.spec.ts`, `e2e/readalong.spec.ts`, `lib/library/voice-notes.test.ts`, `LEARNING_LOG.md` (Iteration 52).
+- **Commands that worked:**
+  - `scratchpad/run-snap.sh think notes "M14 \(6c\)"` → `1 passed`.
+  - `scratchpad/mut-6c.sh`: control `1 passed`; anchored at the book's start `1 failed`; no pause `1 failed`.
+  - `npx vitest run lib/library/voice-notes.test.ts` → `Tests 5 passed (5)`; `npm run check` → `Tests 454 passed | 2 skipped (456)`.
+  - `scratchpad/run6b.sh readalong|readalong-safari "the mini-player sits"` → `1 passed` each (the panel in four looks).
+  - `gh run rerun 37484095289 --failed`.
+- **Known issues / blockers:**
+  - **WebKit on Linux (CI) sometimes stands still right after the audio's position is set:** twice today. It needs its own look, after the deploy, starting from the flake plan's S4 (`docs/m14-flake/plan.md`).
+  - **In a PDF,** a Think aloud note belongs to the page's last paragraph (a unit test proves it). It opens at the right page and quotes the right sentence.
+- **Exact next steps:** merge #89 when green, back up and deploy (`scratchpad/backup.sh`, then `scratchpad/deploy.sh`), open the M14 verdict issue; then 6c's review fixes and its PR; then 2b.
+
 ### 2026-10-06 10:21 (local; 14:21 UTC) · Claude (laptop) · The 6b review's fixes merged (#88); part 2a (Listen from here on Home, one tap) as a PR
 - **Done:**
   - **#88** merged as 487bc12, by the auto-merge Action once CI was green (`274 passed (16.2m)`, both engines); `git diff --stat f0c3c02 origin/main` printed nothing.
