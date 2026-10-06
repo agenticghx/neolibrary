@@ -809,7 +809,8 @@ export function Reader(props: {
   const stopListening = () => {
     litCfi.current = null;
     spokenPdf.current = null;
-    for (const { doc } of view.current?.renderer.getContents() ?? []) {
+    // The book may still be opening (no renderer yet): stop all the same.
+    for (const { doc } of view.current?.renderer?.getContents() ?? []) {
       (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
     }
     player.stop();
@@ -824,11 +825,14 @@ export function Reader(props: {
   useEffect(() => {
     forPlayer.current = { highlightWord, showPassage, stopListening };
   });
-  const { attach } = player;
+  const { attach, stop } = player;
   const showsBar = listening && !!where.cfi;
+  // Only once the book is open: before that the page can neither turn nor light a word (coming back
+  // to a book still read aloud, the bar would show while the book opens, and its calls would fail).
+  const ready = status === "ready";
   useEffect(() => {
     const slot = listenSlot.current;
-    if (!showsBar || !slot) return;
+    if (!showsBar || !ready || !slot) return;
     return attach(
       {
         slot,
@@ -839,8 +843,16 @@ export function Reader(props: {
       props.bookId,
       // Where the reader is now: reading aloud starts here (unless this book is already being read aloud).
       whereCfi.current!,
+      // Home's "Listen from here" means from the reading position, even if this book was being read aloud.
+      !!props.startListening,
     );
-  }, [showsBar, attach, props.bookId]);
+  }, [showsBar, ready, attach, props.bookId, props.startListening]);
+  // Another book is being read aloud: opening this one stops it, as leaving the reader did before
+  // reading aloud went on from page to page (this reader has no bar for another book).
+  const playingBook = player.bookId;
+  useEffect(() => {
+    if (playingBook && playingBook !== props.bookId) stop();
+  }, [playingBook, props.bookId, stop]);
 
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
   const percent = Math.round(where.fraction * 100);

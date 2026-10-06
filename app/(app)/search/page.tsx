@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -20,7 +21,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <main className={styles.main}>
       <p className={styles.eyebrow}>Search</p>
       <h1 className={styles.title}>Find a passage</h1>
-      <form action="/search" className={styles.form} role="search" aria-label="Search inside your books">
+      {/* Form, not form: a new search moves within the app (reading aloud goes on), not to a whole new page. */}
+      <Form action="/search" className={styles.form} role="search" aria-label="Search inside your books">
         <label htmlFor="q" className="visually-hidden">
           Search inside your books
         </label>
@@ -36,7 +38,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <button type="submit" className={styles.button}>
           Search
         </button>
-      </form>
+      </Form>
       {q ? (
         <p className={styles.summary} role="status">
           {hits.length === 0 && noteHits.length === 0

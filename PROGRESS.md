@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: The WebKit flake fixes are all merged (#80, #81, #84; main eda84e1). Step 6a (one player for the app) is a draft PR from m14-e1-player-core: merge when green, then 6b (the mini-player outside the reader), 6c, 7. Samuel finds the pace slow: keep verification to what changes an outcome.
+next_action: Step 6a is merged (#85, main 09cda06); its review fixes are a draft PR from m14-e1-fixes: merge when green, then 6b (the mini-player outside the reader), 6c, 7. Samuel finds the pace slow: keep verification to what changes an outcome.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,14 +19,17 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 11:24 UTC).** The WebKit flake plan's
-steps 1-5 are merged (#80, #81, #84; `main` eda84e1). Its step 6 (stricter
-check, optional) and step 7 (Samuel's D1, default no) are left. Step 6a,
-one read-aloud player for the app, is a draft pull request from
-`m14-e1-player-core`: merge it when green (re-run a known WebKit flake
-once). Then 6b, the mini-player outside the reader (`docs/m14-home-plan.md`
-§5 "6b"). The player is `components/player/` (ListenSession draws the
-reader's bar through a portal; a page attaches with `usePlayer().attach`).
+**Resume M14 here (2026-10-06, 11:59 UTC).** The WebKit flake fixes are all
+merged (#80, #81, #84), and so is step 6a, one read-aloud player for the
+app (#85, `main` 09cda06). A review of 6a found five problems at the new
+joints (leaving, coming back, switching books, searching). Their fixes are
+a draft pull request from `m14-e1-fixes`: merge it when green. Then 6b, the
+mini-player outside the reader (`docs/m14-home-plan.md` §5 "6b"; the
+design is `docs/design/m14-canvas/project/PicksPlayer.dc.html`). It
+should also cover:
+- a paused session that outlives the reader: show it in the mini-player;
+- a made voice reading on, and paying, after the reader is left;
+- the reading time and position while listening outside the reader.
 Then 6c and step 7 (deploy, back up first).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
@@ -134,6 +137,7 @@ Never blocks the loop. Newest first.
 | 6 | M14 step 5 left out (not in D10): renaming a section, removing a section, deleting a Path. Add them (a section with notes would stay until its notes are removed; a deleted Path's notes would be kept in your data)? Also: your own Path's pages (its edit page and its page) need data the screenshot projects do not have, so each PR shows them in four looks with the accessibility check, but there are no reference images to compare against. Accept that, or add a second set of screenshot projects that runs after own-paths? Default: not built; no reference images. | Samuel | 2026-10-20 | open (default applies) |
 | 7 | WebKit flakes D1 (`docs/m14-flake/plan.md` §3): may a PDF that does not carry its own fonts be drawn with pdf.js's look-alike fonts (Foxit Serif for Times, Liberation Sans for Helvetica and Arial) on every device? It removes a 40-60 ms font lookup at a page turn on CI's Linux; Kuhn carries all its fonts except Arial on 1 page of 222; the Descartes demo PDF would look different. Default: no (keep today's look). | Samuel | 2026-10-13 | open (default applies) |
 | 8 | WebKit flakes D2 and D3: run CI's WebKit without GStreamer's on-disk audio mode (Linux only; none of your devices use it), and let the reader write the Listen bar's hidden word attribute at the moment it lights a word (tests read it; nothing on screen shows it; the 100 ms limit stays). Default: yes to both. | Samuel | 2026-10-13 | open (defaults apply) |
+| 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
 
 ## Decisions
 
@@ -159,6 +163,30 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 07:59 (local; 11:59 UTC) · Claude (laptop) · M14 step 6a merged (#85); its review's fixes pushed as a draft PR
+- **Done:**
+  - **#85 (step 6a)** merged as 09cda06 on its first CI run (`263 passed (16.3m)`); `git diff --stat 2d4d26b origin/main` printed nothing.
+  - **One unexplained local failure** of `readalong.spec.ts:661`: the audio was paused at 6.6 s by nothing found. It was not reproduced in 9 runs (Iteration 47).
+  - **The review fixes** on `m14-e1-fixes` (Iteration 48):
+    - the reader attaches to the player only once its book is open;
+    - × works while a book is opening;
+    - opening another book stops the one being read aloud (Open unknowns row 9);
+    - both search boxes move within the app (`next/form`);
+    - only a session that has played outlives the reader;
+    - "Listen from here" starts fresh.
+  - **Tests:** the 6a test waits for the book, checks the word is lit again, and checks that a search keeps the same audio. Two new tests cover opening another book and a bar left unplayed.
+- **Key paths:** `components/player/{PlayerProvider,ListenSession}.tsx`, `app/(reader)/books/[id]/read/{Reader,CrossLinksPanel}.tsx`, `components/shell/Sidebar.tsx`, `app/(app)/search/page.tsx`, `e2e/audio.spec.ts`, `LEARNING_LOG.md` (Iterations 47-48), `PROGRESS.md` (Open unknowns row 9).
+- **Commands that worked:**
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` → `265 passed (6.8m)`, before the last small change (`fresh`, for "Listen from here").
+  - `npx playwright test --project readalong --no-deps -g <title> --repeat-each 4 --workers 1` from the snapshot after `offline` → `4 passed`.
+  - Review workflows: `m14-6a-understand` (4 analysts and a critic), `m14-6a-review` (4 reviewers and skeptics).
+- **Known issues / blockers:**
+  - A paused session still outlives the reader, invisibly: its bar comes back with the book. 6b's mini-player should show it.
+  - A made voice reads on, and pays, after the reader is left; the spending caps apply.
+  - Signing out in another tab does not stop the audio.
+  - Back-to-back local runs against one reused server can hit the sign-in limit (10 per 15 minutes from one address); restart the server between runs.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 07:24 (local; 11:24 UTC) · Claude (laptop) · WebKit flake fixes merged (#84); M14 step 6a (one player for the app) pushed as a draft PR
 - **Done:**

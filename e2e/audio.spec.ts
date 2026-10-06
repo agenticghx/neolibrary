@@ -181,14 +181,63 @@ test("reading aloud goes on when the reader is left for Home, and the bar is bac
     }),
   ).toEqual({ same: true, paused: false, events: [], audios: 1 });
 
-  // Back to the book: its bar shows the audio still playing, and closing it stops it as before.
+  // A search moves within the app too: the same audio goes on.
+  await page.getByRole("searchbox", { name: "Search your library" }).fill("Utterson");
+  await page.getByRole("searchbox", { name: "Search your library" }).press("Enter");
+  await expect(page).toHaveURL(/\/search\?q=Utterson$/);
+  expect(
+    await page.evaluate(() => {
+      const w = window as unknown as { heard: HTMLAudioElement; events: string[] };
+      const a = document.querySelector("audio");
+      return { same: a === w.heard, paused: a?.paused, events: w.events };
+    }),
+  ).toEqual({ same: true, paused: false, events: [] });
+
+  // Back to the book: once it is open, its bar shows the audio still playing, and closing it stops it as before.
   await page.goBack();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   const back = page.getByRole("region", { name: "Read aloud" });
   await expect(back.getByRole("button", { name: "Pause" })).toBeVisible();
+  // ...and the book lights the word being read again.
+  await expect(back).toHaveAttribute("data-word", /\S+/);
+  await expect.poll(() => spoken(page)).toBeTruthy();
   await back.getByRole("button", { name: "Stop reading aloud" }).click();
   await expect(back).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { heard: HTMLAudioElement }).heard.isConnected)).toBe(false);
   expect(await spoken(page)).toBeNull();
+});
+
+// Opened but never played, Listen does not outlive the reader: coming back later, it would start
+// from where it was opened, with audio links that have expired.
+test("a Read aloud bar left without playing closes, and does not come back with the book", async ({ page }) => {
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  await expect(page.getByRole("region", { name: "Read aloud" })).toContainText("Saved audio: free to play.");
+  await page.getByRole("link", { name: "Back to your library" }).click();
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  await expect(page.locator("audio")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Listen" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("region", { name: "Read aloud" })).toHaveCount(0);
+});
+
+// Another book's reader has no bar for this one: opening it stops the reading, as leaving the reader did before.
+test("opening another book stops the one being read aloud", async ({ page }) => {
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  const jekyll = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  await page.getByRole("button", { name: "1 link to your other books" }).click();
+  await page.getByRole("region", { name: "Elsewhere in your library" }).getByRole("link", { name: "Open in Frankenstein" }).click();
+  await expect(page).toHaveURL((url) => /\/books\/[0-9a-f-]{36}\/read/.test(url.pathname) && !url.pathname.includes(jekyll));
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.locator("audio")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Read aloud" })).toHaveCount(0);
 });
 
 // Signing out lands on the sign-in page, without a page load: nothing may play there.

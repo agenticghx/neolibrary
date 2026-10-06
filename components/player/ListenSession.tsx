@@ -29,7 +29,18 @@ const offline = () => typeof navigator !== "undefined" && navigator.onLine === f
  * book (`page`) lights the words, turns the pages and draws the bar; without
  * one the audio plays on, and the word is lit again once a page is back.
  */
-export function ListenSession({ bookId, startCfi, page }: { bookId: string; startCfi: string; page: PlayerPage | null }) {
+export function ListenSession({
+  bookId,
+  startCfi,
+  page,
+  onStarted,
+}: {
+  bookId: string;
+  startCfi: string;
+  page: PlayerPage | null;
+  /** It has played (so it goes on when the reader is left). */
+  onStarted: () => void;
+}) {
   const audio = useRef<HTMLAudioElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [voice, setVoice] = useState<string>("");
@@ -449,7 +460,10 @@ export function ListenSession({ bookId, startCfi, page }: { bookId: string; star
     <>
       <audio
         ref={audio}
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          setPlaying(true);
+          onStarted();
+        }}
         onPause={() => {
           setPlaying(false);
           doneWaiting();
