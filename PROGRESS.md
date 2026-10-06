@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel's verdict on #90 items 1-4 is in (2026-10-06). Build the follow-ups in docs/m14-home-plan.md §12, in order: V1 (Paths: your books first in the picker; Frankenstein could not be added), V2 (Go to the page lights the word, made voice), V3a (an Import page; drop areas removed), V3b (Import in the sidebar and a fifth phone tab). Then the WebKit-after-seek stall on CI.
+next_action: Build the follow-ups in docs/m14-home-plan.md §12, in order: V1 (Paths: your books first; Frankenstein could not be added: reproduce first), V2 (Go to the page lights the word, made voice), V3a (an Import page), V3b (Import in the sidebar and a fifth phone tab), V5 (whole-book AI narration, an explicit choice; never call ElevenLabs for a whole book until Samuel says so). Then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -35,6 +35,9 @@ draft:
    the Library views lose their drop box.
 4. **V3b, Import** in the sidebar and as a fifth phone tab: a PR of its
    own, since every signed-in reference image changes.
+4a. **V5, whole-book AI narration** on the Import page, as an explicit
+   choice. Never call ElevenLabs for a whole book until Samuel explicitly
+   says so: fake voice only.
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
@@ -168,10 +171,11 @@ Never blocks the loop. Newest first.
 | 8 | WebKit flakes D2 and D3: run CI's WebKit without GStreamer's on-disk audio mode (Linux only; none of your devices use it), and let the reader write the Listen bar's hidden word attribute at the moment it lights a word (tests read it; nothing on screen shows it; the 100 ms limit stays). Default: yes to both. | Samuel | 2026-10-13 | open (defaults apply) |
 | 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
 | 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default (a) applies; built 2026-10-06 for the audiobook case: one tap plays on Home) |
-| 11 | M14 follow-up V3 (the Import page): besides explaining that an EPUB can be read aloud paragraph by paragraph by an AI voice (made, and paid for, the first time each paragraph plays), should the Import page also offer to make the narration for a whole book in advance? That spends money up front, within the voice spending limits ($5 a book, $20 a month unless set). Default: not offered; the page only explains. | Samuel | 2026-10-13 | open (default applies) |
+| 11 | M14 follow-up V3 (the Import page): besides explaining that an EPUB can be read aloud paragraph by paragraph by an AI voice (made, and paid for, the first time each paragraph plays), should the Import page also offer to make the narration for a whole book in advance? That spends money up front, within the voice spending limits ($5 a book, $20 a month unless set). Default: not offered; the page only explains. | Samuel | 2026-10-13 | answered 2026-10-06: offer it, as a separate option chosen on purpose that names the whole book, its paragraphs and its cost, paid up front, and needs confirming (Decisions; plan §12 V5) |
 
 ## Decisions
 
+- 2026-10-06 · Whole-book AI narration: the Import page offers it only as a separate option chosen on purpose. It says plainly it narrates the entire book, with the number of paragraphs and the estimated cost, paid up front; nothing starts until confirmed; EPUB only. **Never call ElevenLabs for a whole book until Samuel explicitly says so**: build and test it with the fake voice only (also in CLAUDE.md) · by Samuel
 - 2026-10-06 · M14 step 5, after review: Hidden Machinery (a reading list) cannot be edited (no Edit path; to arrange its books your way, make your own Path); "Plain" is called "Any order" (it clashed with the AI setting "Plain"); a typed title, a dropped book file and the reading list each join a library book only when it could be that book (the same short title, the same person as author, not two different subtitles), and ask when more than one could be meant; a section lists a book once; removing a typed title that waits only on that Path takes it out of the library too; /stats uses words true for every Path ("By section", "Story first (N)", "Go deeper (E)") · by Claude (default; Samuel can overrule)
 - 2026-10-06 · On a phone, the account button (your initial: Reading stats, Your data, Invite, Sign out) sits on Home only, in Home's title row beside Import (option B on the canvas board "Decide: the account button on a phone"); the slim top strip on every page goes; other pages start with their title. Edge to edge on an installed iPhone: decide after trying the deployed app on the iPhone · by Samuel
 - 2026-10-06 · The whole library's page keeps the heading "Your library"; the filters use their names ("Want to Read", "Finished", "Books", "Audiobooks", "PDFs"). The build plan's step 4 said the heading would read "All"; a heading that only says "All" means little, and the sidebar already says All · by Claude (default; Samuel can overrule)
@@ -194,6 +198,16 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 17:46 (local; 21:46 UTC) · Claude (laptop) · Samuel's decision on whole-book AI narration (row 11), and his rule
+- **Done:**
+  - **Row 11 answered by Samuel:** the Import page offers "Create AI voice narration for an entire book" as a separate option chosen on purpose. It names the whole book, its paragraphs and its cost, paid up front, and needs confirming.
+  - **His rule:** never call ElevenLabs for a whole book until he explicitly says so. It is recorded in `CLAUDE.md`, "Decisions", the plan (§12 V5), and Claude's own notes.
+  - **Cost figures:** counted from the three book files at the app's default $0.30 per 1,000 characters (V5's table). The default voice limits would stop at about 4% of Frankenstein.
+- **Key paths:** `CLAUDE.md`, `docs/m14-home-plan.md` (§12 V5), `PROGRESS.md`.
+- **Commands that worked:** `npx tsx scratchpad/book-chars.mts` (counts each fixture book's paragraphs and characters with `extractSections`) → Frankenstein 806 / 438,802; Jekyll and Hyde 354 / 141,929; The Time Machine 323 / 182,234.
+- **Known issues / blockers:** none.
+- **Exact next steps:** as "Exact next steps" above, starting with V1.
 
 ### 2026-10-06 16:08 (local; 20:08 UTC) · Claude (laptop) · Samuel's verdict on #90 items 1-4; the follow-ups planned (§12)
 - **Done:**

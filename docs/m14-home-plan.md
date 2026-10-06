@@ -1065,6 +1065,50 @@ Check that five tabs fit at 390 px with 44 px targets.
 **Done when** Samuel's points hold on desktop and phone, and the suites are
 green.
 
+### V5 · Whole-book AI narration, as an explicit choice (Open unknowns row 11, answered)
+
+**What Samuel wants** (2026-10-06): the Import page also offers "Create AI
+voice narration for an entire book", as a separate option chosen on purpose:
+- You pick the book and the voice. EPUB only: an AI voice cannot yet be
+  lined up with a PDF page.
+- **Before anything is made,** the page says plainly that this narrates the
+  whole book: how many paragraphs, the estimated total cost, and that it is
+  paid up front. Nothing starts until you confirm.
+
+**His rule: never call ElevenLabs for a whole book until Samuel explicitly
+says so.** It is also in `CLAUDE.md` and PROGRESS.md "Decisions". Build and
+test this only with the fake voice (`AI_FAKE=1`), and never start one on the
+live site.
+
+**What a whole book costs** at the app's default $0.30 per 1,000 characters,
+a cautious figure (his plan may be cheaper):
+
+| Book | Paragraphs | Characters | About |
+|---|---|---|---|
+| Frankenstein | 806 | 438,802 | $131.64 |
+| Jekyll and Hyde | 354 | 141,929 | $42.58 |
+| The Time Machine | 323 | 182,234 | $54.67 |
+
+**The voice spending limits ($5 per book, $20 per month unless set) stop
+it early:** at about 4% of Frankenstein. Raising them is Samuel's to do in
+Railway (`VOICE_CAP_PER_BOOK_USD`, `VOICE_CAP_PER_MONTH_USD`); Claude never
+raises a limit. The page should say so.
+
+**How:**
+- **A background job on the server** makes the book's paragraphs in order
+  with the existing `speakPassage` (`lib/library/audio.ts`). That already
+  saves each paragraph, skips those already saved (free), and stops at a
+  spending limit.
+- **The Import page shows progress and a Stop button.** A limit reached
+  stops it with a plain message.
+
+**Tests (fake voice only):**
+- the confirm step names the whole book, the paragraph count and the cost,
+  and nothing is made before Confirm;
+- progress and Stop;
+- a limit stops it;
+- paragraphs already saved are not paid for again.
+
 ### V4 · Waiting on Samuel
 
 - **The phone tabs on his iPhone,** with the one-tap "Listen from here" in
@@ -1075,5 +1119,5 @@ green.
   - edge to edge;
   - renaming and deleting in Paths;
   - overall.
-- **Open unknowns row 11:** making narration for a whole book in advance
-  from the Import page. Default: not offered; the page explains.
+- **Open unknowns row 11** (whole-book narration): answered 2026-10-06, see
+  V5.

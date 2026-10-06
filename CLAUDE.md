@@ -38,7 +38,10 @@ engineer.
   PR and the ledger, and move on.
 - Before merging a database migration, make sure it has a reverse step and
   that a backup is taken before it runs in production. Never put real API
-  keys in tests; never raise a spending cap yourself.
+  keys in tests; never raise a spending cap yourself. Never call ElevenLabs
+  (or any paid voice) to narrate a whole book until Samuel explicitly says so
+  (his rule, 2026-10-06): build and test whole-book narration with the fake
+  voice only.
 - Follow ground rules 1–9 in `docs/plan.md` (DRM-free files only, anchors
   with quoted text, provenance on AI output, export round-trip tests,
   spending caps, notes never overwritten).
