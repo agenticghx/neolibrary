@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
-import { readBook } from "./ebook";
+import { ImportError, readBook } from "./ebook";
 import { normaliseTitle } from "./paths";
 import { buildSections } from "./sections-store";
 
@@ -16,23 +16,40 @@ export type ImportResult =
  *   so it lights up in its Path instead of appearing twice;
  * - a title already on the shelf with a file is reported as a duplicate;
  * - otherwise a new book is created.
+ * With `attachTo` (M14 step 5: "Add the book file" on a title not available
+ * yet), the file goes to that title whatever its name: it must be the
+ * reader's, not deleted, and have no file yet.
  */
 export async function importBook(
   db: Db,
   storage: Storage,
   ownerId: string,
   file: { name: string; bytes: Uint8Array },
+  opts: { attachTo?: string | null } = {},
 ): Promise<ImportResult> {
   const info = await readBook(file.bytes, file.name);
-  const key = normaliseTitle(info.title);
-  const mine = await db
-    .select({ id: books.id, title: books.title, fileKey: books.fileKey })
-    .from(books)
-    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
-  const sameTitle = mine.filter((b) => normaliseTitle(b.title) === key);
-  const withFile = sameTitle.find((b) => b.fileKey);
-  if (withFile) return { status: "duplicate", bookId: withFile.id, title: withFile.title };
-  const wanted = sameTitle.find((b) => !b.fileKey);
+  let wanted: { id: string; title: string } | undefined;
+  if (opts.attachTo) {
+    const [target] = /^[0-9a-f-]{36}$/i.test(opts.attachTo)
+      ? await db
+          .select({ id: books.id, title: books.title, fileKey: books.fileKey })
+          .from(books)
+          .where(and(eq(books.id, opts.attachTo), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+      : [];
+    if (!target) throw new ImportError("That title was not found.");
+    if (target.fileKey) throw new ImportError("That title already has its book file.");
+    wanted = target;
+  } else {
+    const key = normaliseTitle(info.title);
+    const mine = await db
+      .select({ id: books.id, title: books.title, fileKey: books.fileKey })
+      .from(books)
+      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    const sameTitle = mine.filter((b) => normaliseTitle(b.title) === key);
+    const withFile = sameTitle.find((b) => b.fileKey);
+    if (withFile) return { status: "duplicate", bookId: withFile.id, title: withFile.title };
+    wanted = sameTitle.find((b) => !b.fileKey);
+  }
 
   const bookId =
     wanted?.id ??

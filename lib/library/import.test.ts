@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { strToU8 } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hiddenMachinery } from "@/data/paths/hidden-machinery";
-import { createFirstAdmin } from "@/lib/auth/service";
+import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
+import { books } from "@/lib/db/schema";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
@@ -24,6 +25,32 @@ beforeEach(async () => {
   ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
 });
 afterEach(() => database.raw.close());
+
+describe("adding the book file to a chosen title (M14 step 5)", () => {
+  const titleOnly = async (owner: string, title: string) =>
+    (await database.db.insert(books).values({ ownerId: owner, title, author: "Thomas S. Kuhn" }).returning())[0].id;
+
+  it("attaches to the chosen title whatever the file's own title, keeping the list's name", async () => {
+    const kuhn = await titleOnly(ownerId, "The Structure of Scientific Revolutions");
+    const r = await importBook(database.db, storage, ownerId, fixture("descartes-meditation-one.pdf"), { attachTo: kuhn });
+    expect(r).toMatchObject({ status: "attached", bookId: kuhn, title: "The Structure of Scientific Revolutions" });
+    const { book, available } = (await getBook(database.db, ownerId, kuhn, true))!;
+    expect(book).toMatchObject({ title: "The Structure of Scientific Revolutions", author: "Thomas S. Kuhn", fileType: "pdf" });
+    expect(available).toEqual({ read: true, listen: false }); // a PDF: Read only
+  });
+
+  it("refuses another reader's title, a title that has its file, and an unknown id", async () => {
+    const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
+    const { token } = await createInvite(database.db, admin);
+    const other = await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" });
+    const theirs = await titleOnly(other.id, "Their title");
+    await expect(importBook(database.db, storage, ownerId, fixture("descartes-meditation-one.pdf"), { attachTo: theirs })).rejects.toThrow("not found");
+    const mine = await titleOnly(ownerId, "Mine");
+    await importBook(database.db, storage, ownerId, fixture("descartes-meditation-one.pdf"), { attachTo: mine });
+    await expect(importBook(database.db, storage, ownerId, fixture("wells-the-time-machine.epub"), { attachTo: mine })).rejects.toThrow("already has its book file");
+    await expect(importBook(database.db, storage, ownerId, fixture("wells-the-time-machine.epub"), { attachTo: "not-an-id" })).rejects.toThrow("not found");
+  });
+});
 
 describe("importing books", () => {
   it("adds an EPUB with its file, cover and contents", async () => {

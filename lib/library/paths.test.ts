@@ -5,7 +5,23 @@ import type { Database } from "@/lib/db/client";
 import { books, readalongImports } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { createFirstAdmin, createInvite, acceptInvite } from "@/lib/auth/service";
-import { choosePillar, getBook, getPathView, listPathsWithProgress, normaliseTitle, pillarProgress, seedPath, type SlotView } from "./paths";
+import {
+  addSection,
+  addTitle,
+  choosePillar,
+  createPath,
+  getBook,
+  getPathView,
+  listPathsWithProgress,
+  moveTitle,
+  normaliseTitle,
+  pillarProgress,
+  removeTitle,
+  renamePath,
+  seedPath,
+  slugify,
+  type SlotView,
+} from "./paths";
 
 let database: Database;
 let ownerId: string;
@@ -164,3 +180,89 @@ describe("you are here", () => {
     expect(choosePillar([p("a", "done")])).toBeNull();
   });
 });
+
+describe("your own Paths (M14 step 5, D10)", () => {
+  const order = async (slug: string) =>
+    (await getPathView(database.db, ownerId, slug, () => null, true))!.pillars.map((p) => [p.title, p.slots.map((x) => `${x.kind}:${x.book.title}`)]);
+
+  it("makes a Path with sections of titles in order: library books and new titles", async () => {
+    const [frank] = await database.db.insert(books).values({ ownerId, title: "Frankenstein", author: "Mary Shelley", fileKey: "books/f.epub", fileType: "epub" }).returning();
+    const path = await createPath(database.db, ownerId, { title: "Philosophy of science", description: "How science changes." });
+    expect(path.slug).toBe("philosophy-of-science");
+    const first = await addSection(database.db, ownerId, path.id, "Revolutions");
+    const second = await addSection(database.db, ownerId, path.id, "Fiction about science");
+    await addTitle(database.db, ownerId, first.id, { title: "The Structure of Scientific Revolutions", author: "Thomas S. Kuhn", kind: "N" });
+    await addTitle(database.db, ownerId, first.id, { title: "Against Method", author: "Paul Feyerabend", kind: "E" });
+    const reused = await addTitle(database.db, ownerId, second.id, { bookId: frank.id, kind: "extra" });
+    expect(reused.bookId).toBe(frank.id);
+    expect(await order(path.slug)).toEqual([
+      ["Revolutions", ["N:The Structure of Scientific Revolutions", "E:Against Method"]],
+      ["Fiction about science", ["extra:Frankenstein"]],
+    ]);
+    const view = (await getPathView(database.db, ownerId, path.slug, () => null, true))!;
+    expect([view.available, view.notYet]).toEqual([1, 2]);
+    await renamePath(database.db, ownerId, path.id, { title: "Science, philosophically", description: "" });
+    expect((await getPathView(database.db, ownerId, path.slug))!.title).toBe("Science, philosophically");
+  });
+
+  it("moves titles up and down, staying put at either end, and removes one", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Order" });
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    const a = await addTitle(database.db, ownerId, s.id, { title: "A" });
+    const b = await addTitle(database.db, ownerId, s.id, { title: "B" });
+    const c = await addTitle(database.db, ownerId, s.id, { title: "C" });
+    const titles = async () => (await order(path.slug))[0][1];
+    await moveTitle(database.db, ownerId, a.slotId, "up"); // the first stays first
+    expect(await titles()).toEqual(["extra:A", "extra:B", "extra:C"]);
+    await moveTitle(database.db, ownerId, c.slotId, "up");
+    expect(await titles()).toEqual(["extra:A", "extra:C", "extra:B"]);
+    await moveTitle(database.db, ownerId, a.slotId, "down");
+    expect(await titles()).toEqual(["extra:C", "extra:A", "extra:B"]);
+    await moveTitle(database.db, ownerId, b.slotId, "down"); // the last stays last
+    expect(await titles()).toEqual(["extra:C", "extra:A", "extra:B"]);
+    await removeTitle(database.db, ownerId, a.slotId);
+    expect(await titles()).toEqual(["extra:C", "extra:B"]);
+    // The book stays in the library.
+    expect((await database.db.select().from(books)).some((x) => x.id === a.bookId)).toBe(true);
+  });
+
+  it("never makes a second book for a title already in the library", async () => {
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const path = await createPath(database.db, ownerId, { title: "Energy" });
+    const s = await addSection(database.db, ownerId, path.id, "Grids");
+    const r = await addTitle(database.db, ownerId, s.id, { title: "the grid", author: "" });
+    expect(r.reused).toBe(true);
+    const grids = (await database.db.select().from(books)).filter((x) => normaliseTitle(x.title) === "the grid");
+    expect(grids).toHaveLength(1);
+  });
+
+  it("keeps addresses unique and away from the app's own and the reading lists'", async () => {
+    expect(slugify("Philosophy of Science: An Introduction")).toBe("philosophy-of-science");
+    expect((await createPath(database.db, ownerId, { title: "New" })).slug).toBe("new-2");
+    expect((await createPath(database.db, ownerId, { title: "Hidden Machinery" })).slug).toBe("hidden-machinery-2");
+    expect((await createPath(database.db, ownerId, { title: "Energy" })).slug).toBe("energy");
+    expect((await createPath(database.db, ownerId, { title: "Energy" })).slug).toBe("energy-2");
+    expect((await createPath(database.db, ownerId, { title: "量子" })).slug).toBe("path");
+    await expect(createPath(database.db, ownerId, { title: "   " })).rejects.toThrow("Give the path a name.");
+    // The reading list still adds itself, separately.
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    expect((await getPathView(database.db, ownerId, "hidden-machinery"))!.title).toBe("Hidden Machinery");
+  });
+
+  it("refuses to change another reader's Path, section, title or book", async () => {
+    const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
+    const { token } = await createInvite(database.db, admin);
+    const other = await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" });
+    const path = await createPath(database.db, ownerId, { title: "Mine" });
+    const s = await addSection(database.db, ownerId, path.id, "One");
+    const t = await addTitle(database.db, ownerId, s.id, { title: "A" });
+    const [theirBook] = await database.db.insert(books).values({ ownerId: other.id, title: "Theirs" }).returning();
+    await expect(addSection(database.db, other.id, path.id, "Sneaky")).rejects.toThrow("not found");
+    await expect(addTitle(database.db, other.id, s.id, { title: "Sneaky" })).rejects.toThrow("not found");
+    await expect(addTitle(database.db, ownerId, s.id, { bookId: theirBook.id })).rejects.toThrow("not found");
+    await expect(moveTitle(database.db, other.id, t.slotId, "down")).rejects.toThrow("not found");
+    await expect(removeTitle(database.db, other.id, t.slotId)).rejects.toThrow("not found");
+    await expect(renamePath(database.db, other.id, path.id, { title: "Taken" })).rejects.toThrow("not found");
+  });
+});
+
