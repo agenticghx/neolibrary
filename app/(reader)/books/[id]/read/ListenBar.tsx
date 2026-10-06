@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import type { ReadingPart, Track } from "@/lib/library/audio";
 import type { ListenInfo } from "@/lib/library/listen";
 import { mark } from "@/lib/perf-marks";
@@ -40,6 +40,7 @@ export function ListenBar({
   onWord,
   onPassage,
   onClose,
+  ref,
 }: {
   bookId: string;
   startCfi: string;
@@ -52,6 +53,8 @@ export function ListenBar({
   /** Show a paragraph (turning the page if needed); `resume`: going on after a pause, show the word being read. */
   onPassage: (passageCfi: string, opts?: { resume?: boolean }) => void;
   onClose: () => void;
+  /** The bar's element: the reader records on it each word it lights (data-word; Reader.tsx, recordLit). */
+  ref?: Ref<HTMLDivElement>;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
@@ -60,7 +63,6 @@ export function ListenBar({
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [word, setWord] = useState("");
   const [passageCfi, setPassageCfi] = useState("");
   const [loading, setLoading] = useState(false);
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -309,8 +311,6 @@ export function ListenBar({
       return;
     }
     lastWord.current = s.word;
-    setWord(text);
-    mark("nl:bar-set", { i: s.word, text });
   };
 
   const followTrack = () => {
@@ -320,11 +320,8 @@ export function ListenBar({
     const i = wordAt(t.words, el.currentTime * 1000);
     if (i < 0 || i === lastWord.current) return;
     const [, , from, to] = t.words[i];
-    const text = onWord(info.passage.cfi, from, to);
-    if (text === null) return;
+    if (onWord(info.passage.cfi, from, to) === null) return;
     lastWord.current = i;
-    setWord(text);
-    mark("nl:bar-set", { i, text });
   };
 
   const follow = () => (isBook ? followBook() : followTrack());
@@ -461,8 +458,9 @@ export function ListenBar({
               ? "Saved audio: free to play."
               : `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;
 
+  // data-word is written by the reader as it lights each word (Reader.tsx, recordLit), not by React: keep it out of this JSX, or two writers would fight.
   return (
-    <div className={styles.listenBar} role="region" aria-label="Read aloud" data-word={word} data-passage={passageCfi}>
+    <div ref={ref} className={styles.listenBar} role="region" aria-label="Read aloud" data-passage={passageCfi}>
       <audio
         ref={audio}
         onPlay={() => setPlaying(true)}
