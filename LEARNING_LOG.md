@@ -913,3 +913,66 @@ the page is closed (`dom.js`, `waitForInputEvent.catch(() => {})`); the
 page there also showed "Done.".
 **Lesson.** A limit on one step proves nothing when the whole test's limit
 is the same: set it lower, or the failure lands somewhere else.
+
+### Iteration 41 · 2026-10-06 10:07 (the read-along run's log; from its file) · Flake step 4 (no on-disk audio for CI's WebKit) · partial (the proof is CI's first run)
+
+**Hypothesis.** With `WPE_SHELL_DISABLE_MEDIA_DISK_CACHE=1`, CI's WebKit
+(WPE, GStreamer) no longer copies the audio to disk, so after the jump far
+into the file no request goes back for the bytes it skipped, and the
+stall that followed such a request (CI run 37348223223) cannot happen.
+**Action.** The variable on the `readalong-safari` project
+(`playwright.config.ts`); the far-into-the-file test logs every audio
+request and, when every request is open-ended (Linux WebKit), checks that
+none after the far one starts lower; `playUntil` prints the player's state
+if the audio never gets there.
+**Evaluation.** The whole read-along file in both engines, from the
+snapshot taken after `offline`. A Mac cannot show the effect (its WebKit
+plays audio through Apple's media system); it can show that WebKit still
+starts with the replaced environment and that the check is skipped there.
+**Result.** `23 passed (2.1m)` (Chromium), `23 passed (2.3m)` (WebKit). The
+log lines: Chromium `bytes=0- → 206; bytes=11075584- → 206`; WebKit on the
+Mac only closed ranges (`bytes=0-1`, `bytes=0-15863883`, then pieces from
+`bytes=11272192-15859711` on), so the check did not run there. Whether the
+variable reaches WebKit on Linux is for the PR's first CI run to show; if a
+go-back request still appears there, the step is withdrawn.
+**Lesson.** When only CI can show an effect, say in advance what the first
+CI run must show and what would withdraw the change.
+
+### Iteration 42 · 2026-10-06 10:26 (timing-samples run 37448727457 finished; from GitHub) · Flake step 1 baseline · measurement, no fix
+
+**Hypothesis.** `main` (0cc07de) fails the WebKit page-break test often
+enough to measure fixes against: 3 or more failures or near misses in 30
+(step 1's "Done when").
+**Evaluation.** `gh workflow run timing-samples.yml -f refs=main -f
+machines=3 -f repeats=10` (the quick shape: the owner's account, then only
+this test), the Summary job's table, and the 30 runs' own records (`gh run
+download 37448727457`). Times are in ms after the voice begins page 2's
+first word ("most"), as median / 90th percentile / maximum.
+**Result.**
+- Failed 6 of 30. Near misses (a word at 80 ms or more, the failures
+  included): 13, so 7 runs came within 20 ms of failing.
+- The bar's word at a frame: 70 / 117 / 163. The book's highlight at a
+  frame: 57 / 161 / 173.
+- Lighting a word to writing the bar's word (`barWrittenClock` minus
+  `litSet`): 4.4 / 33.4 / 58.5, in 29 runs.
+- The bar's frame later than the book's: 3 runs of 29 (16, 13 and 72 ms
+  later). In one more run the bar never showed the word at a frame.
+- Each run's font load held the page: 39 / 51 / 55. This is the first
+  direct measurement of the system-font lookup, and every run had one that
+  failed.
+- The longest gap between frames within 0.4 s of the word: 67 / 142 / 182.
+- The six failures are of two kinds:
+  - **Five are in a machine's first runs** (machine 1, runs 0-2; machine 3,
+    runs 0-1). The word was lit 18-82 ms after it began, but the frame that
+    showed it came at 100-173 ms (the longest gaps between frames: 73-182
+    ms). So the highlight a reader sees was late too, not only the bar.
+  - **One is the kind CI shows** (machine 3, run 7). The word was lit at 34
+    ms by the page's text arriving, React wrote the bar at 92, and the bar's
+    frame came at 117 while the book's was at 45.
+  - Machine 2 never failed. Its font loads held the page 18-29 ms, against
+    33-55 on the others.
+**Lesson.** A sample of repeats is not a sample of the same thing: the
+first runs on a fresh machine differ from later ones and from CI's full
+suite. Look at the runs one by one before trusting a table. The plan's
+check of the quick shape against the full chain (`-f shape=suite`)
+decides whether these numbers can judge a fix.
