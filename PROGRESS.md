@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Every M14 step is live (main 9a19ccb, deployed 17:52 UTC). Wait for Samuel's verdict (#90) and fix what he flags, one PR each. Meanwhile, the WebKit-after-seek stall on CI (flake plan S4). Not built: back into an unloaded chapter; Think aloud inside the reader.
+next_action: Samuel's verdict on #90 items 1-4 is in (2026-10-06). Build the follow-ups in docs/m14-home-plan.md §12, in order: V1 (Paths: your books first in the picker; Frankenstein could not be added), V2 (Go to the page lights the word, made voice), V3a (an Import page; drop areas removed), V3b (Import in the sidebar and a fifth phone tab). Then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,24 +19,27 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 17:52 UTC).** Every step of the M14 plan
-is merged and live: `main` 9a19ccb, deployed 17:52 UTC after a checked
-backup. That is steps 1 to 7, with Think aloud (6c) and skips across
-audiobook files (6b part 2b). The "M14 verdict" issue is #90; two comments
-there list what is new. Next:
-1. **Samuel's verdict** (#90): record it in the Log, fix what he flags (one PR
-   per fix, reviewed before merging), and settle Open unknowns rows 5, 6
-   and 10.
-2. **WebKit on Linux (CI) sometimes stands still right after the audio's
-   position is set** (runs 37478603601, 37484095289; each needed a re-run or
-   a test change). Start from the flake plan's S4 (`docs/m14-flake/plan.md`).
-   One idea to test on CI before adopting: a player that notices it has not
-   moved for 2 s while playing, and re-seeks.
-3. **Not built yet:**
-   - back into a chapter that has not been loaded (before the first part
-     fetched; the parts route needs a "before" mode);
-   - Think aloud from inside the reader (selecting text and adding a voice
-     note already works there).
+**Resume M14 here (2026-10-06, 20:08 UTC).** Every step of the M14 plan
+is live (`main` 9a19ccb, deployed 17:52 UTC). Samuel's verdict on #90's
+"What to try" items 1 to 4 came in on 2026-10-06. The follow-ups, as
+confirmed with him, are planned in `docs/m14-home-plan.md` §12. Build them
+in this order, one PR each, each reviewed by a workflow while the PR is a
+draft:
+1. **V1, Paths:** your books first in the picker. Samuel could not add
+   Frankenstein to his own Path "literature". Reproduce first: the live
+   list does include it, 26th of 129.
+2. **V2, Go to the page:** check that it lights the word with a made voice
+   (his case). The reading carrying on is confirmed.
+3. **V3a, an Import page** (books, and audiobooks for a book, with the
+   agreed line on how books are heard). Home keeps only its Import button;
+   the Library views lose their drop box.
+4. **V3b, Import** in the sidebar and as a fifth phone tab: a PR of its
+   own, since every signed-in reference image changes.
+5. **WebKit on Linux (CI) sometimes stands still right after the audio's
+   position is set** (runs 37478603601, 37484095289): start from the flake
+   plan's S4 (`docs/m14-flake/plan.md`).
+6. **Not built yet:** back into a chapter that has not been loaded; Think
+   aloud from inside the reader.
 
 **How this session worked** (2026-10-06): each step ran build, then tests in
 both engines, then mutations, then a review workflow (reviewers plus a
@@ -91,7 +94,10 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **M14 verdict** (#90, from 2026-10-06): all of M14 is live (deployed 17:52 UTC), with Think aloud and 15 s skips across a chapter's audio files. Try it on your phone and laptop, and answer the four questions in the issue. Uploading an audiobook to the live site is safe.
+- **M14 verdict** (#90, from 2026-10-06): your answers on items 1 to 4 are in, and their follow-ups are planned (`docs/m14-home-plan.md` §12). Still to do, when you can:
+  - check the phone tabs on your iPhone, with the one-tap "Listen from here" in real Safari;
+  - answer the questions in #90: the headphones mark, row 10, edge to edge, Paths renaming, and overall;
+  - Open unknowns row 11 (below).
 
 - **GitHub Actions minutes** (information, from 2026-10-06; nothing to do unless you want to). The repo is private, so GitHub's CI minutes are limited. Recounted on 2026-10-06 at 17:57 UTC: since 1 October, 722 finished jobs in 290 runs come to 3,165 minutes, each job rounded up to a whole minute, as GitHub bills them (CI 2,971, the auto-merge 148, timing samples 46). That day alone used 1,177 minutes in 34 CI runs, 5 of them re-runs. I added up each job's start and end times, because GitHub's usage page reports 0 to my login. GitHub's free plan has included 2,000 minutes a month for private repos, and CI still runs, so either your plan includes more or your billing month starts later than the 1st. I cannot see your plan or your limits. If CI ever stops starting jobs, this is the likely reason. I will not raise any limit. The flake plan's remaining sampling is about 200-300 minutes (its estimate). To check, open GitHub → Settings → Billing and plans.
 
@@ -162,6 +168,7 @@ Never blocks the loop. Newest first.
 | 8 | WebKit flakes D2 and D3: run CI's WebKit without GStreamer's on-disk audio mode (Linux only; none of your devices use it), and let the reader write the Listen bar's hidden word attribute at the moment it lights a word (tests read it; nothing on screen shows it; the 100 ms limit stays). Default: yes to both. | Samuel | 2026-10-13 | open (defaults apply) |
 | 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
 | 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default (a) applies; built 2026-10-06 for the audiobook case: one tap plays on Home) |
+| 11 | M14 follow-up V3 (the Import page): besides explaining that an EPUB can be read aloud paragraph by paragraph by an AI voice (made, and paid for, the first time each paragraph plays), should the Import page also offer to make the narration for a whole book in advance? That spends money up front, within the voice spending limits ($5 a book, $20 a month unless set). Default: not offered; the page only explains. | Samuel | 2026-10-13 | open (default applies) |
 
 ## Decisions
 
@@ -187,6 +194,23 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 16:08 (local; 20:08 UTC) · Claude (laptop) · Samuel's verdict on #90 items 1-4; the follow-ups planned (§12)
+- **Done:**
+  - **Samuel's answers** to #90's "What to try" items 1 to 4, and what he wants for Import, were confirmed with him in three rounds:
+    - the sidebar is right on desktop;
+    - Paths could not take Frankenstein;
+    - the mini-player and Go to the page work, and he wants the word lit on the page it opens;
+    - Import should live in one place.
+  - **Corrected along the way:** "a book needs no upload to be heard" was false. Every book needs its file; a PDF needs an uploaded audiobook; a made voice is EPUB only and paid per new paragraph. He confirmed the explanation.
+  - **Planned:** `docs/m14-home-plan.md` §12 (V1 to V4). Open unknowns row 11 added, with a default.
+- **Key paths:** `docs/m14-home-plan.md` (§12), `PROGRESS.md`.
+- **Commands that worked (read-only, on the live database):**
+  - the edit page's own query lists 129 books, Frankenstein 26th;
+  - 3 books have a file (Frankenstein, Jekyll and Hyde, The Time Machine);
+  - the "literature" Path has the section "man and machine" and no titles.
+- **Known issues / blockers:** why Frankenstein did not appear for Samuel is not known yet: V1 starts by reproducing it.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 13:52 (local; 17:52 UTC) · Claude (laptop) · #93 merged and deployed: every M14 step is live
 - **Done:**
