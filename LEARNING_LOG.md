@@ -47,6 +47,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 32 | 2026-10-06 04:13 | 5 whole suite | Step 5 passes the whole suite from a fresh database | 2 whole runs | flake, then success | a timing check that fails once is one sample: run it again before deciding |
 | 33 | 2026-10-06 07:57 | 5 CI (#77) | Only the planned images differ; Hidden Machinery's page does not | run 37431776866 | success (images refreshed) | an image passing within tolerance is not proof it is unchanged |
 | 34 | 2026-10-06 08:16 | 5 merged; 3b | #77 merges as checked; 3b (account button on Home, sidebar edge) works | run 37433148408; `git diff --stat`; shell chain | success | |
+| 35 | 2026-10-06 08:36 | 3b CI (#78) | Only the phone images differ (the strip is gone) | run 37435892671 | success (images refreshed) | |
 
 ## Lessons so far
 
@@ -793,3 +794,17 @@ below "New path" where the list goes on; `npm run check` `Tests 417 passed
 **Next experiment.** The whole suite on 3b; then its PR, where CI will
 fail every signed-in reference image (the strip on phones, the edge on
 desktop) once, to be refreshed after looking at each.
+
+### Iteration 35 · 2026-10-06 08:36 (CI run 37435892671 finished; from GitHub) · Step 3b CI (#78) · success (images refreshed)
+
+**Hypothesis.** On CI only the signed-in phone images differ (the strip is
+gone), and the desktop ones change only by the sidebar's soft edge.
+**Evaluation.** CI run 37435892671 on 94fdfb3 and its report; two contact
+sheets of the 26 actual images (light, dark), looked at page by page.
+**Result.** Lint, types, unit, Postgres, hygiene pass. Browser: `26 failed`,
+`140 did not run`, `95 passed (4.5m)`: exactly the 13 signed-in pages in
+both phone looks. Every image: no strip, the page's title first, Home's
+title row with the filled Import and the outlined initial, tabs at the
+foot. Copied all 26 in. The desktop images passed within the 0.2%
+tolerance: the soft edge is that faint, so their references keep the old
+picture (as with `book-not-available` on desktop, Iteration 33).
