@@ -31,6 +31,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 16 | 2026-10-05 ~22:15 | 3 | Home's data layer and page work and every rule has a failing test | home.test (5) + 7 unit mutations; `--project home` | failure then success | a test name taken from another page's links can be wrong here |
 | 17 | 2026-10-05 22:28 | 3 | Home looks like the mockup | screenshots; a measurement in the browser | failure then success | measure a layout bug before guessing at it |
 | 18 | 2026-10-05 22:36 | 3 | Step 3 green from a fresh database; Home's checks catch breaks | full suite on 7732a13; 4 browser mutations | success | |
+| 19 | 2026-10-06 00:05 | 3 review | Step 3 is ready (review) | three reviewers; 12 unit + 4 browser mutations; 2 full runs | partial | a shared variable in zsh is one word; check a mutation printed test counts |
 
 ## Lessons so far
 
@@ -394,4 +395,32 @@ restored → home.spec:118 fails (desktop and phone); H9 the inactive view
 not `hidden` → :102; H10 the item column sized by content → :70 (the
 overflow measurement); H11 `?listen=1` ignored → :51 (no Read aloud bar).
 **Next experiment.** Reviews of step 3.
+
+### Iteration 19 · 2026-10-06 00:05 · Step 3 review and fixes · partial (CI decides the flakes)
+
+**Hypothesis.** Step 3 (rebased on `main` after #74 merged) is ready.
+**Action.** Three reviewer agents (correctness; UI against the mockup;
+"could each test fail?"); fixes in f64068d; mutation checks; two full
+suites from a fresh database.
+**Result.** Confirmed and fixed: an AI agent's note shown on Continue as
+"Your last note" (ground rule 5); the folded corner never drew (one
+clip-path clipped both triangles); spine lettering 4.11:1 (light) and
+3.62:1 (dark) over the fill on green, now a darker fill (`--spine-fill`,
+in all five theme blocks, as `lib/tokens.test.ts` requires); marks with no
+words for screen readers; Continue card 470 px tall on a phone and
+stacked buttons on desktop; the drop hint on phones; every EPUB spine the
+same width (EPUBs have no page count: file size now); drops outside
+`<main>` opened the file; `?listen=1` stayed in the address; duplicate
+queries; no not-available group on /library; 12 test gaps. Unit
+mutations H12-H19 each fail a named test (first try printed no counts:
+zsh passed two file names as one word); browser H20-H23 each fail
+(auth.setup:17, home.spec:68, :46, :128; H20's first patch matched twice
+and was refused). Full suites on f64068d: `2 failed` (audio.spec:85,
+safari.spec:42), then `1 failed` (readalong.spec:605); a different
+real-time audio test each run; `uptime` load average 4.61; safari.spec:42
+also fails on `main` b018c34 when run with `--project safari` alone (an
+order-dependent test). Judged timing flakes; CI on Linux decides.
+**Lesson.** In zsh, `$VAR` holding two paths is one argument: pass them
+separately, and treat "exit 1 with no test counts" as "did not run".
+**Next experiment.** Push step 3; read CI; refresh images.
 
