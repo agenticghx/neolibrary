@@ -1193,3 +1193,88 @@ whole suite, and four mutations.
 **Lesson.** Look at the screenshots: two of the three visual faults (cover
 size, wrapped line) passed every test. And never edit the working copy
 while a run is reading it.
+
+### Iteration 50 · 2026-10-06 13:59 · Step 6b review, and its fixes · success (CI to come)
+
+**Hypothesis.** The 19 findings that survived the 6b review (workflow
+`wf_36df385f-c88`: logic, looks and server reviewers, then a skeptic per
+finding) each need only a small change, and every fix a test can see is
+caught by a test when broken.
+**Action.**
+- **Player** (`ListenSession.tsx`):
+  - on leaving the page, the mini-player starts from where the audio is;
+  - a made-voice skip into the next or previous paragraph pauses first,
+    and plays on only if it was playing;
+  - `settling` is reset on a voice change and on an audio error;
+  - the minutes left follow a speed change;
+  - every part's chapter names are kept (`withPart`, unit-tested).
+- **Bar** (`MiniPlayer.tsx`, `.module.css`, `globals.css`):
+  - the phone's speed menu opens on the screen;
+  - three lines at most, from near the word;
+  - an iPad-width layout;
+  - only the chapter shortens, never the minutes;
+  - the speed menu's closing rules, and one pill per screen size, so the
+    tab order matches the order seen;
+  - focus scrolled clear of the bar: room measured by the bar, and lifted in
+    Safari.
+- **Server** (`reading.ts`): progress on the reader's scale (share of text;
+  PDF pages).
+- **Tests:**
+  - new: paused then left; a made voice; the phone menu; a long chapter
+    name; an iPad width; focus clear of the bar;
+  - skips measured inside one call in the page;
+  - a permanent `pause()` tracer in `recordPlayer`.
+**Evaluation.**
+- Unit tests.
+- The 6b tests in both engines, and the made-voice test.
+- Screenshots, looked at.
+- The whole suite from a fresh database, twice.
+- Mutations, after a control.
+- The progress scale re-measured with `scratchpad/progress-compare.mts`.
+**Result.**
+- **Unit tests:** `Tests 452 passed | 2 skipped (454)`.
+- **The 6b tests:** `4 passed` in each engine; the made-voice test `1 passed`.
+- **The new tests found three more bugs:**
+  - with a made voice, the mini-player put the previous paragraph back
+    (mark "That"). The new paragraph's `timeupdate` back to 0 ran with the
+    previous render's data;
+  - Safari never closed the speed menu on Escape: a clicked button does not
+    take focus there, so the key never reached the menu;
+  - Safari ignores `scroll-padding` when focus moves.
+- **The progress scale:** counting paragraphs was off from the reader's
+  scale by up to 16.6, 15.4 and 4.6 points on the three test books. Text
+  share is within 2.4, 1.9 and 1.3.
+- **Whole suite, run 1:** `239 passed`, then `readalong.spec.ts:1348`
+  (Chromium) failed. Its audio was paused at 10.54 s of 22.3 s buffered, with
+  no error and only a `pause` event: Iteration 47's mystery, a second time.
+- **Whole suite, run 2** (final code): `253 passed (5.6m)`. All 27 Chromium
+  read-along tests and all 10 audio tests passed. Then
+  `readalong.spec.ts:582` (WebKit) failed: "the audio fell 1430 ms behind
+  the clock".
+- **The same test on `main` (5ab0837):** 1436 and 1435 ms, so not this
+  branch. The Mac's default output was AirPods Pro (Bluetooth;
+  `system_profiler SPAudioDataType`).
+- **The WebKit group without that test:** `6 passed`, then `:662` failed.
+  Its events were `pause` at 14.77 s, `play` at 14.77 s, `pause` at 15.08 s,
+  but the tracer's `pauses: []`: no script called `pause()`. The browser
+  paused it.
+- **Mutations, after a control** (`4 passed`; made voice `1 passed`):
+  - phone menu not moved left: caught at `readalong.spec.ts:1663`;
+  - no fill on leaving the page: caught at `:1590`, and by the made-voice
+    test;
+  - a skip always plays: caught by the made-voice test;
+  - no iPad layout: caught at `:1713`;
+  - `withPart` keeping only the first part's chapters: caught, `1 failed`
+    (unit);
+  - PDF progress one page short: caught, `1 failed` (unit).
+**Lesson.**
+- **A new test on an untested path finds what reviews miss.** The made-voice
+  test failed at once on a bug none of the six reviewers saw.
+- **Check a local failure on `main` before blaming the branch.** Look at the
+  machine too:
+  - with Bluetooth headphones as the output, WebKit's first playback starts
+    about 1.4 s late;
+  - the system can pause the audio by itself (no `pause()` call: the
+    tracer's `pauses` is empty).
+- **While Bluetooth headphones are the output, CI is the judge** for the
+  read-along timing checks (CI passed them for #84 to #87).
