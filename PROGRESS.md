@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: V3a (the Import page) is draft PR #98, built and verified on the laptop; it sits on #97 (V1+V2). GitHub Actions is not starting jobs (billing or spending limit, since 22:39 UTC): only Samuel can fix that, and nothing can merge until CI runs. Then: #97 green and merged, #98 rebased with CI's Linux reference images (home-*, library-*, import-*), review, merge, back up, deploy. Then V3b, V5 (never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall.
+next_action: Read docs/handoffs/2026-10-06-1937-m14-verdict-follow-ups.md. Check workflow wf_7af6252f-43f (V3a: the Import page; it also merges #97, deploys and comments on #90). Then V3b (Import in the sidebar and a fifth phone tab), V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 updated: 2026-10-06
 next_action: Read workflow wf_4f239b9c-a53's result (owner-only whole-book Create on #100; the EPUB safe-unzip and /paths phone-wrap fixes as draft PRs into main) and verify it. Then wait for Samuel to fix GitHub Actions billing; when CI runs, merge the two main-based fixes, then #97, #98, #99, #100 in order (each moved onto main, CI's reference images committed), back up, deploy, comment on #90. Never start a whole-book narration on the live site. Then the WebKit-after-seek stall on CI.
@@ -215,6 +215,17 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 19:39 (local; 23:39 UTC) · Claude (laptop) · Handoff written for the next session
+- **Done:** wrote `docs/handoffs/2026-10-06-1937-m14-verdict-follow-ups.md` (left uncommitted, as the handoff skill asks). It covers:
+  - what is live, and what is in flight (#97; V3a in workflow `wf_7af6252f-43f`);
+  - Samuel's decisions and rules (the Import layout, the approved line, whole-book narration only as an explicit choice, never call ElevenLabs for a whole book);
+  - dead ends (AirPods, the CI WebKit stall, the auto-merge not acting);
+  - the files, how to check, and the next steps.
+- **Key paths:** `docs/handoffs/2026-10-06-1937-m14-verdict-follow-ups.md`, `PROGRESS.md`.
+- **Commands that worked:** `date +%Y-%m-%d-%H%M; git status --short --branch` → `m14-v3a-import` tracking `origin/m14-v3a-import`, tree clean apart from Samuel's untracked `docs/ideasFeaturesSelf.md`.
+- **Known issues / blockers:** workflow `wf_7af6252f-43f` was still running (its Ship stage waits on CI rounds); its result was not yet known.
+- **Exact next steps:** as `next_action` in the header: read the handoff file, then check the workflow's result.
 
 ### 2026-10-06 19:17 (local; 23:17 UTC) · Claude (laptop, workflow Build agent) · V3a built and verified; draft PR #98; CI not starting jobs
 - **Done:**
