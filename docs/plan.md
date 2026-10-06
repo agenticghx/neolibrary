@@ -594,6 +594,13 @@ in matching an upload to a title by its name too). The fix is small: a
 storage name per upload, write the file to the book only while the title
 still has none, and delete the losing upload's files.
 
+Also from that review: about twenty older id checks (notes, reading
+positions, the agent API, read-along) still accept any 36 characters of
+digits, letters a-f and hyphens, so a forged request with a malformed id
+reaches the database and gets an error page instead of "not found". Use the
+shared `UUID` check from `lib/library/paths.ts` everywhere. Not reachable
+from the app's own pages.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

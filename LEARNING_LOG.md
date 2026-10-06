@@ -40,6 +40,11 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 25 | 2026-10-06 ~02:00 | CI flakes | The late word at the PDF page break is WebKit drawing the page | per-frame recordings decoded from two CI traces (read-only agent) | partial (cause located) | the check that failed read a hidden attribute; the visible highlight was on time |
 | 26 | 2026-10-06 02:40 | 5 review fixes | Every step-5 review finding can be fixed without changing Hidden Machinery, each guarded by a test that fails without it | 13-analyst locate workflow + critic; 404 unit tests; 29 unit mutations; 3 browser runs | success (browser mutations and second review running) | read the critic even when the fixes are in: it found two of my own mistakes |
 | 27 | 2026-10-06 02:52 | 5 browser mutations | Browser mutations can run on a database snapshot taken after `home` | B1 on the snapshot | failure (method), redone with a control | a snapshot needs its login state; never skip the control run |
+| 28 | 2026-10-06 03:10 | 5 browser mutations | Each step-5 UI fix has a browser test that fails without it | 2 control runs + 29 browser mutations on a snapshot | success | read where each mutation fails, not just that it fails |
+| 29 | 2026-10-06 03:35 | 5 second review | The committed fixes (85ede30) are ready | 5 lens reviewers, 2 skeptics per finding, a critic | failure (29 findings, none refuted), fixed in two rounds | a fix can create the bug it guards against elsewhere: check every other caller |
+| 30 | 2026-10-06 03:41 | 5 round-2 mutations | Each second-review fix has a test that fails without it | 2 controls + 12 browser and 9 unit mutations | success, one survivor explained | a guard you cannot make fail in a test is a claim, not a check: say so |
+| 31 | 2026-10-06 03:56 | 5 round 3 | The critic's additions hold, each with a failing-without-it test | 13 unit + 3 browser mutations; chain 200 passed | success | |
+| 32 | 2026-10-06 04:13 | 5 whole suite | Step 5 passes the whole suite from a fresh database | 2 whole runs | flake, then success | a timing check that fails once is one sample: run it again before deciding |
 
 ## Lessons so far
 
@@ -646,3 +651,98 @@ the batch stops).
 the same setup. A test environment copied from one run must carry
 everything that run made (database, files, saved logins).
 **Next experiment.** The batch with its controls.
+
+### Iteration 28 · 2026-10-06 03:10 (the batch's log; from its file) · Step 5 browser mutations · success
+
+**Hypothesis.** Each step-5 UI fix has a browser test that fails without it.
+**Evaluation.** The scratchpad's `mut-browser.sh`: a fresh chain to `home`
+(`198 passed (1.9m)`), a snapshot of its database, files and saved login;
+then for each mutation: build the broken app, serve it on a copy of the
+snapshot, run `own-paths` (or the Hidden Machinery tests in `flows`) with
+`--no-deps`; restore the file, check its checksum. Two mutations needing
+the earlier projects ran from a fresh database (`scripts/m14/mut-chain.sh`).
+**Result.** Controls (no mutation): `2 passed (10.5s)` and `3 passed (1.0s)`.
+Mutations B1-B28 (29 runs): every one failed a test, each at the assertion
+meant for it (focus after Move, focus on Read, the empty Path's heading
+order, the add form's message and focus after the first section, the
+attach message, the dimmed button's opacity, the sidebar's and /paths'
+words, the hidden text on Add, the visible "How to read it", line breaks,
+no letters on your own covers, the status naming the title, the stale tab
+with no error page and with its message, the chosen kind, the last Move
+down disabled, "Any order", authors in the library list, both directions
+of the reading-list flag, both kinds of place on the book page, the cover
+letter, Edit path and the edit page refused for Hidden Machinery, /stats'
+words, Hidden Machinery's sidebar words); every file restored.
+**Lesson.** A failing test is evidence only when it fails where it should:
+the log's `> line |` shows which assertion stopped the run.
+**Next experiment.** The second review's findings; then the full suite and
+the PR.
+
+### Iteration 29 · 2026-10-06 03:35 (the critic's report; from its file) · Step 5 second review · failure (of 85ede30), fixed
+
+**Hypothesis.** The committed fixes (85ede30) are ready for a PR.
+**Evaluation.** A workflow: five reviewers (correctness, UI words, access,
+"could each test fail?", regressions) read the commit through git only
+(the working tree was being mutated); two skeptics tried to refute each
+finding; a critic judged them and looked for what all missed.
+**Result.** 29 findings, 0 of 58 skeptic verdicts refuted any. The worst:
+my own C5 fix (typed titles match by author) made two waiting titles with
+one short title possible, while uploads still matched by short title only,
+so a dropped file could attach to the wrong title for good. Others: a
+shared given name counted as the same author (John Donne / John Keats);
+two volumes joined; the forms emptied what was typed when the server
+refused it (React resets a form after its action; `ActionForm` already
+worked around it); disabled buttons dropped keyboard focus; Hidden
+Machinery's N/E were read out with your-Path words; a book twice in one
+section; tests that could not fail. The critic added: a surname-only rule
+splits "Liu Cixin" / "Cixin Liu"; seeding Hidden Machinery has the same
+title-only join; a removed typo stays in the library for ever; a blank
+typed author is never filled in. Fixed in c2d5f16 and 420d9c7 (one
+shared `sameBook` / `pickBook` for typed titles, uploads and seeding;
+the forms on `ActionForm`'s pattern).
+**Lesson.** A fix can create the bug it prevents elsewhere: when a rule
+changes for one caller (typed titles), check every other caller of the
+same idea (uploads, seeding).
+
+### Iteration 30 · 2026-10-06 03:41 (the batch's log; from its file) · Step 5 round-2 mutations · success, one survivor explained
+
+**Evaluation.** `scratchpad/mut-browser2.sh` on the snapshot (controls first)
+and `scripts/m14/mutate.py`.
+**Result.** Controls `2 passed (11.6s)`, `1 passed (919ms)`. Browser
+B30-B41 and B37: 12 of 13 caught at their assertions. B33 (the
+same-moment ref removed from the Move guard) survived: React shows the
+form as sending before Playwright's second click; B33b (no guard at all)
+was caught (`to 3 of 4` instead of `2 of 4`). Unit R1-R9: R5 (no
+whole-title preference) survived because the subtitle rule had left one
+candidate in the old test; a new test (Poems / Poems: Selected) catches it.
+**Lesson.** When a guard cannot be made to fail in a test, say so in the
+PR instead of counting it as covered.
+
+### Iteration 31 · 2026-10-06 03:56 (the last chain run; from its file) · Step 5 round 3 · success
+
+**Evaluation.** Unit R10-R21 (`mutate.py`); browser B42-B44 with a control;
+`npx playwright test --project own-paths` from a fresh database.
+**Result.** All 12 unit mutations caught (people rule both ways, other
+scripts, seeding, blank author, the four "keep the book" conditions,
+empty sections, ties with fixed ids), after pinning two conditions no
+test reached (a typed title in a collection, or with a note). Browser:
+control `2 passed (11.9s)`; B42-B44 caught. Chain `200 passed (2.1m)`
+(three runs). `npx vitest run`: `417 passed | 2 skipped`.
+
+### Iteration 32 · 2026-10-06 04:13 · Step 5 whole suite · flake, then success
+
+**Hypothesis.** Step 5 (420d9c7 and its docs) passes the whole browser suite
+from a fresh database.
+**Evaluation.** `rm -rf .data/e2e .data/e2e-files && npx playwright test
+--ignore-snapshots`, twice; `npm run check`.
+**Result.** First run: `1 failed`, `4 did not run`, `254 passed (7.0m)`:
+`readalong.spec.ts:1225` (readalong-safari), "share of opens tinted: 0.00"
+(the check that the reader paints the word being read after a resize; its
+timing checks at the page break passed: page 2's first word lit 24 ms
+after it began). Second run: `259 passed (6.7m)`. `npm run check`:
+`Tests 417 passed | 2 skipped (419)`.
+**Interpretation.** A WebKit painting-time check in the reader, which
+step 5 does not touch, failed once on the Mac; the same code passed the
+next run. Another sample for the investigation before step 6a.
+**Lesson.** A timing or painting check that fails once is one sample: run
+the whole suite again before deciding, and record both runs.

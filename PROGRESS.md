@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 4 merged (#76). Step 5 (m14-d-paths, rebased on main, fixes in 85ede30, not pushed yet): read the browser mutation results and the second review, fix what is confirmed, run the full suite, push as a draft PR, refresh the paths/book-not-available/path-new images from CI, merge. Then 3b, the WebKit flake investigation, step 6a.
+next_action: Step 5 (m14-d-paths) is pushed as a draft PR after two reviews and three rounds of fixes: read its CI (refresh the paths, book-not-available and new path-new images from CI's report; path must not change), merge when green. Then 3b (account button on Home; sidebar scroll edge), the WebKit flake investigation (learning log Iteration 25), step 6a.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,15 +19,17 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 02:42 UTC).** Steps 1-4 are merged (step 4:
-#76, `main` cb5018b). Step 5 (your own Paths) is on `m14-d-paths`, rebased
-on `main`, with every review fix committed (85ede30), **not pushed yet**.
-Before the PR: read the browser mutation results (B0-B28) and the second
-review (five lenses, two skeptics per finding), fix what they confirm, run
-the whole suite from a fresh database, then push a draft PR (body: the
-handoff §5 text, updated by the newest Log entry). Then 3b, the WebKit
-flake investigation (learning log Iteration 25 has the cause), step 6a.
-The handoff, `docs/m14-handoff-2026-10-06.md`, is on that branch.
+**Resume M14 here (2026-10-06, 04:07 UTC).** Steps 1-4 are merged (step 4:
+#76). Step 5 (your own Paths) is pushed from `m14-d-paths` as a draft PR,
+after two review workflows and three rounds of fixes (learning log
+Iterations 26-31). Next: read its CI; the reference images `paths`,
+`book-not-available` (expected to change) and `path-new` (new) come from
+CI's report after looking at each; `path` (Hidden Machinery) must not
+change. A WebKit read-along failure is the known flake: re-run the failed
+job. Merge when green, then step 3b (the account button on Home only, and
+the sidebar's scroll edge cutting a line at laptop height), then the WebKit
+flake investigation (Iteration 25 has the cause), then step 6a. The
+handoff, `docs/m14-handoff-2026-10-06.md`, reaches `main` with step 5.
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -66,6 +68,8 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
+
+- **M14 step 5 defaults** (nothing to do unless you disagree): see Decisions 2026-10-06 (Hidden Machinery not editable, "Any order", how a title finds its book, /stats words) and Open unknowns row 6 (renaming or removing a section, deleting a Path; no reference images for your own Path's pages).
 
 - **Read-along with your own audiobooks** (from 2026-10-04): items S1–S4 in `docs/readalong-plan.md`: make the Muse clip, add OpenAI API credit (or drop it), pick a default voice, review the skill test results. New: in Railway's bucket settings, a rule that aborts incomplete multipart uploads after a few days, if Railway offers one (abandoned uploads are otherwise cleared only when you start another upload).
 
@@ -127,9 +131,11 @@ Never blocks the loop. Newest first.
 | 3 | M14: are Claude's four assumptions right (you can make your own Paths; Hidden Machinery offered at set-up, not added; Path placeholders also under "Want to Read"; the spine view on the phone only)? Path page layout and the two Home extras (a question; threads) not picked yet. Default until answered: the assumptions hold, the Path page stays as drawn, the extras stay out. | Samuel | 2026-10-12, before M14 (d) | assumptions answered 2026-10-05 (row 4; Decisions); still open: the Path page layout and the two Home extras (defaults: as drawn; out of M14) |
 | 4 | M14 defaults the build plan sets (`docs/m14-home-plan.md` §4 and §10): does ElevenLabs narration count as "Listen" (default no); titles not available yet in one closed group at the end of the grid (default yes); "Want to Read" = everything not started (default yes); spine view phone only (default yes); own Paths = sections of ordered titles (default yes). | Samuel | 2026-10-19 | closed 2026-10-05: narration counts (yes); closed group (yes); Want to Read automatic (yes); View switch Grid / Spines on desktop and phone, Grid default; own Paths as drawn, no "Read last" marker (see Decisions) |
 | 5 | M14 step 2 (phone): the account button (your initial: Reading stats, Your data, Invite, Sign out) sits in a slim top strip on every page, not only on Home as the build plan's D9 said, so Sign out is reachable everywhere. Keep the strip, or (a) put the button in each page's own header row, or (b) keep the strip and hide the small heading above each page title on a phone? Also: when the app is installed on an iPhone home screen, should it fill the screen edge to edge (`viewport-fit: cover`; needs a check on a real iPhone, as M13 (f) does)? Default until answered: strip on every page; no edge-to-edge. | Samuel | 2026-10-19 | answered 2026-10-06: B (Home only, beside Import); edge to edge decided after the deploy, on Samuel's iPhone |
+| 6 | M14 step 5 left out (not in D10): renaming a section, removing a section, deleting a Path. Add them (a section with notes would stay until its notes are removed; a deleted Path's notes would be kept in your data)? Also: your own Path's pages (its edit page and its page) need data the screenshot projects do not have, so each PR shows them in four looks with the accessibility check, but there are no reference images to compare against. Accept that, or add a second set of screenshot projects that runs after own-paths? Default: not built; no reference images. | Samuel | 2026-10-20 | open (default applies) |
 
 ## Decisions
 
+- 2026-10-06 · M14 step 5, after review: Hidden Machinery (a reading list) cannot be edited (no Edit path; to arrange its books your way, make your own Path); "Plain" is called "Any order" (it clashed with the AI setting "Plain"); a typed title, a dropped book file and the reading list each join a library book only when it could be that book (the same short title, the same person as author, not two different subtitles), and ask when more than one could be meant; a section lists a book once; removing a typed title that waits only on that Path takes it out of the library too; /stats uses words true for every Path ("By section", "Story first (N)", "Go deeper (E)") · by Claude (default; Samuel can overrule)
 - 2026-10-06 · On a phone, the account button (your initial: Reading stats, Your data, Invite, Sign out) sits on Home only, in Home's title row beside Import (option B on the canvas board "Decide: the account button on a phone"); the slim top strip on every page goes; other pages start with their title. Edge to edge on an installed iPhone: decide after trying the deployed app on the iPhone · by Samuel
 - 2026-10-06 · The whole library's page keeps the heading "Your library"; the filters use their names ("Want to Read", "Finished", "Books", "Audiobooks", "PDFs"). The build plan's step 4 said the heading would read "All"; a heading that only says "All" means little, and the sidebar already says All · by Claude (default; Samuel can overrule)
 - 2026-10-05 · M14 build-plan questions answered: (1) ElevenLabs narration counts as "Listen" ("of course yes"): with narration on, every EPUB is Read and listen; a PDF needs an uploaded audiobook; (2) titles not available yet sit in one closed group "Not available yet (N)" at the end of the grid; (3) "Want to Read" is automatic: everything not started; (4) "grid is default", with a View button to switch to spines on both desktop and phone; (5) your own Paths are sections of ordered titles (Story first / Go deeper / plain), no "Read last" marker for now · by Samuel
@@ -151,6 +157,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 00:07 (local; 04:07 UTC) · Claude (laptop) · M14 step 5: second review, two more rounds of fixes, all mutation-checked; pushed as a draft PR
+- **Done:** A second review workflow (five lenses, two skeptics per finding, a critic) on 85ede30 found 29 problems, none refuted; the worst was my own: typed titles could make two waiting titles with one short title while uploads matched by short title only, so a dropped file could attach to the wrong one for good. Fixed in c2d5f16 and 420d9c7: one rule (`sameBook`/`pickBook` in `lib/library/paths.ts`) for typed titles, uploads and seeding Hidden Machinery (same short title, same person as author, not two different subtitles; asks when several could be meant); the Path forms keep what was typed when refused and keep keyboard focus; a book once per section; Hidden Machinery's N/E read out in its own words again; a removed typo leaves the library; a blank typed author is filled from the file; "You are here" skips empty sections; long one-word names wrap. Browser mutation checks now start with control runs (Iteration 27: a first batch without one was invalid and was redone). Recorded defaults in Decisions and Open unknowns row 6 (section rename/remove and Path delete not built; no reference images for your own Path's pages).
+- **Key paths:** `lib/library/{paths,import,export}.ts` (+ tests), `components/paths/{PathForms,Outcome}.tsx`, `app/(app)/paths/[slug]/edit/{TitleList,focus}.tsx`, `components/{PathView,AttachFile}.tsx`, `app/(app)/{actions.ts,stats/page.tsx}`, `e2e/{own-paths,paths,stats}.spec.ts`, `e2e/pages.ts`, `docs/plan.md` (Later), `LEARNING_LOG.md` (Iterations 28-31).
+- **Commands that worked:** `npx vitest run` → `417 passed | 2 skipped`; `rm -rf .data/e2e .data/e2e-files && npx playwright test --project own-paths --ignore-snapshots` → `200 passed (2.1m)` (runs 5-8); browser mutations from a database snapshot taken after `home` with its saved login (`scratchpad/mut-snap.sh`, controls first): B1-B28 all caught; round 2: 12 of 13 caught (B33 explained); round 3: B42-B44 caught; unit mutations R1-R21 all caught. Whole suite from a fresh database, twice: first `1 failed`, `4 did not run`, `254 passed (7.0m)` (`readalong.spec.ts:1225` in readalong-safari, "share of opens tinted: 0.00": a WebKit painting check in the reader, untouched by step 5); then `259 passed (6.7m)`. `npm run check` → `Tests 417 passed | 2 skipped (419)`, no lint or type errors.
+- **Known issues / blockers:** WebKit read-along checks fail now and then (CI and, this time, the Mac); the sidebar scroll edge (fix with 3b); the upload race and the older id checks are in `docs/plan.md` "Later".
+- **Exact next steps:** as "Exact next steps" above: CI on the step-5 PR, images from CI, merge; then 3b; then the WebKit flake investigation; then 6a.
 
 ### 2026-10-05 22:42 (local; 02:42 UTC 2026-10-06) · Claude (laptop) · M14 step 4 merged (#76); step 5 rebased, every review finding fixed and tested (not pushed yet)
 - **Done:** #76 (step 4) merged as cb5018b after one known WebKit flake and a re-run of the failed job (`248 passed (15.3m)`); `git diff --stat 55376be origin/main` printed nothing. Step 5 rebased onto `main` in a worktree (ledger conflicts kept both sides; code unchanged: `git diff --stat 55d9016 HEAD` showed only PROGRESS.md and LEARNING_LOG.md). A read-only workflow (13 analysts and a critic) confirmed every step-5 review finding with file:line evidence; all fixed in 85ede30: your own Paths drawn in your order with "how to read it" words; "Plain" renamed "Any order" under a visible "How to read it"; every title counts toward finishing a section of your own Path; Move/Remove report what happened and keep focus; a gone title shows "That title was not found." instead of the error page; status lines name the title; an empty Path starts with "Next: add a first section"; disabled buttons look disabled; descriptions keep line breaks; typed titles match by title and author; simultaneous creates get different addresses; "Choose the book file" keeps its message and focuses Read; Hidden Machinery cannot be edited (no Edit path, edit page not found, actions refuse it) and looks unchanged; Object.hasOwn for reading lists, sorts and filters; a strict id check. Learning log Iterations 24-27 (27: a failed first try at browser mutations, redone with a control run). A read-only agent traced the WebKit flake (Iteration 25): the visible highlight was on time; the bar's hidden attribute lagged behind a 49-62 ms main-thread block when pdf.js looks up an italic system font on CI.
