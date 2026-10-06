@@ -168,6 +168,24 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-06 06:31 (local; 10:31 UTC) · Claude (laptop) · Flake step 1's baseline recorded; flake step 4 (no on-disk audio for CI's WebKit) pushed as a draft PR, stacked on step 5
+- **Done:**
+  - **Step 4** on `m14-flake-d-gstreamer`, on top of step 5 (#81). `playwright.config.ts` starts the WebKit read-along project with `WPE_SHELL_DISABLE_MEDIA_DISK_CACHE=1` (decision D2, default yes). The far-into-the-file test logs every audio request and, on Linux WebKit, checks that none after the far one starts lower. `playUntil` prints the player's state if the audio never gets there. A Mac cannot show the effect, so the PR's first CI run is the proof (Iteration 41).
+  - **Step 1's baseline** (Iteration 42; its "Done when"), timing-samples run 37448727457, `main` x 30:
+    - 6 failed and 13 near misses, which meets the bar.
+    - Five of the six failures came in a machine's first runs, with no frame for up to 182 ms, so the visible highlight was late too.
+    - One is CI's kind: React wrote the bar's word 58 ms after it was lit.
+  - **A check of the quick shape against the full chain** is running: timing-samples run 37450233481, `-f shape=suite`, 1 machine x 5.
+- **Key paths:** `playwright.config.ts`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iterations 41-42).
+- **Commands that worked:**
+  - `git rebase --onto m14-flake-e-folder d78bf8b m14-flake-d-gstreamer`.
+  - The whole read-along file from the snapshot after `offline`, with steps 1, 5 and 4 together: `23 passed (2.1m)` (Chromium), `23 passed (2.3m)` (WebKit). The WebKit run on the Mac asked closed ranges only (`bytes=0-15863883`, ...), so the new check is skipped there.
+  - `gh run download 37448727457` and a per-run table of the 30 `samples.jsonl` records.
+- **Known issues / blockers:**
+  - If CI's WebKit still sends a request back below the far one, withdraw step 4; the check names it: "a request went back for skipped bytes".
+  - The quick shape's first runs per machine are slower than later ones. Until the suite-shape check is read, compare steps on later runs only.
+- **Exact next steps:** as "Exact next steps" above. Also: read run 37450233481 and compare its medians with the baseline's later runs (machine 2 and the others from run 3 on).
+
 ### 2026-10-06 06:22 (local; 10:22 UTC) · Claude (laptop) · Flake step 1 merged (#80); its baseline started; flake step 5 (folder picks) pushed as a draft PR
 - **Done:** #80 (step 1) merged as 0cc07de. Its first CI run failed only on the known WebKit flake, the first one measured with the new recorder: the bar's word waited for React behind a failed italic-font lookup that held the page 38 ms (Iteration 39). The re-run passed: `261 passed (16.0m)`. `git diff --stat fe10e3f origin/main` printed nothing. The baseline is dispatched: timing-samples run 37448727457 (`main` 0cc07de, 3 machines x 10). Step 5 on `m14-flake-e-folder` (tests only): `chooseFolder` at the four folder picks of `readalong.spec.ts`. One change from the plan: the extra event goes to `input[webkitdirectory]`, not to the label, which changes once a reading is ready. It is proved in both engines with Playwright made to miss the event (Iteration 40). Steps 4 and 2 are built and committed on stacked branches (`m14-flake-d-gstreamer`, `m14-flake-b-bar`). Actions minutes noted under Waiting on Samuel.
 - **Key paths:** `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iterations 39-40), `PROGRESS.md`.
