@@ -4,6 +4,7 @@ import { LibraryGrid, LibrarySpines, NotYetGroup } from "@/components/home/Libra
 import { LibraryViews } from "@/components/home/LibraryViews";
 import { SortMenu } from "@/components/home/SortMenu";
 import styles from "@/components/home/Home.module.css";
+import { AccountMenu } from "@/components/shell/AccountMenu";
 import { StarterPaths } from "@/components/StarterPaths";
 import { ImportButton, ImportRoot, ImportZone } from "@/components/upload/HomeImport";
 import { requireUser } from "@/lib/auth/session";
@@ -53,7 +54,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     <ImportRoot className={styles.main}>
       <header className={styles.head}>
         <h1 className={styles.title}>Home</h1>
-        <ImportButton />
+        <div className={styles.headActions}>
+          <ImportButton />
+          {/* On a phone the account (Reading stats, Your data, Invite, Sign out) lives here, on Home only
+              (Samuel's choice B, 2026-10-06); on desktop it is at the foot of the sidebar. */}
+          <div className={styles.phoneOnly}>
+            <AccountMenu name={user.name} admin={user.role === "admin"} />
+          </div>
+        </div>
       </header>
 
       {nothing ? (

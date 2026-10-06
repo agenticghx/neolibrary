@@ -2,9 +2,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { hiddenMachinery } from "../data/paths/hidden-machinery";
 
-// M14 step 2: the sidebar on desktop; tabs, a top strip and an account menu on
-// a phone. Runs after the uploads project (the library has books), before the
-// reader. Never signs the owner out (the other projects share the session).
+// M14 step 2: the sidebar on desktop; tabs on a phone, and the account menu on
+// Home only (step 3b, Samuel's choice B). Runs after the uploads project (the
+// library has books), before the reader. Never signs the owner out (the other
+// projects share the session).
 
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Main" });
 const aside = (page: Page) => page.getByRole("complementary", { name: "Sidebar" });
@@ -64,6 +65,13 @@ test.describe("desktop sidebar", () => {
     await page.goto("/paths");
     await expect(page.getByRole("main").getByText(`0 of ${PILLARS} pillars started`)).toBeVisible();
     await expect(page.getByRole("button", { name: "Add this path" })).toHaveCount(0);
+  });
+
+  test("Home has no account button on desktop: the account is at the foot of the sidebar", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Account: / })).toBeHidden();
+    await expect(aside(page).getByRole("button", { name: "Sign out" })).toBeVisible();
   });
 
   test("the first Tab offers to skip the navigation", async ({ page }) => {
@@ -129,12 +137,31 @@ test.describe("phone", () => {
     expect(lineBox!.y + lineBox!.height).toBeLessThanOrEqual(tabsBox!.y);
   });
 
-  test("the account menu holds the account links and Sign out, and closes", async ({ page }) => {
+  test("other pages start with their own title: no strip, no account button", async ({ page }) => {
+    for (const path of ["/library", "/paths", "/search", "/data"]) {
+      await page.goto(path);
+      await expect(page.getByRole("button", { name: /^Account: / })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Neolibrary", exact: true })).toBeHidden(); // the strip's name went with it
+      // The page's own heading is the first thing in the page, at the top.
+      const top = (await page.getByRole("main").getByRole("heading", { level: 1 }).boundingBox())!.y;
+      expect(top).toBeLessThan(120);
+    }
+  });
+
+  test("the account menu on Home holds the account links and Sign out, and closes", async ({ page }) => {
     const button = page.getByRole("button", { name: /^Account: / });
     // Each colour scheme from a fresh page: switching on an open page measures colours mid-transition.
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
-      await page.goto("/library");
+      await page.goto("/");
+      // Beside Import, in Home's title row.
+      const [importBox, buttonBox, titleBox] = [
+        await page.getByRole("button", { name: "Import" }).boundingBox(),
+        await button.boundingBox(),
+        await page.getByRole("heading", { level: 1, name: "Home" }).boundingBox(),
+      ];
+      expect(buttonBox!.x).toBeGreaterThan(importBox!.x);
+      expect(Math.abs(buttonBox!.y + buttonBox!.height / 2 - (titleBox!.y + titleBox!.height / 2))).toBeLessThan(12);
       await expect(button).toHaveAttribute("aria-expanded", "false");
       await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
       await button.click();
@@ -158,10 +185,12 @@ test.describe("phone", () => {
     await button.click();
     await expect(button).toHaveAttribute("aria-expanded", "false");
 
-    // It closes when a link inside it opens another page.
+    // A link inside it opens its page (which has no account button); back on Home it is closed.
     await button.click();
     await page.getByRole("link", { name: "Your data", exact: true }).click();
     await expect(page).toHaveURL(/\/data$/);
+    await expect(button).toHaveCount(0);
+    await page.goBack();
     await expect(button).toHaveAttribute("aria-expanded", "false");
   });
 });

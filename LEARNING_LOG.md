@@ -45,13 +45,22 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 30 | 2026-10-06 03:41 | 5 round-2 mutations | Each second-review fix has a test that fails without it | 2 controls + 12 browser and 9 unit mutations | success, one survivor explained | a guard you cannot make fail in a test is a claim, not a check: say so |
 | 31 | 2026-10-06 03:56 | 5 round 3 | The critic's additions hold, each with a failing-without-it test | 13 unit + 3 browser mutations; chain 200 passed | success | |
 | 32 | 2026-10-06 04:13 | 5 whole suite | Step 5 passes the whole suite from a fresh database | 2 whole runs | flake, then success | a timing check that fails once is one sample: run it again before deciding |
-| 33 | 2026-10-06 04:40 | 5 CI (#77) | Only the planned images differ; Hidden Machinery's page does not | run 37431776866 | success (images refreshed) | an image passing within tolerance is not proof it is unchanged |
+| 33 | 2026-10-06 07:57 | 5 CI (#77) | Only the planned images differ; Hidden Machinery's page does not | run 37431776866 | success (images refreshed) | an image passing within tolerance is not proof it is unchanged |
+| 34 | 2026-10-06 08:16 | 5 merged; 3b | #77 merges as checked; 3b (account button on Home, sidebar edge) works | run 37433148408; `git diff --stat`; shell chain | success | |
+| 35 | 2026-10-06 08:36 | 3b CI (#78) | Only the phone images differ (the strip is gone) | run 37435892671 | success (images refreshed) | |
 
 ## Lessons so far
 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
+- **Read the clock before writing a time** (Iterations 28-34; seen twice
+  in one session). Times guessed while waiting were hours off. Apply:
+  `date -u` before each entry, or take the time from the output that
+  carries it (a file's mtime, `gh run view --json updatedAt`).
+- **A browser mutation needs a control run on the same setup** (Iteration
+  27): a database copy without its saved login made every run fail, which
+  reads as "caught".
 - **Ask "which bug passes every test?", then mutate it** (Iterations 3, 4,
   12, 14; seen twice). Step 1's and step 2's reviewers each found bugs no
   test caught. Apply: for each rule, break each branch once; when a
@@ -748,7 +757,7 @@ next run. Another sample for the investigation before step 6a.
 **Lesson.** A timing or painting check that fails once is one sample: run
 the whole suite again before deciding, and record both runs.
 
-### Iteration 33 · 2026-10-06 04:40 · Step 5 CI (#77) · success (images refreshed)
+### Iteration 33 · 2026-10-06 07:57 (CI run 37431776866 finished; from GitHub; corrected from 04:40, written without reading the clock) · Step 5 CI (#77) · success (images refreshed)
 
 **Hypothesis.** On CI only the planned reference images differ (`paths`,
 `book-not-available`, new `path-new`), and `path` (Hidden Machinery) does
@@ -765,3 +774,37 @@ actual is not saved for a passing test), so its reference keeps the old
 picture. Looked at all ten actual images, then copied them in.
 **Lesson.** A screenshot that passes within tolerance can still show an
 old picture (as Iteration 7 found): say so in the PR.
+
+### Iteration 34 · 2026-10-06 08:16 (#77 merged; from GitHub) · Step 5 merged; step 3b built · success
+
+**Hypothesis.** #77 merges as the checked commit; step 3b (Samuel's choice
+B: the account button on Home only; and a soft edge on the sidebar's
+scrolling links) passes its tests.
+**Evaluation.** CI run 37433148408 on f50d552; `git diff --stat f50d552
+origin/main`; for 3b, `npx playwright test --project shell
+--ignore-snapshots` from a fresh database, the screenshots, `npm run check`.
+**Result.** CI: all four jobs green, browser `259 passed (13.5m)` (no
+WebKit flake this run). Merged with `--match-head-commit`: `main` 8cd0b49;
+the diff printed nothing. 3b (rebased onto `main` as 7dc453d): shell chain
+`155 passed (30.3s)`; the phone screenshot with the menu open matches the
+canvas's row B (outlined initial beside the filled Import button, menu
+below on the right, no strip); the desktop sidebar shows the soft edge
+below "New path" where the list goes on; `npm run check` `Tests 417 passed
+| 2 skipped (419)`.
+**Next experiment.** The whole suite on 3b; then its PR, where CI will
+fail every signed-in reference image (the strip on phones, the edge on
+desktop) once, to be refreshed after looking at each.
+
+### Iteration 35 · 2026-10-06 08:36 (CI run 37435892671 finished; from GitHub) · Step 3b CI (#78) · success (images refreshed)
+
+**Hypothesis.** On CI only the signed-in phone images differ (the strip is
+gone), and the desktop ones change only by the sidebar's soft edge.
+**Evaluation.** CI run 37435892671 on 94fdfb3 and its report; two contact
+sheets of the 26 actual images (light, dark), looked at page by page.
+**Result.** Lint, types, unit, Postgres, hygiene pass. Browser: `26 failed`,
+`140 did not run`, `95 passed (4.5m)`: exactly the 13 signed-in pages in
+both phone looks. Every image: no strip, the page's title first, Home's
+title row with the filled Import and the outlined initial, tabs at the
+foot. Copied all 26 in. The desktop images passed within the 0.2%
+tolerance: the soft edge is that faint, so their references keep the old
+picture (as with `book-not-available` on desktop, Iteration 33).

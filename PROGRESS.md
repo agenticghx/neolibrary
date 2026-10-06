@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Step 5 (m14-d-paths) is pushed as a draft PR after two reviews and three rounds of fixes: read its CI (refresh the paths, book-not-available and new path-new images from CI's report; path must not change), merge when green. Then 3b (account button on Home; sidebar scroll edge), the WebKit flake investigation (learning log Iteration 25), step 6a.
+next_action: Step 5 merged (#77, main 8cd0b49). Step 3b (account button on Home only; sidebar scroll edge) is a draft PR from m14-b2b-account-home: CI will fail every signed-in reference image once; look at each, copy them in, merge when green. Then the WebKit flake investigation (a design workflow has its plan; learning log Iteration 25), then step 6a.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,17 +19,16 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 04:07 UTC).** Steps 1-4 are merged (step 4:
-#76). Step 5 (your own Paths) is pushed from `m14-d-paths` as a draft PR,
-after two review workflows and three rounds of fixes (learning log
-Iterations 26-31). Next: read its CI; the reference images `paths`,
-`book-not-available` (expected to change) and `path-new` (new) come from
-CI's report after looking at each; `path` (Hidden Machinery) must not
-change. A WebKit read-along failure is the known flake: re-run the failed
-job. Merge when green, then step 3b (the account button on Home only, and
-the sidebar's scroll edge cutting a line at laptop height), then the WebKit
-flake investigation (Iteration 25 has the cause), then step 6a. The
-handoff, `docs/m14-handoff-2026-10-06.md`, reaches `main` with step 5.
+**Resume M14 here (2026-10-06, 08:18 UTC).** Steps 1-5 are merged (step 5:
+#77, `main` 8cd0b49). Step 3b (Samuel's choice B: the account button on
+Home only, no strip on other pages; plus a soft edge where the sidebar's
+links scroll) is a draft PR from `m14-b2b-account-home`. Its first CI run
+fails every signed-in reference image (phones lose the strip; desktop
+gains the sidebar edge): download the report, look at each actual image,
+copy them in (`docs/m14-handoff-2026-10-06.md` §6), merge when green. Then
+the WebKit flake investigation (learning log Iteration 25 has the cause; a
+design workflow's plan is in the newest Log entry's next steps), then step
+6a (`docs/m14-home-plan.md` §5).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -157,6 +156,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 04:18 (local; 08:18 UTC) · Claude (laptop) · M14 step 5 merged (#77); step 3b built and pushed as a draft PR
+- **Done:** #77 (step 5) passed CI on its second run after the ten reference images were refreshed from the first (each looked at; Hidden Machinery's `path` passed unchanged in all four looks), and merged as 8cd0b49 (`git diff --stat f50d552 origin/main` printed nothing). Step 3b on `m14-b2b-account-home` (rebased onto `main` as 7dc453d): the phone strip is gone, every page starts with its own title, and the account button sits in Home's title row beside Import on phones (canvas row B, an outlined initial); the sidebar's scrolling links get a soft edge while there is more to scroll (two Paths cut a line in half at laptop height). Learning log Iterations 33-34, two new lessons (read the clock; control runs), and two corrected times.
+- **Key paths:** `app/(app)/layout.tsx`, `app/(app)/page.tsx`, `components/home/Home.module.css`, `components/shell/Shell.module.css`, `e2e/shell.spec.ts`, `LEARNING_LOG.md`.
+- **Commands that worked:** `gh pr merge 77 --squash --match-head-commit f50d552…`; `git rebase --onto origin/main fdb6fc5 m14-b2b-account-home`; `npx playwright test --project shell --ignore-snapshots` (fresh database) → `155 passed (30.3s)`; `npm run check` → `Tests 417 passed | 2 skipped (419)`; `gh run view <id> --json updatedAt` for times.
+- **Known issues / blockers:** 3b changes every signed-in reference image (expected); the WebKit read-along flake as before; a whole-suite run on 3b was under way at this entry.
+- **Exact next steps:** CI on the 3b PR: refresh the images after looking at each, merge when green, confirm `main`. Then the WebKit flake investigation as its own PR(s), from the design workflow's plan. Then step 6a.
 
 ### 2026-10-06 00:07 (local; 04:07 UTC) · Claude (laptop) · M14 step 5: second review, two more rounds of fixes, all mutation-checked; pushed as a draft PR
 - **Done:** A second review workflow (five lenses, two skeptics per finding, a critic) on 85ede30 found 29 problems, none refuted; the worst was my own: typed titles could make two waiting titles with one short title while uploads matched by short title only, so a dropped file could attach to the wrong one for good. Fixed in c2d5f16 and 420d9c7: one rule (`sameBook`/`pickBook` in `lib/library/paths.ts`) for typed titles, uploads and seeding Hidden Machinery (same short title, same person as author, not two different subtitles; asks when several could be meant); the Path forms keep what was typed when refused and keep keyboard focus; a book once per section; Hidden Machinery's N/E read out in its own words again; a removed typo leaves the library; a blank typed author is filled from the file; "You are here" skips empty sections; long one-word names wrap. Browser mutation checks now start with control runs (Iteration 27: a first batch without one was invalid and was redone). Recorded defaults in Decisions and Open unknowns row 6 (section rename/remove and Path delete not built; no reference images for your own Path's pages).
