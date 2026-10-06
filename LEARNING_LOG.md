@@ -45,6 +45,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 30 | 2026-10-06 03:41 | 5 round-2 mutations | Each second-review fix has a test that fails without it | 2 controls + 12 browser and 9 unit mutations | success, one survivor explained | a guard you cannot make fail in a test is a claim, not a check: say so |
 | 31 | 2026-10-06 03:56 | 5 round 3 | The critic's additions hold, each with a failing-without-it test | 13 unit + 3 browser mutations; chain 200 passed | success | |
 | 32 | 2026-10-06 04:13 | 5 whole suite | Step 5 passes the whole suite from a fresh database | 2 whole runs | flake, then success | a timing check that fails once is one sample: run it again before deciding |
+| 33 | 2026-10-06 04:40 | 5 CI (#77) | Only the planned images differ; Hidden Machinery's page does not | run 37431776866 | success (images refreshed) | an image passing within tolerance is not proof it is unchanged |
 
 ## Lessons so far
 
@@ -746,3 +747,21 @@ step 5 does not touch, failed once on the Mac; the same code passed the
 next run. Another sample for the investigation before step 6a.
 **Lesson.** A timing or painting check that fails once is one sample: run
 the whole suite again before deciding, and record both runs.
+
+### Iteration 33 · 2026-10-06 04:40 · Step 5 CI (#77) · success (images refreshed)
+
+**Hypothesis.** On CI only the planned reference images differ (`paths`,
+`book-not-available`, new `path-new`), and `path` (Hidden Machinery) does
+not.
+**Evaluation.** CI run 37431776866 on fdb6fc5; its report
+(`gh run download 37431776866 -n playwright-report`).
+**Result.** Lint, types, unit, Postgres, hygiene pass. Browser: `10 failed`,
+`138 did not run`, `111 passed (4.2m)`: `paths` (4 looks), `path-new` (4,
+no reference yet), `book-not-available` (the two phone looks). `path`
+passed in all four looks: Hidden Machinery's page is unchanged. The
+desktop `book-not-available` passed within the 0.2% tolerance although the
+page gained "Choose the book file" (pale border on a pale page; its
+actual is not saved for a passing test), so its reference keeps the old
+picture. Looked at all ten actual images, then copied them in.
+**Lesson.** A screenshot that passes within tolerance can still show an
+old picture (as Iteration 7 found): say so in the PR.
