@@ -217,7 +217,7 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   for (const p of [staleMove, staleRemove]) await p.goto("/paths/philosophy-of-science/edit");
   await section(page, "Revolutions").getByRole("button", { name: "Remove Against Method" }).click();
   await expect.poll(() => titlesIn(page, "Revolutions")).toEqual(["The Structure of Scientific Revolutions"]);
-  await expect(section(page, "Revolutions").getByTestId("titles-status")).toHaveText("Removed Against Method. It stays in your library.");
+  await expect(section(page, "Revolutions").getByTestId("titles-status")).toHaveText("Removed Against Method."); // typed for this Path only: it leaves the library too
   await expect(section(page, "Revolutions").getByRole("button", { name: "Remove The Structure of Scientific Revolutions" })).toBeFocused();
   await section(staleMove, "Revolutions").getByRole("button", { name: "Move up Against Method" }).click();
   await expect.poll(() => titlesIn(staleMove, "Revolutions")).toEqual(["The Structure of Scientific Revolutions"]);
@@ -232,11 +232,12 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   // Removing a section's last title leaves focus on the section's heading.
   const fictionEdit = section(page, "Fiction about science");
   await fictionEdit.getByRole("button", { name: "Remove Frankenstein" }).click();
+  await expect(fictionEdit.getByTestId("titles-status")).toHaveText("Removed Frankenstein. It stays in your library."); // it has a file
   await expect(fictionEdit.getByRole("button", { name: "Remove The Dispossessed" })).toBeFocused();
   await fictionEdit.getByRole("button", { name: "Remove The Dispossessed" }).click();
   await expect(fictionEdit.getByText("No titles yet.")).toBeVisible();
   await expect(fictionEdit.getByRole("heading", { level: 2, name: "Fiction about science" })).toBeFocused();
-  await expect(fictionEdit.getByTestId("titles-status")).toHaveText("Removed The Dispossessed. It stays in your library.");
+  await expect(fictionEdit.getByTestId("titles-status")).toHaveText("Removed The Dispossessed.");
 
   // A typed title that is already in the library joins it, and the message names the book.
   const newInFiction = fictionEdit.getByRole("form", { name: "Add a new title to Fiction about science" });
@@ -325,6 +326,9 @@ test("a Path named Constructor is your own: sections and Edit path", async ({ pa
   await page.getByLabel("Name").fill("Constructor");
   await page.getByRole("button", { name: "Make the path" }).click();
   await expect(page).toHaveURL(/\/paths\/constructor\/edit$/);
+  await page.goto("/paths");
+  await expect(page.getByRole("main").getByRole("listitem").filter({ hasText: "Constructor" })).toContainText("No sections yet");
+  await page.goto("/paths/constructor/edit");
   await page.getByRole("link", { name: "See the path" }).click();
   await expect(page.getByText("0 sections · 0 available, 0 not available yet")).toBeVisible();
   await expect(page.getByText("No sections yet. Edit the path to add some.")).toBeVisible();
@@ -343,6 +347,10 @@ test("a Path named Constructor is your own: sections and Edit path", async ({ pa
   await page.getByLabel("Name").fill("Pneumonoultramicroscopicsilicovolcanoconiosis");
   await page.getByRole("button", { name: "Make the path" }).click();
   await expect(page).toHaveURL(/\/paths\/pneumonoultramicroscopicsilicovolcanoconiosis\/edit$/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByLabel("New section").fill("Supercalifragilisticexpialidociousness");
+  await page.getByRole("button", { name: "Add section" }).click();
+  await expect(page.getByTestId("edit-section")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goto("/paths/pneumonoultramicroscopicsilicovolcanoconiosis");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

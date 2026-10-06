@@ -82,7 +82,7 @@ function Pillar({ pillar, here, notes, readingList }: { pillar: PillarView; here
       ) : null}
       <header className={styles.pillarHead}>
         {pillar.number ? <span className={styles.number}>{String(pillar.number).padStart(2, "0")}</span> : null}
-        <h3 id={`p-${pillar.slug}`} className={styles.pillarTitle}>
+        <h3 id={`p-${pillar.slug}`} className={readingList ? styles.pillarTitle : `${styles.pillarTitle} ${styles.ownPillarTitle}`}>
           {pillar.title}
         </h3>
         {pillar.question ? <p className={styles.question}>{pillar.question}</p> : null}

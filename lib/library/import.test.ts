@@ -51,6 +51,15 @@ describe("adding the book file to a chosen title (M14 step 5)", () => {
     await expect(importBook(database.db, storage, ownerId, fixture("wells-the-time-machine.epub"), { attachTo: "not-an-id" })).rejects.toThrow("not found");
   });
 
+  it("fills in an author left blank when the title was typed, and keeps one that was given", async () => {
+    const [blank] = await database.db.insert(books).values({ ownerId, title: "chaos", author: "" }).returning();
+    await importBook(database.db, storage, ownerId, { name: "chaos.epub", bytes: tinyEpub("Chaos: Making a New Science", "James Gleick") }, { attachTo: blank.id });
+    expect((await getBook(database.db, ownerId, blank.id))!.book).toMatchObject({ title: "chaos", author: "James Gleick" });
+    const kuhn = await titleOnly(ownerId, "The Structure of Scientific Revolutions");
+    await importBook(database.db, storage, ownerId, { name: "k.epub", bytes: tinyEpub("Structure", "Someone Else") }, { attachTo: kuhn });
+    expect((await getBook(database.db, ownerId, kuhn))!.book.author).toBe("Thomas S. Kuhn");
+  });
+
   it("refuses a deleted title and an id that is not one: nothing is stored and no book is made from the file", async () => {
     const [gone] = await database.db.insert(books).values({ ownerId, title: "Gone", deletedAt: new Date() }).returning();
     await expect(importBook(database.db, storage, ownerId, fixture("descartes-meditation-one.pdf"), { attachTo: gone.id })).rejects.toThrow("That title was not found.");

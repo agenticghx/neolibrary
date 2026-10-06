@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hiddenMachinery } from "@/data/paths/hidden-machinery";
 import type { Database } from "@/lib/db/client";
-import { books, readalongImports, slots } from "@/lib/db/schema";
+import { annotations, books, collectionBooks, collections, readalongImports, slots } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { createFirstAdmin, createInvite, acceptInvite } from "@/lib/auth/service";
 import {
@@ -255,15 +255,15 @@ describe("your own Paths (M14 step 5, D10)", () => {
     expect(await titles()).toEqual(["extra:C", "extra:A", "extra:B"]);
     expect(await moveTitle(database.db, ownerId, b.slotId, "down")).toEqual({ title: "B", place: 3, count: 3 }); // the last stays last
     expect(await titles()).toEqual(["extra:C", "extra:A", "extra:B"]);
-    expect(await removeTitle(database.db, ownerId, a.slotId)).toEqual({ title: "A" });
+    expect(await removeTitle(database.db, ownerId, a.slotId)).toEqual({ title: "A", kept: false });
     expect(await titles()).toEqual(["extra:C", "extra:B"]);
     // A title already gone (a second click, another tab) is a PathError, which the page's actions ignore.
     await expect(removeTitle(database.db, ownerId, a.slotId)).rejects.toBeInstanceOf(PathError);
     await expect(moveTitle(database.db, ownerId, a.slotId, "up")).rejects.toBeInstanceOf(PathError);
     // So is an id that is not one, before it reaches the database.
     await expect(removeTitle(database.db, ownerId, "-".repeat(36))).rejects.toBeInstanceOf(PathError);
-    // The book stays in the library.
-    expect((await database.db.select().from(books)).some((x) => x.id === a.bookId)).toBe(true);
+    // A, typed for this section only, is marked deleted (not erased: the row is still there).
+    expect((await database.db.select().from(books)).find((x) => x.id === a.bookId)?.deletedAt).toBeInstanceOf(Date);
   });
 
   it("never makes a second book for a title already in the library", async () => {
@@ -380,14 +380,62 @@ describe("your own Paths (M14 step 5, D10)", () => {
   it("orders titles with the same place by their id, on the Path and when moving", async () => {
     const path = await createPath(database.db, ownerId, { title: "Ties" });
     const s = await addSection(database.db, ownerId, path.id, "One");
-    const a = await addTitle(database.db, ownerId, s.id, { title: "A" });
-    const b = await addTitle(database.db, ownerId, s.id, { title: "B" });
-    await database.db.update(slots).set({ position: 0 }).where(inArray(slots.id, [a.slotId, b.slotId])); // two adds at the same moment
-    const byId = [a, b].sort((x, y) => x.slotId.localeCompare(y.slotId)).map((x) => (x === a ? "extra:A" : "extra:B"));
-    expect((await order(path.slug))[0][1]).toEqual(byId);
-    const second = byId[1] === "extra:A" ? a : b;
-    expect(await moveTitle(database.db, ownerId, second.slotId, "up")).toMatchObject({ place: 1, count: 2 });
-    expect((await order(path.slug))[0][1]).toEqual([...byId].reverse());
+    const [a] = await database.db.insert(books).values({ ownerId, title: "A" }).returning();
+    const [b] = await database.db.insert(books).values({ ownerId, title: "B" }).returning();
+    // Two adds at the same moment: the same place. A was added first but has the larger id.
+    const late = "ffffffff-ffff-4fff-bfff-ffffffffffff";
+    const early = "00000000-0000-4000-8000-000000000001";
+    await database.db.insert(slots).values({ id: late, pillarId: s.id, position: 0, kind: "extra", bookId: a.id });
+    await database.db.insert(slots).values({ id: early, pillarId: s.id, position: 0, kind: "extra", bookId: b.id });
+    expect((await order(path.slug))[0][1]).toEqual(["extra:B", "extra:A"]);
+    expect(await moveTitle(database.db, ownerId, late, "up")).toMatchObject({ title: "A", place: 1, count: 2 });
+    expect((await order(path.slug))[0][1]).toEqual(["extra:A", "extra:B"]);
+  });
+
+  it("takes a typed title off its only section out of the library too; a book with a file, or on another Path, stays", async () => {
+    const [frank] = await database.db.insert(books).values({ ownerId, title: "Frankenstein", author: "Mary Shelley", fileKey: "books/f.epub", fileType: "epub" }).returning();
+    const path = await createPath(database.db, ownerId, { title: "Tidy" });
+    const one = await addSection(database.db, ownerId, path.id, "One");
+    const two = await addSection(database.db, ownerId, path.id, "Two");
+    const typo = await addTitle(database.db, ownerId, one.id, { title: "Agianst Method", author: "Feyerabend" });
+    const twice = await addTitle(database.db, ownerId, one.id, { title: "Science in a Free Society", author: "Feyerabend" });
+    await addTitle(database.db, ownerId, two.id, { bookId: twice.bookId });
+    const shelf = await addTitle(database.db, ownerId, one.id, { bookId: frank.id });
+    const live = async () => (await database.db.select().from(books)).filter((x) => !x.deletedAt).map((x) => x.title);
+    expect(await removeTitle(database.db, ownerId, typo.slotId)).toEqual({ title: "Agianst Method", kept: false });
+    expect(await live()).not.toContain("Agianst Method");
+    expect(await removeTitle(database.db, ownerId, twice.slotId)).toEqual({ title: "Science in a Free Society", kept: true }); // still in Two
+    expect(await removeTitle(database.db, ownerId, shelf.slotId)).toEqual({ title: "Frankenstein", kept: true }); // it has a file
+    // A typed title in a collection, or with a note on it, stays too.
+    const inCollection = await addTitle(database.db, ownerId, one.id, { title: "Farewell to Reason", author: "Feyerabend" });
+    const [c] = await database.db.insert(collections).values({ ownerId, name: "To find" }).returning();
+    await database.db.insert(collectionBooks).values({ collectionId: c.id, bookId: inCollection.bookId });
+    expect(await removeTitle(database.db, ownerId, inCollection.slotId)).toMatchObject({ kept: true });
+    const noted = await addTitle(database.db, ownerId, one.id, { title: "Killing Time", author: "Feyerabend" });
+    const note = crypto.randomUUID();
+    await database.db.insert(annotations).values({ id: note, annotationId: note, version: 1, ownerId, bookId: noted.bookId, kind: "note", targetType: "book", body: "Read the chapter on Popper." });
+    expect(await removeTitle(database.db, ownerId, noted.slotId)).toMatchObject({ kept: true });
+    expect(await live()).toEqual(expect.arrayContaining(["Science in a Free Society", "Frankenstein", "Farewell to Reason", "Killing Time"]));
+  });
+
+  it("puts You are here on the first section with titles to read, never on an empty one", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Gaps" });
+    const empty = await addSection(database.db, ownerId, path.id, "Empty for now");
+    const full = await addSection(database.db, ownerId, path.id, "With a title");
+    await addTitle(database.db, ownerId, full.id, { title: "Something to read" });
+    const view = (await getPathView(database.db, ownerId, path.slug))!;
+    expect(view.currentPillarId).toBe(full.id);
+    expect(view.currentPillarId).not.toBe(empty.id);
+  });
+
+  it("does not let a title typed by another author take a reading list's place when the list is added later", async () => {
+    const path = await createPath(database.db, ownerId, { title: "Energy" });
+    const s = await addSection(database.db, ownerId, path.id, "Grids");
+    const schewe = await addTitle(database.db, ownerId, s.id, { title: "The Grid", author: "Philip Schewe" });
+    await seedPath(database.db, ownerId, hiddenMachinery);
+    const grid = (await getPathView(database.db, ownerId, "hidden-machinery"))!.pillars[0].slots[0].book;
+    expect(grid).toMatchObject({ title: "The Grid", author: "Bakke" });
+    expect(grid.id).not.toBe(schewe.bookId);
   });
 
   it("refuses to change a reading list: its name, sections and titles stay as the list has them", async () => {
@@ -561,11 +609,25 @@ describe("sameAuthor", () => {
     expect(sameAuthor("Wu", "Xu")).toBe(false);
   });
 
-  it("does not take a shared given name for the same author", () => {
+  it("does not take a shared given name, initial, title or particle for the same author", () => {
     expect(sameAuthor("John Donne", "John Keats")).toBe(false);
     expect(sameAuthor("Dylan Thomas", "Thomas Hardy")).toBe(false);
     expect(sameAuthor("William Butler Yeats", "William Carlos Williams")).toBe(false);
     expect(sameAuthor("Tim Wu", "Tim Harford")).toBe(false);
+    expect(sameAuthor("M. Mitchell Waldrop", "Melanie Mitchell")).toBe(false);
+    expect(sameAuthor("J. Smith", "J. Doe")).toBe(false);
+    expect(sameAuthor("Smith et al.", "Jones et al.")).toBe(false);
+    expect(sameAuthor("Gilbert and Sullivan", "Simon and Garfunkel")).toBe(false);
+    expect(sameAuthor("Sammy Davis Jr.", "Martin Luther King Jr.")).toBe(false);
+    expect(sameAuthor("Ludwig van Beethoven", "Vincent van Gogh")).toBe(false);
+  });
+
+  it("knows one person written two ways, and compares a name in another script whole", () => {
+    expect(sameAuthor("Liu Cixin", "Cixin Liu")).toBe(true);
+    expect(sameAuthor("Phillip F. Schewe", "Philip Schewe")).toBe(true);
+    expect(sameAuthor("刘慈欣", "刘慈欣")).toBe(true);
+    expect(sameAuthor("刘慈欣", "村上春樹")).toBe(false);
+    expect(sameAuthor("刘慈欣", "Liu Cixin")).toBe(false);
   });
 });
 

@@ -31,11 +31,11 @@ export async function importBook(
   opts: { attachTo?: string | null } = {},
 ): Promise<ImportResult> {
   const info = await readBook(file.bytes, file.name);
-  let wanted: { id: string; title: string } | undefined;
+  let wanted: { id: string; title: string; author: string } | undefined;
   if (opts.attachTo) {
     const [target] = UUID.test(opts.attachTo)
       ? await db
-          .select({ id: books.id, title: books.title, fileKey: books.fileKey })
+          .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey })
           .from(books)
           .where(and(eq(books.id, opts.attachTo), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
       : [];
@@ -87,8 +87,9 @@ export async function importBook(
       description: info.description,
       toc: info.toc,
       pageCount: info.pageCount,
-      // A wanted book keeps the title and author from the reading list.
-      ...(wanted ? {} : { title: info.title, author: info.author }),
+      // A wanted book keeps the title and author it was given (a reading list's, or the reader's);
+      // an author left blank when the title was typed comes from the file.
+      ...(wanted ? (wanted.author.trim() ? {} : { author: info.author }) : { title: info.title, author: info.author }),
       updatedAt: new Date(),
     })
     .where(eq(books.id, bookId));

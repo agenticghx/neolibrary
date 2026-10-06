@@ -140,6 +140,11 @@
   font-weight: var(--weight-regular);
 }
 
+/* Your own Path's section names (M14 step 5): a long one-word name wraps (the reading list's names are short). */
+.ownPillarTitle {
+  overflow-wrap: anywhere;
+}
+
 .question {
   color: var(--ink-500);
   font-size: var(--text-sm);

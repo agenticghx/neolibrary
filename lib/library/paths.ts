@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { books, paths, pillars, slots, type Book } from "@/lib/db/schema";
+import { annotations, books, collectionBooks, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
 import { availabilityOf, isAvailable, type Availability } from "./availability";
 import { audiobookBookIds, narrationOn } from "./listenable";
@@ -36,11 +36,11 @@ export async function seedPath(db: Db, ownerId: string, seed: SeedPath): Promise
       .where(and(eq(paths.ownerId, ownerId), eq(paths.slug, seed.slug)));
     if (existing) return existing.id;
 
-    const libraryBooks = await tx
-      .select({ id: books.id, title: books.title })
+    // A reading-list title joins a library book only when it could be that book (sameBook: title and author).
+    const known = await tx
+      .select({ id: books.id, title: books.title, author: books.author })
       .from(books)
       .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
-    const byTitle = new Map(libraryBooks.map((b) => [normaliseTitle(b.title), b.id]));
 
     const [path] = await tx
       .insert(paths)
@@ -53,15 +53,15 @@ export async function seedPath(db: Db, ownerId: string, seed: SeedPath): Promise
         .values({ pathId: path.id, position: i, slug: p.slug, title: p.title, question: p.question ?? "", group: p.group })
         .returning({ id: pillars.id });
       for (const [j, b] of p.books.entries()) {
-        const key = normaliseTitle(b.title);
-        let bookId = byTitle.get(key);
+        const candidates = known.filter((k) => sameBook(b.title, b.author, k));
+        let bookId = (pickBook(candidates, b.title) ?? candidates[0])?.id;
         if (!bookId) {
           const [row] = await tx
             .insert(books)
             .values({ ownerId, title: b.title, author: b.author, note: b.note ?? "", unverified: b.unverified ?? false })
             .returning({ id: books.id });
           bookId = row.id;
-          byTitle.set(key, bookId);
+          known.push({ id: row.id, title: b.title, author: b.author });
         }
         await tx.insert(slots).values({ pillarId: pillar.id, position: j, kind: b.kind, bookId, note: b.note ?? "" });
       }
@@ -252,7 +252,8 @@ export async function getPathView(
     title: path.title,
     description: path.description,
     pillars: pillarViews,
-    currentPillarId: choosePillar(pillarViews),
+    // "You are here" never sits on an empty section of your own Path (nothing there to read).
+    currentPillarId: choosePillar(readingList ? pillarViews : pillarViews.filter((p) => p.slots.length)),
     available,
     notYet: distinct.size - available,
     readingList,
@@ -432,6 +433,9 @@ export async function addSection(db: Db, ownerId: string, pathId: string, title:
   throw new PathError("That did not work. Try again.");
 }
 
+/** Lower case, spaces made one: for comparing whole titles. */
+export const plainTitle = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
 /** Words that are not part of a person's name: joining words and name particles. */
 const NOT_NAMES = new Set(["and", "the", "with", "by", "et", "al", "ed", "eds", "jr", "sr", "de", "da", "di", "du", "del", "der", "den", "des", "la", "le", "van", "von"]);
 
@@ -445,38 +449,46 @@ const nameWords = (name: string) =>
     .filter((w) => w.length > 1 && !NOT_NAMES.has(w));
 
 /**
- * The surnames in an author line. With "&", "and" or ";" the line lists
- * people, and commas separate them too ("Brealey, Myers & Allen" → brealey,
- * myers, allen); one comma alone is "Surname, Given names" ("Le Guin,
- * Ursula K." → guin); otherwise each person's last name word ("Thomas S.
- * Kuhn" → kuhn).
+ * The people in an author line, each with their name words and surname.
+ * With "&", "and" or ";" the line lists people, and commas separate them
+ * too ("Brealey, Myers & Allen"); one comma alone is "Surname, Given names"
+ * ("Le Guin, Ursula K." → surname guin); otherwise a person's surname is
+ * their last name word ("Thomas S. Kuhn" → kuhn).
  */
-function surnames(author: string): Set<string> {
+function people(author: string): { words: string[]; surname: string }[] {
   const list = /&|;|\sand\s/i.test(author);
-  const people = author.split(list ? /&|;|\sand\s|,/i : /;/);
   const comma = !list && (author.match(/,/g) ?? []).length === 1;
-  const out = new Set<string>();
-  for (const person of people) {
-    const words = nameWords(comma ? person.split(",")[0] : person);
-    if (comma) words.forEach((w) => out.add(w));
-    else if (words.length) out.add(words[words.length - 1]);
-  }
-  return out;
+  return author
+    .split(list ? /&|;|\sand\s|,/i : /;/)
+    .map((part) => {
+      if (comma) {
+        const [last, given = ""] = part.split(",");
+        const surname = nameWords(last);
+        return { words: [...nameWords(given), ...surname], surname: surname[surname.length - 1] ?? "" };
+      }
+      const words = nameWords(part);
+      return { words, surname: words[words.length - 1] ?? "" };
+    })
+    .filter((p) => p.words.length);
 }
+
+/** One person written two ways: the same surname, or every name word of one among the other's ("Liu Cixin" and "Cixin Liu"). */
+const samePerson = (p: { words: string[]; surname: string }, q: { words: string[]; surname: string }) =>
+  p.surname === q.surname || p.words.every((w) => q.words.includes(w)) || q.words.every((w) => p.words.includes(w));
 
 /**
- * Two authors agree when either is blank or a surname matches ("Gleick,
- * James" and "James Gleick"; "Bakke" and "Gretchen Bakke"). A shared given
- * name does not count ("John Donne" and "John Keats" are two authors).
+ * Two authors agree when either is blank or one person in each is the same
+ * person ("Gleick, James" and "James Gleick"; "Bakke" and "Gretchen Bakke").
+ * A shared given name does not count ("John Donne" and "John Keats" are two
+ * authors). A name in another script is compared whole.
  */
 export function sameAuthor(a: string, b: string): boolean {
-  const x = surnames(a);
-  const y = surnames(b);
-  return !x.size || !y.size || [...x].some((w) => y.has(w));
+  if (!a.trim() || !b.trim()) return true;
+  const x = people(a);
+  const y = people(b);
+  if (!x.length || !y.length) return plainTitle(a) === plainTitle(b);
+  return x.some((p) => y.some((q) => samePerson(p, q)));
 }
-
-/** Lower case, spaces made one: for comparing whole titles. */
-export const plainTitle = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 /** The whole title, normalised as normaliseTitle does but keeping any subtitle. */
 const wholeTitle = (title: string) =>
@@ -594,9 +606,22 @@ export async function moveTitle(
   });
 }
 
-/** Takes a title off its section (the book stays in the library). Says which. */
-export async function removeTitle(db: Db, ownerId: string, slotId: string): Promise<{ title: string }> {
+/**
+ * Takes a title off its section and says which. The book stays in the
+ * library, unless it is a title typed for this Path and waiting only here
+ * (no file, on no other Path, in no collection, no notes): then it goes too,
+ * or a typo would wait in the library for ever. `kept` says which happened.
+ */
+export async function removeTitle(db: Db, ownerId: string, slotId: string): Promise<{ title: string; kept: boolean }> {
   const slot = await ownSlot(db, ownerId, slotId);
-  await db.delete(slots).where(eq(slots.id, slotId));
-  return { title: slot.title };
+  return db.transaction(async (tx) => {
+    await tx.delete(slots).where(eq(slots.id, slotId));
+    const [book] = await tx.select({ fileKey: books.fileKey }).from(books).where(eq(books.id, slot.bookId));
+    const [onAPath] = await tx.select({ id: slots.id }).from(slots).where(eq(slots.bookId, slot.bookId)).limit(1);
+    const [collected] = await tx.select({ id: collectionBooks.bookId }).from(collectionBooks).where(eq(collectionBooks.bookId, slot.bookId)).limit(1);
+    const [noted] = await tx.select({ id: annotations.id }).from(annotations).where(eq(annotations.bookId, slot.bookId)).limit(1);
+    const kept = Boolean(book?.fileKey || onAPath || collected || noted);
+    if (!kept) await tx.update(books).set({ deletedAt: new Date() }).where(eq(books.id, slot.bookId));
+    return { title: slot.title, kept };
+  });
 }

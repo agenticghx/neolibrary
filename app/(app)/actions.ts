@@ -204,7 +204,8 @@ export async function moveOrRemoveTitleAction(_: PathFormState, data: FormData):
   let done: string;
   try {
     if (op === "remove") {
-      done = `Removed ${(await removeTitle(await getDb(), user.id, slotId)).title}. It stays in your library.`;
+      const removed = await removeTitle(await getDb(), user.id, slotId);
+      done = removed.kept ? `Removed ${removed.title}. It stays in your library.` : `Removed ${removed.title}.`;
     } else {
       const moved = await moveTitle(await getDb(), user.id, slotId, op === "up" ? "up" : "down");
       done = `Moved ${moved.title} to ${moved.place} of ${moved.count}.`;

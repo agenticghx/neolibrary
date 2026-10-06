@@ -21,6 +21,7 @@
 
 .heading {
   font-size: var(--text-lg);
+  overflow-wrap: anywhere;
 }
 
 .titleList {
@@ -63,6 +64,7 @@
 .name {
   font-family: var(--font-serif);
   font-size: var(--text-md);
+  overflow-wrap: anywhere;
 }
 
 .author {
