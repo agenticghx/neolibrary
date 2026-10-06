@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M14 steps 1-6b part 1 and the 6b review's fixes are merged (#73-#88; main 487bc12). Part 2a (Listen from here on Home plays the audiobook in one tap) is a PR from m14-e2-home-listen: merge when CI is green. Then step 7 (back up, deploy, M14 verdict issue), then 6c (Think aloud) and 2b (skips across files), deployed after.
+next_action: M14 is live (054051c, 15:46 UTC; verdict issue #90). The review's fixes for Home's one-tap Listen are a PR from m14-e2-home-fixes: merge when green. Then 6c (m14-e3-think-aloud) with its review fixes, as its own PR; then deploy both (back up first). Then 2b, and the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,20 +19,37 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 14:21 UTC).** Merged: steps 1 to 6a, 6b
-part 1 and the 6b review's fixes (#73 to #88; `main` 487bc12). Part 2a,
-"Listen from here" on Home playing the book's own audiobook in one tap
-(Iteration 51), is a pull request from `m14-e2-home-listen`: merge it when
-CI is green, then check `git diff --stat <head> origin/main` is empty.
+**Resume M14 here (2026-10-06, 16:06 UTC).** M14 is live: `main` 054051c
+(steps 1 to 6b part 2a), deployed 15:46 UTC after a checked backup. The
+"M14 verdict" issue is #90.
 
-Then, in this order (changed 2026-10-06 so Samuel can try M14 sooner):
-1. **Step 7, deploy:** back up first (migration 0020 runs at this deploy),
-   then deploy, check the live site, and open the "M14 verdict" issue
-   (`docs/m14-home-plan.md` step 7).
-2. **6c, Think aloud** (`docs/m14-home-plan.md` 6c).
-3. **6b part 2b, skips across audiobook files**, and back before the first
-   part fetched (the parts route needs a way to ask for the part before).
-   An edge case: a 15 s skip at a chapter file's very start or end.
+A review of 2a and 6c (workflow `wf_6783e4a9-544`) confirmed 28 findings
+(full list in its output; Iteration 53). Next:
+1. **The fixes for Home's one-tap Listen** are a PR from
+   `m14-e2-home-fixes`: merge it when CI is green. They include the one
+   high-severity finding: a crash when the audiobook has nothing from the
+   reading position on. Production has no audiobooks yet, so it cannot
+   happen there before this lands.
+2. **6c, Think aloud** (`m14-e3-think-aloud`): rebase onto `main`, keeping
+   both ledger entries. Then fix the review's 6c findings:
+   - hold the reading while the panel is open (a made voice fetching its
+     next paragraph);
+   - "Resume" only plays;
+   - focus and "Saved" announced;
+   - 44 px recorder buttons;
+   - no losing a recording to "Go to the page";
+   - Escape and a second press close the panel;
+   - the speed menu on top;
+   - show errors and loading in the mini-player;
+   - the 6c test checks the quote is the sentence being read;
+   - in a PDF, file the note under the paragraph it quotes.
+
+   Then its PR, and deploy (back up first).
+3. **6b part 2b:** skips across audiobook files, and back before the first
+   part fetched.
+4. **WebKit on Linux (CI) sometimes stands still right after the audio's
+   position is set** (runs 37478603601, 37484095289): look into it from the
+   flake plan's S4.
 
 Not a gap: reading time is not counted while listening, by design
 (`useReadingTracker.ts:21`, M10). Design:
@@ -81,6 +98,8 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
+
+- **M14 verdict** (#90, from 2026-10-06): M14 is live. Try it on your phone and laptop, and answer the four questions in the issue. Wait to upload an audiobook to the live site until the fix for Home's one-tap Listen is deployed (a crash it can cause with an audiobook that ends before your reading position).
 
 - **GitHub Actions minutes** (information, from 2026-10-06; nothing to do unless you want to). The repo is private, so GitHub's CI minutes are limited. By my count, this month's CI jobs since 1 October come to about 2,361 minutes: 610 jobs, each rounded up to a whole minute, as GitHub bills them. I added up each job's start and end times, because GitHub's usage page reports 0 to my login. GitHub's free plan has included 2,000 minutes a month for private repos, and CI still runs, so either your plan includes more or your billing month starts later than the 1st. I cannot see your plan or your limits. If CI ever stops starting jobs, this is the likely reason. I will not raise any limit. The flake plan's remaining sampling is about 200-300 minutes (its estimate). To check, open GitHub → Settings → Billing and plans.
 
@@ -176,6 +195,31 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 12:06 (local; 16:06 UTC) · Claude (laptop) · #89 merged; M14 deployed (step 7); the review's fixes for Home's one-tap Listen as a PR
+- **Done:**
+  - **#89** merged as 054051c (the re-run `276 passed (13.2m)`); `git diff --stat 4a70f4f origin/main` printed nothing.
+  - **Deployed `main` 054051c** at 15:46 UTC (Iteration 53):
+    - the backup first, `~/Backups/neolibrary/prod-before-m14-20261006T1539Z.sql` (1,129,203 bytes); its restore into a throwaway Postgres 18 exited 0 with the same counts;
+    - after the deploy: health `200`; sign-in `200`; `/library` and `/paths` `307` to sign-in; the database `1|129|20|0020_readalong_imports` (migration 0020 ran; users and books intact).
+  - **"M14 verdict" issue #90** opened for Samuel.
+  - **The review of 2a and 6c** (workflow `wf_6783e4a9-544`): 28 confirmed, 0 refuted. This PR fixes 2a's findings:
+    - `playsHere`: no crash, no skipped "begins further on" warning;
+    - a second tap carries on with the book in the player;
+    - a four-minute cache;
+    - a screen-reader message;
+    - the bounded wait in the test.
+- **Key paths:** `lib/player/session.ts` (+ test), `components/home/ListenHere.tsx`, `components/player/{PlayerProvider,ListenSession}.tsx`, `e2e/readalong.spec.ts`, `LEARNING_LOG.md` (Iteration 53), scripts `scratchpad/backup.sh` and `scratchpad/deploy.sh` (session scratchpad; recipe in Iteration 53).
+- **Commands that worked:**
+  - `zsh scratchpad/backup.sh` → production `1|129|19|0019_annotation_agent`, `pg_dump exit=0`, `restore exit=0`, restored counts the same.
+  - `zsh scratchpad/deploy.sh` (worktree of `origin/main`, then `railway up --project … --environment production --service web --detach`); `railway deployment list --service web --environment production --limit 1 --json` until `SUCCESS`.
+  - `curl -s -o /dev/null -w "%{http_code}" $B/api/health` → 200.
+  - `npm run check` → `Tests 453 passed | 2 skipped (455)`; `scratchpad/run6b.sh readalong|readalong-safari` → `5 passed` each.
+  - Mutations: no paragraphs check → `1 failed` (unit); no same-book branch → caught at `readalong.spec.ts:1647`.
+- **Known issues / blockers:**
+  - **The 6c findings** are not fixed yet (see "Exact next steps").
+  - **#89 merged before its review finished.** Lesson: open a PR only after its review's fixes.
+- **Exact next steps:** as "Exact next steps" above.
 
 ### 2026-10-06 10:21 (local; 14:21 UTC) · Claude (laptop) · The 6b review's fixes merged (#88); part 2a (Listen from here on Home, one tap) as a PR
 - **Done:**
