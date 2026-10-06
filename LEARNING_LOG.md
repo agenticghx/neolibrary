@@ -1153,3 +1153,43 @@ Whole suite on these fixes before the last one (`fresh`): `265 passed (6.8m)`.
 **Lesson.** A refactor that makes state outlive a page creates new joints;
 test each one (leave, return, switch, search, sign out), not only the old
 paths.
+
+### Iteration 49 · 2026-10-06 12:45 · Step 6b, part 1 (the mini-player) · success (CI to come)
+
+**Hypothesis.** The app-wide player can show the design's mini-player away
+from the reader without a page, if the server sends each paragraph's
+text, the player works out the word from its times, and the app's layout
+gives it a slot that idle pages do not notice.
+**Action.**
+- **Server:** paragraph text, chapter names, the paragraph before, the book,
+  and saving the position by paragraph.
+- **Pure rules:** sentence, skip and speed (`lib/player/`).
+- **The bar itself:** `MiniPlayer` in a slot at the foot of the app's column
+  (`:has()` changes the column only while it is there).
+- **Mapped first:** a read-only workflow of three analysts mapped the server,
+  the layout and the skip rules. The skip analyst found that a skip landing
+  in a stretch playing jumps over is undone on the next frame.
+**Evaluation.** Unit tests, then the three new read-along tests in both
+engines (from the snapshot after `offline`), the screenshots looked at, the
+whole suite, and four mutations.
+**Result.**
+- **Unit tests:** `Tests 450 passed | 2 skipped (452)`; the skip sweep covers
+  724 landings.
+- **The 6b tests:** `3 passed` in each engine, after two fixes in the tests
+  themselves. `textContent` read the hidden phone copy of the sentence, and
+  `name: "Play"` also matched "Playback speed".
+- **Screenshots, looked at:**
+  - the shared mini cover was twice the design's size (now the design's
+    30 x 45 swatch);
+  - the phone's book line wrapped "5 min left" (now one line; the title gives
+    way).
+- **Whole suite from a fresh database:** `271 passed (7.2m)`.
+- **Mutations, each caught after a control (`3 passed`):** no clamp at 0 (3
+  unit tests); speed not re-applied (`readalong.spec.ts:1597`); word only
+  from the page (`:1511`); position not saved (`:1538`).
+- **A slip of mine:** I changed a file while a background run used the same
+  working copy (the unit mutation). Its results were clean, but only by
+  timing.
+**Lesson.** Look at the screenshots: two of the three visual faults (cover
+size, wrapped line) passed every test. And never edit the working copy
+while a run is reading it.
