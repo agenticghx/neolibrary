@@ -20,6 +20,23 @@
   font-size: var(--text-2xl);
 }
 
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The account button: phones only (desktop has it at the foot of the sidebar). */
+.phoneOnly {
+  display: none;
+}
+
+@media (width <= 48rem) {
+  .phoneOnly {
+    display: block;
+  }
+}
+
 .lede {
   max-width: var(--measure-read);
   color: var(--ink-700);
