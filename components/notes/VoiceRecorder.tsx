@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import styles from "./reader.module.css";
+import styles from "./VoiceRecorder.module.css";
 
 const MAX_MS = 10 * 60 * 1000;
 const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
@@ -11,8 +11,20 @@ const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms
  * Discard. Uses the microphone through MediaRecorder; nothing leaves the
  * device until Save.
  */
-export function VoiceRecorder({ onSave, onBack }: { onSave: (audio: Blob, durationMs: number) => Promise<void>; onBack: () => void }) {
-  const [state, setState] = useState<"idle" | "recording" | "done" | "saving">("idle");
+export type RecorderState = "idle" | "recording" | "done" | "saving";
+
+export function VoiceRecorder({
+  onSave,
+  onBack,
+  onStateChange,
+}: {
+  onSave: (audio: Blob, durationMs: number) => Promise<void>;
+  onBack: () => void;
+  /** Told each change of state (the mini-player's Think aloud: whether closing now would lose a recording). */
+  onStateChange?: (state: RecorderState) => void;
+}) {
+  const [state, setState] = useState<RecorderState>("idle");
+  useEffect(() => onStateChange?.(state), [state, onStateChange]);
   const [ms, setMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);

@@ -82,7 +82,7 @@ function toAnnotation(latest: Row, first: Row): Annotation {
 }
 
 /** The paragraph (or heading) a CFI falls in: the last section that starts at or before it, in the same chapter. */
-export async function sectionForCfi(db: Db, bookId: string, cfi: string): Promise<string | null> {
+export async function sectionForCfi(db: Db, bookId: string, cfi: string, quote = ""): Promise<string | null> {
   const start = CFI.collapse(cfi);
   const chapter = /^epubcfi\((\/\d+\/\d+)/.exec(start)?.[1];
   const rows = await db
@@ -96,10 +96,29 @@ export async function sectionForCfi(db: Db, bookId: string, cfi: string): Promis
   const atStart = (c: string) => (c.includes("!") && !c.includes(",") && !/:\d+(\[[^\]]*\])?\)$/.test(c) ? c.replace(/\)$/, "/1:0)") : c);
   const point = atStart(start);
   let best: string | null = null;
+  // The sections at the place found: one in an EPUB; in a PDF, all of a page's paragraphs (they share its place).
+  let tied: string[] = [];
+  let tiedCfi = "";
   for (const s of rows) {
     if (s.kind === "chapter" || !chapter || !s.cfi.startsWith(`epubcfi(${chapter}`)) continue;
     // Compare the section's start with the annotation's start.
-    if (CFI.compare(atStart(s.cfi), point) <= 0) best = s.id;
+    if (CFI.compare(atStart(s.cfi), point) <= 0) {
+      if (s.cfi !== tiedCfi) {
+        tied = [];
+        tiedCfi = s.cfi;
+      }
+      tied.push(s.id);
+      best = s.id;
+    }
+  }
+  // Several at that place: the one whose text holds the quote (compared without spaces: a PDF's text layer may
+  // space the same letters differently). Otherwise the last of them, as before.
+  const squeeze = (t: string) => t.replace(/\s+/g, "");
+  const q = squeeze(quote).slice(0, 40);
+  if (tied.length > 1 && q) {
+    const texts = await db.select({ id: sections.id, text: sections.text }).from(sections).where(inArray(sections.id, tied));
+    const hit = tied.find((id) => squeeze(texts.find((t) => t.id === id)?.text ?? "").includes(q));
+    if (hit) return hit;
   }
   return best;
 }
@@ -170,7 +189,7 @@ export async function createAnnotation(
   if (kind === "image" && (!passage || !picture)) throw new AnnotationError("Choose a picture for a place in the book.");
   const color = kind === "highlight" ? ((COLORS as readonly string[]).includes(String(input.color)) ? (input.color as Color) : "sage") : null;
   const cfi = passage ? (input.cfi as string) : null;
-  const sectionId = cfi ? await sectionForCfi(db, bookId, cfi) : null;
+  const sectionId = cfi ? await sectionForCfi(db, bookId, cfi, quote.exact) : null;
   const annotationId = id ?? crypto.randomUUID();
   const [row] = await db
     .insert(annotations)

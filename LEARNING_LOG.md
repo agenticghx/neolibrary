@@ -1324,6 +1324,48 @@ audio only from a tap.
 - **In WebKit tests, move the audio while it is paused** unless the move
   while playing is what is being tested.
 
+### Iteration 52 · 2026-10-06 15:23 · Step 6c (Think aloud) · success (CI to come)
+
+**Hypothesis.** Think aloud can reuse the reader's voice recorder and the
+existing voice-notes route. Then the only new parts are the mini-player's
+button and panel, pausing, and knowing where the note goes (the paragraph
+being read, and the sentence shown).
+**Action.**
+- **The recorder** moved to `components/notes/` with its own copy of its
+  styles, so the reader looks the same.
+- **The session:** `thinkAloud()` pauses and returns the place;
+  `saveThought()` posts the note.
+- **The bar:** the pill and the panel. At iPad width the controls sit closer
+  together, so the title keeps its room.
+- **Tests:** a browser test with Chromium's fake microphone, two unit tests,
+  and the panel checked in all four looks in both engines.
+**Evaluation.** The browser test from the snapshot; two mutations after a
+control; unit tests; the panel's screenshots looked at; a review workflow
+(three lenses, a skeptic per finding) over 2a and 6c.
+**Result.**
+- **The Think aloud test:** `1 passed`.
+- **Mutations, after a control** (`1 passed`):
+  - anchored at the book's start: `1 failed`, the note's place is not the
+    paragraph;
+  - no pause: `1 failed`, the Play button never appeared.
+- **Unit tests:** `Tests 5 passed (5)` in `voice-notes.test.ts`. In a PDF, a
+  page's place goes to the page's last paragraph, as the plan suspected.
+- **Looked at:**
+  - the panel first read `““Indeed?” said Utterson.”`: the sentence's own
+    quote mark plus mine. It now shows the sentence as a quotation block
+    under a label;
+  - at iPad width the title had exactly 150 px against a check of more than
+    150. The controls now sit closer, rather than the check being loosened.
+- **CI meanwhile (#89):** two WebKit stalls in two runs, both right after the
+  audio's position was set (runs 37478603601 and 37484095289). Recorded; the
+  job was re-run.
+- **Review workflow** `wf_6783e4a9-544` (2a and 6c): running when this was written.
+**Lesson.**
+- **Look at the words on the screen,** not only the layout: the doubled
+  quote mark passed every check.
+- **A check that fails by a pixel is a design question, not a threshold to
+  move.**
+
 ### Iteration 53 · 2026-10-06 16:06 · Step 7 (deploy), and the review of 2a and 6c · success (CI to come)
 
 **Hypothesis.** M14 can go live as it stands (steps 1 to 6b part 2a), with a
@@ -1371,3 +1413,49 @@ skeptic per finding) finds what the tests missed.
 **Lesson.** Run the review before merging, not after. Here #89 merged on
 green CI while its review was still running, and the review found a
 crash. For the next step, open the PR only after the review's fixes.
+
+### Iteration 54 · 2026-10-06 16:19 · Step 6c, review fixes (Think aloud) · success (CI to come)
+
+**Hypothesis.** The review's 6c findings each need a small change in the
+mini-player, the recorder, or `sectionForCfi`, and each can be held by a
+test.
+**Action.**
+- **Think aloud is disabled while the next paragraph is prepared; Resume
+  only plays.**
+- **The recorder reports its state.** The panel then knows when closing
+  would lose a recording: Escape, a second press and Go to the page are
+  held back (Go to the page says why).
+- **Focus and announcements:**
+  - focus goes back to the button;
+  - after saving, focus moves to Resume or Close;
+  - "Saved" is announced.
+- **Smaller fixes:** 44 px recorder buttons; the speed menu above the
+  panel; the mini-player's status line (errors, loading).
+- **In a PDF,** the quote breaks the tie between a page's paragraphs.
+**Evaluation.**
+- The Think aloud test, rewritten: it moves into the paragraph's fifth
+  sentence first, then checks Escape, focus, the held link, the
+  announcement and Resume.
+- A new failed-start test.
+- The unit tests.
+- Four browser mutations and one unit mutation, then the screenshots
+  looked at.
+**Result.**
+- **Tests:** the Think aloud test `1 passed`; the 6b tests `6 passed` in
+  each engine; the made-voice and Home tests `1 passed` each;
+  `npm run check` → `Tests 455 passed | 2 skipped (457)`.
+- **Mutations, each caught:**
+  - no focus after Save (`toBeFocused`);
+  - the link not held back (no warning);
+  - Escape closing while recording (the recording gone);
+  - no status line (`readalong.spec.ts:1670`);
+  - no tie-break (unit: `1 failed`).
+- **Two test slips of my own:**
+  - Playwright will not click a link marked `aria-disabled`, though a person
+    can (`force: true` now, with the attribute checked first);
+  - quoting the page's second paragraph could pass without the tie-break
+    when a page has exactly two, so the test quotes the first.
+**Lesson.** A guard is tested only if the test does what a person would do
+anyway: click the dimmed link, press Escape mid-recording. And a quote
+taken from the last of the tied paragraphs cannot tell the tie-break from
+the old rule.

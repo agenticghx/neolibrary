@@ -196,6 +196,30 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-06 12:19 (local; 16:19 UTC) · Claude (laptop) · 6c's review fixes done; its PR waits on #91
+- **Done:**
+  - **#91** (the fixes for Home's one-tap Listen) is open, with three checks green and the browser tests running.
+  - **6c's review fixes** on `m14-e3-think-aloud` (rebased onto `m14-e2-home-fixes`; Iteration 54):
+    - Think aloud is held while the next paragraph is prepared; Resume only plays;
+    - Escape, a second press and Go to the page never lose a recording;
+    - focus and announcements; 44 px recorder buttons; the speed menu on top;
+    - the mini-player's status line (errors, loading);
+    - in a PDF, the note goes to the paragraph it quotes.
+- **Key paths:** `components/player/{MiniPlayer,ListenSession}.tsx`, `components/player/MiniPlayer.module.css`, `components/notes/VoiceRecorder.{tsx,module.css}`, `lib/library/annotations.ts`, `lib/library/voice-notes.test.ts`, `e2e/{notes,readalong}.spec.ts`, `LEARNING_LOG.md` (Iteration 54).
+- **Commands that worked:**
+  - `scratchpad/run-snap.sh think notes "M14 \(6c\)"` → `1 passed`; `scratchpad/run6b.sh readalong|readalong-safari` → `6 passed` each.
+  - `scratchpad/mut-6c.sh` and `mut-6bfix.sh`: four mutations, each caught.
+  - `npm run check` → `Tests 455 passed | 2 skipped (457)`.
+  - `git rebase --onto m14-e2-home-fixes 4a70f4f m14-e3-think-aloud` (the ledger files conflicted; both entries kept, in time order).
+- **Known issues / blockers:**
+  - Two of the review's findings have no browser test: the hold while preparing (timing), and Resume only playing.
+  - An unsaved recording is still lost if you leave by another way: the Continue card's link, or the browser's Back button. Only the mini-player's own link is held back.
+- **Exact next steps:**
+  1. Merge #91 when green.
+  2. Then `git rebase --onto origin/main m14-e2-home-fixes m14-e3-think-aloud`, push, and open the 6c PR.
+  3. Merge it when green; then back up and deploy (`scratchpad/backup.sh`, `scratchpad/deploy.sh`), and comment on #90.
+  4. Then 2b, and the WebKit stall on CI.
+
 ### 2026-10-06 12:06 (local; 16:06 UTC) · Claude (laptop) · #89 merged; M14 deployed (step 7); the review's fixes for Home's one-tap Listen as a PR
 - **Done:**
   - **#89** merged as 054051c (the re-run `276 passed (13.2m)`); `git diff --stat 4a70f4f origin/main` printed nothing.
@@ -220,6 +244,23 @@ Never blocks the loop. Newest first.
   - **The 6c findings** are not fixed yet (see "Exact next steps").
   - **#89 merged before its review finished.** Lesson: open a PR only after its review's fixes.
 - **Exact next steps:** as "Exact next steps" above.
+
+### 2026-10-06 11:23 (local; 15:23 UTC) · Claude (laptop) · 6c (Think aloud) built and tested; #89 waiting on a CI re-run
+- **Done:**
+  - **#89, CI round 2** (run 37484095289): `254 passed`, then a WebKit stall in `readalong.spec.ts:582`'s screenshot loop. The audio sat at 0.63 s, its start point, with 11.6 s loaded. Same pattern as round 1: WebKit on Linux stood still right after the audio's position was set. The job was re-run (attempt 2).
+  - **6c, Think aloud,** on `m14-e3-think-aloud` (Iteration 52): a mini-player button that pauses the reading and records a voice note at the paragraph being read, quoting the sentence. It saves through the existing route and offers to resume. The recorder moved to `components/notes/`.
+  - **Review workflow** `wf_6783e4a9-544` (three lenses, a skeptic per finding) over 2a and 6c: running.
+- **Key paths:** `components/notes/VoiceRecorder.{tsx,module.css}`, `components/player/{MiniPlayer,ListenSession}.tsx`, `components/player/MiniPlayer.module.css`, `components/shell/icons.tsx`, `e2e/notes.spec.ts`, `e2e/readalong.spec.ts`, `lib/library/voice-notes.test.ts`, `LEARNING_LOG.md` (Iteration 52).
+- **Commands that worked:**
+  - `scratchpad/run-snap.sh think notes "M14 \(6c\)"` → `1 passed`.
+  - `scratchpad/mut-6c.sh`: control `1 passed`; anchored at the book's start `1 failed`; no pause `1 failed`.
+  - `npx vitest run lib/library/voice-notes.test.ts` → `Tests 5 passed (5)`; `npm run check` → `Tests 454 passed | 2 skipped (456)`.
+  - `scratchpad/run6b.sh readalong|readalong-safari "the mini-player sits"` → `1 passed` each (the panel in four looks).
+  - `gh run rerun 37484095289 --failed`.
+- **Known issues / blockers:**
+  - **WebKit on Linux (CI) sometimes stands still right after the audio's position is set:** twice today. It needs its own look, after the deploy, starting from the flake plan's S4 (`docs/m14-flake/plan.md`).
+  - **In a PDF,** a Think aloud note belongs to the page's last paragraph (a unit test proves it). It opens at the right page and quotes the right sentence.
+- **Exact next steps:** merge #89 when green, back up and deploy (`scratchpad/backup.sh`, then `scratchpad/deploy.sh`), open the M14 verdict issue; then 6c's review fixes and its PR; then 2b.
 
 ### 2026-10-06 10:21 (local; 14:21 UTC) · Claude (laptop) · The 6b review's fixes merged (#88); part 2a (Listen from here on Home, one tap) as a PR
 - **Done:**

@@ -1655,6 +1655,21 @@ test("M14 (6b): Listen from here on Home plays the book's own audiobook there, i
   expect(await same()).toBe(true);
 });
 
+test("M14 (6b): a listen started on Home that cannot play says so in the mini-player", async ({ page }) => {
+  test.setTimeout(60_000);
+  const { bookId } = await miniReading(page);
+  expect((await page.request.put(`/api/books/${bookId}/position`, { data: { cfi: PARAGRAPHS[41].cfi, fraction: 0.3 } })).status()).toBe(204);
+  await page.goto("/");
+  const card = page.getByTestId("continue-card").filter({ hasText: "The Strange Case of Dr. Jekyll and Mr. Hyde" });
+  const listen = card.getByRole("link", { name: "Listen from here" });
+  await expect(listen).toHaveAttribute("data-here", "");
+  // The audiobook's audio cannot be fetched.
+  await page.route("**/readalong/**/audio/**", (r) => r.abort());
+  await listen.click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("status").first()).toContainText("could not be played");
+});
+
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
   test.setTimeout(90_000);
   const { bookId, expected } = await miniReading(page);
@@ -1765,6 +1780,21 @@ test("M14 (6b): the mini-player sits at the foot of the page, above the tabs on 
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(150);
       await page.screenshot({ path: `screenshots/miniplayer-${name}-${scheme}${engine()}.png` });
+
+      // Think aloud (M14 step 6c): its panel opens above the bar, on the screen, and is accessible.
+      await mini.getByRole("button", { name: "Think aloud" }).click();
+      const think = mini.getByRole("region", { name: "Think aloud" });
+      await expect(think.getByRole("button", { name: "Record" })).toBeVisible();
+      const p = (await think.boundingBox())!;
+      expect(p.x, `${name}: the panel on the screen`).toBeGreaterThanOrEqual(0);
+      expect(p.x + p.width, `${name}: the panel on the screen`).toBeLessThanOrEqual(w);
+      expect(p.y + p.height, `${name}: above the bar`).toBeLessThanOrEqual((await mini.locator("p").first().boundingBox())!.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const withPanel = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(withPanel.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/thinkaloud-${name}-${scheme}${engine()}.png` });
+      await think.getByRole("button", { name: "Back" }).click();
+      await expect(think).toHaveCount(0);
     }
   }
   // An iPad held upright (820 wide, beside the sidebar): no swatch or spacer, and Go to the page as its icon, so the

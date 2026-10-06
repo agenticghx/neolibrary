@@ -1,0 +1,72 @@
+/* The voice recorder (M8), shared by the reader's selection bar and the mini-player's Think aloud (M14 step 6c).
+   Its rules are copied from the reader's styles (reader.module.css), so it looks the same in both. */
+.recorder {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recorderState {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.recDot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--mark-rose);
+}
+
+.noteActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Both kinds of button are at least 44 px tall: a finger's width. */
+.tool {
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.tool:hover {
+  border-color: var(--rule);
+  color: var(--ink-900);
+}
+
+.primaryTool {
+  min-height: 44px;
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.primaryTool:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.formError {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}

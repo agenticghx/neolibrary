@@ -14,6 +14,8 @@ const PATHS = {
   // The mini-player's skips (M14 step 6b; the design's paths): a turning arrow and "15".
   back15: "M5 12a7 7 0 1 0 2.1-5M5 4v4h4M10.2 10v5M15.2 10H13v2.2h2.2V15H13",
   forward15: "M19 12a7 7 0 1 1-2.1-5M19 4v4h-4M9.2 10v5M14.2 10H12v2.2h2.2V15H12",
+  // Think aloud (M14 step 6c; the design's path): a microphone.
+  mic: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3",
 } as const;
 
 /** Solid shapes (the mini-player's Play and Pause), filled with the current text colour. */

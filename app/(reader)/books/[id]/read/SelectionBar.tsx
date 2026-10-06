@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Color } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
-import { VoiceRecorder } from "./VoiceRecorder";
+import { VoiceRecorder } from "@/components/notes/VoiceRecorder";
 import { DrawingPad } from "./DrawingPad";
 import { StickerIcon } from "@/components/StickerIcon";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
