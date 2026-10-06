@@ -845,3 +845,25 @@ failure as CI run 37437423658, now on every run). #78 merged after its
 re-run (`261 passed (15.7m)`; `main` 35d9e97).
 **Lesson.** A race can be made to happen on purpose: hold the request with
 `page.route` until the step that cuts it off has run.
+
+### Iteration 38 · 2026-10-06 09:34 · WebKit flakes, step 1 (measure) · success (locally; CI to come)
+
+**Hypothesis.** Timing marks in the reader, and a recorder that reports
+before any check runs, can be added without changing one check, and they
+show where the time goes at a PDF page turn.
+**Action.** `git apply docs/m14-flake/timing-measurement.patch` with the
+plan's two edits (no "Phase B"; a `tests` input), and one more: the timing
+log creates its folder.
+**Evaluation.** `npx playwright test -c playwright.timing.config.ts --list
+--repeat-each 3`; two local timing runs (WebKit, Mac); the whole suite
+from a fresh database; the plan's proof grep.
+**Result.** The list: 1 setup test and 3 timing tests. First timing run:
+`1 failed` with `ENOENT: no such file or directory, open
+'…/timing/local.jsonl'` (the folder did not exist), hence the third edit.
+Second run: `2 passed (32.7s)`. Its timeline has every mark's details
+(WebKit keeps them), `afterLate` 1, an italic font load (`font g_d0_sf4
+italic: load() held the page 2 ms`), and no word 80 ms late or more (a
+Mac, not CI). Whole suite: `261 passed (6.7m)`. The proof grep printed
+nothing.
+**Lesson.** A measurement must not be able to fail the test it measures:
+anything it writes, it writes where it has made sure it can.

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Steps 1-5 and 3b are merged (#78, main 35d9e97). The reading-time fix (m14-fix-reading-leave) is a draft PR: merge when green. Then the WebKit flake plan (docs/m14-flake/plan.md), step 1 first (measure, change no check), then steps 2-5 one PR each; then step 6a.
+next_action: The reading-time fix is merged (#79, main d78bf8b). WebKit flake step 1 (measure, change no check) is a draft PR from m14-flake-a-measure: merge when green, then dispatch the baseline (timing-samples.yml, 3 machines x 10 runs on main) and record it; then flake steps 2-5 one PR each; then step 6a.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,16 +19,18 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 09:15 UTC).** Steps 1-5 and 3b are merged
-(#78, `main` 35d9e97). A fix for reading time lost on leaving (found on
-#78's CI) is a draft PR from `m14-fix-reading-leave`: merge when green.
-Then the WebKit read-along flakes: `docs/m14-flake/plan.md` (a design
-workflow's plan, with its patches beside it) in its order: step 1 measures
-and changes no check (it adds a GitHub workflow that runs one test many
-times), then steps 2-5 one PR each (the bar's word written when it is lit;
-the next PDF page drawn ahead; CI's WebKit without GStreamer's on-disk
-audio; folder picks that cannot hang). Then step 6a
-(`docs/m14-home-plan.md` §5).
+**Resume M14 here (2026-10-06, 09:36 UTC).** Steps 1-5 and 3b are merged,
+and so is the fix for reading time lost on leaving (#79, `main` d78bf8b).
+Now the WebKit read-along flakes, in the order of `docs/m14-flake/plan.md`
+(a design workflow's plan, with its patches beside it). Step 1 (measure,
+change no check) is a draft PR from `m14-flake-a-measure`: merge it when
+green. Then, from `main`, the baseline: `gh workflow run timing-samples.yml
+-f refs=main -f machines=3 -f repeats=10`, recorded in `LEARNING_LOG.md` as
+"measurement, no fix" with the plan's columns (step 1's "Done when"). Then
+steps 2-5, one PR each, each compared with `main` in the same dispatch (the
+bar's word written when it is lit; the next PDF page drawn ahead; CI's
+WebKit without GStreamer's on-disk audio; folder picks that cannot hang).
+Then step 6a (`docs/m14-home-plan.md` §5).
 
 **Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
 deployed, and the live site passes its health and sign-in check. Version 1
@@ -158,6 +160,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 05:36 (local; 09:36 UTC) · Claude (laptop) · Reading-time fix merged (#79); WebKit flake step 1 (measure) pushed as a draft PR
+- **Done:** #79 (the reading-time fix and the flake plan) merged as d78bf8b after CI run 37441915349 passed all four checks (browser tests `261 passed (16.2m)`); `git diff --stat 703547b origin/main` printed nothing. Flake step 1 on `m14-flake-a-measure`, rebased onto `main`: the plan's measurement patch with its two edits (no "Phase B", so no check changes; a `tests` input to choose what to sample) and a third (the timing log creates its folder: a local run failed with ENOENT without it). It adds timing marks in the reader (off for readers), a recorder that reports before any check runs, and `timing-samples.yml`, a workflow started by hand that runs one test many times and writes a table; it can be started only once it is on `main`. Learning log Iteration 38.
+- **Key paths:** `lib/perf-marks.ts`, `lib/reader/pdf-book.ts`, `app/(reader)/books/[id]/read/{Reader,ListenBar}.tsx`, `e2e/listen.ts`, `e2e/readalong.spec.ts`, `playwright.timing.config.ts`, `scripts/timing-summary.mjs`, `.github/workflows/timing-samples.yml`, `.gitignore` (`/timing/`), `LEARNING_LOG.md`.
+- **Commands that worked:** `gh pr merge 79 --squash --match-head-commit 703547b…`; `git rebase --onto origin/main 703547b m14-flake-a-measure`; `npx playwright test -c playwright.timing.config.ts --list --repeat-each 3` → 1 setup test and 3 timing tests; one local timing run → `2 passed (32.7s)` with a `TIMING_JSON` line; the whole suite from a fresh database → `261 passed (6.7m)`; `git diff origin/main -- e2e | grep -E '^[-+][^-+].*expect\('` → nothing; `npm run check` → `Tests 417 passed | 2 skipped (419)`.
+- **Known issues / blockers:** the WebKit read-along flake as before (counts in `docs/m14-flake/plan.md` §1); the repo is private, so each 3 x 10 dispatch spends Actions minutes (the plan estimates about 50 runner-minutes; never raise a spending limit; if minutes run short, use 2 machines and say so under Waiting on Samuel).
+- **Exact next steps:** as "Exact next steps" above: merge step 1 when green, dispatch and record the baseline, then flake steps 2-5, then step 6a.
 
 ### 2026-10-06 05:15 (local; 09:15 UTC) · Claude (laptop) · M14 step 3b merged (#78); a reading-time bug found on its CI, fixed; the WebKit flake plan written
 - **Done:** #78 (step 3b) merged as 35d9e97 after its images were refreshed (26 phone images, each looked at) and a re-run of the browser job (`261 passed (15.7m)`); `git diff --stat 1902338 origin/main` printed nothing. Its CI's one failure (`stats.spec.ts`, 60 s of 90) was a real bug, older than M14: leaving the reader right after a timed save lost up to 30 s of reading (the trace showed the 90-s save aborted and no save on leaving). Fixed on `m14-fix-reading-leave` (the save on leaving always goes) with a test that holds the timed save in flight. A read-only design workflow wrote the plan to remove the WebKit read-along flakes: `docs/m14-flake/plan.md`, with its patches and recordings beside it (the scratchpad copies would not last).
