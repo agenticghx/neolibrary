@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: #92 (6c) in CI: merge when green, then back up and deploy main (#91 crash fix + #92), comment on #90. Then 2b's PR (m14-e2-skip-across, built and tested). Then the WebKit-after-seek stall on CI.
+next_action: M14 is live with Think aloud and the one-tap fixes (9d733f9, 16:55 UTC; #90 updated). 2b (skips across audiobook files) is a PR from m14-e2-skip-across: merge when green, then deploy (back up first). Then the WebKit-after-seek stall on CI. Samuel's verdict: #90.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-06
 shared_copy: none
@@ -19,37 +19,21 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 16:06 UTC).** M14 is live: `main` 054051c
-(steps 1 to 6b part 2a), deployed 15:46 UTC after a checked backup. The
-"M14 verdict" issue is #90.
-
-A review of 2a and 6c (workflow `wf_6783e4a9-544`) confirmed 28 findings
-(full list in its output; Iteration 53). Next:
-1. **The fixes for Home's one-tap Listen** are a PR from
-   `m14-e2-home-fixes`: merge it when CI is green. They include the one
-   high-severity finding: a crash when the audiobook has nothing from the
-   reading position on. Production has no audiobooks yet, so it cannot
-   happen there before this lands.
-2. **6c, Think aloud** (`m14-e3-think-aloud`): rebase onto `main`, keeping
-   both ledger entries. Then fix the review's 6c findings:
-   - hold the reading while the panel is open (a made voice fetching its
-     next paragraph);
-   - "Resume" only plays;
-   - focus and "Saved" announced;
-   - 44 px recorder buttons;
-   - no losing a recording to "Go to the page";
-   - Escape and a second press close the panel;
-   - the speed menu on top;
-   - show errors and loading in the mini-player;
-   - the 6c test checks the quote is the sentence being read;
-   - in a PDF, file the note under the paragraph it quotes.
-
-   Then its PR, and deploy (back up first).
-3. **6b part 2b:** skips across audiobook files, and back before the first
-   part fetched.
-4. **WebKit on Linux (CI) sometimes stands still right after the audio's
+**Resume M14 here (2026-10-06, 16:56 UTC).** M14 is live through Think aloud and
+the review's fixes: `main` 9d733f9, deployed 16:55 UTC after a checked backup.
+The "M14 verdict" issue is #90; a comment there lists what is new. Next:
+1. **6b part 2b** (15 s skips across audiobook files) is a PR from
+   `m14-e2-skip-across`: merge it when CI is green, then deploy (back up
+   first).
+2. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): look into it from the
-   flake plan's S4.
+   flake plan's S4 (`docs/m14-flake/plan.md`).
+3. **Not yet built:** back into a chapter that has not been loaded (before the
+   first part fetched; the parts route would need a "before" mode); and
+   Think aloud from inside the reader (selecting text and adding a voice
+   note already works there).
+4. **When Samuel's verdict comes** (#90): record it, fix what he flags (one
+   PR per fix), and settle Open unknowns rows 5, 6 and 10.
 
 Not a gap: reading time is not counted while listening, by design
 (`useReadingTracker.ts:21`, M10). Design:
@@ -99,7 +83,7 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **M14 verdict** (#90, from 2026-10-06): M14 is live. Try it on your phone and laptop, and answer the four questions in the issue. Wait to upload an audiobook to the live site until the fix for Home's one-tap Listen is deployed (a crash it can cause with an audiobook that ends before your reading position).
+- **M14 verdict** (#90, from 2026-10-06): M14 is live, with Think aloud and the fixes for Home's one-tap Listen (deployed 16:55 UTC). Try it on your phone and laptop, and answer the four questions in the issue. Uploading an audiobook to the live site is safe now.
 
 - **GitHub Actions minutes** (information, from 2026-10-06; nothing to do unless you want to). The repo is private, so GitHub's CI minutes are limited. By my count, this month's CI jobs since 1 October come to about 2,361 minutes: 610 jobs, each rounded up to a whole minute, as GitHub bills them. I added up each job's start and end times, because GitHub's usage page reports 0 to my login. GitHub's free plan has included 2,000 minutes a month for private repos, and CI still runs, so either your plan includes more or your billing month starts later than the 1st. I cannot see your plan or your limits. If CI ever stops starting jobs, this is the likely reason. I will not raise any limit. The flake plan's remaining sampling is about 200-300 minutes (its estimate). To check, open GitHub → Settings → Billing and plans.
 
@@ -195,6 +179,26 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 12:56 (local; 16:56 UTC) · Claude (laptop) · #92 (6c) merged; deployed #91 and #92; 2b's PR opened
+- **Done:**
+  - **#92** (6c, Think aloud, with its review fixes) merged as 9d733f9 (CI `279 passed (17.9m)`); `git diff --stat f209d12 origin/main` printed nothing.
+  - **Deployed `main` 9d733f9** at 16:55 UTC (Railway deployment b22f475a is the active one):
+    - the backup first, `~/Backups/neolibrary/prod-before-m14-20261006T1651Z.sql` (1,135,105 bytes); restored with the same counts;
+    - after: health `200`; sign-in `200`; `/` and `/library` `307` to sign-in; database `1|129|20|0020_readalong_imports`.
+  - **The crash fix for Home's one-tap Listen (#91) is live:** audiobooks may now be uploaded to the live site.
+  - **Commented on #90** with what is new.
+  - **2b** rebased onto `main`; its PR opened.
+- **Key paths:** `PROGRESS.md`, scripts `scratchpad/backup.sh` and `scratchpad/deploy.sh` (session scratchpad).
+- **Commands that worked:**
+  - `zsh scratchpad/backup.sh` → `pg_dump exit=0`, `restore exit=0`, the same counts.
+  - `zsh scratchpad/deploy.sh`, then `railway deployment list --service web --environment production --limit 1 --json` until `SUCCESS`.
+  - `git rebase --onto origin/main m14-e3-think-aloud m14-e2-skip-across`.
+- **Known issues / blockers:** none new.
+- **Exact next steps:**
+  1. Merge 2b's PR when green, then deploy it (back up first).
+  2. Then the WebKit stall on CI: look into it from the flake plan's S4.
+  3. Then Samuel's M14 verdict (#90) when it comes.
 
 ### 2026-10-06 12:42 (local; 16:42 UTC) · Claude (laptop) · #91 merged; #92 (6c) in CI; 6b part 2b built (skips across audiobook files)
 - **Done:**
