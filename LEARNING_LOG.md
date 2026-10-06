@@ -1278,3 +1278,48 @@ caught by a test when broken.
     tracer's `pauses` is empty).
 - **While Bluetooth headphones are the output, CI is the judge** for the
   read-along timing checks (CI passed them for #84 to #87).
+
+### Iteration 51 · 2026-10-06 14:10 · Step 6b, part 2a (Listen from here on Home) · success (CI to come)
+
+**Hypothesis.** Home can start the book's own audiobook in the same tap if
+two things hold. The Listen data is fetched before the tap. And the tap
+mounts the session and presses Play before the tap is over: Safari starts
+audio only from a tap.
+**Action.**
+- **`ListenHere` on the Continue card** fetches the Listen data while Home is
+  open. When the book's own audiobook is the voice that would play first, a
+  tap calls `playHere`.
+- **`PlayerProvider.playHere`** mounts the session at once (`flushSync`). The
+  session presses Play as it mounts (`useLayoutEffect`).
+- **Otherwise the link opens the reader, as before:** while the data is
+  still coming, for a made voice (Open unknowns row 10, default (a)), and for
+  a click meant for a new tab.
+**Evaluation.**
+- **A browser test in both engines:** one tap on Home plays there, from the
+  reading position. `play()` must be recorded while the click is still
+  being handled.
+- **Two mutations.**
+**Result.**
+- **Tests:** the 6b tests `5 passed` in each engine; Home's Continue test
+  `1 passed`; the made-voice test `1 passed`.
+- **Mutation 1, `flushSync` removed:** the test still passed. React 18
+  already applies an update made inside a click before the click's handling
+  ends, so `play()` still ran inside the tap. `flushSync` stays, to make
+  that timing explicit rather than leave it to React's scheduling.
+- **Mutation 2, the session started one tick after the tap**
+  (`setTimeout`): caught at `readalong.spec.ts:1622`, with `play()` outside
+  the tap.
+- **CI round 1** (run 37478603601): `272 passed`, then one failure in WebKit,
+  in #88's "paused in the reader, then left". The test moved the audio while
+  it played, and WebKit on Linux stood still after the seek, at 14.49 s:
+  not paused, no error, the whole file loaded. Nothing in this PR runs in
+  that path.
+- **The fix:** the test now pauses first, then moves while paused, and waits
+  for the bar to light the word. It still catches its mutation (no fill on
+  leaving): `1 failed` at `:1591`.
+**Lesson.**
+- **A mutation that survives can be telling the truth:** here it showed the
+  guarantee comes from React itself. Then break the property for real (a
+  start after the tap) to prove the test can see it.
+- **In WebKit tests, move the audio while it is paused** unless the move
+  while playing is what is being tested.

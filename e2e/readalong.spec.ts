@@ -1572,15 +1572,16 @@ test("M14 (6b): paused in the reader, then left: the mini-player shows where the
   test.setTimeout(90_000);
   const { bookId, expected } = await miniReading(page);
   const bar = await openListening(page, bookId, 40);
+  // It plays (so it goes on after the reader), then is paused, and moved on into the third paragraph while
+  // paused. (Moved while playing, WebKit on Linux once stood still after the seek: CI run 37478603601.)
   await bar.getByRole("button", { name: "Play" }).click();
   await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
-  // On into the third paragraph, then Pause there.
-  const k = expected.findIndex((w) => w.cfi === PARAGRAPHS[42].cfi);
-  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), expected[k + 2].startMs / 1000);
-  await playUntil(page, expected[k + 3].startMs + 50);
   await bar.getByRole("button", { name: "Pause" }).click();
   await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
-  const word = await bar.getAttribute("data-word");
+  const k = expected.findIndex((w) => w.cfi === PARAGRAPHS[42].cfi);
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), (expected[k + 3].startMs + 50) / 1000);
+  await expect(bar).toHaveAttribute("data-word", expected[k + 3].word);
+  const word = expected[k + 3].word;
 
   await page.getByRole("link", { name: "Back to your library" }).click();
   const mini = page.getByRole("region", { name: "Now playing" });
@@ -1590,6 +1591,47 @@ test("M14 (6b): paused in the reader, then left: the mini-player shows where the
   expect(PARAGRAPHS[42].text).toContain(sentence.slice(0, 30));
   await expect(mini.locator("mark")).toHaveText(word!);
   await expect(mini).toContainText("min left");
+});
+
+test("M14 (6b): Listen from here on Home plays the book's own audiobook there, in the same tap, from the reading position", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { bookId, expected } = await miniReading(page);
+  // Jekyll was read last, and its place is paragraph 41 (inside the reading).
+  expect((await page.request.put(`/api/books/${bookId}/position`, { data: { cfi: PARAGRAPHS[41].cfi, fraction: 0.3 } })).status()).toBe(204);
+  await page.goto("/");
+  const card = page.getByTestId("continue-card").filter({ hasText: "The Strange Case of Dr. Jekyll and Mr. Hyde" });
+  const listen = card.getByRole("link", { name: "Listen from here" });
+  // Ready to play here once its data has come (until then the link opens the reader).
+  await expect(listen).toHaveAttribute("data-here", "");
+  // Safari starts audio only from inside the tap: note whether play() is called while the click is still
+  // being handled (from the document's first look at it to the window's last).
+  await page.evaluate(() => {
+    const w = window as unknown as { inTap: boolean; playedInTap: boolean[] };
+    w.inTap = false;
+    w.playedInTap = [];
+    document.addEventListener("click", () => (w.inTap = true), true);
+    window.addEventListener("click", () => (w.inTap = false));
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      w.playedInTap.push(w.inTap);
+      return play.call(this);
+    };
+  });
+  await listen.click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { playedInTap: boolean[] }).playedInTap), "play() inside the tap").toEqual([true]);
+  // Still on Home: no reader opened.
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/");
+  await expect(page.getByTestId("reader")).toHaveCount(0);
+  // From the reading position: paragraph 41's words, lit in the mini-player as they are said.
+  const first = expected.find((w) => w.cfi === PARAGRAPHS[41].cfi)!;
+  expect(await audioTime(page)).toBeGreaterThanOrEqual(first.startMs / 1000 - 0.05);
+  await playUntil(page, first.startMs + 800);
+  await expect(mini.locator("mark")).toBeVisible();
+  const sentence = (await mini.locator("p").first().innerText()).replace(/^…/, "").trim();
+  expect(PARAGRAPHS[41].text).toContain(sentence.slice(0, 30));
 });
 
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {

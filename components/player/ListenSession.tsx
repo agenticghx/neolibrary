@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
@@ -38,6 +38,7 @@ export function ListenSession({
   page,
   miniSlot,
   onStarted,
+  prepared,
 }: {
   bookId: string;
   startCfi: string;
@@ -46,10 +47,12 @@ export function ListenSession({
   miniSlot: HTMLElement | null;
   /** It has played (so it goes on when the reader is left). */
   onStarted: () => void;
+  /** Started on Home (M14 step 6b): the Listen data, fetched before the tap. It plays as it mounts. */
+  prepared?: Info;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
-  const [info, setInfo] = useState<Info | null>(null);
-  const [voice, setVoice] = useState<string>("");
+  const [info, setInfo] = useState<Info | null>(prepared ?? null);
+  const [voice, setVoice] = useState<string>(() => (prepared ? firstVoice(prepared) : ""));
   // The speed chosen last on this device (M14 step 6b), applied after every new source.
   const [speed, setSpeed] = useState(loadSpeed);
   /** The speed now, for audio started after a wait (a speed chosen while it was being prepared must hold). */
@@ -155,6 +158,7 @@ export function ListenSession({
 
   // The paragraph at the reading position, the voices, any stored audio, and the book's own audiobook.
   useEffect(() => {
+    if (prepared) return;
     let live = true;
     fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: at })}`)
       .then(async (res) => {
@@ -171,7 +175,7 @@ export function ListenSession({
     return () => {
       live = false;
     };
-  }, [bookId, at]);
+  }, [bookId, at, prepared]);
 
   /** The stored track for a paragraph in the chosen voice, made now if needed. */
   const trackFor = async (sectionId: string, v: string) => {
@@ -625,6 +629,15 @@ export function ListenSession({
     setSpeed: view.setSpeed,
     pageHref: `/books/${bookId}/read?at=${encodeURIComponent(passageCfi || at)}`,
   };
+
+  // Started on Home: Play is pressed as the session mounts, while the tap that started it is still being
+  // handled (a layout effect runs inside the provider's flushSync), so Safari lets it play.
+  const pressPlay = useRef(!!prepared);
+  useLayoutEffect(() => {
+    if (!pressPlay.current) return;
+    pressPlay.current = false;
+    view.toggle();
+  });
 
   return (
     <>

@@ -43,6 +43,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       .filter((b) => byId.has(b.id))
       .map(async (b) => ({
         item: byId.get(b.id)!,
+        at: b.position,
         note: notes.get(b.id) ?? null,
         chapter: b.position ? await chapterFor(db, user.id, b.id, { cfi: b.position }).then((c) => c.label || null, () => null) : null,
       })),
@@ -81,7 +82,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </h2>
               <div className={styles.cards}>
                 {continuing.map((c) => (
-                  <ContinueCard key={c.item.id} item={c.item} chapter={c.chapter} note={c.note} />
+                  <ContinueCard key={c.item.id} item={c.item} chapter={c.chapter} note={c.note} at={c.at} />
                 ))}
               </div>
             </section>

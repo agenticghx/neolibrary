@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { usePathname } from "next/navigation";
+import type { Info } from "@/lib/player/session";
 import { ListenSession } from "./ListenSession";
 
 /** What the bar shows and can do, for the page that draws it (the reader's ListenBar). */
@@ -54,6 +56,13 @@ export type Player = {
   stop: () => void;
   /** Where the app's pages put the mini-player (M14 step 6b); returns the call that takes it away. */
   attachMini: (slot: HTMLElement) => () => void;
+  /**
+   * Read the book's own audiobook aloud from `startCfi` here, without opening
+   * the reader (Home's "Listen from here", M14 step 6b). Called inside the tap,
+   * with `info` fetched before it: the new session presses Play before the tap
+   * is over, as Safari requires. Whatever was being read aloud stops.
+   */
+  playHere: (bookId: string, startCfi: string, info: Info) => void;
 };
 
 const PlayerContext = createContext<Player | null>(null);
@@ -73,7 +82,8 @@ export function usePlayer(): Player {
  */
 export function PlayerProvider({ children }: { children: ReactNode }) {
   /** `started`: it has played. Only then does it outlive the reader (one never played would come back later with stale data). */
-  const [session, setSession] = useState<{ id: number; bookId: string; startCfi: string; started: boolean } | null>(null);
+  /** `prepared`: started on Home with this Listen data (it plays at once). */
+  const [session, setSession] = useState<{ id: number; bookId: string; startCfi: string; started: boolean; prepared?: Info } | null>(null);
   const [page, setPage] = useState<PlayerPage | null>(null);
   const [miniSlot, setMiniSlot] = useState<HTMLElement | null>(null);
   const nextId = useRef(0);
@@ -102,8 +112,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setMiniSlot(slot);
     return () => setMiniSlot((current) => (current === slot ? null : current));
   }, []);
+  const playHere = useCallback((bookId: string, startCfi: string, info: Info) => {
+    const id = ++nextId.current;
+    // Now, not after the tap: the session mounts and presses Play while the tap is still being handled.
+    flushSync(() => setSession({ id, bookId, startCfi, started: false, prepared: info }));
+  }, []);
   const bookId = session?.bookId ?? null;
-  const player = useMemo(() => ({ bookId, attach, stop, attachMini }), [bookId, attach, stop, attachMini]);
+  const player = useMemo(() => ({ bookId, attach, stop, attachMini, playHere }), [bookId, attach, stop, attachMini, playHere]);
 
   return (
     <PlayerContext.Provider value={player}>
@@ -114,6 +129,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           startCfi={session.startCfi}
           page={page}
           miniSlot={miniSlot}
+          prepared={session.prepared}
           onStarted={() => started(session.id)}
         />
       ) : null}
