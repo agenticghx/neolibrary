@@ -5,6 +5,8 @@
  * Adapted from foliate-js's pdf.js adapter (MIT, John Factotum), which is not
  * in its npm release; uses pdfjs-dist (Apache-2.0).
  */
+import { mark, markTime, measure } from "@/lib/perf-marks";
+
 type Pdfjs = typeof import("pdfjs-dist");
 type TextContent = Awaited<ReturnType<import("pdfjs-dist").PDFPageProxy["getTextContent"]>>;
 
@@ -125,7 +127,10 @@ export async function makePdfBook(file: Blob) {
       // Built at once (a newer drawing must find it there): from the text fetched ahead if it has
       // arrived, or else as pdf.js reads it. (A stream made here to wait for the text broke the
       // page's text layer in WebKit: pdf.js found no text in it.)
-      const textContentSource = textAhead.get(pageNumber) ?? page.streamTextContent();
+      const fetchedAhead = textAhead.get(pageNumber);
+      const textContentSource = fetchedAhead ?? page.streamTextContent();
+      mark("nl:textlayer-start", { page: pageNumber - 1, ahead: fetchedAhead != null });
+      const textStart = markTime();
       state.text = new pdfjsLib.TextLayer({ textContentSource, container, viewport });
       state.laidOut = scale;
       fetchTextOf(pageNumber + 1);
@@ -133,6 +138,8 @@ export async function makePdfBook(file: Blob) {
         const end = doc.createElement("div");
         end.className = "endOfContent";
         container.append(end);
+        mark("nl:textlayer-ready", { page: pageNumber - 1 });
+        measure("nl:textlayer", textStart, { page: pageNumber - 1 });
         // The page's text is all there now: a word waiting to be lit can be.
         doc.dispatchEvent(new Event(TEXT_LAYER_EVENT));
       }, unexpected);
@@ -148,6 +155,8 @@ export async function makePdfBook(file: Blob) {
       state.scale = NaN;
       return console.warn(`Page ${pageNumber}: no canvas to draw on`);
     }
+    mark("nl:draw-start", { page: pageNumber - 1, scale });
+    const drawStart = markTime();
     const drawing = page.render({ canvas, canvasContext: context, viewport });
     state.drawing = drawing;
     try {
@@ -165,6 +174,8 @@ export async function makePdfBook(file: Blob) {
     state.drawing = null;
     sizeTo();
     doc.querySelector("#canvas")!.replaceChildren(doc.adoptNode(canvas));
+    mark("nl:draw-done", { page: pageNumber - 1, scale });
+    measure("nl:draw", drawStart, { page: pageNumber - 1, scale });
     if (state.laidOut !== scale) {
       // The same text, laid out again for the new size: a word lit on it stays lit.
       state.text.update({ viewport });

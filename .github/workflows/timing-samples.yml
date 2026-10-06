@@ -1,0 +1,133 @@
+# Measures the read-along page break in WebKit many times on one or two
+# commits, so a fix is judged by numbers, not by one CI run (LEARNING_LOG
+# Iterations 22 and 25). Started by hand only; it changes nothing in the repo
+# and posts nothing on pull requests. Example (before and after a fix):
+#   gh workflow run timing-samples.yml -f refs="main m14-timing-fix" -f machines=3 -f repeats=10
+# A late word is a sample here, not a reason to stop: the sample jobs carry on,
+# and the summary job writes the table to the run's summary page.
+name: Timing samples
+
+on:
+  workflow_dispatch:
+    inputs:
+      refs:
+        description: "Branches or commits to measure, separated by spaces (each must already have the timing marks)"
+        required: true
+        default: main
+      machines:
+        description: "Separate GitHub machines per commit"
+        required: true
+        default: "3"
+      repeats:
+        description: "Runs of the test on each machine"
+        required: true
+        default: "10"
+      trace:
+        description: "Playwright's trace while measuring: as CI records it, or off (to measure what recording costs)"
+        type: choice
+        options: [retain-on-failure, "off"]
+        default: retain-on-failure
+      shape:
+        description: "quick: make the account, then the test; suite: the whole chain of tests first, as CI runs it"
+        type: choice
+        options: [quick, suite]
+        default: quick
+      tests:
+        description: "Which read-along tests, as a regular expression on their titles (the far-seek and folder-upload tests need shape=suite: they use books earlier tests upload)"
+        required: true
+        default: "on across a page break"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Commits and machines
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          REFS: ${{ inputs.refs }}
+          MACHINES: ${{ inputs.machines }}
+        run: |
+          set -euo pipefail
+          include='[]'
+          for ref in $REFS; do
+            sha=$(git rev-parse --verify --quiet "origin/$ref^{commit}" || git rev-parse --verify "$ref^{commit}")
+            for m in $(seq 1 "$MACHINES"); do
+              include=$(jq -c --arg ref "$ref" --arg sha "$sha" --argjson m "$m" '. + [{ref: $ref, sha: $sha, machine: $m}]' <<<"$include")
+            done
+          done
+          echo "matrix={\"include\":$include}" >> "$GITHUB_OUTPUT"
+
+  sample:
+    name: ${{ matrix.ref }} · machine ${{ matrix.machine }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ matrix.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The same browsers and system packages as ci.yml: the fonts installed decide
+      # how long pdf.js's failing system-font lookups take.
+      - name: Install Chromium and WebKit (Safari's engine)
+        run: npx playwright install --with-deps chromium webkit
+      - name: The page-break test, ${{ inputs.repeats }} times
+        continue-on-error: true
+        env:
+          NL_TIMING_LOG: ${{ github.workspace }}/timing/samples.jsonl
+          NL_SHA: ${{ matrix.sha }}
+          NL_MACHINE: ${{ matrix.ref }}-${{ matrix.machine }}
+          NL_TRACE: ${{ inputs.trace }}
+          SHAPE: ${{ inputs.shape }}
+          REPEATS: ${{ inputs.repeats }}
+          TESTS: ${{ inputs.tests }}
+        run: |
+          mkdir -p timing
+          if [ "$SHAPE" = quick ]; then
+            NL_TESTS="$TESTS" npx playwright test -c playwright.timing.config.ts --repeat-each "$REPEATS"
+          else
+            # The whole chain of projects runs once, unfiltered; only readalong-safari's matching tests repeat.
+            PLAYWRIGHT_JSON_OUTPUT_FILE=timing/results.json PLAYWRIGHT_HTML_OPEN=never \
+              npx playwright test --project readalong-safari --grep "$TESTS" --repeat-each "$REPEATS" --reporter=list,html,json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: timing-${{ strategy.job-index }}
+          path: |
+            timing/
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  summary:
+    name: Summary
+    needs: sample
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: timing-*
+          path: artifacts
+      - name: Table of the samples
+        run: node scripts/timing-summary.mjs $(find artifacts -path '*/timing/*' \( -name '*.jsonl' -o -name 'results.json' \)) | tee -a "$GITHUB_STEP_SUMMARY"

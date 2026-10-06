@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReadingPart, Track } from "@/lib/library/audio";
 import type { ListenInfo } from "@/lib/library/listen";
+import { mark } from "@/lib/perf-marks";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import styles from "./reader.module.css";
@@ -303,9 +304,13 @@ export function ListenBar({
     const [, , from, to] = p.words[s.word];
     const text = onWord(p.cfi, from, to, p.inPage?.[s.word]);
     // Not on the page yet (a chapter or PDF page still opening): try again on the next frame.
-    if (text === null) return;
+    if (text === null) {
+      mark("nl:word-wait", { i: s.word });
+      return;
+    }
     lastWord.current = s.word;
     setWord(text);
+    mark("nl:bar-set", { i: s.word, text });
   };
 
   const followTrack = () => {
@@ -319,6 +324,7 @@ export function ListenBar({
     if (text === null) return;
     lastWord.current = i;
     setWord(text);
+    mark("nl:bar-set", { i, text });
   };
 
   const follow = () => (isBook ? followBook() : followTrack());
