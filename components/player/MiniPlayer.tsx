@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { VoiceRecorder } from "@/components/notes/VoiceRecorder";
 import { FilledIcon, Icon } from "@/components/shell/icons";
 import { SPEEDS, speedLabel } from "@/lib/player/session";
 import styles from "./MiniPlayer.module.css";
@@ -29,7 +30,14 @@ export type MiniView = {
   setSpeed: (speed: number) => void;
   /** The reader, at the paragraph being read. */
   pageHref: string;
+  /** Think aloud (M14 step 6c): pauses the reading, and says whether it was playing and where the voice note goes. */
+  thinkAloud: () => Thought;
+  /** Saves the voice note there (the paragraph, quoting its sentence). */
+  saveThought: (recording: Blob, durationMs: number, place: Thought) => Promise<void>;
 };
+
+/** Where a voice note made while listening goes: the paragraph being read and the sentence shown. */
+export type Thought = { wasPlaying: boolean; cfi: string; quote: string };
 
 /** The sentence from a little before the word: at most `keep` characters before it, from a word's start, once it is longer than `over`. */
 function fromNear(before: string, at: number, over: number, keep: number) {
@@ -80,6 +88,9 @@ export function MiniPlayer({ view }: { view: MiniView }) {
   const after = lit ? sentence.slice(lit[1]) : "";
   const at = lit ? lit[0] : 0;
   const speed = <SpeedMenu speed={view.speed} onChange={view.setSpeed} />;
+  // Think aloud: where the voice note goes (set when the panel opens, with the reading paused), and whether it is saved.
+  const [thought, setThought] = useState<Thought | null>(null);
+  const [saved, setSaved] = useState(false);
 
   return (
     <section ref={bar} className={styles.bar} aria-label="Now playing" data-miniplayer="">
@@ -125,7 +136,53 @@ export function MiniPlayer({ view }: { view: MiniView }) {
           <Icon name="book" className={styles.goToIcon} />
           <span className={styles.goToText}>Go to the page</span>
         </Link>
+        <button
+          type="button"
+          className={styles.think}
+          aria-expanded={!!thought}
+          onClick={() => {
+            if (thought) return;
+            setSaved(false);
+            setThought(view.thinkAloud());
+          }}
+        >
+          <Icon name="mic" className={styles.goToIcon} />
+          <span className={styles.thinkText}>Think aloud</span>
+        </button>
       </div>
+      {thought ? (
+        <section className={styles.thinkPanel} aria-label="Think aloud">
+          <p className={styles.thinkLabel}>{saved ? "Saved to your notes, at this sentence:" : "A voice note at this sentence:"}</p>
+          <blockquote className={styles.thinkQuote}>{thought.quote}</blockquote>
+          {saved ? (
+            <div className={styles.thinkActions}>
+              <button type="button" className={styles.thinkClose} onClick={() => setThought(null)}>
+                Close
+              </button>
+              {thought.wasPlaying ? (
+                <button
+                  type="button"
+                  className={styles.thinkResume}
+                  onClick={() => {
+                    setThought(null);
+                    view.toggle();
+                  }}
+                >
+                  Resume reading aloud
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <VoiceRecorder
+              onSave={async (recording, durationMs) => {
+                await view.saveThought(recording, durationMs, thought);
+                setSaved(true);
+              }}
+              onBack={() => setThought(null)}
+            />
+          )}
+        </section>
+      ) : null}
     </section>
   );
 }

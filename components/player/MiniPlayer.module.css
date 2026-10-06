@@ -242,6 +242,83 @@
   height: 18px;
 }
 
+/* Think aloud (M14 step 6c): a pill like the speed's, with the microphone; its panel opens above the bar. */
+.think {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.thinkPanel {
+  position: absolute;
+  right: var(--space-4);
+  bottom: calc(100% + var(--space-2));
+  display: grid;
+  gap: var(--space-2);
+  width: min(400px, calc(100% - 2 * var(--space-4)));
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.thinkLabel {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+/* The sentence the note goes to, as a quotation (it may have quotation marks of its own): four lines at most. */
+.thinkQuote {
+  max-height: calc(var(--text-sm) * var(--leading-read) * 4);
+  margin: 0;
+  padding-left: var(--space-2);
+  overflow: hidden;
+  border-left: 2px solid var(--accent);
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  line-height: var(--leading-read);
+}
+
+.thinkActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.thinkClose,
+.thinkResume {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.thinkResume {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
 /* Narrower screens (an iPad held upright): no swatch or spacer, and Go to the page as its icon alone. */
 @media (width <= 64rem) {
   .cover,
@@ -249,7 +326,8 @@
     display: none;
   }
 
-  .goToText {
+  .goToText,
+  .thinkText {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -258,10 +336,20 @@
     white-space: nowrap;
   }
 
-  .goTo {
+  .goTo,
+  .think {
     justify-content: center;
     width: 44px;
     padding: 0;
+  }
+
+  /* Room for the title beside six controls: closer together, and the phone's narrower speed pill. */
+  .row {
+    gap: var(--space-1);
+  }
+
+  .speed {
+    min-width: 52px;
   }
 }
 
@@ -337,6 +425,12 @@
   .menu {
     right: auto;
     left: 0;
+  }
+
+  .thinkPanel {
+    right: 0;
+    left: 0;
+    width: auto;
   }
 
   .speed {

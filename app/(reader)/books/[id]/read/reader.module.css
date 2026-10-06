@@ -913,21 +913,6 @@
   gap: var(--space-2);
 }
 
-.recorderState {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--ink-700);
-  font-size: var(--text-sm);
-}
-
-.recDot {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: var(--radius-pill);
-  background-color: var(--mark-rose);
-}
-
 .voiceNote {
   display: grid;
   gap: var(--space-2);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import styles from "./reader.module.css";
+import styles from "./VoiceRecorder.module.css";
 
 const MAX_MS = 10 * 60 * 1000;
 const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;

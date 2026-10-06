@@ -631,6 +631,26 @@ export function ListenSession({
     forward: () => skip(15),
     setSpeed: view.setSpeed,
     pageHref: `/books/${bookId}/read?at=${encodeURIComponent(passageCfi || at)}`,
+    // Think aloud (M14 step 6c): the reading pauses; the voice note goes to the paragraph being read, and quotes
+    // the sentence shown.
+    thinkAloud: () => {
+      const el = audio.current;
+      const wasPlaying = !!el && !el.paused;
+      el?.pause();
+      const ab = info?.audiobook;
+      const cfi = isBook && ab?.paragraphs.length ? ab.paragraphs[Math.min(book.current.index, ab.paragraphs.length - 1)].cfi : (info?.passage.cfi ?? at);
+      return { wasPlaying, cfi, quote: shownText.slice(around.start, around.end) };
+    },
+    saveThought: async (recording, durationMs, place) => {
+      const form = new FormData();
+      form.set("audio", recording, "voice-note");
+      form.set("cfi", place.cfi);
+      form.set("quote", JSON.stringify({ exact: place.quote }));
+      form.set("durationMs", String(Math.round(durationMs)));
+      const res = await fetch(`/api/books/${bookId}/voice-notes`, { method: "POST", body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "The voice note was not saved.");
+    },
   };
 
   // Started on Home: Play is pressed as the session mounts, while the tap that started it is still being
