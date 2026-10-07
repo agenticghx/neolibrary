@@ -324,6 +324,11 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   await section.getByRole("button", { name: "Remove Long reading" }).click();
   await expect(section.getByTestId("audiobook-status")).toHaveText("Removed Long reading: its audio and word timings are gone from this book.");
   expect(await page.evaluate(() => document.activeElement?.id)).toBe("audiobook");
+  // Removing also refreshes the page (router.refresh in AudiobookUpload's settle), a navigation of its own that
+  // can land after the message and the focus: leaving before it has finished made WebKit on CI report
+  // "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (three runs,
+  // 2026-10-07). Wait for the refresh's fetch to end first.
+  await page.waitForLoadState("networkidle");
 
   // A collection, so the page can be refreshed during the next upload (below).
   const collection = `Refresh test ${Date.now()}`;

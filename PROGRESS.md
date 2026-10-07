@@ -289,6 +289,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 14:15 UTC (10:15 local) · Claude (laptop) · A WebKit flake's cause removed: the two-part upload test left the book page while its own refresh was still landing (draft PR from `m14-flake-upload-refresh` into main)
+- **Done:** `e2e/readalong.spec.ts`, "a two-part upload is announced once, can be cancelled, and the PDF book page says to press Listen": after "Remove", the app sets the message and then refreshes the page (`router.refresh()` in `AudiobookUpload.tsx`, `settle`), a navigation of its own. The test waited for the message and the focus, then went to `/library?new=collection` at once; when the refresh landed after that, WebKit on CI reported "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (runs 37629382754 attempt 2 on #103, 37627959389 attempts 2 and 3 on #108; it had passed on #98, #99 and #100's runs the same day: a race, more often lost on a slower machine). The test now waits for the page's network to go idle before leaving. No assertion changed.
+- **Key paths:** `e2e/readalong.spec.ts` (one `waitForLoadState("networkidle")` after the removal's focus check).
+- **Commands that worked:** `gh api repos/sahuno/neolibrary/actions/runs/37627959389/attempts/2/jobs` then `…/actions/jobs/<id>/logs` → the error above at `readalong.spec.ts:330`.
+- **Known issues / blockers:** `safari.spec.ts:42` (the read-aloud highlight, on time) failed in 5 WebKit runs today and passed on each re-run; its cause is not removed here.
+- **Exact next steps:** merge when green (after the M14 stack's last PRs, to avoid ledger collisions); then watch whether the two-part upload test fails again on WebKit.
+
 ### 2026-10-07 01:47 (local; 05:47 UTC) · Claude (laptop, lead session) · Owner-only whole-book Create (#100), EPUB unzip limits (#101) and /paths on a phone (#102) built and reviewed; CI still blocked
 - **Done:**
   - Workflow `wf_4f239b9c-a53` finished:
