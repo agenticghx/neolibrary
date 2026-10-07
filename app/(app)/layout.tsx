@@ -9,7 +9,7 @@ import { listPathsWithProgress } from "@/lib/library/paths";
 import { listCollections } from "@/lib/library/shelf";
 
 // Everything under (app) needs a signed-in user, checked against the database.
-// The shell (M14): a sidebar on desktop; on a phone, four tabs at the bottom,
+// The shell (M14): a sidebar on desktop; on a phone, five tabs at the bottom,
 // and the account menu on Home only (Samuel's choice B, 2026-10-06): every
 // other page starts with its own title.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

@@ -37,7 +37,7 @@ function Item({ href, icon, label, meta }: { href: string; icon: IconName; label
   );
 }
 
-/** Desktop navigation (M14, "Home on desktop A"): Home, the library's filters, Paths, Collections, and the account. */
+/** Desktop navigation (M14, "Home on desktop A"): Home, the library's filters and Import, Paths, Collections, and the account. */
 export function Sidebar({ user, paths, collections }: Props) {
   return (
     <aside className={styles.sidebar} aria-label="Sidebar">
@@ -65,6 +65,8 @@ export function Sidebar({ user, paths, collections }: Props) {
           {LIBRARY_LINKS.map((l) => (
             <Item key={l.href} href={l.href} icon={l.icon} label={l.label} />
           ))}
+          {/* Last in the list, after PDFs (M14 follow-up V3b; Samuel, #90): the one place to add books and audiobooks. */}
+          <Item href="/import" icon="import" label="Import" />
         </ul>
         <p className={styles.groupLabel} id="nav-paths">
           Paths

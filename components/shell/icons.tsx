@@ -11,6 +11,8 @@ const PATHS = {
   collection: "M4 7h16M4 12h16M4 17h10",
   plus: "M12 5v14M5 12h14",
   search: "M11 5a6 6 0 1 1 0 12a6 6 0 0 1 0-12zM20 20l-4.5-4.5",
+  // Import (M14 follow-up V3b): the arrow Home's Import button draws (components/upload/HomeImport.tsx).
+  import: "M12 16V4M7 9l5-5 5 5M5 20h14",
   // The mini-player's skips (M14 step 6b; the design's paths): a turning arrow and "15".
   back15: "M5 12a7 7 0 1 0 2.1-5M5 4v4h4M10.2 10v5M15.2 10H13v2.2h2.2V15H13",
   forward15: "M19 12a7 7 0 1 1-2.1-5M19 4v4h-4M9.2 10v5M14.2 10H12v2.2h2.2V15H12",
