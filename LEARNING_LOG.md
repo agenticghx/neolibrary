@@ -1581,3 +1581,17 @@ picker because of a fault: missing from the list, or adding failing.
 **Lesson.**
 - **Under phone emulation, `window.innerWidth` grows with a page that is too wide** (`scrollWidth 735, innerWidth 735` on `main`), so `scrollWidth <= innerWidth` cannot see sideways scroll there; `clientWidth` stayed 390. The 15 older checks written that way run in ordinary desktop browsers, where it works; new checks use `clientWidth`, as `shell.spec.ts` does.
 - **A test that makes unusual data should check every page that shows it.** The long name was checked on its own two pages, not on the list; the shell tests, which do open the list on a phone, run before the name exists.
+### Iteration 66 · 2026-10-07 04:57 · Fix from `main`: EPUB uploads unpacked within limits (draft #101) · success (CI to come: CI is still not starting jobs)
+
+*Iterations 57 to 65 are on the M14 stack's branches (#97 to #100), not yet on `main`.*
+
+**Hypothesis.** Unpacking EPUBs with the read-along importer's `safeUnzip`, at 512 MB and 10,000 files, refuses a zip bomb at upload in plain words with nothing saved, and reads real books exactly as before.
+**Action.** `EPUB_ZIP_LIMITS` and `unzipEpub` in `lib/library/ebook.ts`, used by `parseEpub` and `extractSections`; test zips built by `zipSync` in `lib/library/test-epub.ts` (commit 2102c1b).
+**Evaluation.** Unit tests; a control and 4 unit mutations, each compiled; `npm run check`; the upload browser tests from an empty database; the crafted files sent to the built server; the whole browser suite.
+**Result.**
+- **Limits from evidence:** the samples hold 24 to 48 files and unpack to 2.06 to 2.27 times their size; the live library's largest EPUB is the sample Frankenstein itself, 271,904 bytes; a 524,030-byte zip made here unpacks to 512 MB.
+- **Mutations:** size limit removed `3 failed`; file limit removed `3 failed`; `extractSections` back on `unzipSync` `1 failed`; `parseEpub` as on `main` `3 failed` (it attached the 512 MB claim to the waiting title).
+- **Runs:** `npm run check` `Tests 469 passed | 2 skipped (471)`; uploads `148 passed (18.5s)`; the server answered both files `HTTP 200` with the plain line, 129 books before and after; whole suite `281 passed (7.6m)`, exit 0.
+**Lesson.**
+- **Build a test's input from literal numbers, not from the constant it tests.** My first tests made their zips from `EPUB_ZIP_LIMITS`. With the limit mutated to `Infinity`, `epubWithEntries(Infinity)` died inside the helper ("Too many properties to enumerate"): the test failed for the wrong reason.
+- **After switching branches, rebuild before trusting `tsc`.** The control failed `tsc` (exit 2) on `.next/types` left by V5's build (`app/(app)/import/page.js` not found); `npm run build` cleared it.

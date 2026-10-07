@@ -3,6 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Read workflow wf_4f239b9c-a53's result (owner-only whole-book Create on #100; the EPUB safe-unzip and /paths phone-wrap fixes as draft PRs into main) and verify it. Then wait for Samuel to fix GitHub Actions billing; when CI runs, merge the two main-based fixes, then #97, #98, #99, #100 in order (each moved onto main, CI's reference images committed), back up, deploy, comment on #90. Never start a whole-book narration on the live site. Then the WebKit-after-seek stall on CI.
+blockers: Samuel-only: GitHub Actions billing (CI starts no jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 next_action: V1 (your books first in the Path picker) and V2 (a made-voice Go to the page test) are a PR: merge when green, then deploy (back up first). Then V3a (the Import page, on m14-v3a-import, written, not yet run), V3b, V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
 updated: 2026-10-07
@@ -199,6 +201,48 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 00:57 (local; 04:57 UTC) · Claude (laptop, workflow wf_4f239b9c-a53) · EPUB uploads unpacked within limits (no more zip bombs): draft #101 into main
+- **Done:**
+  - Uploaded EPUBs are now unpacked with `safeUnzip`, the careful unpacker the read-along importer already used, within two limits: **512 MB unpacked and 10,000 files**. A file past either is refused at upload with a plain line (for example "This EPUB would unpack to more than 512 MB, far more than any real book, so it was not added."), before anything is saved. This is "Exact next steps" item 7, done once #101 merges.
+  - The limits come from the evidence: the upload cap is 200 MB; the three sample books hold 24 to 48 files and unpack to 2.06 to 2.27 times their size; the largest EPUB in the live library is Frankenstein, 271,904 bytes (backup `~/Backups/neolibrary/prod-before-m14-20261006T1749Z.sql`, read only: 129 titles, 3 with a file, the three samples).
+  - Branch `m13-epub-safe-unzip`, made from `main` (not from the M14 stack); draft PR #101 into `main`. Its learning-log entry is Iteration 66: Iterations 57 to 65 are on the stack's branches, not on `main`.
+- **Key paths:** `lib/library/ebook.ts` (`EPUB_ZIP_LIMITS`, `unzipEpub`), `lib/library/sections.ts`, `lib/library/test-epub.ts` (`epubWithEntries`, `epubDeclaring`), `lib/library/{ebook,import,sections}.test.ts`; unchanged: `lib/readalong/zipread.ts`.
+- **Commands that worked:**
+  - `npm run check` → `Tests 469 passed | 2 skipped (471)`, exit 0.
+  - `zsh scratchpad/run-fresh.sh epubzip-uploads uploads` (the upload tests and the projects before them, from an empty database) → `148 passed (18.5s)`.
+  - `zsh scratchpad/epubzip/mut-unit.sh` → control `Tests 31 passed (31)`; size limit removed `3 failed`; file limit removed `3 failed`; `extractSections` on `unzipSync` `1 failed`; every mutant compiled (`tsc` exit 0) and every file was restored (md5 checked). `zsh scratchpad/epubzip/mut-unit-main.sh` (`parseEpub` as on `main`) → `3 failed`.
+  - `zsh scratchpad/epubzip/through-server.sh` (the built app) → both crafted files `HTTP 200` with the plain message; 129 books before and after; `/api/health` 200.
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` on 2102c1b → `281 passed (7.6m)`, exit 0.
+- **Known issues / blockers:**
+  - GitHub Actions still starts no jobs (only Samuel can fix it), so #101 cannot merge yet.
+  - A file within both limits can still be heavy to read if one page is one huge text file; a limit per file would be a follow-up.
+  - An EPUB packed as zip64 is now refused as "not a readable EPUB" (zip64 is needed only past 4 GB or 65,535 files).
+  - When the M14 stack moves onto `main` after #101 (or the other way round), this file's Log and `LEARNING_LOG.md` conflict: keep both sides.
+  - This commit also carries the lead session's entry below (04:45 UTC) and the header lines it set (`next_action`, `blockers`), written in the shared working copy while this branch was being built; its note asks to keep it once, in the newest ledger. So `check-pr-hygiene` counts two new entries on #101.
+- **Exact next steps:** as "Exact next steps" above. When CI runs: #101 needs no reference images (nothing on screen changes except the new refusal lines); mark it ready and merge when its four checks are green.
+
+### 2026-10-07 00:45 (local; 04:45 UTC) · Claude (laptop, lead session) · V3b and V5 built as drafts #99 and #100; CI still blocked by GitHub billing; next fixes running in a workflow; handoff written
+*A note for whoever merges: this entry was written in the shared working copy while a workflow was building `m13-epub-safe-unzip`, so it may travel in that branch's commit. If so, keep it once, in the newest ledger.*
+- **Done:**
+  - Workflow `wf_2f729bf9-54d` built V3b (draft #99: Import in the sidebar and as a fifth phone tab) and V5 (draft #100: whole-book AI narration, chosen on purpose, fake voice only). A review confirmed 7 problems in V5; all are fixed (bfed0b3). Checked by Claude: the four PRs' states (`gh pr view`), and the unit tests on #100's head c94f4d6.
+  - Checked that CI is still blocked, and measured how many GitHub check-minutes the project has used since its first run (2026-10-04 01:57 UTC): 3,112.
+  - Workflow `wf_9c2d5a9b-38f` failed in 9 s ("You've hit your session limit · resets 11:40pm (America/New_York)") and changed nothing. It was relaunched as `wf_4f239b9c-a53` at 03:53 UTC: owner-only whole-book Create on #100 (Open unknowns row 13), then two fixes from `main` as draft PRs: limits on unzipping uploaded EPUBs (`m13-epub-safe-unzip`) and `/paths` scrolling sideways on a phone (`m14-paths-phone-wrap`). Then a review. It is still running: the uncommitted `lib/library/*` changes on `m13-epub-safe-unzip` are its work in progress.
+  - Handoff for the next session: `docs/handoffs/2026-10-07-0043-m14-ci-blocked-stack.md` (left uncommitted).
+- **Key paths:** #97 `m14-v2-goto-made-voice` (d8096cb), #98 `m14-v3a-import` (66f92e1), #99 `m14-v3b-import-nav` (1534c76), #100 `m14-v5-whole-book` (c94f4d6 before the running workflow); `app/(app)/import/WholeBookNarration.tsx`; `lib/library/narration.ts`; the workflow's journal at `~/.claude/projects/-Users-sahuno-projects-personal-Neolibrary/2fb5c526-83b9-4fe4-a979-0bce0d6c44e4/subagents/workflows/wf_4f239b9c-a53/journal.jsonl`.
+- **Commands that worked:**
+  - `npm run check` on c94f4d6 → `Test Files 71 passed | 1 skipped (72)`, `Tests 475 passed | 2 skipped (477)`, exit 0.
+  - `gh api repos/sahuno/neolibrary/actions/runs/37550261356/jobs --jq ...` → all 4 jobs `failure, steps=0`, note: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings".
+  - The minutes tally (scratchpad `billing/usage.py`, jobs API, each job rounded up to a whole minute) → `2026-10-04 1025`, `2026-10-05 698`, `2026-10-06 1389`, `total minutes: 3112`.
+  - `grep` showed the tests cannot reach ElevenLabs: `playwright.config.ts:108` sets `AI_FAKE: "1"`, `lib/speech/index.ts:13` then uses the fake voice, and the laptop has only `.env.example` (no key).
+- **Known issues / blockers:**
+  - GitHub Actions starts no jobs (billing or spending limit; only Samuel can fix it, under GitHub → Settings → Billing and plans). Nothing can merge or deploy. Never raise a limit.
+  - Reading Samuel's Actions allowance needs the `user` scope, which was not requested. The run-timing endpoint reports 0 billable minutes, so the tally uses job times instead.
+  - Once #100 is deployed, Create on the live site would call ElevenLabs for real (when ticked and pressed, within the $5 per book and $20 per month limits). Never press it there (Samuel's rule).
+- **Exact next steps:**
+  1. Read `wf_4f239b9c-a53`'s result and verify it yourself: `git status` first (never discard uncommitted work), `gh pr list`, branch heads, `npm run check` on each branch, and Iterations 65 to 67 in `LEARNING_LOG.md`. Then tell Samuel the outcome, the blocker first.
+  2. When CI runs: merge the safe-unzip fix, then the paths fix, then #97, #98, #99, #100 in order (the rebase commands are in the handoff file); commit CI's reference images after looking at them; merge each when its four checks are green.
+  3. Back up, deploy, check `/api/health`, `/sign-in` and `/import` (307 to sign-in), comment on #90.
+  4. Then the WebKit-after-seek stall on CI (flake plan S4).
 ### 2026-10-07 10:05 UTC (06:05 local) · Claude (laptop) · A unit test that failed at random now always passes (draft PR from `m6-flaky-marks-test` into main); CI still not starting jobs
 - **Done:**
   - **What this is.** `lib/library/questions.test.ts` ("keeps every mark, counts the latest…") failed now and then with nothing wrong in the app (Exact next steps item 7 on the M14 stack's ledger). Fixed in the test only; nothing changes for you.
