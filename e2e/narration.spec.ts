@@ -8,9 +8,17 @@ import { ADMIN_STATE } from "./pages";
 // (Samuel, 2026-10-06). With the FAKE voice only (AI_FAKE=1 in the test server): Samuel's rule is that
 // no paid voice narrates a whole book until he says so. This project runs last (playwright.config.ts):
 // it makes a book's audio in bulk and spends the fake voice's pretend money against the real limits
-// ($5 per book and $20 per month, the defaults: the test server sets none).
+// ($5 per book and $20 per month, the defaults: the test server sets none). Only the library's owner
+// (the admin) can start one, for now (2026-10-07, Open unknowns row 13): a reader you invited sees one
+// line instead of the form, and the server refuses her.
 
 test.use({ storageState: ADMIN_STATE });
+
+/** What a reader who is not the library's owner sees instead of the form, and the server's reason when it refuses her. */
+const OWNER_ONLY = "Whole-book narration is for the library's owner, for now.";
+/** Samuel's approved words under "How books are heard" (uploads.spec.ts checks them, and the owner's added sentence). */
+const HEARD =
+  "To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.";
 
 /**
  * A book of 2,500 paragraphs, all different (a saved paragraph is found by its text, so a repeated one
@@ -303,7 +311,7 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     await fourLooks(page, "narration-limit");
   });
 
-  await test.step("only for the book's owner, signed in, and EPUB only", async () => {
+  await test.step("only for the library's owner, signed in, and EPUB only: a reader you invited sees one line, and the server refuses her", async () => {
     const pdf = exported.find((b) => b.file?.type === "pdf")!;
     const refused = await page.request.get(`/api/books/${pdf.id}/narration`);
     expect(refused.status()).toBe(400);
@@ -312,17 +320,63 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     expect((await anon.request.get(api)).status()).toBe(401);
     expect((await anon.request.post(api, { data: { voice: "fake-ada", confirm: true } })).status()).toBe(401);
     await anon.close();
-    // Grace (made by uploads.spec.ts) is another reader: the book is not found for her, and nothing starts.
+
+    // Grace (made by uploads.spec.ts) is a reader Samuel invited, not the library's owner. She adds an EPUB of her
+    // own first, so the form would have a book to offer her.
     const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const grace = await other.newPage();
+    // Every request her page sends about narration (any method), or that could make audio.
+    const graceAsked: string[] = [];
+    grace.on("request", (r) => {
+      const at = new URL(r.url()).pathname;
+      if (/^\/api\/books\/[^/]+\/narration$/.test(at) || (r.method() === "POST" && /^\/api\/books\/[^/]+\/audio$/.test(at))) graceAsked.push(`${r.method()} ${at}`);
+    });
     await grace.goto("/sign-in");
     await grace.getByLabel("Email address").fill("grace@example.com");
     await grace.getByLabel("Password").fill("a long password here");
     await grace.getByRole("button", { name: "Sign in" }).click();
     await expect(grace.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
-    expect((await grace.request.get(`${api}?voice=fake-ben`)).status()).toBe(404);
-    expect((await grace.request.post(api, { data: { voice: "fake-ben", confirm: true } })).status()).toBe(404);
+    expect((await (await grace.request.get("/api/me")).json()).role).toBe("reader");
+    await grace.goto("/import");
+    const GRACES = "Lanterns of the Harbour";
+    await grace.getByLabel("Choose files").setInputFiles({
+      name: "lanterns-of-the-harbour.epub",
+      mimeType: "application/epub+zip",
+      buffer: Buffer.from(readableEpub(GRACES, [`<h1>The lanterns</h1>${["H1.", "H2.", "H3."].map((l) => `<p>${l}</p>`).join("")}`], AUTHOR)),
+    });
+    await expect(grace.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+    // The page updated itself: her EPUB is offered for her own audiobook...
+    await expect(grace.getByLabel("Book", { exact: true }).locator("option", { hasText: GRACES })).toHaveCount(1);
+    // ...but for whole-book narration there is one plain line instead of the form: no book or voice to choose, no
+    // checkbox, no button.
+    const hers = grace.getByRole("region", { name: "Create AI voice narration for an entire book" });
+    await expect(hers.locator("p")).toHaveText([OWNER_ONLY]);
+    await expect(hers.getByLabel("Book to narrate")).toHaveCount(0);
+    await expect(hers.getByRole("checkbox")).toHaveCount(0);
+    await expect(hers.getByRole("button")).toHaveCount(0);
+    // Nothing else on her page offers it: the opening line names books and audiobooks only, and "How books are heard"
+    // keeps Samuel's words without the sentence on the whole-book choice.
+    await expect(grace.getByText("Add your books and your own audiobooks for them.", { exact: true })).toBeVisible();
+    await expect(grace.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText([HEARD]);
+    await fourLooks(grace, "narration-reader");
+
+    // The server refuses her too (403, in the same words), for her own EPUB with confirm: true as for the owner's
+    // book: she can neither start one nor be told what it would cost.
+    const herBook = ((await (await grace.request.get("/api/export")).json()).books as { id: string; title: string }[]).find((b) => b.title === GRACES)!.id;
+    for (const url of [`/api/books/${herBook}/narration`, api]) {
+      const started = await grace.request.post(url, { data: { voice: "fake-ada", confirm: true } });
+      expect(started.status(), `POST ${url}`).toBe(403);
+      expect((await started.json()).error).toBe(OWNER_ONLY);
+      const looked = await grace.request.get(`${url}?voice=fake-ada`);
+      expect(looked.status(), `GET ${url}`).toBe(403);
+      expect((await looked.json()).error).toBe(OWNER_ONLY);
+    }
+    // Stop is never refused to a book's owner (it can only save money; nothing is going on): 204, without the figures.
+    // The library owner's book is still not found for her.
+    expect((await grace.request.delete(`/api/books/${herBook}/narration?voice=fake-ada`)).status()).toBe(204);
     expect((await grace.request.delete(`${api}?voice=fake-ben`)).status()).toBe(404);
+    // Her page sent nothing about narration, and nothing that could make audio.
+    expect(graceAsked).toEqual([]);
     await other.close();
     expect(await summaryOf("fake-ben")).toMatchObject({ running: false, saved: 277 });
   });

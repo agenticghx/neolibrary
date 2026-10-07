@@ -1,6 +1,6 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { narrationSummary, NarrationError, startNarration, stopNarration } from "@/lib/library/narration";
+import { mayNarrateWholeBooks, narrationSummary, NarrationError, OWNER_ONLY, startNarration, stopNarration } from "@/lib/library/narration";
 import { getSpeechModel } from "@/lib/speech";
 import { SpeechError, SpeechNotConfigured } from "@/lib/speech/model";
 import { getStorage } from "@/lib/storage";
@@ -8,13 +8,23 @@ import { getStorage } from "@/lib/storage";
 export const dynamic = "force-dynamic";
 
 /**
- * Whole-book AI narration (M14 follow-up V5), for the book's owner only, EPUB
- * only. GET: what it involves (paragraphs, characters, cost, what is saved,
- * the spending limits) and whether it is going on. POST { voice, confirm:
- * true }: starts it in the background (refused without confirm: true). DELETE
- * ?voice=: stops it. Another reader's book, or none, is "not found" (404).
+ * Whole-book AI narration (M14 follow-up V5), EPUB only, for the library's
+ * owner only, for now (2026-10-07: mayNarrateWholeBooks). GET: what it involves
+ * (paragraphs, characters, cost, what is saved, the spending limits and what
+ * everyone has spent this month) and whether it is going on. POST { voice,
+ * confirm: true }: starts it in the background (refused without confirm:
+ * true). DELETE ?voice=: stops it. Another reader's book, or none, is "not
+ * found" (404).
+ *
+ * Anyone but the library's owner gets 403 with OWNER_ONLY from POST and GET,
+ * before any book is looked at, so the answer is the same for every book: they
+ * may not start a run, and the figures are for deciding to start one. DELETE
+ * (Stop) is never refused to the book's owner, whatever their role: stopping
+ * can only save money. To anyone but the library's owner it answers 204,
+ * without the figures.
  */
 const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const ownerOnly = () => Response.json({ error: OWNER_ONLY }, { status: 403 });
 
 function errorResponse(e: unknown) {
   if (e instanceof NarrationError) return Response.json({ error: e.message }, { status: e.status });
@@ -34,6 +44,7 @@ async function signedIn(params: Promise<{ id: string }>) {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const at = await signedIn(params);
   if (at.error) return at.error;
+  if (!mayNarrateWholeBooks(at.user)) return ownerOnly();
   try {
     const voice = new URL(req.url).searchParams.get("voice");
     return Response.json(await narrationSummary(await getDb(), getSpeechModel(), at.user.id, at.bookId, voice));
@@ -45,6 +56,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const at = await signedIn(params);
   if (at.error) return at.error;
+  if (!mayNarrateWholeBooks(at.user)) return ownerOnly();
   const body = (await req.json().catch(() => ({}))) as { voice?: unknown; confirm?: unknown };
   try {
     const db = await getDb();
@@ -66,6 +78,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   try {
     const db = await getDb();
     await stopNarration(db, at.user.id, at.bookId, voice);
+    if (!mayNarrateWholeBooks(at.user)) return new Response(null, { status: 204 });
     return Response.json(await narrationSummary(db, getSpeechModel(), at.user.id, at.bookId, voice));
   } catch (e) {
     return errorResponse(e);

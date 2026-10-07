@@ -200,7 +200,8 @@ describe("making the whole book in the background (M14 follow-up V5)", () => {
     expect((await startNarration(deps, ownerId, bookId, "fake-ada", true)).started).toBe(false);
     expect(runningNarrations(ownerId)).toEqual([{ bookId, voice: "fake-ada" }]);
     expect(voice.waiting).toBe(1);
-    // The rule is per reader: a reader you invited can narrate their own book meanwhile.
+    // The rule is per reader: here a reader you invited can narrate their own book meanwhile. (Only at this level: the
+    // narration route lets only the library's owner start one, for now, route.test.ts; Open unknowns row 13.)
     const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
     const reader = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
     const theirs = (await importBook(database.db, storage, reader, { name: "nine-boats.epub", bytes: BOATS })).bookId;

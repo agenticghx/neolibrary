@@ -1133,6 +1133,14 @@ raises a limit. The page should say so.
   and sends only the chosen voice's figures (with Try again), and moves
   focus to the outcome when a run ends. Still open: paid paragraphs one at
   a time in the whole server (PROGRESS.md Open unknowns row 12).
+- **The library's owner only, for now (2026-10-07):** only the admin
+  (Samuel) can start a run (his tick and Create is his explicit say-so). The
+  narration route answers anyone else 403 for POST and GET ("Whole-book
+  narration is for the library's owner, for now."); Stop (DELETE) still
+  works for a book's owner, whatever their role, without the figures. For a
+  reader you invited, the Import page shows that one line instead of the
+  form, and leaves the whole-book choice out of its opening line and "How
+  books are heard". Whether readers may: PROGRESS.md Open unknowns row 13.
 
 ### V4 · Waiting on Samuel
 

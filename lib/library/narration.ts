@@ -28,8 +28,24 @@ import { AudioError, cacheKeyOf, speakPassage } from "./audio";
  *
  * Samuel's rule (CLAUDE.md): never call ElevenLabs (or any paid voice) to
  * narrate a whole book until he explicitly says so. The tests use the fake
- * voice only.
+ * voice only. So only the library's owner may start one, for now
+ * (mayNarrateWholeBooks, below).
  */
+
+/**
+ * Who may start whole-book narration, and see what it would cost: the
+ * library's owner (the admin, Samuel) only, for now (2026-10-07). His own tick
+ * and Create is his explicit say-so; an invited reader's is a case he has not
+ * ruled on (PROGRESS.md Open unknowns row 13), and on the live site one
+ * ElevenLabs key pays for everyone, within the shared limits. The narration
+ * route refuses anyone else (403, with OWNER_ONLY); the Import page shows them
+ * OWNER_ONLY instead of the form. Stop is never refused to a book's owner: it
+ * can only save money. The functions below do not check the role themselves:
+ * the route is their only caller.
+ */
+export const OWNER_ONLY = "Whole-book narration is for the library's owner, for now.";
+export const mayNarrateWholeBooks = (user: { role: string }) => user.role === "admin";
+
 export class NarrationError extends Error {
   constructor(
     message: string,

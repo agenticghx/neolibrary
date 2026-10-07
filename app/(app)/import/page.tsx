@@ -5,7 +5,7 @@ import { ImportRoot, ImportZone } from "@/components/upload/HomeImport";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { books } from "@/lib/db/schema";
-import { runningNarrations } from "@/lib/library/narration";
+import { mayNarrateWholeBooks, OWNER_ONLY, runningNarrations } from "@/lib/library/narration";
 import { listImports } from "@/lib/readalong/importer";
 import forms from "@/components/forms.module.css";
 import styles from "./page.module.css";
@@ -18,8 +18,11 @@ export const metadata: Metadata = { title: "Import" };
  * things. Books (EPUB or PDF), dropped anywhere on the page or chosen; your
  * own audiobook for a book you have (a read-along package); AI voice
  * narration for an entire EPUB, made in advance and paid up front, only when
- * chosen on purpose (V5, Samuel's decision of 2026-10-06); and how books are
- * heard. Home's Import goes here; the Library no longer has a drop box.
+ * chosen on purpose (V5, Samuel's decision of 2026-10-06), by the library's
+ * owner only, for now (mayNarrateWholeBooks: anyone else sees one line,
+ * OWNER_ONLY, instead of the form, and the page sends no request about it);
+ * and how books are heard. Home's Import goes here; the Library no longer has
+ * a drop box.
  */
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ book?: string }> }) {
   const user = await requireUser();
@@ -33,15 +36,20 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     .orderBy(asc(sql`lower(${books.title})`));
   const chosen = withFile.find((b) => b.id === book) ?? null;
   const imports = chosen ? await listImports(db, user.id, chosen.id) : [];
-  // Whole-book narration: EPUBs only (an AI voice cannot be lined up with a PDF page yet).
+  // Whole-book narration: the library's owner only, for now; EPUBs only (an AI voice cannot be lined up with a PDF page yet).
+  const owner = mayNarrateWholeBooks(user);
   const epubs = withFile.filter((b) => b.fileType === "epub").map(({ id, title, author }) => ({ id, title, author }));
-  const narrating = runningNarrations(user.id).filter((r) => epubs.some((b) => b.id === r.bookId));
+  const narrating = owner ? runningNarrations(user.id).filter((r) => epubs.some((b) => b.id === r.bookId)) : [];
 
   return (
     <ImportRoot className={styles.main}>
       <header className={styles.head}>
         <h1 className={styles.title}>Import</h1>
-        <p className={styles.lede}>Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front.</p>
+        <p className={styles.lede}>
+          {owner
+            ? "Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front."
+            : "Add your books and your own audiobooks for them."}
+        </p>
       </header>
 
       <section aria-labelledby="books-h" className={styles.section}>
@@ -94,15 +102,22 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         <h2 id="narrate-h" className={styles.sectionTitle}>
           Create AI voice narration for an entire book
         </h2>
-        <p className={styles.note}>
-          A separate choice, made on purpose: an AI voice reads the whole book now, paragraph by paragraph, and saves each one, so the book then plays
-          for free. You pay for the whole book up front. EPUB only: an AI voice cannot be lined up with a PDF page yet. Before anything is made, this
-          says how many paragraphs it is and what it costs, and nothing starts until you confirm.
-        </p>
-        {epubs.length ? (
-          <WholeBookNarration books={epubs} running={narrating} />
+        {owner ? (
+          <>
+            <p className={styles.note}>
+              A separate choice, made on purpose: an AI voice reads the whole book now, paragraph by paragraph, and saves each one, so the book then
+              plays for free. You pay for the whole book up front. EPUB only: an AI voice cannot be lined up with a PDF page yet. Before anything is
+              made, this says how many paragraphs it is and what it costs, and nothing starts until you confirm.
+            </p>
+            {epubs.length ? (
+              <WholeBookNarration books={epubs} running={narrating} />
+            ) : (
+              <p className={styles.note}>Add an EPUB first: whole-book narration is for a book you have, as an EPUB.</p>
+            )}
+          </>
         ) : (
-          <p className={styles.note}>Add an EPUB first: whole-book narration is for a book you have, as an EPUB.</p>
+          // Anyone else: one line, no form, and no request about it (the narration route refuses them too: 403).
+          <p className={styles.note}>{OWNER_ONLY}</p>
         )}
       </section>
 
@@ -114,10 +129,12 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each
           paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.
         </p>
-        <p className={styles.lede}>
-          An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire
-          book”.
-        </p>
+        {owner ? (
+          <p className={styles.lede}>
+            An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an
+            entire book”.
+          </p>
+        ) : null}
       </section>
     </ImportRoot>
   );
