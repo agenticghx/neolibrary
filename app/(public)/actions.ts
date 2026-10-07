@@ -10,6 +10,13 @@ import { checkSetupCode } from "@/lib/auth/setup-code";
 import { getDb } from "@/lib/db";
 
 const limiter = createRateLimiter(10, 15 * 60_000);
+/**
+ * A backstop per email across every address: sign-in attempts are otherwise
+ * counted per email-and-address pair, so a stranger trying your email from
+ * elsewhere cannot lock you out; an account tried this often from many
+ * addresses is better locked for a while than guessed.
+ */
+const wide = createRateLimiter(50, 15 * 60_000);
 const field = (data: FormData, name: string) => String(data.get(name) ?? "");
 
 async function clientAddress() {
@@ -29,7 +36,8 @@ async function attempt(fn: () => Promise<void>): Promise<FormState> {
 
 export async function signInAction(_: FormState, data: FormData): Promise<FormState> {
   const email = normaliseEmail(field(data, "email"));
-  if (!limiter.allow(`email:${email}`) || !limiter.allow(`ip:${await clientAddress()}`)) {
+  const address = await clientAddress();
+  if (!limiter.allow(`email:${email}|${address}`) || !limiter.allow(`ip:${address}`) || !wide.allow(`email:${email}`)) {
     return { error: "Too many attempts. Wait 15 minutes and try again." };
   }
   const result = await attempt(async () => {
@@ -37,7 +45,7 @@ export async function signInAction(_: FormState, data: FormData): Promise<FormSt
     await startSession(user.id);
   });
   if (result.error) return result;
-  limiter.reset(`email:${email}`);
+  limiter.reset(`email:${email}|${address}`);
   redirect(safeNext(field(data, "next")));
 }
 

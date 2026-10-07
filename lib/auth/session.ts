@@ -37,9 +37,9 @@ export async function stopSession() {
   jar.delete(SESSION_COOKIE);
 }
 
-/** Only allow redirects to paths inside this site. */
+/** Where to go after signing in: a path on this site only. A control character (a tab, say) is refused too: browsers drop them from addresses, so "/<tab>/elsewhere" would read as "//elsewhere". */
 export function safeNext(next: unknown): string {
-  return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
+  return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") && !/\p{Cc}/u.test(next)
     ? next
     : "/";
 }

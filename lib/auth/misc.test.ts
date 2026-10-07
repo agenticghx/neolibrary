@@ -21,6 +21,17 @@ describe("rate limiter", () => {
     expect(rl.allow("k", 1500)).toBe(true);
     expect(rl.allow("other", 3)).toBe(true);
   });
+
+  it("forgets keys not tried within the window once it holds many, keeping the live ones", () => {
+    const rl = createRateLimiter(3, 1000, 5);
+    for (const k of ["a", "b", "c", "d", "e"]) rl.allow(k, 0);
+    expect(rl.size()).toBe(5);
+    rl.allow("e", 900); // still live at 1200
+    rl.allow("f", 1200); // the sixth key: the sweep runs first
+    expect(rl.size()).toBe(2);
+    // e's record survived: its try at 900 still counts (the one at 0 has expired), so two more are allowed, not three.
+    expect([rl.allow("e", 1201), rl.allow("e", 1202), rl.allow("e", 1203)]).toEqual([true, true, false]);
+  });
 });
 
 describe("setup code", () => {
