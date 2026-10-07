@@ -328,12 +328,14 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   // Removing also refreshes the page (router.refresh in AudiobookUpload's settle), a navigation of its own that
   // can land after the message and the focus: leaving before it has finished made WebKit on CI report
   // "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (three runs,
-  // 2026-10-07). Wait for the refresh's fetch to end first.
+  // 2026-10-07). Waiting for the network to go quiet (#109) was not enough: on a slow renderer the refreshed page
+  // commits, and the router rewrites the address, after that (run 37652722201). So: wait, then go, and when the
+  // refresh still gets in between, go once more.
   await page.waitForLoadState("networkidle");
 
   // A collection, so the page can be refreshed during the next upload (below).
   const collection = `Refresh test ${Date.now()}`;
-  await page.goto("/library?new=collection");
+  await gotoPastRefresh(page, "/library?new=collection");
   await page.getByLabel("Collection name").fill(collection);
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page).toHaveURL(/\/library\?c=/);
@@ -511,6 +513,21 @@ async function openListening(page: Page, bookId: string, at: number) {
  * its end (a "pause" and an "ended") before the test stops it.
  */
 const TAIL = "And that is where this part of the reading ends.";
+
+/**
+ * page.goto that survives the page's own late refresh: Next's router rewrites the address when a refreshed page
+ * commits, and Playwright reports a goto in flight at that moment as "interrupted by another navigation". Only that
+ * error is retried, once.
+ */
+async function gotoPastRefresh(page: Page, url: string) {
+  try {
+    await page.goto(url);
+  } catch (e) {
+    if (!/interrupted by another navigation/.test((e as Error).message)) throw e;
+    await page.waitForTimeout(500);
+    await page.goto(url);
+  }
+}
 
 /**
  * Waits until the audio reaches `ms`. If it never does, prints what the player was doing first, so a stall on CI
