@@ -46,6 +46,10 @@ engineer.
   with quoted text, provenance on AI output, export round-trip tests,
   spending caps, notes never overwritten).
 - Keep each PR to one milestone step. Small PRs get reviewed; big ones don't.
+- To merge PRs (one at a time, rebased onto main), refresh reference
+  screenshots from CI, or decide whether a red check is a flake, use the
+  `merge-train` skill (`.claude/skills/merge-train/SKILL.md`): it holds the
+  scripts and the rules, and `docs/ci-flakes.md` lists the known flaky tests.
 - Follow the ground rules in `docs/plan.md`: no copyrighted books and no
   secrets in git; every outside service (Claude, ElevenLabs, image search,
   storage) behind an interface with a fake used in tests.
