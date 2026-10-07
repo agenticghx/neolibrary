@@ -10,7 +10,6 @@ import { libraryItems, notYetAvailable } from "@/lib/library/home";
 import { listCollections, listShelf, parseShow, parseSort, SHOWS } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
-import { Dropzone } from "./Dropzone";
 import { NewCollection } from "./NewCollection";
 import styles from "./page.module.css";
 
@@ -62,11 +61,12 @@ export default async function LibraryPage({
                 <Link href="/library">Show the whole library</Link>
               </>
             : everything.length === 0
-              ? "Nothing here yet. Add your own DRM-free books."
+              ? <>
+                  Nothing here yet. Add your own DRM-free books on the <Link href="/import">Import</Link> page.
+                </>
               : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
         </p>
       </header>
-      <Dropzone />
       {everything.length === 0 ? (
         <form action={addSampleBooksAction} className={styles.samples}>
           <p className={styles.samplesText}>

@@ -1,8 +1,11 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { strToU8, zipSync } from "fflate";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { extractSections } from "../lib/library/sections";
 import { readableEpub } from "../lib/library/test-epub";
+import { buildPackage } from "../lib/readalong/fixture";
 import { ADMIN_STATE } from "./pages";
 
 // M3 "Done when" (part): uploading three public-domain books shows them on the
@@ -15,7 +18,7 @@ test.describe.configure({ mode: "serial" });
 const fixture = (name: string) => path.join("fixtures", "books", name);
 
 test("three public-domain books land on the shelf with their titles and covers", async ({ page }) => {
-  await page.goto("/library");
+  await page.goto("/import");
   await page.getByLabel("Choose files").setInputFiles([
     fixture("stevenson-jekyll-and-hyde.epub"),
     fixture("shelley-frankenstein.epub"),
@@ -23,7 +26,12 @@ test("three public-domain books land on the shelf with their titles and covers",
   ]);
   const results = page.getByTestId("upload-results");
   await expect(results.getByText("Added to your library")).toHaveCount(3);
+  // The Import page updates itself after an upload (useBookUpload's router.refresh): with no reload,
+  // the new books are offered for your own audiobook (Frankenstein is new in this test).
+  await expect(page.getByText("Add a book first", { exact: false })).toHaveCount(0);
+  await expect(page.getByLabel("Book", { exact: true }).locator("option", { hasText: "Frankenstein, by Mary Shelley" })).toHaveCount(1);
 
+  await page.goto("/library");
   const shelf = page.getByTestId("shelf");
   for (const title of ["The Strange Case of Dr. Jekyll and Mr. Hyde", "Frankenstein", "The Time Machine"]) {
     await expect(shelf.getByRole("link", { name: new RegExp(`^${title.replace(/[.]/g, "\\.")}`) })).toBeVisible();
@@ -51,7 +59,7 @@ const GRID_TEXT = `<h1>The wires</h1>${Array.from(
 ).join("")}`;
 
 test("a file matching a title not available yet attaches to it and lights up the path", async ({ page }) => {
-  await page.goto("/library");
+  await page.goto("/import");
   await page.getByLabel("Choose files").setInputFiles({
     name: "the-grid.epub",
     mimeType: "application/epub+zip",
@@ -70,7 +78,7 @@ test("a file matching a title not available yet attaches to it and lights up the
 });
 
 test("duplicates, other file types and DRM-protected books are refused politely", async ({ page }) => {
-  await page.goto("/library");
+  await page.goto("/import");
   const drm = zipSync({
     mimetype: strToU8("application/epub+zip"),
     "META-INF/container.xml": strToU8('<container><rootfiles><rootfile full-path="c.opf"/></rootfiles></container>'),
@@ -86,6 +94,7 @@ test("duplicates, other file types and DRM-protected books are refused politely"
   await expect(results.getByText("Already in your library")).toBeVisible();
   await expect(results.getByText("Only EPUB and PDF files can be added.")).toBeVisible();
   await expect(results.getByText(/DRM-protected/)).toBeVisible();
+  await page.goto("/library");
   await expect(page.getByText("4 books.")).toBeVisible();
 });
 
@@ -205,4 +214,83 @@ test("the library can be downloaded, and import never overwrites", async ({ page
   expect(back.books.map((b: { title: string }) => b.title)).toEqual(["Meditations"]);
   expect(back.collections[0]).toMatchObject({ name: "Stoics", bookIds: [bookId] });
   await ctx.close();
+});
+
+test("M14 follow-up V3a: Import is the one place to add books and your own audiobooks, and says how books are heard", async ({ page }) => {
+  // The Library has no drop box any more (Samuel, #90): adding is on the Import page.
+  await page.goto("/library");
+  await expect(page.getByLabel("Choose files")).toHaveCount(0);
+  await page.goto("/import");
+  await expect(page.getByRole("heading", { name: "Import", level: 1 })).toBeVisible();
+  await expect(page.getByLabel("Choose files")).toHaveAttribute("multiple", "");
+  // Your own audiobook goes with a book you have: the list is exactly the library's books with a file.
+  const exported = (await (await page.request.get("/api/export")).json()).books as { title: string; author: string; file: unknown }[];
+  const withFile = exported.filter((b) => b.file).map((b) => (b.author ? `${b.title}, by ${b.author}` : b.title));
+  const book = page.getByLabel("Book", { exact: true });
+  const offered = (await book.locator("option").allTextContents()).slice(1);
+  expect(offered.slice().sort()).toEqual(withFile.slice().sort());
+  await book.selectOption({ label: "Frankenstein, by Mary Shelley" });
+  await page.getByRole("button", { name: "Choose", exact: true }).click();
+  await expect(page).toHaveURL(/\/import\?book=[0-9a-f-]+#audio-h$/);
+  await expect(book.locator("option:checked")).toHaveText("Frankenstein, by Mary Shelley");
+  // The same read-along upload as on the book's page, for that book: a package made from
+  // Frankenstein's file is added to Frankenstein, then removed (later tests expect no audiobook on it).
+  const bookId = new URL(page.url()).searchParams.get("book")!;
+  const imports = async () => (await (await page.request.get(`/api/books/${bookId}/readalong`)).json()).imports as { status: string; title: string }[];
+  expect(await imports()).toEqual([]);
+  const bytes = new Uint8Array(readFileSync(fixture("shelley-frankenstein.epub")));
+  const paragraphs = extractSections(bytes).filter((s) => s.kind === "paragraph").slice(10, 13);
+  const pkg = buildPackage({
+    bookBytes: bytes,
+    title: "Frankenstein test reading",
+    chapters: [{ title: "Letter 1", paragraphs: paragraphs.map((p) => p.text), inBook: paragraphs.map((p) => p.chapterIndex) }],
+  });
+  const section = page.getByRole("region", { name: "Your audiobook", exact: true });
+  await section.getByLabel("or a .zip of it (up to 50 MB)").setInputFiles({ name: "frankenstein-readalong.zip", mimeType: "application/zip", buffer: Buffer.from(pkg.zip()) });
+  await expect(section).toContainText("Ready · added");
+  // Its heading sits one level below the section's own ("Add your audiobook to a book", an h2).
+  await expect(section.getByRole("heading", { level: 3, name: "Your audiobook", exact: true })).toBeVisible();
+  expect(await imports()).toMatchObject([{ status: "ready", title: "Frankenstein test reading" }]);
+  // With a book chosen, the page is accessible and fits a phone in all four looks (the page
+  // screenshots in pages.ts show it with no book chosen).
+  mkdirSync("screenshots", { recursive: true });
+  for (const [name, width, height] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300);
+      const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // The serif text at the reading size: smaller on a phone, as on the other pages.
+      const lede = page.getByText("Add your books, and your own audiobooks for them.", { exact: true });
+      expect(await lede.evaluate((el) => getComputedStyle(el).fontSize)).toBe(name === "phone" ? "18px" : "20px");
+      await page.screenshot({ path: `screenshots/import-audiobook-${name}-${scheme}.png`, fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await section.getByRole("button", { name: "Remove Frankenstein test reading" }).click();
+  await expect(section).not.toContainText("Ready · added");
+  expect(await imports()).toEqual([]);
+  // A read-along .zip dropped on the audiobook section reaches the page's book uploader (a drop
+  // anywhere on the page adds books): it is not sent as a book, and the page says where it goes.
+  const posted: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/books") posted.push(r.url());
+  });
+  const zipDrop = await page.evaluateHandle(() => {
+    const t = new DataTransfer();
+    t.items.add(new File(["PK"], "x-readalong.zip", { type: "application/zip" }));
+    return t;
+  });
+  for (const type of ["dragenter", "dragover", "drop"]) await section.dispatchEvent(type, { dataTransfer: zipDrop });
+  await expect(page.getByTestId("upload-results")).toContainText(
+    "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.",
+  );
+  expect(posted).toEqual([]);
+  // How books are heard: the words Samuel approved, whole (toHaveText with a string ignores line breaks only).
+  await expect(page.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText(
+    "To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.",
+  );
 });

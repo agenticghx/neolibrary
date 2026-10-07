@@ -47,9 +47,17 @@ function step(p: UploadProgress) {
   }
 }
 
-export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: ImportSummary[] }) {
+/**
+ * headingLevel: 2 on the book's page; 3 on the Import page, where this sits
+ * inside the section "Add your audiobook to a book" (an h2).
+ */
+export function AudiobookUpload({ bookId, imports, headingLevel = 2 }: { bookId: string; imports: ImportSummary[]; headingLevel?: 2 | 3 }) {
   const router = useRouter();
+  const Heading = headingLevel === 3 ? "h3" : "h2";
   const [progress, setProgress] = useState<UploadProgress | null>(null);
+  // The upload this page has just finished: until the refresh says it is ready,
+  // the page's list may still hold it as uploading.
+  const [finished, setFinished] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,7 +73,10 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
   const cancelButton = useRef<HTMLButtonElement>(null);
   const cancel = useRef<AbortController | null>(null);
   const ready = imports.find((i) => i.status === "ready") ?? null;
-  const unfinished = imports.filter((i) => i.status === "uploading");
+  // An upload that is running is not one that "did not finish": while this
+  // page sends (progress is set), a refresh of the page from elsewhere (a book
+  // added on the Import page) lists the running upload as uploading.
+  const unfinished = progress ? [] : imports.filter((i) => i.status === "uploading" && i.id !== finished);
 
   // An upload stops when the reader leaves this page (and the browser asks first).
   useEffect(() => {
@@ -106,7 +117,8 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
         kind === "zip"
           ? [{ path: list[0].name, blob: list[0] }]
           : packageFiles([...list].map((f) => ({ name: f.name, webkitRelativePath: f.webkitRelativePath, blob: f })));
-      await uploadPackage(bookId, picked, { onProgress, signal: cancel.current.signal });
+      const done = await uploadPackage(bookId, picked, { onProgress, signal: cancel.current.signal });
+      setFinished(done.id);
       setMessage("Done.");
     } catch (e) {
       setError(e instanceof UploadError ? e.message : "The upload stopped. Choose the folder again to start over.");
@@ -136,9 +148,9 @@ export function AudiobookUpload({ bookId, imports }: { bookId: string; imports: 
   const sending = progress?.stage === "sending" ? progress : progress?.stage === "finishing" && audioTotal ? { sentBytes: audioTotal, totalBytes: audioTotal } : null;
   return (
     <section ref={section} className={styles.notes} aria-labelledby="audiobook">
-      <h2 id="audiobook" ref={heading} tabIndex={-1} className={`${styles.collectionsTitle} ${styles.landing}`}>
+      <Heading id="audiobook" ref={heading} tabIndex={-1} className={`${styles.collectionsTitle} ${styles.landing}`}>
         Your audiobook
-      </h2>
+      </Heading>
       {ready ? (
         <div className={styles.audiobook}>
           <p className={styles.audiobookTitle}>{ready.title || ready.voice || "Your audiobook"}</p>

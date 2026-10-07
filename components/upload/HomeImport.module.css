@@ -1,4 +1,4 @@
-/* Home's import (M14 step 3): a whole-page drop target, the Import button, the dashed hint. */
+/* Import (M14 step 3; follow-up V3a): the Import page's whole-page drop target and dashed hint, and Home's Import link. */
 
 .over {
   outline: 2px dashed var(--accent);
@@ -17,15 +17,13 @@
   color: var(--on-accent);
   font: inherit;
   font-weight: var(--weight-semibold);
+  text-decoration: none;
   cursor: pointer;
 }
 
 .importButton:hover {
   background-color: var(--accent-strong);
-}
-
-.importButton:disabled {
-  cursor: progress;
+  color: var(--on-accent); /* the global a:hover colour is the same as this background */
 }
 
 .zoneWrap {
@@ -111,10 +109,6 @@
 }
 
 @media (width <= 48rem) {
-  .phoneHidden {
-    display: none;
-  }
-
   .importButton {
     justify-content: center;
     width: 2.75rem;

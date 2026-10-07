@@ -1,0 +1,94 @@
+/* The Import page (M14 follow-up V3a): books, your own audiobooks, and how books are heard. */
+
+/* minmax(0, 1fr): the column is the screen's width, not the longest book title's (on a phone the
+   book list's longest option made the page 553 px wide in a 390 px screen). */
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-7);
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-9);
+}
+
+.head {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: var(--text-3xl);
+}
+
+.lede {
+  max-width: var(--measure-read);
+  color: var(--ink-700);
+  font-family: var(--font-serif);
+  font-size: var(--text-read);
+  line-height: var(--leading-read);
+}
+
+.section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: var(--text-xl);
+}
+
+.note {
+  max-width: var(--measure-read);
+  color: var(--ink-700);
+}
+
+.choose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  max-width: 48rem;
+}
+
+/* The label on its own line above the book and its button. */
+.choose > label {
+  flex: 1 0 100%;
+}
+
+.select {
+  flex: 1 1 20rem;
+  width: auto;
+  min-width: 0;
+}
+
+.button {
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: var(--accent-strong);
+}
+
+.upload {
+  max-width: 48rem;
+}
+
+@media (width <= 48rem) {
+  .main {
+    padding: var(--space-5) var(--space-4) var(--space-9);
+  }
+
+  /* The reading size on a phone, as on the other pages. */
+  .lede {
+    font-size: var(--text-read-phone);
+  }
+}

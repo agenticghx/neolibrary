@@ -15,6 +15,8 @@ export const pages: PageCase[] = [
   { name: "path", path: "/paths/hidden-machinery", signedIn: true },
   { name: "book-not-available", path: "/paths/hidden-machinery", signedIn: true, click: "The Grid (not available yet)" },
   { name: "library", path: "/library", signedIn: true },
+  // M14 follow-up V3a: the one place to add books and your own audiobooks.
+  { name: "import", path: "/import", signedIn: true },
   { name: "paths", path: "/paths", signedIn: true },
   { name: "path-new", path: "/paths/new", signedIn: true },
   { name: "path-edit-empty", path: "/paths/philosophy-of-science/edit", signedIn: true, spec: "own-paths.spec.ts" },
