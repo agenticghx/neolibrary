@@ -130,7 +130,12 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
   };
 }
 
-const cacheKeyOf = (model: SpeechModel, voice: string, text: string) => sha256(JSON.stringify([model.provider, model.model, voice, sha256(text)]));
+/**
+ * How a made paragraph is found again: by its voice and its text, for its owner (any of their books).
+ * Whole-book narration (lib/library/narration.ts) counts a paragraph as saved by this same key.
+ */
+export const cacheKeyOf = (model: Pick<SpeechModel, "provider" | "model">, voice: string, text: string) =>
+  sha256(JSON.stringify([model.provider, model.model, voice, sha256(text)]));
 
 export async function storedTrack(db: Db, ownerId: string, model: SpeechModel, voice: string, passage: Passage) {
   const [row] = await db
