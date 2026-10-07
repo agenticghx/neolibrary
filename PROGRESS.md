@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Everything of 2026-10-07 is merged into main (the 16:40 and 19:00 UTC entries; #111 adds the merge-train skill). Next: back up (recipe in the 2026-10-04 11:40 entry), deploy with `railway up --service web --ci`, check /api/health, /sign-in and /import (307 to sign-in), comment on #90 (V1 to V5 and the fixes are live; never start a whole-book narration on the live site). Then the review items B2, B5, B8 as small PRs; then B3, B4, B6. Use the merge-train skill for every merge; keep docs/ci-flakes.md current. Open unknowns rows 12, 13 and 14 wait on Samuel (decide by 2026-10-14).
+next_action: Deployed 2026-10-07 21:39 UTC (main 868d4e4; the 21:45 entry): V1 to V5, the review fixes (#101, #106, #107), the test fixes (#109, #110), the screenshot allowance (#108), the merge-train skill (#111). Next: the review items B2, B5, B8 as small PRs through the merge-train skill, then B3, B4, B6; a browser cache for CI's install step. Open unknowns rows 12, 13 and 14 wait on Samuel (decide by 2026-10-14); his #90 answers too.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-07
 shared_copy: none
@@ -322,6 +322,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-07 21:45 UTC (17:45 local) · Claude (laptop) · Deployed: V1 to V5, the review fixes and the day's test fixes are live (main 868d4e4); backup taken and checked first
+- **Done:** backup first, as the rule requires (migration 0021, from #107, ran on this deploy): `pg_dump` inside the Postgres container over `ssh.railway.com` → `~/Backups/neolibrary/prod-before-m14-20261007T2119Z.sql` (1,141,060 bytes, 19 tables); restored into a throwaway local Postgres (`embedded-postgres` in the scratchpad, port 54330) with `ON_ERROR_STOP` → exit 0; 20 migrations, 1 user, 129 books in the copy. Before that, the two counts #107 asked for were both 0 on production. Then `git checkout main && git pull --ff-only && railway up --service web --ci` (21:36:35 to 21:39:35 UTC) → "Deploy complete". Checks: `/api/health` → `{"status":"ok","service":"neolibrary","commit":null}` 200; `/sign-in` → 200; `/import` → 307 to `/sign-in?next=%2Fimport`. On production, `pg_constraint` holds `generations_cost_usd_check` and `audio_tracks_cost_usd_check`, and the `imported` column is on both tables: 0021 applied. No whole-book narration was started (Samuel's rule). Commented on #90 with what is live and what is still his to answer: https://github.com/sahuno/neolibrary/issues/90#issuecomment-6047411170.
+- **Key paths:** `~/Backups/neolibrary/prod-before-m14-20261007T2119Z.sql` (laptop only); the ledger entries of 10:55, 16:40 and 19:00 UTC for the day.
+- **Commands that worked:** the backup and restore commands above (the SSH user is the one `railway ssh config --service Postgres --dry-run` prints; host key `SHA256:+S1xg92FrnHz6pY3bpkmh1OGtWQGNANXilPzlxA7B1g`, unchanged since 4 October); `curl -s -w ' %{http_code}' $B/api/health`; the production checks over `ssh … 'psql -U "$PGUSER" -d "$PGDATABASE" -At -c "…"'`.
+- **Known issues / blockers:** `/api/health` reports `commit: null` (a CLI upload; Railway's commit variable is empty), so the version is confirmed by the behaviour, not the hash. The live site's address is public (the repository is); a new Railway domain is Samuel's call. The remaining security-review items (B2, B5, B8; then B3, B4, B6) are not deployed because they are not built yet.
+- **Exact next steps:** 1. The review items B2 (uploads held in memory before the size check), B5 (`/api/health` names the version), B8 (`persist-credentials: false` on CI's checkout) as small PRs into main, through the merge-train skill; then B3, B4, B6. 2. Open unknowns rows 12, 13 and 14 wait on Samuel (decide by 2026-10-14). 3. At the next WebKit stall on CI, read #104's report. 4. A browser cache for the CI install step (`~/.cache/ms-playwright`), worth a small PR.
 
 ### 2026-10-07 16:40 UTC (12:40 local) · Claude (laptop) · The day's merges: the M14 stack and the review fixes are in main; what is left before the deploy
 - **Done:**
