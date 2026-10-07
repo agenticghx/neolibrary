@@ -1784,8 +1784,31 @@ async function backInto(page: Page, at: 58 | 69) {
     end57: last.startMs + last.word.length * SECONDS_PER_CHAR * 1000,
     /** The paragraph, of `from` to `to`, that time `ms` of their file is in (the last one begun by then). */
     inside: (ms: number, from: number, to: number) => range(from, to).filter((i) => said(i)[0].startMs <= ms).at(-1)!,
-    /** The part before is asked for (waited for from before the click that asks, so it is not missed). */
-    asksBefore: () => page.waitForRequest((r) => /\/reading\?before=\d+$/.test(r.url()), { timeout: 10_000 }),
+    /**
+     * The part before is asked for (waited for from before the click that asks, so it is not missed). Not asked
+     * within 10 s: the error says what the player was doing, since a Back press is ignored while the audio element
+     * has no data or is seeking (skip's guard), which WebKit on CI can be in for a moment after a far seek.
+     */
+    asksBefore: () =>
+      page.waitForRequest((r) => /\/reading\?before=\d+$/.test(r.url()), { timeout: 10_000 }).catch(async (e: Error) => {
+        const state = await page
+          .evaluate(() => {
+            const a = document.querySelector("audio")!;
+            return { currentTime: a.currentTime, paused: a.paused, seeking: a.seeking, readyState: a.readyState, networkState: a.networkState };
+          })
+          .catch(() => "unknown");
+        throw new Error(`${e.message}\nThe part before was not asked for. The player: ${JSON.stringify(state)}`);
+      }),
+    /** Waits until the audio element has data and is not seeking: a Back press before that is ignored (skip's guard). */
+    ready: () =>
+      page.waitForFunction(
+        () => {
+          const a = document.querySelector("audio")!;
+          return a.readyState >= 2 && !a.seeking;
+        },
+        undefined,
+        { timeout: 10_000 },
+      ),
     where: () =>
       page.evaluate(() => {
         const a = document.querySelector("audio")!;
@@ -1887,7 +1910,7 @@ test("M14: back past where Listen began within the same audio file lands 15 s ba
 // from the press, LOOK_BACK_MS earlier), and both buttons work again.
 test("M14: the part before never comes: after the wait's limit, Back lands 15 s back from where the audio is by then, and Forward works again", async ({ page }) => {
   test.setTimeout(90_000);
-  const { mini, said, asksBefore, where } = await backInto(page, 69);
+  const { mini, said, asksBefore, ready, where } = await backInto(page, 69);
   await mini.getByRole("button", { name: "Pause" }).click();
   await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
   // 14 s into paragraph 69 (37 s long: room for the wait and both skips), then playing on from there.
@@ -1896,6 +1919,8 @@ test("M14: the part before never comes: after the wait's limit, Back lands 15 s 
   await expect.poll(async () => (await where()).t).toBeCloseTo(t / 1000, 1);
   await mini.getByRole("button", { name: "Play", exact: true }).click();
   await playUntil(page, t + 500);
+  // After a far seek, WebKit on CI can still be short of data for a moment: a Back pressed then is ignored.
+  await ready();
   // Every time the player sets the audio's time from here on: the time just before, and the time set.
   await page.evaluate(() => {
     const w = window as unknown as { sets_: [number, number][] };
