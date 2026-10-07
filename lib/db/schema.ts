@@ -218,6 +218,8 @@ export const generations = pgTable("generations", {
   costUsd: doublePrecision("cost_usd").notNull().default(0),
   output: text("output").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Brought back from a library file: its cost is history, not this month's spending (migration 0021). */
+  imported: boolean("imported").notNull().default(false),
 });
 
 export const questionMarks = pgTable("question_marks", {
@@ -263,6 +265,8 @@ export const audioTracks = pgTable("audio_tracks", {
   audioStartMs: integer("audio_start_ms"),
   audioEndMs: integer("audio_end_ms"),
   importId: uuid("import_id").references(() => readalongImports.id, { onDelete: "cascade" }),
+  /** Brought back from a library file: its cost is history, not this month's spending (migration 0021). */
+  imported: boolean("imported").notNull().default(false),
 });
 
 /** M13: one uploaded read-along package (see db/migrations/0020_readalong_imports.up.sql). */

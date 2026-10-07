@@ -29,7 +29,7 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
           await db
             .select({ n: sql<number>`count(*)::int` })
             .from(table)
-            .where(and(eq(table.provider, s.provider), gte(table.createdAt, since)))
+            .where(and(eq(table.provider, s.provider), eq(table.imported, false), gte(table.createdAt, since)))
         )[0]?.n ?? 0,
       );
     services.push({
@@ -41,7 +41,8 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
     });
   }
 
-  // Spending per book and per service (provider), from both stores of paid work.
+  // Spending per book and per service (provider), from both stores of paid work
+  // (not rows brought back from a library file, as in spending()).
   const byBook = new Map<string, Record<string, number>>();
   const add = (bookId: string | null, provider: string, usd: number) => {
     const k = bookId ?? "";
@@ -52,13 +53,13 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
   const g = await db
     .select({ bookId: generations.bookId, provider: generations.provider, usd: sql<number>`sum(${generations.costUsd})::float8` })
     .from(generations)
-    .where(gte(generations.createdAt, since))
+    .where(and(eq(generations.imported, false), gte(generations.createdAt, since)))
     .groupBy(generations.bookId, generations.provider);
   for (const r of g) add(r.bookId, r.provider, Number(r.usd));
   const a = await db
     .select({ bookId: audioTracks.bookId, provider: audioTracks.provider, usd: sql<number>`sum(${audioTracks.costUsd})::float8` })
     .from(audioTracks)
-    .where(gte(audioTracks.createdAt, since))
+    .where(and(eq(audioTracks.imported, false), gte(audioTracks.createdAt, since)))
     .groupBy(audioTracks.bookId, audioTracks.provider);
   for (const r of a) add(r.bookId, r.provider ?? "", Number(r.usd));
 
