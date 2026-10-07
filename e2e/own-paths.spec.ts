@@ -368,4 +368,13 @@ test("a Path named Constructor is your own: sections and Edit path", async ({ pa
   await page.goto("/paths/pneumonoultramicroscopicsilicovolcanoconiosis");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // The Paths list too: the name wraps inside its card. clientWidth, not innerWidth: under phone emulation
+  // innerWidth grows with a page that is too wide, so a check against it would pass.
+  await page.goto("/paths");
+  const longName = page.getByRole("main").getByRole("link", { name: "Pneumonoultramicroscopicsilicovolcanoconiosis", exact: true });
+  await expect(longName).toBeVisible();
+  const sideways = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(sideways, "/paths: px of sideways scroll").toBeLessThanOrEqual(0);
+  const pastEdge = await longName.evaluate((a) => a.getBoundingClientRect().right - document.documentElement.clientWidth);
+  expect(pastEdge, "/paths: px of the name past the screen's right edge").toBeLessThanOrEqual(0);
 });

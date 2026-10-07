@@ -52,6 +52,7 @@
   font-family: var(--font-serif);
   font-size: var(--text-xl);
   text-decoration-color: var(--accent);
+  overflow-wrap: anywhere; /* a Path named with one word wider than the card wraps inside it, not past the screen */
 }
 
 .itemMeta {
