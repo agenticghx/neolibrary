@@ -3,13 +3,16 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37550128494). Then merge #97, move #98 (V3a, reviewed, all seven review fixes in) onto main, commit CI's reference images, merge #98, back up, deploy, comment on #90. Then V3b (Import in the sidebar and a fifth phone tab), V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37552574877). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft); back up, deploy, comment on #90. Then V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
+<<<<<<< HEAD
 updated: 2026-10-06
 next_action: Read workflow wf_4f239b9c-a53's result (owner-only whole-book Create on #100; the EPUB safe-unzip and /paths phone-wrap fixes as draft PRs into main) and verify it. Then wait for Samuel to fix GitHub Actions billing; when CI runs, merge the two main-based fixes, then #97, #98, #99, #100 in order (each moved onto main, CI's reference images committed), back up, deploy, comment on #90. Never start a whole-book narration on the live site. Then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI starts no jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 next_action: V1 (your books first in the Path picker) and V2 (a made-voice Go to the page test) are a PR: merge when green, then deploy (back up first). Then V3a (the Import page, on m14-v3a-import, written, not yet run), V3b, V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
+=======
+>>>>>>> 1534c76 (Ledger: V3b (Iteration 60); draft PR #99; CI is still not starting jobs)
 updated: 2026-10-07
 shared_copy: none
 ---
@@ -37,6 +40,16 @@ Linux reference images for `home-*`, `library-*` and the new `import-*`;
 mark #98 ready; merge when all four checks are green; back up; deploy;
 comment on #90.
 
+**Then #99 (V3b, draft, on top of #98; added 2026-10-07 00:40 UTC):**
+Import in the sidebar and as a fifth phone tab, built and verified on the
+laptop. After #98 merges: `git rebase --onto origin/main 66f92e1
+m14-v3b-import-nav` (66f92e1 is the V3a commit V3b was built on; keep
+both sides where PROGRESS.md's Log and LEARNING_LOG.md conflict), push
+with `--force-with-lease`, set #99's base to `main` (`gh pr edit 99 --base
+main`) if GitHub has not, look at and commit CI's Linux renderings of the
+13 signed-in pages (every signed-in reference image changes), mark ready,
+merge when all four checks are green; back up; deploy.
+
 Every step of the M14 plan
 is live (`main` 9a19ccb, deployed 17:52 UTC). Samuel's verdict on #90's
 "What to try" items 1 to 4 came in on 2026-10-06. The follow-ups, as
@@ -51,8 +64,16 @@ draft:
 3. **V3a, an Import page** (done: draft #98, reviewed and fixed, waiting for CI) (books, and audiobooks for a book, with the
    agreed line on how books are heard). Home keeps only its Import button;
    the Library views lose their drop box.
-4. **V3b, Import** in the sidebar and as a fifth phone tab: a PR of its
-   own, since every signed-in reference image changes.
+4. **V3b, Import** in the sidebar and as a fifth phone tab (done: draft
+   #99, on top of #98, waiting for CI): a PR of its own, since every
+   signed-in reference image changes.
+4b. **The Paths list (`/paths`) scrolls sideways on a phone** (found
+   2026-10-07 while testing V3b; older than V3b, the same on V3a): a Path
+   whose name is one word wider than the screen (own-paths.spec.ts makes
+   "Pneumonoultramicroscopicsilicovolcanoconiosis") widens the list to
+   704 px. Fix in its own small PR: `overflow-wrap: anywhere` on
+   `.itemTitle` in `app/(app)/paths/page.module.css`, and a check in
+   `own-paths.spec.ts` that `/paths` fits 390 px after it makes that Path.
 4a. **V5, whole-book AI narration** on the Import page, as an explicit
    choice. Never call ElevenLabs for a whole book until Samuel explicitly
    says so: fake voice only.
@@ -115,7 +136,7 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2) and #98 (the Import page) cannot merge.
+- **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page) and #99 (Import in the sidebar and a fifth phone tab) cannot merge.
 
 - **M14 verdict** (#90, from 2026-10-06): your answers on items 1 to 4 are in, and their follow-ups are planned (`docs/m14-home-plan.md` §12). Still to do, when you can:
   - check the phone tabs on your iPhone, with the one-tap "Listen from here" in real Safari;
@@ -218,6 +239,38 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-07 00:40 UTC (20:40 on 6 Oct, local) · Claude (laptop, workflow agent) · V3b: Import in the sidebar and as a fifth phone tab (draft #99, on top of #98); CI still not starting jobs
+- **Done:**
+  - **V3b** (branch `m14-v3b-import-nav`, from `m14-v3a-import`; commit 7f421b2; draft PR #99 with base `m14-v3a-import`, so its diff is V3b alone):
+    - "Import" is the last item of the sidebar's Library list, after PDFs, and a fifth phone tab, after Search;
+    - both open `/import` and are marked as the current page there (`aria-current="page"`), also with a book chosen for its audiobook (`/import?book=…`);
+    - the icon is the arrow Home's Import button draws; the tab bar's grid has five columns; Home keeps its own Import button.
+  - **Tests** (`e2e/shell.spec.ts`):
+    - desktop: Import is clicked like the other sidebar links; the Library list reads All … PDFs, Import; Import stays the one current item with a book chosen;
+    - phone: the five tabs by name; each tab at least 44 × 44 px, on the screen, beside the one before, its icon and label inside it; the Import tab opens its page; it stays current with a book chosen.
+    - Two checks found "the link named Import" on Home, which now has two (its own, and the sidebar's or the tab's): they look inside `main` (`home.spec.ts`, `shell.spec.ts`).
+  - **Found, not fixed (older than V3b):** on a phone, `/paths` scrolls sideways by 345 px once a Path's name is one word wider than the screen (Exact next steps 4b).
+  - **Not done, because CI starts no jobs:** merges, CI's reference images, the deploy.
+- **Key paths:** `components/shell/{Sidebar.tsx,TabBar.tsx,Shell.module.css,icons.tsx}`, `app/(app)/layout.tsx`, `e2e/{shell,home}.spec.ts`; scratchpad `v3b-measure.cjs` (the tabs' sizes), `v3b-overflow.cjs` (which element is wider than the screen), `mut-v3b-round2.sh` (the base comparison, the control, the two mutations), `pr-v3b.md` (#99's text).
+- **Commands that worked:**
+  - `npm run check` → exit 0, `Tests 462 passed | 2 skipped (464)`;
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` (00:17 to 00:25 UTC, sound on the built-in speakers) → `291 passed (7.7m)`;
+  - `node <scratchpad>/v3b-measure.cjs` (a server on the database copy after `offline`) → at 390 px each tab `74.8x55.0`, the widest icon and label `38.6` px, `sideways scroll 0px`;
+  - `zsh <scratchpad>/mut-v3b-round2.sh` →
+    - the base, V3a (66f92e1), on the copy after `offline`: the phone shell test fails at the sideways check, `Received: 345` (the `/paths` overflow, so not V3b's);
+    - on the copy after `home`: control `1 passed (2.0s)`; the Import tab removed → caught at `shell.spec.ts:129`; the grid back to four columns → caught at `shell.spec.ts:147` (`Expected: >= 381.5`, `Received: 8`);
+  - opening #99 started CI run 37552574877: all four jobs ended in 2 seconds with no steps, "The job was not started because recent account payments have failed or your spending limit needs to be increased".
+- **Known issues / blockers:**
+  - **CI does not start jobs** (Waiting on Samuel): #97, #98 and #99 wait for it.
+  - **Reference images:** V3b changes all 52 reference images of the 13 signed-in pages (desktop and phone, light and dark); `import-*` are new in #98. CI's Linux renderings must be committed: #98's first, then #99's.
+  - **The database copy after `offline` no longer passes the phone shell test** (the long-named Path is in it): use the copy after `home` (`run-snap-home.sh`) for shell checks.
+  - On a 1280 × 800 window the longer Library list pushes "New path" just below the sidebar's visible part (it scrolls, as Collections already did); said in #99.
+- **Exact next steps:**
+  1. Wait for Samuel to fix GitHub billing; never raise a limit.
+  2. Then #97, #98 (as in Exact next steps), then #99 (rebase command in Exact next steps); back up; deploy; comment on #90.
+  3. V5 on `m14-v5-whole-book`, from `m14-v3b-import-nav`: fake voice only; never call ElevenLabs for a whole book.
+  4. The `/paths` fix (Exact next steps 4b), as its own PR.
 
 ### 2026-10-06 20:06 (local; 00:06 on 7 Oct UTC) · Claude (laptop, workflow Ship agent) · V3a review fixes in (#98, still a draft); CI still not starting jobs, so nothing merged or deployed
 - **Done:**

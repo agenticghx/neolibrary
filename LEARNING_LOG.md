@@ -50,6 +50,9 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 35 | 2026-10-06 08:36 | 3b CI (#78) | Only the phone images differ (the strip is gone) | run 37435892671 | success (images refreshed) | |
 | 36 | 2026-10-06 08:49 | 3b CI (#78) | #78 passes CI | run 37437423658 and its trace | failure (a real bug older than M14), job re-run, then success | "not caused by this PR" is not "a flake" |
 | 37 | 2026-10-06 09:15 | fix: reading time | Leaving right after a timed save keeps the sitting's last seconds | stats chain; the old code as a mutation | success | make a race happen on purpose: hold the request |
+| 60 | 2026-10-07 00:40 | V3b (#99) | Import fits the sidebar and a fifth phone tab with only the column count changed | whole suite; tab sizes measured; base comparison; control + 2 mutations | success (CI to come) | a database copy taken later can hold data that fails an older test: run the control, then compare with the base |
+
+Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
 ## Lessons so far
 
@@ -1700,3 +1703,65 @@ four mutations, each after a control run of the same test.
   global link hover colour can equal the button's hover background.
 - **A whole-page drop target takes drops meant for any part of the page:**
   sort the files by what they are before sending them anywhere.
+
+### Iteration 60 · 2026-10-07 00:40 · M14 follow-up V3b (Import in the sidebar and as a fifth phone tab) · success (CI to come: CI is still not starting jobs)
+
+**Hypothesis.** Import can join the sidebar's Library list (last, after
+PDFs) and the phone's tabs (fifth) with the existing navigation parts.
+Five tabs should still fit a 390 px phone screen with 44 px targets and no
+sideways scroll, with no CSS change beyond the number of columns.
+**Action.**
+- **The sidebar:** one item after the library's filters, inside the Library
+  list (the filters' own list stays filters only).
+- **The tabs:** a fifth entry; the tab bar's grid has five columns.
+- **The icon:** the arrow Home's Import button draws.
+- **Tests** (`e2e/shell.spec.ts`):
+  - desktop: Import is clicked like the other links; the Library list's
+    order; Import stays current after a book is chosen (`/import?book=…`);
+  - phone: five tabs by name; each tab measured (at least 44 × 44, on the
+    screen, beside the one before, its label inside it); Import opens its
+    page; it stays current with a book chosen.
+- **Two old checks found "the link named Import" on Home,** which now has
+  two: they look inside the page's main part.
+**Evaluation.** `npm run check`; the whole suite from a fresh database; the
+tabs measured by a one-off script; the screenshots; mutations after a
+control run.
+**Result.**
+- **`npm run check`:** exit 0, `Tests 462 passed | 2 skipped (464)`.
+- **The whole suite from a fresh database** (code of 7f421b2, sound on the
+  built-in speakers): `291 passed (7.7m)`.
+- **The tabs at 390 px:** each `74.8x55.0`; the widest icon and label
+  `38.6` px; `sideways scroll 0px`. For information: `71.8x55.0` at 375 px,
+  `60.8x55.0` at 320 px, no sideways scroll at either.
+- **Screenshots:** Import last in the Library list (desktop light);
+  highlighted on the Import page (desktop dark); five whole labels (phone
+  light and dark); the Import tab marked (phone dark); Home's own Import
+  beside the account button, above the Import tab (phone light). On a
+  1280 × 800 window, "New path" now sits just below the sidebar's visible
+  part (the sidebar scrolls).
+- **First mutation round, on the database copy after `offline`:** the
+  control failed. The phone test's sideways check on `/paths`: `Expected:
+  <= 0`, `Received: 345`. A one-off script found the cause: the `/paths`
+  list was 704 px wide, held open by a Path the own-paths tests make,
+  "Pneumonoultramicroscopicsilicovolcanoconiosis", whose name does not
+  wrap there. The base branch (V3a, 66f92e1) on the same copy failed the
+  same way (`Received: 345`), so V3b did not cause it. In a normal run the
+  shell tests come before own-paths, so no test sees it. Left for its own
+  PR (PROGRESS.md, Exact next steps 4b).
+- **Second round, on the copy after `home`** (`mut-v3b-round2.sh`):
+  - control `1 passed (2.0s)`;
+  - the Import tab removed: caught at `shell.spec.ts:129` (`- "Import"`);
+  - the grid back to four columns: caught at `shell.spec.ts:147`, "Import:
+    beside the tab before it" (`Expected: >= 381.5`, `Received: 8`: the
+    fifth tab wrapped to a second row).
+- **CI:** opening #99 started run 37552574877; all four jobs ended in 2
+  seconds with no steps ("The job was not started because recent account
+  payments have failed or your spending limit needs to be increased").
+**Lesson.**
+- **A database copy taken later in the suite can hold data an earlier test
+  never meets.** Here it held a long-named Path, which made a shell test
+  fail for a reason older than the change. Run the control first, then
+  run the base branch on the same copy before blaming the change.
+- **A test that measures something should be broken once on purpose, the
+  way it would break in real life:** the four-column grid showed the fit
+  check catches a wrapped tab, which a count of tab names would miss.
