@@ -1109,6 +1109,24 @@ raises a limit. The page should say so.
 - a limit stops it;
 - paragraphs already saved are not paid for again.
 
+**Built (2026-10-07, branch `m14-v5-whole-book`, a draft PR on top of
+#99):**
+- **No new table.** A paragraph counts as saved when `speakPassage` would
+  serve it again for free (the same key, `cacheKeyOf`). Whether a run is
+  going on lives in the server's memory; after a restart the page offers to
+  continue, and saved paragraphs are skipped.
+- **`lib/library/narration.ts`** (summary, start with `confirm: true`, the
+  run, Stop), **`app/api/books/[id]/narration`** (GET, POST, DELETE; owner
+  only; EPUB only), **`app/(app)/import/WholeBookNarration.tsx`** (the panel;
+  it gets the voices from the route, so the page never waits for the voice
+  service).
+- **The checkbox names what you would pay now:** the whole book minus what
+  is saved in that voice. **"How books are heard"** keeps Samuel's approved
+  words and gains one sentence on the whole-book choice.
+- **Tests:** `lib/library/narration.test.ts`; `e2e/narration.spec.ts`, a
+  Playwright project of its own that runs last (it makes a book's audio in
+  bulk and spends against the shared voice limits).
+
 ### V4 · Waiting on Samuel
 
 - **The phone tabs on his iPhone,** with the one-tap "Listen from here" in

@@ -51,6 +51,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 36 | 2026-10-06 08:49 | 3b CI (#78) | #78 passes CI | run 37437423658 and its trace | failure (a real bug older than M14), job re-run, then success | "not caused by this PR" is not "a flake" |
 | 37 | 2026-10-06 09:15 | fix: reading time | Leaving right after a timed save keeps the sitting's last seconds | stats chain; the old code as a mutation | success | make a race happen on purpose: hold the request |
 | 60 | 2026-10-07 00:40 | V3b (#99) | Import fits the sidebar and a fifth phone tab with only the column count changed | whole suite; tab sizes measured; base comparison; control + 2 mutations | success (CI to come) | a database copy taken later can hold data that fails an older test: run the control, then compare with the base |
+| 61 | 2026-10-07 01:41 | V5 (#100) | Whole-book narration needs no new table: speakPassage in a loop, runs in memory | npm run check; whole suite twice; browser test timings; 12 screenshots; 7 mutations with controls | success (CI to come) | time the code path a test runs, from inside the test, and print the margin |
+| 62 | 2026-10-07 01:21 | V5 full run 1 | The whole suite passes on 30a0766 | whole suite; the WebKit project alone on the same build | flake (an older test's navigation race) | |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -59,6 +61,13 @@ Iterations 38 to 59 have no row in this index (the sessions that wrote them did 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
+- **Time the code path a test runs, from inside the test, and print the
+  margin** (Iteration 61). A run timed through the HTTP route, one request
+  per paragraph, was twice as slow as the same work in the server's own
+  loop, so the first test book left Stop only a third of the run. Apply:
+  when a test must act while something is still going on, size it from
+  the test's own printed timing, keep several times the margin, and leave
+  the print in so CI's log shows it too.
 - **Read the clock before writing a time** (Iterations 28-34; seen twice
   in one session). Times guessed while waiting were hours off. Apply:
   `date -u` before each entry, or take the time from the output that
@@ -1765,3 +1774,89 @@ control run.
 - **A test that measures something should be broken once on purpose, the
   way it would break in real life:** the four-column grid showed the fit
   check catches a wrapped tab, which a count of tab names would miss.
+
+### Iteration 61 · 2026-10-07 01:41 · M14 follow-up V5 (AI voice narration for an entire book, chosen on purpose) · success (CI to come: CI is still not starting jobs)
+
+**Hypothesis.** Whole-book narration needs no new table. A paragraph is
+"saved" when `speakPassage` would serve it again (the same key). A run is
+`speakPassage` in a loop: it already saves each paragraph and checks the
+spending limits. Only "is a run going on" has to live in the server's
+memory. The fake voice is enough to test all of it (Samuel's rule: no paid
+voice for a whole book).
+**Action.**
+- `lib/library/narration.ts`: the summary, with where the limits would
+  stop it; a start only with `confirm: true`; the run; Stop.
+- The route `app/api/books/[id]/narration`, the panel on `/import`, and one
+  sentence added under "How books are heard" (Samuel's words unchanged).
+- Tests: 10 unit tests, and a browser test in a Playwright project of its
+  own that runs last (`e2e/narration.spec.ts`). Draft PR #100 (base
+  `m14-v3b-import-nav`), commit e0393af.
+**Evaluation.** `npm run check`; the browser test on the database copy
+after `offline`; the whole suite from a fresh database; 12 screenshots
+looked at; 7 mutations, after control runs.
+**Result.**
+- **`npm run check`:** exit 0, `Tests 472 passed | 2 skipped (474)`.
+- **Sizing the browser test's book:**
+  - 600 paragraphs passed;
+  - 1,000 paragraphs printed "Stop pressed 2664 ms after Create, at 644
+    saved": too little room left before the run would end by itself;
+  - 2,500 paragraphs of 6 characters ($4.50, under the $5 limit) printed
+    "Stop pressed 2562 ms after Create, at 357 saved"; the rest took 15,674
+    ms. The earlier estimate, 9 ms a paragraph timed through the HTTP route,
+    was about twice the real loop's speed.
+- **Looking at the screenshots** found two things to change: after a limit
+  stop the page still offered Continue (now it says nothing can be made),
+  and the stop message repeated the Railway note.
+- **Whole suite:** on 30a0766, `1 failed`, `26 did not run`, `265 passed
+  (5.6m)`, from a WebKit race in an older test (Iteration 62). On e0393af,
+  with three small fixes, `292 passed (8.2m)`. The narration test printed
+  "Stop pressed 2661 ms after Create, with 379 of 2,500 paragraphs saved"
+  and "134 different counts seen".
+- **Mutations:** each caught. Controls `Tests 10 passed (10)` (unit) and
+  `1 passed (31.2s)` (browser).
+  - Create enabled without the checkbox: `narration.spec.ts:114`
+    (`Received: enabled`).
+  - A start without `confirm: true`: `:123` (`Received: 202`) and
+    `narration.test.ts:258`.
+  - Saved paragraphs not skipped: `:159` and `:231`.
+  - The estimate counting saved paragraphs: `:110` and `:162`.
+  - Stop ignored: `:193`. At first it was caught only by a 30 s timeout;
+    the test now checks that the voice is not asked again.
+  - The limits without what has been spent: `:140` and `:215`.
+**Interpretation.** The design held. No migration was needed. "Nothing paid
+twice", the progress, and the stop at a limit all come from what
+`speakPassage` already does. The browser test's weak point is time: Stop
+must land while the run is still going on, so the test prints how far the
+run had got.
+**Lesson.** Time the code path a test runs, from inside the test, and
+print the margin. The per-request timing was twice the in-process loop's,
+so the first sizing left Stop a third of the run.
+**Next experiment.** Review #100 as a draft. When CI runs, commit CI's
+renderings of `import-*`, after #98's and #99's.
+
+### Iteration 62 · 2026-10-07 01:21 · First full run of V5: a WebKit failure in an older test · flake (not V5's; evidence given)
+
+**Hypothesis.** The whole suite passes on 30a0766 (V5's first commit).
+**Action.** `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright
+test --ignore-snapshots`, 01:16 to 01:21 UTC. The sound was on the
+built-in speakers.
+**Result.** `1 failed`, `26 did not run`, `265 passed (5.6m)`. In WebKit,
+`readalong.spec.ts:330` ("a two-part upload is announced once, can be
+cancelled…") failed: "page.goto: Navigation to
+"http://127.0.0.1:3100/library?new=collection" is interrupted by another
+navigation to "http://127.0.0.1:3100/books/…"". The 26 that did not run
+were the tests after it, the narration test among them.
+**Interpretation.** Most likely a race inside the test. It presses Remove
+on the book page and waits for the status line ("Removed Long reading…").
+At that moment `settle()` also starts a refresh of the book page
+(`router.refresh()`). The interrupting navigation went to that page's
+address, so the refresh was most likely still going when the test opened
+`/library`. V5 does not touch the book page, this test, or the upload.
+The `readalong-safari` project alone, on the same build from the copy
+after `offline`, passed: `30 passed (2.7m)`. The full run on e0393af
+passed too. The ledger and the logs have no earlier sighting.
+**Lesson.** None new: "not caused by this PR" still needs evidence, here
+the project alone on the same build, then a full run.
+**Next experiment.** If it happens again, have the test wait for the book
+page's refresh to finish (its request's answer) before opening the next
+page.

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37552574877). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft); back up, deploy, comment on #90. Then V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37558343498). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose; draft; review it as a draft first); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -50,6 +50,18 @@ main`) if GitHub has not, look at and commit CI's Linux renderings of the
 13 signed-in pages (every signed-in reference image changes), mark ready,
 merge when all four checks are green; back up; deploy.
 
+**Then #100 (V5, draft, on top of #99; added 2026-10-07 01:41 UTC):** AI
+voice narration for an entire book, chosen on purpose on the Import page,
+built and verified on the laptop with the fake voice only. Review it as a
+draft first (a workflow, as for #98). After #99 merges: `git rebase --onto
+origin/main 1534c76 m14-v5-whole-book` (1534c76 is the V3b commit V5 was
+built on; keep both sides where PROGRESS.md's Log and LEARNING_LOG.md
+conflict), push with `--force-with-lease`, `gh pr edit 100 --base main` if
+GitHub has not, look at and commit CI's Linux renderings of `import-*`,
+mark ready, merge when all four checks are green; back up; deploy. **Never
+start a whole-book narration on the live site** (Samuel's rule): after the
+deploy, check only `/api/health`, `/sign-in` and that `/import` answers.
+
 Every step of the M14 plan
 is live (`main` 9a19ccb, deployed 17:52 UTC). Samuel's verdict on #90's
 "What to try" items 1 to 4 came in on 2026-10-06. The follow-ups, as
@@ -75,8 +87,9 @@ draft:
    `.itemTitle` in `app/(app)/paths/page.module.css`, and a check in
    `own-paths.spec.ts` that `/paths` fits 390 px after it makes that Path.
 4a. **V5, whole-book AI narration** on the Import page, as an explicit
-   choice. Never call ElevenLabs for a whole book until Samuel explicitly
-   says so: fake voice only.
+   choice (done: draft #100, on top of #99, waiting for CI and a review).
+   Never call ElevenLabs for a whole book until Samuel explicitly says so:
+   fake voice only.
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
@@ -136,7 +149,9 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page) and #99 (Import in the sidebar and a fifth phone tab) cannot merge.
+- **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after someone signed in ticks "I understand this makes narration for the entire book and costs about $X" for one of their own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) readers you invite can narrate their own EPUBs, within the same shared limits.
+
+- **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page), #99 (Import in the sidebar and a fifth phone tab) and #100 (whole-book narration) cannot merge.
 
 - **M14 verdict** (#90, from 2026-10-06): your answers on items 1 to 4 are in, and their follow-ups are planned (`docs/m14-home-plan.md` §12). Still to do, when you can:
   - check the phone tabs on your iPhone, with the one-tap "Listen from here" in real Safari;
@@ -239,6 +254,38 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-07 01:41 UTC (21:41 on 6 Oct, local) · Claude (laptop, workflow agent) · V5: AI voice narration for an entire book, chosen on purpose (draft #100, on top of #99); fake voice only; CI still not starting jobs
+- **Done:**
+  - **V5** (branch `m14-v5-whole-book`, from `m14-v3b-import-nav` at 1534c76; commit e0393af; draft PR #100 with base `m14-v3b-import-nav`, so its diff is V5 alone): the Import page's new section "Create AI voice narration for an entire book":
+    - you choose an EPUB and a voice. Before anything is made, the page states the whole book, its paragraphs and characters, and the cost, paid up front (minus what is saved in that voice). It also states the voice limits, what is spent, and where the limits would stop it;
+    - Create stays disabled until "I understand this makes narration for the entire book and costs about $X" is ticked;
+    - then the count (asked for every second), a bar, Stop, and why it stopped: done, stopped, a limit in its own words, or an error. Continue skips saved paragraphs; with no room under a limit, no button;
+    - one sentence added under "How books are heard" (Samuel's two sentences unchanged).
+  - **No migration.** "Saved" uses the key `speakPassage` already serves saved paragraphs by. Runs live in the server's memory, and after a restart the page offers to continue.
+  - **ElevenLabs was never called:** the fake voice only (`AI_FAKE=1`). No narration was started on the live site, and nothing was deployed.
+  - **Found, not V5's:** in the first full run, WebKit failed once at `readalong.spec.ts:330`, a navigation race in an older test (Iteration 62). The project alone then passed 30 of 30, and the second full run passed.
+- **Key paths:** `lib/library/narration.ts` (+ `narration.test.ts`), `app/api/books/[id]/narration/route.ts`, `app/(app)/import/{WholeBookNarration.tsx,page.tsx,page.module.css}`, `e2e/narration.spec.ts` (project `narration`, last, in `playwright.config.ts`), `e2e/uploads.spec.ts` (the two-paragraph "How books are heard" check), `lib/library/audio.ts` (`cacheKeyOf` exported), `docs/m14-home-plan.md` (§12 V5, "Built"); scratchpad `v5/mut-v5-unit.sh`, `v5/mut-v5-e2e.sh`, `v5/stops.mts`, `v5/pr-v5.md` (#100's text).
+- **Commands that worked:**
+  - `npm run check` → exit 0, `Tests 472 passed | 2 skipped (474)`;
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots`, sound on the built-in speakers:
+    - on 30a0766: `1 failed`, `26 did not run`, `265 passed (5.6m)` (the WebKit race above);
+    - on e0393af, 01:28 to 01:37 UTC: `292 passed (8.2m)`. The narration test printed "Stop pressed 2661 ms after Create, with 379 of 2,500 paragraphs saved";
+  - `zsh <scratchpad>/run-snap.sh v5-ras readalong-safari "."` → `30 passed (2.7m)`;
+  - `npx tsx` on scratchpad `v5/stops.mts` (copied into the repo for the run, then removed) → Frankenstein 806 / 438,802 / $131.64, stops after 26 (3%); Jekyll 354 / 141,929 / $42.58, 36 (10%); The Time Machine 323 / 182,234 / $54.67, 75 (23%);
+  - `zsh <scratchpad>/v5/mut-v5-unit.sh` → control `Tests 10 passed (10)`; 5 of 5 mutations caught (`narration.test.ts:258`, `:159`/`:231`, `:110`/`:162`, `:193`, `:140`/`:215`);
+  - `zsh <scratchpad>/v5/mut-v5-e2e.sh` → control `1 passed (31.2s)`; Create without the checkbox caught at `narration.spec.ts:114` (`Received: enabled`); a start without `confirm: true` caught at `:123` (`Received: 202`);
+  - opening #100 started CI run 37558343498: all four jobs ended in about 2 seconds with no steps, "The job was not started because recent account payments have failed or your spending limit needs to be increased".
+- **Known issues / blockers:**
+  - **CI does not start jobs** (Waiting on Samuel): #97, #98, #99 and #100 wait for it.
+  - **Reference images:** `import-*` change again: the new section's "Add an EPUB first" line, and the added sentence. Commit CI's renderings after #98's and #99's.
+  - **The browser test depends on time:** Stop must land while the run is going on. The margin is printed in every run (here about 15% of the way through the run).
+  - **A rare double payment:** a run and the Listen bar making the same paragraph at the same moment could each pay for it.
+  - **The WebKit race at `readalong.spec.ts:330`** (first seen here; Iteration 62).
+- **Exact next steps:**
+  1. Wait for Samuel to fix GitHub billing; never raise a limit.
+  2. Then #97, #98, #99, then #100 (rebase command in Exact next steps); review #100 as a draft first; back up; deploy. Never start a whole-book narration on the live site.
+  3. The `/paths` fix (Exact next steps 4b), as its own PR.
 
 ### 2026-10-07 00:40 UTC (20:40 on 6 Oct, local) · Claude (laptop, workflow agent) · V3b: Import in the sidebar and as a fifth phone tab (draft #99, on top of #98); CI still not starting jobs
 - **Done:**
