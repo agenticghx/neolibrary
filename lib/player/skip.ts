@@ -12,29 +12,12 @@ import { afterEnded, fileStart, follow, SKIP_GAP_MS, TURN_LEAD_MS, WORD_TAIL_MS,
  * as playing would).
  */
 export function skipInBook(ps: PlayerParagraph[], file: number, t: number, deltaMs: number, endMs: number): number {
-  // The stretches playing jumps over in this file: [from, to).
-  const jumps: [number, number][] = [];
-  for (let i = 0; i + 1 < ps.length; i++) {
-    const p = ps[i];
-    const next = ps[i + 1];
-    if (p.file === file && next.file === file && next.startMs - p.endMs > SKIP_GAP_MS) jumps.push([p.endMs + WORD_TAIL_MS + TURN_LEAD_MS, next.startMs]);
-  }
   const last = Math.max(0, endMs - 50);
   let at = Math.min(Math.max(0, t), last);
-  let left = Math.abs(deltaMs);
-  if (deltaMs < 0) {
-    // Inside a stretch (between frames, before playing jumps it): count from where it begins.
-    for (const [from, to] of jumps) if (from < at && at < to) at = from;
-    // Back: walk down, stepping over each stretch without counting it.
-    for (const [from, to] of [...jumps].reverse()) {
-      if (to > at) continue;
-      if (at - left >= to) break;
-      left -= at - to;
-      at = from;
-    }
-    return Math.max(0, at - left);
-  }
-  for (const [from, to] of jumps) {
+  if (deltaMs < 0) return Math.max(0, backFrom(ps, file, at, -deltaMs));
+  // Forward, over the stretches playing jumps over in this file: [from, to).
+  let left = deltaMs;
+  for (const [from, to] of jumpsIn(ps, file)) {
     if (to <= at) continue;
     // Inside a stretch (playing would jump it): start counting from its end.
     if (from <= at) {
@@ -59,6 +42,26 @@ function jumpsIn(ps: PlayerParagraph[], file: number): [number, number][] {
   return jumps;
 }
 
+/**
+ * Back `back` ms from `t` in a file, counting only what plays: where it lands, below 0 when it would go back
+ * past the file's start (callers stop it there).
+ */
+function backFrom(ps: PlayerParagraph[], file: number, t: number, back: number): number {
+  const jumps = jumpsIn(ps, file);
+  let at = t;
+  let left = back;
+  // Inside a stretch (between frames, before playing jumps it): count from where it begins.
+  for (const [from, to] of jumps) if (from < at && at < to) at = from;
+  // Back: walk down, stepping over each stretch without counting it.
+  for (const [from, to] of [...jumps].reverse()) {
+    if (to > at) continue;
+    if (at - left >= to) break;
+    left -= at - to;
+    at = from;
+  }
+  return at - left;
+}
+
 /** How much of a file plays between two times (ms): the time between, less the stretches playing jumps over. */
 function playedBetween(ps: PlayerParagraph[], file: number, from: number, to: number): number {
   let ms = Math.max(0, to - from);
@@ -73,7 +76,13 @@ function paragraphAt(ps: PlayerParagraph[], first: number, file: number, t: numb
   return i;
 }
 
+/** Where a skip goes: a time in the file loaded (`seek`), or paragraph `index`'s file from `toMs` (`load`). */
 export type SkipStep = { kind: "seek"; toMs: number } | { kind: "load"; index: number; toMs: number };
+/**
+ * Back past the first paragraph loaded, with more of the audiobook before it: where it lands depends on
+ * paragraphs not loaded yet, so load the part before them first, then ask again.
+ */
+export type NeedsEarlier = { kind: "earlier" };
 
 /**
  * Back or forward 15 s in an audiobook of several files (M14 step 6b, part
@@ -89,9 +98,16 @@ export type SkipStep = { kind: "seek"; toMs: number } | { kind: "load"; index: n
  * file after, forward stops just before this file's end (which reads on), or
  * at the last word's end of the last file loaded; with none before (the
  * reading began in this file), back stops at its start.
+ * `earlier` (M14, back into a chapter not loaded): more of the audiobook comes
+ * before the first paragraph loaded. A back skip that would land before that
+ * paragraph's start (in this file, or in the file before when that file holds
+ * it) then answers `earlier`: once the part before is loaded, the same skip
+ * lands where it would have landed had that part been loaded all along.
  * `index`: the paragraph the player is in; `endMs`: this file's length.
  */
-export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t: number, deltaMs: number, endMs: number): SkipStep {
+export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t: number, deltaMs: number, endMs: number): SkipStep;
+export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t: number, deltaMs: number, endMs: number, earlier: boolean): SkipStep | NeedsEarlier;
+export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t: number, deltaMs: number, endMs: number, earlier = false): SkipStep | NeedsEarlier {
   const mine = ps.map((p, i) => [p, i] as const).filter(([p]) => p.file === file);
   if (!mine.length) return { kind: "seek", toMs: skipInBook(ps, file, t, deltaMs, endMs) };
   if (deltaMs >= 0) {
@@ -124,14 +140,22 @@ export function skipAcross(ps: PlayerParagraph[], index: number, file: number, t
   const begin = before ? fileStart(firstMine) : 0;
   const back = -deltaMs;
   const here = playedBetween(ps, file, begin, Math.min(t, endMs));
-  if (!before || back <= here) return { kind: "seek", toMs: Math.max(begin, skipInBook(ps, file, t, deltaMs, endMs)) };
+  if (!before || back <= here) {
+    const land = backFrom(ps, file, Math.min(Math.max(0, t), Math.max(0, endMs - 50)), back);
+    // Back past the first paragraph loaded, which is this file's: the paragraphs before it are needed first.
+    if (earlier && first === 0 && land < ps[0].startMs) return { kind: "earlier" };
+    return { kind: "seek", toMs: Math.max(begin, land, 0) };
+  }
   // Back into the file before, with what is left over, from its last word's end; no further back than where that
   // file began playing (as for this one), so it never lands in an opening stretch that playing skips.
   const f = before.file;
   const from = before.endMs + WORD_TAIL_MS;
   const firstThere = ps.findIndex((p) => p.file === f);
+  const land = backFrom(ps, f, from, back - here);
+  // Back past the first paragraph loaded, which is that file's: likewise.
+  if (earlier && firstThere === 0 && land < ps[0].startMs) return { kind: "earlier" };
   const beginThere = firstThere > 0 ? fileStart(ps[firstThere]) : 0;
-  const toMs = Math.max(beginThere, skipInBook(ps, f, from, -(back - here), from + 50));
+  const toMs = Math.max(beginThere, land, 0);
   return { kind: "load", index: paragraphAt(ps, firstThere, f, toMs), toMs };
 }
 

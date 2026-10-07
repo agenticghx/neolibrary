@@ -1,4 +1,4 @@
-import type { ReadingPart, Track } from "@/lib/library/audio";
+import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import type { ListenInfo } from "@/lib/library/listen";
 
 /**
@@ -18,6 +18,16 @@ export type Info = Omit<ListenInfo, "track"> & { track: (Track & { audioUrl: str
  */
 export function withPart<T extends ReadingPart>(reading: T, part: ReadingPart): T {
   return { ...reading, paragraphs: [...reading.paragraphs, ...part.paragraphs], more: part.more, chapters: { ...reading.chapters, ...part.chapters } };
+}
+
+/**
+ * An audiobook's reading with the part before it added at the front (going
+ * back from where the reading began): its paragraphs first, where the part
+ * before them ends, and the names of their chapters too. Every index into
+ * `paragraphs` moves on by the number added.
+ */
+export function withEarlier<T extends ReadingPart & { earlier: number | null }>(reading: T, part: EarlierPart): T {
+  return { ...reading, paragraphs: [...part.paragraphs, ...reading.paragraphs], earlier: part.earlier, chapters: { ...part.chapters, ...reading.chapters } };
 }
 
 export const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];

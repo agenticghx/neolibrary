@@ -1748,6 +1748,139 @@ test("M14 (6b): 15 s skips go on into the next audio file, and back into the one
   expect((await where()).paused).toBe(true);
 });
 
+// M14, back into a chapter not loaded: Listen opened further on gets the audiobook's paragraphs from there on only.
+// Going back past the first of them, the player first asks for the part before (…/reading?before=<position>), then
+// lands where it lands with that part loaded. A reading of two files: paragraphs 40 to 57, then, after a spoken
+// heading, 58 to 69 (69 a long one, 37 s).
+const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, k) => from + k);
+async function backInto(page: Page, at: 58 | 69) {
+  const bookId = await jekyllId(page);
+  const { zip, expected } = readAlong([
+    { title: "One", said: range(40, 57) },
+    { title: "Two", said: ["Chapter Two.", ...range(58, 69)] },
+  ]);
+  await importReading(page, bookId, zip(), expected);
+  // Listen from here on Home, the reading position at paragraph `at`: it starts exactly there (the reader would start
+  // at the first paragraph on its page).
+  expect((await page.request.put(`/api/books/${bookId}/position`, { data: { cfi: PARAGRAPHS[at].cfi, fraction: 0.5 } })).status()).toBe(204);
+  const prepared = page.waitForResponse((r) => r.url().includes(`/api/books/${bookId}/audio?`) && new URL(r.url()).searchParams.get("cfi") === PARAGRAPHS[at].cfi);
+  await page.goto("/");
+  // What the player gets: the second file's paragraphs from `at` on only, and that more of the audiobook comes before.
+  const info = await (await prepared).json();
+  expect((info.audiobook.paragraphs as { cfi: string; file: number }[]).map((p) => [p.cfi, p.file])).toEqual(range(at, 69).map((i) => [PARAGRAPHS[i].cfi, 1]));
+  expect(info.audiobook.earlier).toEqual(expect.any(Number));
+  const listen = page.getByTestId("continue-card").filter({ hasText: "The Strange Case of Dr. Jekyll and Mr. Hyde" }).getByRole("link", { name: "Listen from here" });
+  await expect(listen).toHaveAttribute("data-here", "");
+  await listen.click();
+  const mini = page.getByRole("region", { name: "Now playing" });
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+  const said = (i: number) => expected.filter((w) => w.cfi === PARAGRAPHS[i].cfi);
+  // Where the first file's last word ends (paragraph 57's; the fixture times every character).
+  const last = said(57).at(-1)!;
+  return {
+    mini,
+    said,
+    end57: last.startMs + last.word.length * SECONDS_PER_CHAR * 1000,
+    /** The paragraph, of `from` to `to`, that time `ms` of their file is in (the last one begun by then). */
+    inside: (ms: number, from: number, to: number) => range(from, to).filter((i) => said(i)[0].startMs <= ms).at(-1)!,
+    /** The part before is asked for (waited for from before the click that asks, so it is not missed). */
+    asksBefore: () => page.waitForRequest((r) => /\/reading\?before=\d+$/.test(r.url()), { timeout: 10_000 }),
+    where: () =>
+      page.evaluate(() => {
+        const a = document.querySelector("audio")!;
+        return { file: Number(/\/audio\/(\d+)$/.exec(a.getAttribute("src") ?? "")?.[1]), t: a.currentTime, paused: a.paused };
+      }),
+    shows: async (i: number) => PARAGRAPHS[i].text.includes((await mini.locator("p").first().innerText()).replace(/^…/, "").trim().slice(0, 30)),
+  };
+}
+
+test("M14: Back 15 s from where Listen began goes on back into the audio file before, though its part was not loaded; paused, it stays paused", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { mini, end57, inside, asksBefore, where, shows } = await backInto(page, 58);
+  await mini.getByRole("button", { name: "Pause" }).click();
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  // 13.5 s into the second file, paused.
+  await page.evaluate(() => (document.querySelector("audio")!.currentTime = 13.5));
+  await expect.poll(async () => (await where()).t).toBeCloseTo(13.5, 1);
+  await expect.poll(() => shows(inside(13_500, 58, 69))).toBe(true);
+  // Back 15 s: the part before is asked for; then, as with it loaded all along, 1.5 s back from the end of the first
+  // file's last word (plus its 0.25 s tail), in the first file, still paused.
+  const asked = asksBefore();
+  await mini.getByRole("button", { name: "Back 15 seconds" }).click();
+  await asked;
+  await expect.poll(async () => (await where()).file).toBe(0);
+  const landing = end57 + WORD_TAIL_MS - 1_500;
+  await expect.poll(async () => (await where()).t).toBeCloseTo(landing / 1000, 1);
+  await expect.poll(() => shows(inside(landing, 40, 57))).toBe(true);
+  expect((await where()).paused).toBe(true);
+});
+
+test("M14: Back 15 s from where Listen began, while playing: back into the audio file before, at the time counted from the press, playing on", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { mini, said, end57, inside, asksBefore, where, shows } = await backInto(page, 58);
+  await playUntil(page, said(58)[0].startMs + 500);
+  // Every time the player sets on the audio from here on (the landing in the first file is set once its length is known).
+  await page.evaluate(() => {
+    const w = window as unknown as { sets_: number[] };
+    w.sets_ = [];
+    const time = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "currentTime")!;
+    Object.defineProperty(HTMLMediaElement.prototype, "currentTime", {
+      configurable: true,
+      get: time.get,
+      set(this: HTMLMediaElement, t: number) {
+        w.sets_.push(t);
+        time.set!.call(this, t);
+      },
+    });
+  });
+  // Back 15 s, the time read in the same step as the press (the audio plays on while the test waits).
+  const asked = asksBefore();
+  const t0 = await page.evaluate(() => {
+    const t = document.querySelector("audio")!.currentTime;
+    document.querySelector<HTMLButtonElement>('[aria-label="Back 15 seconds"]')!.click();
+    return t;
+  });
+  // Less than 15 s into the second file (its first paragraph is within 6 s of its start): Back goes on into the first.
+  expect(t0).toBeLessThan(15);
+  await asked;
+  await expect.poll(async () => (await where()).file).toBe(0);
+  // Where: the t0 seconds of the second file, then the rest of the 15 s back from the end of the first file's last word.
+  const landing = end57 + WORD_TAIL_MS - (15_000 - t0 * 1000);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sets_: number[] }).sets_[0] ?? null)).toBeCloseTo(landing / 1000, 2);
+  // In the paragraph that time is in, shown in the mini-player, playing on from there.
+  await expect.poll(() => shows(inside(landing, 40, 57))).toBe(true);
+  await page.waitForFunction((t) => document.querySelector("audio")!.currentTime > t, landing / 1000 + 0.3, { timeout: 10_000 });
+  expect(await where()).toMatchObject({ file: 0, paused: false });
+  await expect(mini.getByRole("button", { name: "Pause" })).toBeVisible();
+});
+
+test("M14: back past where Listen began within the same audio file lands 15 s back, and shows and lights the paragraph it lands in", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { mini, said, inside, asksBefore, where, shows } = await backInto(page, 69);
+  await mini.getByRole("button", { name: "Pause" }).click();
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  // 14 s into paragraph 69, paused.
+  const t = said(69)[0].startMs + 14_000;
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), t / 1000);
+  await expect.poll(async () => (await where()).t).toBeCloseTo(t / 1000, 1);
+  await expect.poll(() => shows(69)).toBe(true);
+  const asked = asksBefore();
+  await mini.getByRole("button", { name: "Back 15 seconds" }).click();
+  await asked;
+  // 15 s back in the same file (nothing there is jumped over), 1 s before paragraph 69: in 68, which was not loaded,
+  // shown with the word said there lit; still paused.
+  const landing = t - 15_000;
+  await expect.poll(async () => (await where()).t).toBeCloseTo(landing / 1000, 1);
+  expect(inside(landing, 58, 69)).toBe(68);
+  await expect.poll(() => shows(68)).toBe(true);
+  const near = said(68)
+    .filter((w) => Math.abs(w.startMs - landing) < 1_000)
+    .map((w) => w.word);
+  expect(near.length).toBeGreaterThan(0);
+  await expect.poll(async () => near.includes((await mini.locator("mark").textContent()) ?? "")).toBe(true);
+  expect(await where()).toMatchObject({ file: 1, paused: true });
+});
+
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
   test.setTimeout(90_000);
   const { bookId, expected } = await miniReading(page);

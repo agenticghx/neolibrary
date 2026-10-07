@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
 import { capsFromEnv, checkCaps, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
@@ -285,6 +285,15 @@ export type ReadingParagraph = {
  */
 export type ReadingPart = { paragraphs: ReadingParagraph[]; more: number | null; chapters: Record<number, string> };
 
+/**
+ * The part of an audiobook's paragraphs just before a place in the book
+ * (asked for with `?before=<position>`): going back from where the reading
+ * began needs the paragraphs before it. In reading order. `earlier`: where
+ * the part before this one ends (ask `?before=<earlier>`), or null when
+ * nothing of the audiobook comes before it.
+ */
+export type EarlierPart = { paragraphs: ReadingParagraph[]; earlier: number | null; chapters: Record<number, string> };
+
 /** A book's uploaded audiobook, from a place in the book on (M13 (d)). */
 export type UploadedReading = ReadingPart & {
   importId: string;
@@ -293,8 +302,10 @@ export type UploadedReading = ReadingPart & {
   title: string | null;
   /** Its audio files, each played from one address (see the audio route). */
   files: { url: string; mime: string }[];
-  /** Where the next part of `paragraphs` is asked for (add `?from=<more>`). */
+  /** Where the next part of `paragraphs` is asked for (add `?from=<more>`), and the part before them (`?before=<earlier>`). */
   partsUrl: string;
+  /** Where the part before `paragraphs` ends (ask `?before=<earlier>`): null when nothing of the audiobook comes before them. */
+  earlier: number | null;
 };
 
 /**
@@ -347,6 +358,8 @@ export async function uploadedReading(
 ): Promise<UploadedReading | null> {
   const imp = await readyImport(db, ownerId, bookId);
   if (!imp) return null;
+  // Anything of it before `fromPosition` (going back from where the reading began asks for it: readingPartBefore).
+  const [prior] = await trackRows(db, ownerId, bookId, imp, lt(sections.position, fromPosition), desc(sections.position), 1);
   return {
     importId: imp.id,
     voice: `upload:${imp.id}`,
@@ -354,6 +367,7 @@ export async function uploadedReading(
     files: imp.audio.map((a, i) => ({ url: `/api/books/${bookId}/readalong/${imp.id}/audio/${i}`, mime: a.mime })),
     partsUrl: `/api/books/${bookId}/readalong/${imp.id}/reading`,
     ...(await paragraphsOf(db, ownerId, bookId, imp, fromPosition, part, words)),
+    earlier: prior ? fromPosition : null,
   };
 }
 
@@ -371,6 +385,29 @@ export async function readingPart(
   return imp ? paragraphsOf(db, ownerId, bookId, imp, fromPosition, part, words) : null;
 }
 
+/**
+ * The part of a finished import's paragraphs just before `beforePosition`
+ * (in reading order, the same size as a part from a place on), and where the
+ * part before it ends; null if the import is not this owner's, or not finished.
+ */
+export async function readingPartBefore(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  importId: string,
+  beforePosition: number,
+  part = READING_PART,
+  words = READING_WORDS,
+): Promise<EarlierPart | null> {
+  const imp = await readyImport(db, ownerId, bookId, importId);
+  if (!imp) return null;
+  // The nearest first, then put back in reading order.
+  const rows = await trackRows(db, ownerId, bookId, imp, lt(sections.position, beforePosition), desc(sections.position), part + 1);
+  const kept = partSize(rows, part, words);
+  const taken = rows.slice(0, kept).reverse();
+  return { ...(await asParagraphs(db, bookId, imp, taken)), earlier: kept < rows.length ? taken[0].position : null };
+}
+
 async function paragraphsOf(
   db: Db,
   ownerId: string,
@@ -380,7 +417,14 @@ async function paragraphsOf(
   part: number,
   words: number,
 ): Promise<ReadingPart> {
-  const rows = await db
+  const rows = await trackRows(db, ownerId, bookId, imp, gte(sections.position, fromPosition), asc(sections.position), part + 1);
+  const kept = partSize(rows, part, words);
+  return { ...(await asParagraphs(db, bookId, imp, rows.slice(0, kept))), more: rows[kept]?.position ?? null };
+}
+
+/** An import's tracks with their paragraphs in the book, where the paragraph's place matches `at`, in `order`. */
+function trackRows(db: Db, ownerId: string, bookId: string, imp: { id: string }, at: SQL, order: SQL, limit: number) {
+  return db
     .select({
       sectionId: audioTracks.sectionId,
       audioKey: audioTracks.audioKey,
@@ -394,21 +438,22 @@ async function paragraphsOf(
     })
     .from(audioTracks)
     .innerJoin(sections, and(eq(sections.bookId, audioTracks.bookId), eq(sections.id, audioTracks.sectionId)))
-    .where(
-      and(
-        eq(audioTracks.ownerId, ownerId),
-        eq(audioTracks.bookId, bookId),
-        eq(audioTracks.importId, imp.id),
-        gte(sections.position, fromPosition),
-      ),
-    )
-    .orderBy(asc(sections.position))
-    .limit(part + 1);
-  // Up to `part` paragraphs, stopping once `words` words are in (at least one paragraph).
+    .where(and(eq(audioTracks.ownerId, ownerId), eq(audioTracks.bookId, bookId), eq(audioTracks.importId, imp.id), at))
+    .orderBy(order)
+    .limit(limit);
+}
+type TrackRow = Awaited<ReturnType<typeof trackRows>>[number];
+
+/** How many of `rows` make a part: up to `part` paragraphs, stopping once `words` words are in (at least one paragraph). */
+function partSize(rows: TrackRow[], part: number, words: number): number {
   let kept = 0;
   let count = 0;
   while (kept < Math.min(rows.length, part) && (kept === 0 || count < words)) count += rows[kept++].words.length;
-  const taken = rows.slice(0, kept);
+  return kept;
+}
+
+/** Rows as the player's paragraphs (those it can play), with the names of their chapters. */
+async function asParagraphs(db: Db, bookId: string, imp: { audio: { key: string }[] }, taken: TrackRow[]) {
   const fileOf = new Map(imp.audio.map((a, i) => [a.key, i]));
   const [book] = await db.select({ fileType: books.fileType }).from(books).where(eq(books.id, bookId));
   const pages = book?.fileType === "pdf" && taken.length ? await pageOffsets(db, bookId, new Set(taken.map((r) => r.chapterIndex))) : null;
@@ -434,7 +479,7 @@ async function paragraphsOf(
     }
     paragraphs.push(p);
   }
-  return { paragraphs, more: rows[kept]?.position ?? null, chapters: await chapterNames(db, bookId, new Set(paragraphs.map((p) => p.chapterIndex))) };
+  return { paragraphs, chapters: await chapterNames(db, bookId, new Set(paragraphs.map((p) => p.chapterIndex))) };
 }
 
 /** The name of each chapter (EPUB spine item) or page (PDF, "Page 3") in `indexes`, as the book's sections name them. */
