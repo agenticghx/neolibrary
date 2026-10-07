@@ -98,14 +98,21 @@ export const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(
 
 const monthStart = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-/** Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever. */
+/**
+ * Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever.
+ * Rows brought back from a library file are left out: that money was not spent here.
+ */
 export async function spending(db: Db, provider: string, bookId: string | null, now = new Date()) {
   const sum = async (table: typeof generations | typeof audioTracks, book: boolean) => {
     const r = await db
       .select({ usd: sql<number>`coalesce(sum(${table.costUsd}), 0)::float8` })
       .from(table)
       .where(
-        and(eq(table.provider, provider), book && bookId ? eq(table.bookId, bookId) : gte(table.createdAt, monthStart(now))),
+        and(
+          eq(table.provider, provider),
+          eq(table.imported, false),
+          book && bookId ? eq(table.bookId, bookId) : gte(table.createdAt, monthStart(now)),
+        ),
       );
     return Number(r[0]?.usd ?? 0);
   };

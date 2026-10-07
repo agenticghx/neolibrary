@@ -1,6 +1,8 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users, type ChapterReading } from "@/lib/db/schema";
+import { assertSafeKey } from "@/lib/storage";
+import { cleanPicture } from "./pinned";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -382,9 +384,79 @@ export async function wipeLibrary(db: Db, ownerId: string) {
   });
 }
 
+/** A stored file's key, if it is a safe key in this reader's own folder (keys are `<folder>/<ownerId>/…`, see import.ts, audio.ts, voice-notes.ts). */
+function ownKey(key: unknown, folder: "books" | "covers" | "audio", ownerId: string) {
+  if (typeof key !== "string" || !key.startsWith(`${folder}/${ownerId}/`)) return false;
+  try {
+    assertSafeKey(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const isCost = (c: unknown) => typeof c === "number" && Number.isFinite(c) && c >= 0;
+
+/**
+ * A library file can be written by hand as easily as by an export, so before
+ * anything is written: every stored file it names must be in this reader's
+ * own folders, every row it links to must be one the file itself brings, and
+ * every cost must be an amount of money. Throws ExportFormatError otherwise.
+ */
+function checkImport(x: LibraryExport, ownerId: string) {
+  const refuse = (why: string): never => {
+    throw new ExportFormatError(`${why} Nothing was imported.`);
+  };
+  const bookIds = new Set(x.books.map((b) => b.id));
+  for (const b of x.books) {
+    if (b.file && !ownKey(b.file.key, "books", ownerId)) refuse(`The file of "${b.title}" is not stored in your library.`);
+    if (b.coverKey != null && !ownKey(b.coverKey, "covers", ownerId)) refuse(`The cover of "${b.title}" is not stored in your library.`);
+  }
+  const pathIds = new Set(x.paths.map((p) => p.id));
+  const pillarIds = new Set(x.paths.flatMap((p) => p.pillars.map((pil) => pil.id)));
+  for (const p of x.paths) {
+    for (const pil of p.pillars) for (const s of pil.slots) if (!bookIds.has(s.bookId)) refuse(`The Path "${p.title}" lists a book that is not in this file.`);
+  }
+  for (const c of x.collections) for (const id of c.bookIds) if (!bookIds.has(id)) refuse(`The collection "${c.name}" holds a book that is not in this file.`);
+  for (const a of x.annotations ?? []) {
+    if (a.bookId != null && !bookIds.has(a.bookId)) refuse("A note is on a book that is not in this file.");
+    // Notes on a Path or a section of one point at it by id (no database link checks that).
+    const targets = a.targetType === "path" ? pathIds : a.targetType === "pillar" ? pillarIds : bookIds;
+    if (a.targetId != null && !targets.has(a.targetId)) refuse("A note is on something that is not in this file.");
+    if (a.audio && !ownKey(a.audio.key, "audio", ownerId)) refuse("A voice note's recording is not stored in your library.");
+    // The same check as when a picture is pinned: a generated one must be in this reader's folder.
+    if (a.picture != null && !cleanPicture(a.picture, ownerId)) refuse("A pinned picture is not one your library can show.");
+  }
+  const generationIds = new Set<string>();
+  for (const g of x.generations ?? []) {
+    if (g.bookId != null && !bookIds.has(g.bookId)) refuse("An AI text is about a book that is not in this file.");
+    if (!isCost(g.costUsd)) refuse("An AI text's cost is not an amount of money.");
+    generationIds.add(g.id);
+  }
+  for (const m of x.questionMarks ?? []) {
+    if (!bookIds.has(m.bookId) || !generationIds.has(m.generationId)) refuse("A question mark is on a book or question bank that is not in this file.");
+  }
+  const importIds = new Set<string>();
+  for (const r of x.readalongImports ?? []) {
+    if (!bookIds.has(r.bookId)) refuse("An audiobook is for a book that is not in this file.");
+    // A half-sent upload cannot be finished from a file: export again once it is done.
+    if (r.status !== "ready" || r.audio.some((f) => f.uploadId != null)) refuse("An audiobook was still uploading when this file was made.");
+    if (r.audio.some((f) => !ownKey(f.key, "audio", ownerId))) refuse("An audiobook's audio file is not stored in your library.");
+    importIds.add(r.id);
+  }
+  for (const t of x.audioTracks ?? []) {
+    if (!bookIds.has(t.bookId)) refuse("A read-aloud track is for a book that is not in this file.");
+    if (t.importId != null && !importIds.has(t.importId)) refuse("A read-aloud track belongs to an audiobook that is not in this file.");
+    if (!ownKey(t.audioKey, "audio", ownerId)) refuse("A read-aloud track's audio file is not stored in your library.");
+    if (!isCost(t.costUsd)) refuse("A read-aloud track's cost is not an amount of money.");
+  }
+  for (const r of x.readingSessions ?? []) if (!bookIds.has(r.bookId)) refuse("A reading session is for a book that is not in this file.");
+}
+
 /**
  * Restores an export into a user's library, keeping its ids so links between
- * books, slots and collections survive. Refuses rows that already exist.
+ * books, slots and collections survive. Refuses rows that already exist, and
+ * files that point outside this reader's library (see checkImport).
  */
 export async function importLibrary(db: Db, ownerId: string, data: unknown) {
   const x = data as LibraryExport;
@@ -392,8 +464,16 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     throw new ExportFormatError("This is not a Neolibrary library export.");
   }
   if (x.version > EXPORT_VERSION) throw new ExportFormatError("This export is from a newer version of Neolibrary.");
+  checkImport(x, ownerId);
   const date = (s: string | null) => (s ? new Date(s) : null);
   await db.transaction(async (tx) => {
+    // A note's versions share an annotationId, which the database does not keep
+    // unique; the library is empty, so one already in use is another reader's.
+    const noteIds = [...new Set((x.annotations ?? []).map((a) => a.annotationId))];
+    if (noteIds.length) {
+      const [taken] = await tx.select({ id: annotations.id }).from(annotations).where(inArray(annotations.annotationId, noteIds)).limit(1);
+      if (taken) throw new ExportFormatError("Some notes in this file already exist in the library. Nothing was imported.");
+    }
     if (x.settings?.aiStyle) await tx.update(users).set({ aiStyle: x.settings.aiStyle }).where(eq(users.id, ownerId));
     for (const b of x.books) {
       await tx.insert(books).values({
@@ -482,8 +562,10 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         createdAt: new Date(a.createdAt),
       });
     }
+    // Imported AI texts and tracks keep the cost they record, marked `imported`
+    // so it is not counted as this month's spending (the caps cover every reader).
     for (const g of x.generations ?? []) {
-      await tx.insert(generations).values({ ...g, ownerId, createdAt: new Date(g.createdAt) });
+      await tx.insert(generations).values({ ...g, ownerId, createdAt: new Date(g.createdAt), imported: true });
     }
     for (const m of x.questionMarks ?? []) {
       await tx.insert(questionMarks).values({ ...m, ownerId, createdAt: new Date(m.createdAt) });
@@ -493,7 +575,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       await tx.insert(readalongImports).values({ ...r, ownerId, createdAt: new Date(r.createdAt), finishedAt: r.finishedAt ? new Date(r.finishedAt) : null });
     }
     for (const t of x.audioTracks ?? []) {
-      await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt) });
+      await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt), imported: true });
     }
     for (const r of x.readingSessions ?? []) {
       await tx
