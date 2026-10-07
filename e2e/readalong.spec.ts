@@ -6,7 +6,7 @@ import { extractSections, type Section } from "@/lib/library/sections";
 import { LOOK_BACK_MS } from "@/lib/player/session";
 import { buildPackage, SECONDS_PER_CHAR } from "@/lib/readalong/fixture";
 import { SKIP_GAP_MS, WORD_TAIL_MS } from "@/lib/readalong/player";
-import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Spoken } from "./listen";
+import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Frame, type Spoken } from "./listen";
 import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
 
 // M13 (c2): uploading a read-along package through the real server: the
@@ -527,39 +527,138 @@ async function gotoPastRefresh(page: Page, url: string) {
     await page.waitForTimeout(500);
     await page.goto(url);
   }
+ * Every request the page makes for audio during a test (watched from before each test in this file, below), in the
+ * order made: the range asked for, then what became
+ * of it: the server's answer (status, the range sent, its length), then the end of that answer: arrived in full
+ * ("finished") or given up by the browser ("failed", with the browser's reason). playUntil prints it when the audio
+ * stands still, so the next stall on CI says whether the player asked for more audio and whether the server
+ * answered (runs 37484095289 and 37536227334: WebKit stood still right after the start point was set, with 11.6 s
+ * loaded and the audio element still loading). Recorded by the test, not by the page: the page's own record
+ * (recordPlayer) ends when the test opens a page again, and two of the three stalls had none. watchAnswers is not
+ * used for this: it notes answers only (a request never answered is missing), for one import, in two tests.
+ * Times: ms since the test began.
+ */
+type AudioRequest = { url: string; asked: string | null; at: number; status?: number; sent?: string | null; length?: number; answered?: number; finished?: number; failed?: number; why?: string };
+const audioRequests = new WeakMap<Page, { start: number; list: AudioRequest[] }>();
+
+test.beforeEach(({ page }) => {
+  const start = Date.now();
+  const list: AudioRequest[] = [];
+  const entries = new Map<object, AudioRequest>(); // by Playwright's request object
+  audioRequests.set(page, { start, list });
+  const since = () => Date.now() - start;
+  page.on("request", (r) => {
+    // An audiobook's files, a made voice's (a signed file link), and anything else the browser loads as media.
+    if (r.resourceType() !== "media" && !/\/readalong\/[^/]+\/audio\/\d+|\/api\/files\/audio\//.test(r.url())) return;
+    const entry: AudioRequest = { url: new URL(r.url()).pathname, asked: r.headers().range ?? null, at: since() };
+    list.push(entry);
+    entries.set(r, entry);
+  });
+  page.on("response", (r) => {
+    const entry = entries.get(r.request());
+    if (entry) Object.assign(entry, { status: r.status(), sent: r.headers()["content-range"] ?? null, length: Number(r.headers()["content-length"] ?? -1), answered: since() });
+  });
+  page.on("requestfinished", (r) => {
+    const entry = entries.get(r);
+    if (entry) entry.finished = since();
+  });
+  page.on("requestfailed", (r) => {
+    const entry = entries.get(r);
+    if (entry) Object.assign(entry, { failed: since(), why: r.failure()?.errorText ?? "no reason given" });
+  });
+});
+
+const seconds = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
+
+/** One audio request as a line of playUntil's report, e.g. "2. audio/0 bytes=294912-: asked at 1.20 s; answered 206 bytes 294912-11534335/11534336, 11239424 bytes, at 1.21 s; still arriving: neither finished nor failed". */
+function describeRequest(q: AudioRequest, i: number) {
+  const file = /\/readalong\/[^/]+\/(audio\/\d+)$/.exec(q.url)?.[1] ?? q.url.split("/").pop();
+  const answer =
+    q.answered === undefined
+      ? "no answer"
+      : `answered ${q.status}${q.sent ? ` ${q.sent}` : ""}, ${q.length! >= 0 ? `${q.length} bytes` : "no length given"}, at ${seconds(q.answered)}`;
+  const end =
+    q.finished !== undefined
+      ? `finished at ${seconds(q.finished)}`
+      : q.failed !== undefined
+        ? `failed at ${seconds(q.failed)} (${q.why})`
+        : q.answered !== undefined
+          ? "still arriving: neither finished nor failed"
+          : null;
+  return `${i + 1}. ${file} ${q.asked ?? "no range"}: asked at ${seconds(q.at)}; ${[answer, end].filter(Boolean).join("; ")}`;
+}
+
+/** playUntil's one-line reading of the audio element's state, from the facts it printed (a media error first: then nothing more will load). */
+function readPlayer(p: { error: { code: number } | null; paused: boolean; readyState: number; networkState: number } | null) {
+  if (!p) return "in an unknown state (the page did not answer)";
+  const errors = ["", "the fetch was aborted", "a network error", "the audio could not be decoded", "the audio could not be loaded, or is not supported"];
+  if (p.error) return `stopped by a media error (code ${p.error.code}: ${errors[p.error.code] ?? "unknown"})`;
+  if (p.paused) return "paused (pauses lists each pause() a script made; a pause with none came from the browser)";
+  const network = ["empty", "idle", "loading", "without a source"][p.networkState];
+  if (p.readyState < 3) return `not paused but short of data (readyState ${p.readyState}): it waits for audio; its network is ${network}`;
+  return `not paused, with data ahead (readyState ${p.readyState}), yet its time stands still: the media pipeline froze`;
 }
 
 /**
  * Waits until the audio reaches `ms`. If it never does, prints what the player was doing first, so a stall on CI
  * can be read from the log alone (run 37348223223 timed out before the test read the player's events).
  * readyState 2 with a "waiting" event: WebKit paused to buffer. readyState 4, not paused, no "waiting": the media
- * pipeline froze while the element thought it was playing.
+ * pipeline froze while the element thought it was playing. Then every request for audio says why it waits: no
+ * request after the position was set (the player never asked), a request with no answer (the server), or an
+ * answer still arriving or finished (the audio was sent; the player did not use it).
  */
 async function playUntil(page: Page, ms: number) {
   try {
     await page.waitForFunction((t) => document.querySelector("audio")!.currentTime * 1000 >= t, ms, { timeout: 45_000 });
   } catch (e) {
+    const watched = audioRequests.get(page);
+    const gaveUp = watched ? Date.now() - watched.start : 0;
     const player = await page
       .evaluate(() => {
         const a = document.querySelector("audio")!;
         const spans = (r: TimeRanges) => Array.from({ length: r.length }, (_, i) => [r.start(i), r.end(i)]);
-        const w = window as unknown as { events_?: [string, number][]; pauses_?: [number, string][]; frames_?: unknown[] };
+        const w = window as unknown as { events_?: [string, number][]; pauses_?: [number, string][]; frames_?: Frame[] };
+        const frames = w.frames_;
+        // The first frame of the last run of frames at one audio time: when the audio's time last moved.
+        let still = frames?.length ?? 0;
+        while (frames && still > 1 && frames[still - 2][0] === frames[still - 1][0]) still--;
         return {
           src: a.getAttribute("src"),
           currentTime: a.currentTime,
+          duration: a.duration,
           paused: a.paused,
           seeking: a.seeking,
           readyState: a.readyState,
           networkState: a.networkState,
           error: a.error ? { code: a.error.code, message: a.error.message } : null,
           buffered: spans(a.buffered),
+          played: spans(a.played),
+          seekable: spans(a.seekable),
+          recorder: frames ? "on" : "off: recordPlayer did not run on this page, so no events, pauses or frames",
           events: w.events_ ?? null,
           pauses: w.pauses_ ?? null,
-          frames: w.frames_ ? { count: w.frames_.length, first: w.frames_[0], last: w.frames_.at(-1) } : null,
+          // A frame's 8th value is the page's clock (ms): stillSince is that clock when the audio's time last moved.
+          frames: frames ? { count: frames.length, first: frames[0], last: frames.at(-1), stillSince: frames[still - 1]?.[7] } : null,
+          clockOrigin: performance.timeOrigin,
         };
       })
       .catch((err: Error) => `the page did not answer: ${err.message}`);
     console.log(`playUntil: the audio never reached ${ms} ms. The player: ${JSON.stringify(player)}`);
+    const p = typeof player === "string" ? null : player;
+    const state = readPlayer(p);
+    if (!watched) {
+      console.log(`playUntil: the player is ${state}. Its requests for audio were not recorded: this is not the test's own page.`);
+      throw e;
+    }
+    const lines = watched.list.map(describeRequest);
+    const shown = lines.slice(-40);
+    const clock = p ? `; the page's clock (frames, stillSince) began at ${seconds(p.clockOrigin - watched.start)}` : "";
+    console.log(
+      [
+        `playUntil: the player is ${state}. Its requests for audio (${lines.length}${shown.length < lines.length ? `; the first ${lines.length - shown.length} not shown` : ""}), oldest first, times since the test began; gave up at ${seconds(gaveUp)}${clock}:`,
+        ...(shown.length ? shown : ["none: the page asked for no audio during this test"]),
+      ].join("\n  "),
+    );
     throw e;
   }
 }
