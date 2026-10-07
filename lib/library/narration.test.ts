@@ -28,6 +28,12 @@ const SMALL = readableEpub(
   [`<h1>The lamps</h1>${Array.from({ length: 8 }, (_, i) => `<p>Lamp ${i + 1} is lit at dusk by the keeper, who walks the length of the quay.</p>`).join("")}`],
   "Iris Wick",
 );
+/** A second small EPUB, of three paragraphs. Invented text. */
+const BOATS = readableEpub(
+  "Nine Boats",
+  [`<h1>The boats</h1>${Array.from({ length: 3 }, (_, i) => `<p>Boat ${i + 1} is tied up at dusk by the keeper, who walks the length of the quay.</p>`).join("")}`],
+  "Iris Wick",
+);
 
 beforeEach(async () => {
   database = await testDatabase();
@@ -177,6 +183,44 @@ describe("making the whole book in the background (M14 follow-up V5)", () => {
     expect([a.started, b.started].sort()).toEqual([false, true]);
     await Promise.all([a.done, b.done]);
     expect(voice.calls).toHaveLength(8);
+  });
+
+  it("one run per reader at a time: another voice or another book is refused while one goes on; after Stop, the next starts", async () => {
+    const voice = new GatedSpeech();
+    const { bookId } = await small();
+    const boats = (await importBook(database.db, storage, ownerId, { name: "nine-boats.epub", bytes: BOATS })).bookId;
+    const deps = { db: database.db, storage, model: voice };
+    const run = await startNarration(deps, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.waiting).toBe(1));
+    // Each would check the spending limits before the other had paid, and the Import page shows one run only.
+    const busy = "A narration is already going on: Eight Lamps, in the voice Ada (test voice). Stop it first.";
+    await expect(startNarration(deps, ownerId, bookId, "fake-ben", true)).rejects.toMatchObject({ constructor: NarrationError, message: busy, status: 400 });
+    await expect(startNarration(deps, ownerId, boats, "fake-ada", true)).rejects.toMatchObject({ constructor: NarrationError, message: busy, status: 400 });
+    // The same book in the same voice: it carries on, as before (nothing new starts).
+    expect((await startNarration(deps, ownerId, bookId, "fake-ada", true)).started).toBe(false);
+    expect(runningNarrations(ownerId)).toEqual([{ bookId, voice: "fake-ada" }]);
+    expect(voice.waiting).toBe(1);
+    // The rule is per reader: a reader you invited can narrate their own book meanwhile.
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const reader = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+    const theirs = (await importBook(database.db, storage, reader, { name: "nine-boats.epub", bytes: BOATS })).bookId;
+    const elsewhere = await startNarration({ ...deps, model: new FakeSpeech() }, reader, theirs, "fake-ada", true);
+    expect(elsewhere.started).toBe(true);
+    await elsewhere.done;
+    expect(await narrationSummary(database.db, voice, reader, theirs, "fake-ada")).toMatchObject({ saved: 3, stoppedBecause: { kind: "finished" } });
+
+    const stopping = stopNarration(database.db, ownerId, bookId, "fake-ada", 3_000);
+    expect(await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada")).toMatchObject({ running: true, stopping: true });
+    voice.release();
+    await stopping;
+    await run.done;
+    expect(runningNarrations(ownerId)).toEqual([]);
+    // Stopped: the other book, in the other voice, starts now.
+    const next = await startNarration({ ...deps, model: new FakeSpeech() }, ownerId, boats, "fake-ben", true);
+    expect(next.started).toBe(true);
+    await next.done;
+    expect(await narrationSummary(database.db, voice, ownerId, boats, "fake-ben")).toMatchObject({ saved: 3, running: false, stoppedBecause: { kind: "finished" } });
+    expect(voice.calls).toHaveLength(1);
   });
 
   it("Stop: the paragraph being made is saved (it is paid for), then nothing more is made", async () => {

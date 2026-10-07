@@ -123,10 +123,56 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
       expect(refused.status()).toBe(400);
       expect((await refused.json()).error).toBe("Nothing was started: first confirm that this makes narration for the entire book, paid up front.");
     }
+    // The Voice list follows your choice (review of #100). While the new voice's figures are being checked, or when
+    // that check fails, nothing about the voice before is offered: its cost, its checkbox and Create would start that one.
+    const voiceList = section.getByLabel("Voice", { exact: true });
+    const benCheck = (url: URL) => url.pathname === api && url.searchParams.get("voice") === "fake-ben";
+    await page.route(benCheck, (route) =>
+      route.request().method() === "GET" ? route.fulfill({ status: 400, json: { error: "Choose one of the voices on offer." } }) : route.continue(),
+    );
+    await voiceList.selectOption("fake-ben");
+    await expect(section.getByRole("alert")).toHaveText("Choose one of the voices on offer.");
+    await expect(voiceList).toHaveValue("fake-ben");
+    await expect(summary).toHaveCount(0);
+    await expect(section.getByRole("checkbox")).toHaveCount(0);
+    await expect(section.getByRole("button", { name: /narration$/ })).toHaveCount(0);
+    // Try again (choosing Ben again would send no change). Its answer is slow this time: still nothing about Ada meanwhile.
+    await page.unroute(benCheck);
+    await page.route(benCheck, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+    await section.getByRole("button", { name: "Try again" }).click();
+    await expect(voiceList).toHaveValue("fake-ben");
+    await expect(summary).toHaveCount(0);
+    await expect(section.getByRole("checkbox")).toHaveCount(0);
+    await expect(summary).toContainText("in the voice Ben (test voice)");
+    await expect(section.getByRole("alert")).toHaveCount(0);
+    // Try again is gone, so focus is back on the Voice list.
+    await expect(voiceList).toBeFocused();
+    await page.unroute(benCheck);
+    await voiceList.selectOption("fake-ada");
+    await expect(summary).toContainText("in the voice Ada (test voice)");
+
     // Nothing is made before Create.
     expect(posts).toEqual([]);
     expect(await summaryOf()).toMatchObject({ paragraphs: N, characters: CHARS, saved: 0, stopsAt: null, running: false, stoppedBecause: null });
     await fourLooks(page, "narration-summary");
+
+    // A Create the server refuses says why, and the message stays: the check that follows Create does not wipe it
+    // out. (Here a route answers the start, so it never reaches the server.)
+    const refusal = "A narration is already going on: Another Book, in the voice Ben (test voice). Stop it first.";
+    const starts = (url: URL) => url.pathname === api;
+    await page.route(starts, (route) => (route.request().method() === "POST" ? route.fulfill({ status: 400, json: { error: refusal } }) : route.continue()));
+    const checked = page.waitForResponse((r) => new URL(r.url()).pathname === api && r.request().method() === "GET");
+    await agree.check();
+    await create.click();
+    await checked;
+    await page.waitForTimeout(500);
+    await expect(section.getByRole("alert")).toHaveText(refusal);
+    await page.unroute(starts);
+    expect(posts.splice(0)).toEqual(["narration"]);
+    expect(await summaryOf()).toMatchObject({ saved: 0, running: false, stoppedBecause: null });
   });
 
   let stoppedAt = 0;
@@ -136,11 +182,24 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     await section.getByRole("button", { name: "Create narration" }).click();
     await expect(section.getByRole("button", { name: "Stop", exact: true })).toBeFocused();
     expect(posts).toEqual(["narration"]);
+    // One run per reader at a time (review of #100): another voice of this book, or another book, is refused meanwhile.
+    const otherEpub = exported.find((b) => b.file?.type === "epub" && b.id !== bookId)!;
+    for (const [url, voice] of [
+      [api, "fake-ben"],
+      [`/api/books/${otherEpub.id}/narration`, "fake-ada"],
+    ] as const) {
+      const refused = await page.request.post(url, { data: { voice, confirm: true } });
+      expect(refused.status()).toBe(400);
+      expect((await refused.json()).error).toBe("A narration is already going on: Lamps Along the Quay, in the voice Ada (test voice). Stop it first.");
+    }
     // It goes on in the background: the Import page, opened again, shows it (the book and voice chosen, the count, Stop).
     await page.reload();
     await expect(section.getByLabel("Book to narrate")).toHaveValue(bookId);
     await expect(section.getByRole("progressbar", { name: "Paragraphs saved" })).toBeVisible();
     await expect(section.getByTestId("narration-progress")).toHaveText(/^[\d,]+ of 2,500 paragraphs saved \((less than 1|\d+)%\)\.$/);
+    // While it runs, its book and voice cannot be changed: its progress and Stop stay in view.
+    await expect(section.getByLabel("Book to narrate")).toBeDisabled();
+    await expect(section.getByLabel("Voice", { exact: true })).toBeDisabled();
     await fourLooks(page, "narration-running");
     await expect(section.getByRole("progressbar", { name: "Paragraphs saved" })).toBeVisible();
     // Printed so a CI run shows how much room Stop had (the run must still be going when Stop is pressed).
@@ -153,7 +212,9 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     expect(stopped).toMatchObject({ running: false, stoppedBecause: { kind: "stopped", message: "Stopped, as you asked." } });
     expect(stopped.saved).toBeGreaterThan(0);
     expect(stopped.saved).toBeLessThan(N);
-    await expect(status).toHaveText(`Stopped, as you asked. ${num(stopped.saved)} of ${NN} paragraphs are saved, and play for free.`);
+    await expect(status).toHaveText(`Stopped, as you asked. ${num(stopped.saved)} of ${NN} paragraphs are saved, and play for free in the voice Ada (test voice).`);
+    await expect(section.getByLabel("Book to narrate")).toBeEnabled();
+    await expect(section.getByLabel("Voice", { exact: true })).toBeEnabled();
     // Stopped means stopped: nothing more is made.
     await page.waitForTimeout(1000);
     expect((await summaryOf()).saved).toBe(stopped.saved);
@@ -168,6 +229,13 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     const go = section.getByRole("button", { name: "Continue narration" });
     await expect(go).toBeDisabled();
     await section.getByRole("checkbox", { name: `I understand this makes narration for the entire book and costs about ${dollars(left)}` }).check();
+    // Every check of the count now answers in more than a second, slower than the refresh every second (review of
+    // #100): the page waits for each answer instead of dropping it, so the count moves and the outcome shows.
+    const slowChecks = (url: URL) => url.pathname === api;
+    await page.route(slowChecks, async (route) => {
+      if (route.request().method() === "GET") await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
     const t1 = Date.now();
     await go.click();
     await expect(section.getByRole("progressbar", { name: "Paragraphs saved" })).toBeVisible();
@@ -189,8 +257,12 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     expect(counts).toEqual([...counts].sort((a, b) => a - b));
     expect(counts[0]).toBeGreaterThanOrEqual(stoppedAt);
     await expect(section.getByTestId("narration-status")).toHaveText(
-      "Done: all 2,500 paragraphs are saved in the voice Ada (test voice). Open the book and press Listen: it plays for free.",
+      "Done: all 2,500 paragraphs are saved in the voice Ada (test voice). Open the book and press Listen: in that voice, it plays for free.",
+      { timeout: 15_000 },
     );
+    // The run ended by itself and took Stop away: keyboard focus moves to the outcome.
+    await expect(section.getByTestId("narration-status")).toBeFocused();
+    await page.unroute(slowChecks);
     await expect(section.getByTestId("narration-summary")).toHaveCount(0);
     const done = await summaryOf();
     expect(done).toMatchObject({ saved: N, toMake: { paragraphs: 0, characters: 0 }, estimateUsd: 0, stoppedBecause: { kind: "finished" } });
@@ -217,7 +289,10 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     const capped = await summaryOf("fake-ben");
     expect(capped).toMatchObject({ running: false, saved: fits, stoppedBecause: { kind: "limit" } });
     expect(capped.stoppedBecause!.message).toMatch(/^This book's voice spending cap \(\$5\.00\) has been reached \(\$\d\.\d\d spent\)\. The owner can raise VOICE_CAP_PER_BOOK_USD\.$/);
-    await expect(status).toHaveText(`Stopped by a spending limit: “${capped.stoppedBecause!.message}” ${num(fits)} of ${NN} paragraphs are saved, and play for free.`);
+    await expect(status).toHaveText(
+      `Stopped by a spending limit: “${capped.stoppedBecause!.message}” ${num(fits)} of ${NN} paragraphs are saved, and play for free in the voice Ben (test voice).`,
+    );
+    await expect(status).toBeFocused();
     // With no room left under the limit, nothing is offered: the page says why, and who can raise the limit.
     await expect(summary).toContainText(
       "They leave no room for another paragraph, so nothing can be made now. Only the library's owner can raise the limits, in Railway (VOICE_CAP_PER_BOOK_USD and VOICE_CAP_PER_MONTH_USD).",
@@ -250,5 +325,38 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     expect((await grace.request.delete(`${api}?voice=fake-ben`)).status()).toBe(404);
     await other.close();
     expect(await summaryOf("fake-ben")).toMatchObject({ running: false, saved: 277 });
+  });
+
+  await test.step("Listen opens in the voice a book was narrated in, so it plays for free (review of #100)", async () => {
+    // A second, tiny book, narrated whole in Ben only: Ada, the first voice on offer, has none of it.
+    const BELLS = "Bells Along the Quay";
+    await page.getByLabel("Choose files").setInputFiles({
+      name: "bells-along-the-quay.epub",
+      mimeType: "application/epub+zip",
+      buffer: Buffer.from(readableEpub(BELLS, [`<h1>The bells</h1>${["B1.", "B2.", "B3."].map((l) => `<p>${l}</p>`).join("")}`], AUTHOR)),
+    });
+    await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+    await expect(bookSelect.locator("option", { hasText: BELLS })).toHaveCount(1);
+    await bookSelect.selectOption({ label: `${BELLS}, by ${AUTHOR}` });
+    const summary = section.getByTestId("narration-summary");
+    await expect(summary).toContainText(`This narrates the entire book, ${BELLS}: all 3 paragraphs (9 characters), in the voice Ben (test voice).`);
+    await section.getByRole("checkbox", { name: "I understand this makes narration for the entire book and costs less than $0.01" }).check();
+    await section.getByRole("button", { name: "Create narration" }).click();
+    const status = section.getByTestId("narration-status");
+    await expect(status).toHaveText("Done: all 3 paragraphs are saved in the voice Ben (test voice). Open the book and press Listen: in that voice, it plays for free.");
+    // So short a run can be over before Create's answer: focus goes to the outcome then too, not to the page's top.
+    await expect(status).toBeFocused();
+    expect(posts).toEqual(["narration", "narration", "narration", "narration"]);
+
+    // The Read aloud bar opens in Ben, where the book plays for free, not in the first voice on offer.
+    const bellsId = await bookSelect.inputValue();
+    await page.goto(`/books/${bellsId}/read?listen=1`);
+    await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    const bar = page.getByRole("region", { name: "Read aloud" });
+    await expect(bar).toBeVisible({ timeout: 10_000 });
+    await expect(bar.getByLabel("Voice")).toHaveValue("fake-ben");
+    await expect(bar).toContainText("Saved audio: free to play.");
+    // Nothing was paid for to open it (no request that makes audio).
+    expect(posts).toEqual(["narration", "narration", "narration", "narration"]);
   });
 });

@@ -41,7 +41,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     <ImportRoot className={styles.main}>
       <header className={styles.head}>
         <h1 className={styles.title}>Import</h1>
-        <p className={styles.lede}>Add your books, and your own audiobooks for them.</p>
+        <p className={styles.lede}>Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front.</p>
       </header>
 
       <section aria-labelledby="books-h" className={styles.section}>

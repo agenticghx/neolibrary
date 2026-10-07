@@ -56,14 +56,18 @@ export const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixe
 
 /**
  * The voice a new session starts with: the book's own audiobook when it goes
- * on from near the reading position (or nothing else can read aloud),
- * otherwise the first made-on-demand voice.
+ * on from near the reading position (or nothing else can read aloud);
+ * otherwise the voice this paragraph's audio is saved in, so it plays for
+ * free (a book narrated whole on the Import page in a voice that is not the
+ * first on offer: review of #100); otherwise the first made-on-demand voice.
  */
-export function firstVoice(info: Pick<Info, "voices" | "audiobook">): string {
+export function firstVoice(info: Pick<Info, "voices" | "audiobook" | "track">): string {
   const made = info.voices.find((v) => !v.id.startsWith("upload:"));
   const ab = info.audiobook;
   const bookFirst = ab && ab.paragraphs.length && (!ab.begins || ab.begins.nearby || !made);
-  return bookFirst ? ab.voice : ((made ?? info.voices[0])?.id ?? "");
+  if (bookFirst) return ab.voice;
+  const saved = info.track ? info.voices.find((v) => v.id === info.track!.voice && !v.id.startsWith("upload:")) : undefined;
+  return (saved ?? made ?? info.voices[0])?.id ?? "";
 }
 
 /**

@@ -147,6 +147,26 @@ export async function storedTrack(db: Db, ownerId: string, model: SpeechModel, v
   return row ? toTrack(row) : null;
 }
 
+/**
+ * The paragraph's saved track in the first of `voices` (in that order) that has one, or null; one query for
+ * all of them. The Listen bar opens in that voice, so a book narrated whole in a voice that is not the first
+ * on offer plays for free from the start (review of #100).
+ */
+export async function firstStoredTrack(db: Db, ownerId: string, model: SpeechModel, voices: readonly string[], passage: Pick<Passage, "text">) {
+  if (!voices.length) return null;
+  const keys = voices.map((v) => cacheKeyOf(model, v, passage.text));
+  const rows = await db
+    .select()
+    .from(audioTracks)
+    .where(and(eq(audioTracks.ownerId, ownerId), inArray(audioTracks.cacheKey, keys)))
+    .orderBy(desc(audioTracks.createdAt));
+  for (const key of keys) {
+    const row = rows.find((r) => r.cacheKey === key);
+    if (row) return toTrack(row);
+  }
+  return null;
+}
+
 /** The rough cost of reading a paragraph aloud, in US dollars. */
 export const estimateSpeech = (passage: Pick<Passage, "text">) => speechCost(passage.text.length);
 

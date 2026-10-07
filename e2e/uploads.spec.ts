@@ -263,7 +263,7 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
       expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       // The serif text at the reading size: smaller on a phone, as on the other pages.
-      const lede = page.getByText("Add your books, and your own audiobooks for them.", { exact: true });
+      const lede = page.getByText("Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front.", { exact: true });
       expect(await lede.evaluate((el) => getComputedStyle(el).fontSize)).toBe(name === "phone" ? "18px" : "20px");
       await page.screenshot({ path: `screenshots/import-audiobook-${name}-${scheme}.png`, fullPage: true });
     }

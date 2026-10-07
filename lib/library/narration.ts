@@ -86,6 +86,9 @@ type Job = {
   ownerId: string;
   bookId: string;
   voice: string;
+  /** The book's title and the voice's name, for the refusal of a second run while this one goes on. */
+  title: string;
+  voiceName: string;
   running: boolean;
   stopRequested: boolean;
   /** Paragraphs this run paid for. */
@@ -213,6 +216,12 @@ export async function narrationSummary(
  * `confirm` is exactly true: the reader ticked "I understand this makes
  * narration for the entire book and costs about $X". `done` settles when the
  * run stops, for whatever reason (it never rejects).
+ *
+ * One run per reader at a time (review of #100): a run of another book, or of
+ * this book in another voice, is refused while one goes on. Runs started
+ * together would each check the spending limits before the others had paid,
+ * so together they could pass them; and the Import page shows one run (with
+ * its Stop), so a second would go on unseen.
  */
 export async function startNarration(
   deps: NarrationDeps,
@@ -221,15 +230,29 @@ export async function startNarration(
   voiceAsked: string,
   confirm: unknown,
 ): Promise<{ started: boolean; done: Promise<void> }> {
-  await epubOf(deps.db, ownerId, bookId);
+  const book = await epubOf(deps.db, ownerId, bookId);
   if (confirm !== true) throw new NarrationError("Nothing was started: first confirm that this makes narration for the entire book, paid up front.");
   if (!voiceAsked) throw new NarrationError("Choose one of the voices on offer.");
-  const { voice } = await voiceOf(deps.model, voiceAsked);
+  const { voices, voice } = await voiceOf(deps.model, voiceAsked);
   // No await between looking and adding: two requests at once start one run.
   const key = jobKey(ownerId, bookId, voice);
   const going = jobs().get(key);
   if (going?.running) return { started: false, done: going.done };
-  const job: Job = { ownerId, bookId, voice, running: true, stopRequested: false, made: 0, stoppedBecause: null, done: Promise.resolve() };
+  const other = [...jobs().values()].find((j) => j.ownerId === ownerId && j.running);
+  if (other) throw new NarrationError(`A narration is already going on: ${other.title}, in the voice ${other.voiceName}. Stop it first.`);
+  const voiceName = voices.find((v) => v.id === voice)?.name ?? voice;
+  const job: Job = {
+    ownerId,
+    bookId,
+    voice,
+    title: book.title,
+    voiceName,
+    running: true,
+    stopRequested: false,
+    made: 0,
+    stoppedBecause: null,
+    done: Promise.resolve(),
+  };
   jobs().set(key, job);
   job.done = run(job, deps);
   return { started: true, done: job.done };
@@ -279,7 +302,7 @@ export async function stopNarration(db: Db, ownerId: string, bookId: string, voi
   clearTimeout(timer);
 }
 
-/** The owner's runs going on in this server (the Import page shows the first one when it opens). */
+/** The owner's run going on in this server, if any (one at a time: see startNarration); the Import page shows it when it opens. */
 export function runningNarrations(ownerId: string) {
   return [...jobs().values()].filter((j) => j.ownerId === ownerId && j.running).map((j) => ({ bookId: j.bookId, voice: j.voice }));
 }
