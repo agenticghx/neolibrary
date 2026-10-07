@@ -48,6 +48,17 @@ describe("firstVoice", () => {
     expect(firstVoice(info({ audiobook: audiobook({ paragraphs: [] }) }))).toBe("fake-ada");
   });
 
+  it("starts with the voice this paragraph is saved in, so it plays for free (review of #100: a book narrated whole in that voice)", () => {
+    const ben = { id: "fake-ben", name: "Ben" };
+    const track = { voice: "fake-ben" } as Info["track"];
+    expect(firstVoice(info({ voices: [made, ben], track }))).toBe("fake-ben");
+    expect(note({ info: info({ voices: [made, ben], track }), voice: "fake-ben" })).toBe("Saved audio: free to play.");
+    // The audiobook from near here still comes first; a saved voice no longer on offer is not chosen.
+    expect(firstVoice(info({ voices: [book, made, ben], track, audiobook: audiobook() }))).toBe("upload:i1");
+    expect(firstVoice(info({ voices: [book, made, ben], track, audiobook: audiobook({ begins: { label: "Chapter 9", nearby: false } }) }))).toBe("fake-ben");
+    expect(firstVoice(info({ voices: [made], track }))).toBe("fake-ada");
+  });
+
   it("starts with the first voice, or none", () => {
     expect(firstVoice(info({ voices: [made, { id: "fake-ben", name: "Ben" }] }))).toBe("fake-ada");
     expect(firstVoice(info({ voices: [] }))).toBe("");

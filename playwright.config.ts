@@ -95,6 +95,9 @@ export default defineConfig({
     { name: "readalong", testMatch: /readalong\.spec\.ts/, dependencies: ["offline"], use: { ...desktop } },
     // 15. The same in Safari's engine (WebKit): Samuel reads in Safari, and folder picking differs by engine.
     { name: "readalong-safari", testMatch: /readalong\.spec\.ts/, dependencies: ["readalong"], use: { ...desktop, browserName: "webkit", launchOptions: noMediaDiskCache } },
+    // 16. AI voice narration for an entire book (M14 follow-up V5), with the fake voice, last of all: it makes a
+    // book's audio in bulk and spends (pretend) money against the voice spending limits shared by every test.
+    { name: "narration", testMatch: /narration\.spec\.ts/, dependencies: ["readalong-safari"], use: { ...desktop } },
   ],
   webServer: {
     // A fresh in-process database (PGlite) for every run. Idle connections are

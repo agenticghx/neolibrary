@@ -62,6 +62,14 @@
   min-width: 0;
 }
 
+/* Whole-book narration: while a run is shown, its book and voice cannot be changed, and must look it (no hover either). */
+.select:disabled,
+.select:disabled:hover {
+  border-color: var(--rule);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .button {
   min-height: 2.75rem;
   padding: 0 var(--space-5);
@@ -74,12 +82,120 @@
   cursor: pointer;
 }
 
-.button:hover {
+/* Whole-book narration's Create stays disabled until "I understand…" is ticked: it must look it. */
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.button:hover:not(:disabled) {
   background-color: var(--accent-strong);
 }
 
 .upload {
   max-width: 48rem;
+}
+
+/* Whole-book narration (M14 follow-up V5): the choice, the plain statement, the confirmation, the progress. */
+.narration {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  max-width: 48rem;
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+}
+
+.field {
+  display: grid;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.summary {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+
+/* The whole line is the checkbox's target (at least 44 px high). */
+.agree {
+  display: flex;
+  flex: 1 1 20rem;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  color: var(--ink-900);
+  cursor: pointer;
+}
+
+.agree input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.run {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.runActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.quiet {
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
+  color: var(--ink-900);
+  font: inherit;
+  cursor: pointer;
+}
+
+.quiet:disabled {
+  cursor: progress;
+}
+
+.quiet:hover:not(:disabled) {
+  border-color: var(--ink-500);
+}
+
+.meter {
+  width: 100%;
+  height: var(--space-2);
+  accent-color: var(--accent);
+}
+
+/* The line screen readers hear (role="status"): always in the page, even when empty, so its first words are announced. */
+.outcome {
+  max-width: var(--measure-read);
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
 }
 
 @media (width <= 48rem) {

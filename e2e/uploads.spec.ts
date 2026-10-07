@@ -263,7 +263,7 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
       expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       // The serif text at the reading size: smaller on a phone, as on the other pages.
-      const lede = page.getByText("Add your books, and your own audiobooks for them.", { exact: true });
+      const lede = page.getByText("Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front.", { exact: true });
       expect(await lede.evaluate((el) => getComputedStyle(el).fontSize)).toBe(name === "phone" ? "18px" : "20px");
       await page.screenshot({ path: `screenshots/import-audiobook-${name}-${scheme}.png`, fullPage: true });
     }
@@ -289,8 +289,10 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
     "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.",
   );
   expect(posted).toEqual([]);
-  // How books are heard: the words Samuel approved, whole (toHaveText with a string ignores line breaks only).
-  await expect(page.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText(
+  // How books are heard: the words Samuel approved, whole and unchanged (toHaveText with strings ignores line breaks only),
+  // then (V5) one sentence of its own on the whole-book choice.
+  await expect(page.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText([
     "To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.",
-  );
+    "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”.",
+  ]);
 });

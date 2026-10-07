@@ -8,6 +8,7 @@ import { startImport } from "@/lib/readalong/importer";
 import { getSpeechModel } from "@/lib/speech";
 import { FakeSpeech } from "@/lib/speech/fake";
 import { MemoryStorage } from "@/lib/storage";
+import { speakPassage } from "./audio";
 import { importBook } from "./import";
 import { AUDIOBOOK_NAME, listenInfo } from "./listen";
 import { getSections } from "./sections-store";
@@ -98,6 +99,26 @@ describe("an audiobook that begins further on (M13 (d))", () => {
     expect(far.audiobook!.begins).toEqual({ label: "Search for Mr. Hyde", nearby: false });
     // Opened in its own chapter, at its first paragraph: it begins here.
     expect((await listenInfo(database.db, ownerId, bookId, { cfi: chapter2[0].cfi }, withFake)).audiobook!.begins).toBeNull();
+  });
+});
+
+// Review of #100: a book narrated whole on the Import page in a voice that is not the first on offer plays for free
+// from the start: the bar opens in the voice the paragraph is saved in.
+describe("which voice's saved audio the bar opens with", () => {
+  it("the first voice on offer that this paragraph is saved in; a voice asked for gets its own only", async () => {
+    const at = { cfi: paragraphs[5].cfi };
+    const speak = (voice: string) => speakPassage(database.db, storage, fake, ownerId, { bookId, sectionId: paragraphs[5].id, voice });
+    expect((await listenInfo(database.db, ownerId, bookId, at, withFake)).track).toBeNull();
+    await speak("fake-ben");
+    expect((await listenInfo(database.db, ownerId, bookId, at, withFake)).track).toMatchObject({ voice: "fake-ben", sectionId: paragraphs[5].id });
+    // Asked for a voice (the bar's own choice), it gets that voice's saved audio only.
+    expect((await listenInfo(database.db, ownerId, bookId, { ...at, voice: "fake-ada" }, withFake)).track).toBeNull();
+    expect((await listenInfo(database.db, ownerId, bookId, { section: paragraphs[5].id, voice: "fake-ben" }, withFake)).track).toMatchObject({ voice: "fake-ben" });
+    // Saved in both: the first on offer, as before.
+    await speak("fake-ada");
+    expect((await listenInfo(database.db, ownerId, bookId, at, withFake)).track).toMatchObject({ voice: "fake-ada" });
+    // Another paragraph, saved in neither: none.
+    expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake)).track).toBeNull();
   });
 });
 

@@ -3,7 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { getSpeechModel } from "@/lib/speech";
 import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
-import { chapterNames, estimateSpeech, passageFor, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
+import { chapterNames, estimateSpeech, firstStoredTrack, passageFor, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
 
 /** What the Listen bar shows for "Your audiobook" among the voices (M13 (d)). */
 export const AUDIOBOOK_NAME = "Your audiobook";
@@ -27,7 +27,7 @@ export type ListenInfo = {
   book: { title: string; author: string };
   /** "Your audiobook" first when the book has one, then the made-on-demand voices (none without a voice key). */
   voices: { id: string; name: string }[];
-  /** The stored made-on-demand track for `voice` (or the first such voice), if any. */
+  /** The stored made-on-demand track for `voice`, if any; with no voice asked, the one in the first voice this paragraph is saved in. */
   track: Track | null;
   /** What making this paragraph's audio would cost; null when no voice key is set. */
   estimate: number | null;
@@ -69,8 +69,10 @@ export async function listenInfo(
     try {
       const model = speech();
       voices = await model.voices();
-      const voice = q.voice && !q.voice.startsWith("upload:") ? q.voice : voices[0]?.id;
-      if (voice) track = await storedTrack(db, ownerId, model, voice, passage);
+      if (q.voice && !q.voice.startsWith("upload:")) track = await storedTrack(db, ownerId, model, q.voice, passage);
+      // No voice asked (the bar opening): the first voice this paragraph is saved in, so the bar opens in a voice
+      // that plays it for free (a book narrated whole in a voice that is not the first on offer); none saved: none.
+      else track = await firstStoredTrack(db, ownerId, model, voices.map((v) => v.id), passage);
     } catch (e) {
       if (!(e instanceof SpeechNotConfigured)) throw e;
       configured = false;
