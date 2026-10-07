@@ -26,6 +26,17 @@ afterEach(() => database.raw.close());
 
 const chapter = (label: string) => all.find((s) => s.kind === "chapter" && s.label === label)!;
 
+/**
+ * Waits for the clock to move on by two milliseconds. The test database (PGlite) stamps a mark's `created_at` with
+ * `now()` in whole milliseconds (measured 2026-10-07: 40 statements in 5 ms gave 6 distinct values), so two marks of
+ * one question made within the same millisecond tie, and `marksFor` then orders them by their random id: the test
+ * below failed 1 run in 20. Real Postgres keeps microseconds; two taps on one question cannot share one.
+ */
+async function laterMillisecond() {
+  const t = Date.now();
+  while (Date.now() - t < 2) await new Promise((r) => setTimeout(r, 1));
+}
+
 describe("question bank (M6)", () => {
   it("asks once per chapter for recall, understanding and application questions, and re-serves them", async () => {
     const model = new FakeModel();
@@ -68,6 +79,7 @@ describe("question bank (M6)", () => {
     await markQuestion(database.db, ownerId, { generationId: a.id, index: 0, correct: true });
     await markQuestion(database.db, ownerId, { generationId: a.id, index: 1, correct: false });
     await markQuestion(database.db, ownerId, { generationId: b.id, index: 4, correct: false });
+    await laterMillisecond();
     await markQuestion(database.db, ownerId, { generationId: b.id, index: 4, correct: true }); // re-read, got it right
     expect(await marksFor(database.db, ownerId, bookId)).toEqual({ [`${a.id}:0`]: true, [`${a.id}:1`]: false, [`${b.id}:4`]: true });
 
