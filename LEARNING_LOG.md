@@ -1566,3 +1566,18 @@ picker because of a fault: missing from the list, or adding failing.
 - **"It did not show up" can mean "I could not see it".** Reproduce before
   fixing: here the fix was findability, not a missing row.
 - **A follow-up may need only a test:** V2's behaviour was right.
+### Iteration 67 · 2026-10-07 05:22 · Fix from `main`: the Paths list fits a phone with a long one-word Path name (draft #102) · success (CI to come: CI is still not starting jobs)
+
+*Iterations 57 to 65 are on the M14 stack's branches (#97 to #100) and 66 on #101, none on `main` yet.*
+
+**Hypothesis.** One line, `overflow-wrap: anywhere` on the Paths list's name links (`.itemTitle`), stops `/paths` scrolling sideways on a phone when a Path's name is one word wider than the screen, and changes nothing for names that fit.
+**Action.** The line in `app/(app)/paths/page.module.css`; in `e2e/own-paths.spec.ts`, at 390 px after it makes "Pneumonoultramicroscopicsilicovolcanoconiosis": `/paths` has no sideways scroll and the name ends inside the screen (commit 7cc1a00).
+**Evaluation.** The three pages that show the name, measured on `main`'s build and the fix's, on the database copy after `offline` (it holds that Path), at 390 px (resized and phone-emulated), 375 and 320; the shell phone test on that copy; `/paths` in the four looks on the copy after `home` (names that fit), compared with `cmp`; a control and 2 mutations, each compiled; `npm run check`; the whole suite.
+**Result.**
+- **Before (`main` c1a2526):** `/paths` `sideways 345px (scrollWidth 735, innerWidth 390)`, 360 px at 375 wide, 415 px at 320; the Path page and its edit page `sideways 0px` at all three. The shell test failed at `shell.spec.ts:126`, `Received: 345`, as V3b found.
+- **After:** `sideways 0px` everywhere; the name in 3 lines (308 × 131 px) inside its card; the shell test `1 passed (1.6s)`. Names that fit: the four screenshots `identical`.
+- **Mutations:** control `1 passed (1.8s)`; the wrap removed: `own-paths.spec.ts:364`, `Received: 345`; the wrap removed and the list hiding what sticks out: no sideways scroll, but `own-paths.spec.ts:366` (the name past the edge), `Received: 319.96875`.
+- **Runs:** `npm run check` `Tests 462 passed | 2 skipped (464)`; whole suite `281 passed (7.6m)`, exit 0.
+**Lesson.**
+- **Under phone emulation, `window.innerWidth` grows with a page that is too wide** (`scrollWidth 735, innerWidth 735` on `main`), so `scrollWidth <= innerWidth` cannot see sideways scroll there; `clientWidth` stayed 390. The 15 older checks written that way run in ordinary desktop browsers, where it works; new checks use `clientWidth`, as `shell.spec.ts` does.
+- **A test that makes unusual data should check every page that shows it.** The long name was checked on its own two pages, not on the list; the shell tests, which do open the list on a phone, run before the name exists.

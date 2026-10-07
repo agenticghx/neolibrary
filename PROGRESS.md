@@ -5,7 +5,7 @@ owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: V1 (your books first in the Path picker) and V2 (a made-voice Go to the page test) are a PR: merge when green, then deploy (back up first). Then V3a (the Import page, on m14-v3a-import, written, not yet run), V3b, V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
 blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
-updated: 2026-10-06
+updated: 2026-10-07
 shared_copy: none
 ---
 
@@ -199,6 +199,28 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 01:22 (local; 05:22 UTC) · Claude (laptop, workflow wf_4f239b9c-a53) · The Paths list fits a phone with a long one-word Path name: draft #102 into main
+- **Done:**
+  - On a phone, the Paths list (`/paths`) no longer scrolls sideways when a Path's name is one word wider than the screen: `overflow-wrap: anywhere` on the name links (`.itemTitle`), so such a name breaks inside its card. Measured at 390 px with the test Path "Pneumonoultramicroscopicsilicovolcanoconiosis": 345 px of sideways scroll on `main` (the page 735 px wide), 0 px with the fix (the name in three lines). This is item 4b of the M14 stack's "Exact next steps", done once #102 merges.
+  - The Path page and its edit page needed nothing: 0 px at 390, 375 and 320 px on `main`, and the same test already checked them.
+  - A new check in `e2e/own-paths.spec.ts`, in the test that makes that Path: at 390 px, `/paths` has no sideways scroll and the name ends inside the screen.
+  - Branch `m14-paths-phone-wrap`, made from `main` (not from the M14 stack); draft PR #102 into `main`. Its learning-log entry is Iteration 67.
+- **Key paths:** `app/(app)/paths/page.module.css` (`.itemTitle`); `e2e/own-paths.spec.ts` (the end of "a Path named Constructor is your own"); scratchpad `pathswrap/` (`measure.cjs`, `looks.cjs`, `breakword.cjs`, `bookpage.cjs`, `serve-measure.sh`, `mut.sh`, the screenshots).
+- **Commands that worked:**
+  - `zsh scratchpad/pathswrap/serve-measure.sh <label> offline` (the built app on the database copy after `offline`, which holds that Path) → `main`: `/paths` `sideways 345px (scrollWidth 735, innerWidth 390)`; the fix: `sideways 0px (scrollWidth 390, innerWidth 390)`.
+  - `zsh scratchpad/run-snap.sh <name> shell "tabs open their pages"` → `main`: `1 failed` at `shell.spec.ts:126`, `Received: 345`; the fix: `1 passed (1.6s)`.
+  - `zsh scratchpad/pathswrap/serve-measure.sh <label> home looks.cjs` on both builds, then `cmp` → `desktop-light identical`, `desktop-dark identical`, `phone-light identical`, `phone-dark identical`.
+  - `zsh scratchpad/pathswrap/mut.sh` → control `1 passed (1.8s)`; the wrap removed: `own-paths.spec.ts:364`, `Received: 345`; the wrap removed and the list hiding what sticks out: `own-paths.spec.ts:366`, `Received: 319.96875`; every build compiled; the stylesheet's md5 the same before and after.
+  - `npm run check` → `Tests  462 passed | 2 skipped (464)`, exit 0.
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` on 7cc1a00 → `281 passed (7.6m)`, exit 0 (05:13 to 05:21 UTC).
+- **Known issues / blockers:**
+  - GitHub Actions still starts no jobs (only Samuel can fix it), so #102 cannot merge yet.
+  - On a computer, that name now breaks before its last two letters instead of making every card 15 px wider than the list's usual 704 px.
+  - Under phone emulation (the test browser pretending to be a phone), `window.innerWidth` grows with a page that is too wide, so a check written `scrollWidth <= innerWidth` cannot see sideways scroll there. The 15 existing checks written that way all run in ordinary desktop browsers, where it works; not changed.
+  - A book's page lists the Paths the book is on. With the two long test names put into that line in the page (no book is on that Path in the test data): 0 px of sideways scroll at 390 and 375 px, 3 px at 320 px. Not changed.
+  - `main`'s "Exact next steps" and `next_action` are older than the M14 stack's (on #100's branch, `m14-v5-whole-book`); this entry leaves them as they are. Follow the stack's.
+  - When the M14 stack moves onto `main` after #102 (or the other way round), this file's Log and `LEARNING_LOG.md` conflict: keep both sides.
+- **Exact next steps:** when CI runs, mark #102 ready and merge it when its checks are green. It needs no new reference images: the `/paths` screenshots with names that fit are byte-identical before and after. Then continue with the M14 stack's "Exact next steps" (its item 4b is this PR).
 ### 2026-10-06 18:38 (local; 22:38 UTC) · Claude (laptop) · M14 follow-ups V1 and V2 as a PR; #96 merged
 - **Done:**
   - **#96** (Samuel's whole-book narration rule and plan V5) merged by hand as c1a2526 once its re-run was green; the auto-merge had not acted on the re-run.
