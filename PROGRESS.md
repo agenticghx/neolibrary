@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read docs/handoffs/2026-10-06-1937-m14-verdict-follow-ups.md. Check workflow wf_7af6252f-43f (V3a: the Import page; it also merges #97, deploys and comments on #90). Then V3b (Import in the sidebar and a fifth phone tab), V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37550128494). Then merge #97, move #98 (V3a, reviewed, all seven review fixes in) onto main, commit CI's reference images, merge #98, back up, deploy, comment on #90. Then V3b (Import in the sidebar and a fifth phone tab), V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 updated: 2026-10-06
 next_action: Read workflow wf_4f239b9c-a53's result (owner-only whole-book Create on #100; the EPUB safe-unzip and /paths phone-wrap fixes as draft PRs into main) and verify it. Then wait for Samuel to fix GitHub Actions billing; when CI runs, merge the two main-based fixes, then #97, #98, #99, #100 in order (each moved onto main, CI's reference images committed), back up, deploy, comment on #90. Never start a whole-book narration on the live site. Then the WebKit-after-seek stall on CI.
@@ -24,15 +24,18 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-06, 23:17 UTC).** First: **GitHub Actions is
-not starting jobs** (run 37541928335: "recent account payments have failed
-or your spending limit needs to be increased"). Only Samuel can fix it
-(Waiting on Samuel); never raise a limit. Until CI runs, nothing can merge.
-**#97** (V1+V2) and **#98** (V3a, draft, on top of #97) are built and
-verified on the laptop. When CI runs: #97 green, merge; rebase #98 on
-`main`; commit CI's Linux reference images for `home-*`, `library-*` and
-the new `import-*`; review #98 while it is a draft; merge; back up;
-deploy; comment on #90.
+**Resume M14 here (2026-10-07, 00:06 UTC).** First: **GitHub Actions is
+not starting jobs** (runs 37541928335 and, still, 37550128494: "recent
+account payments have failed or your spending limit needs to be
+increased"). Only Samuel can fix it (Waiting on Samuel); never raise a
+limit. Until CI runs, nothing can merge. **#97** (V1+V2) and **#98** (V3a,
+draft, on top of #97; reviewed, and the seven review fixes are in, commit
+adebd11) are built and verified on the laptop. When CI runs: #97 green,
+merge; `git rebase --onto origin/main m14-v2-goto-made-voice
+m14-v3a-import`, push with `--force-with-lease`; look at and commit CI's
+Linux reference images for `home-*`, `library-*` and the new `import-*`;
+mark #98 ready; merge when all four checks are green; back up; deploy;
+comment on #90.
 
 Every step of the M14 plan
 is live (`main` 9a19ccb, deployed 17:52 UTC). Samuel's verdict on #90's
@@ -45,7 +48,7 @@ draft:
    list does include it, 26th of 129.
 2. **V2, Go to the page** (done: #97, waiting for CI): check that it lights the word with a made voice
    (his case). The reading carrying on is confirmed.
-3. **V3a, an Import page** (done: draft #98, waiting for CI) (books, and audiobooks for a book, with the
+3. **V3a, an Import page** (done: draft #98, reviewed and fixed, waiting for CI) (books, and audiobooks for a book, with the
    agreed line on how books are heard). Home keeps only its Import button;
    the Library views lose their drop box.
 4. **V3b, Import** in the sidebar and as a fifth phone tab: a PR of its
@@ -215,6 +218,32 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-06 20:06 (local; 00:06 on 7 Oct UTC) · Claude (laptop, workflow Ship agent) · V3a review fixes in (#98, still a draft); CI still not starting jobs, so nothing merged or deployed
+- **Done:**
+  - **The review of draft PR #98** confirmed seven problems; all are fixed, each with a check that fails without the fix (commit adebd11, "M14 follow-up V3a, review fixes ..."):
+    - Home's Import went blank under the mouse (the global link hover colour equals the button's hover background): the hover keeps its text colour;
+    - on `/import`, adding a book while your audiobook uploaded made the running upload show as one that "did not finish": not while the page sends, and never the one it has just finished;
+    - no test checked that a page updates itself after an upload: one now, right after the first three books are added;
+    - the approved line on how books are heard was checked by its first sentence only: now whole;
+    - "Your audiobook" was a second h2 inside the h2 section on `/import`: an h3 there (the book page keeps its h2);
+    - a read-along .zip dropped on `/import` went to the book uploader and was refused as a broken EPUB: it is not sent, and its row says where your own audiobook goes;
+    - the Import page's serif text stayed 20 px on phones: 18 px, as on the other pages.
+  - **Not done, because CI starts no jobs** (Samuel only; never raise a limit): merging #97; rebasing #98 on `main`; CI's reference images; merging #98; the backup and deploy; the comment on #90 (Import is not live yet, so it would be wrong to say it is).
+- **Key paths:** `components/upload/{HomeImport.module.css,HomeImport.tsx,useBookUpload.ts}`, `app/(app)/books/[id]/AudiobookUpload.tsx`, `app/(app)/import/{page.tsx,page.module.css}`, `e2e/{uploads,home,readalong}.spec.ts`; scratchpad `mut-v3fix.sh`, `mut-v3fix-all.sh`, `run-fresh.sh` (a run from an empty database on whatever build `.next` holds).
+- **Commands that worked:**
+  - `npm run check` → exit 0, `Tests 462 passed | 2 skipped (464)`;
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` → `291 passed (7.7m)`;
+  - `zsh <scratchpad>/mut-v3fix-all.sh` → controls `1 passed` each; hover colour removed → caught at `home.spec.ts:115`; the `progress ? [] :` guard removed → `readalong.spec.ts:350`; the .zip test matching nothing → `uploads.spec.ts:288`; `router.refresh()` removed (from an empty database) → `uploads.spec.ts:31`, with the 147 tests before it passing;
+  - the push of adebd11 started CI run 37550128494: all four jobs ended in 2 seconds, "The job was not started because recent account payments have failed or your spending limit needs to be increased".
+- **Known issues / blockers:**
+  - **CI does not start jobs** (see Waiting on Samuel). Until it does, #97 and #98 cannot merge.
+  - **Reference images:** `home-*` and `library-*` change and `import-*` are new; the first CI run of #98 will fail on them until CI's Linux renderings are committed.
+  - `docs/handoffs/2026-10-06-1937-m14-verdict-follow-ups.md` exists only on the laptop (the handoff skill leaves it uncommitted); this ledger holds what a cloud session needs.
+- **Exact next steps:**
+  1. Wait for Samuel to fix GitHub billing; never raise a limit.
+  2. Then: #97 green, merge (`gh pr merge 97 --squash --match-head-commit <sha>` if the auto-merge does not act); `git rebase --onto origin/main m14-v2-goto-made-voice m14-v3a-import`, push with `--force-with-lease`; look at and commit CI's Linux renderings of `home-*`, `library-*`, `import-*`; mark #98 ready; merge when all four checks are green; `backup.sh`; `deploy.sh`; check `/api/health` 200, `/sign-in` 200, `/import` 307; comment on #90.
+  3. Then V3b, V5, the WebKit stall.
 
 ### 2026-10-06 19:39 (local; 23:39 UTC) · Claude (laptop) · Handoff written for the next session
 - **Done:** wrote `docs/handoffs/2026-10-06-1937-m14-verdict-follow-ups.md` (left uncommitted, as the handoff skill asks). It covers:

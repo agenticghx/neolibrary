@@ -1645,3 +1645,58 @@ the screenshots.
   contains another.
 - **A CI job that fails in 2 seconds with no steps is not a test result:**
   read its annotation before re-running anything.
+
+### Iteration 59 · 2026-10-06 20:06 · M14 follow-up V3a, review fixes · success (CI to come: CI is still not starting jobs)
+
+**Hypothesis.** The seven problems the review of draft PR #98 confirmed can
+each be fixed in a few lines, and each fix can be pinned by a check that
+fails without it.
+**Action.**
+- **Home's Import under the mouse:** the hover keeps the text colour (the
+  global `a:hover` colour was the button's own hover background).
+- **"Did not finish" during a running upload:** no unfinished rows while
+  the page sends, and the upload it has just finished is never one of them.
+- **A dropped .zip on `/import`:** not sent as a book; its row says where
+  your own audiobook goes. Other files go to the server as before, so the
+  server's own messages (and the tests that check them) are unchanged. The
+  hidden status line counts only files the server read.
+- **"Your audiobook" is an h3 on `/import`** (a `headingLevel` prop; the
+  book page keeps its h2).
+- **The serif text on `/import` at 18 px on a phone.**
+- **Tests:** a refresh check right after the first upload; the approved
+  line checked whole; the hover check; the running-upload check (a
+  collection toggled during a held upload, its `aria-pressed` the sign that
+  the refresh arrived); the .zip drop; the heading level; the text size.
+**Evaluation.** `npm run check`; the whole suite from a fresh database;
+four mutations, each after a control run of the same test.
+**Result.**
+- **`npm run check`:** exit 0, `Tests 462 passed | 2 skipped (464)`.
+- **The whole suite from a fresh database:** `291 passed (7.7m)` (sound
+  on the built-in speakers), the new checks included, the read-along one
+  in both engines.
+- **Mutations** (scratchpad `mut-v3fix-all.sh`; controls on the unbroken
+  build `1 passed` each):
+  - the hover's text colour removed: caught at `home.spec.ts:115`
+    (`Expected: not "rgb(42, 82, 77)"`);
+  - the `progress ? [] :` guard removed: caught at `readalong.spec.ts:350`
+    ("An upload from 7 Oct 2026 did not finish" while "Sending the audio");
+  - the .zip test made to match nothing: caught at `uploads.spec.ts:288`
+    (the message never appeared);
+  - `router.refresh()` removed, run from an empty database: caught at
+    `uploads.spec.ts:31` (`Expected: 0`, `Received: 1`); the 147 tests
+    before it passed, so no other test noticed.
+  Each failing run also printed "Test timeout of 30000ms exceeded." after
+  its failure (the controls did not); not looked into.
+- **CI still starts no jobs:** run 37550128494 (the push of adebd11, 00:05
+  UTC on 7 October): all four jobs ended in 2 seconds, "The job was not
+  started because recent account payments have failed or your spending
+  limit needs to be increased". Nothing merged, nothing deployed.
+**Lesson.**
+- **A check that something does not appear needs a sign that the cause has
+  happened first.** With the fix, a refresh changes nothing visible, so the
+  test waits for something else the same refresh brings (the collection
+  button's pressed state), then checks "did not finish" is absent.
+- **A link styled as a button must set its own hover text colour:** the
+  global link hover colour can equal the button's hover background.
+- **A whole-page drop target takes drops meant for any part of the page:**
+  sort the files by what they are before sending them anywhere.
