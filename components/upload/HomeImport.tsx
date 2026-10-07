@@ -86,11 +86,11 @@ export function ImportLink() {
 
 /** The dashed hint, with Choose files, and what happened to each file. */
 export function ImportZone() {
-  const { input, busy, results, error, upload } = useUpload();
+  const { input, busy, results, read, error, upload } = useUpload();
   return (
     <div className={styles.zoneWrap}>
       <p role="status" className="visually-hidden">
-        {busy ? "Reading your books…" : results.length ? `${results.length === 1 ? "1 file" : `${results.length} files`} read.` : ""}
+        {busy ? "Reading your books…" : read ? `${read === 1 ? "1 file" : `${read} files`} read.` : ""}
       </p>
       <div className={styles.zone}>
         <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" className={styles.zoneIcon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

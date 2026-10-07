@@ -325,12 +325,29 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   await expect(section.getByTestId("audiobook-status")).toHaveText("Removed Long reading: its audio and word timings are gone from this book.");
   expect(await page.evaluate(() => document.activeElement?.id)).toBe("audiobook");
 
+  // A collection, so the page can be refreshed during the next upload (below).
+  const collection = `Refresh test ${Date.now()}`;
+  await page.goto("/library?new=collection");
+  await page.getByLabel("Collection name").fill(collection);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page).toHaveURL(/\/library\?c=/);
+  const collectionUrl = page.url();
+  await page.goto(`/books/${bookId}`);
+
   // Cancel in the middle of sending: the page says so, and the unfinished upload can be removed.
   partDelay = 20_000; // held while the screen is checked, then cancelled
   await chooseFolder(section, "Choose the read-along folder", root);
   const cancel = section.getByRole("button", { name: "Cancel the upload" });
   // Wait until the audio is being sent (the upload exists on the server).
   await expect(section.getByTestId("audiobook-status")).toHaveText(/^Sending the audio/);
+  await expect(cancel).toBeVisible();
+  // A refresh of the page while it sends (here: the book put in a collection; on the Import page:
+  // a book added) lists the running upload as uploading. It is running, not one that "did not finish".
+  const inCollection = page.getByRole("button", { name: collection, exact: true });
+  await expect(inCollection).toHaveAttribute("aria-pressed", "false");
+  await inCollection.click();
+  await expect(inCollection).toHaveAttribute("aria-pressed", "true"); // the refresh has arrived
+  await expect(section).not.toContainText("did not finish");
   await expect(cancel).toBeVisible();
   // The screen during an upload: accessible, no sideways scrolling, in four looks.
   const AxeBuilder = (await import("@axe-core/playwright")).default;
@@ -369,6 +386,9 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   const pdf = books.find((b) => b.title === "Discourse on the Method")!;
   await page.goto(`/books/${pdf.id}`);
   await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("Then press Listen in the book to play it.");
+  await page.goto(collectionUrl);
+  await page.getByRole("button", { name: "Delete collection" }).click();
+  await expect(page).toHaveURL(/\/library$/);
 });
 
 // The upload routes skip proxy.ts (so large bodies are not cut at 10 MB);

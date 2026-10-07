@@ -23,6 +23,7 @@
 
 .importButton:hover {
   background-color: var(--accent-strong);
+  color: var(--on-accent); /* the global a:hover colour is the same as this background */
 }
 
 .zoneWrap {

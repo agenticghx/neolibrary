@@ -78,7 +78,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         )}
         {chosen ? (
           <div className={styles.upload}>
-            <AudiobookUpload bookId={chosen.id} imports={imports} />
+            <AudiobookUpload bookId={chosen.id} imports={imports} headingLevel={3} />
           </div>
         ) : null}
       </section>

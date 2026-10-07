@@ -26,6 +26,10 @@ test("three public-domain books land on the shelf with their titles and covers",
   ]);
   const results = page.getByTestId("upload-results");
   await expect(results.getByText("Added to your library")).toHaveCount(3);
+  // The Import page updates itself after an upload (useBookUpload's router.refresh): with no reload,
+  // the new books are offered for your own audiobook (Frankenstein is new in this test).
+  await expect(page.getByText("Add a book first", { exact: false })).toHaveCount(0);
+  await expect(page.getByLabel("Book", { exact: true }).locator("option", { hasText: "Frankenstein, by Mary Shelley" })).toHaveCount(1);
 
   await page.goto("/library");
   const shelf = page.getByTestId("shelf");
@@ -244,6 +248,8 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
   const section = page.getByRole("region", { name: "Your audiobook", exact: true });
   await section.getByLabel("or a .zip of it (up to 50 MB)").setInputFiles({ name: "frankenstein-readalong.zip", mimeType: "application/zip", buffer: Buffer.from(pkg.zip()) });
   await expect(section).toContainText("Ready · added");
+  // Its heading sits one level below the section's own ("Add your audiobook to a book", an h2).
+  await expect(section.getByRole("heading", { level: 3, name: "Your audiobook", exact: true })).toBeVisible();
   expect(await imports()).toMatchObject([{ status: "ready", title: "Frankenstein test reading" }]);
   // With a book chosen, the page is accessible and fits a phone in all four looks (the page
   // screenshots in pages.ts show it with no book chosen).
@@ -256,6 +262,9 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // The serif text at the reading size: smaller on a phone, as on the other pages.
+      const lede = page.getByText("Add your books, and your own audiobooks for them.", { exact: true });
+      expect(await lede.evaluate((el) => getComputedStyle(el).fontSize)).toBe(name === "phone" ? "18px" : "20px");
       await page.screenshot({ path: `screenshots/import-audiobook-${name}-${scheme}.png`, fullPage: true });
     }
   }
@@ -264,6 +273,24 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
   await section.getByRole("button", { name: "Remove Frankenstein test reading" }).click();
   await expect(section).not.toContainText("Ready · added");
   expect(await imports()).toEqual([]);
-  // How books are heard (the words Samuel approved).
-  await expect(page.getByText("To hear a book, add its file first.", { exact: false })).toBeVisible();
+  // A read-along .zip dropped on the audiobook section reaches the page's book uploader (a drop
+  // anywhere on the page adds books): it is not sent as a book, and the page says where it goes.
+  const posted: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/books") posted.push(r.url());
+  });
+  const zipDrop = await page.evaluateHandle(() => {
+    const t = new DataTransfer();
+    t.items.add(new File(["PK"], "x-readalong.zip", { type: "application/zip" }));
+    return t;
+  });
+  for (const type of ["dragenter", "dragover", "drop"]) await section.dispatchEvent(type, { dataTransfer: zipDrop });
+  await expect(page.getByTestId("upload-results")).toContainText(
+    "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.",
+  );
+  expect(posted).toEqual([]);
+  // How books are heard: the words Samuel approved, whole (toHaveText with a string ignores line breaks only).
+  await expect(page.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText(
+    "To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.",
+  );
 });

@@ -86,4 +86,9 @@
   .main {
     padding: var(--space-5) var(--space-4) var(--space-9);
   }
+
+  /* The reading size on a phone, as on the other pages. */
+  .lede {
+    font-size: var(--text-read-phone);
+  }
 }
