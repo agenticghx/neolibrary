@@ -60,8 +60,9 @@ export const ASK_MORE_AT = 40;
 export const ASK_AGAIN_MS = 5000;
 /**
  * How long a back skip waits for the part of the audiobook before the paragraphs loaded (Back and Forward wait
- * with it). A part of 200 paragraphs, compressed, takes about 2 s on a slow phone network; past this, the
- * request is given up and the skip lands within what is loaded, counted from where the audio is by then.
+ * with it). By estimate, a part (200 paragraphs, about 8,000 words of timings, compressed) takes about 2 s on a
+ * slow phone network; past this, the request is given up and the skip lands within what is loaded, counted
+ * from where the audio is by then.
  */
 export const LOOK_BACK_MS = 8000;
 /** Waiting for audio shorter than this is not mentioned (Chromium waits briefly on every seek). */

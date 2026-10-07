@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Both reviews cut short by the session limit are done by hand (09:40 UTC entry): #103's one finding is fixed on `m14-back-into-chapter` (a time limit on the wait for the part before; one new browser test; committed and pushed) and #104 is clean. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37600771760, 09:27 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; Open unknowns rows 12 and 13 wait on Samuel), then #103 (Back 15 s into a chapter not loaded) and #104 (the WebKit-stall report, tests only), both on top of #100, no reference images change; back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Meanwhile: the flaky unit test (Exact next steps item 7).
+next_action: Both reviews cut short by the session limit are done by hand (09:40 UTC entry): #103's one finding is fixed on `m14-back-into-chapter` (a time limit on the wait for the part before; one new browser test; committed and pushed) and #104 is clean. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37600771760, 09:27 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; Open unknowns rows 12 and 13 wait on Samuel), then #103 (Back 15 s into a chapter not loaded) and #104 (the WebKit-stall report, tests only), both on top of #100, no reference images change; back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). The flaky unit test (Exact next steps item 7) is fixed in draft #105 (`m6-flaky-marks-test` into main; its own ledger entry is on that branch): merge it with #101 and #102. Then the next unblocked step: why a failing read-along test's trace does not finish (Known issues, 09:40 UTC entry).
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -125,11 +125,13 @@ draft:
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
-5a. **Back 15 s into a chapter that has not been loaded** (done: a draft
-   PR from `m14-back-into-chapter` into `m14-v5-whole-book`, on top of
-   #100, waiting for CI; added 2026-10-07 06:51 UTC): with your own
-   audiobook, Back from where Listen began now goes on into the chapter
-   before (the parts route's new "before" mode). After #100 merges: `git
+5a. **Back 15 s into a chapter that has not been loaded** (done: draft
+   #103 from `m14-back-into-chapter` into `m14-v5-whole-book`, on top of
+   #100, waiting for CI; added 2026-10-07 06:51 UTC; reviewed, its one
+   finding fixed 09:40 UTC: the wait for the part before is limited to
+   8 s, and a late failure lands from where the audio is by then): with
+   your own audiobook, Back from where Listen began now goes on into the
+   chapter before (the parts route's new "before" mode). After #100 merges: `git
    rebase --onto origin/main f83fd83 m14-back-into-chapter` (f83fd83 is the
    #100 commit it was built on; keep both sides where PROGRESS.md's Log and
    LEARNING_LOG.md conflict), push with `--force-with-lease`, `gh pr edit
@@ -322,19 +324,20 @@ Never blocks the loop. Newest first.
   - On #104's head 3c52315: `rm -rf .next/types && npx next typegen && npm run check` → exit 0, `Tests 478 passed | 2 skipped (480)`.
   - On the fix (this branch): the same → exit 0, `Tests 489 passed | 2 skipped (491)` (no unit test touched); `npm run build` exit 0.
   - `zsh <scratchpad>/run-snap-home.sh fix-chromium readalong "M14:"` → `4 passed (14.5s)` (the new test 10.3 s); `fix-webkit readalong-safari "M14:"` → `4 passed (19.2s)` (11.6 s). Sound on the built-in speakers.
-  - `zsh <scratchpad>/mut-lookback.sh` (break, build, run the new test in Chromium, restore; `cmp` against the backup afterwards: identical): control `1 passed (10.2s)`; three mutations, each caught by the new test: no time limit (given up only after 60 s) → `readalong.spec.ts:1923`, `Received: 0` after "Timeout 23000ms exceeded while waiting on the predicate" (the landing never came); the fallback counted from the press (the old answer) → `:1926`, `Expected: 15`, `Received: 23.000638` (the 8 s of the wait on top); other skips not held during the wait → `:1920` (a Forward during the wait moved the audio). (The line numbers are from before the test's cleanup was moved into a `finally`, three lines earlier: a failed run had waited another 30 s in teardown with the request still held.)
+  - `zsh <scratchpad>/mut-lookback.sh` (break, build, run the new test in Chromium, restore; `cmp` against the backup afterwards: identical): control `1 passed (10.2s)`; three mutations, each caught by the new test: no time limit (given up only after 60 s) → `readalong.spec.ts:1923`, `Received: 0` after "Timeout 23000ms exceeded while waiting on the predicate" (the landing never came); the fallback counted from the press (the old answer) → `:1926`, `Expected: 15`, `Received: 23.000638` (the 8 s of the wait on top); other skips not held during the wait → `:1920` (a Forward during the wait moved the audio). (The line numbers are from before the test's cleanup was moved into a `finally`, three lines earlier.) **A failing read-along test costs 30 s more, and that is not this test's doing:** a failing run of the new test took 43 s of wall time against 14 s passing, with "Test timeout of 30000ms exceeded" after the assertion, before and after the `finally`; a failing run of the older paused "back into" test took 39 s against 5 s, with the same line. In both, `test-results/…/trace.zip` is truncated ("End-of-central-directory signature not found"): Playwright's saving of the failure trace (`trace: "retain-on-failure"` in `playwright.config.ts`) hits the 30 s limit on these pages and is cut off. Worth a small look later (Known issues); not changed here.
   - The whole read-along file, `run-snap-home.sh whole-chromium readalong ""` and `whole-webkit readalong-safari ""` → Chromium `34 passed (2.6m)`, WebKit `34 passed (3.0m)` (33 before, plus the new test: 9.3 s and 11.6 s).
   - On the final text (the cleanup in a `finally`): `npm run check` → exit 0, `Tests 489 passed | 2 skipped (491)`; `run-snap-home.sh final-chromium readalong "M14:"` → `4 passed (14.3s)`; `final-webkit readalong-safari "M14:"` → `4 passed (20.9s)`.
 - **Known issues / blockers:**
   - CI (above). Eight PRs wait: #97 to #104.
   - A change of voice during the wait is covered by code reading only, not by a test (the mini-player on Home has no voice menu; a test would need the reader's bar and a made voice).
   - While the part before is fetched, nothing on screen says so (at most 8 s now).
-  - The flaky unit test (`questions.test.ts`, Exact next steps item 7) and the importer's misplaced Jekyll paragraphs 29-31 (the entry below) are still open.
+  - Any failing read-along browser test costs 30 s more and leaves a truncated `trace.zip` (Playwright's `retain-on-failure` trace saving hits the 30 s limit; measured above). Older than this PR; a small look later: why the trace does not finish on these pages (the audio files, 11 MB each, are in it).
+  - The flaky unit test (`questions.test.ts`; item 7 of #104's Exact next steps) is fixed in draft #105 (`m6-flaky-marks-test` into main, from a separate checkout of main; reproduced first: 1 failed of 20 on main; the test database stamps time in whole milliseconds, so two marks of one question in one millisecond tied; the test now waits 2 ms between them; 50 passed of 50 after). The importer's misplaced Jekyll paragraphs 29-31 (the entry below) are still open.
 - **Exact next steps:**
   1. Done in this entry's commit: the fix, this entry, Iteration 70, the push, PR #103's description.
   2. When CI runs: #101, then #102, then #97 to #100, then #103 (`git rebase --onto origin/main f83fd83 m14-back-into-chapter`; keep both sides of the ledgers; `--force-with-lease`; base to `main`; mark ready; merge when green), then #104 the same way (`git rebase --onto origin/main f83fd83 m14-flake-s4-diag`). No reference image changes in either.
   3. Then back up, deploy, comment on #90. Never start a whole-book narration on the live site.
-  4. Meanwhile, the next unblocked step: the flaky unit test (Exact next steps item 7), a small PR from `main`.
+  4. #105 (the flaky unit test, draft into main): mark ready and merge with #101 and #102 when CI runs. Then the next unblocked step: why a failing read-along test's failure trace does not finish within 30 s (Known issues above).
 
 >>>>>>> e511281 (Back into a chapter: the wait for the part before has a limit (8 s), and a late failure lands from where the audio is)
 ### 2026-10-07 06:51 UTC (02:51 local) · Claude (laptop, workflow agent) · Back 15 s into a chapter that was not loaded (draft PR from `m14-back-into-chapter`, on top of #100); CI still not starting jobs
