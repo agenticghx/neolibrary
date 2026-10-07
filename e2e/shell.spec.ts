@@ -29,6 +29,8 @@ test.describe("desktop sidebar", () => {
       ["Books", /\/library\?show=books$/, "Books"],
       ["Audiobooks", /\/library\?show=audiobooks$/, "Audiobooks"],
       ["PDFs", /\/library\?show=pdfs$/, "PDFs"],
+      // M14 follow-up V3b (Samuel, #90): the Import page, from the Library list.
+      ["Import", /\/import$/, "Import"],
       // A Path shows how many of its numbered pillars are started.
       [`Hidden Machinery 0 of ${PILLARS} pillars started`, /\/paths\/hidden-machinery$/, "Hidden Machinery"],
       ["New path", /\/paths\/new$/, "A new path"],
@@ -41,6 +43,18 @@ test.describe("desktop sidebar", () => {
       await expect(link).toHaveAttribute("aria-current", "page");
       await expect(sidebar(page).locator('[aria-current="page"]')).toHaveCount(1);
     }
+
+    // Import is the last item of the Library list, after PDFs (M14 follow-up V3b).
+    const libraryList = sidebar(page).getByRole("list", { name: "Library", exact: true });
+    await expect(libraryList.getByRole("link")).toHaveText(["All", "Want to Read", "Finished", "Books", "Audiobooks", "PDFs", "Import"]);
+    // With a book chosen for its audiobook (/import?book=…#audio-h), Import is still the current page.
+    const importItem = libraryList.getByRole("link", { name: "Import", exact: true });
+    await importItem.click();
+    await page.getByLabel("Book", { exact: true }).selectOption({ index: 1 });
+    await page.getByRole("button", { name: "Choose", exact: true }).click();
+    await expect(page).toHaveURL(/\/import\?book=[0-9a-f-]+#audio-h$/);
+    await expect(importItem).toHaveAttribute("aria-current", "page");
+    await expect(sidebar(page).locator('[aria-current="page"]')).toHaveCount(1);
 
     // The search box searches books and notes (Enter submits; no button of its own).
     await page.getByRole("searchbox", { name: "Search your library" }).fill("countenance");
@@ -111,11 +125,34 @@ test.describe("phone", () => {
     await page.goto("/library");
     await expect(page.getByRole("complementary")).toBeHidden();
     const tabs = page.getByTestId("tab-bar");
-    await expect(tabs.getByRole("link")).toHaveText(["Home", "Library", "Paths", "Search"]);
+    // Import is the fifth tab, last (M14 follow-up V3b; Samuel, #90).
+    await expect(tabs.getByRole("link")).toHaveText(["Home", "Library", "Paths", "Search", "Import"]);
+    // Five tabs fit a 390 px screen: each a finger-sized target (at least 44 x 44 px), side by side
+    // inside the screen, with its icon and its whole label inside it.
+    const fit = await tabs.getByRole("link").evaluateAll((links) =>
+      links.map((a) => {
+        const box = a.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(a);
+        const inside = range.getBoundingClientRect();
+        return { name: a.textContent, left: box.left, right: box.right, width: box.width, height: box.height, inLeft: inside.left, inRight: inside.right };
+      }),
+    );
+    expect(fit).toHaveLength(5);
+    for (const [i, t] of fit.entries()) {
+      expect(t.width, `${t.name}: width`).toBeGreaterThanOrEqual(44);
+      expect(t.height, `${t.name}: height`).toBeGreaterThanOrEqual(44);
+      expect(t.left, `${t.name}: on the screen`).toBeGreaterThanOrEqual(0);
+      expect(t.right, `${t.name}: on the screen`).toBeLessThanOrEqual(390);
+      if (i > 0) expect(t.left, `${t.name}: beside the tab before it`).toBeGreaterThanOrEqual(fit[i - 1].right - 0.5);
+      expect(t.inLeft, `${t.name}: label inside its tab`).toBeGreaterThanOrEqual(t.left);
+      expect(t.inRight, `${t.name}: label inside its tab`).toBeLessThanOrEqual(t.right);
+    }
     for (const [name, url, heading] of [
       ["Library", /\/library$/, "Your library"],
       ["Paths", /\/paths$/, "Your paths"],
       ["Search", /\/search$/, "Find a passage"],
+      ["Import", /\/import$/, "Import"],
       ["Home", /:\d+\/$/, "Home"],
     ] as const) {
       await tabs.getByRole("link", { name, exact: true }).click();
@@ -128,6 +165,13 @@ test.describe("phone", () => {
     // A Path page counts as the Paths tab.
     await page.goto("/paths/hidden-machinery");
     await expect(tabs.getByRole("link", { name: "Paths", exact: true })).toHaveAttribute("aria-current", "page");
+    // The Import page with a book chosen for its audiobook (/import?book=…) counts as the Import tab.
+    await page.goto("/import");
+    await page.getByLabel("Book", { exact: true }).selectOption({ index: 1 });
+    await page.getByRole("button", { name: "Choose", exact: true }).click();
+    await expect(page).toHaveURL(/\/import\?book=[0-9a-f-]+#audio-h$/);
+    await expect(tabs.getByRole("link", { name: "Import", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);
 
     // Scrolled to the end, the page's last line sits above the tab bar, not under it.
     await page.goto("/library");
@@ -154,9 +198,9 @@ test.describe("phone", () => {
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await page.goto("/");
-      // Beside Import, in Home's title row.
+      // Beside Import, in Home's title row (Home's own Import, not the Import tab).
       const [importBox, buttonBox, titleBox] = [
-        await page.getByRole("link", { name: "Import", exact: true }).boundingBox(),
+        await page.getByRole("main").getByRole("link", { name: "Import", exact: true }).boundingBox(),
         await button.boundingBox(),
         await page.getByRole("heading", { level: 1, name: "Home" }).boundingBox(),
       ];

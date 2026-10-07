@@ -269,7 +269,7 @@
     left: 0;
     z-index: var(--z-overlay);
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
     padding: var(--space-1) var(--space-2) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
     border-top: var(--border-hair) solid var(--rule);

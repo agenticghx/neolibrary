@@ -105,7 +105,8 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   // Import is one place now (Samuel, #90): Home has no drop strip, and its Import goes to the Import page.
   await expect(page.getByText(/^Drop your DRM-free books/)).toHaveCount(0);
   // Under the mouse, its word and icon stay readable: the links' own hover colour is the button's hover background.
-  const importLink = page.getByRole("link", { name: "Import", exact: true });
+  // Home's own Import, in the page (the sidebar has an Import too: M14 follow-up V3b).
+  const importLink = page.getByRole("main").getByRole("link", { name: "Import", exact: true });
   await importLink.hover();
   const hovered = await importLink.evaluate(async (el) => {
     await Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)); // the colour change runs to its end

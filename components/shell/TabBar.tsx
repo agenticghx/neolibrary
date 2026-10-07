@@ -7,9 +7,11 @@ const TABS: { label: string; href: string; icon: IconName }[] = [
   { label: "Library", href: "/library", icon: "library" },
   { label: "Paths", href: "/paths", icon: "path" },
   { label: "Search", href: "/search", icon: "search" },
+  // M14 follow-up V3b (Samuel, #90): the Import page, where books and audiobooks are added.
+  { label: "Import", href: "/import", icon: "import" },
 ];
 
-/** Phone navigation (M14, D9): four tabs at the bottom of the screen. */
+/** Phone navigation (M14, D9; Import added in follow-up V3b): five tabs at the bottom of the screen. */
 export function TabBar() {
   return (
     <nav aria-label="Tabs" className={styles.tabs} data-testid="tab-bar">
