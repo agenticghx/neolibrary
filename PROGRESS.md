@@ -282,6 +282,8 @@ Never blocks the loop. Newest first.
   - **The browser test depends on time:** Stop must land while the run is going on. The margin is printed in every run (here about 15% of the way through the run).
   - **A rare double payment:** a run and the Listen bar making the same paragraph at the same moment could each pay for it.
   - **The WebKit race at `readalong.spec.ts:330`** (first seen here; Iteration 62).
+  - **A long run and the voice list:** `speakPassage` checks the voice against ElevenLabs' list before every paragraph. The list is kept 10 minutes, and a failed fetch falls back to two default voices, not kept. A run in another voice that meets such a failure stops with "Choose one of the voices on offer."; Continue picks it up again.
+  - **The narration test runs after `readalong-safari`:** if a WebKit read-along test fails on CI, the narration test shows "did not run". That is not a V5 failure.
 - **Exact next steps:**
   1. Wait for Samuel to fix GitHub billing; never raise a limit.
   2. Then #97, #98, #99, then #100 (rebase command in Exact next steps); review #100 as a draft first; back up; deploy. Never start a whole-book narration on the live site.
