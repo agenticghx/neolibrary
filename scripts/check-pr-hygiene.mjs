@@ -9,6 +9,15 @@ const diff = execFileSync("git", ["diff", "--unified=0", `${base}...HEAD`, "--",
   encoding: "utf8",
 });
 const added = diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
+// A ledger committed with git's conflict markers still "has a new entry"; it happened once (2026-10-07) and was merged.
+for (const file of ["PROGRESS.md", "LEARNING_LOG.md"]) {
+  const text = execFileSync("git", ["show", `HEAD:${file}`], { encoding: "utf8" });
+  const marker = text.split("\n").findIndex((l) => /^(<<<<<<< |=======$|>>>>>>> )/.test(l));
+  if (marker >= 0) {
+    console.error(`PR hygiene: ${file} line ${marker + 1} is a git conflict marker. Resolve it (keep both sides) before merging.`);
+    process.exit(1);
+  }
+}
 const entries = added.filter((l) => /^\+### \d{4}-\d{2}-\d{2}/.test(l));
 
 if (entries.length === 0) {
