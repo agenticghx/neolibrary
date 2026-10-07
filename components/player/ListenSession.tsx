@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import type { ReadingPart, Track } from "@/lib/library/audio";
+import { createPortal, flushSync } from "react-dom";
+import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
-import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, noteFor, OFFLINE, saveSpeed, shortChapter, speedLabel, withPart, type Info } from "@/lib/player/session";
+import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, LOOK_BACK_MS, noteFor, OFFLINE, saveSpeed, shortChapter, speedLabel, withEarlier, withPart, type Info } from "@/lib/player/session";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import { sentenceAt } from "@/lib/player/sentence";
-import { skipAcross, skipInClip } from "@/lib/player/skip";
+import { skipAcross, skipInClip, type SkipStep } from "@/lib/player/skip";
 import { MiniPlayer, type MiniView } from "./MiniPlayer";
 import type { ListenView, PlayerPage } from "./PlayerProvider";
 
@@ -82,6 +82,12 @@ export function ListenSession({
   const generation = useRef(0);
   /** Asking for the audiobook's next part: not twice at once, nor again too soon after a failure. */
   const asking = useRef({ now: false, retryAt: 0 });
+  /**
+   * The generation whose back skip is waiting for the part of the audiobook before the paragraphs loaded
+   * (lookBack): other skips of that generation wait (at most LOOK_BACK_MS); -1: none. A change of voice ends the
+   * wait at once, since the answer is dropped when it comes.
+   */
+  const lookingBack = useRef(-1);
   const [bookEnded, setBookEnded] = useState(false);
   /** The audiobook has played in this session (so the note no longer says where it begins). */
   const [bookStarted, setBookStarted] = useState(false);
@@ -566,27 +572,103 @@ export function ListenSession({
     }
   };
 
+  /** Carries out an audiobook skip (lib/player/skip.ts): to a time in the file loaded, or into another file. */
+  const land = (s: SkipStep) => {
+    const el = audio.current;
+    const ab = info?.audiobook;
+    if (!el || !ab) return;
+    if (s.kind === "seek") {
+      el.currentTime = s.toMs / 1000;
+      return;
+    }
+    // Into the next file or the one before (M14 step 6b, part 2b): loaded there, playing on only if it was;
+    // away from the reader, the reading position follows.
+    playAudiobookFrom(s.index, false, s.toMs, !el.paused).catch(playFailed);
+    savePlace(ab.paragraphs[s.index].sectionId);
+  };
+  /** `land` as of the latest render: after the list of paragraphs grows at the front, the one that knows it. */
+  const landNow = useRef(land);
+  landNow.current = land;
+
+  /** Lands a skip of `deltaMs` counted from where the audio is now, within the paragraphs loaded (nothing asked for). */
+  const skipLoaded = (deltaMs: number) => {
+    const el = audio.current;
+    const ab = info?.audiobook;
+    if (!el?.src || el.readyState < 1 || !ab || book.current.file < 0 || book.current.settling) return;
+    const t = el.currentTime * 1000;
+    const endMs = Number.isFinite(el.duration) ? el.duration * 1000 : t + Math.abs(deltaMs) + 1;
+    land(skipAcross(ab.paragraphs, book.current.index, book.current.file, t, deltaMs, endMs));
+  };
+  const skipLoadedNow = useRef(skipLoaded);
+  skipLoadedNow.current = skipLoaded;
+
+  /**
+   * Back past the first paragraph loaded, with more of the audiobook before it (the reading began further
+   * on): asks for the part before, adds it at the front, then lands where the same skip lands with it
+   * loaded, counted from where the audio was when Back was pressed; playing on only if it is playing then.
+   * Not fetched within LOOK_BACK_MS (the request failed, or is given up): the same skip counted from where the
+   * audio is by then, stopping where what is loaded begins (as before), so a late failure never lands further
+   * back than the skip asked for.
+   */
+  const lookBack = async (from: { index: number; file: number; t: number; deltaMs: number; endMs: number }) => {
+    const ab = info!.audiobook!;
+    const g = generation.current;
+    lookingBack.current = g;
+    const giveUp = new AbortController();
+    const limit = setTimeout(() => giveUp.abort(), LOOK_BACK_MS);
+    try {
+      let part: EarlierPart | null = null;
+      try {
+        const res = await fetch(`${ab.partsUrl}?${new URLSearchParams({ before: String(ab.earlier) })}`, { signal: giveUp.signal });
+        if (!res.ok) throw new Error(`part ${res.status}`);
+        part = (await res.json()) as EarlierPart;
+      } catch {
+        // Failed, or over the time limit: the skip is worked out again below, from where the audio is now.
+      }
+      // The voice was changed, or the audio failed, meanwhile: this skip is no longer wanted.
+      if (generation.current !== g || book.current.file < 0) return;
+      if (!part) {
+        skipLoadedNow.current(from.deltaMs);
+        return;
+      }
+      const added = part.paragraphs.length;
+      const ps = [...part.paragraphs, ...ab.paragraphs];
+      const asked = skipAcross(ps, from.index + added, from.file, from.t, from.deltaMs, from.endMs, part.earlier !== null);
+      // A part holds far more than 15 s; should it still not reach, back stops where what is loaded begins.
+      const s = asked.kind === "earlier" ? skipAcross(ps, from.index + added, from.file, from.t, from.deltaMs, from.endMs) : asked;
+      if (added || part.earlier !== ab.earlier) {
+        // The list grows at the front: every index into it moves on by as many, in the same step (no frame between).
+        flushSync(() => setInfo((i) => (i?.audiobook ? { ...i, audiobook: withEarlier(i.audiobook, part) } : i)));
+        book.current.index += added;
+        if (shown.current >= 0) shown.current += added;
+      }
+      // Moved on into another file meanwhile: a time in the one it left no longer applies.
+      if (s.kind === "seek" && book.current.file !== from.file) return;
+      landNow.current(s);
+    } finally {
+      clearTimeout(limit);
+      if (lookingBack.current === g) lookingBack.current = -1;
+    }
+  };
+
   /**
    * Back or forward 15 s (M14 step 6b). An audiobook moves within the file
-   * playing, counting only what plays (lib/player/skip.ts); a made voice
-   * moves within its paragraph, or on to the one before or after.
+   * playing, counting only what plays (lib/player/skip.ts), or into the file
+   * before or after, first asking for the part before when back goes past the
+   * paragraphs loaded; a made voice moves within its paragraph, or on to the
+   * one before or after.
    */
   const skip = (seconds: number) => {
     const el = audio.current;
-    if (!el?.src || el.readyState < 1 || (isBook && book.current.settling) || !info) return;
+    if (!el?.src || el.readyState < 1 || (isBook && (book.current.settling || lookingBack.current === generation.current)) || !info) return;
     const t = el.currentTime * 1000;
     const endMs = Number.isFinite(el.duration) ? el.duration * 1000 : t + Math.abs(seconds) * 1000 + 1;
     lastWord.current = -1;
     if (isBook && info.audiobook) {
-      const s = skipAcross(info.audiobook.paragraphs, book.current.index, book.current.file, t, seconds * 1000, endMs);
-      if (s.kind === "seek") {
-        el.currentTime = s.toMs / 1000;
-        return;
-      }
-      // Into the next file or the one before (M14 step 6b, part 2b): loaded there, playing on only if it was;
-      // away from the reader, the reading position follows.
-      playAudiobookFrom(s.index, false, s.toMs, !el.paused).catch(playFailed);
-      savePlace(info.audiobook.paragraphs[s.index].sectionId);
+      const from = { index: book.current.index, file: book.current.file, t, deltaMs: seconds * 1000, endMs };
+      const s = skipAcross(info.audiobook.paragraphs, from.index, from.file, t, from.deltaMs, endMs, info.audiobook.earlier !== null);
+      if (s.kind === "earlier") void lookBack(from);
+      else land(s);
       return;
     }
     const s = skipInClip(t, seconds * 1000, endMs, { prev: !!info.passage.prevId, next: !!info.passage.nextId });

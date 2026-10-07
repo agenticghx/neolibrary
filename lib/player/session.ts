@@ -1,4 +1,4 @@
-import type { ReadingPart, Track } from "@/lib/library/audio";
+import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import type { ListenInfo } from "@/lib/library/listen";
 
 /**
@@ -18,6 +18,16 @@ export type Info = Omit<ListenInfo, "track"> & { track: (Track & { audioUrl: str
  */
 export function withPart<T extends ReadingPart>(reading: T, part: ReadingPart): T {
   return { ...reading, paragraphs: [...reading.paragraphs, ...part.paragraphs], more: part.more, chapters: { ...reading.chapters, ...part.chapters } };
+}
+
+/**
+ * An audiobook's reading with the part before it added at the front (going
+ * back from where the reading began): its paragraphs first, where the part
+ * before them ends, and the names of their chapters too. Every index into
+ * `paragraphs` moves on by the number added.
+ */
+export function withEarlier<T extends ReadingPart & { earlier: number | null }>(reading: T, part: EarlierPart): T {
+  return { ...reading, paragraphs: [...part.paragraphs, ...reading.paragraphs], earlier: part.earlier, chapters: { ...part.chapters, ...reading.chapters } };
 }
 
 export const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -48,6 +58,13 @@ export function saveSpeed(speed: number, store: Store | null = deviceStore()) {
 export const ASK_MORE_AT = 40;
 /** A part that could not be fetched is asked for again after this long. */
 export const ASK_AGAIN_MS = 5000;
+/**
+ * How long a back skip waits for the part of the audiobook before the paragraphs loaded (Back and Forward wait
+ * with it). By estimate, a part (200 paragraphs, about 8,000 words of timings, compressed) takes about 2 s on a
+ * slow phone network; past this, the request is given up and the skip lands within what is loaded, counted
+ * from where the audio is by then.
+ */
+export const LOOK_BACK_MS = 8000;
 /** Waiting for audio shorter than this is not mentioned (Chromium waits briefly on every seek). */
 export const LOADING_AFTER_MS = 600;
 export const OFFLINE = "Reading aloud needs an internet connection: the audio is not saved for reading offline.";

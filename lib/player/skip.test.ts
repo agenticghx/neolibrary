@@ -159,3 +159,91 @@ describe("skipAcross (M14 step 6b, part 2b)", () => {
     }
   });
 });
+
+describe("skipAcross, back into a chapter not loaded yet (M14)", () => {
+  // As above: file 0 holds A 0-10 s, B 20-30 s, C 31-40 s; file 1 holds D 2-12 s, E 13-25 s.
+  const two: PlayerParagraph[] = [...ps, { file: 1, startMs: 2_000, endMs: 12_000, words: words(2_000, 12_000) }, { file: 1, startMs: 13_000, endMs: 25_000, words: words(13_000, 25_000) }];
+
+  it("asks for the part before when back goes past the first paragraph loaded, and more of the audiobook comes before it", () => {
+    // The reading began at D: from 6 s into file 1, back 15 s goes past D's start (2 s).
+    expect(skipAcross(two.slice(3), 0, 1, 6_000, -15_000, 30_000, true)).toEqual({ kind: "earlier" });
+    // With the part before loaded, it lands where it lands with everything loaded: 9 s back from C's end (40.25 s).
+    expect(skipAcross(two, 3, 1, 6_000, -15_000, 30_000, false)).toEqual({ kind: "load", index: 2, toMs: 31_250 });
+    // Nothing comes before (the audiobook begins at D): back stops at the file's start, as before.
+    expect(skipAcross(two.slice(3), 0, 1, 6_000, -15_000, 30_000, false)).toEqual({ kind: "seek", toMs: 0 });
+  });
+
+  it("needs nothing more while back stays at or after the first paragraph loaded, nor going forward", () => {
+    // From 20 s in E, back 5 s: 15 s, in E.
+    expect(skipAcross(two.slice(3), 1, 1, 20_000, -5_000, 30_000, true)).toEqual({ kind: "seek", toMs: 15_000 });
+    // Back exactly to D's start.
+    expect(skipAcross(two.slice(3), 1, 1, 17_000, -15_000, 30_000, true)).toEqual({ kind: "seek", toMs: 2_000 });
+    expect(skipAcross(two.slice(3), 0, 1, 6_000, 15_000, 30_000, true)).toEqual({ kind: "seek", toMs: 21_000 });
+  });
+
+  it("asks too when back goes on into the file before, and that file's paragraphs begin after the part it needs", () => {
+    // Loaded from C (31-40 s in file 0) on: from 2 s into file 1, back 15 s goes 13 s back from C's end, past its start.
+    expect(skipAcross(two.slice(2), 1, 1, 2_000, -15_000, 30_000, true)).toEqual({ kind: "earlier" });
+    // With everything loaded: 13 s back from 40.25 s, less nothing jumped: 27.25 s, in B.
+    expect(skipAcross(two, 3, 1, 2_000, -15_000, 30_000)).toEqual({ kind: "load", index: 1, toMs: 27_250 });
+    // A shorter skip back into C stays in what is loaded: 3 s back from 40.25 s.
+    expect(skipAcross(two.slice(2), 1, 1, 2_000, -5_000, 30_000, true)).toEqual({ kind: "load", index: 0, toMs: 37_250 });
+  });
+
+  it("asks when the file opens with a stretch playing skips: where it began playing is not known before", () => {
+    // File 1's first paragraph is at 20 s (playing starts it there): from 25 s, back 15 s.
+    const late: PlayerParagraph[] = [{ file: 0, startMs: 0, endMs: 60_000, words: words(0, 60_000) }, { file: 1, startMs: 20_000, endMs: 35_000, words: words(20_000, 35_000) }];
+    expect(skipAcross(late.slice(1), 0, 1, 25_000, -15_000, 40_000, true)).toEqual({ kind: "earlier" });
+    expect(skipAcross(late, 1, 1, 25_000, -15_000, 40_000)).toEqual({ kind: "load", index: 0, toMs: 50_250 });
+  });
+
+  it("with the paragraphs before not loaded, lands where it lands with everything loaded, or asks for them first", () => {
+    // Every layout above, and one whose file has a stretch playing skips just before a paragraph the reading may begin at.
+    const layouts: PlayerParagraph[][] = [
+      two,
+      [{ file: 0, startMs: 0, endMs: 60_000, words: words(0, 60_000) }, { file: 1, startMs: 20_000, endMs: 35_000, words: words(20_000, 35_000) }],
+      [{ file: 0, startMs: 0, endMs: 60_000, words: words(0, 60_000) }, { file: 1, startMs: 0, endMs: 5_000, words: words(0, 5_000) }, { file: 1, startMs: 20_000, endMs: 30_000, words: words(20_000, 30_000) }],
+      [{ file: 0, startMs: 0, endMs: 40_000, words: words(0, 40_000) }, { file: 1, startMs: 1_000, endMs: 4_000, words: words(1_000, 4_000) }, { file: 2, startMs: 3_000, endMs: 60_000, words: words(3_000, 60_000) }],
+      [{ file: 0, startMs: 0, endMs: 60_000, words: words(0, 60_000) }, { file: 1, startMs: 10_000, endMs: 12_000, words: words(10_000, 12_000) }, { file: 2, startMs: 0, endMs: 30_000, words: words(0, 30_000) }],
+      [
+        { file: 0, startMs: 1_000, endMs: 9_000, words: words(1_000, 9_000) },
+        { file: 0, startMs: 9_500, endMs: 12_000, words: words(9_500, 12_000) },
+        { file: 1, startMs: 0, endMs: 4_000, words: words(0, 4_000) },
+        { file: 1, startMs: 14_000, endMs: 18_000, words: words(14_000, 18_000) },
+        { file: 1, startMs: 18_500, endMs: 30_000, words: words(18_500, 30_000) },
+      ],
+    ];
+    let asked = 0;
+    let wrongBefore = 0;
+    for (const full of layouts) {
+      for (let k = 1; k < full.length; k++) {
+        const loaded = full.slice(k);
+        for (const file of new Set(loaded.map((p) => p.file))) {
+          const index = loaded.findIndex((p) => p.file === file);
+          const len = full.filter((p) => p.file === file).at(-1)!.endMs + 2_000;
+          for (let t = 0; t <= len; t += 250) {
+            for (const d of [-15_000, -5_000]) {
+              const what = `layout ${layouts.indexOf(full)}, from paragraph ${k}, file ${file} @${t}${d}`;
+              // With everything loaded, its index counted in the list loaded.
+              const whole = skipAcross(full, index + k, file, t, d, len);
+              const here = whole.kind === "load" ? { ...whole, index: whole.index - k } : whole;
+              const s = skipAcross(loaded, index, file, t, d, len, true);
+              // Before this change: no part before, ever.
+              if (JSON.stringify(skipAcross(loaded, index, file, t, d, len)) !== JSON.stringify(here)) wrongBefore++;
+              if (s.kind === "earlier") {
+                asked++;
+                continue;
+              }
+              // The same landing: the same time, in the same paragraph.
+              expect(s, what).toEqual(here);
+            }
+          }
+        }
+      }
+    }
+    // Not vacuous: the sweep asks for the part before many times (2,701 when written), and without it many
+    // landings were wrong (2,069).
+    expect(asked).toBeGreaterThan(1_000);
+    expect(wrongBefore).toBeGreaterThan(1_000);
+  });
+});

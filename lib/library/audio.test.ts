@@ -12,7 +12,7 @@ import { startImport } from "@/lib/readalong/importer";
 import { FAKE_SECONDS_PER_CHAR, FakeSpeech } from "@/lib/speech/fake";
 import { speechCost } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
-import { estimateSpeech, listTracks, passageFor, readingPart, speakPassage, uploadedReading } from "./audio";
+import { estimateSpeech, listTracks, passageFor, readingPart, readingPartBefore, speakPassage, uploadedReading } from "./audio";
 import { fileOwner, importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -230,6 +230,71 @@ describe("the audiobook's paragraphs, in parts (M13 (d))", () => {
     }
     expect(seen).toEqual(ps.slice(5, 10).map((p) => p.id));
   });
+
+  it("gives the part just before a place, in reading order, says where the part before it ends, and only to the owner of a finished import (M14: back into a chapter not loaded)", async () => {
+    const ps = paragraphs();
+    const { zip } = buildPackage({ bookBytes, chapters: [{ title: "Five", paragraphs: ps.slice(5, 10).map((p) => p.text), inBook: ps.slice(5, 10).map((p) => p.chapterIndex) }] });
+    const imp = await startImport(database.db, storage, ownerId, bookId, zip());
+    // Listening from paragraph 8: the reading says more of the audiobook comes before it.
+    const reading = (await uploadedReading(database.db, ownerId, bookId, ps[8].position))!;
+    expect(reading.paragraphs.map((p) => p.sectionId)).toEqual([ps[8].id, ps[9].id]);
+    expect(reading.earlier).toBe(ps[8].position);
+    // From the audiobook's first paragraph, or from before it: nothing comes before.
+    expect((await uploadedReading(database.db, ownerId, bookId, ps[5].position))!.earlier).toBeNull();
+    expect((await uploadedReading(database.db, ownerId, bookId, 0))!.earlier).toBeNull();
+    // The parts before, two paragraphs at a time: 6 and 7, then 5, the first.
+    const before = (await readingPartBefore(database.db, ownerId, bookId, imp.id, reading.earlier!, 2))!;
+    expect(before.paragraphs.map((p) => p.sectionId)).toEqual([ps[6].id, ps[7].id]);
+    expect(before.earlier).toBe(ps[6].position);
+    const first = (await readingPartBefore(database.db, ownerId, bookId, imp.id, before.earlier!, 2))!;
+    expect(first).toMatchObject({ paragraphs: [{ sectionId: ps[5].id }], earlier: null });
+    // Together they are the paragraphs read from the start, the same in every detail, with their chapters' names.
+    const whole = (await uploadedReading(database.db, ownerId, bookId, 0))!;
+    expect([...first.paragraphs, ...before.paragraphs, ...reading.paragraphs]).toEqual(whole.paragraphs);
+    expect({ ...first.chapters, ...before.chapters, ...reading.chapters }).toEqual(whole.chapters);
+    expect(Object.keys(whole.chapters).length).toBeGreaterThan(0);
+    // Before the first paragraph: nothing.
+    expect(await readingPartBefore(database.db, ownerId, bookId, imp.id, ps[5].position)).toEqual({ paragraphs: [], earlier: null, chapters: {} });
+    // A track without words is left out, as from a place on; the part before it is still found.
+    await database.db.update(audioTracks).set({ words: [] }).where(and(eq(audioTracks.importId, imp.id), eq(audioTracks.sectionId, ps[6].id)));
+    const gap = (await readingPartBefore(database.db, ownerId, bookId, imp.id, ps[8].position, 2))!;
+    expect(gap.paragraphs.map((p) => p.sectionId)).toEqual([ps[7].id]);
+    expect((await readingPartBefore(database.db, ownerId, bookId, imp.id, gap.earlier!, 2))!.paragraphs.map((p) => p.sectionId)).toEqual([ps[5].id]);
+    // Nothing for another reader, another import, or one still uploading.
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+    expect(await readingPartBefore(database.db, other, bookId, imp.id, ps[8].position)).toBeNull();
+    expect(await readingPartBefore(database.db, ownerId, bookId, crypto.randomUUID(), ps[8].position)).toBeNull();
+    const { files } = buildPackage({ bookBytes, chapters: [{ title: "x", paragraphs: [ps[20].text], inBook: [ps[20].chapterIndex] }] });
+    const waiting = await startImport(database.db, storage, ownerId, bookId, zipSync(Object.fromEntries(Object.entries(files).filter(([n]) => !n.startsWith("audio/")))));
+    expect(await readingPartBefore(database.db, ownerId, bookId, waiting.id, ps[8].position)).toBeNull();
+  });
+
+  it("ends a part before a place once it holds enough words, nearest paragraphs first, with at least one; walking back gives every paragraph once", async () => {
+    const ps = paragraphs();
+    const { zip } = buildPackage({ bookBytes, chapters: [{ title: "Five", paragraphs: ps.slice(5, 10).map((p) => p.text), inBook: ps.slice(5, 10).map((p) => p.chapterIndex) }] });
+    const imp = await startImport(database.db, storage, ownerId, bookId, zip());
+    // By default the five paragraphs come in one part.
+    expect((await readingPartBefore(database.db, ownerId, bookId, imp.id, ps[10].position))!).toMatchObject({ earlier: null });
+    // A budget of one word: one paragraph a part, the nearest.
+    const one = (await readingPartBefore(database.db, ownerId, bookId, imp.id, ps[10].position, 200, 1))!;
+    expect(one.paragraphs.map((p) => p.sectionId)).toEqual([ps[9].id]);
+    expect(one.earlier).toBe(ps[9].position);
+    // A budget one word over the last paragraph's: the part ends with the paragraph that reaches it, the one before.
+    const budget = one.paragraphs[0].words.length + 1;
+    const two = (await readingPartBefore(database.db, ownerId, bookId, imp.id, ps[10].position, 200, budget))!;
+    expect(two.paragraphs.map((p) => p.sectionId)).toEqual([ps[8].id, ps[9].id]);
+    expect(two.earlier).toBe(ps[8].position);
+    // Walking back part by part gives every paragraph once, in order.
+    const seen = two.paragraphs.map((p) => p.sectionId);
+    for (let at = two.earlier; at !== null; ) {
+      const part = (await readingPartBefore(database.db, ownerId, bookId, imp.id, at, 200, budget))!;
+      expect(part.paragraphs.length).toBeGreaterThan(0);
+      seen.unshift(...part.paragraphs.map((p) => p.sectionId));
+      at = part.earlier;
+    }
+    expect(seen).toEqual(ps.slice(5, 10).map((p) => p.id));
+  });
 });
 
 describe("where reading aloud starts in a PDF", () => {
@@ -340,6 +405,8 @@ describe("an audiobook of a PDF book (M13 (e))", () => {
     const rest = (await readingPart(database.db, ownerId, id, imp.id, first.more!, 3))!;
     expect(first.paragraphs.map((p) => p.sectionId)).toEqual(body.slice(0, 3).map((p) => p.id));
     expect(rest).toMatchObject({ paragraphs: [{ sectionId: body[3].id }], more: null });
+    // Going back from the last part (M14: back into a chapter not loaded): the part before it, with the same places on its pages.
+    expect((await readingPartBefore(database.db, ownerId, id, imp.id, rest.paragraphs[0].position, 3))!.paragraphs).toEqual(first.paragraphs);
     const all = [...first.paragraphs, ...rest.paragraphs];
     // Each page's text without spaces: a word's place there is the word itself (spaces removed).
     const pageText = (n: number) => ps.filter((p) => p.chapterIndex === n).map((p) => p.text.replace(/\s+/g, "")).join("");

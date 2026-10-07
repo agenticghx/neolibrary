@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { firstVoice, loadSpeed, noteFor, playsHere, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withPart, type Info, type NoteState } from "./session";
+import { firstVoice, loadSpeed, noteFor, playsHere, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withEarlier, withPart, type Info, type NoteState } from "./session";
 
 const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
@@ -13,6 +13,7 @@ const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNulla
   partsUrl: "/parts",
   chapters: {},
   begins: null,
+  earlier: null,
   ...over,
 });
 const made = { id: "fake-ada", name: "Ada" };
@@ -147,6 +148,21 @@ describe("withPart", () => {
     expect(next.more).toBeNull();
     expect(next.chapters).toEqual({ 0: "Chapter I", 1: "Chapter II" });
     expect(next.importId).toBe("i1");
+  });
+});
+
+describe("withEarlier", () => {
+  it("adds the part before at the front, says where the part before that ends, and keeps every chapter name and the part after", () => {
+    const later = audiobook({ paragraphs: [{ ...paragraph, sectionId: "s5", chapterIndex: 2, position: 5 }], more: 6, earlier: 5, chapters: { 2: "Chapter III" } });
+    const part = { paragraphs: [3, 4].map((n) => ({ ...paragraph, sectionId: `s${n}`, chapterIndex: 1, position: n })), earlier: 3, chapters: { 1: "Chapter II" } };
+    const both = withEarlier(later, part);
+    expect(both.paragraphs.map((p) => p.sectionId)).toEqual(["s3", "s4", "s5"]);
+    expect(both.earlier).toBe(3);
+    expect(both.more).toBe(6);
+    expect(both.chapters).toEqual({ 1: "Chapter II", 2: "Chapter III" });
+    expect(both.importId).toBe("i1");
+    // The first part of the audiobook: nothing before it any more.
+    expect(withEarlier(both, { paragraphs: [{ ...paragraph, position: 1 }], earlier: null, chapters: {} }).earlier).toBeNull();
   });
 });
 

@@ -56,6 +56,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 63 | 2026-10-07 02:13 | V5 review (#100) | #100 is ready | review workflow (reviewers, a skeptic per finding) | failure (7 confirmed, all in V5's files) | every finding involved two things at once |
 | 64 | 2026-10-07 03:04 | V5 review fixes | Seven small fixes in V5's files close the seven | npm run check; narration test; 3 unit + 6 browser mutations with controls; whole suite | success (CI to come) | a page that asks again and again: wait for the answer on its way, show only answers about the current choice, keep action errors apart |
 | 65 | 2026-10-07 04:22 | V5 owner only (#100) | One rule in the route (POST, GET) and on the Import page keeps whole-book narration to the library's owner; Stop stays open | npm run check; route test; narration and uploads tests; 4 unit + 2 browser mutations with controls; whole suite | success (CI to come) | test a permission where it is the only thing in the way: the reader's own book |
+| 68 | 2026-10-07 06:51 | Back into a chapter not loaded (draft from `m14-back-into-chapter`) | A "before" mode on the parts route and one skip rule land Back where it lands with everything loaded | npm run check; a sweep against the whole list; read-along tests in both engines; 6 unit + 4 browser mutations with controls; whole suite | success (CI to come) | a test that needs an exact first paragraph must not start from the reader's page |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -1976,3 +1977,55 @@ so a refusal for another reason cannot hide a missing check.
 **Next experiment.** When CI runs: the stack in order (#97, #98, #99,
 #100). If Samuel answers row 13 with yes: take the check out, with the
 tests that pin it, in a small PR.
+
+### Iteration 68 · 2026-10-07 06:51 · Back 15 s into a chapter that was not loaded (draft PR from `m14-back-into-chapter`) · success (CI to come: CI is still not starting jobs)
+
+(Iteration 66 is on #101's branch, `m13-epub-safe-unzip`, and 67 on #102's, `m14-paths-phone-wrap`: three branches from one log.)
+
+**Hypothesis.** A "before" mode on the parts route, plus one rule in the skip ("back past the first paragraph loaded, with more of the audiobook before it: load the part before, then ask again"), makes Back 15 s land exactly where it lands with everything loaded, in both engines, paused or playing; a test fails without each piece.
+**Action.** On `m14-back-into-chapter`, from #100's head f83fd83:
+- `?before=<position>` on `…/readalong/[importId]/reading` (`readingPartBefore`: the nearest paragraphs first, the same size rule as a forward part, back in reading order, with `earlier`, where the part before ends); the first part says `earlier` too.
+- `skipAcross(…, earlier)` answers "earlier" when the landing would be before the first paragraph loaded (in its own file, or the file before); without the flag it never does, so its type for the older callers is unchanged.
+- The session (`lookBack`): one fetch, the skip computed again from the values taken at the press, then the part added at the front and the list's index moved on in one `flushSync`, then the landing through a ref to the newest `land`.
+- Tests: 5 skip unit tests (one a sweep that compares every answer on a partly loaded list with the answer on the whole list), `withEarlier`, the part before in `audio.test.ts`, a route test, and 3 browser tests.
+**Evaluation.** `npm run check`; the M14 read-along tests and the whole read-along file in Chromium and WebKit, from the database copy after `offline`; 6 unit and 4 browser mutations after controls; the whole suite from an empty database.
+**Result.**
+- `npm run check`: exit 0, `Tests 489 passed | 2 skipped (491)`.
+- The sweep: `SWEEP asked=2701 wrongBefore=2069`. Without the change, 2,069 of its back skips landed somewhere else than with everything loaded; with it, every answer is either "earlier" or exactly the fully loaded one.
+- Browser: M14 tests `10 passed (18.5s)` (Chromium) and `10 passed (34.1s)` (WebKit); the whole read-along file `33 passed` in each (2.4 and 2.8 minutes).
+- **Three wrong turns on the way, each found by a run:**
+  - My first fixture (Jekyll paragraphs 30-32 in the first file) failed inside `importReading`: the importer placed only the words from "ashamed" on (in paragraph 31), and put "said he. “I" into paragraph 12. A scratch unit test against the importer showed the same for 29-32 and 31-32, and that 40-57 | 58-69 is placed word for word; the tests now use that.
+  - The same-file test asked for nothing: the reader starts Listen at the first paragraph on its page, and 66 to 68 were on 69's page, so 68 was already loaded. The tests now start from Home's "Listen from here" at a reading position set through the API, and check the Listen data they were given.
+  - My first sweep counted forward skips too, from times before the first paragraph loaded. The player cannot be there while more is known to be before (it fetches first), so the sweep covers back skips only.
+- Mutations: the required two are caught in unit and browser tests, in both engines (the before mode returning nothing: `readalong.spec.ts:1806`; the skip ignoring it: no request, `:1782`). **One mutation survived the two boundary tests:** not moving the list's index on after adding the part. A load into another file sets the index anew, so only the same-file test (a seek, `:1868`) catches it.
+- Whole suite, from an empty database: `298 passed (8.4m)`, exit 0 (06:42 to 06:50 UTC).
+**Lesson.**
+- **Compare with the fully loaded answer, not with landings I chose.** Iteration 56's lesson, applied from the start: a sweep against the whole list is the oracle, and it also showed the rule errs on the safe side: in the sweep, 632 of its 2,701 asks were not needed (the answer without the part was already right), and none of its answers is wrong.
+- **A test that needs an exact first paragraph must not start from the reader's page.** The reader starts where its page starts; Home's "Listen from here" starts at the reading position.
+- **Check a new fixture with the importer before building a browser test on it** (a scratch unit test takes seconds).
+- **Read which test catches each mutation.** A mutation that survives all but one test shows what that one test alone protects.
+**Next experiment.** When CI runs: this PR after #100, its four checks green.
+
+### Iteration 70 · 2026-10-07 09:30 · Review of Back-into-a-chapter (#103) finished by hand, one fix; #104 reviewed clean · success (CI to come: CI is still not starting jobs)
+
+(Iteration 69 is on #104's branch, `m14-flake-s4-diag`.)
+
+**Hypothesis.** The one review finding on #103 (the request for the part before has no time limit) is real, and a time limit plus a fallback counted from where the audio is by then fixes it without changing where a successful Back lands; a browser test that never answers the request fails without each piece.
+**Action.** Workflow `wf_6467c1e9-e7c` had died on the session limit after its reviewer returned one finding on #103 and before any review of #104. Rather than resume it (a verify agent and a fresh review: 1 to 2 M tokens), both were finished by hand:
+- #103's finding, checked against `lookBack` in `components/player/ListenSession.tsx`: confirmed. The fetch had no `AbortSignal`; while it hung, `skip` ignored Back and Forward (`lookingBack` true), a voice change did not clear the flag (cleared only in `finally`), and a late failure fell back to the skip counted from the press (`from.t`), so the player could land far more than 15 s back.
+- The fix, on `m14-back-into-chapter`: `LOOK_BACK_MS` = 8 s (`lib/player/session.ts`) with an `AbortController`; failed or given up, the skip is counted again from where the audio is by then within what is loaded (`skipLoaded`, through a ref to the newest one); `lookingBack` holds the voice generation it was started in, so `skip` waits only while `lookingBack.current === generation.current` and a change of voice frees the buttons at once.
+- One browser test (`readalong.spec.ts`, "the part before never comes"): `page.route` holds the `?before=` request forever; Forward is ignored during the wait; past the limit the first time set is 15.00 s back from the time just before it (the setter is hooked to record both), inside paragraph 69; then Forward works again, 15 s on.
+- #104's diff (`git diff origin/m14-v5-whole-book...origin/m14-flake-s4-diag`): `e2e/readalong.spec.ts` only, plus the two ledgers. It adds a `test.beforeEach` that records every audio request, and makes `playUntil` print them with a one-line reading of the player when the audio stands still. No `expect` changes; no test's assertions change. One note, not a fix: `test.beforeEach(({ page }) => …)` makes every test in the file open the default page, including the two that make their own context (`:400`, `:960`): one extra page each, no change in behaviour.
+**Evaluation.** `npm run check` on #104's head and on the fix; the four "back into" browser tests in Chromium and WebKit; three mutations after a control; the whole read-along file in both engines. Sound on the built-in speakers.
+**Result.**
+- #104's head 3c52315: `npm run check` exit 0, `Tests 478 passed | 2 skipped (480)`.
+- The fix: `npm run check` exit 0, `Tests 489 passed | 2 skipped (491)` (unchanged: no unit test touched). Browser, the four "back into" tests: `4 passed (14.5s)` in Chromium, `4 passed (19.2s)` in WebKit; the new test 10.3 s and 11.6 s (it waits through the 8 s limit).
+- Mutations (`mut-lookback.sh`: break, build, run the new test in Chromium, restore; `cmp` against the backup afterwards: identical; the `git diff` checksum comparison was void because the ledger was edited meanwhile): control `1 passed (10.2s)`; all three caught: no time limit (60 s instead of 8) → `readalong.spec.ts:1923`, `Received: 0` after "Timeout 23000ms exceeded" (24.0 s); the fallback counted from the press (the old answer) → `:1926`, `Expected: 15`, `Received: 23.000638`; other skips not held during the wait → `:1920`. A failed run then waited another 30 s ("Test timeout of 30000ms exceeded" after the assertion). I first blamed the held request, released only at the test's end, and moved the cleanup into a `finally`; measured afterwards (a failing run 43 s of wall time against 14 s passing, before and after the change; the older paused "back into" test, which holds nothing, 39 s against 5 s), the 30 s is Playwright saving the failure trace (`trace: "retain-on-failure"`) and hitting the 30 s limit: the `trace.zip` left behind is truncated. The `finally` stays as tidiness; the 30 s is a separate, older cost of any failing read-along test.
+- The whole read-along file: Chromium `34 passed (2.6m)`, WebKit `34 passed (3.0m)` (33 before, plus the new test: 9.3 s and 11.6 s), from the database copy after `home`.
+- On the final text (the cleanup in a `finally`): `npm run check` exit 0, `Tests 489 passed | 2 skipped (491)`; the four "back into" tests `4 passed (14.3s)` in Chromium (the new test 10.3 s) and `4 passed (20.9s)` in WebKit (11.3 s).
+**Lesson.**
+- **A workflow that died mid-review is cheaper to finish by hand than to resume** when its journal already holds the findings: the finding was one paragraph to check against forty lines of code.
+- **A wait that holds buttons needs a limit, and the thing it waits for must be counted at landing time, not press time, when it fails.** The press-time rule is right for a quick answer (the user asked for 15 s before what they heard then) and wrong for a late one; the limit makes "quick" true.
+- **Hook the setter, record both times.** Recording `[currentTime before, value set]` on every `currentTime` set made the assertion exact (15.00 s) instead of a tolerance on a polled reading.
+- **A claim about a failure path needs a failing run after the change, not before.** The `finally` "fix" for the 30 s was written into both ledgers from the failing run before it; one timed run after it (and one of a test that could not have the suspected cause) showed the cause was elsewhere.
+**Next experiment.** When CI runs: #103 after #100, its four checks green; the new test on CI's WebKit (it plays on for 8 s with no seek: not the stall pattern seen so far).
