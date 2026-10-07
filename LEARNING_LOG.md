@@ -56,6 +56,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 63 | 2026-10-07 02:13 | V5 review (#100) | #100 is ready | review workflow (reviewers, a skeptic per finding) | failure (7 confirmed, all in V5's files) | every finding involved two things at once |
 | 64 | 2026-10-07 03:04 | V5 review fixes | Seven small fixes in V5's files close the seven | npm run check; narration test; 3 unit + 6 browser mutations with controls; whole suite | success (CI to come) | a page that asks again and again: wait for the answer on its way, show only answers about the current choice, keep action errors apart |
 | 65 | 2026-10-07 04:22 | V5 owner only (#100) | One rule in the route (POST, GET) and on the Import page keeps whole-book narration to the library's owner; Stop stays open | npm run check; route test; narration and uploads tests; 4 unit + 2 browser mutations with controls; whole suite | success (CI to come) | test a permission where it is the only thing in the way: the reader's own book |
+| 68 | 2026-10-07 06:51 | Back into a chapter not loaded (draft from `m14-back-into-chapter`) | A "before" mode on the parts route and one skip rule land Back where it lands with everything loaded | npm run check; a sweep against the whole list; read-along tests in both engines; 6 unit + 4 browser mutations with controls; whole suite | success (CI to come) | a test that needs an exact first paragraph must not start from the reader's page |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -1976,3 +1977,31 @@ so a refusal for another reason cannot hide a missing check.
 **Next experiment.** When CI runs: the stack in order (#97, #98, #99,
 #100). If Samuel answers row 13 with yes: take the check out, with the
 tests that pin it, in a small PR.
+
+### Iteration 68 · 2026-10-07 06:51 · Back 15 s into a chapter that was not loaded (draft PR from `m14-back-into-chapter`) · success (CI to come: CI is still not starting jobs)
+
+(Iteration 66 is on #101's branch, `m13-epub-safe-unzip`, and 67 on #102's, `m14-paths-phone-wrap`: three branches from one log.)
+
+**Hypothesis.** A "before" mode on the parts route, plus one rule in the skip ("back past the first paragraph loaded, with more of the audiobook before it: load the part before, then ask again"), makes Back 15 s land exactly where it lands with everything loaded, in both engines, paused or playing; a test fails without each piece.
+**Action.** On `m14-back-into-chapter`, from #100's head f83fd83:
+- `?before=<position>` on `…/readalong/[importId]/reading` (`readingPartBefore`: the nearest paragraphs first, the same size rule as a forward part, back in reading order, with `earlier`, where the part before ends); the first part says `earlier` too.
+- `skipAcross(…, earlier)` answers "earlier" when the landing would be before the first paragraph loaded (in its own file, or the file before); without the flag it never does, so its type for the older callers is unchanged.
+- The session (`lookBack`): one fetch, the skip computed again from the values taken at the press, then the part added at the front and the list's index moved on in one `flushSync`, then the landing through a ref to the newest `land`.
+- Tests: 5 skip unit tests (one a sweep that compares every answer on a partly loaded list with the answer on the whole list), `withEarlier`, the part before in `audio.test.ts`, a route test, and 3 browser tests.
+**Evaluation.** `npm run check`; the M14 read-along tests and the whole read-along file in Chromium and WebKit, from the database copy after `offline`; 6 unit and 4 browser mutations after controls; the whole suite from an empty database.
+**Result.**
+- `npm run check`: exit 0, `Tests 489 passed | 2 skipped (491)`.
+- The sweep: `SWEEP asked=2701 wrongBefore=2069`. Without the change, 2,069 of its back skips landed somewhere else than with everything loaded; with it, every answer is either "earlier" or exactly the fully loaded one.
+- Browser: M14 tests `10 passed (18.5s)` (Chromium) and `10 passed (34.1s)` (WebKit); the whole read-along file `33 passed` in each (2.4 and 2.8 minutes).
+- **Three wrong turns on the way, each found by a run:**
+  - My first fixture (Jekyll paragraphs 30-32 in the first file) failed inside `importReading`: the importer placed only the words from "ashamed" on (in paragraph 31), and put "said he. “I" into paragraph 12. A scratch unit test against the importer showed the same for 29-32 and 31-32, and that 40-57 | 58-69 is placed word for word; the tests now use that.
+  - The same-file test asked for nothing: the reader starts Listen at the first paragraph on its page, and 66 to 68 were on 69's page, so 68 was already loaded. The tests now start from Home's "Listen from here" at a reading position set through the API, and check the Listen data they were given.
+  - My first sweep counted forward skips too, from times before the first paragraph loaded. The player cannot be there while more is known to be before (it fetches first), so the sweep covers back skips only.
+- Mutations: the required two are caught in unit and browser tests, in both engines (the before mode returning nothing: `readalong.spec.ts:1806`; the skip ignoring it: no request, `:1782`). **One mutation survived the two boundary tests:** not moving the list's index on after adding the part. A load into another file sets the index anew, so only the same-file test (a seek, `:1868`) catches it.
+- Whole suite, from an empty database: `298 passed (8.4m)`, exit 0 (06:42 to 06:50 UTC).
+**Lesson.**
+- **Compare with the fully loaded answer, not with landings I chose.** Iteration 56's lesson, applied from the start: a sweep against the whole list is the oracle, and it also showed the rule errs on the safe side: in the sweep, 632 of its 2,701 asks were not needed (the answer without the part was already right), and none of its answers is wrong.
+- **A test that needs an exact first paragraph must not start from the reader's page.** The reader starts where its page starts; Home's "Listen from here" starts at the reading position.
+- **Check a new fixture with the importer before building a browser test on it** (a scratch unit test takes seconds).
+- **Read which test catches each mutation.** A mutation that survives all but one test shows what that one test alone protects.
+**Next experiment.** When CI runs: this PR after #100, its four checks green.

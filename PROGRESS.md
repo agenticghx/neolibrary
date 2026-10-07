@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37576115458, 05:24 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37578083122, 05:47 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel), then the draft from `m14-back-into-chapter` (Back 15 s into a chapter not loaded, on top of #100; no reference images change); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -125,8 +125,18 @@ draft:
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
-6. **Not built yet:** back into a chapter that has not been loaded; Think
-   aloud from inside the reader.
+5a. **Back 15 s into a chapter that has not been loaded** (done: a draft
+   PR from `m14-back-into-chapter` into `m14-v5-whole-book`, on top of
+   #100, waiting for CI; added 2026-10-07 06:51 UTC): with your own
+   audiobook, Back from where Listen began now goes on into the chapter
+   before (the parts route's new "before" mode). After #100 merges: `git
+   rebase --onto origin/main f83fd83 m14-back-into-chapter` (f83fd83 is the
+   #100 commit it was built on; keep both sides where PROGRESS.md's Log and
+   LEARNING_LOG.md conflict), push with `--force-with-lease`, `gh pr edit
+   <its number> --base main`, mark it ready, merge when its four checks are
+   green (`gh pr list --head m14-back-into-chapter` finds it). No reference
+   image changes.
+6. **Not built yet:** Think aloud from inside the reader.
 
 **How this session worked** (2026-10-06): each step ran build, then tests in
 both engines, then mutations, then a review workflow (reviewers plus a
@@ -183,7 +193,7 @@ Never blocks the loop. Newest first.
 
 - **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after you, signed in, tick "I understand this makes narration for the entire book and costs about $X" for one of your own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) since 7 October, only you can start it, for now: a reader you invited sees one line instead of the form ("Whole-book narration is for the library's owner, for now."), and the server refuses them; Stop always works (Open unknowns row 13). Since the review (7 October): one whole-book run per reader at a time (a second is refused, with the reason), and Listen opens in the voice a book was narrated in. Two questions for you: Open unknowns rows 12 and 13.
 
-- **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page), #99 (Import in the sidebar and a fifth phone tab) and #100 (whole-book narration) cannot merge.
+- **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page), #99 (Import in the sidebar and a fifth phone tab) and #100 (whole-book narration) cannot merge, nor the drafts #101, #102 and the one from `m14-back-into-chapter` (Back 15 s into a chapter not loaded).
 
 - **M14 verdict** (#90, from 2026-10-06): your answers on items 1 to 4 are in, and their follow-ups are planned (`docs/m14-home-plan.md` §12). Still to do, when you can:
   - check the phone tabs on your iPhone, with the one-tap "Listen from here" in real Safari;
@@ -289,12 +299,40 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+<<<<<<< HEAD
 ### 2026-10-07 14:15 UTC (10:15 local) · Claude (laptop) · A WebKit flake's cause removed: the two-part upload test left the book page while its own refresh was still landing (draft PR from `m14-flake-upload-refresh` into main)
 - **Done:** `e2e/readalong.spec.ts`, "a two-part upload is announced once, can be cancelled, and the PDF book page says to press Listen": after "Remove", the app sets the message and then refreshes the page (`router.refresh()` in `AudiobookUpload.tsx`, `settle`), a navigation of its own. The test waited for the message and the focus, then went to `/library?new=collection` at once; when the refresh landed after that, WebKit on CI reported "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (runs 37629382754 attempt 2 on #103, 37627959389 attempts 2 and 3 on #108; it had passed on #98, #99 and #100's runs the same day: a race, more often lost on a slower machine). The test now waits for the page's network to go idle before leaving. No assertion changed.
 - **Key paths:** `e2e/readalong.spec.ts` (one `waitForLoadState("networkidle")` after the removal's focus check).
 - **Commands that worked:** `gh api repos/sahuno/neolibrary/actions/runs/37627959389/attempts/2/jobs` then `…/actions/jobs/<id>/logs` → the error above at `readalong.spec.ts:330`.
 - **Known issues / blockers:** `safari.spec.ts:42` (the read-aloud highlight, on time) failed in 5 WebKit runs today and passed on each re-run; its cause is not removed here.
 - **Exact next steps:** merge when green (after the M14 stack's last PRs, to avoid ledger collisions); then watch whether the two-part upload test fails again on WebKit.
+=======
+### 2026-10-07 06:51 UTC (02:51 local) · Claude (laptop, workflow agent) · Back 15 s into a chapter that was not loaded (draft PR from `m14-back-into-chapter`, on top of #100); CI still not starting jobs
+- **Done:**
+  - **What changes for you.** With your own audiobook, when you start listening part-way through a book, **Back 15 seconds** near the start of a chapter now goes back into the end of the chapter before. Before, it stopped at the start of the chapter's audio file, because the player had only the audiobook's paragraphs from where you started onwards (a "part": up to 200 paragraphs, fetched as needed), and the server could send parts going forward only. Paused, it stays paused; playing, it plays on; the 15 s count from the press.
+  - **Server:** the parts route (`…/readalong/[importId]/reading`) has a "before" mode: `?before=<position>` (a paragraph's place in reading order) sends the part just before it, in reading order, with `earlier`: where the part before that one ends, or null at the audiobook's first paragraph. The Listen data's first part says `earlier` too.
+  - **The skip:** `skipAcross` answers "earlier" when Back would land before the first paragraph loaded and more of the audiobook comes before it. The player then asks for the part before once, adds it at the front of its list (moving its place in the list on by as many, in the same step), and lands exactly where the same skip lands with that part loaded. Not fetched: as before (the start of the file). While it asks, other skips are ignored.
+  - **Same rule inside one file:** going back past where Listen began, inside the same audio file, usually landed at the right time already (not when a long stretch that playing skips came just before), but the mini-player went on showing the later paragraph, no word lit; it now shows the paragraph it lands in, with its word lit.
+  - **Tests:** unit (the skip: 5 new, one a sweep over 6 layouts that compares every answer on a partly loaded list with the answer on the whole list; `withEarlier`; the "before" part and its cursor in `audio.test.ts`; a route test of the two modes, the 400s, 401 and 404). Browser: 3 new tests in `readalong.spec.ts`, each in Chromium and WebKit (paused across the file boundary, playing across it, and inside the same file), started from Home's "Listen from here" at an exact reading position.
+  - **Draft PR** from `m14-back-into-chapter` into `m14-v5-whole-book` (#100's branch), written for Samuel. Nothing merged or deployed; no paid voice called.
+- **Key paths:** `app/api/books/[id]/readalong/[importId]/reading/route.ts` (+ new `route.test.ts`), `lib/library/audio.ts` (`readingPartBefore`, `EarlierPart`, `UploadedReading.earlier`) and `audio.test.ts`, `lib/player/skip.ts` (+ test), `lib/player/session.ts` (`withEarlier`, + test), `components/player/ListenSession.tsx` (`lookBack`, `land`), `e2e/readalong.spec.ts` (`backInto` and three tests), `LEARNING_LOG.md` (Iteration 68); scratchpad `backin/mut-unit.sh`, `backin/mut-e2e.sh`, `backin/pr-body.md`.
+- **Commands that worked:**
+  - `rm -rf .next/types && npx next typegen && npm run check` → exit 0, `Tests 489 passed | 2 skipped (491)` (478 before, plus 11 new).
+  - `npx vitest run lib/player/skip.test.ts` → `Tests 22 passed (22)`; the sweep, counted once from a copy of the test: `SWEEP asked=2701 wrongBefore=2069` (it asks 2,701 times; without this change, 2,069 landings differed from the fully loaded answer).
+  - `zsh <scratchpad>/run-snap.sh backin-chromium-3 readalong "M14"` → `10 passed (18.5s)`; `backin-webkit-1 readalong-safari "M14"` → `10 passed (34.1s)` (sound on the built-in speakers); the whole read-along file: `33 passed (2.4m)` in Chromium, `33 passed (2.8m)` in WebKit.
+  - `zsh <scratchpad>/backin/mut-unit.sh` → control `Tests 54 passed (54)`; 6 mutations, each type-checked ("compiles") and restored, each failing: the before mode returns nothing (`audio.test.ts:247`, `:281`, `:409`; `route.test.ts:58`); the first part never says more comes before (`audio.test.ts:241`); the skip ignores it (`skip.test.ts:169`, `:186`, `:196`, `:238`); the skip asks only in its own file (`:186`, `:238`); `withEarlier` keeps the old cursor (`session.test.ts:160`). `git diff | md5 -q` → `b5d5c2c928ebc3da4d5d598fe66cd2e4` before and after.
+  - `zsh <scratchpad>/backin/mut-e2e.sh …` (break, build, restore, run): control `10 passed (18.3s)`; the before mode returns nothing → `readalong.spec.ts:1806` in Chromium and WebKit (alone: `:1841`, `:1870`); the skip ignores it → no request for the part before, `:1782` (from `:1803`) in both engines (alone: the same in the other two tests); the player never passes the flag → `:1782`; the place in the list not moved on → only the same-file test, `:1868`. Then a clean build, and the same checksum.
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` (06:42:04 to 06:50:30 UTC, sound on the built-in speakers) → `298 passed (8.4m)`, exit 0 (292 before, plus the 3 new tests in each of the two read-along engines).
+- **Known issues / blockers:**
+  - GitHub Actions still starts no jobs (billing or spending limit; only Samuel can fix it). Seven PRs wait: #97 to #102, and this draft. Latest checked: run 37578083122 (#100's branch, 05:47 UTC), all four jobs `completed/failure, steps=0`, "The job was not started because recent account payments have failed or your spending limit needs to be increased".
+  - While the part before is fetched, nothing on screen says so, and another Back or Forward is ignored until it lands (one request; quick on the laptop, maybe a moment on a phone network).
+  - One part is fetched per Back (up to 200 paragraphs, about 8,000 words). Only if it still did not reach (hundreds of tracks without words) would Back stop where what is loaded begins.
+  - Found on the way, not changed: the importer misplaces Jekyll paragraphs 29-31 when a reading starts at paragraph 30 (none of 29 and 30 placed, only the end of 31, and "said he. “I" put into paragraph 12; a scratch test, `uploadedReading` after `startImport`). The new browser tests use 40-69, which it places word for word. Worth a look with the matcher follow-up ("words the matcher misses in Kuhn", item 6 of the older list).
+- **Exact next steps:**
+  1. When CI runs: #101, then #102, then the M14 stack, #97 to #100, as in Exact next steps; then this PR: after #100 merges, `git rebase --onto origin/main f83fd83 m14-back-into-chapter` (f83fd83 is the #100 commit this branch was built on; keep both sides where PROGRESS.md's Log and LEARNING_LOG.md conflict), push with `--force-with-lease`, set its base to `main`, mark it ready, merge when its four checks are green. No reference image changes (no page in `e2e/pages.ts` changed).
+  2. Then back up, deploy, and comment on #90. Never start a whole-book narration on the live site.
+  3. Not built yet: Think aloud from inside the reader; a rate limit on `/api/agent/*`.
+>>>>>>> 3e8a2b9 (Ledger: Back 15 s into a chapter not loaded (draft from m14-back-into-chapter, Iteration 68); CI is still not starting jobs)
 
 ### 2026-10-07 01:47 (local; 05:47 UTC) · Claude (laptop, lead session) · Owner-only whole-book Create (#100), EPUB unzip limits (#101) and /paths on a phone (#102) built and reviewed; CI still blocked
 - **Done:**
