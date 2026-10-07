@@ -3,29 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-next_action: Both reviews cut short by the session limit are done by hand (09:40 UTC entry): #103's one finding is fixed on `m14-back-into-chapter` (a time limit on the wait for the part before; one new browser test; committed and pushed) and #104 is clean. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37600771760, 09:27 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; Open unknowns rows 12 and 13 wait on Samuel), then #103 (Back 15 s into a chapter not loaded) and #104 (the WebKit-stall report, tests only), both on top of #100, no reference images change; back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). The flaky unit test (Exact next steps item 7) is fixed in draft #105 (`m6-flaky-marks-test` into main; its own ledger entry is on that branch): merge it with #101 and #102. Then the next unblocked step: why a failing read-along test's trace does not finish (Known issues, 09:40 UTC entry).
-=======
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37584200728, 06:55 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel), then the two drafts on top of #100: #103 (Back 15 s into a chapter not loaded) and the WebKit-stall report (`m14-flake-s4-diag`, tests only; no reference images change); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then, at the next WebKit stall on CI, read that report (Exact next steps item 5).
->>>>>>> 3c52315 (Ledger: the WebKit-stall report (draft from m14-flake-s4-diag, Iteration 69); a flaky unit test found; CI is still not starting jobs)
-=======
-next_action: First finish the two reviews cut short by the session limit (workflow wf_6467c1e9-e7c): verify #103's reviewer findings (journal) and review #104 (m14-flake-s4-diag); see docs/handoffs/2026-10-07-0526-m14-eight-prs-await-ci.md. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37584200728, 06:55 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel), then the two drafts on top of #100: #103 (Back 15 s into a chapter not loaded) and the WebKit-stall report (`m14-flake-s4-diag`, tests only; no reference images change); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then, at the next WebKit stall on CI, read that report (Exact next steps item 5).
->>>>>>> 5f35ce4 (Ledger: handoff written; #103 and #104 reviews cut short by the session limit)
-blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
-<<<<<<< HEAD
-updated: 2026-10-06
-next_action: Read workflow wf_4f239b9c-a53's result (owner-only whole-book Create on #100; the EPUB safe-unzip and /paths phone-wrap fixes as draft PRs into main) and verify it. Then wait for Samuel to fix GitHub Actions billing; when CI runs, merge the two main-based fixes, then #97, #98, #99, #100 in order (each moved onto main, CI's reference images committed), back up, deploy, comment on #90. Never start a whole-book narration on the live site. Then the WebKit-after-seek stall on CI.
-blockers: Samuel-only: GitHub Actions billing (CI starts no jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
-next_action: V1 (your books first in the Path picker) and V2 (a made-voice Go to the page test) are a PR: merge when green, then deploy (back up first). Then V3a (the Import page, on m14-v3a-import, written, not yet run), V3b, V5 (whole-book narration as an explicit choice; never call ElevenLabs for a whole book until Samuel says so), then the WebKit-after-seek stall on CI.
-blockers: only Samuel-only items remain (keys, sign-in, verdicts); see Waiting on Samuel.
-=======
->>>>>>> 1534c76 (Ledger: V3b (Iteration 60); draft PR #99; CI is still not starting jobs)
-=======
-next_action: The repository is PUBLIC since 2026-10-07 10:50 UTC (10:55 entry): never put secrets, readers' data or live-site details in tracked files. CI runs again: merge #105, #101, #102 when green (mark ready; the auto-merge merges), #97 merges by itself, then #98 to #104 in order (10:55 entry, step 1); fix what the app-code review found (step 2); then back up, deploy, comment on #90. Earlier: both reviews cut short by the session limit are done by hand (09:40 UTC entry): #103's one finding is fixed on `m14-back-into-chapter` (a time limit on the wait for the part before; one new browser test; committed and pushed) and #104 is clean. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37600771760, 09:27 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; Open unknowns rows 12 and 13 wait on Samuel), then #103 (Back 15 s into a chapter not loaded) and #104 (the WebKit-stall report, tests only), both on top of #100, no reference images change; back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). The flaky unit test (Exact next steps item 7) is fixed in draft #105 (`m6-flaky-marks-test` into main; its own ledger entry is on that branch): merge it with #101 and #102. Then the next unblocked step: why a failing read-along test's trace does not finish (Known issues, 09:40 UTC entry).
-blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 and 13; see Waiting on Samuel. (CI runs again since 2026-10-07 10:50 UTC.)
->>>>>>> 3da5ad5 (Ledger: security and privacy review of the repository; made public (Samuel's decision); CI runs again)
+next_action: main's ledger carried git conflict markers from 13:06 UTC (a merge-train resolver failure the train did not notice; the 19:00 UTC entry): this PR removes them and adds a hygiene guard. Then, through the merge train: #107 (import hardening; back up and run its two counts before deploying), #108 (screenshot allowance 40 px, 21 references), #111 (the merge-train skill). Then back up, deploy, check /api/health, /sign-in and /import, comment on #90. Then the review items B2, B5, B8; B3, B4, B6. Open unknowns rows 12, 13 and 14 wait on Samuel.
+blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-07
 shared_copy: none
 ---
@@ -136,7 +115,6 @@ draft:
    `narration.spec.ts`). Row 12 then matters more: two readers' runs could
    pay at the same moment.
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
-<<<<<<< HEAD
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
 5a. **Back 15 s into a chapter that has not been loaded** (done: draft
@@ -153,7 +131,6 @@ draft:
    green (`gh pr list --head m14-back-into-chapter` finds it). No reference
    image changes.
 6. **Not built yet:** Think aloud from inside the reader.
-=======
    position is set** (runs 37478603601, 37484095289, 37536227334). A
    report that says why is built (draft PR from `m14-flake-s4-diag` into
    `m14-v5-whole-book`, on top of #100, tests only; added 2026-10-07 07:32
@@ -183,7 +160,6 @@ draft:
    millisecond come out in either order. Fix it in its own small PR into
    `main`: order by something that always grows, or make the test's two
    marks a millisecond apart. Done when the file passes 50 runs in a row.
->>>>>>> 3c52315 (Ledger: the WebKit-stall report (draft from m14-flake-s4-diag, Iteration 69); a flaky unit test found; CI is still not starting jobs)
 
 **How this session worked** (2026-10-06): each step ran build, then tests in
 both engines, then mutations, then a review workflow (reviewers plus a
@@ -346,6 +322,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 19:00 UTC (15:00 local) · Claude (laptop) · main's ledger carried git conflict markers for six hours; removed, with a guard so it cannot happen again (PR from `m14-ledger-markers`)
+- **Done:** found while rebasing #107: `PROGRESS.md` on `main` held 30 lines of git's conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`), some nested three deep, in the header (three `next_action:` lines at once), in "Exact next steps" and in two Log regions. Cause: the merge train's ledger resolver (a short script that keeps both sides of a conflict) failed on #99's rebase (chain log 12:41 UTC, an `AssertionError` it printed and the train ignored), the train committed the file with the markers, the PR hygiene check counted its new entry and passed, and #99 merged at 13:06 UTC with them; #100, #103 and #104 were rebased on top and carried them on (each rebase nesting the markers one level deeper), and #107's rebase was about to. Repair: every block unwound innermost-first keeping both sides (10 blocks), one header with the current state, duplicate Log headings dropped (none were), 0 markers after; `LEARNING_LOG.md` was clean throughout. Guard: `scripts/check-pr-hygiene.mjs` now fails on any marker line in either ledger (it flagged the unrepaired file at line 6 when run against it). The train script (scratchpad, and #111's copy) now aborts the rebase when its resolver fails or markers remain. #107's branch was reset to its original commit (b8a5642) so its rebase meets a clean ledger.
+- **Key paths:** `PROGRESS.md` (the whole file: no content removed, markers only), `scripts/check-pr-hygiene.mjs`; `.claude/skills/merge-train/scripts/train.sh` and `references/gotchas.md` in #111.
+- **Commands that worked:** `grep -cE '^(<<<<<<<|=======|>>>>>>>)' PROGRESS.md` → 30 before, 0 after; the unwinding script (in this entry's PR commit message's spirit: innermost block first, HEAD's lines then the other side's); `node scripts/check-pr-hygiene.mjs origin/main` → "PROGRESS.md line 6 is a git conflict marker" against the old file, then "found 1 new Log entry" against this one.
+- **Known issues / blockers:** the duplicated text the keep-both rule leaves in "Exact next steps" (items 5 to 7 appear in two versions) is left as is; the 16:40 UTC entry (in #111) and this header supersede it.
+- **Exact next steps:** merge this first (it conflicts with every open PR's ledger entry, as usual: keep both sides); then #107, #108, #111 through the train; then the deploy.
+
 ### 2026-10-07 15:25 UTC (11:25 local) · Claude (laptop) · The "part before never comes" test waits for the audio to be ready before pressing Back, and says why when the part is not asked for (draft PR from `m14-back-test-ready` into main)
 - **Done:** on #104's CI run (37638918531, attempt 2, WebKit) the new test from #103 failed at `asksBefore`: Back was pressed, but no request for the part before followed within 10 s (`page.waitForRequest` timed out; the test had passed on #103's own run and on the laptop in both engines). The player ignores a Back press while the audio element has no data or is seeking (`skip`'s guard), and WebKit on CI can be in that state for a moment after a far seek. Not proven for this run (the failure left no player state). Two changes, in `e2e/readalong.spec.ts`: the test waits for the element to have data and not be seeking before pressing Back (`ready`); and when the part is not asked for within 10 s, the error now carries the player's state (time, paused, seeking, readyState, networkState), so the next such failure says its cause. No assertion changed.
 - **Key paths:** `e2e/readalong.spec.ts` (`backInto`: `asksBefore`, `ready`; the test "the part before never comes").
@@ -355,20 +338,12 @@ Never blocks the loop. Newest first.
 - **Known issues / blockers:** none known; if either test fails again on WebKit, the errors say why (the player's state; the interrupting address).
 - **Exact next steps:** merge when green (after #104, #107 and #108); if the test fails again on WebKit, read the player state in its error.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 ### 2026-10-07 14:15 UTC (10:15 local) · Claude (laptop) · A WebKit flake's cause removed: the two-part upload test left the book page while its own refresh was still landing (draft PR from `m14-flake-upload-refresh` into main)
 - **Done:** `e2e/readalong.spec.ts`, "a two-part upload is announced once, can be cancelled, and the PDF book page says to press Listen": after "Remove", the app sets the message and then refreshes the page (`router.refresh()` in `AudiobookUpload.tsx`, `settle`), a navigation of its own. The test waited for the message and the focus, then went to `/library?new=collection` at once; when the refresh landed after that, WebKit on CI reported "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (runs 37629382754 attempt 2 on #103, 37627959389 attempts 2 and 3 on #108; it had passed on #98, #99 and #100's runs the same day: a race, more often lost on a slower machine). The test now waits for the page's network to go idle before leaving. No assertion changed.
 - **Key paths:** `e2e/readalong.spec.ts` (one `waitForLoadState("networkidle")` after the removal's focus check).
 - **Commands that worked:** `gh api repos/sahuno/neolibrary/actions/runs/37627959389/attempts/2/jobs` then `…/actions/jobs/<id>/logs` → the error above at `readalong.spec.ts:330`.
 - **Known issues / blockers:** `safari.spec.ts:42` (the read-aloud highlight, on time) failed in 5 WebKit runs today and passed on each re-run; its cause is not removed here.
 - **Exact next steps:** merge when green (after the M14 stack's last PRs, to avoid ledger collisions); then watch whether the two-part upload test fails again on WebKit.
-=======
-=======
-=======
 ### 2026-10-07 10:55 UTC (06:55 local) · Claude (laptop) · Security and privacy review of the repository; made public at Samuel's decision; CI runs again (free minutes for public repositories)
 - **Done:**
   - **Why.** GitHub Actions had started no job since 6 October 22:39 UTC: the account's included minutes (GitHub Pro, 3,000 a month) were used up, Samuel has no funds for more, and the reset is not before the 9th. Public repositories get Actions free. Samuel asked for a security and privacy review first, then said "go ahead make it public".
@@ -394,7 +369,6 @@ Never blocks the loop. Newest first.
   2. Merge `m14-import-hardening` (A1/A2; review its diff first; the migration needs a backup before it runs live) and #106 (B1) when green. Then B2, B5 and B8 as small PRs (see 11:05 UTC above); B3, B4, B6 later.
   3. Back up, deploy, comment on #90. Never start a whole-book narration on the live site.
 
->>>>>>> edbdc57 (Ledger: security and privacy review of the repository; made public (Samuel's decision); CI runs again)
 ### 2026-10-07 09:40 UTC (05:40 local) · Claude (laptop) · The two unfinished reviews done by hand: #103's one finding fixed (a time limit on the wait for the part before), #104 clean; CI still not starting jobs
 - **Done:**
   - **The blocker first:** GitHub Actions still starts no jobs. Run 37600771760 (#104, 09:27 UTC): all four jobs `failure, steps=0`, "The job was not started because recent account payments have failed or your spending limit needs to be increased". Only Samuel can fix it (GitHub → Settings → Billing and plans). Nothing merged or deployed; production is still `main` 9a19ccb.
@@ -423,7 +397,6 @@ Never blocks the loop. Newest first.
   3. Then back up, deploy, comment on #90. Never start a whole-book narration on the live site.
   4. #105 (the flaky unit test, draft into main): mark ready and merge with #101 and #102 when CI runs. Then the next unblocked step: why a failing read-along test's failure trace does not finish within 30 s (Known issues above).
 
->>>>>>> e511281 (Back into a chapter: the wait for the part before has a limit (8 s), and a late failure lands from where the audio is)
 ### 2026-10-07 06:51 UTC (02:51 local) · Claude (laptop, workflow agent) · Back 15 s into a chapter that was not loaded (draft PR from `m14-back-into-chapter`, on top of #100); CI still not starting jobs
 - **Done:**
   - **What changes for you.** With your own audiobook, when you start listening part-way through a book, **Back 15 seconds** near the start of a chapter now goes back into the end of the chapter before. Before, it stopped at the start of the chapter's audio file, because the player had only the audiobook's paragraphs from where you started onwards (a "part": up to 200 paragraphs, fetched as needed), and the server could send parts going forward only. Paused, it stays paused; playing, it plays on; the 15 s count from the press.
@@ -449,9 +422,6 @@ Never blocks the loop. Newest first.
   1. When CI runs: #101, then #102, then the M14 stack, #97 to #100, as in Exact next steps; then this PR: after #100 merges, `git rebase --onto origin/main f83fd83 m14-back-into-chapter` (f83fd83 is the #100 commit this branch was built on; keep both sides where PROGRESS.md's Log and LEARNING_LOG.md conflict), push with `--force-with-lease`, set its base to `main`, mark it ready, merge when its four checks are green. No reference image changes (no page in `e2e/pages.ts` changed).
   2. Then back up, deploy, and comment on #90. Never start a whole-book narration on the live site.
   3. Not built yet: Think aloud from inside the reader; a rate limit on `/api/agent/*`.
->>>>>>> 3e8a2b9 (Ledger: Back 15 s into a chapter not loaded (draft from m14-back-into-chapter, Iteration 68); CI is still not starting jobs)
-=======
-=======
 ### 2026-10-07 05:27 (local; 09:27 UTC) · Claude (laptop, lead session) · Handoff written; #103 and #104 built, but their reviews were cut short by the session limit
 - **Done:**
   - Workflow `wf_6467c1e9-e7c` built two drafts on top of #100:
@@ -474,7 +444,6 @@ Never blocks the loop. Newest first.
   2. Re-run `rm -rf .next/types && npx next typegen && npm run check` on #103 and #104, then report to Samuel.
   3. When CI runs: the merge order in the handoff (#101, #102, then #97 to #100, then #103 and #104), backup, deploy, comment on #90.
 
->>>>>>> 5f35ce4 (Ledger: handoff written; #103 and #104 reviews cut short by the session limit)
 ### 2026-10-07 07:32 UTC (03:32 local) · Claude (laptop, workflow agent) · WebKit stall on CI: when the audio stands still, the test log now lists every audio request and the server's answer (draft PR from `m14-flake-s4-diag`, on top of #100; tests only); CI still not starting jobs
 - **Done:**
   - **What changes for you.** Nothing in the app, and no check changes what it accepts. When a read-along test fails because the audio never reached the point it waits for, its log now also lists every request the page made for audio, and one line reading the player's state. For each request: the part of the file asked for (the "range"), the server's answer, and whether that answer arrived in full, the browser gave up on it, or neither yet. CI's Safari engine stood still like this three times on 6 October (runs 37478603601, 37484095289, 37536227334). Next time, the log should say whether the player asked for more audio and whether the server answered.
@@ -499,7 +468,6 @@ Never blocks the loop. Newest first.
   1. When CI runs: land this after #100 (Exact next steps item 5); no reference image changes.
   2. At the next WebKit stall on CI, read `playUntil`'s report (how: item 5).
   3. The flaky unit test (item 7), as its own small PR into `main`.
->>>>>>> 3c52315 (Ledger: the WebKit-stall report (draft from m14-flake-s4-diag, Iteration 69); a flaky unit test found; CI is still not starting jobs)
 
 ### 2026-10-07 01:47 (local; 05:47 UTC) · Claude (laptop, lead session) · Owner-only whole-book Create (#100), EPUB unzip limits (#101) and /paths on a phone (#102) built and reviewed; CI still blocked
 - **Done:**
