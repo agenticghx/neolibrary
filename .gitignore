@@ -40,3 +40,7 @@ __pycache__/
 
 # Timing samples written by the read-along timing tests (scripts/timing-summary.mjs)
 /timing/
+
+# Samuel's own notes and session handoffs: never commit
+/docs/ideasFeaturesSelf.md
+/docs/handoffs/
