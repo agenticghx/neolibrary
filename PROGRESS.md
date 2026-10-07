@@ -201,6 +201,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 11:20 UTC (07:20 local) · Claude (laptop) · Sign-in: a stranger can no longer lock you out; the attempt list is cleaned up; `?next=` refuses control characters (draft PR from `m14-signin-lockout` into main)
+- **Done:** one item ("B1") from the security review of 7 October (the review's details went to Samuel in chat, since the repository is public now; the M14 stack's ledger, 10:55 UTC entry, has the context). Sign-in attempts are counted per email-and-address pair (10 per 15 minutes) and per address, with a backstop per email across every address (50 per 15 minutes), so ten wrong passwords sent by a stranger no longer lock the account's owner out. The limiter forgets emails and addresses not tried within the window once it remembers 1,000 of them. The address to go to after sign-in (`?next=`) refuses control characters (browsers drop them, so a tab could have turned a path into another site's address). Built in a separate checkout of `main`.
+- **Key paths:** `app/(public)/actions.ts` (`signInAction`, `wide`), `lib/auth/rate-limit.ts` (`sweep`, `size`), `lib/auth/session.ts` (`safeNext`), `lib/auth/misc.test.ts` (one new limiter test), `lib/auth/session.test.ts` (new).
+- **Commands that worked:** `npx next typegen && npm run check` → exit 0, `Tests 464 passed | 2 skipped (466)` (462 before, plus the two new tests).
+- **Known issues / blockers:** the per-pair counting lives in a server action (reads request headers), which has no unit-test harness; covered by reading. The remaining review items (B2 to B8) are listed in the M14 stack's ledger.
+- **Exact next steps:** mark this PR ready and merge when its four checks are green (its ledger diff is this entry and `updated:`; keep both sides when it conflicts).
 ### 2026-10-07 00:57 (local; 04:57 UTC) · Claude (laptop, workflow wf_4f239b9c-a53) · EPUB uploads unpacked within limits (no more zip bombs): draft #101 into main
 - **Done:**
   - Uploaded EPUBs are now unpacked with `safeUnzip`, the careful unpacker the read-along importer already used, within two limits: **512 MB unpacked and 10,000 files**. A file past either is refused at upload with a plain line (for example "This EPUB would unpack to more than 512 MB, far more than any real book, so it was not added."), before anything is saved. This is "Exact next steps" item 7, done once #101 merges.
