@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37558343498). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose; draft; review it as a draft first); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37558343498). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose; draft; reviewed, its seven fixes in, bfed0b3; Open unknowns row 12 waits on Samuel); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -52,8 +52,11 @@ merge when all four checks are green; back up; deploy.
 
 **Then #100 (V5, draft, on top of #99; added 2026-10-07 01:41 UTC):** AI
 voice narration for an entire book, chosen on purpose on the Import page,
-built and verified on the laptop with the fake voice only. Review it as a
-draft first (a workflow, as for #98). After #99 merges: `git rebase --onto
+built and verified on the laptop with the fake voice only. Reviewed as a
+draft (7 October, 02:13 UTC): seven findings, all in V5's files, all fixed
+(commit bfed0b3; LEARNING_LOG Iterations 63-64); V3b needed no change.
+Open unknowns row 12 (paid paragraphs one at a time server-wide) waits on
+Samuel; default: not in #100. After #99 merges: `git rebase --onto
 origin/main 1534c76 m14-v5-whole-book` (1534c76 is the V3b commit V5 was
 built on; keep both sides where PROGRESS.md's Log and LEARNING_LOG.md
 conflict), push with `--force-with-lease`, `gh pr edit 100 --base main` if
@@ -87,9 +90,13 @@ draft:
    `.itemTitle` in `app/(app)/paths/page.module.css`, and a check in
    `own-paths.spec.ts` that `/paths` fits 390 px after it makes that Path.
 4a. **V5, whole-book AI narration** on the Import page, as an explicit
-   choice (done: draft #100, on top of #99, waiting for CI and a review).
+   choice (done: draft #100, on top of #99, reviewed and fixed, waiting for
+   CI).
    Never call ElevenLabs for a whole book until Samuel explicitly says so:
    fake voice only.
+4c. **If Samuel says yes to Open unknowns row 12:** paid paragraphs one at
+   a time in the whole server (`speak()` in `lib/library/audio.ts`), as its
+   own small PR, with a unit test of two callers and one limit.
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
@@ -149,7 +156,7 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after someone signed in ticks "I understand this makes narration for the entire book and costs about $X" for one of their own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) readers you invite can narrate their own EPUBs, within the same shared limits.
+- **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after someone signed in ticks "I understand this makes narration for the entire book and costs about $X" for one of their own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) readers you invite can narrate their own EPUBs, within the same shared limits. Since the review (7 October): one whole-book run per reader at a time (a second is refused, with the reason), and Listen opens in the voice a book was narrated in. One question for you: Open unknowns row 12.
 
 - **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page), #99 (Import in the sidebar and a fifth phone tab) and #100 (whole-book narration) cannot merge.
 
@@ -228,6 +235,7 @@ Never blocks the loop. Newest first.
 | 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
 | 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default (a) applies; built 2026-10-06 for the audiobook case: one tap plays on Home) |
 | 11 | M14 follow-up V3 (the Import page): besides explaining that an EPUB can be read aloud paragraph by paragraph by an AI voice (made, and paid for, the first time each paragraph plays), should the Import page also offer to make the narration for a whole book in advance? That spends money up front, within the voice spending limits ($5 a book, $20 a month unless set). Default: not offered; the page only explains. | Samuel | 2026-10-13 | answered 2026-10-06: offer it, as a separate option chosen on purpose that names the whole book, its paragraphs and its cost, paid up front, and needs confirming (Decisions; plan §12 V5) |
+| 12 | Whole-book narration (review of #100): make paid paragraphs one at a time in the whole server (`speak()` in `lib/library/audio.ts`, code from M7)? Callers paying at the very same moment (two readers' runs, or a run and someone's Listen bar) can each pass the same spending-limit check. With one run per reader (in #100), the most a limit can be passed by is one paragraph per other caller paying at that moment (Frankenstein's paragraphs average $0.16 at the default price). One at a time closes it, and also stops a run and the Listen bar paying twice for one paragraph. The catch: a Listen bar would wait for a run's paragraph in progress (a second or two). Default: not in #100; a small follow-up PR once you say yes. | Samuel | 2026-10-14 | open (default applies) |
 
 ## Decisions
 
@@ -254,6 +262,40 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-07 03:04 UTC (23:04 on 6 Oct, local) · Claude (laptop, workflow agent) · V5 review fixes (draft #100): seven findings fixed; V3b (#99) unchanged; CI still not starting jobs
+- **Done:**
+  - **The review of draft #100** confirmed seven problems, all in V5's own files. None was in V3b, so `m14-v3b-import-nav` (#99) is unchanged and V5 needed no rebase (it still sits on 1534c76).
+  - **All seven fixed** in commit bfed0b3 on `m14-v5-whole-book`, each with a check that fails without it:
+    - one whole-book run per reader at a time: another book, or the same book in another voice, is refused with a plain reason naming the run going on ("A narration is already going on: …, in the voice …. Stop it first."); a reader you invited can still narrate their own book;
+    - Listen (in the reader, and Home's "Listen from here") opens in the first voice the paragraph is saved in, so a book narrated whole in Ben plays for free in Ben; the page's lines now name the voice ("in that voice, it plays for free");
+    - the panel waits for each check before asking again (up to 15 s), so a connection slower than a second no longer freezes the progress;
+    - the Book and Voice lists are locked while a run is shown;
+    - the Voice list shows your choice; only that voice's figures are shown and sent; a failed check offers Try again;
+    - keyboard focus moves to the outcome when a run ends by itself;
+    - the Import page's opening line: "Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front."
+  - **Found while fixing, fixed:** a refused Create showed its reason only until the next check answered (a moment later); it now stays until the next choice or press.
+  - **Not done (Samuel's call, Open unknowns row 12):** paid paragraphs one at a time in the whole server (`speak()` in `lib/library/audio.ts`).
+  - **#100's description** has a "Review fixes" section; #99's says the review needed no change there.
+  - ElevenLabs was never called: the fake voice only. Nothing was merged or deployed.
+- **Key paths:** `lib/library/narration.ts` (+ test), `lib/library/listen.ts` (+ test), `lib/library/audio.ts` (`firstStoredTrack`), `lib/player/session.ts` (+ test), `app/(app)/import/{WholeBookNarration.tsx,page.tsx,page.module.css}`, `e2e/narration.spec.ts`, `e2e/uploads.spec.ts`, `LEARNING_LOG.md` (Iterations 63-64), `docs/m14-home-plan.md` (§12 V5); scratchpad `v5fix/mut-unit.sh`, `v5fix/mut-e2e.sh`, `v5fix/pr-v5-fixes.md` (#100's text).
+- **Commands that worked:**
+  - `npm run check` → exit 0, `Tests 475 passed | 2 skipped (477)` (472 before, plus 3 new tests);
+  - `zsh <scratchpad>/run-snap.sh v5fix-1 narration "."` → `1 passed (36.9s)`; "Stop pressed 2680 ms after Create, with 373 of 2,500 paragraphs saved"; "the rest (2,122 paragraphs) took 15736 ms; 134 different counts seen";
+  - `zsh <scratchpad>/v5fix/mut-unit.sh` → control `Tests 35 passed (35)`; 3 of 3 caught: the one-run rule removed (`narration.test.ts:197`), Listen back to the first voice (`listen.test.ts:113`), `firstVoice` ignoring the saved track (`session.test.ts:54`);
+  - `zsh <scratchpad>/v5fix/mut-e2e.sh` → control `1 passed (36.7s)`; 6 of 6 caught: checks dropped again (`narration.spec.ts:259`, `Received: "Making the narration in the background."`), the old voice's figures shown (`:136`, `Expected: 0`, `Received: 1`), lists not locked (`:201`), no focus after the end (`:264`, `Received: inactive`), the refusal wiped (`:172`), Listen in the first voice (`:357`, `Expected: "fake-ben"`, `Received: "fake-ada"`); then a clean build;
+  - `zsh <scratchpad>/v5fix/old-mut-unit.sh` (V5's own five unit mutations, again on the fixed code) → control `Tests 11 passed (11)`; 5 of 5 still caught (`narration.test.ts:302`, `:165`/`:275`, `:116`/`:168`, `:237`, `:146`/`:259`);
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots`, sound on the built-in speakers (`system_profiler SPAudioDataType`: "MacBook Pro Speakers … Default Output Device: Yes"): on bfed0b3, 02:55 to 03:04 UTC, `292 passed (8.3m)`; the narration test printed "Stop pressed 2562 ms after Create, with 353 of 2,500 paragraphs saved" and "the rest (2,141 paragraphs) took 16264 ms; 139 different counts seen". The first version of the fix commit (9dc7563, before a one-line style was folded in: a locked list shows no hover) also passed, 02:44 to 02:52 UTC, `292 passed (8.3m)`.
+- **Known issues / blockers:**
+  - **CI does not start jobs** (Waiting on Samuel): #97, #98, #99 and #100 wait for it.
+  - **Reference images:** `import-*` change again with the new opening line; commit CI's renderings after #98's and #99's.
+  - **Passing a limit, what is left:** with one run per reader, callers paying at the very same moment (two readers' runs, or a run and someone's Listen bar) can each pass the same check, by at most one paragraph each (Frankenstein's paragraphs average $0.16: 438,802 characters ÷ 806 × $0.30 per 1,000). A run and the Listen bar making the same paragraph at the same moment could still each pay for it (as before). Both close with Open unknowns row 12.
+  - Still as before: the browser test depends on time (the margin is printed); the WebKit race at `readalong.spec.ts:330`; a long run in another voice stops if ElevenLabs' voice list cannot be read; the narration test runs after `readalong-safari`.
+- **Exact next steps:**
+  1. Wait for Samuel to fix GitHub billing; never raise a limit.
+  2. Then #97, #98, #99, then #100 (rebase commands in Exact next steps); back up; deploy. Never start a whole-book narration on the live site.
+  3. If Samuel says yes to row 12: a small PR making paid paragraphs one at a time server-wide, with a two-callers-one-limit unit test.
+  4. The `/paths` fix (Exact next steps 4b), as its own PR.
 
 ### 2026-10-07 01:41 UTC (21:41 on 6 Oct, local) · Claude (laptop, workflow agent) · V5: AI voice narration for an entire book, chosen on purpose (draft #100, on top of #99); fake voice only; CI still not starting jobs
 - **Done:**

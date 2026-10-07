@@ -1126,6 +1126,13 @@ raises a limit. The page should say so.
 - **Tests:** `lib/library/narration.test.ts`; `e2e/narration.spec.ts`, a
   Playwright project of its own that runs last (it makes a book's audio in
   bulk and spends against the shared voice limits).
+- **Review fixes (2026-10-07):** one run per reader at a time (another is
+  refused, naming the run going on); the Listen bar opens in the first
+  voice a paragraph is saved in; the panel never replaces a check still on
+  its way (up to 15 s), locks its Book and Voice lists during a run, shows
+  and sends only the chosen voice's figures (with Try again), and moves
+  focus to the outcome when a run ends. Still open: paid paragraphs one at
+  a time in the whole server (PROGRESS.md Open unknowns row 12).
 
 ### V4 · Waiting on Samuel
 

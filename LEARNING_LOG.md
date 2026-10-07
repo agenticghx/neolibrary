@@ -53,6 +53,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 60 | 2026-10-07 00:40 | V3b (#99) | Import fits the sidebar and a fifth phone tab with only the column count changed | whole suite; tab sizes measured; base comparison; control + 2 mutations | success (CI to come) | a database copy taken later can hold data that fails an older test: run the control, then compare with the base |
 | 61 | 2026-10-07 01:41 | V5 (#100) | Whole-book narration needs no new table: speakPassage in a loop, runs in memory | npm run check; whole suite twice; browser test timings; 12 screenshots; 7 mutations with controls | success (CI to come) | time the code path a test runs, from inside the test, and print the margin |
 | 62 | 2026-10-07 01:21 | V5 full run 1 | The whole suite passes on 30a0766 | whole suite; the WebKit project alone on the same build | flake (an older test's navigation race) | |
+| 63 | 2026-10-07 02:13 | V5 review (#100) | #100 is ready | review workflow (reviewers, a skeptic per finding) | failure (7 confirmed, all in V5's files) | every finding involved two things at once |
+| 64 | 2026-10-07 03:04 | V5 review fixes | Seven small fixes in V5's files close the seven | npm run check; narration test; 3 unit + 6 browser mutations with controls; whole suite | success (CI to come) | a page that asks again and again: wait for the answer on its way, show only answers about the current choice, keep action errors apart |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -61,6 +63,12 @@ Iterations 38 to 59 have no row in this index (the sessions that wrote them did 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
+- **A page that asks the server again and again needs three rules**
+  (Iterations 63-64). Never replace a request still on its way (wait for
+  it, with a time limit); show and send only answers about what the person
+  has chosen now; keep an action's error apart from a check's, or the next
+  check wipes it out. Apply: test with a route that answers slower than the
+  interval, and one that fails once.
 - **Time the code path a test runs, from inside the test, and print the
   margin** (Iteration 61). A run timed through the HTTP route, one request
   per paragraph, was twice as slow as the same work in the server's own
@@ -1860,3 +1868,71 @@ the project alone on the same build, then a full run.
 **Next experiment.** If it happens again, have the test wait for the book
 page's refresh to finish (its request's answer) before opening the next
 page.
+
+### Iteration 63 · 2026-10-07 02:13 · Review of V5 (draft #100) · failure (seven problems the tests had passed)
+
+**Hypothesis.** Draft #100 (V5, whole-book narration) is ready.
+**Action.** A review workflow read V5's diff (commit e0393af), with
+reviewers and a skeptic per finding, some testing their claim on scratch
+copies (fake voice only).
+**Result.** Seven findings confirmed, all in V5's own files; none in V3b
+(#99), so V3b is unchanged:
+1. two runs at once for one reader (another voice or book) could together
+   pass the spending limits, and the page showed and stopped only one;
+2. "press Listen: it plays for free" was false in a voice other than the
+   first on offer: Listen opened in the first voice;
+3. checks slower than a second were all dropped, so the progress froze
+   (the reviewer's harness: no "Done" at 1,100 ms per check);
+4. choosing another book or voice during a run hid its progress and Stop;
+5. the Voice list followed the server's last answer, so Create could start
+   the voice just left;
+6. keyboard focus was lost when a run ended by itself;
+7. the Import page's opening line left out the whole-book choice.
+**Interpretation.** The tests covered the happy path and the money rules
+one run at a time. Every finding involves two things at once: two runs, a
+slow answer and the next tick, the person's choice and the server's answer.
+**Lesson.** See Iteration 64.
+**Next experiment.** Fix each with a check that fails without it.
+
+### Iteration 64 · 2026-10-07 03:04 · V5 review fixes · success (CI to come: CI is still not starting jobs)
+
+**Hypothesis.** Seven small fixes in V5's files close the seven findings,
+each caught by a check that fails without it, and nothing else breaks.
+**Action.** Commit bfed0b3 on `m14-v5-whole-book`: one run per reader
+(`narration.ts`); Listen opens in the first voice a paragraph is saved in
+(`listen.ts`, `audio.ts` `firstStoredTrack`, `session.ts` `firstVoice`);
+the panel waits for each check (up to 15 s), locks its lists during a run,
+shows only the chosen voice's figures (with Try again), and moves focus to
+the outcome (`WholeBookNarration.tsx`); the opening line. Found while
+fixing: a refused Create's reason was wiped by the next check; it stays now.
+**Evaluation.** `npm run check`; the narration test on the database copy
+after `offline`; 3 unit and 6 browser mutations after controls; the whole
+suite from a fresh database.
+**Result.**
+- `npm run check`: exit 0, `Tests 475 passed | 2 skipped (477)`.
+- Narration test: `1 passed (36.9s)`; "Stop pressed 2680 ms after Create,
+  with 373 of 2,500 paragraphs saved".
+- Unit mutations (control `Tests 35 passed (35)`): one-run rule removed,
+  `narration.test.ts:197`; Listen back to the first voice, `listen.test.ts:113`;
+  `firstVoice` ignoring the saved track, `session.test.ts:54`.
+- Browser mutations (control `1 passed (36.7s)`): checks dropped again,
+  `narration.spec.ts:259` (`Received: "Making the narration in the
+  background."` after 15 s); the old voice's figures shown, `:136`
+  (`Expected: 0`, `Received: 1`); lists not locked, `:201`; no focus after
+  the end, `:264` (`Received: inactive`); the refusal wiped, `:172`; Listen
+  in the first voice, `:357` (`Expected: "fake-ben"`, `Received: "fake-ada"`).
+- V5's own five unit mutations, again on the fixed code: control `Tests
+  11 passed (11)`; 5 of 5 still caught.
+- Whole suite: `292 passed (8.3m)` on bfed0b3, 02:55 to 03:04 UTC. Also on
+  9dc7563, the same without a one-line style folded in later (a locked
+  list shows no hover): `292 passed (8.3m)`.
+**Interpretation.** Each fix is pinned by a check that fails without it.
+Left open for Samuel (Open unknowns row 12): paid paragraphs one at a time
+server-wide, which would close the remaining overshoot (at most one
+paragraph per other caller paying at the same moment).
+**Lesson.** A page that asks again and again needs three rules: never
+replace a request still on its way (test with a route slower than the
+interval); show and send only answers about what the person chose now;
+keep an action's error apart from a check's, or the next check wipes it.
+**Next experiment.** When CI runs: the stack in order (#97, #98, #99,
+#100), with CI's renderings of `import-*`.
