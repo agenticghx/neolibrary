@@ -527,6 +527,9 @@ async function gotoPastRefresh(page: Page, url: string) {
     await page.waitForTimeout(500);
     await page.goto(url);
   }
+}
+
+/**
  * Every request the page makes for audio during a test (watched from before each test in this file, below), in the
  * order made: the range asked for, then what became
  * of it: the server's answer (status, the range sent, its length), then the end of that answer: arrived in full
