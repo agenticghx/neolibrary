@@ -1913,8 +1913,12 @@ test("M14: the part before never comes: after the wait's limit, Back lands 15 s 
   const { mini, said, asksBefore, ready, where } = await backInto(page, 69);
   await mini.getByRole("button", { name: "Pause" }).click();
   await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
-  // 14 s into paragraph 69 (37 s long: room for the wait and both skips), then playing on from there.
-  const t = said(69)[0].startMs + 14_000;
+  // 10 s into paragraph 69 (37 s long: room for the wait and both skips), then playing on from there. Back 15 s must
+  // land before 69 to ask for the part before: 10 s leaves 5 s of slack for the steps between the audio reaching the
+  // point and the press. With 14 s the slack was 0.5 s, and on a slow WebKit runner the press came too late: the
+  // skip stayed inside 69 and nothing was asked for (#104 runs 37638918531 attempts 2 and 4, #110 run 37643052389:
+  // "The player: currentTime 36.5, not paused, not seeking, readyState 4").
+  const t = said(69)[0].startMs + 10_000;
   await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), t / 1000);
   await expect.poll(async () => (await where()).t).toBeCloseTo(t / 1000, 1);
   await mini.getByRole("button", { name: "Play", exact: true }).click();
