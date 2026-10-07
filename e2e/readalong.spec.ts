@@ -328,12 +328,14 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   // Removing also refreshes the page (router.refresh in AudiobookUpload's settle), a navigation of its own that
   // can land after the message and the focus: leaving before it has finished made WebKit on CI report
   // "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (three runs,
-  // 2026-10-07). Wait for the refresh's fetch to end first.
+  // 2026-10-07). Waiting for the network to go quiet (#109) was not enough: on a slow renderer the refreshed page
+  // commits, and the router rewrites the address, after that (run 37652722201). So: wait, then go, and when the
+  // refresh still gets in between, go once more.
   await page.waitForLoadState("networkidle");
 
   // A collection, so the page can be refreshed during the next upload (below).
   const collection = `Refresh test ${Date.now()}`;
-  await page.goto("/library?new=collection");
+  await gotoPastRefresh(page, "/library?new=collection");
   await page.getByLabel("Collection name").fill(collection);
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page).toHaveURL(/\/library\?c=/);
@@ -511,6 +513,21 @@ async function openListening(page: Page, bookId: string, at: number) {
  * its end (a "pause" and an "ended") before the test stops it.
  */
 const TAIL = "And that is where this part of the reading ends.";
+
+/**
+ * page.goto that survives the page's own late refresh: Next's router rewrites the address when a refreshed page
+ * commits, and Playwright reports a goto in flight at that moment as "interrupted by another navigation". Only that
+ * error is retried, once.
+ */
+async function gotoPastRefresh(page: Page, url: string) {
+  try {
+    await page.goto(url);
+  } catch (e) {
+    if (!/interrupted by another navigation/.test((e as Error).message)) throw e;
+    await page.waitForTimeout(500);
+    await page.goto(url);
+  }
+}
 
 /**
  * Waits until the audio reaches `ms`. If it never does, prints what the player was doing first, so a stall on CI
@@ -1784,8 +1801,31 @@ async function backInto(page: Page, at: 58 | 69) {
     end57: last.startMs + last.word.length * SECONDS_PER_CHAR * 1000,
     /** The paragraph, of `from` to `to`, that time `ms` of their file is in (the last one begun by then). */
     inside: (ms: number, from: number, to: number) => range(from, to).filter((i) => said(i)[0].startMs <= ms).at(-1)!,
-    /** The part before is asked for (waited for from before the click that asks, so it is not missed). */
-    asksBefore: () => page.waitForRequest((r) => /\/reading\?before=\d+$/.test(r.url()), { timeout: 10_000 }),
+    /**
+     * The part before is asked for (waited for from before the click that asks, so it is not missed). Not asked
+     * within 10 s: the error says what the player was doing, since a Back press is ignored while the audio element
+     * has no data or is seeking (skip's guard), which WebKit on CI can be in for a moment after a far seek.
+     */
+    asksBefore: () =>
+      page.waitForRequest((r) => /\/reading\?before=\d+$/.test(r.url()), { timeout: 10_000 }).catch(async (e: Error) => {
+        const state = await page
+          .evaluate(() => {
+            const a = document.querySelector("audio")!;
+            return { currentTime: a.currentTime, paused: a.paused, seeking: a.seeking, readyState: a.readyState, networkState: a.networkState };
+          })
+          .catch(() => "unknown");
+        throw new Error(`${e.message}\nThe part before was not asked for. The player: ${JSON.stringify(state)}`);
+      }),
+    /** Waits until the audio element has data and is not seeking: a Back press before that is ignored (skip's guard). */
+    ready: () =>
+      page.waitForFunction(
+        () => {
+          const a = document.querySelector("audio")!;
+          return a.readyState >= 2 && !a.seeking;
+        },
+        undefined,
+        { timeout: 10_000 },
+      ),
     where: () =>
       page.evaluate(() => {
         const a = document.querySelector("audio")!;
@@ -1887,15 +1927,21 @@ test("M14: back past where Listen began within the same audio file lands 15 s ba
 // from the press, LOOK_BACK_MS earlier), and both buttons work again.
 test("M14: the part before never comes: after the wait's limit, Back lands 15 s back from where the audio is by then, and Forward works again", async ({ page }) => {
   test.setTimeout(90_000);
-  const { mini, said, asksBefore, where } = await backInto(page, 69);
+  const { mini, said, asksBefore, ready, where } = await backInto(page, 69);
   await mini.getByRole("button", { name: "Pause" }).click();
   await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
-  // 14 s into paragraph 69 (37 s long: room for the wait and both skips), then playing on from there.
-  const t = said(69)[0].startMs + 14_000;
+  // 10 s into paragraph 69 (37 s long: room for the wait and both skips), then playing on from there. Back 15 s must
+  // land before 69 to ask for the part before: 10 s leaves 5 s of slack for the steps between the audio reaching the
+  // point and the press. With 14 s the slack was 0.5 s, and on a slow WebKit runner the press came too late: the
+  // skip stayed inside 69 and nothing was asked for (#104 runs 37638918531 attempts 2 and 4, #110 run 37643052389:
+  // "The player: currentTime 36.5, not paused, not seeking, readyState 4").
+  const t = said(69)[0].startMs + 10_000;
   await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), t / 1000);
   await expect.poll(async () => (await where()).t).toBeCloseTo(t / 1000, 1);
   await mini.getByRole("button", { name: "Play", exact: true }).click();
   await playUntil(page, t + 500);
+  // After a far seek, WebKit on CI can still be short of data for a moment: a Back pressed then is ignored.
+  await ready();
   // Every time the player sets the audio's time from here on: the time just before, and the time set.
   await page.evaluate(() => {
     const w = window as unknown as { sets_: [number, number][] };
