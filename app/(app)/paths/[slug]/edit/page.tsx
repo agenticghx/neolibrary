@@ -26,11 +26,13 @@ export default async function EditPathPage({ params }: { params: Promise<{ slug:
   const slug = (await params).slug;
   const view = await getPathView(db, user.id, slug);
   if (!view || view.readingList) notFound();
-  const library = await db
-    .select({ id: books.id, title: books.title, author: books.author })
-    .from(books)
-    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt)))
-    .orderBy(asc(sql`lower(${books.title})`));
+  const library = (
+    await db
+      .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey })
+      .from(books)
+      .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt)))
+      .orderBy(asc(sql`lower(${books.title})`))
+  ).map(({ fileKey, ...b }) => ({ ...b, hasFile: fileKey !== null }));
   const empty = view.pillars.length === 0;
 
   const namePanel = (

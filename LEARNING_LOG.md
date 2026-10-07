@@ -1539,3 +1539,30 @@ engines; one browser mutation (the start time ignored); `npm run check`.
   simulated playing tick by tick on random layouts, found the short-file
   case at once. For rules about edges, test against a simulation of the
   real thing, not only cases I chose.
+
+### Iteration 57 · 2026-10-06 22:38 · M14 follow-ups V1 (Path picker) and V2 (Go to the page, made voice) · success (CI to come)
+
+**Hypothesis.** Samuel could not find Frankenstein in his own Path's book
+picker because of a fault: missing from the list, or adding failing.
+**Action.**
+- **The live data, read-only:** the page's own query lists 129 books, with
+  Frankenstein 26th; his "literature" Path had no titles.
+- **A reproduction on a copy of the app:** a Path "literature", a section
+  "man and machine", the picker's options listed, then Frankenstein added.
+- **V2 first as a test:** "Go to the page" with a made voice (his case).
+**Evaluation.** The reproduction; V1's and V2's tests; a mutation for each.
+**Result.**
+- **No fault in the code.** Frankenstein was in the list ("Frankenstein, by
+  Mary Shelley", among 134 options), and adding it worked ("1 section · 1
+  available"). It was simply lost among the titles without a file.
+- **V1:** the picker now shows "Books you have" first, then "Titles without
+  a file yet". `own-paths.spec.ts` `2 passed`. The one-list mutation was
+  caught (the two-group check).
+- **V2:** it already worked with a made voice: the reader opens playing on,
+  the lit word is the bar's word, and its paragraph is on the page in front.
+  `audio.spec.ts` `1 passed`. The no-word-lit mutation was caught.
+- **`npm run check`:** `Tests 462 passed | 2 skipped (464)`.
+**Lesson.**
+- **"It did not show up" can mean "I could not see it".** Reproduce before
+  fixing: here the fix was findability, not a missing row.
+- **A follow-up may need only a test:** V2's behaviour was right.
