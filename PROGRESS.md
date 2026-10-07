@@ -322,6 +322,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 13:20 UTC (09:20 local) · Claude (laptop) · Screenshot comparisons tightened: a one-row change could pass unnoticed (draft PR from `m14-screenshot-tolerance` into main)
+- **Done:** `playwright.config.ts` allowed 0.2 % of a page's pixels to differ before a screenshot comparison failed (about 2,000 pixels on a 1280 × 800 page; it was set for anti-aliasing differences between machines). When #99 added the "Import" row to the sidebar, the dark-mode comparisons failed as they should, but the light-mode ones passed against references without the row (run 37623855636: `✓ [desktop-light] › home looks as approved`, while CI's own grid image of that run shows the row). Every reference image is a CI rendering now, so the allowance is 40 pixels. CI's first run on this branch fails on the references that were stale within the old allowance; their renderings are then looked at and committed (the next entry, or this PR's description, says which).
+- **Key paths:** `playwright.config.ts` (`expect.toHaveScreenshot.maxDiffPixels`), `e2e/__screenshots__/` (the refreshed images, once committed).
+- **Commands that worked:** `git show origin/ci-screenshots:pr-99/d84b0a1…/home-desktop-light.png` (the row is there); the run log: `gh run view --job <browser job of 37623855636> --log | grep "desktop-light.*home looks"` → `✓`.
+- **Known issues / blockers:** if 40 pixels turns out to be below CI's own run-to-run noise, raise it (the m14-flake notes have no measurement of that noise yet).
+- **Exact next steps:** after CI's first run: download its `playwright-report` artifact, look at each `*-actual.png`, copy them into `e2e/__screenshots__`, commit, push; merge when green (after the M14 stack, to avoid ledger collisions).
 ### 2026-10-07 11:11 UTC · Claude (laptop, worktree) · Library import hardened (branch m14-import-hardening; not pushed, awaiting the lead session's review)
 Written for Samuel and the next Claude session.
 - **Done:**
