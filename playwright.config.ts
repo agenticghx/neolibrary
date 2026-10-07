@@ -34,8 +34,10 @@ export default defineConfig({
     toHaveScreenshot: {
       animations: "disabled",
       caret: "hide",
-      // Small allowance for anti-aliasing differences between machines.
-      maxDiffPixelRatio: 0.002,
+      // Every reference image is a CI (Linux) rendering, so differences between runs are anti-aliasing
+      // noise of a few pixels at most. The old allowance, 0.2 % of the page (about 2,000 pixels on a
+      // desktop page), let one added sidebar row pass in light mode (#99, 2026-10-07).
+      maxDiffPixels: 40,
     },
   },
   use: { baseURL: `http://127.0.0.1:${port}`, browserName: "chromium", trace: "retain-on-failure" },
