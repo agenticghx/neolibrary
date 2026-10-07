@@ -306,6 +306,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 15:25 UTC (11:25 local) · Claude (laptop) · The "part before never comes" test waits for the audio to be ready before pressing Back, and says why when the part is not asked for (draft PR from `m14-back-test-ready` into main)
+- **Done:** on #104's CI run (37638918531, attempt 2, WebKit) the new test from #103 failed at `asksBefore`: Back was pressed, but no request for the part before followed within 10 s (`page.waitForRequest` timed out; the test had passed on #103's own run and on the laptop in both engines). The player ignores a Back press while the audio element has no data or is seeking (`skip`'s guard), and WebKit on CI can be in that state for a moment after a far seek. Not proven for this run (the failure left no player state). Two changes, in `e2e/readalong.spec.ts`: the test waits for the element to have data and not be seeking before pressing Back (`ready`); and when the part is not asked for within 10 s, the error now carries the player's state (time, paused, seeking, readyState, networkState), so the next such failure says its cause. No assertion changed.
+- **Key paths:** `e2e/readalong.spec.ts` (`backInto`: `asksBefore`, `ready`; the test "the part before never comes").
+- **Commands that worked:** `gh api repos/sahuno/neolibrary/actions/runs/37638918531/attempts/2/jobs` → the browser job; `…/actions/jobs/<id>/logs` → `TimeoutError: page.waitForRequest: Timeout 10000ms exceeded` at `readalong.spec.ts:1890` (`asksBefore`) from `:2023`.
+- **Known issues / blockers:** the cause of that one failure is inferred, not measured; the new error message is there to measure it next time.
+- **Exact next steps:** merge when green (after #104, #107 and #108); if the test fails again on WebKit, read the player state in its error.
+
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
