@@ -1,15 +1,16 @@
 import { readFileSync } from "node:fs";
 import { strToU8 } from "fflate";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hiddenMachinery } from "@/data/paths/hidden-machinery";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
-import { books } from "@/lib/db/schema";
+import { books, sections } from "@/lib/db/schema";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
+import { ImportError } from "./ebook";
 import { fileOwner, importBook } from "./import";
 import { getBook, getPathView, seedPath } from "./paths";
-import { tinyEpub } from "./test-epub";
+import { epubDeclaring, epubWithEntries, tinyEpub } from "./test-epub";
 
 const fixture = (name: string) => ({
   name,
@@ -138,6 +139,33 @@ describe("importing books", () => {
     await expect(importBook(database.db, storage, ownerId, { name: "x.txt", bytes: strToU8("hello") })).rejects.toThrow(
       "Only EPUB and PDF",
     );
+  });
+
+  it("refuses an EPUB past either zip limit in plain words and saves nothing: no book, no file, no sections", async () => {
+    const put = vi.spyOn(storage, "put");
+    const [waiting] = await database.db.insert(books).values({ ownerId, title: "Big Claims", author: "" }).returning();
+    const refusal = (p: Promise<unknown>) => p.then(() => null, (e: unknown) => e);
+    for (const [bytes, message] of [
+      [epubDeclaring(512 * 1024 * 1024 + 1), "This EPUB would unpack to more than 512 MB, far more than any real book, so it was not added."],
+      [epubWithEntries(10_001, "Big Claims"), "This EPUB holds more than 10,000 files, far more than any real book, so it was not added."],
+    ] as const) {
+      // Dropped as a new book (its title matches the waiting one), and added to the waiting title on purpose.
+      for (const opts of [{}, { attachTo: waiting.id }]) {
+        const e = await refusal(importBook(database.db, storage, ownerId, { name: "big.epub", bytes }, opts));
+        expect(e).toBeInstanceOf(ImportError);
+        expect((e as Error).message).toBe(message);
+      }
+    }
+    expect(put).not.toHaveBeenCalled();
+    expect(await database.db.select({ id: books.id, fileKey: books.fileKey }).from(books)).toEqual([{ id: waiting.id, fileKey: null }]);
+    expect(await database.db.select({ id: sections.id }).from(sections)).toEqual([]);
+  });
+
+  it("adds a book of exactly 10,000 files, with its file and its sections", async () => {
+    const r = await importBook(database.db, storage, ownerId, { name: "many.epub", bytes: epubWithEntries(10_000) });
+    expect(r).toMatchObject({ status: "added", title: "Many Files" });
+    expect((await storage.get(`books/${ownerId}/${r.bookId}.epub`))?.contentType).toBe("application/epub+zip");
+    expect(await database.db.select({ text: sections.text }).from(sections)).toContainEqual({ text: "One short page." });
   });
 
   it("knows who owns a stored file only from well-formed keys", () => {

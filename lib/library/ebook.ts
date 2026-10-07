@@ -1,7 +1,8 @@
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
 import { XMLParser } from "fast-xml-parser";
 import { DOMParser } from "linkedom";
 import { PDFDocument } from "pdf-lib";
+import { safeUnzip, ZipError } from "../readalong/zipread";
 
 /**
  * Reads what we need from an uploaded book: type, title, author, cover and
@@ -25,6 +26,46 @@ export type BookInfo = {
 };
 
 export const MAX_BOOK_BYTES = 200 * 1024 * 1024;
+
+const MB = 1024 * 1024;
+
+/**
+ * Limits on what an uploaded EPUB may unpack to. An EPUB is a zip file, and
+ * a "zip bomb" is a small zip that unpacks to gigabytes (a zip of 524,030
+ * bytes can unpack to 512 MB of zeros). So EPUBs are unpacked with
+ * `safeUnzip` (lib/readalong/zipread.ts, as read-along packages are), which
+ * reads the zip's own table of contents and refuses it before unpacking
+ * anything when these limits are passed, and stops at once any file that
+ * unpacks to more than it declared.
+ *
+ * Chosen from the evidence (2026-10-07), with room to spare:
+ * - uploads are capped at 200 MB (MAX_BOOK_BYTES);
+ * - the three sample books (Standard Ebooks) hold 24 to 48 files and
+ *   unpack to 2.06 to 2.27 times their size (262,771 to 596,490 bytes);
+ * - the largest EPUB in the live library (backup of 2026-10-06) is one of
+ *   them, Frankenstein: 271,904 bytes, 48 files.
+ * Pictures, the bulk of any large EPUB, are already compressed and unpack to
+ * about their own size. Even a book at the 200 MB cap that unpacked as much
+ * as the samples do (2.27 times) would come to 454 MB, under 512 MB. 10,000
+ * files is about 200 times the largest sample.
+ */
+export const EPUB_ZIP_LIMITS = { maxUnpacked: 512 * MB, maxEntries: 10_000 };
+
+/** Unpacks an EPUB within EPUB_ZIP_LIMITS. Anything refused becomes an ImportError in plain words. */
+export function unzipEpub(bytes: Uint8Array): Record<string, Uint8Array> {
+  try {
+    return safeUnzip(bytes, EPUB_ZIP_LIMITS);
+  } catch (e) {
+    const why = e instanceof ZipError ? e.message : "";
+    if (why === "too large") {
+      throw new ImportError(`This EPUB would unpack to more than ${EPUB_ZIP_LIMITS.maxUnpacked / MB} MB, far more than any real book, so it was not added.`);
+    }
+    if (why === "too many entries") {
+      throw new ImportError(`This EPUB holds more than ${EPUB_ZIP_LIMITS.maxEntries.toLocaleString("en-US")} files, far more than any real book, so it was not added.`);
+    }
+    throw new ImportError("This file is not a readable EPUB.");
+  }
+}
 
 export function detectType(bytes: Uint8Array): "epub" | "pdf" | null {
   if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"; // %PDF
@@ -63,12 +104,7 @@ function resolve(base: string, href: string): string {
 const FONT_OBFUSCATION = ["http://www.idpf.org/2008/embedding", "http://ns.adobe.com/pdf/enc#RC"];
 
 export function parseEpub(bytes: Uint8Array): BookInfo {
-  let files: Record<string, Uint8Array>;
-  try {
-    files = unzipSync(bytes);
-  } catch {
-    throw new ImportError("This file is not a readable EPUB.");
-  }
+  const files = unzipEpub(bytes);
   if (files["mimetype"] && !strFromU8(files["mimetype"]).startsWith("application/epub+zip")) {
     throw new ImportError("This zip file is not an EPUB.");
   }

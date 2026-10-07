@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
 import { XMLParser } from "fast-xml-parser";
 import { DOMParser } from "linkedom";
+import { unzipEpub } from "./ebook";
 
 /**
  * The section model (M4): every EPUB split into chapters → sections →
@@ -66,8 +67,9 @@ function elementSteps(el: El, root: El): string {
   return steps.join("");
 }
 
+/** Unpacks the EPUB as the upload does (unzipEpub): a file that is not a zip, or is past EPUB_ZIP_LIMITS, throws an ImportError. */
 export function extractSections(bytes: Uint8Array, toc: { label: string; href: string }[] = []): Section[] {
-  const files = unzipSync(bytes);
+  const files = unzipEpub(bytes);
   const container = files["META-INF/container.xml"];
   if (!container) return [];
   const opfPath: string = xml.parse(strFromU8(container))?.container?.rootfiles?.rootfile?.[0]?.["@full-path"];

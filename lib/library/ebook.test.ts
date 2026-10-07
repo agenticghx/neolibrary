@@ -1,10 +1,44 @@
 import { readFileSync } from "node:fs";
-import { strToU8, zipSync } from "fflate";
+import { strToU8, unzipSync, zipSync } from "fflate";
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import { detectType, ImportError, readBook } from "./ebook";
+import { detectType, ImportError, readBook, unzipEpub } from "./ebook";
+import { epubDeclaring, epubWithEntries } from "./test-epub";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`../../fixtures/books/${name}`, import.meta.url)));
+
+/** What reading a file throws, or null when it is read. */
+const refusal = (bytes: Uint8Array) => readBook(bytes, "upload.epub").then(() => null, (e: unknown) => e);
+
+describe("EPUB zip limits: a zip bomb is refused in plain words; real books read as before", () => {
+  it("unpacks the three sample books exactly as fflate's unzipSync did: the same files, byte for byte", () => {
+    for (const file of ["shelley-frankenstein.epub", "stevenson-jekyll-and-hyde.epub", "wells-the-time-machine.epub"]) {
+      const bytes = fixture(file);
+      expect(unzipEpub(bytes)).toEqual(unzipSync(bytes));
+    }
+  });
+
+  it("refuses an EPUB whose zip says it unpacks to more than 512 MB", async () => {
+    const e = await refusal(epubDeclaring(512 * 1024 * 1024 + 1));
+    expect(e).toBeInstanceOf(ImportError);
+    expect((e as Error).message).toBe("This EPUB would unpack to more than 512 MB, far more than any real book, so it was not added.");
+  });
+
+  it("refuses an EPUB of more than 10,000 files, and reads one of exactly 10,000", async () => {
+    const e = await refusal(epubWithEntries(10_001));
+    expect(e).toBeInstanceOf(ImportError);
+    expect((e as Error).message).toBe("This EPUB holds more than 10,000 files, far more than any real book, so it was not added.");
+    const atLimit = epubWithEntries(10_000);
+    expect(Object.keys(unzipSync(atLimit))).toHaveLength(10_000);
+    expect((await readBook(atLimit, "many.epub")).title).toBe("Many Files");
+  });
+
+  it("still calls a damaged zip not a readable EPUB", async () => {
+    const e = await refusal(strToU8("PK, but not a zip"));
+    expect(e).toBeInstanceOf(ImportError);
+    expect((e as Error).message).toBe("This file is not a readable EPUB.");
+  });
+});
 
 describe("reading EPUBs", () => {
   it.each([

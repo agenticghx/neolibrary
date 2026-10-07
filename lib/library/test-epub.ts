@@ -1,4 +1,4 @@
-import { strToU8, zipSync } from "fflate";
+import { strFromU8, strToU8, zipSync } from "fflate";
 
 /** A tiny DRM-free EPUB with the given title, for tests (public-domain text). */
 export function tinyEpub(title: string, author = "Test Author"): Uint8Array {
@@ -14,6 +14,45 @@ export function tinyEpub(title: string, author = "Test Author"): Uint8Array {
 
 /** A small but complete EPUB 3 (spine, nav) with the given chapter bodies, for reader tests. */
 export function readableEpub(title: string, chapters: string[], author = "Test Author"): Uint8Array {
+  return zipSync(readableEpubFiles(title, chapters, author));
+}
+
+/**
+ * Zips for the EPUB limits (EPUB_ZIP_LIMITS in ./ebook), built here rather
+ * than kept as binary files: a readable one-chapter EPUB with something
+ * added. This one is padded with one-byte files to `entries` files in all.
+ */
+export function epubWithEntries(entries: number, title = "Many Files"): Uint8Array {
+  const files = readableEpubFiles(title, ["<p>One short page.</p>"]);
+  const padding = entries - Object.keys(files).length;
+  for (let i = 0; i < padding; i++) files[`OEBPS/extra/${i}.txt`] = strToU8("x");
+  return zipSync(files);
+}
+
+/**
+ * The same EPUB, but its zip's table of contents (the "central directory")
+ * says its files unpack to `declared` bytes in all, as a zip bomb's does.
+ * Only that claim is rewritten after zipSync: the chapter really unpacks to
+ * 143 bytes.
+ */
+export function epubDeclaring(declared: number, title = "Big Claims"): Uint8Array {
+  const zip = zipSync(readableEpubFiles(title, ["<p>One short page.</p>"])); // deflated: a stored file's two sizes must agree
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  const end = zip.length - 22; // zipSync adds no comment, so the end record is the last 22 bytes
+  let at = view.getUint32(end + 16, true); // where the directory starts
+  let others = 0;
+  let chapter = -1;
+  for (let i = view.getUint16(end + 10, true); i > 0; i--) {
+    const nameLength = view.getUint16(at + 28, true);
+    if (strFromU8(zip.subarray(at + 46, at + 46 + nameLength)) === "OEBPS/c0.xhtml") chapter = at;
+    else others += view.getUint32(at + 24, true); // each file's unpacked size
+    at += 46 + nameLength + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
+  }
+  view.setUint32(chapter + 24, declared - others, true);
+  return zip;
+}
+
+function readableEpubFiles(title: string, chapters: string[], author = "Test Author"): Record<string, Uint8Array> {
   const items = chapters.map((_, i) => `<item id="c${i}" href="c${i}.xhtml" media-type="application/xhtml+xml"/>`).join("");
   const spine = chapters.map((_, i) => `<itemref idref="c${i}"/>`).join("");
   const nav = chapters.map((_, i) => `<li><a href="c${i}.xhtml">Chapter ${i + 1}</a></li>`).join("");
@@ -34,5 +73,5 @@ export function readableEpub(title: string, chapters: string[], author = "Test A
       `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter ${i + 1}</title></head><body>${body}</body></html>`,
     );
   });
-  return zipSync(files);
+  return files;
 }
