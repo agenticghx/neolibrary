@@ -55,6 +55,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 62 | 2026-10-07 01:21 | V5 full run 1 | The whole suite passes on 30a0766 | whole suite; the WebKit project alone on the same build | flake (an older test's navigation race) | |
 | 63 | 2026-10-07 02:13 | V5 review (#100) | #100 is ready | review workflow (reviewers, a skeptic per finding) | failure (7 confirmed, all in V5's files) | every finding involved two things at once |
 | 64 | 2026-10-07 03:04 | V5 review fixes | Seven small fixes in V5's files close the seven | npm run check; narration test; 3 unit + 6 browser mutations with controls; whole suite | success (CI to come) | a page that asks again and again: wait for the answer on its way, show only answers about the current choice, keep action errors apart |
+| 65 | 2026-10-07 04:22 | V5 owner only (#100) | One rule in the route (POST, GET) and on the Import page keeps whole-book narration to the library's owner; Stop stays open | npm run check; route test; narration and uploads tests; 4 unit + 2 browser mutations with controls; whole suite | success (CI to come) | test a permission where it is the only thing in the way: the reader's own book |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -1936,3 +1937,42 @@ interval); show and send only answers about what the person chose now;
 keep an action's error apart from a check's, or the next check wipes it.
 **Next experiment.** When CI runs: the stack in order (#97, #98, #99,
 #100), with CI's renderings of `import-*`.
+
+### Iteration 65 · 2026-10-07 04:22 · V5: whole-book narration for the library's owner only · success (CI to come: CI is still not starting jobs)
+
+**Hypothesis.** One rule, checked in the narration route (POST and GET)
+and on the Import page, keeps whole-book narration to the library's owner
+(the admin), while Stop stays open to a book's owner; a test fails without
+each check.
+**Action.** Commit 44aa04c on `m14-v5-whole-book`: `mayNarrateWholeBooks`
+and `OWNER_ONLY` in `narration.ts`; the route answers anyone else 403
+before looking at the book, and Stop answers them 204 without the figures;
+the page shows them the one line and leaves the whole-book choice out of
+its opening line and "How books are heard". Tests: a route test (the
+repo's first; the real handlers, with `vi.mock` for the signed-in user,
+the database, the voice and the file store); the browser test signs Grace
+in, and she adds an EPUB of her own first.
+**Evaluation.** `npm run check`; the narration and uploads browser tests
+on the database copy after `offline`; 4 unit and 2 browser mutations after
+controls; the whole suite from a fresh database.
+**Result.**
+- `npm run check`: exit 0, `Tests 478 passed | 2 skipped (480)`.
+- Narration test `1 passed (40.6s)`; the Import page test `1 passed (3.9s)`.
+- Unit mutations (control `Tests 14 passed (14)`): POST's check removed,
+  `route.test.ts:72` (`expected 202 to be 403`); GET's, `:78`
+  (`expected 200 to be 403`); Stop giving a reader the figures, `:82`
+  (`expected 200 to be 204`); everyone may narrate, `:72`.
+- Browser mutations (control `1 passed (39.4s)`): POST's check removed,
+  `narration.spec.ts:368` (`Expected: 403`, `Received: 202`); the page's
+  check removed, `:353`.
+- Whole suite: `292 passed (8.4m)` on 44aa04c, 04:12 to 04:21 UTC.
+**Interpretation.** The check that proves the rule uses Grace's own EPUB:
+with the route's check removed, her start there went through (202, and a
+run began with the fake voice). On the owner's book, the check that a
+book is your own would still have refused her (404), whatever the role.
+**Lesson.** Test a permission where it is the only thing in the way: give
+the person something they could otherwise use (here an EPUB of her own),
+so a refusal for another reason cannot hide a missing check.
+**Next experiment.** When CI runs: the stack in order (#97, #98, #99,
+#100). If Samuel answers row 13 with yes: take the check out, with the
+tests that pin it, in a small PR.

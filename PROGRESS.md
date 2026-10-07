@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37558343498). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose; draft; reviewed, its seven fixes in, bfed0b3; Open unknowns row 12 waits on Samuel); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37571083458). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -27,7 +27,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Resume M14 here (2026-10-07, 00:06 UTC).** First: **GitHub Actions is
+**Resume M14 here (2026-10-07, 04:22 UTC).** First: **GitHub Actions is
 not starting jobs** (runs 37541928335 and, still, 37550128494: "recent
 account payments have failed or your spending limit needs to be
 increased"). Only Samuel can fix it (Waiting on Samuel); never raise a
@@ -55,6 +55,10 @@ voice narration for an entire book, chosen on purpose on the Import page,
 built and verified on the laptop with the fake voice only. Reviewed as a
 draft (7 October, 02:13 UTC): seven findings, all in V5's files, all fixed
 (commit bfed0b3; LEARNING_LOG Iterations 63-64); V3b needed no change.
+Since 7 October (commit 44aa04c; LEARNING_LOG Iteration 65): only the
+library's owner (the admin) can start a run; a reader you invited sees one
+line instead of the form, and the route answers them 403. Open unknowns
+row 13 waits on Samuel (default: only him).
 Open unknowns row 12 (paid paragraphs one at a time server-wide) waits on
 Samuel; default: not in #100. After #99 merges: `git rebase --onto
 origin/main 1534c76 m14-v5-whole-book` (1534c76 is the V3b commit V5 was
@@ -91,12 +95,18 @@ draft:
    `own-paths.spec.ts` that `/paths` fits 390 px after it makes that Path.
 4a. **V5, whole-book AI narration** on the Import page, as an explicit
    choice (done: draft #100, on top of #99, reviewed and fixed, waiting for
-   CI).
+   CI). For the library's owner only, for now (Open unknowns row 13).
    Never call ElevenLabs for a whole book until Samuel explicitly says so:
    fake voice only.
 4c. **If Samuel says yes to Open unknowns row 12:** paid paragraphs one at
    a time in the whole server (`speak()` in `lib/library/audio.ts`), as its
    own small PR, with a unit test of two callers and one limit.
+4d. **If Samuel says yes to Open unknowns row 13** (readers may create
+   whole-book narration): a small PR that takes `mayNarrateWholeBooks` out
+   of the narration route and the Import page (`OWNER_ONLY` goes with it)
+   and changes the tests that pin it (`route.test.ts`; the Grace step in
+   `narration.spec.ts`). Row 12 then matters more: two readers' runs could
+   pay at the same moment.
 5. **WebKit on Linux (CI) sometimes stands still right after the audio's
    position is set** (runs 37478603601, 37484095289): start from the flake
    plan's S4 (`docs/m14-flake/plan.md`).
@@ -156,7 +166,7 @@ that file (baseline run, then step b1 on branch `m14-b1-availability`).
 
 Never blocks the loop. Newest first.
 
-- **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after someone signed in ticks "I understand this makes narration for the entire book and costs about $X" for one of their own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) readers you invite can narrate their own EPUBs, within the same shared limits. Since the review (7 October): one whole-book run per reader at a time (a second is refused, with the reason), and Listen opens in the voice a book was narrated in. One question for you: Open unknowns row 12.
+- **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after you, signed in, tick "I understand this makes narration for the entire book and costs about $X" for one of your own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) since 7 October, only you can start it, for now: a reader you invited sees one line instead of the form ("Whole-book narration is for the library's owner, for now."), and the server refuses them; Stop always works (Open unknowns row 13). Since the review (7 October): one whole-book run per reader at a time (a second is refused, with the reason), and Listen opens in the voice a book was narrated in. Two questions for you: Open unknowns rows 12 and 13.
 
 - **CI has stopped starting jobs** (from 2026-10-06 22:39 UTC; needs you). GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page), #99 (Import in the sidebar and a fifth phone tab) and #100 (whole-book narration) cannot merge.
 
@@ -235,7 +245,8 @@ Never blocks the loop. Newest first.
 | 9 | M14 step 6 (reading aloud goes on from page to page): when one book is being read aloud and you open another book, should the first one stop, or keep playing with the mini-player shown in the second book's reader? Before 6a, leaving a book always stopped it. Default: stop, as before (the 6a fixes on `m14-e1-fixes`). | Samuel | 2026-10-13 | open (default applies) |
 | 10 | M14 step 6b part 2: Home's "Listen from here" can start reading aloud on Home, without opening the book, only if it can play inside your tap (Safari's rule). Your own audiobook can. A made voice with no saved audio for that paragraph cannot: the price is shown before the first play. For that case: (a) open the book, as today; or (b) a second tap on Home after the price shows. Default: (a). | Samuel | 2026-10-13 | open (default (a) applies; built 2026-10-06 for the audiobook case: one tap plays on Home) |
 | 11 | M14 follow-up V3 (the Import page): besides explaining that an EPUB can be read aloud paragraph by paragraph by an AI voice (made, and paid for, the first time each paragraph plays), should the Import page also offer to make the narration for a whole book in advance? That spends money up front, within the voice spending limits ($5 a book, $20 a month unless set). Default: not offered; the page only explains. | Samuel | 2026-10-13 | answered 2026-10-06: offer it, as a separate option chosen on purpose that names the whole book, its paragraphs and its cost, paid up front, and needs confirming (Decisions; plan §12 V5) |
-| 12 | Whole-book narration (review of #100): make paid paragraphs one at a time in the whole server (`speak()` in `lib/library/audio.ts`, code from M7)? Callers paying at the very same moment (two readers' runs, or a run and someone's Listen bar) can each pass the same spending-limit check. With one run per reader (in #100), the most a limit can be passed by is one paragraph per other caller paying at that moment (Frankenstein's paragraphs average $0.16 at the default price). One at a time closes it, and also stops a run and the Listen bar paying twice for one paragraph. The catch: a Listen bar would wait for a run's paragraph in progress (a second or two). Default: not in #100; a small follow-up PR once you say yes. | Samuel | 2026-10-14 | open (default applies) |
+| 12 | Whole-book narration (review of #100): make paid paragraphs one at a time in the whole server (`speak()` in `lib/library/audio.ts`, code from M7)? Callers paying at the very same moment (a run and someone's Listen bar; two readers' runs too, if row 13 lets readers narrate) can each pass the same spending-limit check. With one run per reader (in #100), the most a limit can be passed by is one paragraph per other caller paying at that moment (Frankenstein's paragraphs average $0.16 at the default price). One at a time closes it, and also stops a run and the Listen bar paying twice for one paragraph. The catch: a Listen bar would wait for a run's paragraph in progress (a second or two). Default: not in #100; a small follow-up PR once you say yes. | Samuel | 2026-10-14 | open (default applies) |
+| 13 | Should readers you invite be able to create whole-book narration (one key pays; the shared limits apply)? Default: no, only you. Built that way in #100 (2026-10-07): a reader sees one line instead of the form, and the server refuses them (403); Stop always works for a book's owner. | Samuel | 2026-10-14 | open (default applies) |
 
 ## Decisions
 
@@ -262,6 +273,35 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-07 04:22 UTC (00:22 on 7 Oct, local) · Claude (laptop, workflow agent) · V5 (draft #100): whole-book narration for the library's owner only, for now; CI still not starting jobs
+- **Done:**
+  - **Why.** Samuel's rule is never to call ElevenLabs for a whole book until he explicitly says so. His own tick and Create is that say-so. A reader he invited pressing Create is a case he has not ruled on, and on the live site it would spend his money (one ElevenLabs key pays for everyone, within the shared limits). So, for now, only the admin (role "admin": the account that set the library up and invites people, Samuel) may start a run.
+  - **Server** (`app/api/books/[id]/narration/route.ts`, commit 44aa04c): anyone else signed in gets 403 ("refused") with "Whole-book narration is for the library's owner, for now." from POST (start) and GET (the figures used to decide: the cost, the limits, what everyone has spent this month), for any book, checked before the book is looked at. DELETE (Stop) still works for a book's owner whatever their role, since stopping can only save money; to a reader it answers 204 ("done, nothing to show"), without the figures. Kept: another reader's book is 404, and nothing starts without `confirm: true` (400).
+  - **Page** (`app/(app)/import/page.tsx`): for a reader, the whole-book section shows that one line instead of the form, and the page sends no request about narration; its opening line and "How books are heard" leave the whole-book choice out. The admin's page is unchanged, so no reference image changes.
+  - **One rule and one sentence** in `lib/library/narration.ts` (`mayNarrateWholeBooks`, `OWNER_ONLY`), used by the route and the page. The library functions themselves do not check the role: the route is their only caller.
+  - **Tests:** a route test (`app/api/books/[id]/narration/route.test.ts`; a route test calls the server's code for one address directly, without a browser; the repo's first, and its first use of `vi.mock`, Vitest's way to swap a module for one test: here the signed-in user, the database, the voice (the fake) and the file store). In `e2e/narration.spec.ts`, Grace (a reader `uploads.spec.ts` invites) adds an EPUB of her own, then sees the one line (in four looks); her page sends nothing about narration; the server refuses her (403) on her own EPUB with `confirm: true` and on the owner's book; Stop answers 204 on hers and 404 on the owner's.
+  - **Ledger and PR:** Open unknowns row 13 (default: only you); Waiting on Samuel's V5 entry and row 12 updated to match; #100's description has an "Owner only, for now" section, and its lines saying a reader you invited could press Create are fixed; `docs/m14-home-plan.md` §12 V5 notes it.
+  - ElevenLabs was never called: the fake voice only. Nothing was merged or deployed.
+- **Key paths:** `lib/library/narration.ts`, `app/api/books/[id]/narration/{route.ts,route.test.ts}`, `app/(app)/import/page.tsx`, `e2e/narration.spec.ts`, `lib/library/narration.test.ts` (a comment only), `docs/m14-home-plan.md` (§12 V5), `LEARNING_LOG.md` (Iteration 65); scratchpad `owner/mut-unit.sh`, `owner/mut-e2e.sh`, `owner/make-pr.py` (#100's text), `owner/apply-ledger.py` (these edits).
+- **Commands that worked:**
+  - `npm run check` → exit 0, `Tests 478 passed | 2 skipped (480)` (475 before, plus the route test's 3);
+  - `npx vitest run "app/api/books/[id]/narration/route.test.ts"` → `Tests 3 passed (3)`;
+  - `zsh <scratchpad>/run-snap.sh owner-1 narration "."` → `1 passed (40.6s)`; `zsh <scratchpad>/run-snap.sh owner-uploads uploads "M14 follow-up V3a"` → `1 passed (3.9s)`;
+  - `zsh <scratchpad>/owner/mut-unit.sh` → control `Tests 14 passed (14)`; 4 of 4 caught: POST's check removed (`route.test.ts:72`, `expected 202 to be 403`), GET's (`:78`, `expected 200 to be 403`), Stop giving a reader the figures (`:82`, `expected 200 to be 204`), everyone may narrate (`:72`);
+  - `zsh <scratchpad>/owner/mut-e2e.sh` → control `1 passed (39.4s)`; POST's check removed, caught at `narration.spec.ts:368` (`Expected: 403`, `Received: 202`: Grace's own EPUB started a run, with the fake voice); the page's check removed, caught at `:353` (the form's text instead of the one line); checksums identical after; then a clean build;
+  - `rm -rf .data/e2e .data/e2e-files e2e/.auth && npx playwright test --ignore-snapshots` (sound on the built-in speakers), 04:12:54 to 04:21:17 UTC, on the code committed as 44aa04c → `292 passed (8.4m)`, exit 0; the narration test printed "Stop pressed 2681 ms after Create, with 383 of 2,500 paragraphs saved";
+  - `gh run list --branch m14-v5-whole-book` → the push of 44aa04c started run 37571083458 (04:21:42 UTC): all four jobs ended in 2 seconds with 0 steps, "The job was not started because recent account payments have failed or your spending limit needs to be increased".
+- **Known issues / blockers:**
+  - **CI does not start jobs** (Waiting on Samuel): #97, #98, #99 and #100 wait for it. This ledger push starts one more run, not named here.
+  - **Reference images:** unchanged by this step (the owner's view of `/import` is as before); `import-*` still change with V5 (commit CI's renderings after #98's and #99's).
+  - After a failed browser test, the log also says "Test timeout of 30000ms exceeded": the clean-up after the failure (it is in all 11 earlier V5 browser logs that ended in a failure, and in none that passed), not a failure of its own.
+  - Still as before: the browser test depends on time (the margin is printed); the WebKit race at `readalong.spec.ts:330`; a long run in another voice stops if ElevenLabs' voice list cannot be read; the narration test runs after `readalong-safari`.
+- **Exact next steps:**
+  1. Wait for Samuel to fix GitHub billing; never raise a limit.
+  2. Then #97, #98, #99, then #100 (rebase commands in Exact next steps); back up; deploy. Never start a whole-book narration on the live site.
+  3. Rows 12 and 13 when Samuel answers (Exact next steps 4c, 4d).
+  4. The `/paths` fix (Exact next steps 4b), as its own PR.
 
 ### 2026-10-07 03:04 UTC (23:04 on 6 Oct, local) · Claude (laptop, workflow agent) · V5 review fixes (draft #100): seven findings fixed; V3b (#99) unchanged; CI still not starting jobs
 - **Done:**
