@@ -58,6 +58,12 @@ export function saveSpeed(speed: number, store: Store | null = deviceStore()) {
 export const ASK_MORE_AT = 40;
 /** A part that could not be fetched is asked for again after this long. */
 export const ASK_AGAIN_MS = 5000;
+/**
+ * How long a back skip waits for the part of the audiobook before the paragraphs loaded (Back and Forward wait
+ * with it). A part of 200 paragraphs, compressed, takes about 2 s on a slow phone network; past this, the
+ * request is given up and the skip lands within what is loaded, counted from where the audio is by then.
+ */
+export const LOOK_BACK_MS = 8000;
 /** Waiting for audio shorter than this is not mentioned (Chromium waits briefly on every seek). */
 export const LOADING_AFTER_MS = 600;
 export const OFFLINE = "Reading aloud needs an internet connection: the audio is not saved for reading offline.";

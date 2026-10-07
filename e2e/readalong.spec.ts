@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { unzipSync, zipSync } from "fflate";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { extractSections, type Section } from "@/lib/library/sections";
+import { LOOK_BACK_MS } from "@/lib/player/session";
 import { buildPackage, SECONDS_PER_CHAR } from "@/lib/readalong/fixture";
 import { SKIP_GAP_MS, WORD_TAIL_MS } from "@/lib/readalong/player";
 import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Spoken } from "./listen";
@@ -1879,6 +1880,68 @@ test("M14: back past where Listen began within the same audio file lands 15 s ba
   expect(near.length).toBeGreaterThan(0);
   await expect.poll(async () => near.includes((await mini.locator("mark").textContent()) ?? "")).toBe(true);
   expect(await where()).toMatchObject({ file: 1, paused: true });
+});
+
+// The part before never comes (the connection stalled): the request is given up after LOOK_BACK_MS. Until then
+// Back and Forward wait; then the skip lands within what is loaded, counted from where the audio is by then (not
+// from the press, LOOK_BACK_MS earlier), and both buttons work again.
+test("M14: the part before never comes: after the wait's limit, Back lands 15 s back from where the audio is by then, and Forward works again", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { mini, said, asksBefore, where } = await backInto(page, 69);
+  await mini.getByRole("button", { name: "Pause" }).click();
+  await expect(mini.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  // 14 s into paragraph 69 (37 s long: room for the wait and both skips), then playing on from there.
+  const t = said(69)[0].startMs + 14_000;
+  await page.evaluate((t) => (document.querySelector("audio")!.currentTime = t), t / 1000);
+  await expect.poll(async () => (await where()).t).toBeCloseTo(t / 1000, 1);
+  await mini.getByRole("button", { name: "Play", exact: true }).click();
+  await playUntil(page, t + 500);
+  // Every time the player sets the audio's time from here on: the time just before, and the time set.
+  await page.evaluate(() => {
+    const w = window as unknown as { sets_: [number, number][] };
+    w.sets_ = [];
+    const time = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "currentTime")!;
+    Object.defineProperty(HTMLMediaElement.prototype, "currentTime", {
+      configurable: true,
+      get: time.get,
+      set(this: HTMLMediaElement, to: number) {
+        w.sets_.push([this.currentTime, to]);
+        time.set!.call(this, to);
+      },
+    });
+  });
+  const sets = () => page.evaluate(() => (window as unknown as { sets_: [number, number][] }).sets_);
+  // The part before is asked for, and the answer never comes (the request is let go at the end, failed or not:
+  // held, it keeps the page from closing).
+  let held: Route | null = null;
+  await page.route(/\/reading\?before=\d+$/, (route) => {
+    held = route;
+  });
+  try {
+    const asked = asksBefore();
+    const t0 = (await where()).t;
+    await mini.getByRole("button", { name: "Back 15 seconds" }).click();
+    await asked;
+    // Meanwhile Forward does nothing (the wait holds both buttons), while the audio plays on.
+    await mini.getByRole("button", { name: "Forward 15 seconds" }).click();
+    expect(await sets()).toEqual([]);
+    // Past the limit, the skip lands: 15 s back from where the audio was at that moment, so inside paragraph 69
+    // still (counted from the press it would land before 69, in the part that never came).
+    await expect.poll(async () => (await sets()).length, { timeout: LOOK_BACK_MS + 15_000 }).toBe(1);
+    const [[was, landed]] = await sets();
+    expect(was, "the audio played on through the wait").toBeGreaterThan(t0 + LOOK_BACK_MS / 1000 - 2);
+    expect(was - landed).toBeCloseTo(15, 1);
+    expect(landed).toBeGreaterThan(said(69)[0].startMs / 1000);
+    // Forward works again at once: 15 s on from where it is.
+    await mini.getByRole("button", { name: "Forward 15 seconds" }).click();
+    await expect.poll(async () => (await sets()).length).toBe(2);
+    const [, [before, after]] = await sets();
+    expect(after - before).toBeCloseTo(15, 1);
+    expect(await where()).toMatchObject({ file: 1, paused: false });
+  } finally {
+    await page.unroute(/\/reading\?before=\d+$/);
+    await (held as Route | null)?.abort().catch(() => {});
+  }
 });
 
 test("M14 (6b): the speed is chosen from the mini-player's menu, and kept on this device for the next listen", async ({ page }) => {
