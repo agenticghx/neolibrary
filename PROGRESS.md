@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37571083458). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the /paths sideways scroll on a phone (found 2026-10-07), then the WebKit-after-seek stall on CI.
+next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37576115458, 05:24 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then the WebKit-after-seek stall on CI.
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -26,6 +26,20 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+**Added 2026-10-07 05:47 UTC: two small fixes come first, before the M14
+stack.** Both are drafts into `main`, built from `main`, independent of
+#97 to #100, reviewed (nothing found), waiting only for CI:
+- **#101** (`m13-epub-safe-unzip`, 8007bd6): uploaded EPUBs are unpacked
+  with limits (512 MB unpacked, 10,000 files), so a "zip bomb" cannot use up
+  the server's memory. Its commit also carries the lead session's 04:45 UTC
+  Log entry: keep that entry once when PROGRESS.md conflicts.
+- **#102** (`m14-paths-phone-wrap`, 4f2b036): `/paths` no longer scrolls
+  sideways on a phone with a long one-word Path name (step 4b below).
+When CI runs: mark each ready, merge when its four checks are green (#101
+first: it is a safety fix), then go on with #97 as below. Each merge into
+`main` makes the next PR's PROGRESS.md and LEARNING_LOG.md conflict: keep
+both sides.
 
 **Resume M14 here (2026-10-07, 04:22 UTC).** First: **GitHub Actions is
 not starting jobs** (runs 37541928335 and, still, 37550128494: "recent
@@ -86,7 +100,8 @@ draft:
 4. **V3b, Import** in the sidebar and as a fifth phone tab (done: draft
    #99, on top of #98, waiting for CI): a PR of its own, since every
    signed-in reference image changes.
-4b. **The Paths list (`/paths`) scrolls sideways on a phone** (found
+4b. **The Paths list (`/paths`) scrolls sideways on a phone** (done:
+   draft #102 into main, waiting for CI) (found
    2026-10-07 while testing V3b; older than V3b, the same on V3a): a Path
    whose name is one word wider than the screen (own-paths.spec.ts makes
    "Pneumonoultramicroscopicsilicovolcanoconiosis") widens the list to
@@ -273,6 +288,34 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-07 01:47 (local; 05:47 UTC) · Claude (laptop, lead session) · Owner-only whole-book Create (#100), EPUB unzip limits (#101) and /paths on a phone (#102) built and reviewed; CI still blocked
+- **Done:**
+  - Workflow `wf_4f239b9c-a53` finished:
+    - #100 is now owner-only for whole-book Create (44aa04c, ledger b3bba4a);
+    - draft #101 into main: limits on unzipping uploaded EPUBs (2102c1b, ledger 8007bd6);
+    - draft #102 into main: `/paths` fits a phone (7cc1a00, ledger 4f2b036).
+  - It reviewed each change with one read-only reviewer (36 to 39 tool calls each). All three returned `{"findings": []}`, so there was nothing to verify or fix.
+  - Checked by Claude on each branch head: lint, types and unit tests (results below); the PRs' states (`gh pr view`); CI still blocked.
+  - The lead session's 04:45 UTC Log entry was written in the shared working copy while #101 was being built, so it is committed in #101's 8007bd6, not here. Keep it once when PROGRESS.md conflicts.
+- **Key paths:** `app/api/books/[id]/narration/route.ts` and `route.test.ts` (owner only); `lib/library/ebook.ts` (`EPUB_ZIP_LIMITS`, `unzipEpub`), `lib/library/sections.ts`; `app/(app)/paths/page.module.css`, `e2e/own-paths.spec.ts`; the workflow's journal, `~/.claude/projects/-Users-sahuno-projects-personal-Neolibrary/2fb5c526-83b9-4fe4-a979-0bce0d6c44e4/subagents/workflows/wf_4f239b9c-a53/journal.jsonl`.
+- **Commands that worked:**
+  - For each branch: `rm -rf .next/types && npx next typegen && npm run check`. Results:
+    - `m14-v5-whole-book` @ b3bba4a: exit 0, `Tests 478 passed | 2 skipped (480)`;
+    - `m13-epub-safe-unzip` @ 8007bd6: exit 0, `Tests 469 passed | 2 skipped (471)`;
+    - `m14-paths-phone-wrap` @ 4f2b036: exit 0, `Tests 462 passed | 2 skipped (464)`.
+  - `gh api repos/sahuno/neolibrary/actions/runs/37576115458/jobs` (05:24 UTC): all four jobs `completed/failure, steps=0`.
+  - The full browser suites were run by the workflow's agents, not again by Claude: 292 passed (#100, 44aa04c), 281 passed (#101, 2102c1b) and 281 passed (#102, 7cc1a00).
+- **Known issues / blockers:**
+  - GitHub Actions still starts no jobs (billing or spending limit; only Samuel can fix it). Six PRs wait: #97 to #102.
+  - Generated route types in `.next/types` go stale when the branch changes, and type checks then fail: regenerate them (`npx next typegen`) before `npm run check` on another branch.
+  - #101's known limits (in its PR):
+    - one huge XHTML page within the limits is still heavy to parse;
+    - zip64 EPUBs (needed only past 4 GB or 65,535 files) are now refused.
+- **Exact next steps:**
+  1. When CI runs: #101, then #102, then the M14 stack, #97 to #100, as in Exact next steps.
+  2. Then back up, deploy, and comment on #90. Never start a whole-book narration on the live site.
+  3. Meanwhile, work that does not need CI, one draft PR each. Candidates: a rate limit on `/api/agent/*`; going back into a chapter that has not been loaded; Think aloud from inside the reader.
 
 ### 2026-10-07 04:22 UTC (00:22 on 7 Oct, local) · Claude (laptop, workflow agent) · V5 (draft #100): whole-book narration for the library's owner only, for now; CI still not starting jobs
 - **Done:**
