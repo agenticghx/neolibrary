@@ -57,6 +57,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 64 | 2026-10-07 03:04 | V5 review fixes | Seven small fixes in V5's files close the seven | npm run check; narration test; 3 unit + 6 browser mutations with controls; whole suite | success (CI to come) | a page that asks again and again: wait for the answer on its way, show only answers about the current choice, keep action errors apart |
 | 65 | 2026-10-07 04:22 | V5 owner only (#100) | One rule in the route (POST, GET) and on the Import page keeps whole-book narration to the library's owner; Stop stays open | npm run check; route test; narration and uploads tests; 4 unit + 2 browser mutations with controls; whole suite | success (CI to come) | test a permission where it is the only thing in the way: the reader's own book |
 | 68 | 2026-10-07 06:51 | Back into a chapter not loaded (draft from `m14-back-into-chapter`) | A "before" mode on the parts route and one skip rule land Back where it lands with everything loaded | npm run check; a sweep against the whole list; read-along tests in both engines; 6 unit + 4 browser mutations with controls; whole suite | success (CI to come) | a test that needs an exact first paragraph must not start from the reader's page |
+| 69 | 2026-10-07 07:32 | WebKit stall report (draft from `m14-flake-s4-diag`) | When the audio stands still, the log says whether the player asked for audio and whether the server answered; no check changed | npm run check; the read-along file in both engines; forced failures (audio requests held) in both engines and on the base | success (CI to come) | force the failure before trusting a report |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2029,3 +2030,46 @@ tests that pin it, in a small PR.
 - **Hook the setter, record both times.** Recording `[currentTime before, value set]` on every `currentTime` set made the assertion exact (15.00 s) instead of a tolerance on a polled reading.
 - **A claim about a failure path needs a failing run after the change, not before.** The `finally` "fix" for the 30 s was written into both ledgers from the failing run before it; one timed run after it (and one of a test that could not have the suspected cause) showed the cause was elsewhere.
 **Next experiment.** When CI runs: #103 after #100, its four checks green; the new test on CI's WebKit (it plays on for 8 s with no seek: not the stall pattern seen so far).
+### Iteration 69 · 2026-10-07 07:32 · WebKit stall on CI: the log says which audio requests were made and answered (draft PR from `m14-flake-s4-diag`) · success (shown on forced failures; CI to come: CI is still not starting jobs)
+
+(Iteration 66 is on #101's branch, 67 on #102's, 68 on #103's (`m14-back-into-chapter`). This branch starts from #100's head, f83fd83, which has none of them.)
+
+**Hypothesis.** Every read-along test can record each request its page makes for audio, from the test's side, and `playUntil` can print that record when it gives up. Then the next WebKit stall on CI will show whether the player asked for more audio after its position was set, and whether the server answered. No check needs to change.
+**Action.** On `m14-flake-s4-diag`, code commit e181935, `e2e/readalong.spec.ts` only:
+- a watcher set up before each test in the file (`test.beforeEach`). It listens to Playwright's `request`, `response`, `requestfinished` and `requestfailed` events, for media requests and the two audio link shapes;
+- `describeRequest`: one line per request;
+- `readPlayer`: one line reading the player's state;
+- `playUntil` prints both, plus when the audio's time last moved (`stillSince`), and the stretches loaded, played and seekable.
+
+`watchAnswers` and every check are unchanged: `git diff f83fd83 -- e2e | grep -E '^[-+][^-+].*expect\('` prints nothing.
+**Evaluation.**
+- `npm run check`.
+- The whole read-along file in both engines, from the database copy after `offline`.
+- A forced failure, never committed: every request for the reading's audio after the first is held, never answered. Run in both engines on this change, and in WebKit on the base f83fd83 for comparison. Each forced edit was type-checked (`tsc` exit 0), then reverted; the file's checksum was the same afterwards (`fc3c2334…` on the code before the fix below, which was amended before any push; `1774a972…` on e181935).
+**Result.**
+- `npm run check`: exit 0, `Tests 478 passed | 2 skipped (480)`.
+- Read-along file on e181935: `30 passed (2.4m)` in Chromium, `30 passed (2.7m)` in WebKit (sound on the built-in speakers).
+- **WebKit, forced, on e181935** (the new part of the report):
+  ```
+  playUntil: the player is stopped by a media error (code 4: the audio could not be loaded, or is not supported). Its requests for audio (2), oldest first, times since the test began; gave up at 46.30 s; the page's clock (frames, stillSince) began at 0.62 s:
+    1. audio/0 bytes=0-1: asked at 1.32 s; answered 206 bytes 0-1/185644, 2 bytes, at 1.32 s; finished at 1.32 s
+    2. audio/0 bytes=0-185643: asked at 1.33 s; no answer; failed at 19.37 s (cancelled)
+  ```
+- **Chromium, forced.** Its first wait passed: the first request was answered in full, and Chromium needed no other. The test then opens the reader again for its screenshots and waits for 0.68 s. That is the wait that hung in CI run 37484095289, and here it hung too, with the page's own recorder off (a new page). The report still listed both requests, across the two pages:
+  ```
+  playUntil: the player is not paused but short of data (readyState 0): it waits for audio; its network is loading. Its requests for audio (2), oldest first, times since the test began; gave up at 55.98 s; the page's clock (frames, stillSince) began at 10.69 s:
+    1. audio/0 bytes=0-: asked at 0.86 s; answered 206 bytes 0-185643/185644, 185644 bytes, at 0.87 s; finished at 0.87 s
+    2. audio/0 bytes=0-: asked at 10.99 s; no answer
+  ```
+- **The base's report for the same forced failure** (WebKit, f83fd83): only the player's state (`"readyState":0,"networkState":3,"error":{"code":4,"message":""}`, its events), no requests, no reading.
+- **One wrong turn, found by the first forced run.** My first reading line said "it waits for audio", while the element had stopped with media error 4. WebKit had given up on the held request after 18 s (`failed at 19.43 s (cancelled)`). The reading now checks for an error first (`readPlayer`); the commit was amended before any push.
+- **Found on the way, not changed here:** `lib/library/questions.test.ts` failed 3 of 10 runs (`npx vitest run lib/library/questions.test.ts`). It is unchanged since #20 and untouched by this branch: two marks made in the same millisecond come out in either order. PROGRESS.md, Exact next steps item 7.
+**Interpretation.** On the laptop, the report tells apart "asked, no answer", "asked, gave up (cancelled)" and "answered in full". Not shown: what Linux WebKit (GStreamer) does at CI's stall. Only the next stall on CI can show that.
+**Lesson.**
+- **A report must outlive what it reports on.** The page's own recorder was gone in two of the three CI stalls, because the test had opened the page again. The request record lives in the test, so it survives.
+- **Force the failure before trusting a report.** The first forced run found a misleading line that reading the code had not.
+- **Check the plan against the code before building from it.** The plan's S4 step had merged (#84), and its check still passes on CI. The new stalls are another pattern.
+**Next experiment.** When CI runs again, read `playUntil`'s report at the next WebKit stall, and choose the fix by what it shows:
+- no request after the position was set: WebKit never asked;
+- "no answer": the server;
+- "finished" or "still arriving": the audio was sent and WebKit did not use it.
