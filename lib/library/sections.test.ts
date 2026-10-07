@@ -7,7 +7,7 @@ import { DOMParser } from "linkedom";
 import { describe, expect, it } from "vitest";
 import { parseEpub } from "./ebook";
 import { extractSections } from "./sections";
-import { readableEpub } from "./test-epub";
+import { epubDeclaring, epubWithEntries, readableEpub } from "./test-epub";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`../../fixtures/books/${name}`, import.meta.url)));
 
@@ -63,5 +63,11 @@ describe("section model", () => {
       ["paragraph", "Third."],
     ]);
     expect(s[3].parentId).toBe(s[2].id);
+  });
+
+  it("unpacks within the upload's zip limits: a file past them is refused, not unpacked", () => {
+    expect(() => extractSections(epubDeclaring(512 * 1024 * 1024 + 1))).toThrow("more than 512 MB");
+    expect(() => extractSections(epubWithEntries(10_001))).toThrow("more than 10,000 files");
+    expect(extractSections(epubWithEntries(10_000)).map((s) => s.text || s.label)).toEqual(["Part 1", "One short page."]);
   });
 });
