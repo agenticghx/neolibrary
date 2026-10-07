@@ -5,10 +5,14 @@ owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 next_action: Both reviews cut short by the session limit are done by hand (09:40 UTC entry): #103's one finding is fixed on `m14-back-into-chapter` (a time limit on the wait for the part before; one new browser test; committed and pushed) and #104 is clean. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37600771760, 09:27 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; Open unknowns rows 12 and 13 wait on Samuel), then #103 (Back 15 s into a chapter not loaded) and #104 (the WebKit-stall report, tests only), both on top of #100, no reference images change; back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). The flaky unit test (Exact next steps item 7) is fixed in draft #105 (`m6-flaky-marks-test` into main; its own ledger entry is on that branch): merge it with #101 and #102. Then the next unblocked step: why a failing read-along test's trace does not finish (Known issues, 09:40 UTC entry).
 =======
 next_action: Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37584200728, 06:55 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel), then the two drafts on top of #100: #103 (Back 15 s into a chapter not loaded) and the WebKit-stall report (`m14-flake-s4-diag`, tests only; no reference images change); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then, at the next WebKit stall on CI, read that report (Exact next steps item 5).
 >>>>>>> 3c52315 (Ledger: the WebKit-stall report (draft from m14-flake-s4-diag, Iteration 69); a flaky unit test found; CI is still not starting jobs)
+=======
+next_action: First finish the two reviews cut short by the session limit (workflow wf_6467c1e9-e7c): verify #103's reviewer findings (journal) and review #104 (m14-flake-s4-diag); see docs/handoffs/2026-10-07-0526-m14-eight-prs-await-ci.md. Wait for Samuel to fix GitHub Actions billing (CI starts no jobs; latest run 37584200728, 06:55 UTC). Then merge the two small fixes into main first, each when its four checks are green: #101 (limits on unzipping uploaded EPUBs) and #102 (/paths fits a phone). Then, in order, each moved onto main with CI's reference images committed and merged when green: #97 (V1+V2), #98 (V3a, the Import page), #99 (V3b, Import in the sidebar and a fifth phone tab; draft), #100 (V5, whole-book AI narration chosen on purpose, for the library's owner only; draft; reviewed, its seven fixes in, bfed0b3; owner only, 44aa04c; Open unknowns rows 12 and 13 wait on Samuel), then the two drafts on top of #100: #103 (Back 15 s into a chapter not loaded) and the WebKit-stall report (`m14-flake-s4-diag`, tests only; no reference images change); back up, deploy, comment on #90. Never start a whole-book narration on the live site (Samuel's rule). Then, at the next WebKit stall on CI, read that report (Exact next steps item 5).
+>>>>>>> 5f35ce4 (Ledger: handoff written; #103 and #104 reviews cut short by the session limit)
 blockers: Samuel-only: GitHub Actions billing (CI not starting jobs since 2026-10-06 22:39 UTC, so nothing can merge), keys, sign-in, verdicts; see Waiting on Samuel.
 <<<<<<< HEAD
 updated: 2026-10-06
@@ -355,6 +359,7 @@ Never blocks the loop. Newest first.
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ### 2026-10-07 14:15 UTC (10:15 local) · Claude (laptop) · A WebKit flake's cause removed: the two-part upload test left the book page while its own refresh was still landing (draft PR from `m14-flake-upload-refresh` into main)
 - **Done:** `e2e/readalong.spec.ts`, "a two-part upload is announced once, can be cancelled, and the PDF book page says to press Listen": after "Remove", the app sets the message and then refreshes the page (`router.refresh()` in `AudiobookUpload.tsx`, `settle`), a navigation of its own. The test waited for the message and the focus, then went to `/library?new=collection` at once; when the refresh landed after that, WebKit on CI reported "Navigation to /library?new=collection is interrupted by another navigation to /books/…" (runs 37629382754 attempt 2 on #103, 37627959389 attempts 2 and 3 on #108; it had passed on #98, #99 and #100's runs the same day: a race, more often lost on a slower machine). The test now waits for the page's network to go idle before leaving. No assertion changed.
 - **Key paths:** `e2e/readalong.spec.ts` (one `waitForLoadState("networkidle")` after the removal's focus check).
@@ -446,6 +451,30 @@ Never blocks the loop. Newest first.
   3. Not built yet: Think aloud from inside the reader; a rate limit on `/api/agent/*`.
 >>>>>>> 3e8a2b9 (Ledger: Back 15 s into a chapter not loaded (draft from m14-back-into-chapter, Iteration 68); CI is still not starting jobs)
 =======
+=======
+### 2026-10-07 05:27 (local; 09:27 UTC) · Claude (laptop, lead session) · Handoff written; #103 and #104 built, but their reviews were cut short by the session limit
+- **Done:**
+  - Workflow `wf_6467c1e9-e7c` built two drafts on top of #100:
+    - #103 (`m14-back-into-chapter` @ 359a826): Back into a chapter of your own audiobook that has not been loaded yet;
+    - #104 (`m14-flake-s4-diag` @ 3c52315): tests only; the test log says more when WebKit stalls on CI.
+  - It then hit the session limit ("You've hit your session limit · resets 4:40am (America/New_York)"):
+    - `review:s4-diagnostics` failed, so #104 has not been reviewed;
+    - `verify:back-into-chapter` failed, so #103's reviewer findings are not yet verified or fixed.
+  - Wrote the handoff `docs/handoffs/2026-10-07-0526-m14-eight-prs-await-ci.md` (uncommitted, by design).
+- **Key paths:**
+  - the handoff above;
+  - the workflow journal, `~/.claude/projects/-Users-sahuno-projects-personal-Neolibrary/2fb5c526-83b9-4fe4-a979-0bce0d6c44e4/subagents/workflows/wf_6467c1e9-e7c/journal.jsonl` (the `review:back-into-chapter` result);
+  - the script, `.../workflows/scripts/m14-next-unblocked-wf_6467c1e9-e7c.js`.
+- **Commands that worked:** `date +%Y-%m-%d-%H%M; git status --short --branch` → `2026-10-07-0526`, `## m14-flake-s4-diag...origin/m14-flake-s4-diag`, a clean tree apart from the untracked `docs/handoffs/` and `docs/ideasFeaturesSelf.md`. No checks were re-run for #103 or #104 by the lead session: their figures are the builders' own (#103: `Tests 489 passed | 2 skipped (491)`, full suite `298 passed (8.4m)`).
+- **Known issues / blockers:**
+  - GitHub Actions still starts no jobs (billing or spending limit; only Samuel can fix it). Eight PRs wait: #97 to #104.
+  - Big workflows can hit the session limit midway: two did tonight.
+- **Exact next steps:**
+  1. Resume `wf_6467c1e9-e7c` (`Workflow({scriptPath, resumeFromRunId: "wf_6467c1e9-e7c"})`), or by hand: verify #103's findings, review #104's diff, and fix what is confirmed (code and ledger in one push).
+  2. Re-run `rm -rf .next/types && npx next typegen && npm run check` on #103 and #104, then report to Samuel.
+  3. When CI runs: the merge order in the handoff (#101, #102, then #97 to #100, then #103 and #104), backup, deploy, comment on #90.
+
+>>>>>>> 5f35ce4 (Ledger: handoff written; #103 and #104 reviews cut short by the session limit)
 ### 2026-10-07 07:32 UTC (03:32 local) · Claude (laptop, workflow agent) · WebKit stall on CI: when the audio stands still, the test log now lists every audio request and the server's answer (draft PR from `m14-flake-s4-diag`, on top of #100; tests only); CI still not starting jobs
 - **Done:**
   - **What changes for you.** Nothing in the app, and no check changes what it accepts. When a read-along test fails because the audio never reached the point it waits for, its log now also lists every request the page made for audio, and one line reading the player's state. For each request: the part of the file asked for (the "range"), the server's answer, and whether that answer arrived in full, the browser gave up on it, or neither yet. CI's Safari engine stood still like this three times on 6 October (runs 37478603601, 37484095289, 37536227334). Next time, the log should say whether the player asked for more audio and whether the server answered.
