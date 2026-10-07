@@ -199,6 +199,21 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-07 10:05 UTC (06:05 local) · Claude (laptop) · A unit test that failed at random now always passes (draft PR from `m6-flaky-marks-test` into main); CI still not starting jobs
+- **Done:**
+  - **What this is.** `lib/library/questions.test.ts` ("keeps every mark, counts the latest…") failed now and then with nothing wrong in the app (Exact next steps item 7 on the M14 stack's ledger). Fixed in the test only; nothing changes for you.
+  - **Why it failed, measured.** Reproduced on `main` (c1a2526), 20 runs: `19 passed, 1 failed of 20`, the failure always the same (question b's latest mark came back `false`). The test database (PGlite: Postgres running inside the test process) stamps `created_at` with `now()` in whole milliseconds: a scratch query of `now()` 40 times in a row gave `fractionDigits=2,3 distinctNow=6/40`. Two marks of one question made within one millisecond tie, and `marksFor` then orders them by their random id. Real Postgres keeps microseconds, so two taps on one question cannot tie on the live site.
+  - **The fix:** before the second mark of that question, the test waits for the clock to move on by two milliseconds (`laterMillisecond`, with the measurement in its comment). The app's code is unchanged; no expectation changed.
+  - Built in a separate checkout of `main` (`git worktree`), so the M14 branches' working tree was left alone. Draft PR into `main`, written for Samuel. CI still starts no jobs (billing; Samuel-only).
+  - **Added 10:40 UTC, same PR:** `.gitignore` now lists `docs/ideasFeaturesSelf.md` and `docs/handoffs/` (Samuel's own notes and the session handoffs), which were kept out of git only by habit. Done before the repository was made public (see the next entry on the M14 stack's ledger).
+- **Key paths:** `lib/library/questions.test.ts` (`laterMillisecond`); the scratch probe is not committed.
+- **Commands that worked:**
+  - On `main`, 20×: `npx vitest run lib/library/questions.test.ts` → `19 passed, 1 failed of 20` (the failing run's diff: `"<b>:4": true` expected, `false` received).
+  - The clock probe (a scratch vitest file, deleted after): `SELECT now()::text AS n, clock_timestamp()::text AS c` 40× → `fractionDigits=2,3 distinctNow=6/40 endsIn000=0/40`.
+  - With the fix, 50× in a row: `50 passed, 0 failed of 50` (09:58:52 to 10:01:47 UTC, about 3.5 s a run).
+  - `npx next typegen && npm run check` → exit 0, `Tests 462 passed | 2 skipped (464)`.
+- **Known issues / blockers:** CI (billing). `marksFor` still breaks a same-microsecond tie by random id in principle; a sequence column would need a migration (a script that changes the database layout, with a reverse step and a backup first), not worth it for a tie that cannot happen from the app.
+- **Exact next steps:** when CI runs, mark this PR ready and merge when its four checks are green (its ledger diff is this entry and `updated:`; keep both sides when it conflicts). Then the order in the M14 stack's ledger: #101, #102, #97 to #100, #103, #104.
 ### 2026-10-07 01:22 (local; 05:22 UTC) · Claude (laptop, workflow wf_4f239b9c-a53) · The Paths list fits a phone with a long one-word Path name: draft #102 into main
 - **Done:**
   - On a phone, the Paths list (`/paths`) no longer scrolls sideways when a Path's name is one word wider than the screen: `overflow-wrap: anywhere` on the name links (`.itemTitle`), so such a name breaks inside its card. Measured at 390 px with the test Path "Pneumonoultramicroscopicsilicovolcanoconiosis": 345 px of sideways scroll on `main` (the page 735 px wide), 0 px with the fix (the name in three lines). This is item 4b of the M14 stack's "Exact next steps", done once #102 merges.
