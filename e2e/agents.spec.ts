@@ -48,6 +48,7 @@ test("make a token, use it without cookies, see it used, revoke it", async ({ pa
   const row = page.getByTestId("token-rows").getByRole("listitem").filter({ hasText: "Test agent" });
   await expect(row).toContainText(token.slice(0, 8));
   await expect(row).toContainText("Not used yet");
+  await expect(row).toContainText(/expires/i);
 
   // Shown once: after a reload only the first characters remain.
   await page.reload();

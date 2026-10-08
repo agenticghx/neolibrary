@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createInvite, revokeInvite } from "@/lib/auth/service";
-import { requireAdmin, requireUser, stopSession } from "@/lib/auth/session";
+import { AuthError, changePassword, createInvite, endOtherSessions, revokeInvite, setReaderDisabled } from "@/lib/auth/service";
+import { requireAdmin, requireUser, SESSION_COOKIE, stopSession } from "@/lib/auth/session";
 import { addSection, addTitle, createPath, moveTitle, PathError, removeTitle, renamePath, seedPath } from "@/lib/library/paths";
 import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
 import { starterPath } from "@/lib/library/seed";
@@ -16,6 +17,43 @@ import { getDb } from "@/lib/db";
 export async function signOutAction() {
   await stopSession();
   redirect("/sign-in");
+}
+
+export type AccountState = { error: string | null; done: string | null };
+
+export async function changePasswordAction(_: AccountState, data: FormData): Promise<AccountState> {
+  const user = await requireUser();
+  try {
+    await changePassword(await getDb(), user.id, String(data.get("current") ?? ""), String(data.get("next") ?? ""));
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message, done: null };
+    throw e;
+  }
+  return { error: null, done: "Password changed. This browser stays signed in." };
+}
+
+/** Signs out every other browser. This one keeps its session. */
+export async function endOtherSessionsAction(_: AccountState, data: FormData): Promise<AccountState> {
+  // The form has no fields. The argument is here because useActionState always passes one.
+  void data;
+  const user = await requireUser();
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const n = await endOtherSessions(await getDb(), user.id, token);
+  return {
+    error: null,
+    done: n === 0 ? "No other sessions were signed in." : "Signed out of the other sessions. This browser stays signed in.",
+  };
+}
+
+export async function setReaderDisabledAction(data: FormData) {
+  const admin = await requireAdmin();
+  const disabled = String(data.get("disabled") ?? "") === "1";
+  try {
+    await setReaderDisabled(await getDb(), admin, String(data.get("id") ?? ""), disabled);
+  } catch (e) {
+    if (!(e instanceof AuthError)) throw e;
+  }
+  revalidatePath("/admin/invites");
 }
 
 export type InviteState = { error: string | null; link: string | null };

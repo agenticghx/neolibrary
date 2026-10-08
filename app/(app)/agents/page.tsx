@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth/session";
-import { listApiTokens } from "@/lib/auth/tokens";
+import { listApiTokens, TOKEN_DAYS, type TokenView } from "@/lib/auth/tokens";
 import { getDb } from "@/lib/db";
 import { revokeTokenAction } from "../actions";
 import forms from "@/components/forms.module.css";
@@ -12,6 +12,14 @@ export const metadata: Metadata = { title: "Agent access" };
 export const dynamic = "force-dynamic";
 
 const date = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+/** One line for a token: revoked, expired, or still working, with the expiry date. */
+function tokenWhen(t: TokenView, now = new Date()): string {
+  if (t.revokedAt) return `Revoked ${date(t.revokedAt)} · made ${date(t.createdAt)}`;
+  if (t.expiresAt.getTime() <= now.getTime()) return `Expired ${date(t.expiresAt)} · made ${date(t.createdAt)}`;
+  const used = t.lastUsedAt ? `Last used ${date(t.lastUsedAt)}` : "Not used yet";
+  return `${used} · made ${date(t.createdAt)} · expires ${date(t.expiresAt)}`;
+}
 
 /** Personal API tokens (M11): let an AI agent use your library as you, and take that back at any time. */
 export default async function AgentsPage() {
@@ -26,7 +34,7 @@ export default async function AgentsPage() {
       <p className={styles.lede}>
         An AI agent (such as Claude on your computer) can use your library for you: list your books, search their text,
         read your highlights and notes, and add notes. It needs a token, a long secret you make here. It sees only what
-        you see, and you can revoke it at any moment.
+        you see. A token works for {TOKEN_DAYS} days from the day you make it, and you can revoke it sooner.
       </p>
       <TokenForm />
       <section aria-labelledby="connect" className={styles.list}>
@@ -66,10 +74,7 @@ export default async function AgentsPage() {
                 <span className={styles.note}>
                   {t.name} <code>{t.prefix}…</code>
                 </span>
-                <span className={styles.meta}>
-                  {t.revokedAt ? `Revoked ${date(t.revokedAt)}` : t.lastUsedAt ? `Last used ${date(t.lastUsedAt)}` : "Not used yet"} · made{" "}
-                  {date(t.createdAt)}
-                </span>
+                <span className={styles.meta}>{tokenWhen(t)}</span>
                 {t.revokedAt ? (
                   <span />
                 ) : (

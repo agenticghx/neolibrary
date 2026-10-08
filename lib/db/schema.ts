@@ -32,6 +32,8 @@ export const apiTokens = pgTable("api_tokens", {
   tokenHash: text("token_hash").notNull().unique(),
   prefix: text("prefix").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** 90 days after created_at. An expired token is treated as revoked. */
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });

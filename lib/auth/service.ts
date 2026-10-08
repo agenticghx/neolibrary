@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { invites, sessions, users, type Role, type User } from "@/lib/db/schema";
 import { DUMMY_PASSWORD_HASH, hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
@@ -157,4 +157,62 @@ export async function userForSession(db: Db, token: string | undefined, now = ne
 
 export async function endSession(db: Db, token: string | undefined) {
   if (token) await db.delete(sessions).where(eq(sessions.id, sha256(token)));
+}
+
+/**
+ * Replaces the password when the current one matches. Other sessions stay
+ * signed in until the person signs them out.
+ */
+export async function changePassword(db: Db, userId: string, current: string, next: string) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  const ok = await verifyPassword(current, hashToCheck(user));
+  if (!user || user.disabledAt || !ok) throw new AuthError("That is not your current password.");
+  if (next.length < MIN_PASSWORD) throw new AuthError(`Use a password of at least ${MIN_PASSWORD} characters.`);
+  await db.update(users).set({ passwordHash: await hashPassword(next) }).where(eq(users.id, userId));
+}
+
+/**
+ * Deletes every session for this person except the browser that asked.
+ * Returns how many sessions were signed out. With no current token, deletes nothing.
+ */
+export async function endOtherSessions(db: Db, userId: string, currentToken: string | undefined): Promise<number> {
+  if (!currentToken) return 0;
+  const removed = await db
+    .delete(sessions)
+    .where(and(eq(sessions.userId, userId), ne(sessions.id, sha256(currentToken))))
+    .returning({ id: sessions.id });
+  return removed.length;
+}
+
+export type ReaderView = { id: string; name: string; email: string; disabledAt: Date | null };
+
+/** People who joined through an invitation. The owner (an admin) is not in this list. */
+export async function listReaders(db: Db): Promise<ReaderView[]> {
+  return db
+    .select({ id: users.id, name: users.name, email: users.email, disabledAt: users.disabledAt })
+    .from(users)
+    .where(eq(users.role, "reader"))
+    .orderBy(asc(users.name), asc(users.email));
+}
+
+/**
+ * An admin disables or enables a reader. Disable sets disabledAt (kept if it
+ * was already set) and deletes that person's sessions, so they are signed
+ * out at once. Enable clears disabledAt. You cannot change your own account.
+ */
+export async function setReaderDisabled(db: Db, admin: PublicUser, readerId: string, disabled: boolean, now = new Date()) {
+  if (admin.role !== "admin") throw new AuthError("Only an admin can change a reader's access.");
+  if (readerId === admin.id) throw new AuthError("You cannot disable your own account.");
+  if (!/^[0-9a-f-]{36}$/i.test(readerId)) throw new AuthError("That person is not a reader here.");
+  await db.transaction(async (tx) => {
+    const t = tx as unknown as Db;
+    const [reader] = await t.select().from(users).where(eq(users.id, readerId));
+    if (!reader || reader.role !== "reader") throw new AuthError("That person is not a reader here.");
+    if (disabled) {
+      if (!reader.disabledAt) await t.update(users).set({ disabledAt: now }).where(eq(users.id, readerId));
+      await t.delete(sessions).where(eq(sessions.userId, readerId));
+    } else {
+      await t.update(users).set({ disabledAt: null }).where(eq(users.id, readerId));
+    }
+  });
 }

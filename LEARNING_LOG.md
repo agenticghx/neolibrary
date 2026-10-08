@@ -58,6 +58,8 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 65 | 2026-10-07 04:22 | V5 owner only (#100) | One rule in the route (POST, GET) and on the Import page keeps whole-book narration to the library's owner; Stop stays open | npm run check; route test; narration and uploads tests; 4 unit + 2 browser mutations with controls; whole suite | success (CI to come) | test a permission where it is the only thing in the way: the reader's own book |
 | 68 | 2026-10-07 06:51 | Back into a chapter not loaded (draft from `m14-back-into-chapter`) | A "before" mode on the parts route and one skip rule land Back where it lands with everything loaded | npm run check; a sweep against the whole list; read-along tests in both engines; 6 unit + 4 browser mutations with controls; whole suite | success (CI to come) | a test that needs an exact first paragraph must not start from the reader's page |
 | 69 | 2026-10-07 07:32 | WebKit stall report (draft from `m14-flake-s4-diag`) | When the audio stands still, the log says whether the player asked for audio and whether the server answered; no check changed | npm run check; the read-along file in both engines; forced failures (audio requests held) in both engines and on the base | success (CI to come) | force the failure before trusting a report |
+| 71 | 2026-10-08 22:12 | B4 Account | An Account page, disabling a reader, and API tokens that expire after 90 days | `npm run check`; Playwright `--project=shell --ignore-snapshots` | success (CI screenshots still to refresh) | the screenshot projects run before any reader exists; the shell project runs after |
+| 72 | 2026-10-08 22:40 | B4 screenshots | CI's first browser job fails only the pixel comparison, and the new images are the page we built | run 37852607386; looked at Account, Invite, Agent access, Home, and the design page | success (behaviour tests still to run) | a new sidebar link changes every signed-in desktop image; phone changes only where the page's own text changed |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2073,3 +2075,24 @@ tests that pin it, in a small PR.
 - no request after the position was set: WebKit never asked;
 - "no answer": the server;
 - "finished" or "still arriving": the audio was sent and WebKit did not use it.
+
+### Iteration 71 · 2026-10-08 22:12 · Account page (B4) · success (CI screenshots still to refresh)
+
+**Hypothesis.** A signed-in person can change their password and sign out of every other browser from `/account`. An admin can disable a reader (not themselves) on Invite, which sets `disabledAt` and deletes that person's sessions, and can enable them again. A new API token stops working 90 days after it is made; a token that already exists gets the same 90 days from when it was made. The checks that already pass stay green.
+**Action.** Branch `m14-account` from `main` `077c3a0`. Migration `0022_api_token_expiry` (a script that changes the database layout) adds `expires_at` and has a reverse step. The page is linked from the account menu on the phone and from the sidebar on a desktop. Screenshots were not updated on this Mac.
+**Evaluation.** `npm run check`. Then `npx playwright test --project=shell --ignore-snapshots`, which builds the app and runs the four looks (including the accessibility check), the join-the-library flow, and the shell. `--ignore-snapshots` so this Mac's pixels are not treated as the reference images.
+**Result.**
+- `npm run check` exit 0. `Tests 543 passed | 2 skipped (545)`.
+- Playwright: `172 passed (40.7s)`. The Account page had no accessibility violations in the looks that printed (`phone-dark`, `desktop-light`); the run as a whole passed, so the other two looks did too. The shell opened Account and Invite. A reader opened Account.
+- The migration test: a token made at `2026-10-04T00:00:00Z`, then the new migration, expires at `2027-01-02T00:00:00.000Z` (90 × 24 hours). Going backwards drops the column.
+**Lesson.** The screenshot projects run right after setup, when the only account is the owner, so Invite's reference image shows "No readers yet." The shell project runs after the flow that invites Ada, so that test can look for "Disable Ada Lovelace". Those are two different moments in the same database. Do not assert the empty list from the shell.
+**Next experiment.** CI's browser job will fail the screenshot comparison once. Copy CI's renderings into `e2e/__screenshots__`, look at Account in the four looks and at the pages whose sidebar or text changed, and push. Do not deploy until a backup of the live database is taken: migration 0022 runs when the server starts.
+
+### Iteration 72 · 2026-10-08 22:40 · Account screenshots from CI · success (behaviour tests still to run)
+
+**Hypothesis.** The first browser job fails only because the reference images are the old pages. CI's new images show Account, a Readers section, a 90-day sentence, and an Account link in the desktop sidebar, with nothing else moved.
+**Action.** Run 37852607386. `zsh .claude/skills/merge-train/scripts/refresh-screenshots.sh 37852607386` copied 36 images. Looked at Account in all four looks, Invite and Agent access on the phone and the desktop in both colours, Home on the desktop in the light colour, and the design page on the desktop in the light colour.
+**Evaluation.** The attempt log: 36 failed, 101 passed, 99 did not run. Every failure is `toHaveScreenshot`. Account had no image yet. The other failures are pixel differences. Lint, Postgres, and the ledger check passed.
+**Result.** The images match the page. Account has Change password and Sign out of other sessions. Invite has Readers and "No readers yet." (the screenshot projects run before anyone is invited). Agent access says a token works for 90 days. The desktop sidebar shows Account between Your data and Invite. The phone tab bar covers the last lines of a full-page image the same way it already does on other phone pages. The design page is 2 pixels shorter; the page itself is intact, and the difference is the new sidebar link.
+**Lesson.** A link added to the desktop sidebar changes every signed-in desktop reference image. On a phone the sidebar is hidden, so only a page whose own text changed needs a new image.
+**Next experiment.** Push these images. The next browser job runs the behaviour tests that did not run (99 of them). Merge only when the four checks are green. Do not deploy until a backup is taken.

@@ -7,14 +7,18 @@ import { DUMMY_PASSWORD_HASH, verifyPassword } from "./crypto";
 import {
   acceptInvite,
   authenticate,
+  changePassword,
   createFirstAdmin,
   createInvite,
   createSession,
+  endOtherSessions,
   endSession,
   hashToCheck,
   inviteIsOpen,
   listInvites,
+  listReaders,
   revokeInvite,
+  setReaderDisabled,
   userForSession,
 } from "./service";
 
@@ -117,5 +121,62 @@ describe("sign-in and sessions", () => {
     expect(await userForSession(database.db, live.token)).toBeNull();
     expect(await userForSession(database.db, undefined)).toBeNull();
     expect(await userForSession(database.db, "forged")).toBeNull();
+  });
+});
+
+describe("account", () => {
+  it("changes the password when the current one is right, and keeps this session", async () => {
+    const a = await createFirstAdmin(database.db, admin);
+    const session = await createSession(database.db, a.id);
+    await changePassword(database.db, a.id, admin.password, "a different long password");
+    await expect(authenticate(database.db, admin.email, admin.password)).rejects.toThrow("do not match");
+    expect((await authenticate(database.db, admin.email, "a different long password")).id).toBe(a.id);
+    expect(await userForSession(database.db, session.token)).toMatchObject({ id: a.id });
+  });
+
+  it("refuses a wrong current password and a short new one, and leaves the old one", async () => {
+    const a = await createFirstAdmin(database.db, admin);
+    await expect(changePassword(database.db, a.id, "wrong password!", "a different long password")).rejects.toThrow("current password");
+    expect((await authenticate(database.db, admin.email, admin.password)).id).toBe(a.id);
+    await expect(changePassword(database.db, a.id, admin.password, "short")).rejects.toThrow("at least 10");
+    expect((await authenticate(database.db, admin.email, admin.password)).id).toBe(a.id);
+  });
+
+  it("signs out every session except this browser", async () => {
+    const a = await createFirstAdmin(database.db, admin);
+    const here = await createSession(database.db, a.id);
+    const other = await createSession(database.db, a.id);
+    const { token } = await createInvite(database.db, a);
+    const readerUser = await acceptInvite(database.db, token, reader);
+    const readerSession = await createSession(database.db, readerUser.id);
+    expect(await endOtherSessions(database.db, a.id, here.token)).toBe(1);
+    expect(await userForSession(database.db, here.token)).toMatchObject({ id: a.id });
+    expect(await userForSession(database.db, other.token)).toBeNull();
+    expect(await userForSession(database.db, readerSession.token)).toMatchObject({ id: readerUser.id });
+    expect(await endOtherSessions(database.db, a.id, here.token)).toBe(0);
+    expect(await endOtherSessions(database.db, a.id, undefined)).toBe(0);
+    expect(await userForSession(database.db, here.token)).toMatchObject({ id: a.id });
+  });
+
+  it("an admin can disable a reader, which ends their sessions, and enable them again", async () => {
+    const a = await createFirstAdmin(database.db, admin);
+    const { token } = await createInvite(database.db, a);
+    const r = await acceptInvite(database.db, token, reader);
+    const session = await createSession(database.db, r.id);
+    const when = new Date("2026-10-08T12:00:00Z");
+    await setReaderDisabled(database.db, a, r.id, true, when);
+    expect(await listReaders(database.db)).toEqual([{ id: r.id, name: reader.name, email: reader.email, disabledAt: when }]);
+    expect(await userForSession(database.db, session.token, when)).toBeNull();
+    await expect(authenticate(database.db, reader.email, reader.password)).rejects.toThrow("do not match");
+    await setReaderDisabled(database.db, a, r.id, true, new Date("2026-10-09T00:00:00Z"));
+    expect((await listReaders(database.db))[0].disabledAt).toEqual(when);
+    await expect(setReaderDisabled(database.db, a, a.id, true)).rejects.toThrow("your own account");
+    await expect(setReaderDisabled(database.db, a, "not-a-uuid", true)).rejects.toThrow("not a reader");
+    await expect(setReaderDisabled(database.db, a, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", true)).rejects.toThrow("not a reader");
+    await expect(setReaderDisabled(database.db, r, r.id, true)).rejects.toThrow("Only an admin");
+    await setReaderDisabled(database.db, a, r.id, false);
+    expect((await listReaders(database.db))[0].disabledAt).toBeNull();
+    expect(await userForSession(database.db, session.token)).toBeNull();
+    expect((await authenticate(database.db, reader.email, reader.password)).id).toBe(r.id);
   });
 });

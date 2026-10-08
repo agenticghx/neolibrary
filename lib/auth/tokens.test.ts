@@ -5,7 +5,7 @@ import { apiTokens, users } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { sha256 } from "./crypto";
 import { acceptInvite, createFirstAdmin, createInvite } from "./service";
-import { bearerToken, createApiToken, listApiTokens, revokeApiToken, TokenError, userForApiToken } from "./tokens";
+import { bearerToken, createApiToken, listApiTokens, revokeApiToken, TOKEN_DAYS, TokenError, userForApiToken } from "./tokens";
 
 let database: Database;
 let ownerId: string;
@@ -67,6 +67,19 @@ describe("personal API tokens (M11)", () => {
     expect(await userForApiToken(database.db, second.token)).toMatchObject({ user: { id: otherId }, tokenName: "reader's agent" });
     await database.db.update(users).set({ disabledAt: new Date() }).where(eq(users.id, otherId));
     expect(await userForApiToken(database.db, second.token)).toBeNull();
+  });
+
+  it("expires 90 days after it was made, and an expired token acts as revoked", async () => {
+    expect(TOKEN_DAYS).toBe(90);
+    const madeAt = new Date("2026-10-04T00:00:00Z");
+    const made = await createApiToken(database.db, ownerId, "agent", madeAt);
+    const expires = new Date(madeAt.getTime() + TOKEN_DAYS * 86_400_000);
+    expect((await listApiTokens(database.db, ownerId))[0].expiresAt).toEqual(expires);
+    expect(await userForApiToken(database.db, made.token, new Date(expires.getTime() - 1000))).not.toBeNull();
+    expect(await userForApiToken(database.db, made.token, expires)).toBeNull();
+    const second = await createApiToken(database.db, ownerId, "other", madeAt);
+    await revokeApiToken(database.db, ownerId, second.id, madeAt);
+    expect(await userForApiToken(database.db, second.token, madeAt)).toBeNull();
   });
 
   it("reads the token from an Authorization header", () => {

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Live site is main 8f8a1a8. Railway deployment 8b5582f2 SUCCESS at 2026-10-08 21:23 UTC. /api/health returns commit 8f8a1a8. Next is B4 in a focused session: Account page, migration 0022, reverse step, backup before production, four screenshots. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+next_action: Pull request 117 has the Account page and the reference images from CI run 37852607386. Wait for the four checks. Do not deploy until a backup is taken. Live site stays main 8f8a1a8. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-08
 shared_copy: none
@@ -19,32 +19,20 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-08, for the next session. The block that used to be here told a session to merge pull requests #97 to #100 and said GitHub Actions was not starting jobs. Those pull requests are merged. The site was deployed 2026-10-07 21:39 UTC from `main` `868d4e4` (the 21:45 log entry). On 2026-10-08, `https://web-production-f27a0e.up.railway.app/api/health` still answered `{"status":"ok","service":"neolibrary","commit":null}`.
+Written 2026-10-08 18:17 local, for the next session. The live site is still `main` `8f8a1a8` (Railway deployment `8b5582f2`). `https://web-production-f27a0e.up.railway.app/api/health` returns `commit` `8f8a1a8`. Do not deploy. Do not start a whole-book narration.
 
-**Pull request 114 is merged.** Squash commit `763001a` on `main`, 2026-10-08 19:23 UTC, by the auto-merge action. The four checks were green on run 37829154999 (head `8293357`): lint 6 min 46 s, Postgres 57 s, the ledger check 18 s, the browser job 19 min 16 s. The plan of what merged is `docs/security-leftovers.md` and `docs/ci-time.md`. The night run (08:00 UTC, every browser slice) is on `main` now. Its first run is the next 08:00 UTC. B4 is the next pull request.
+**B4 is built on branch `m14-account`.** Account is a page at `/account` (change password; sign out of other sessions), linked from the account menu. Invite lists each reader with Disable and Enable. API tokens expire 90 days after they are made. Migration 0022 (`db/migrations/0022_api_token_expiry`) adds `expires_at` and has a reverse step. A token that already exists gets `created_at` plus 2160 hours, so none expire on the day this ships. The plan is the B4 section of `docs/security-leftovers.md`.
 
-What this branch does:
+What to do next:
 
-1. **B2.** A book upload, a voice note, and a library import are refused once the body passes its limit (200 MB, 10 MB, and 32 MB), while the body is being read. The Import page sends one book per request, so several books dropped together do not become one giant request.
-2. **B3.** Before a paid call (text, Listen, a picture, a voice-note transcript), the estimate is reserved in this one server process. The paid call itself is not inside that lock. The reserve is released after the cost is written down, or when the call fails. This is not Open unknowns row 12. Row 12 would make every paid paragraph in the server wait its turn. The default there is still "not built".
-3. **B5.** `/api/health` also reads `NEOLIBRARY_COMMIT` (7 to 40 hex characters). Railway's own commit variable still wins when both are set. A laptop deploy sets it first, then uploads. Checked with `railway variable set --help` on 2026-10-08:
-
-   `railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys`
-
-   then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Done 2026-10-08 21:23 UTC. Deployment `8b5582f2` is SUCCESS. Live `/api/health` returns `commit` `8f8a1a8`.
-4. **B6.** Sign-in always runs the slow password check, including when the email is unknown or the account is disabled. The error text stays "That email and password do not match."
-5. **B8.** The screenshot job no longer leaves a write-capable token in git's config while dependencies and the browser tests run. The push of screenshots still uses its own token.
-6. **CI time.** The rules are in `docs/ci-time.md`, and they are on `main`. Playwright's browsers are cached. The browser job runs a slice of the chain. Docs and Markdown skip Playwright and the job still succeeds. Spending, sign-in, and uploads run the behaviour chain and skip the audiobook file. The audiobook file and WebKit run when that code changes. Every slice runs once a night at 08:00 UTC. The other four ideas (several machines, a larger runner, denkyem, an AI looking at pages) are in that doc. They are not built.
-
-**The live site is this deploy.** 2026-10-08 21:23 UTC, Railway deployment `8b5582f2` on service `web`, from `main` `8f8a1a8`. `https://web-production-f27a0e.up.railway.app/api/health` returns `{"status":"ok","service":"neolibrary","commit":"8f8a1a8"}`. There was no database migration, so no backup was taken. Do not start a whole-book narration on the live site. B4 is the next piece of work, in its own session.
-
-Run 37824929937, on the commit before the slice change, failed one WebKit audiobook test: `e2e/readalong.spec.ts:728` (`playUntil` waited 45 s). 271 passed. The replacement run, 37829154999, passed that file with the rest of the suite. One such failure still means re-run the browser job once. A second failure on the same pull request is real until shown otherwise. Do not change `e2e/safari.spec.ts` (Open unknowns row 14; default is to keep the test and pay the re-run).
-
-**Then B4,** its own pull request, from the defaults in `docs/security-leftovers.md`: an Account page (change password; sign out of other sessions), an admin can disable and enable a reader, and API tokens expire 90 days after they are made. It adds a page, so it needs the four reference screenshots from CI. The database change is migration 0022. It needs a reverse step, and a backup before it runs in production.
+1. Pull request 117 is open on `m14-account`. The first browser job, run 37852607386, failed only the screenshot comparison (36 images). Those images are committed: Account in four looks, Invite's Readers section, Agent access's 90-day sentence, and the Account link on every signed-in desktop page. The next browser job runs the behaviour tests that did not run (99 of them). If it fails the pixel comparison again, refresh from that run and look at the new images. Leave `CI_BROWSER_SLICES` unset on the laptop.
+2. Merge with the merge-train skill only when the four GitHub checks are green and no test was skipped, deleted, or weakened. One WebKit failure of `e2e/readalong.spec.ts` means re-run the browser job once. A second failure on the same pull request is real. Do not change `e2e/safari.spec.ts`. The auto-merge action also merges this branch once CI passes on the latest commit.
+3. Do not deploy. After the merge, a later session takes a backup before any production deploy. The server runs migrations when it starts, so migration 0022 would run on deploy. The backup recipe is in `docs/handoff.md`: `pg_dump` inside Railway's Postgres, saved under `~/Backups/neolibrary/`, then a restore check on this Mac. A backup taken before that deploy would be the wrong moment.
+4. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
 
 **Left unsettled.** Do not change these without a check: whether Railway lets a visitor spoof `X-Forwarded-For` (sign-in uses the first address; a 50-per-email limit is the backstop); whether `SETUP_CODE` is set on Railway (setup already refuses once an account exists, and production has one).
 
-**Still later, not this work.** Open unknowns rows 12, 13, and 14 (decide by 2026-10-14). The Kuhn word-match follow-up, S6, and skills K1–K3 are in `docs/readalong-plan.md`. A rate limit on `/api/agent/*` is still only a note.
+**Still later, not this work.** The Kuhn word-match follow-up, S6, and skills K1–K3 are in `docs/readalong-plan.md`. A rate limit on `/api/agent/*` is still only a note.
 
 ## Waiting on Samuel
 
@@ -158,6 +146,34 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-08 18:26 · Grok (laptop) · Reference images for the Account page, from CI run 37852607386
+- **Done:** The first browser job on pull request 117 failed only the screenshot comparison. Run 37852607386: 36 failed, 101 passed, 99 did not run. Lint, Postgres, and the ledger check passed.
+  
+  Copied CI's 36 renderings into e2e/__screenshots__. Looked at Account in all four looks, Invite and Agent access on phone and desktop in both colours, Home on the desktop in the light colour, and the design page. They show the Account page, the Readers section with "No readers yet.", the 90-day sentence, and an Account link in the desktop sidebar. The phone tab bar covers the last lines of a full-page image the same way it already does on other phone pages.
+- **Key paths:** e2e/__screenshots__ (36 images), LEARNING_LOG.md, PROGRESS.md
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/attempt-log.sh 37852607386
+  zsh .claude/skills/merge-train/scripts/refresh-screenshots.sh 37852607386
+  gh run view 37852607386 --json status,conclusion,jobs
+- **Known issues / blockers:** Do not deploy. The behaviour tests did not run because the screenshot projects failed first. The next browser job runs them. Live site stays main 8f8a1a8. A backup is required before any production deploy. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). Do not change e2e/safari.spec.ts.
+- **Exact next steps:** 1. Push the reference images and wait for the four checks on pull request 117. 2. If the browser job fails the pixel comparison again, refresh from that run and look at the images. 3. Merge only when the four checks are green and no test was weakened. 4. Do not deploy. After the merge, a later session takes a backup before any production deploy. 5. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+
+### 2026-10-08 18:17 · Grok (laptop) · Account page, disable a reader, and API tokens that expire after 90 days
+- **Done:** Built B4 on branch m14-account, from main 077c3a0. Not deployed. The live site stays main 8f8a1a8.
+  
+  Account is a page at /account, linked from the account menu on a phone and from the sidebar on a desktop. Change password asks for the current password and a new one of at least 10 characters. This browser stays signed in. Sign out of other sessions deletes every other session. Sign out still ends this browser only.
+  
+  Invite lists each reader with Disable and Enable. Disable sets disabledAt and deletes that reader's sessions. You cannot disable yourself. Enable clears disabledAt. The owner is not in the list.
+  
+  API tokens expire 90 days after they are made. Migration 0022 adds api_tokens.expires_at and has a reverse step. Existing tokens get created_at plus 2160 hours (90 times 24 fixed hours), so none expire on the day this ships. An expired token is treated as revoked. Revoke still works immediately. The Agent access page shows the date.
+  
+  npm run check exited 0. Tests 543 passed, 2 skipped (545). npx playwright test --project=shell --ignore-snapshots: 172 passed (40.7s). Reference screenshots were not updated on this Mac.
+- **Key paths:** app/(app)/account/page.tsx, app/(app)/account/AccountForms.tsx, app/(app)/account/page.module.css, app/(app)/actions.ts, app/(app)/admin/invites/page.tsx, app/(app)/agents/page.tsx, components/shell/AccountMenu.tsx, components/shell/Sidebar.tsx, db/migrations/0022_api_token_expiry.up.sql, db/migrations/0022_api_token_expiry.down.sql, lib/auth/service.ts, lib/auth/tokens.ts, lib/db/schema.ts, lib/auth/service.test.ts, lib/auth/tokens.test.ts, lib/db/migrate.test.ts, e2e/pages.ts, e2e/shell.spec.ts, e2e/flows.spec.ts, e2e/agents.spec.ts, docs/security-leftovers.md, LEARNING_LOG.md, PROGRESS.md
+- **Commands that worked:** npm run check
+  npx eslint app/(app)/actions.ts (exit 0, after the unused-argument warning)
+  npx playwright test --project=shell --ignore-snapshots
+- **Known issues / blockers:** Do not deploy. Migration 0022 runs when the server starts, so a backup of the live database is required before any production deploy. The live site stays main 8f8a1a8. The first CI browser job will fail the screenshot comparison. Refresh those images from CI. Do not copy Mac pixels. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). Do not change e2e/safari.spec.ts.
+- **Exact next steps:** 1. Open the pull request for branch m14-account. 2. When the browser job fails the screenshot comparison, refresh the reference images from that CI run, look at Account in the four looks and at the pages whose sidebar or text changed, commit, and push. 3. Merge only when the four GitHub checks are green and no test was weakened. One WebKit failure of e2e/readalong.spec.ts means re-run the browser job once. 4. Do not deploy. After the merge, a later session takes a backup before any production deploy. 5. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-08 17:27 · Grok (laptop) · Deployed main 8f8a1a8; the live health check names that commit
 - **Done:** Deployed main 8f8a1a8 to the neolibrary project, production, service web. No database migration, so no backup. No whole-book narration.

@@ -68,11 +68,22 @@ test.describe("desktop sidebar", () => {
     for (const [name, url, heading] of [
       ["Reading stats", /\/stats$/, "Reading stats"],
       ["Your data", /\/data$/, "No lock-in"],
+      ["Account", /\/account$/, "Account"],
       ["Invite", /\/admin\/invites$/, "Invite people"],
     ] as const) {
       await aside(page).getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(url);
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      if (name === "Account") {
+        await expect(page.getByLabel("Current password")).toBeVisible();
+        await expect(page.getByLabel("New password")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Change password" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Sign out of other sessions" })).toBeVisible();
+      }
+      if (name === "Invite") {
+        await expect(page.getByRole("heading", { name: "Readers", level: 2 })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Disable Ada Lovelace" })).toBeVisible();
+      }
     }
 
     // /paths lists the Path with its count, and offers no reading list already added.
@@ -182,7 +193,7 @@ test.describe("phone", () => {
   });
 
   test("other pages start with their own title: no strip, no account button", async ({ page }) => {
-    for (const path of ["/library", "/paths", "/search", "/data"]) {
+    for (const path of ["/library", "/paths", "/search", "/data", "/account"]) {
       await page.goto(path);
       await expect(page.getByRole("button", { name: /^Account: / })).toHaveCount(0);
       await expect(page.getByRole("link", { name: "Neolibrary", exact: true })).toBeHidden(); // the strip's name went with it
@@ -210,7 +221,7 @@ test.describe("phone", () => {
       await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");
-      for (const name of ["Reading stats", "Your data", "Invite"]) await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+      for (const name of ["Reading stats", "Your data", "Account", "Invite"]) await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
       await page.screenshot({ path: `screenshots/account-menu-phone-${scheme}.png` });
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

@@ -62,6 +62,7 @@ export function AccountMenu({ name, admin }: { name: string; admin: boolean }) {
         <p className={styles.accountName}>{name}</p>
         <Link href="/stats">Reading stats</Link>
         <Link href="/data">Your data</Link>
+        <Link href="/account">Account</Link>
         {admin ? <Link href="/admin/invites">Invite</Link> : null}
         <form action={signOutAction}>
           <button type="submit" className={styles.signOut}>
