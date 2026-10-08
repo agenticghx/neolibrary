@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 114 (m14-security-leftovers) holds B2, B3, B5, B6, B8, and browser slices (docs/ci-time.md). The audiobook file and WebKit run when that code changes, and once a night at 08:00 UTC after merge. This pull request still runs the long tail once. Run 37824929937 failed one known WebKit audiobook stall (e2e/readalong.spec.ts:728) before the slice commit. The new run replaces it. Merge with the merge-train skill only when the four checks are green. One readalong.spec.ts failure means re-run the browser job once. Then B4. Do not deploy. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+next_action: Pull request 114 is merged as 763001a (2026-10-08 19:23 UTC, auto-merge). The four checks were green on run 37829154999. The live site is still the previous deploy (commit null). Next laptop deploy: set NEOLIBRARY_COMMIT with --skip-deploys, then railway up --service web --ci. Then B4. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-08
 shared_copy: none
@@ -21,7 +21,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 Written 2026-10-08, for the next session. The block that used to be here told a session to merge pull requests #97 to #100 and said GitHub Actions was not starting jobs. Those pull requests are merged. The site was deployed 2026-10-07 21:39 UTC from `main` `868d4e4` (the 21:45 log entry). On 2026-10-08, `https://web-production-f27a0e.up.railway.app/api/health` still answered `{"status":"ok","service":"neolibrary","commit":null}`.
 
-**Now: pull request #114 (`m14-security-leftovers`).** The plan is `docs/security-leftovers.md`. It covers the security-review leftovers that do not change a page, and two cuts to the CI wait. Do not split them into six pull requests. #113 put the deploy note on `main`; this branch is merged onto that. B4 is the next pull request, after #114 is green.
+**Pull request 114 is merged.** Squash commit `763001a` on `main`, 2026-10-08 19:23 UTC, by the auto-merge action. The four checks were green on run 37829154999 (head `8293357`): lint 6 min 46 s, Postgres 57 s, the ledger check 18 s, the browser job 19 min 16 s. The plan of what merged is `docs/security-leftovers.md` and `docs/ci-time.md`. The night run (08:00 UTC, every browser slice) is on `main` now. Its first run is the next 08:00 UTC. B4 is the next pull request.
 
 What this branch does:
 
@@ -31,12 +31,18 @@ What this branch does:
 
    `railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys`
 
-   then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Not set on the live site yet. Do not deploy this branch until its pull request is merged.
+   then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Not set on the live site yet. The pull request is merged. The deploy has not been run.
 4. **B6.** Sign-in always runs the slow password check, including when the email is unknown or the account is disabled. The error text stays "That email and password do not match."
 5. **B8.** The screenshot job no longer leaves a write-capable token in git's config while dependencies and the browser tests run. The push of screenshots still uses its own token.
-6. **CI time.** The rules are in `docs/ci-time.md`. Playwright's browsers are cached. The browser job runs a slice of the chain. Docs and Markdown skip Playwright and the job still succeeds. Spending, sign-in, and uploads run the behaviour chain and skip the audiobook file (about 175 s in Chromium and 236 s in WebKit on run 37676437968) and narration (57 s). The audiobook file runs when the player or the audiobook changes. WebKit's highlight test runs when the player changes, and without the audiobook file when only `e2e/safari.spec.ts` or `e2e/listen.ts` changes. Every slice, including WebKit, runs once a night at 08:00 UTC. That schedule starts only after this pull request is on `main`. This pull request changes `lib/library/audio.ts`, `lib/library/narration.ts`, the workflow, and the selector, so the next run still does the long tail once. The other four ideas (several machines, a larger runner, denkyem, an AI looking at pages) are in that doc. They are not built.
+6. **CI time.** The rules are in `docs/ci-time.md`, and they are on `main`. Playwright's browsers are cached. The browser job runs a slice of the chain. Docs and Markdown skip Playwright and the job still succeeds. Spending, sign-in, and uploads run the behaviour chain and skip the audiobook file. The audiobook file and WebKit run when that code changes. Every slice runs once a night at 08:00 UTC. The other four ideas (several machines, a larger runner, denkyem, an AI looking at pages) are in that doc. They are not built.
 
-**When the four GitHub checks are green,** merge with the merge-train skill. Do not merge while a check is red. Run 37824929937, on the commit before the slice change, failed one WebKit audiobook test: `e2e/readalong.spec.ts:728` (`playUntil` waited 45 s). 271 passed. That test is the stall already listed in `docs/ci-flakes.md`, and `readalong.spec.ts` is on the flake list, so one failure means re-run the browser job once. A second failure on the same pull request is real until shown otherwise. Do not change `e2e/safari.spec.ts` (Open unknowns row 14; default is to keep the test and pay the re-run). Do not start a whole-book narration on the live site.
+**The live site is still the previous deploy.** On 2026-10-08, after the merge, `https://web-production-f27a0e.up.railway.app/api/health` still returned `{"status":"ok","service":"neolibrary","commit":null}`. The next laptop deploy sets the commit, then uploads. There is no database migration in 114, so no backup is required for this deploy:
+
+`railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys`
+
+then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Do not start a whole-book narration on the live site.
+
+Run 37824929937, on the commit before the slice change, failed one WebKit audiobook test: `e2e/readalong.spec.ts:728` (`playUntil` waited 45 s). 271 passed. The replacement run, 37829154999, passed that file with the rest of the suite. One such failure still means re-run the browser job once. A second failure on the same pull request is real until shown otherwise. Do not change `e2e/safari.spec.ts` (Open unknowns row 14; default is to keep the test and pay the re-run).
 
 **Then B4,** its own pull request, from the defaults in `docs/security-leftovers.md`: an Account page (change password; sign out of other sessions), an admin can disable and enable a reader, and API tokens expire 90 days after they are made. It adds a page, so it needs the four reference screenshots from CI. The database change is migration 0022. It needs a reverse step, and a backup before it runs in production.
 
@@ -156,6 +162,23 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-08 15:25 · Grok (laptop) · Pull request 114 merged after the four checks passed
+- **Done:** The four checks on the slice commit 8293357 were green. Run 37829154999: lint 6 min 46 s, real Postgres 57 s, the ledger check 18 s, the browser job 19 min 16 s. Conclusion success. gh pr checks 114 showed all four pass.
+  
+  The auto-merge action merged pull request 114 at 2026-10-08 19:23 UTC. Squash commit on main: 763001a. mergedBy is app/github-actions. The branch commit is not an ancestor of main, which is what a squash merge looks like.
+  
+  The run before the slice commit, 37824929937, had failed one WebKit audiobook test (e2e/readalong.spec.ts:728, 45 s). The replacement run passed the whole browser job, including that file.
+  
+  After the merge, curl of https://web-production-f27a0e.up.railway.app/api/health still returned status ok and commit null. The live site is the previous deploy. This merge has no database migration. The deploy command is in Exact next steps and has not been run. No whole-book narration was started.
+- **Key paths:** PROGRESS.md
+- **Commands that worked:** gh pr checks 114
+  gh run view 37829154999 --json conclusion,status,headSha,url,event
+  gh pr view 114 --json state,mergedAt,mergeCommit,mergedBy
+  git log -1 --format='%H %s' origin/main
+  curl -sS https://web-production-f27a0e.up.railway.app/api/health
+- **Known issues / blockers:** The live site does not have these fixes until the laptop deploy. Do not start a whole-book narration. B4 is the next pull request and needs migration 0022, a reverse step, a backup before production, and four screenshots from CI. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). Do not change e2e/safari.spec.ts.
+- **Exact next steps:** 1. Deploy main 763001a from the laptop: set NEOLIBRARY_COMMIT with --skip-deploys, then railway up --service web --ci. Check /api/health names that commit. 2. B4 as its own pull request, from docs/security-leftovers.md. 3. The night browser run is on main; first fire is the next 08:00 UTC. 4. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-08 15:02 · Grok (laptop) · The audiobook browser tests run only when that code changes
 - **Done:** Option 1 from the CI-time question is built on m14-security-leftovers, in the same pull request (#114). The browser job still shares one database, so the projects stay in a line. What changed is which part of the line runs.
