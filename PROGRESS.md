@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 117 has the Account page and the reference images from CI run 37852607386. Wait for the four checks. Do not deploy until a backup is taken. Live site stays main 8f8a1a8. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+next_action: Pull request 117 is merged as main de68330. Do not deploy until a backup is taken; migration 0022 runs when the server starts. Live site stays main 8f8a1a8. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-08
 shared_copy: none
@@ -19,16 +19,17 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-08 18:17 local, for the next session. The live site is still `main` `8f8a1a8` (Railway deployment `8b5582f2`). `https://web-production-f27a0e.up.railway.app/api/health` returns `commit` `8f8a1a8`. Do not deploy. Do not start a whole-book narration.
+Written 2026-10-08 18:36 local, for the next session. Pull request 117 is merged. Squash commit `de68330` on `main`, 2026-10-08 22:35 UTC. The four checks were green on run 37853536318 (head `361816e`): lint 7 min 22 s, Postgres 1 min 0 s, the ledger check 15 s, the browser job 8 min 37 s. No test was skipped or weakened. `e2e/safari.spec.ts` was not changed.
 
-**B4 is built on branch `m14-account`.** Account is a page at `/account` (change password; sign out of other sessions), linked from the account menu. Invite lists each reader with Disable and Enable. API tokens expire 90 days after they are made. Migration 0022 (`db/migrations/0022_api_token_expiry`) adds `expires_at` and has a reverse step. A token that already exists gets `created_at` plus 2160 hours, so none expire on the day this ships. The plan is the B4 section of `docs/security-leftovers.md`.
+The live site is still `main` `8f8a1a8` (Railway deployment `8b5582f2`). The last health read, before this merge, returned `commit` `8f8a1a8`. Do not start a whole-book narration.
+
+**What merged.** Account at `/account` (change password; sign out of other sessions), Disable and Enable on Invite, and API tokens that expire 90 days after they are made. Migration 0022 adds `expires_at` and has a reverse step. Tokens that already exist get `created_at` plus 2160 hours.
 
 What to do next:
 
-1. Pull request 117 is open on `m14-account`. The first browser job, run 37852607386, failed only the screenshot comparison (36 images). Those images are committed: Account in four looks, Invite's Readers section, Agent access's 90-day sentence, and the Account link on every signed-in desktop page. The next browser job runs the behaviour tests that did not run (99 of them). If it fails the pixel comparison again, refresh from that run and look at the new images. Leave `CI_BROWSER_SLICES` unset on the laptop.
-2. Merge with the merge-train skill only when the four GitHub checks are green and no test was skipped, deleted, or weakened. One WebKit failure of `e2e/readalong.spec.ts` means re-run the browser job once. A second failure on the same pull request is real. Do not change `e2e/safari.spec.ts`. The auto-merge action also merges this branch once CI passes on the latest commit.
-3. Do not deploy. After the merge, a later session takes a backup before any production deploy. The server runs migrations when it starts, so migration 0022 would run on deploy. The backup recipe is in `docs/handoff.md`: `pg_dump` inside Railway's Postgres, saved under `~/Backups/neolibrary/`, then a restore check on this Mac. A backup taken before that deploy would be the wrong moment.
-4. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
+1. Take a backup of the live database before any deploy. The server runs migrations when it starts, so a deploy of `de68330` runs migration 0022. The recipe is in `docs/handoff.md`: `pg_dump` inside Railway's Postgres, through `ssh` (the address comes from `railway ssh config --service Postgres --dry-run`), streamed to `~/Backups/neolibrary/`, then a restore check into a local Postgres. Do not open a public address for the database.
+2. After that backup checks out, deploy `main` `de68330`. Set `NEOLIBRARY_COMMIT` to the full commit with `--skip-deploys` before `railway up --service web --environment production --ci`. Then read `/api/health` and confirm the commit. A laptop upload does not set Railway's own commit variable, so the health check reads `NEOLIBRARY_COMMIT`.
+3. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
 
 **Left unsettled.** Do not change these without a check: whether Railway lets a visitor spoof `X-Forwarded-For` (sign-in uses the first address; a 50-per-email limit is the backstop); whether `SETUP_CODE` is set on Railway (setup already refuses once an account exists, and production has one).
 
@@ -146,6 +147,19 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-08 18:37 · Grok (laptop) · Pull request 117 merged after the four checks passed
+- **Done:** Pull request 117 merged. Squash commit on main is de68330, at 2026-10-08 22:35 UTC. The four checks on head 361816e were green. Run 37853536318: lint 7 min 22 s, Postgres 1 min 0 s, the ledger check 15 s, the browser job 8 min 37 s. gh pr checks 117 showed all four pass. No test was skipped or weakened. e2e/safari.spec.ts was not changed.
+  
+  The first browser job, run 37852607386, had failed only the screenshot comparison. The reference images from that run were committed and the second run passed.
+  
+  Not deployed. The live site stays main 8f8a1a8. Migration 0022 runs when the server starts, so a backup comes before any deploy. No whole-book narration was started.
+- **Key paths:** PROGRESS.md, LEARNING_LOG.md
+- **Commands that worked:** gh pr checks 117
+  gh pr view 117 --json state,mergedAt,mergeCommit
+  git fetch origin main && git log -1 --format="%H %s" origin/main
+- **Known issues / blockers:** The live site does not have the Account page until a later session deploys. Take a backup first. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). Do not change e2e/safari.spec.ts. Do not start a whole-book narration.
+- **Exact next steps:** 1. Back up the live database (pg_dump inside Railway Postgres, to ~/Backups/neolibrary/, then a restore check). 2. Deploy main de68330: set NEOLIBRARY_COMMIT with --skip-deploys, then railway up --service web --environment production --ci. Check /api/health names that commit. 3. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-08 18:26 · Grok (laptop) · Reference images for the Account page, from CI run 37852607386
 - **Done:** The first browser job on pull request 117 failed only the screenshot comparison. Run 37852607386: 36 failed, 101 passed, 99 did not run. Lint, Postgres, and the ledger check passed.

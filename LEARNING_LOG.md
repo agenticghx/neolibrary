@@ -60,6 +60,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 69 | 2026-10-07 07:32 | WebKit stall report (draft from `m14-flake-s4-diag`) | When the audio stands still, the log says whether the player asked for audio and whether the server answered; no check changed | npm run check; the read-along file in both engines; forced failures (audio requests held) in both engines and on the base | success (CI to come) | force the failure before trusting a report |
 | 71 | 2026-10-08 22:12 | B4 Account | An Account page, disabling a reader, and API tokens that expire after 90 days | `npm run check`; Playwright `--project=shell --ignore-snapshots` | success (CI screenshots still to refresh) | the screenshot projects run before any reader exists; the shell project runs after |
 | 72 | 2026-10-08 22:40 | B4 screenshots | CI's first browser job fails only the pixel comparison, and the new images are the page we built | run 37852607386; looked at Account, Invite, Agent access, Home, and the design page | success (behaviour tests still to run) | a new sidebar link changes every signed-in desktop image; phone changes only where the page's own text changed |
+| 73 | 2026-10-08 22:36 | B4 merge | The second browser job passes, including the tests that did not run the first time, and the pull request merges | run 37853536318; `gh pr view 117` | success | auto-merge squashes once the four checks are green; a backup still has to come before the deploy |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2096,3 +2097,12 @@ tests that pin it, in a small PR.
 **Result.** The images match the page. Account has Change password and Sign out of other sessions. Invite has Readers and "No readers yet." (the screenshot projects run before anyone is invited). Agent access says a token works for 90 days. The desktop sidebar shows Account between Your data and Invite. The phone tab bar covers the last lines of a full-page image the same way it already does on other phone pages. The design page is 2 pixels shorter; the page itself is intact, and the difference is the new sidebar link.
 **Lesson.** A link added to the desktop sidebar changes every signed-in desktop reference image. On a phone the sidebar is hidden, so only a page whose own text changed needs a new image.
 **Next experiment.** Push these images. The next browser job runs the behaviour tests that did not run (99 of them). Merge only when the four checks are green. Do not deploy until a backup is taken.
+
+### Iteration 73 · 2026-10-08 22:36 · Account pull request merged · success
+
+**Hypothesis.** With the reference images from run 37852607386, the second browser job passes the screenshot comparison and the behaviour tests that were skipped, and the four checks go green.
+**Action.** Pushed commit `361816e`. Run 37853536318. Did not deploy.
+**Evaluation.** `gh pr checks 117` after the run, then `gh pr view 117 --json state,mergedAt,mergeCommit`.
+**Result.** All four checks passed. Browser tests 8 min 37 s, lint 7 min 22 s, Postgres 1 min 0 s, the ledger check 15 s. Auto-merge squashed the pull request at 2026-10-08 22:35 UTC. The commit on `main` is `de68330`. The live site was not deployed. Health on the live site was last read as commit `8f8a1a8` before this merge.
+**Lesson.** The first red browser job was the screenshot comparison. The second run, with CI's own images, went green, including the behaviour tests.
+**Next experiment.** A later session takes a backup of the live database, then deploys `main` `de68330`. Migration 0022 runs when the server starts, so the backup comes first. Do not start a whole-book narration.
