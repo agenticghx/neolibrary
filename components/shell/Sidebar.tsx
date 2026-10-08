@@ -112,6 +112,7 @@ export function Sidebar({ user, paths, collections }: Props) {
         <p className={styles.footLinks}>
           <Link href="/stats">Reading stats</Link>
           <Link href="/data">Your data</Link>
+          <Link href="/account">Account</Link>
           {user.role === "admin" ? <Link href="/admin/invites">Invite</Link> : null}
         </p>
         <form action={signOutAction}>

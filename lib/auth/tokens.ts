@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { apiTokens, users } from "@/lib/db/schema";
 import { randomToken, sha256 } from "./crypto";
@@ -9,17 +9,29 @@ import type { PublicUser } from "./service";
  * acts as that user (sees only what they see) by sending
  * `Authorization: Bearer <token>`. The token is shown once; the database keeps
  * only its sha256 hash and its first characters (to tell tokens apart).
- * Revoking is immediate and permanent.
+ * Revoking is immediate and permanent. A token also stops working 90 days
+ * after it was made; an expired token is treated the same as a revoked one.
  */
 export class TokenError extends Error {}
 
 /** Every token starts with this, so a leaked one is easy to recognise (and to search for). */
 export const TOKEN_PREFIX = "nl_";
+/** How long a new token works, and how long an existing one is given when expiry is added. */
+export const TOKEN_DAYS = 90;
+const TOKEN_MS = TOKEN_DAYS * 86_400_000;
 const SHOWN = 8;
 /** Refresh "last used" at most this often, so busy agents do not write on every call. */
 const TOUCH_MS = 60 * 1000;
 
-export type TokenView = { id: string; name: string; prefix: string; createdAt: Date; lastUsedAt: Date | null; revokedAt: Date | null };
+export type TokenView = {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: Date;
+  expiresAt: Date;
+  lastUsedAt: Date | null;
+  revokedAt: Date | null;
+};
 
 export async function createApiToken(db: Db, ownerId: string, name: string, now = new Date()) {
   const clean = name.replace(/\s+/g, " ").trim().slice(0, 100);
@@ -27,7 +39,14 @@ export async function createApiToken(db: Db, ownerId: string, name: string, now 
   const token = TOKEN_PREFIX + randomToken();
   const [row] = await db
     .insert(apiTokens)
-    .values({ ownerId, name: clean, tokenHash: sha256(token), prefix: token.slice(0, SHOWN), createdAt: now })
+    .values({
+      ownerId,
+      name: clean,
+      tokenHash: sha256(token),
+      prefix: token.slice(0, SHOWN),
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + TOKEN_MS),
+    })
     .returning({ id: apiTokens.id });
   return { id: row.id, token };
 }
@@ -39,6 +58,7 @@ export async function listApiTokens(db: Db, ownerId: string): Promise<TokenView[
       name: apiTokens.name,
       prefix: apiTokens.prefix,
       createdAt: apiTokens.createdAt,
+      expiresAt: apiTokens.expiresAt,
       lastUsedAt: apiTokens.lastUsedAt,
       revokedAt: apiTokens.revokedAt,
     })
@@ -61,7 +81,7 @@ export async function revokeApiToken(db: Db, ownerId: string, id: string, now = 
   }
 }
 
-/** The user a token acts for and the token's name, or null (unknown, revoked, or the user is disabled). Notes when it was last used. */
+/** The user a token acts for and the token's name, or null (unknown, revoked, expired, or the user is disabled). Notes when it was last used. */
 export async function userForApiToken(
   db: Db,
   token: string | null | undefined,
@@ -73,7 +93,7 @@ export async function userForApiToken(
     .select({ id: users.id, email: users.email, name: users.name, role: users.role, tokenName: apiTokens.name })
     .from(apiTokens)
     .innerJoin(users, eq(users.id, apiTokens.ownerId))
-    .where(and(eq(apiTokens.tokenHash, hash), isNull(apiTokens.revokedAt), isNull(users.disabledAt)));
+    .where(and(eq(apiTokens.tokenHash, hash), isNull(apiTokens.revokedAt), gt(apiTokens.expiresAt, now), isNull(users.disabledAt)));
   if (!row) return null;
   await db
     .update(apiTokens)

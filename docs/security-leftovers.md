@@ -190,8 +190,9 @@ accounts still cannot sign in.
 
 ### B4. Accounts: disable, password, other sessions, token expiry
 
-Not built in this pull request. It changes what a person sees, so it needs
-screenshots from CI. Defaults, so the next pull request can start:
+Built on `/account` and on Invite (its own pull request, after the leftovers
+above). It changes what a person sees, so that pull request needs the four
+reference screenshots from CI. What this pull request adds:
 
 - A page **Account** (`/account`), linked from the account menu. Change
   password: the current password, then a new one of at least 10 characters.

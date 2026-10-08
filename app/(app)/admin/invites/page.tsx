@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listInvites } from "@/lib/auth/service";
+import { listInvites, listReaders } from "@/lib/auth/service";
 import { requireAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { revokeInviteAction } from "../../actions";
+import { revokeInviteAction, setReaderDisabledAction } from "../../actions";
 import { InviteForm } from "./InviteForm";
 import styles from "./page.module.css";
 
@@ -15,7 +15,9 @@ const date = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month:
 
 export default async function InvitesPage() {
   await requireAdmin();
-  const invites = await listInvites(await getDb());
+  const db = await getDb();
+  const invites = await listInvites(db);
+  const readers = await listReaders(db);
   return (
     <main className={styles.main}>
       <p className={styles.eyebrow}>Admin</p>
@@ -54,6 +56,36 @@ export default async function InvitesPage() {
                 ) : (
                   <span />
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section aria-labelledby="readers" className={styles.list}>
+        <h2 id="readers" className={styles.listTitle}>
+          Readers
+        </h2>
+        <p className={styles.lede}>
+          Disable signs that person out and stops them signing in. Enable lets them sign in again. You cannot disable
+          your own account.
+        </p>
+        {readers.length === 0 ? (
+          <p className={styles.empty}>No readers yet.</p>
+        ) : (
+          <ul className={styles.rows} data-testid="reader-rows">
+            {readers.map((r) => (
+              <li key={r.id} className={styles.row}>
+                <span className={styles.note}>{r.name}</span>
+                <span className={styles.meta}>
+                  {r.email} · {r.disabledAt ? `Disabled ${date(r.disabledAt)}` : "Can sign in"}
+                </span>
+                <form action={setReaderDisabledAction}>
+                  <input type="hidden" name="id" value={r.id} />
+                  <input type="hidden" name="disabled" value={r.disabledAt ? "0" : "1"} />
+                  <button type="submit" className={styles.revoke} aria-label={`${r.disabledAt ? "Enable" : "Disable"} ${r.name}`}>
+                    {r.disabledAt ? "Enable" : "Disable"}
+                  </button>
+                </form>
               </li>
             ))}
           </ul>

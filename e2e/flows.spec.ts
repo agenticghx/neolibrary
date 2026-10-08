@@ -97,8 +97,11 @@ test.describe("signed in", () => {
     await guest.goto("/paths");
     await expect(guest.getByRole("main").getByRole("link", { name: "Hidden Machinery", exact: true })).toBeVisible();
     await expect(guest.getByRole("button", { name: "Add this path" })).toHaveCount(0);
-    // A reader who is not an admin is not offered Invite.
+    // A reader who is not an admin is not offered Invite. Account is theirs too.
     await expect(guestSidebar.getByRole("link", { name: "Invite", exact: true })).toHaveCount(0);
+    await guestSidebar.getByRole("link", { name: "Account", exact: true }).click();
+    await expect(guest.getByRole("heading", { name: "Account", level: 1 })).toBeVisible();
+    await expect(guest.getByLabel("Current password")).toBeVisible();
     // New collection works before the first book.
     await guestSidebar.getByRole("link", { name: "New collection", exact: true }).click();
     await expect(guest.getByLabel("Collection name")).toBeVisible();
