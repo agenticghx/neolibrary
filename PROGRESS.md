@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: B4 Account page is on branch m14-account. Do not deploy until a backup is taken; migration 0022 runs when the server starts. Refresh the Account screenshots from CI. Live site stays main 8f8a1a8. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+next_action: Pull request 117 has the Account page and the reference images from CI run 37852607386. Wait for the four checks. Do not deploy until a backup is taken. Live site stays main 8f8a1a8. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-08
 shared_copy: none
@@ -25,8 +25,8 @@ Written 2026-10-08 18:17 local, for the next session. The live site is still `ma
 
 What to do next:
 
-1. Open the pull request for `m14-account` if it is not open. The first browser job fails the screenshot comparison. The desktop sidebar gained an Account link, so every signed-in desktop page changes. Invite gained a Readers section, Agent access mentions the 90 days, and Account is new. Refresh the reference images from CI: `zsh .claude/skills/merge-train/scripts/refresh-screenshots.sh <run-id>`. Look at Account in the four looks (desktop and phone, light and dark) and at the other pages whose sidebar or text changed. Commit those images and push. Do not copy screenshots from this Mac. Leave `CI_BROWSER_SLICES` unset on the laptop.
-2. Merge with the merge-train skill only when the four GitHub checks are green and no test was skipped, deleted, or weakened. One WebKit failure of `e2e/readalong.spec.ts` means re-run the browser job once. A second failure on the same pull request is real. Do not change `e2e/safari.spec.ts`.
+1. Pull request 117 is open on `m14-account`. The first browser job, run 37852607386, failed only the screenshot comparison (36 images). Those images are committed: Account in four looks, Invite's Readers section, Agent access's 90-day sentence, and the Account link on every signed-in desktop page. The next browser job runs the behaviour tests that did not run (99 of them). If it fails the pixel comparison again, refresh from that run and look at the new images. Leave `CI_BROWSER_SLICES` unset on the laptop.
+2. Merge with the merge-train skill only when the four GitHub checks are green and no test was skipped, deleted, or weakened. One WebKit failure of `e2e/readalong.spec.ts` means re-run the browser job once. A second failure on the same pull request is real. Do not change `e2e/safari.spec.ts`. The auto-merge action also merges this branch once CI passes on the latest commit.
 3. Do not deploy. After the merge, a later session takes a backup before any production deploy. The server runs migrations when it starts, so migration 0022 would run on deploy. The backup recipe is in `docs/handoff.md`: `pg_dump` inside Railway's Postgres, saved under `~/Backups/neolibrary/`, then a restore check on this Mac. A backup taken before that deploy would be the wrong moment.
 4. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
 
@@ -146,6 +146,17 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-08 18:26 · Grok (laptop) · Reference images for the Account page, from CI run 37852607386
+- **Done:** The first browser job on pull request 117 failed only the screenshot comparison. Run 37852607386: 36 failed, 101 passed, 99 did not run. Lint, Postgres, and the ledger check passed.
+  
+  Copied CI's 36 renderings into e2e/__screenshots__. Looked at Account in all four looks, Invite and Agent access on phone and desktop in both colours, Home on the desktop in the light colour, and the design page. They show the Account page, the Readers section with "No readers yet.", the 90-day sentence, and an Account link in the desktop sidebar. The phone tab bar covers the last lines of a full-page image the same way it already does on other phone pages.
+- **Key paths:** e2e/__screenshots__ (36 images), LEARNING_LOG.md, PROGRESS.md
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/attempt-log.sh 37852607386
+  zsh .claude/skills/merge-train/scripts/refresh-screenshots.sh 37852607386
+  gh run view 37852607386 --json status,conclusion,jobs
+- **Known issues / blockers:** Do not deploy. The behaviour tests did not run because the screenshot projects failed first. The next browser job runs them. Live site stays main 8f8a1a8. A backup is required before any production deploy. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). Do not change e2e/safari.spec.ts.
+- **Exact next steps:** 1. Push the reference images and wait for the four checks on pull request 117. 2. If the browser job fails the pixel comparison again, refresh from that run and look at the images. 3. Merge only when the four checks are green and no test was weakened. 4. Do not deploy. After the merge, a later session takes a backup before any production deploy. 5. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-08 18:17 · Grok (laptop) · Account page, disable a reader, and API tokens that expire after 90 days
 - **Done:** Built B4 on branch m14-account, from main 077c3a0. Not deployed. The live site stays main 8f8a1a8.
