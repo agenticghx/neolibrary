@@ -64,11 +64,16 @@ What this change does about the time, in the same pull request as the fixes:
 2. Playwright's browsers are cached (`~/.cache/ms-playwright`), so the
    install is not a 9-minute download on every run. The system libraries
    (`--with-deps`) still install; those are the short part.
-3. The browser job is skipped when every changed file is docs, a root
-   Markdown file, `.claude/`, or `.github/`. The job still succeeds, so
-   branch protection stays green. Any other file (including `lib/` and
-   `app/`) runs the browser tests. An empty file list runs them too.
-   This pull request changes `app/` and `lib/`, so it still runs them once.
+3. The browser job runs in slices. Docs, the ledger, and Markdown skip
+   Playwright, and the job still succeeds, so branch protection stays
+   green. A change to spending, sign-in, or uploads runs the behaviour
+   chain and skips the audiobook file. The audiobook file and WebKit run
+   when that code changes, and once a night on `main` (08:00 UTC, after
+   this file is on `main`). The rules, the measured times, and four
+   alternatives that were not built are in `docs/ci-time.md`. A workflow
+   file is not a skip: changing `.github/workflows/` runs every slice.
+   This pull request changes `lib/library/audio.ts`, the workflow, and
+   the selector, so it still runs every slice once.
 
 B4 is not in this pull request. It adds a page, so it needs reference
 screenshots from CI. That is a second pull request, after this one is green.

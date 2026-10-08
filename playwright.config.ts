@@ -1,5 +1,6 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, type Project } from "@playwright/test";
 import { ADMIN_STATE, SETUP_CODE, TEST_MAX_RANGE } from "./e2e/pages";
+import { applyBrowserSlices, parseBrowserSlices } from "./scripts/ci-browser-needed.mjs";
 
 // Without this, Playwright's offline mode (context.setOffline) does not reach
 // service workers: a worker's own fetches still get through, so an "offline"
@@ -41,7 +42,12 @@ export default defineConfig({
     },
   },
   use: { baseURL: `http://127.0.0.1:${port}`, browserName: "chromium", trace: "retain-on-failure" },
-  projects: [
+  // CI_BROWSER_SLICES unset: every project, with the dependencies below.
+  // GitHub sets it. Projects whose slice is off are dropped, and each
+  // remaining project waits on the nearest one that still runs.
+  // docs/ci-time.md says which files turn which slice on.
+  projects: applyBrowserSlices<Project>(
+    [
     // 1. Create the owner account and save its session.
     { name: "setup", testMatch: /auth\.setup\.ts/, use: { ...desktop } },
     // 2. Screenshots + accessibility, before any test adds data to the pages.
@@ -100,7 +106,9 @@ export default defineConfig({
     // 16. AI voice narration for an entire book (M14 follow-up V5), with the fake voice, last of all: it makes a
     // book's audio in bulk and spends (pretend) money against the voice spending limits shared by every test.
     { name: "narration", testMatch: /narration\.spec\.ts/, dependencies: ["readalong-safari"], use: { ...desktop } },
-  ],
+    ],
+    parseBrowserSlices(process.env.CI_BROWSER_SLICES),
+  ),
   webServer: {
     // A fresh in-process database (PGlite) for every run. Idle connections are
     // kept 120 s (the default is 5 s): a test's requests reuse connections, and

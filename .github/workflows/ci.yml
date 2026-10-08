@@ -1,13 +1,19 @@
 # Automatic checks GitHub runs on every pull request and on main.
+# Once a night (08:00 UTC) the browser job runs every slice, including WebKit.
+# The concurrency group includes the event name, so that night run does not
+# cancel a pull request, and a pull request does not cancel the night run.
+# The night run starts only after this file is on main.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 8 * * *"
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -16,6 +22,8 @@ permissions:
 jobs:
   checks:
     name: Lint, types, unit tests
+    # The night run is the browser job only. Lint already ran on the push to main.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -36,6 +44,7 @@ jobs:
     # migrations and the data layer on a real Postgres through postgres.js,
     # the library production uses, so production-only database bugs fail here.
     name: Real Postgres (migrations, data layer)
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -72,6 +81,8 @@ jobs:
       - run: node scripts/check-pr-hygiene.mjs origin/${{ github.base_ref }}
 
   e2e:
+    # This name is a required check. Renaming it leaves branch protection
+    # waiting for a check that no longer exists.
     name: Browser tests (screenshots + accessibility)
     runs-on: ubuntu-24.04
     permissions:
@@ -89,12 +100,41 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Browser tests only when a page could change
+      - name: Choose which browser tests this change needs
         id: pages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
+          all="screenshots,behavior,readalong,narration,webkit"
+          emit() {
+            slices="$1"
+            if [ "$slices" = "none" ]; then
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              echo "slices=none" >> "$GITHUB_OUTPUT"
+              echo "screenshots=false" >> "$GITHUB_OUTPUT"
+              echo "webkit=false" >> "$GITHUB_OUTPUT"
+              echo "No page, player, or audiobook code in this change. Browser tests are not run."
+              return
+            fi
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "slices=$slices" >> "$GITHUB_OUTPUT"
+            case ",$slices," in
+              *,screenshots,*) echo "screenshots=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "screenshots=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+            case ",$slices," in
+              *,webkit,*|*,readalong,*) echo "webkit=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "webkit=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+            echo "Browser slices: $slices"
+          }
+          # The night run judges WebKit even when the day's pull requests skipped it.
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Nightly run: every browser test, including WebKit."
+            emit "$all"
+            exit 0
+          fi
           list="$RUNNER_TEMP/changed-files.txt"
           : > "$list"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -102,33 +142,61 @@ jobs:
           else
             gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.files[]?.filename' > "$list" || : > "$list"
           fi
-          # An empty list (the API failed, or the commit touched too many files to list) runs the tests.
-          answer=$(node scripts/ci-browser-needed.mjs "$list")
-          if [ "$answer" = "no" ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No page, style, or app code in this change. Browser tests are not run."
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
+          # An empty list (the API failed, or the commit touched too many files to list) runs every slice.
+          answer=$(node scripts/ci-browser-needed.mjs "$list" || true)
+          case "$answer" in
+            slices=none) emit none ;;
+            slices=*)
+              rest="${answer#slices=}"
+              if printf '%s' "$rest" | grep -Eq '^(screenshots|behavior|readalong|narration|webkit)(,(screenshots|behavior|readalong|narration|webkit))*$'; then
+                emit "$rest"
+              else
+                echo "Unexpected slice list ('$answer'). Running every browser test."
+                emit "$all"
+              fi
+              ;;
+            *)
+              echo "Unexpected classifier output ('$answer'). Running every browser test."
+              emit "$all"
+              ;;
+          esac
       - name: Cache Playwright browsers
         if: steps.pages.outputs.run == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install Chromium and WebKit (Safari's engine)
+      - name: Install the browsers this change needs
         if: steps.pages.outputs.run == 'true'
-        run: npx playwright install --with-deps chromium webkit
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.pages.outputs.webkit }}" = "true" ]; then
+            npx playwright install --with-deps chromium webkit
+          else
+            npx playwright install --with-deps chromium
+          fi
       - name: Playwright (screenshot comparison, axe-core accessibility)
         if: steps.pages.outputs.run == 'true'
+        env:
+          CI_BROWSER_SLICES: ${{ steps.pages.outputs.slices }}
         run: npx playwright test
 
       - name: Require the 2x2 screenshot grid
-        if: always() && steps.pages.outputs.run == 'true'
+        if: always() && steps.pages.outputs.screenshots == 'true'
         run: |
+          set -euo pipefail
           missing=0
-          # Every page listed in e2e/pages.ts needs all four screenshots.
-          for page in $(grep -oE 'name: "[a-z0-9-]+"' e2e/pages.ts | cut -d'"' -f2); do
+          # Pages the screenshot projects always photograph, plus a spec page
+          # only when that spec's project ran. The mini-player is photographed
+          # by the audiobook file. See gridPageNames in scripts/ci-browser-needed.mjs.
+          node scripts/ci-browser-needed.mjs --grid e2e/pages.ts "${{ steps.pages.outputs.slices }}" > "$RUNNER_TEMP/grid-pages.txt"
+          mapfile -t pages < "$RUNNER_TEMP/grid-pages.txt"
+          if [ "${#pages[@]}" -eq 0 ]; then
+            echo "::error::the screenshot slice listed no pages"
+            exit 1
+          fi
+          for page in "${pages[@]}"; do
+            [ -n "$page" ] || continue
             for p in desktop-light desktop-dark phone-light phone-dark; do
               f="screenshots/$page-$p.png"
               if [ ! -f "$f" ]; then echo "::error::missing screenshot $f"; missing=1; fi
