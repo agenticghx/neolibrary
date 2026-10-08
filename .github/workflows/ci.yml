@@ -79,18 +79,52 @@ jobs:
       pull-requests: write   # post the screenshot grid comment
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The job can push screenshots. Do not leave that token in git
+          # config while npm ci and Playwright run. The push step below
+          # adds the token to its own remote. See docs/security-leftovers.md (B8).
+          persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Browser tests only when a page could change
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          list="$RUNNER_TEMP/changed-files.txt"
+          : > "$list"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}/files" --jq '.[].filename' > "$list" || : > "$list"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.files[]?.filename' > "$list" || : > "$list"
+          fi
+          # An empty list (the API failed, or the commit touched too many files to list) runs the tests.
+          answer=$(node scripts/ci-browser-needed.mjs "$list")
+          if [ "$answer" = "no" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No page, style, or app code in this change. Browser tests are not run."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Cache Playwright browsers
+        if: steps.pages.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium and WebKit (Safari's engine)
+        if: steps.pages.outputs.run == 'true'
         run: npx playwright install --with-deps chromium webkit
       - name: Playwright (screenshot comparison, axe-core accessibility)
+        if: steps.pages.outputs.run == 'true'
         run: npx playwright test
 
       - name: Require the 2x2 screenshot grid
-        if: always()
+        if: always() && steps.pages.outputs.run == 'true'
         run: |
           missing=0
           # Every page listed in e2e/pages.ts needs all four screenshots.

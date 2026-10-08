@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
+import { eq } from "drizzle-orm";
 import { users } from "@/lib/db/schema";
+import { DUMMY_PASSWORD_HASH, verifyPassword } from "./crypto";
 import {
   acceptInvite,
   authenticate,
@@ -9,6 +11,7 @@ import {
   createInvite,
   createSession,
   endSession,
+  hashToCheck,
   inviteIsOpen,
   listInvites,
   revokeInvite,
@@ -90,6 +93,17 @@ describe("sign-in and sessions", () => {
     expect((await authenticate(database.db, " OWNER@example.com ", admin.password)).role).toBe("admin");
     await expect(authenticate(database.db, admin.email, "wrong password!")).rejects.toThrow("do not match");
     await expect(authenticate(database.db, "nobody@example.com", admin.password)).rejects.toThrow("do not match");
+  });
+
+  it("checks an unknown email and a disabled account against the stand-in hash", async () => {
+    const a = await createFirstAdmin(database.db, admin);
+    const [row] = await database.db.select().from(users);
+    expect(hashToCheck(undefined)).toBe(DUMMY_PASSWORD_HASH);
+    expect(hashToCheck(row)).toBe(row.passwordHash);
+    expect(hashToCheck({ ...row, disabledAt: new Date() })).toBe(DUMMY_PASSWORD_HASH);
+    expect(await verifyPassword("not-the-password", DUMMY_PASSWORD_HASH)).toBe(false);
+    await database.db.update(users).set({ disabledAt: new Date() }).where(eq(users.id, a.id));
+    await expect(authenticate(database.db, admin.email, admin.password)).rejects.toThrow("do not match");
   });
 
   it("finds the user for a live session, not for an expired or ended one", async () => {

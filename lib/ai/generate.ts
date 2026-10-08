@@ -11,9 +11,11 @@ import { sha256 } from "./prompts";
  * - The same request (same kind, options, prompt fingerprint and input text,
  *   for the same reader) is answered from the `generations` table, without a
  *   second call. `fresh: true` asks again on purpose and adds a new version.
- * - Before any call, the estimated cost is added to what has been spent this
- *   month (all readers: one API key pays) and on this book; if either would
- *   pass its cap, nothing is called.
+ * - Before any call, the estimated cost is reserved against what has been
+ *   spent this month (all readers: one API key pays) and on this book. A
+ *   second call at the same moment sees that reserve. If either cap would
+ *   be passed, nothing is called. The reserve is released once the cost is
+ *   recorded. The paid call itself is not inside the lock.
  */
 export type Caps = { perBookUsd: number; perMonthUsd: number };
 
@@ -121,20 +123,97 @@ export async function spending(db: Db, provider: string, bookId: string | null, 
   return { month, book };
 }
 
-/** Throws if spending `estimate` more would pass a cap. */
-export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
-  const spent = await spending(db, provider, bookId, now);
-  const env = label === "AI" ? "AI" : label === "image" ? "IMAGE" : "VOICE";
-  if (spent.month + estimate > caps.perMonthUsd) {
+type Spent = { month: number; book: number };
+type ReadSpend = (db: Db, provider: string, bookId: string | null, now: Date) => Promise<Spent>;
+
+function capEnv(label: string) {
+  return label === "AI" ? "AI" : label === "image" ? "IMAGE" : "VOICE";
+}
+
+/** Throws if `estimate` more, on top of what is already reserved, would pass a cap. */
+export function assertRoom(spent: Spent, held: Spent, estimate: number, caps: Caps, label: string, bookId: string | null) {
+  const env = capEnv(label);
+  if (spent.month + held.month + estimate > caps.perMonthUsd) {
     throw new SpendingCapReached(
       `This month's ${label} spending cap (${usd(caps.perMonthUsd)}) has been reached (${usd(spent.month)} spent). It resets on the 1st, or the owner can raise ${env}_CAP_PER_MONTH_USD.`,
     );
   }
-  if (bookId && spent.book + estimate > caps.perBookUsd) {
+  if (bookId && spent.book + held.book + estimate > caps.perBookUsd) {
     throw new SpendingCapReached(
       `This book's ${label} spending cap (${usd(caps.perBookUsd)}) has been reached (${usd(spent.book)} spent). The owner can raise ${env}_CAP_PER_BOOK_USD.`,
     );
   }
+}
+
+/** Throws if spending `estimate` more would pass a cap. */
+export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
+  assertRoom(await spending(db, provider, bookId, now), { month: 0, book: 0 }, estimate, caps, label, bookId);
+}
+
+// Reserves live in this process. The lock only covers the check and the
+// reserve, not the paid call, so one Listen does not wait for another's
+// network call. A second copy of the server would not see them.
+const spendTails = new Map<string, Promise<void>>();
+const spendHolds = new Map<string, number>();
+
+const monthKey = (provider: string) => `${provider}\0month`;
+const bookKey = (provider: string, bookId: string) => `${provider}\0book\0${bookId}`;
+
+function holdOf(key: string) {
+  return spendHolds.get(key) ?? 0;
+}
+
+function addHold(key: string, estimate: number) {
+  const next = holdOf(key) + estimate;
+  if (Math.abs(next) < 1e-9) spendHolds.delete(key);
+  else spendHolds.set(key, next);
+}
+
+function lockSpend<T>(provider: string, fn: () => Promise<T>): Promise<T> {
+  const prev = spendTails.get(provider) ?? Promise.resolve();
+  const run = prev.then(fn, fn);
+  spendTails.set(provider, run.then(() => {}, () => {}));
+  return run;
+}
+
+/** Clears the in-process reserves. Tests only. */
+export function resetSpendHoldsForTests() {
+  spendTails.clear();
+  spendHolds.clear();
+}
+
+/**
+ * Reserves `estimate` against the caps, or throws when it would pass one.
+ * Call the returned function after the cost is recorded (or the call failed)
+ * so the reserve is not counted twice. Two callers at the same moment cannot
+ * both pass a check that only one of them fits.
+ */
+export async function reserveSpend(
+  db: Db,
+  provider: string,
+  bookId: string | null,
+  estimate: number,
+  caps: Caps,
+  now: Date,
+  label: string,
+  read: ReadSpend = spending,
+): Promise<() => Promise<void>> {
+  await lockSpend(provider, async () => {
+    const spent = await read(db, provider, bookId, now);
+    const held = { month: holdOf(monthKey(provider)), book: bookId ? holdOf(bookKey(provider, bookId)) : 0 };
+    assertRoom(spent, held, estimate, caps, label, bookId);
+    addHold(monthKey(provider), estimate);
+    if (bookId) addHold(bookKey(provider, bookId), estimate);
+  });
+  let released = false;
+  return () => {
+    if (released) return Promise.resolve();
+    released = true;
+    return lockSpend(provider, async () => {
+      addHold(monthKey(provider), -estimate);
+      if (bookId) addHold(bookKey(provider, bookId), -estimate);
+    });
+  };
 }
 
 export async function findStored(db: Db, ownerId: string, req: GenerationRequest) {
@@ -166,36 +245,40 @@ export async function generate(
   const job = (async () => {
     const caps = opts.caps ?? capsFromEnv();
     const now = opts.now?.() ?? new Date();
-    await checkCaps(db, model.provider, req.bookId, estimateCost(model, req), caps, now, "AI");
-    const result = await model.generate({
-      system: req.system,
-      prompt: req.prompt,
-      maxTokens: req.maxTokens,
-      effort: req.effort,
-      ...(req.schema ? { schema: req.schema } : {}),
-    });
-    const [row] = await db
-      .insert(generations)
-      .values({
-        ownerId: req.ownerId,
-        bookId: req.bookId,
-        sectionId: req.sectionId,
-        kind: req.kind,
-        options: req.options,
-        cacheKey: cacheKeyOf(req),
-        provider: model.provider,
-        model: result.model,
-        promptName: req.promptName,
-        promptHash: req.promptHash,
-        inputHash: sha256(req.input),
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-        costUsd: costUsd(result.model, result.inputTokens, result.outputTokens),
-        output: result.text,
-        createdAt: now,
-      })
-      .returning();
-    return toGeneration(row);
+    const release = await reserveSpend(db, model.provider, req.bookId, estimateCost(model, req), caps, now, "AI");
+    try {
+      const result = await model.generate({
+        system: req.system,
+        prompt: req.prompt,
+        maxTokens: req.maxTokens,
+        effort: req.effort,
+        ...(req.schema ? { schema: req.schema } : {}),
+      });
+      const [row] = await db
+        .insert(generations)
+        .values({
+          ownerId: req.ownerId,
+          bookId: req.bookId,
+          sectionId: req.sectionId,
+          kind: req.kind,
+          options: req.options,
+          cacheKey: cacheKeyOf(req),
+          provider: model.provider,
+          model: result.model,
+          promptName: req.promptName,
+          promptHash: req.promptHash,
+          inputHash: sha256(req.input),
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          costUsd: costUsd(result.model, result.inputTokens, result.outputTokens),
+          output: result.text,
+          createdAt: now,
+        })
+        .returning();
+      return toGeneration(row);
+    } finally {
+      await release();
+    }
   })();
   inflight.set(key, job);
   try {

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { capsFromEnv, checkCaps, SpendingCapReached, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, reserveSpend, SpendingCapReached, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations } from "@/lib/db/schema";
@@ -18,6 +18,8 @@ import { isCfi } from "./reading";
  * is still saved: nothing the reader said is lost.
  */
 export const MAX_BYTES = 10 * 1024 * 1024;
+/** The recording plus the form fields (the quote, the place in the book). */
+export const MAX_NOTE_REQUEST_BYTES = MAX_BYTES + 64 * 1024;
 export const MAX_MS = 10 * 60 * 1000;
 const TYPES: Record<string, string> = {
   "audio/webm": "webm",
@@ -54,43 +56,50 @@ export async function createVoiceNote(
 
   let transcript = "";
   let problem: string | null = null;
+  let releaseSpend: (() => Promise<void>) | null = null;
   if (transcriber) {
     try {
-      await checkCaps(db, transcriber.provider, input.bookId, sttCost(durationMs), opts.caps ?? capsFromEnv(process.env, "VOICE"), now, "voice");
+      releaseSpend = await reserveSpend(db, transcriber.provider, input.bookId, sttCost(durationMs), opts.caps ?? capsFromEnv(process.env, "VOICE"), now, "voice");
       transcript = await transcriber.transcribe(input.audio, mime);
     } catch (e) {
+      if (releaseSpend) await releaseSpend();
+      releaseSpend = null;
       if (!(e instanceof SpeechError || e instanceof SpendingCapReached)) throw e;
       problem = `Saved without a transcript: ${e.message}`;
     }
   } else problem = "Saved without a transcript: transcripts are not set up yet.";
 
-  const annotation = await createAnnotation(
-    db,
-    ownerId,
-    { kind: "voice", bookId: input.bookId, cfi: input.cfi, quote: input.quote, body: input.body, voice: { audioKey, mime, durationMs, transcript } },
-    now,
-    id,
-  );
-  await storage.put(audioKey, input.audio, mime);
-  if (transcriber && !problem) {
-    await db.insert(generations).values({
+  try {
+    const annotation = await createAnnotation(
+      db,
       ownerId,
-      bookId: input.bookId,
-      sectionId: annotation.sectionId,
-      kind: "transcript",
-      options: {},
-      cacheKey: sha256(`transcript|${id}`),
-      provider: transcriber.provider,
-      model: transcriber.model,
-      promptName: "speech-to-text",
-      promptHash: "",
-      inputHash: sha256(Buffer.from(input.audio).toString("base64")),
-      outputTokens: 0,
-      inputTokens: 0,
-      costUsd: sttCost(durationMs),
-      output: transcript,
-      createdAt: now,
-    });
+      { kind: "voice", bookId: input.bookId, cfi: input.cfi, quote: input.quote, body: input.body, voice: { audioKey, mime, durationMs, transcript } },
+      now,
+      id,
+    );
+    await storage.put(audioKey, input.audio, mime);
+    if (transcriber && !problem) {
+      await db.insert(generations).values({
+        ownerId,
+        bookId: input.bookId,
+        sectionId: annotation.sectionId,
+        kind: "transcript",
+        options: {},
+        cacheKey: sha256(`transcript|${id}`),
+        provider: transcriber.provider,
+        model: transcriber.model,
+        promptName: "speech-to-text",
+        promptHash: "",
+        inputHash: sha256(Buffer.from(input.audio).toString("base64")),
+        outputTokens: 0,
+        inputTokens: 0,
+        costUsd: sttCost(durationMs),
+        output: transcript,
+        createdAt: now,
+      });
+    }
+    return { annotation, transcribed: !problem, problem };
+  } finally {
+    if (releaseSpend) await releaseSpend();
   }
-  return { annotation, transcribed: !problem, problem };
 }

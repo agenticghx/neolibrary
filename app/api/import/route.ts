@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { ExportFormatError, exportLibrary, importLibrary } from "@/lib/library/export";
+import { jsonAtMost } from "@/lib/http-body";
+import { ExportFormatError, exportLibrary, importLibrary, MAX_IMPORT_BYTES } from "@/lib/library/export";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +12,12 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const data = await jsonAtMost(req, MAX_IMPORT_BYTES);
+  if (data instanceof Response) return data;
   const db = await getDb();
   const current = await exportLibrary(db, user.id);
   if (current.books.length || current.paths.length || current.collections.length || current.annotations?.length) {
     return Response.json({ error: "Your library is not empty. Importing only works into an empty library." }, { status: 409 });
-  }
-  let data: unknown;
-  try {
-    data = await req.json();
-  } catch {
-    return Response.json({ error: "That file is not valid JSON." }, { status: 400 });
   }
   try {
     await importLibrary(db, user.id, data);

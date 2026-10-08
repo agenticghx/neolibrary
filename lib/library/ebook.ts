@@ -26,6 +26,8 @@ export type BookInfo = {
 };
 
 export const MAX_BOOK_BYTES = 200 * 1024 * 1024;
+/** One upload request: one book, plus a little room for the form's own framing. Several books are several requests. */
+export const MAX_BOOK_REQUEST_BYTES = MAX_BOOK_BYTES + 64 * 1024;
 
 const MB = 1024 * 1024;
 

@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Deployed 2026-10-07 21:39 UTC (main 868d4e4; the 21:45 entry): V1 to V5, the review fixes (#101, #106, #107), the test fixes (#109, #110), the screenshot allowance (#108), the merge-train skill (#111). Next: the review items B2, B5, B8 as small PRs through the merge-train skill, then B3, B4, B6; a browser cache for CI's install step. Open unknowns rows 12, 13 and 14 wait on Samuel (decide by 2026-10-14); his #90 answers too.
+next_action: Security leftovers B2, B3, B5, B6, and B8, plus the Playwright cache and the docs-only browser skip, are on m14-security-leftovers (docs/security-leftovers.md). Open one pull request and merge it with the merge-train skill only when the four checks are green. Then B4 (Account page, disable a reader, tokens expire) as its own pull request. Do not deploy this branch before that merge. Do not start a whole-book narration. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-07
+updated: 2026-10-08
 shared_copy: none
 ---
 
@@ -19,202 +19,36 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-**Added 2026-10-07 05:47 UTC: two small fixes come first, before the M14
-stack.** Both are drafts into `main`, built from `main`, independent of
-#97 to #100, reviewed (nothing found), waiting only for CI:
-- **#101** (`m13-epub-safe-unzip`, 8007bd6): uploaded EPUBs are unpacked
-  with limits (512 MB unpacked, 10,000 files), so a "zip bomb" cannot use up
-  the server's memory. Its commit also carries the lead session's 04:45 UTC
-  Log entry: keep that entry once when PROGRESS.md conflicts.
-- **#102** (`m14-paths-phone-wrap`, 4f2b036): `/paths` no longer scrolls
-  sideways on a phone with a long one-word Path name (step 4b below).
-When CI runs: mark each ready, merge when its four checks are green (#101
-first: it is a safety fix), then go on with #97 as below. Each merge into
-`main` makes the next PR's PROGRESS.md and LEARNING_LOG.md conflict: keep
-both sides.
+Written 2026-10-08, for the next session. The block that used to be here told a session to merge pull requests #97 to #100 and said GitHub Actions was not starting jobs. Those pull requests are merged. The site was deployed 2026-10-07 21:39 UTC from `main` `868d4e4` (the 21:45 log entry). On 2026-10-08, `https://web-production-f27a0e.up.railway.app/api/health` still answered `{"status":"ok","service":"neolibrary","commit":null}`.
 
-**Resume M14 here (2026-10-07, 04:22 UTC).** First: **GitHub Actions is
-not starting jobs** (runs 37541928335 and, still, 37550128494: "recent
-account payments have failed or your spending limit needs to be
-increased"). Only Samuel can fix it (Waiting on Samuel); never raise a
-limit. Until CI runs, nothing can merge. **#97** (V1+V2) and **#98** (V3a,
-draft, on top of #97; reviewed, and the seven review fixes are in, commit
-adebd11) are built and verified on the laptop. When CI runs: #97 green,
-merge; `git rebase --onto origin/main m14-v2-goto-made-voice
-m14-v3a-import`, push with `--force-with-lease`; look at and commit CI's
-Linux reference images for `home-*`, `library-*` and the new `import-*`;
-mark #98 ready; merge when all four checks are green; back up; deploy;
-comment on #90.
+**Now: one pull request on `m14-security-leftovers`.** The plan is `docs/security-leftovers.md`. It covers the security-review leftovers that do not change a page, and two cuts to the CI wait. Do not split them into six pull requests. B4 is the next pull request, after this one is green.
 
-**Then #99 (V3b, draft, on top of #98; added 2026-10-07 00:40 UTC):**
-Import in the sidebar and as a fifth phone tab, built and verified on the
-laptop. After #98 merges: `git rebase --onto origin/main 66f92e1
-m14-v3b-import-nav` (66f92e1 is the V3a commit V3b was built on; keep
-both sides where PROGRESS.md's Log and LEARNING_LOG.md conflict), push
-with `--force-with-lease`, set #99's base to `main` (`gh pr edit 99 --base
-main`) if GitHub has not, look at and commit CI's Linux renderings of the
-13 signed-in pages (every signed-in reference image changes), mark ready,
-merge when all four checks are green; back up; deploy.
+What this branch does:
 
-**Then #100 (V5, draft, on top of #99; added 2026-10-07 01:41 UTC):** AI
-voice narration for an entire book, chosen on purpose on the Import page,
-built and verified on the laptop with the fake voice only. Reviewed as a
-draft (7 October, 02:13 UTC): seven findings, all in V5's files, all fixed
-(commit bfed0b3; LEARNING_LOG Iterations 63-64); V3b needed no change.
-Since 7 October (commit 44aa04c; LEARNING_LOG Iteration 65): only the
-library's owner (the admin) can start a run; a reader you invited sees one
-line instead of the form, and the route answers them 403. Open unknowns
-row 13 waits on Samuel (default: only him).
-Open unknowns row 12 (paid paragraphs one at a time server-wide) waits on
-Samuel; default: not in #100. After #99 merges: `git rebase --onto
-origin/main 1534c76 m14-v5-whole-book` (1534c76 is the V3b commit V5 was
-built on; keep both sides where PROGRESS.md's Log and LEARNING_LOG.md
-conflict), push with `--force-with-lease`, `gh pr edit 100 --base main` if
-GitHub has not, look at and commit CI's Linux renderings of `import-*`,
-mark ready, merge when all four checks are green; back up; deploy. **Never
-start a whole-book narration on the live site** (Samuel's rule): after the
-deploy, check only `/api/health`, `/sign-in` and that `/import` answers.
+1. **B2.** A book upload, a voice note, and a library import are refused once the body passes its limit (200 MB, 10 MB, and 32 MB), while the body is being read. The Import page sends one book per request, so several books dropped together do not become one giant request.
+2. **B3.** Before a paid call (text, Listen, a picture, a voice-note transcript), the estimate is reserved in this one server process. The paid call itself is not inside that lock. The reserve is released after the cost is written down, or when the call fails. This is not Open unknowns row 12. Row 12 would make every paid paragraph in the server wait its turn. The default there is still "not built".
+3. **B5.** `/api/health` also reads `NEOLIBRARY_COMMIT` (7 to 40 hex characters). Railway's own commit variable still wins when both are set. A laptop deploy sets it first, then uploads. Checked with `railway variable set --help` on 2026-10-08:
 
-Every step of the M14 plan
-is live (`main` 9a19ccb, deployed 17:52 UTC). Samuel's verdict on #90's
-"What to try" items 1 to 4 came in on 2026-10-06. The follow-ups, as
-confirmed with him, are planned in `docs/m14-home-plan.md` §12. Build them
-in this order, one PR each, each reviewed by a workflow while the PR is a
-draft:
-1. **V1, Paths** (done: #97, waiting for CI): your books first in the picker. Samuel could not add
-   Frankenstein to his own Path "literature". Reproduce first: the live
-   list does include it, 26th of 129.
-2. **V2, Go to the page** (done: #97, waiting for CI): check that it lights the word with a made voice
-   (his case). The reading carrying on is confirmed.
-3. **V3a, an Import page** (done: draft #98, reviewed and fixed, waiting for CI) (books, and audiobooks for a book, with the
-   agreed line on how books are heard). Home keeps only its Import button;
-   the Library views lose their drop box.
-4. **V3b, Import** in the sidebar and as a fifth phone tab (done: draft
-   #99, on top of #98, waiting for CI): a PR of its own, since every
-   signed-in reference image changes.
-4b. **The Paths list (`/paths`) scrolls sideways on a phone** (done:
-   draft #102 into main, waiting for CI) (found
-   2026-10-07 while testing V3b; older than V3b, the same on V3a): a Path
-   whose name is one word wider than the screen (own-paths.spec.ts makes
-   "Pneumonoultramicroscopicsilicovolcanoconiosis") widens the list to
-   704 px. Fix in its own small PR: `overflow-wrap: anywhere` on
-   `.itemTitle` in `app/(app)/paths/page.module.css`, and a check in
-   `own-paths.spec.ts` that `/paths` fits 390 px after it makes that Path.
-4a. **V5, whole-book AI narration** on the Import page, as an explicit
-   choice (done: draft #100, on top of #99, reviewed and fixed, waiting for
-   CI). For the library's owner only, for now (Open unknowns row 13).
-   Never call ElevenLabs for a whole book until Samuel explicitly says so:
-   fake voice only.
-4c. **If Samuel says yes to Open unknowns row 12:** paid paragraphs one at
-   a time in the whole server (`speak()` in `lib/library/audio.ts`), as its
-   own small PR, with a unit test of two callers and one limit.
-4d. **If Samuel says yes to Open unknowns row 13** (readers may create
-   whole-book narration): a small PR that takes `mayNarrateWholeBooks` out
-   of the narration route and the Import page (`OWNER_ONLY` goes with it)
-   and changes the tests that pin it (`route.test.ts`; the Grace step in
-   `narration.spec.ts`). Row 12 then matters more: two readers' runs could
-   pay at the same moment.
-5. **WebKit on Linux (CI) sometimes stands still right after the audio's
-   position is set** (runs 37478603601, 37484095289): start from the flake
-   plan's S4 (`docs/m14-flake/plan.md`).
-5a. **Back 15 s into a chapter that has not been loaded** (done: draft
-   #103 from `m14-back-into-chapter` into `m14-v5-whole-book`, on top of
-   #100, waiting for CI; added 2026-10-07 06:51 UTC; reviewed, its one
-   finding fixed 09:40 UTC: the wait for the part before is limited to
-   8 s, and a late failure lands from where the audio is by then): with
-   your own audiobook, Back from where Listen began now goes on into the
-   chapter before (the parts route's new "before" mode). After #100 merges: `git
-   rebase --onto origin/main f83fd83 m14-back-into-chapter` (f83fd83 is the
-   #100 commit it was built on; keep both sides where PROGRESS.md's Log and
-   LEARNING_LOG.md conflict), push with `--force-with-lease`, `gh pr edit
-   <its number> --base main`, mark it ready, merge when its four checks are
-   green (`gh pr list --head m14-back-into-chapter` finds it). No reference
-   image changes.
-6. **Not built yet:** Think aloud from inside the reader.
-   position is set** (runs 37478603601, 37484095289, 37536227334). A
-   report that says why is built (draft PR from `m14-flake-s4-diag` into
-   `m14-v5-whole-book`, on top of #100, tests only; added 2026-10-07 07:32
-   UTC): when the audio never reaches the point a read-along test waits
-   for, `playUntil` now also prints every request the page made for audio
-   (asked, answered, finished or failed) and one line reading the player.
-   To land it after #100: `git rebase --onto origin/main f83fd83
-   m14-flake-s4-diag` (keep both sides where PROGRESS.md's Log and
-   LEARNING_LOG.md conflict), push with `--force-with-lease`, `gh pr edit
-   <its number> --base main` (`gh pr list --head m14-flake-s4-diag` finds
-   it), mark it ready, merge when its four checks are green. No reference
-   image changes. Then, at the next stall, read the report:
-   - no request after the position was set: WebKit never asked;
-   - "no answer": the server (`lib/http-range.ts`);
-   - "finished" or "still arriving": the audio was sent and WebKit did
-     not use it.
-   The flake plan's step 4 (#84) still holds on CI (its far-seek check
-   passed in run 37478603601), so these stalls are a new pattern, not the
-   plan's S4.
-6. **Not built yet:** back into a chapter that has not been loaded; Think
-   aloud from inside the reader.
-7. **A flaky unit test** (found 2026-10-07; older than M14, unchanged
-   since #20): `lib/library/questions.test.ts` ("keeps every mark, counts
-   the latest…") failed 3 of 10 runs on the laptop. `marksFor`
-   (`lib/library/questions.ts:140`) orders a question's marks by
-   `createdAt`, then by a random `id`, so two marks made in the same
-   millisecond come out in either order. Fix it in its own small PR into
-   `main`: order by something that always grows, or make the test's two
-   marks a millisecond apart. Done when the file passes 50 runs in a row.
+   `railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys`
 
-**How this session worked** (2026-10-06): each step ran build, then tests in
-both engines, then mutations, then a review workflow (reviewers plus a
-skeptic per finding), with the PR held as a draft until the review's fixes
-were in. Reviews found 19, 28 and 7 real problems the tests had missed.
+   then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Not set on the live site yet. Do not deploy this branch until its pull request is merged.
+4. **B6.** Sign-in always runs the slow password check, including when the email is unknown or the account is disabled. The error text stays "That email and password do not match."
+5. **B8.** The screenshot job no longer leaves a write-capable token in git's config while dependencies and the browser tests run. The push of screenshots still uses its own token.
+6. **CI time.** Playwright's browsers are cached. The browser job is skipped when every changed file is under `docs/`, `.claude/`, or `.github/`, or is a Markdown file or `LICENSE`. Anything else, and an empty file list, still runs the browsers. This pull request changes `app/` and `lib/`, so the browser job runs once.
 
-Not a gap: reading time is not counted while listening, by design
-(`useReadingTracker.ts:21`, M10). Design:
-`docs/design/m14-canvas/project/PicksPlayer.dc.html`.
+**When the four GitHub checks are green,** merge with the merge-train skill. Do not merge while a check is red. Do not start a whole-book narration on the live site. Do not change `e2e/safari.spec.ts` (Open unknowns row 14; default is to keep the test and pay the re-run).
 
-**Testing on the laptop with AirPods connected** (Iteration 50): WebKit's
-first playback starts about 1.4 s late, so `expectNoStall` fails, also on
-`main`. And the system can pause the audio by itself. `recordPlayer` now
-traces every `pause()` call: a `pause` event with `pauses: []` came from
-the browser, not the app. CI is the judge for those checks.
+**Then B4,** its own pull request, from the defaults in `docs/security-leftovers.md`: an Account page (change password; sign out of other sessions), an admin can disable and enable a reader, and API tokens expire 90 days after they are made. It adds a page, so it needs the four reference screenshots from CI. The database change is migration 0022. It needs a reverse step, and a backup before it runs in production.
 
-**Status (2026-10-04): all twelve milestones (M1 to M12) are merged and
-deployed, and the live site passes its health and sign-in check. Version 1
-now waits only on Samuel** (the items under "Waiting on Samuel" below):
-signing in and inviting someone, real Claude and ElevenLabs calls on his own
-books, and his verdicts for M4 and M6. Nothing else is blocked.
+**Left unsettled.** Do not change these without a check: whether Railway lets a visitor spoof `X-Forwarded-For` (sign-in uses the first address; a 50-per-email limit is the backstop); whether `SETUP_CODE` is set on Railway (setup already refuses once an account exists, and production has one).
 
-The goal and the loop are in `docs/done.md`; lessons and gotchas are in
-`docs/handoff.md` §5 and in this Log.
-
-**New first step (2026-10-05): build M14 · Home is the library.** The
-build plan is `docs/m14-home-plan.md`: read it top to bottom first. It
-holds Samuel's picks and rules, the steps as one PR each (b1 availability
-labels and no "owned" wording; b2 sidebar and phone tabs; b3 Home; c
-filters; d Paths; e1-e3 the mini-player; f deploy), the files and tests
-each step touches, the mutation checks to run, the lessons to apply, and
-the format of **`LEARNING_LOG.md`, which the build session creates at the
-repo root before changing code** and keeps up to date. Start with §0 of
-that file (baseline run, then step b1 on branch `m14-b1-availability`).
-
-1. **When Samuel adds `ANTHROPIC_API_KEY`** (Railway → `web`): sign in as him
-   only if he asks; otherwise wait for his "M6 verdict" issue and paste one
-   real answer per M6 feature into the Log, then tick that live box.
-2. **When his verdict issues arrive** ("M4 verdict", "M6 verdict", "M7
-   verdict"): record each in the Log, fix what he flags (one PR per fix),
-   and tick the matching live boxes.
-3. **Every deploy** (laptop only, until Railway auto-deploy is connected):
-   back up first (recipe in the 2026-10-04 11:40 entry: `pg_dump` inside the
-   Postgres container through `ssh.railway.com`, restore-check into a local
-   Postgres), then `railway up --service web --ci`, then check
-   `/api/health` and `/sign-in`.
-5. Worth doing later: a rate limit on `/api/agent/*`.
-6. **Read-along with your own audiobooks:** (a) to (e) are merged (the EPUB player: PR #66; the PDF player: PR #67, merged 2026-10-05 as 74b7d0e; what they built: `docs/m13-player-plan.md`, "What (d) built" and "What (e) built"; how the session's tests and reviews steered the work: `docs/learning-loop-2026-10-05.md`). Then a follow-up for words the matcher misses in Kuhn (before footnote numbers, broken across pages, suspended hyphens; counts in that file), and import the Kuhn package again. Then (f): back up first (migration 0020 runs at the next deploy), try the real bucket and real Safari on the iPhone, and Samuel reads Kuhn ch. 1. S6 and skills K1–K3 are in `docs/readalong-plan.md`.
-7. Still open: EPUB uploads unzip without size limits (`lib/library/ebook.ts`, `sections.ts`): use `safeUnzip` as the read-along importer does.
+**Still later, not this work.** Open unknowns rows 12, 13, and 14 (decide by 2026-10-14). The Kuhn word-match follow-up, S6, and skills K1–K3 are in `docs/readalong-plan.md`. A rate limit on `/api/agent/*` is still only a note.
 
 ## Waiting on Samuel
 
 Never blocks the loop. Newest first.
 
-- **Whole-book narration (V5, draft #100; information, and three choices you can overrule in one line each).** Once it is deployed (not yet), the Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). It starts only after you, signed in, tick "I understand this makes narration for the entire book and costs about $X" for one of your own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) since 7 October, only you can start it, for now: a reader you invited sees one line instead of the form ("Whole-book narration is for the library's owner, for now."), and the server refuses them; Stop always works (Open unknowns row 13). Since the review (7 October): one whole-book run per reader at a time (a second is refused, with the reason), and Listen opens in the voice a book was narrated in. Two questions for you: Open unknowns rows 12 and 13.
+- **Whole-book narration (V5, merged in #100, deployed 2026-10-07 21:39 UTC; information, and three choices you can overrule in one line each).** The Import page's "Create narration" narrates a whole EPUB with ElevenLabs for real (your key is on Railway). Do not start a run until you explicitly say so. It starts only after you, signed in, tick "I understand this makes narration for the entire book and costs about $X" for one of your own EPUBs. The voice limits stop it: $5 per book and $20 per month unless you raise them in Railway; Frankenstein would stop after 26 of its 806 paragraphs. I will not press it. The choices I made: (1) one sentence added under "How books are heard" (your two sentences unchanged): "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”."; (2) the checkbox's $X is what you would pay now: the whole book, minus paragraphs already saved in that voice; (3) since 7 October, only you can start it, for now: a reader you invited sees one line instead of the form ("Whole-book narration is for the library's owner, for now."), and the server refuses them; Stop always works (Open unknowns row 13). Since the review (7 October): one whole-book run per reader at a time (a second is refused, with the reason), and Listen opens in the voice a book was narrated in. Two questions for you: Open unknowns rows 12 and 13.
 
 - **CI runs again since 2026-10-07 10:50 UTC** (the repository is public, at your decision; the item below is kept for the record). ~~CI has stopped starting jobs (from 2026-10-06 22:39 UTC; needs you).~~ GitHub did not start any job of #97's run 37541928335; each failed in 2 seconds with no steps, and GitHub's note says: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". This is the case the "GitHub Actions minutes" note below foresaw. To fix it: GitHub → Settings → Billing and plans (the Actions payment or spending limit). I will not raise any limit. Until then no PR can pass its checks, so #97 (V1+V2), #98 (the Import page), #99 (Import in the sidebar and a fifth phone tab) and #100 (whole-book narration) cannot merge, nor the drafts #101, #102 and the one from `m14-back-into-chapter` (Back 15 s into a chapter not loaded).
 
@@ -322,6 +156,29 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-08 13:03 · Grok (laptop) · Security leftovers that do not change a page, in one branch, plus a shorter CI wait
+- **Done:** The security-review leftovers that do not change a page are built on m14-security-leftovers, as one change, not six. The plan is docs/security-leftovers.md.
+  
+  B2: a book upload, a voice note, and a library import are refused once the body passes its limit (200 MB, 10 MB, 32 MB) while the body is read. The Import page sends one book per request. A drop of the three public-domain books still adds all three (Playwright uploads project, 10 tests, after setup).
+  
+  B3: before a paid call the estimate is reserved in this process. The paid call is not inside the lock. The reserve is released after the cost row is written, or when the call fails. This is not Open unknowns row 12 (serialize every paid paragraph; default still not built).
+  
+  B5: /api/health also reads NEOLIBRARY_COMMIT (7 to 40 hex characters). Railway's own variable wins when both are set. The set command was checked with railway variable set --help: railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys, then railway up. Not set on the live site. Live /api/health on 2026-10-08 still returned commit null.
+  
+  B6: sign-in always runs scrypt, including for an unknown email and a disabled account, against a stand-in hash. The error text is unchanged.
+  
+  B8: the screenshot job checks out with persist-credentials false. The screenshot push still uses its own token.
+  
+  CI: Playwright browsers are cached at ~/.cache/ms-playwright. The browser job is skipped only when every changed file is docs, .claude, .github, a Markdown file, or LICENSE. This pull request changes app and lib, so the browser job still runs once.
+  
+  Also brought onto this branch the unmerged deploy record (4f3b13a, the 21:45 log entry): the 2026-10-07 21:39 UTC deploy of main 868d4e4. The long Exact next steps block that told a session to merge #97 to #100 is replaced; those pull requests are already merged.
+  
+  B4 (Account page, disable a reader, token expiry) is specified in the plan and not built. It needs a page, screenshots, and migration 0022.
+- **Key paths:** docs/security-leftovers.md, lib/http-body.ts, app/api/books/route.ts, app/api/import/route.ts, app/api/books/[id]/voice-notes/route.ts, components/upload/useBookUpload.ts, proxy.ts, lib/ai/generate.ts, lib/library/audio.ts, lib/library/pictures.ts, lib/library/voice-notes.ts, lib/auth/service.ts, lib/auth/crypto.ts, lib/health.ts, .github/workflows/ci.yml, scripts/ci-browser-needed.mjs, PROGRESS.md
+- **Commands that worked:** npm run check (lint and tsc, then vitest: 519 passed, 2 skipped, 38s). npx playwright test --project=setup --project=uploads --no-deps --workers=1 (11 passed, 16.1s). A first uploads run with 2 workers started before setup finished and landed on the sign-in page; that was the run, not the upload. curl -sS https://web-production-f27a0e.up.railway.app/api/health -> {"status":"ok","service":"neolibrary","commit":null}. railway variable set --help (the flag is --skip-deploys).
+- **Known issues / blockers:** B4 is not in this pull request. X-Forwarded-For spoofing and whether SETUP_CODE is set on Railway were not checked. NEOLIBRARY_COMMIT is not set on the live service. The browser job on GitHub will still run for this pull request (app and lib changed), so the CI wait for this one is one browser run, not six. Do not merge until the four checks are green. Do not start a whole-book narration. Do not change e2e/safari.spec.ts (row 14).
+- **Exact next steps:** 1. Open one pull request from m14-security-leftovers. Merge with the merge-train skill only when the four checks are green. 2. Then B4, its own pull request, from the defaults in docs/security-leftovers.md. Migration 0022 needs a reverse step and a backup before production. 3. On the next laptop deploy, set NEOLIBRARY_COMMIT with --skip-deploys before railway up. 4. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-07 21:45 UTC (17:45 local) · Claude (laptop) · Deployed: V1 to V5, the review fixes and the day's test fixes are live (main 868d4e4); backup taken and checked first
 - **Done:** backup first, as the rule requires (migration 0021, from #107, ran on this deploy): `pg_dump` inside the Postgres container over `ssh.railway.com` → `~/Backups/neolibrary/prod-before-m14-20261007T2119Z.sql` (1,141,060 bytes, 19 tables); restored into a throwaway local Postgres (`embedded-postgres` in the scratchpad, port 54330) with `ON_ERROR_STOP` → exit 0; 20 migrations, 1 user, 129 books in the copy. Before that, the two counts #107 asked for were both 0 on production. Then `git checkout main && git pull --ff-only && railway up --service web --ci` (21:36:35 to 21:39:35 UTC) → "Deploy complete". Checks: `/api/health` → `{"status":"ok","service":"neolibrary","commit":null}` 200; `/sign-in` → 200; `/import` → 307 to `/sign-in?next=%2Fimport`. On production, `pg_constraint` holds `generations_cost_usd_check` and `audio_tracks_cost_usd_check`, and the `imported` column is on both tables: 0021 applied. No whole-book narration was started (Samuel's rule). Commented on #90 with what is live and what is still his to answer: https://github.com/sahuno/neolibrary/issues/90#issuecomment-6047411170.

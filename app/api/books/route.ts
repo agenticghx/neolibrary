@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { ImportError } from "@/lib/library/ebook";
+import { cappedFormData } from "@/lib/http-body";
+import { ImportError, MAX_BOOK_REQUEST_BYTES } from "@/lib/library/ebook";
 import { importBook, type ImportResult } from "@/lib/library/import";
 import { getStorage } from "@/lib/storage";
 
@@ -12,12 +13,8 @@ export type UploadOutcome = { file: string } & (ImportResult | { status: "error"
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return Response.json({ error: "Send the files as a form upload." }, { status: 400 });
-  }
+  const form = await cappedFormData(req, MAX_BOOK_REQUEST_BYTES);
+  if (form instanceof Response) return form;
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
   const attachTo = typeof form.get("attachTo") === "string" ? (form.get("attachTo") as string) : null;
   if (attachTo && files.length > 1) return Response.json({ error: "Send one file for a title." }, { status: 400 });

@@ -1,7 +1,8 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { cappedFormData } from "@/lib/http-body";
 import { AnnotationError } from "@/lib/library/annotations";
-import { createVoiceNote, MAX_BYTES } from "@/lib/library/voice-notes";
+import { createVoiceNote, MAX_BYTES, MAX_NOTE_REQUEST_BYTES } from "@/lib/library/voice-notes";
 import { SpeechNotConfigured } from "@/lib/speech/model";
 import { getTranscriber, type Transcriber } from "@/lib/speech/transcribe";
 import { getStorage } from "@/lib/storage";
@@ -17,12 +18,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return Response.json({ error: "Send the recording as a form upload." }, { status: 400 });
-  }
+  const form = await cappedFormData(req, MAX_NOTE_REQUEST_BYTES);
+  if (form instanceof Response) return form;
   const audio = form.get("audio");
   if (!(audio instanceof File)) return Response.json({ error: "No recording received." }, { status: 400 });
   if (audio.size > MAX_BYTES) return Response.json({ error: "Voice notes can be at most 10 MB." }, { status: 400 });

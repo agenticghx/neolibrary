@@ -15,6 +15,14 @@ export async function hashPassword(password: string): Promise<string> {
   return `scrypt$${N}$${R}$${P}$${salt.toString("base64url")}$${hash.toString("base64url")}`;
 }
 
+/**
+ * A real scrypt hash of a password no account uses. Sign-in checks an
+ * unknown email, and a disabled account, against this, so those attempts
+ * take the same time as a wrong password. The cost settings match
+ * `hashPassword` (N, r, p). It matches nothing.
+ */
+export const DUMMY_PASSWORD_HASH = "scrypt$16384$8$1$KRTjGfCNeCdgbvX7O-M_4A$9zundXTn3qIL8cL9XUS9m2IeHn9wdXh6fdeMjHEPuQU";
+
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [alg, n, r, p, salt, hash] = stored.split("$");
   if (alg !== "scrypt" || !salt || !hash) return false;
