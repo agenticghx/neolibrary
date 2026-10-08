@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 114 is merged as 763001a (2026-10-08 19:23 UTC, auto-merge). The four checks were green on run 37829154999. The live site is still the previous deploy (commit null). Next laptop deploy: set NEOLIBRARY_COMMIT with --skip-deploys, then railway up --service web --ci. Then B4. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+next_action: Live site is main 8f8a1a8. Railway deployment 8b5582f2 SUCCESS at 2026-10-08 21:23 UTC. /api/health returns commit 8f8a1a8. Next is B4 in a focused session: Account page, migration 0022, reverse step, backup before production, four screenshots. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-08
 shared_copy: none
@@ -31,16 +31,12 @@ What this branch does:
 
    `railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys`
 
-   then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Not set on the live site yet. The pull request is merged. The deploy has not been run.
+   then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Done 2026-10-08 21:23 UTC. Deployment `8b5582f2` is SUCCESS. Live `/api/health` returns `commit` `8f8a1a8`.
 4. **B6.** Sign-in always runs the slow password check, including when the email is unknown or the account is disabled. The error text stays "That email and password do not match."
 5. **B8.** The screenshot job no longer leaves a write-capable token in git's config while dependencies and the browser tests run. The push of screenshots still uses its own token.
 6. **CI time.** The rules are in `docs/ci-time.md`, and they are on `main`. Playwright's browsers are cached. The browser job runs a slice of the chain. Docs and Markdown skip Playwright and the job still succeeds. Spending, sign-in, and uploads run the behaviour chain and skip the audiobook file. The audiobook file and WebKit run when that code changes. Every slice runs once a night at 08:00 UTC. The other four ideas (several machines, a larger runner, denkyem, an AI looking at pages) are in that doc. They are not built.
 
-**The live site is still the previous deploy.** On 2026-10-08, after the merge, `https://web-production-f27a0e.up.railway.app/api/health` still returned `{"status":"ok","service":"neolibrary","commit":null}`. The next laptop deploy sets the commit, then uploads. There is no database migration in 114, so no backup is required for this deploy:
-
-`railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --skip-deploys`
-
-then `railway up --service web --ci`. `--skip-deploys` so the variable change does not start a second deploy of the last GitHub build. Do not start a whole-book narration on the live site.
+**The live site is this deploy.** 2026-10-08 21:23 UTC, Railway deployment `8b5582f2` on service `web`, from `main` `8f8a1a8`. `https://web-production-f27a0e.up.railway.app/api/health` returns `{"status":"ok","service":"neolibrary","commit":"8f8a1a8"}`. There was no database migration, so no backup was taken. Do not start a whole-book narration on the live site. B4 is the next piece of work, in its own session.
 
 Run 37824929937, on the commit before the slice change, failed one WebKit audiobook test: `e2e/readalong.spec.ts:728` (`playUntil` waited 45 s). 271 passed. The replacement run, 37829154999, passed that file with the rest of the suite. One such failure still means re-run the browser job once. A second failure on the same pull request is real until shown otherwise. Do not change `e2e/safari.spec.ts` (Open unknowns row 14; default is to keep the test and pay the re-run).
 
@@ -162,6 +158,22 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-08 17:27 · Grok (laptop) · Deployed main 8f8a1a8; the live health check names that commit
+- **Done:** Deployed main 8f8a1a8 to the neolibrary project, production, service web. No database migration, so no backup. No whole-book narration.
+  
+  Set NEOLIBRARY_COMMIT to 8f8a1a8402c703a5e388756cd2a8bbd8e6c0f3b6 with --skip-deploys. The deployment list stayed on the 7 October deploy (5e4f955f) until the upload. Then railway up --service web --environment production --ci. Deployment 8b5582f2 reached SUCCESS at 2026-10-08 21:23 UTC. The previous web deploy was removed.
+  
+  curl of https://web-production-f27a0e.up.railway.app/api/health returned {"status":"ok","service":"neolibrary","commit":"8f8a1a8"}. That is the first 7 characters of the deployed commit. B4 was not started.
+- **Key paths:** PROGRESS.md
+- **Commands that worked:** git checkout --detach origin/main && git rev-parse HEAD
+  railway variable set NEOLIBRARY_COMMIT=8f8a1a8402c703a5e388756cd2a8bbd8e6c0f3b6 --service web --environment production --skip-deploys
+  railway deployment list --service web --environment production --limit 3 --json
+  railway up --service web --environment production --ci -m "Deploy main 8f8a1a8: upload limits, spend hold, health commit, sign-in check"
+  railway deployment list --service web --environment production --limit 2 --json
+  curl -sS https://web-production-f27a0e.up.railway.app/api/health
+- **Known issues / blockers:** B4 is the next piece of work, in a focused session: Account page, migration 0022, a reverse step, a backup before production, four screenshots from CI. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). Do not change e2e/safari.spec.ts.
+- **Exact next steps:** 1. Scope B4 in its own session, from docs/security-leftovers.md. 2. The night browser run fires at the next 08:00 UTC. 3. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-08 15:25 · Grok (laptop) · Pull request 114 merged after the four checks passed
 - **Done:** The four checks on the slice commit 8293357 were green. Run 37829154999: lint 6 min 46 s, real Postgres 57 s, the ledger check 18 s, the browser job 19 min 16 s. Conclusion success. gh pr checks 114 showed all four pass.
