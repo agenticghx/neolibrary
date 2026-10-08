@@ -13,6 +13,8 @@ import { cleanPicture } from "./pinned";
  */
 export const EXPORT_FORMAT = "neolibrary-library";
 export const EXPORT_VERSION = 1;
+/** A library file is metadata (books, notes, paths), not the book files. 32 MB is far past a real one. */
+export const MAX_IMPORT_BYTES = 32 * 1024 * 1024;
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 

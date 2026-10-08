@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { capsFromEnv, checkCaps, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
+import { capsFromEnv, reserveSpend, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
 import { fill, readPrompt, sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations } from "@/lib/db/schema";
@@ -62,30 +62,34 @@ export async function makePicture(
   const stored = await storedPicture(db, ownerId, input.bookId, r.subject);
   if (stored) return { generation: stored, reused: true };
   const now = opts.now?.() ?? new Date();
-  await checkCaps(db, generator.provider, input.bookId, imageUsd(), opts.caps ?? capsFromEnv(process.env, "IMAGE"), now, "image");
-  const picture = await generator.generate(r.prompt);
-  const id = crypto.randomUUID();
-  const key = `images/${ownerId}/${input.bookId}/${id}.png`;
-  await storage.put(key, picture.data, picture.mime);
-  const [row] = await db
-    .insert(generations)
-    .values({
-      id,
-      ownerId,
-      bookId: input.bookId,
-      sectionId: null,
-      kind: "image",
-      options: { subject: r.subject },
-      cacheKey: r.cacheKey,
-      provider: generator.provider,
-      model: generator.model,
-      promptName: "image",
-      promptHash: r.promptHash,
-      inputHash: sha256(r.subject.toLowerCase()),
-      costUsd: imageUsd(),
-      output: key,
-      createdAt: now,
-    })
-    .returning();
-  return { generation: toGeneration(row), reused: false };
+  const release = await reserveSpend(db, generator.provider, input.bookId, imageUsd(), opts.caps ?? capsFromEnv(process.env, "IMAGE"), now, "image");
+  try {
+    const picture = await generator.generate(r.prompt);
+    const id = crypto.randomUUID();
+    const key = `images/${ownerId}/${input.bookId}/${id}.png`;
+    await storage.put(key, picture.data, picture.mime);
+    const [row] = await db
+      .insert(generations)
+      .values({
+        id,
+        ownerId,
+        bookId: input.bookId,
+        sectionId: null,
+        kind: "image",
+        options: { subject: r.subject },
+        cacheKey: r.cacheKey,
+        provider: generator.provider,
+        model: generator.model,
+        promptName: "image",
+        promptHash: r.promptHash,
+        inputHash: sha256(r.subject.toLowerCase()),
+        costUsd: imageUsd(),
+        output: key,
+        createdAt: now,
+      })
+      .returning();
+    return { generation: toGeneration(row), reused: false };
+  } finally {
+    await release();
+  }
 }

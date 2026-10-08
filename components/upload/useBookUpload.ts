@@ -18,8 +18,8 @@ export const ZIP_NOT_A_BOOK =
   "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.";
 
 /**
- * Sends EPUB and PDF files to /api/books (several at once) and refreshes the
- * page so the new books show. Used by the Import page (M14 follow-up V3a),
+ * Sends EPUB and PDF files to /api/books, one request per file, and refreshes
+ * the page so the new books show. Used by the Import page (M14 follow-up V3a),
  * which accepts drops anywhere on the page.
  */
 export function useBookUpload() {
@@ -48,21 +48,26 @@ export function useBookUpload() {
       return;
     }
     setBusy(true);
-    const body = new FormData();
-    for (const f of list) body.append("files", f);
+    // One request per file. The server holds a request only up to one book's
+    // limit (200 MB); a drop of several books must not become one body that
+    // large. See docs/security-leftovers.md (B2).
+    const outcomes: UploadOutcome[] = [];
     try {
-      const res = await fetch("/api/books", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
-      setResults([...json.results, ...refused]);
-      setRead(json.results.length);
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-      if (refused.length) {
-        setResults(refused);
-        setRead(0);
+      for (const f of list) {
+        const body = new FormData();
+        body.append("files", f);
+        try {
+          const res = await fetch("/api/books", { method: "POST", body });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) outcomes.push({ file: f.name, status: "error", message: json.error ?? "Upload failed." });
+          else outcomes.push(...(json.results ?? []));
+        } catch {
+          outcomes.push({ file: f.name, status: "error", message: "Upload failed." });
+        }
       }
+      setResults([...outcomes, ...refused]);
+      setRead(outcomes.length);
+      if (outcomes.some((o) => o.status !== "error")) router.refresh();
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";

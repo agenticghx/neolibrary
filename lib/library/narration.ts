@@ -234,10 +234,11 @@ export async function narrationSummary(
  * run stops, for whatever reason (it never rejects).
  *
  * One run per reader at a time (review of #100): a run of another book, or of
- * this book in another voice, is refused while one goes on. Runs started
- * together would each check the spending limits before the others had paid,
- * so together they could pass them; and the Import page shows one run (with
- * its Stop), so a second would go on unseen.
+ * this book in another voice, is refused while one goes on. The Import page
+ * shows one run (with its Stop), so a second would go on unseen. Paid
+ * paragraphs reserve their estimate first (`reserveSpend`), so two callers
+ * at the same moment cannot both pass a spending cap that only one of them
+ * fits.
  */
 export async function startNarration(
   deps: NarrationDeps,

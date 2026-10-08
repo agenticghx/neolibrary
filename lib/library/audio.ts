@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
-import { capsFromEnv, checkCaps, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, reserveSpend, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, readalongImports, sections } from "@/lib/db/schema";
@@ -209,35 +209,39 @@ async function speak(
   const stored = await storedTrack(db, ownerId, model, input.voice, passage);
   if (stored) return { track: stored, reused: true };
   const now = opts.now?.() ?? new Date();
-  await checkCaps(db, model.provider, input.bookId, estimateSpeech(passage), opts.caps ?? capsFromEnv(process.env, "VOICE"), now, "voice");
-  const result = await model.speak({ text: passage.text, voiceId: input.voice, previousText: passage.previousText, nextText: passage.nextText });
-  const words = wordTimings(passage.text, result.alignment);
-  const id = crypto.randomUUID();
-  const audioKey = `audio/${ownerId}/${input.bookId}/${id}.${EXT[result.mime] ?? "bin"}`;
-  await storage.put(audioKey, result.audio, result.mime);
-  const [row] = await db
-    .insert(audioTracks)
-    .values({
-      id,
-      ownerId,
-      bookId: input.bookId,
-      sectionId: passage.id,
-      source: "tts",
-      provider: model.provider,
-      model: model.model,
-      voice: input.voice,
-      cacheKey: cacheKeyOf(model, input.voice, passage.text),
-      inputHash: sha256(passage.text),
-      characters: result.characters,
-      costUsd: speechCost(result.characters),
-      audioKey,
-      mime: result.mime,
-      durationMs: Math.round(Math.max(...result.alignment.ends, 0) * 1000),
-      words,
-      createdAt: now,
-    })
-    .returning();
-  return { track: toTrack(row), reused: false };
+  const release = await reserveSpend(db, model.provider, input.bookId, estimateSpeech(passage), opts.caps ?? capsFromEnv(process.env, "VOICE"), now, "voice");
+  try {
+    const result = await model.speak({ text: passage.text, voiceId: input.voice, previousText: passage.previousText, nextText: passage.nextText });
+    const words = wordTimings(passage.text, result.alignment);
+    const id = crypto.randomUUID();
+    const audioKey = `audio/${ownerId}/${input.bookId}/${id}.${EXT[result.mime] ?? "bin"}`;
+    await storage.put(audioKey, result.audio, result.mime);
+    const [row] = await db
+      .insert(audioTracks)
+      .values({
+        id,
+        ownerId,
+        bookId: input.bookId,
+        sectionId: passage.id,
+        source: "tts",
+        provider: model.provider,
+        model: model.model,
+        voice: input.voice,
+        cacheKey: cacheKeyOf(model, input.voice, passage.text),
+        inputHash: sha256(passage.text),
+        characters: result.characters,
+        costUsd: speechCost(result.characters),
+        audioKey,
+        mime: result.mime,
+        durationMs: Math.round(Math.max(...result.alignment.ends, 0) * 1000),
+        words,
+        createdAt: now,
+      })
+      .returning();
+    return { track: toTrack(row), reused: false };
+  } finally {
+    await release();
+  }
 }
 
 /** Every track of a book, oldest first (for the export). */

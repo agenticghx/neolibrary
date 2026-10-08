@@ -62,12 +62,16 @@ export function proxy(req: NextRequest) {
   return isApi ? NextResponse.next() : withPolicy(req);
 }
 
-// Not run for the two upload routes (POST /api/books and
-// /api/books/<id>/readalong/...): Next.js holds a request's whole body while
-// this proxy runs, and passes on at most 10 MB of it, but books may be 200 MB
-// and audio parts 8 MB plus overhead. Those routes check the session
-// themselves before reading any of the body (currentUser() first), so a
-// signed-out upload is refused without being held in memory.
+// Not run for the upload routes (POST /api/books, read-along, voice notes,
+// and the library import): Next.js holds a request's whole body while this
+// proxy runs, and passes on at most 10 MB of it. Books may be 200 MB, a
+// voice note 10 MB, a library file 32 MB, and audio parts larger than the
+// proxy's cut. Those routes check the session themselves before reading any
+// of the body (currentUser() first), and they stop reading at their own
+// limit (lib/http-body.ts), so a signed-out or oversized upload is refused
+// without the rest of it being held.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|icon.svg|icons/|favicon.ico|fonts/|api/books$|api/books/[^/]+/readalong).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|icon.svg|icons/|favicon.ico|fonts/|api/books$|api/books/[^/]+/readalong|api/books/[^/]+/voice-notes|api/import$).*)",
+  ],
 };

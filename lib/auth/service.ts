@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { invites, sessions, users, type Role, type User } from "@/lib/db/schema";
-import { hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
+import { DUMMY_PASSWORD_HASH, hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
 
 /**
  * Account rules, independent of Next.js so they can be unit-tested:
@@ -120,11 +120,21 @@ export async function acceptInvite(
   });
 }
 
-/** Checks email + password. Same error for unknown email and wrong password. */
+/**
+ * The hash to check a password against. Unknown emails and disabled accounts
+ * use a stand-in, so the slow hash runs once either way (the time would
+ * otherwise say whether the email exists).
+ */
+export function hashToCheck(user: { passwordHash: string; disabledAt: Date | null } | undefined): string {
+  if (!user || user.disabledAt) return DUMMY_PASSWORD_HASH;
+  return user.passwordHash;
+}
+
+/** Checks email + password. Same error for unknown email, a disabled account, and a wrong password. */
 export async function authenticate(db: Db, email: string, password: string) {
   const [u] = await db.select().from(users).where(eq(users.email, normaliseEmail(email)));
-  const ok = u && !u.disabledAt && (await verifyPassword(password, u.passwordHash));
-  if (!ok) throw new AuthError("That email and password do not match.");
+  const ok = await verifyPassword(password, hashToCheck(u));
+  if (!u || u.disabledAt || !ok) throw new AuthError("That email and password do not match.");
   return toPublic(u);
 }
 
