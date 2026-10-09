@@ -250,6 +250,33 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
 });
 
+/** The PDF leaf in an address (epubcfi(/6/4) is leaf 1), or -1. */
+function pdfLeaf(cfi: string) {
+  const n = Number(/^epubcfi\(\/6\/(\d+)/.exec(cfi)?.[1]);
+  return Number.isInteger(n) ? n / 2 - 1 : -1;
+}
+
+/** The one PDF leaf on screen, or -1 when none or several are showing. */
+async function visiblePdfLeaf(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      renderer?: { getContents(): { doc: Document }[] };
+    };
+    const pages = (view?.renderer?.getContents() ?? []).flatMap(({ doc }) => {
+      const raw = doc?.documentElement?.dataset?.page;
+      const frame = doc?.defaultView?.frameElement as HTMLElement | null;
+      const host = frame?.parentElement;
+      if (!host || raw == null) return [];
+      const box = host.getBoundingClientRect();
+      if (getComputedStyle(host).display === "none" || box.width <= 2 || box.height <= 2) return [];
+      const n = Number(raw);
+      return Number.isInteger(n) ? [n] : [];
+    });
+    const only = pages[0];
+    return pages.length === 1 && only !== undefined ? only : -1;
+  });
+}
+
 /** How many pages are actually facing the reader (not the saved choice). */
 async function sidesShowing(page: Page) {
   return page.evaluate(() => {
@@ -264,8 +291,10 @@ async function sidesShowing(page: Page) {
     };
     const r = view?.renderer;
     if (!r) return 0;
-    const realPdf = r.getContents().filter(({ doc }) => doc?.documentElement?.dataset?.page != null);
-    if (realPdf.length) {
+    const contents = r.getContents();
+    const realPdf = contents.filter(({ doc }) => doc?.documentElement?.dataset?.page != null);
+    // A PDF's pages are frames. While a page choice reopens them, none are ready yet: that is zero, not a column count.
+    if (realPdf.length || r.localName === "foliate-fxl") {
       return realPdf.filter(({ doc }) => {
         const frame = doc.defaultView?.frameElement as HTMLElement | null;
         const host = frame?.parentElement;
@@ -274,8 +303,12 @@ async function sidesShowing(page: Page) {
         return getComputedStyle(host).display !== "none" && box.width > 2 && box.height > 2;
       }).length;
     }
-    if (r.getAttribute("flow") === "scrolled") return 1;
+    // The renderer's column count can stay at 2 after Scroll. The document's own column-width is the layout:
+    // auto is one column (scroll). A pixel width is pages, and the span of the text says whether two are showing.
     if (typeof r.columnCount === "number" && r.columnCount < 2) return 1;
+    const laidOut = contents[0]?.doc?.documentElement;
+    const laidOutWin = laidOut?.ownerDocument?.defaultView;
+    if (laidOut && laidOutWin && laidOutWin.getComputedStyle(laidOut).columnWidth === "auto") return 1;
     const shown = view.lastLocation?.range;
     if (!shown || typeof r.columnCount !== "number") return r.columnCount ?? 0;
     const rects = Array.from(shown.getClientRects()).filter((rect) => rect.width > 20 && rect.height > 0);
@@ -381,7 +414,6 @@ test("a book opens on one page, for an EPUB and for a PDF", async ({ page }) => 
   await expect(page.getByRole("button", { name: "One page", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Larger text" })).toBeVisible();
 
-  await uploadFacingPdf(page);
   await openFacingPdf(page);
   await expect.poll(() => sidesShowing(page)).toBe(1);
   await page.getByRole("button", { name: "Reading settings" }).click();
@@ -394,7 +426,9 @@ test.describe("page count", () => {
   // Four reloads, then a second book. The default 30 seconds runs out.
   test.describe.configure({ timeout: 120_000 });
 
-test("two pages is a reading setting for every book", async ({ page }) => {
+test("two pages is a reading setting for every book", async ({ page }, testInfo) => {
+  // Four reloads, a second book, then the tall-window check. The group's limit does not always apply; set it here too.
+  testInfo.setTimeout(120_000);
   await openJekyll(page);
   await page.getByRole("button", { name: "Contents" }).click();
   await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Story of the Door" }).click();
@@ -485,5 +519,28 @@ test("two pages is a reading setting for every book", async ({ page }) => {
       await page.screenshot({ path: `screenshots/reader-pages-pdf-${name}-${scheme}.png` });
     }
   }
+
+  // Two pages on a tall window. Next from the cover shows the left page of the pair. A reload must open that same page, not the hidden one beside it.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  for (let i = 0; i < 6 && (await visiblePdfLeaf(page)) !== 0; i++) {
+    const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+    await page.getByRole("button", { name: "Previous page" }).click();
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+    await expect.poll(() => sidesShowing(page)).toBe(1);
+  }
+  await expect.poll(() => visiblePdfLeaf(page)).toBe(0);
+  await expect.poll(async () => pdfLeaf((await reader(page).getAttribute("data-cfi")) ?? "")).toBe(0);
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect.poll(() => visiblePdfLeaf(page)).toBe(1);
+  await expect.poll(async () => pdfLeaf((await reader(page).getAttribute("data-cfi")) ?? "")).toBe(1);
+  // The saved place is written a moment after the turn. Reload only once the server has this leaf.
+  await expect.poll(async () => pdfLeaf((await savedPosition(page, /^Facing Pages/)) ?? "")).toBe(1);
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => visiblePdfLeaf(page)).toBe(1);
+  await expect.poll(async () => pdfLeaf((await reader(page).getAttribute("data-cfi")) ?? "")).toBe(1);
 });
 });

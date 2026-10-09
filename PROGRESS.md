@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09. Pull request 1 is branch `pdf-two-page`. Reading settings now has One page and Two pages for every book the reader opens (a PDF, an EPUB, and the other formats it already opens). The choice is saved on this device with the other reading settings. The default is One page. This pull request does not include the Spine fold. Do not redo this pull request. Do not restart the prototype server on port 8733. Do not deploy. Do not start a whole-book narration.
+Written 2026-10-09. Pull request 119 is branch `pdf-two-page`. Reading settings has One page and Two pages for every book the reader opens. The review of that pull request is addressed on the branch: a tall window stays on the page it is showing, and a failed reopen can be tried again. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart the prototype server on port 8733. Do not deploy. Do not start a whole-book narration. Do not build the Spine fold until this branch has merged.
 
 After `pdf-two-page` merges, the next step is the Spine fold on a new branch named `pdf-spine`, started from `origin/main`. Spine is the turn to build: the vertical fold from the outer edge to the gutter. Corner waits. Do not build Corner, continuous scroll on the single page, or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not port `deform.js`. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -143,6 +143,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 06:15 · Grok (laptop) · A tall window stays on the page it is showing
+- **Done:** The review of pull request 119 is addressed on pdf-two-page. A tall window with Two pages on stays on the page that is showing, including after a reload. foliate-js is only installed, so scripts/patch-foliate-fxl.mjs rewrites the two spots that reported the other page of a pair. It runs after install and before dev and build. The reader also rewrites a one-page event to the page on screen, ignores a late report from a renderer that has already been closed, and records the opened spread only after the book has opened again, so a failed reopen can be tried again. fixedBook, reopenGen, and alive are gone. The one-page check still runs when Facing Pages is already in the library. Scroll is judged by the document column width, not by the button attribute.
+- **Key paths:** scripts/patch-foliate-fxl.mjs; lib/reader/foliate-fxl-patch.test.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; package.json; LEARNING_LOG.md; docs/handoff.md; PROGRESS.md
+- **Commands that worked:** npm run check (05:59:21) → Tests 548 passed | 2 skipped (550), exit 0. npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots → 2 passed (6.2s): one-page 1.1s, two-pages 4.7s.
+- **Known issues / blockers:** Do not merge from this step. Do not deploy. Do not restart port 8733. Do not build the Spine fold in this pull request.
+- **Exact next steps:** The review of pull request 119 is addressed on pdf-two-page. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart port 8733. After the branch merges, start pdf-spine from origin/main. Do not build Corner. Do not deploy. Do not start a whole-book narration.
 
 ### 2026-10-09 05:17 · Grok (laptop) · One page or Two pages for every book
 - **Done:** Reading settings has One page and Two pages for every book the reader opens, not only a PDF. The choice is saved on this device with the other reading settings (localStorage key neolibrary.reader.v1). The default is One page. Two pages shows two pages side by side on a wide window. A window taller than it is wide stays on one page. Scroll stays one column. A PDF still ignores text size, line spacing, and typeface. Changing the choice keeps the place. This pull request does not include the Spine fold. Spine is the turn to build next. Corner waits.

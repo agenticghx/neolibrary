@@ -36,7 +36,7 @@ type FoliateView = HTMLElement & {
   prev(): Promise<void>;
   next(): Promise<void>;
   close(): void;
-  book: { toc?: TocItem[]; dir?: string };
+  book: { toc?: TocItem[]; dir?: string; rendition?: { spread?: string } };
   /** `index`: in a PDF, the page shown, or being opened once a turn has begun. */
   renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[]; readonly index?: number };
   getCFI(index: number, range: Range): string;
@@ -187,6 +187,25 @@ function pdfPage(cfi: string) {
   return Number.isInteger(n) && n >= 0 ? n : -1;
 }
 
+/** PDF page documents whose frames are actually on screen. A hidden partner of a pair is not. */
+function pdfDocsOnScreen(v: FoliateView): Document[] {
+  try {
+    const docs: Document[] = [];
+    for (const item of v.renderer?.getContents() ?? []) {
+      const doc = item.doc;
+      const frame = doc?.defaultView?.frameElement as HTMLElement | null;
+      const host = frame?.parentElement;
+      if (!doc || !host?.isConnected) continue;
+      const box = host.getBoundingClientRect();
+      if (getComputedStyle(host).display === "none" || box.width <= 2 || box.height <= 2) continue;
+      docs.push(doc);
+    }
+    return docs;
+  } catch {
+    return [];
+  }
+}
+
 /** How long a book may take to open before the reader says it could not be opened. */
 const OPEN_TIMEOUT_MS = 30_000;
 
@@ -207,13 +226,18 @@ export function Reader(props: {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const view = useRef<FoliateView | null>(null);
-  /** A PDF book, so a new page choice can change its spread and open it again. */
-  const fixedBook = useRef<{ rendition: { spread: string } } | null>(null);
-  /** The spread the open PDF renderer was given. Foliate reads it only at open. */
+  /**
+   * The spread the open PDF renderer was given. Foliate reads the spread only
+   * when that renderer opens, so this is written after the reopen has opened.
+   * The book's own spread is the choice just made: it changes before the
+   * reopen works, and a failed reopen leaves it ahead of this, so the same
+   * choice can be tried again.
+   */
   const openSpread = useRef<string | null>(null);
-  const alive = useRef(true);
-  const reopenGen = useRef(0);
+  /** One reopen at a time. The next choice waits, then opens with the spread the book has then. */
   const reopenTask = useRef(Promise.resolve());
+  /** Set while a reopen is putting a page back. A relocate for any other page is ignored. */
+  const heldCfi = useRef<{ cfi: string | null } | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images" | "picture">("none");
@@ -307,10 +331,7 @@ export function Reader(props: {
 
   // Open the book once. Settings live on this device (localStorage).
   useEffect(() => {
-    alive.current = true;
-    if (view.current) return () => {
-      alive.current = false;
-    };
+    if (view.current) return;
     let cancelled = false;
     // Never wait forever: some failures inside the book's frames are thrown
     // where this code cannot catch them (this hid a Safari problem, 2026-10-04).
@@ -329,13 +350,7 @@ export function Reader(props: {
             ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob, initial.pages)
             : new File([blob], "book.epub", { type: "application/epub+zip" });
         if (cancelled) return;
-        if (props.fileType === "pdf") {
-          fixedBook.current = book as { rendition: { spread: string } };
-          openSpread.current = fixedBook.current.rendition.spread;
-        } else {
-          fixedBook.current = null;
-          openSpread.current = null;
-        }
+        openSpread.current = props.fileType === "pdf" ? (book as { rendition: { spread: string } }).rendition.spread : null;
         const v = document.createElement("foliate-view") as FoliateView;
         v.className = styles.view;
         host.current!.append(v);
@@ -384,19 +399,31 @@ export function Reader(props: {
         setSettings(initial);
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
-          mark("nl:relocate", { cfi: d.cfi });
-          setWhere({ cfi: d.cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
-          whereCfi.current = d.cfi;
+          let cfi = d.cfi;
+          if (props.fileType === "pdf") {
+            const shown = pdfDocsOnScreen(v)
+              .map((doc) => Number(doc.documentElement.dataset.page))
+              .filter((n) => Number.isInteger(n) && n >= 0);
+            const reported = pdfPage(cfi);
+            // One page on screen, and the event names the other page of the pair: keep the one on screen.
+            if (shown.length === 1 && reported !== shown[0]) cfi = `epubcfi(/6/${(shown[0] + 1) * 2})`;
+            else if (shown.length > 0 && reported >= 0 && !shown.includes(reported)) return;
+            const held = heldCfi.current?.cfi;
+            if (held && pdfPage(cfi) !== pdfPage(held)) return;
+          }
+          mark("nl:relocate", { cfi });
+          setWhere({ cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+          whereCfi.current = cfi;
           turning.current = false;
           visibleText.current = clean(d.range?.toString() ?? "");
           const label = d.tocItem?.label?.trim() ?? "";
           const chapterKey = d.tocItem?.href ?? label;
           trackerRef.current.onPage(
-            CFI.collapse(d.cfi),
+            CFI.collapse(cfi),
             visibleText.current,
             chapterKey ? { key: chapterKey, label, position: d.fraction } : undefined,
           );
-          pending.current = d;
+          pending.current = { ...d, cfi };
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => {
             flush();
@@ -441,7 +468,6 @@ export function Reader(props: {
       }
     })();
     return () => {
-      alive.current = false;
       cancelled = true;
       clearTimeout(giveUp);
     };
@@ -455,30 +481,62 @@ export function Reader(props: {
     if (root.current) root.current.className = readerClass(settings);
     const v = view.current;
     if (v && root.current) applySettings(v, settings, root.current);
-    const book = fixedBook.current;
     const spread = spreadForPages(settings.pages);
-    if (book && v && openSpread.current !== spread) {
-      openSpread.current = spread;
-      const cfi = whereCfi.current;
-      const gen = ++reopenGen.current;
-      reopenTask.current = reopenTask.current
-        .then(async () => {
-          if (!alive.current || gen !== reopenGen.current) return;
-          book.rendition.spread = spread;
-          v.close();
-          await v.open(book);
-          if (!alive.current || gen !== reopenGen.current) return;
-          await v.init({ lastLocation: cfi, showTextStart: !cfi });
-        })
-        .catch((err) => {
+    const book = v?.book;
+    // The latest choice, including when this run does not itself reopen (a theme change, or a choice that is already open).
+    // The spread lives on Foliate's book, which it reads when the renderer opens. It is not React state.
+    if (book?.rendition && openSpread.current !== null) {
+      // eslint-disable-next-line react-hooks/immutability -- Foliate's book object, not a value owned by React
+      book.rendition.spread = spread;
+    }
+    let stop = false;
+    if (v && book?.rendition && openSpread.current !== null && openSpread.current !== spread) {
+      reopenTask.current = reopenTask.current.then(async () => {
+        if (stop) return;
+        const place = whereCfi.current;
+        const pin = { cfi: place };
+        heldCfi.current = pin;
+        // True once this task has closed the renderer, so it must open one again even if the choice changed back.
+        let opened = false;
+        try {
+          for (let attempt = 0; attempt < 4; attempt++) {
+            const opening = book.rendition?.spread;
+            if (!opening) return;
+            if (!opened && opening === openSpread.current) return;
+            const old = v.renderer;
+            if (old) {
+              const dispatch = old.dispatchEvent.bind(old);
+              // A turn that is still loading on this renderer must not report a page after it is closed.
+              old.dispatchEvent = (event: Event) => (event.type === "relocate" ? true : dispatch(event));
+            }
+            v.close();
+            opened = true;
+            await v.open(book);
+            if (book.rendition?.spread !== opening) continue;
+            await v.init({ lastLocation: place, showTextStart: !place });
+            // Record the spread only once this renderer has opened, so a failure can be tried again.
+            openSpread.current = opening;
+            opened = false;
+            if (book.rendition?.spread !== opening) continue;
+            if (!stop) setStatus((s) => (s === "error" ? "ready" : s));
+            return;
+          }
+          if (!stop) setStatus("error");
+        } catch (err) {
           console.error(err);
-          if (alive.current && gen === reopenGen.current) setStatus("error");
-        });
+          if (!stop) setStatus("error");
+        } finally {
+          if (heldCfi.current === pin) heldCfi.current = null;
+        }
+      });
     }
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => view.current && root.current && applySettings(view.current, settings, root.current);
     mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    return () => {
+      stop = true;
+      mq.removeEventListener("change", onChange);
+    };
   }, [settings]);
 
   // Save on leaving; keyboard paging.
@@ -763,7 +821,7 @@ export function Reader(props: {
       spokenPdf.current = { page, at: inPage };
       // Going on after a pause returns to this page.
       litCfi.current = passageCfi;
-      const doc = v.renderer.getContents().find((c) => c.doc?.documentElement?.dataset.page === String(page))?.doc;
+      const doc = pdfDocsOnScreen(v).find((d) => d.documentElement.dataset.page === String(page));
       if (doc) return recordLit(listenBar.current, lightPdfWord(doc, inPage, "word"));
       // Not shown: the reader turned back from it while it is read. Turn to it
       // again, as an EPUB's pages follow the voice (a page turned to ahead is

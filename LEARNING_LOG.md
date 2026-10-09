@@ -62,6 +62,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 72 | 2026-10-08 22:40 | B4 screenshots | CI's first browser job fails only the pixel comparison, and the new images are the page we built | run 37852607386; looked at Account, Invite, Agent access, Home, and the design page | success (behaviour tests still to run) | a new sidebar link changes every signed-in desktop image; phone changes only where the page's own text changed |
 | 73 | 2026-10-08 22:36 | B4 merge | The second browser job passes, including the tests that did not run the first time, and the pull request merges | run 37853536318; `gh pr view 117` | success | auto-merge squashes once the four checks are green; a backup still has to come before the deploy |
 | 74 | 2026-10-09 09:17 | One page or Two pages | One saved choice drives a PDF and a reflowable book; a tall window stays on one page | `npm run check`; reader Playwright project, then the fixed test alone | success | wait until a PDF page is drawn before pressing Next; this Playwright ignores a timeout written on the test itself |
+| 75 | 2026-10-09 10:13 | Review of One page / Two pages | A tall window stays on the page it is showing, and a failed reopen can be tried again | `npm run check`; the two reader tests on the leftover database | success | a fix in an installed package has to run after install; a column's width is not how many columns there are |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -70,6 +71,17 @@ Iterations 38 to 59 have no row in this index (the sessions that wrote them did 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
+- **A fix inside an installed package has to run again after install**
+  (Iteration 75). foliate-js comes from npm. Editing `node_modules` alone
+  disappears on the next install. The script is
+  `scripts/patch-foliate-fxl.mjs`, run from `postinstall`, `predev`, and
+  `prebuild`. If the next version of that file does not contain the old
+  text, the script stops instead of pretending the fix is in.
+- **The width of a column is not the number of columns** (Iteration 75).
+  After Scroll, the viewer's column count can stay at 2, and one column
+  about 680px wide is more than half of a 1152px window. The document's
+  own `column-width` is `auto` for one scrolling column. Read it with
+  that document's window.
 - **A page that asks the server again and again needs three rules**
   (Iterations 63-64). Never replace a request still on its way (wait for
   it, with a time limit); show and send only answers about what the person
@@ -2116,3 +2128,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held on the checks above. A wide window shows two pages for the EPUB and for the PDF. A 390-pixel-wide window shows one. The words on the pages that are showing can be selected. The choice is still Two pages after a reload, and the next book (the PDF) opens in that mode.
 **Lesson.** Wait until a PDF page is actually drawn before pressing Next. Pressing it while the count is still zero turns a page that is not on screen yet. Also, Playwright 1.56.1 ignores `timeout` written on the test itself; the time limit has to be set on the group with `test.describe.configure`.
 **Next experiment.** After this pull request merges, branch `pdf-spine` builds the Spine fold. Corner waits. Do not restart port 8733. Do not deploy.
+
+### Iteration 75 · 2026-10-09 10:13 · Review of One page / Two pages · success
+
+**Hypothesis.** The six review findings are real, and fixing them keeps a tall window on the page it is showing. A late report from a renderer that has already been closed does not replace that page. A failed reopen can be tried again. The one-page check still runs when the PDF is already in the library. Scroll is judged by the layout, not by the button's attribute.
+**Action.** foliate-js is only installed, so `scripts/patch-foliate-fxl.mjs` rewrites the two spots in `fixed-layout.js` on install and before dev and build. The reader rewrites a one-page event to the page on screen, swallows a relocate from the closed renderer, and records the opened spread only after the book has opened again. `fixedBook`, `reopenGen`, and `alive` are gone. `openSpread` and `heldCfi` stay: without them Issue 3 cannot hold. The one-page test uses `openFacingPdf`. `sidesShowing` reads the document's `column-width`.
+**Evaluation.** `npm run check` at 05:59:21 local: `Tests 548 passed | 2 skipped (550)`, exit 0. Then `npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots` on the leftover database.
+**Result.** `2 passed (6.2s)`. The one-page test was 1.1s (Facing Pages already on the shelf). The two-pages test was 4.7s, including Scroll as one column and a 390×844 reload that stays on leaf 1. An earlier fresh-database run passed the one-page test in 1.6s (the upload). In that run the two-pages test failed only because a width span called one scrolled column two columns.
+**Lesson.** Do not edit `node_modules` and call it done. And do not treat the width of a scrolled column as a second column.
+**Next experiment.** Leave this pull request open until the four GitHub checks are green, then merge. After that, branch `pdf-spine` from `origin/main`. Do not build the fold here. Do not restart port 8733. Do not deploy.
