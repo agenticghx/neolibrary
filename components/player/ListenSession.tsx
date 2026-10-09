@@ -435,7 +435,8 @@ export function ListenSession({
       lastWord.current = i;
       return;
     }
-    if (onWord(info.passage.cfi, from, to) === null) return;
+    // In a PDF the word is found on its page by its place there (t.inPage); null until that page is shown.
+    if (onWord(info.passage.cfi, from, to, t.inPage?.[i]) === null) return;
     lastWord.current = i;
   };
 

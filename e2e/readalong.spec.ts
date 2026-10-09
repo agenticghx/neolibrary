@@ -1252,7 +1252,9 @@ async function uploadPdfReading(page: Page, bytes: Uint8Array, pkg: ReturnType<t
   // The words as the page shows them (no space where a line breaks), with their times, from the server.
   const info = await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: "epubcfi(/6/2)" })}`)).json();
   expect(info.fileType).toBe("pdf");
-  expect(info.voices).toEqual([{ id: `upload:${body.import.id}`, name: "Your audiobook" }]);
+  // The audiobook first, then the made voices (a PDF is read aloud in them too: docs/pdf-narration-plan.md).
+  expect(info.voices.map((v: { id: string }) => v.id)).toEqual([`upload:${body.import.id}`, "fake-ada", "fake-ben"]);
+  expect(info.voices[0].name).toBe("Your audiobook");
   const expected: Spoken[] = (info.audiobook.paragraphs as { sectionId: string; cfi: string; file: number; words: [number, number, number, number][] }[]).flatMap((p) =>
     p.words.map(([startMs, , from, to]) => ({ word: ps.find((x) => x.id === p.sectionId)!.text.slice(from, to).replace(/\s+/g, ""), startMs, file: p.file, cfi: p.cfi })),
   );
@@ -1620,15 +1622,156 @@ test("M13 (e): a PDF page whose picture could not be drawn (no canvas memory lef
   await expect.poll(shown, { timeout: 10_000 }).toEqual({ picture: true, text: true });
 });
 
-test("M13 (e): in a PDF without an audiobook, Listen says how to add one", async ({ page }) => {
-  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
-  const pdf = books.find((b) => b.title === "Discourse on the Method")!;
-  await page.goto(`/books/${pdf.id}/read`);
-  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+// docs/pdf-narration-plan.md, Part A: a made voice reads a PDF book as it reads an EPUB, a paragraph at a
+// time, and each word lights up on the page by its place there (the server's `inPage`, as for an audiobook).
+test("a PDF is read aloud in a made voice: every word lit in order on its page, on time, on to the next page", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { bytes, ps } = await readAlongPdf();
+  const upload = await page.request.post("/api/books", { multipart: { files: { name: "pages-read-aloud.pdf", mimeType: "application/pdf", buffer: Buffer.from(bytes) } } });
+  const bookId = (await upload.json()).results[0].bookId as string;
+  await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
+  const reader = page.getByTestId("reader");
+  await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await page.getByRole("button", { name: "Listen" }).click();
   const bar = page.getByRole("region", { name: "Read aloud" });
-  await expect(bar).toContainText("In a PDF book, Listen plays your own audiobook: add one on the book's page.");
-  await expect(bar.getByRole("button", { name: "Play" })).toBeDisabled();
+  // An earlier test's audiobook may still be on this book: the made voice is chosen either way.
+  await expect(bar.getByLabel("Voice")).toBeVisible();
+  await bar.getByLabel("Voice").selectOption("fake-ada");
+  await expect(bar).toContainText(/This paragraph costs (about|under) \$[\d.]+ to read aloud; then it is saved\.|Saved audio: free to play\./);
+
+  // Each frame: the audio's address and time, the bar's word, the text lit in the book, whether it is on screen, the reader's page.
+  await page.evaluate(() => {
+    const w = window as unknown as { madeFrames_: [string, number, string, string | null, boolean | null, string][] };
+    w.madeFrames_ = [];
+    const a = document.querySelector("audio")!;
+    // The audio's own events (for the report if the reading stops: once in WebKit on the laptop, not repeated in 20 runs).
+    const ev = window as unknown as { madeEvents_: [string, string, number, number | null][] };
+    ev.madeEvents_ = [];
+    for (const e of ["loadstart", "play", "playing", "pause", "ended", "error", "waiting", "stalled", "emptied", "abort"]) {
+      a.addEventListener(e, () => ev.madeEvents_.push([e, (a.getAttribute("src") ?? "").split("?")[0].split("/").pop() ?? "", Math.round(a.currentTime * 1000), a.error?.code ?? null]));
+    }
+    const barEl = document.querySelector('[aria-label="Read aloud"]')!;
+    const readerEl = document.querySelector('[data-testid="reader"]')!;
+    const view = document.querySelector("foliate-view") as unknown as Element & { renderer: { getContents(): { doc: Document | null }[] } };
+    requestAnimationFrame(function tick() {
+      let lit: string | null = null;
+      let onScreen: boolean | null = null;
+      for (const { doc } of view.renderer.getContents()) {
+        const win = doc?.defaultView as (Window & { CSS: { highlights?: Map<string, Set<Range>> } }) | null | undefined;
+        const h = win?.CSS.highlights?.get("nl-spoken");
+        if (!h) continue;
+        const r = [...h][0]?.getBoundingClientRect();
+        const f = win!.frameElement!.getBoundingClientRect();
+        const box = view.getBoundingClientRect();
+        lit = [...h].map((x) => x.toString()).join(" ");
+        onScreen = !!r && r.width > 0 && f.left + r.left >= box.left - 1 && f.left + r.right <= box.right + 1 && f.top + r.top >= box.top - 1 && f.top + r.bottom <= box.bottom + 1;
+        break;
+      }
+      w.madeFrames_.push([a.getAttribute("src") ?? "", a.currentTime, barEl.getAttribute("data-word") ?? "", lit, onScreen, readerEl.getAttribute("data-cfi") ?? ""]);
+      requestAnimationFrame(tick);
+    });
+  });
+  await bar.getByRole("button", { name: "Play" }).click();
+  // On through page 1 (its running head, two paragraphs and its page number) into page 2's second paragraph.
+  const page2 = ps.filter((p) => p.chapterIndex === 1);
+  const target = page2[1];
+  // About 10 s of the fake voice; the error says where the reading got to and what the audio did. Any of six of
+  // the paragraph's words will do: waiting for one alone, a skipped word (docs/ci-flakes.md) would let the
+  // reading run to the end of the book, and the wait never end.
+  await page
+    .waitForFunction(
+      (words) => words.includes(document.querySelector('[aria-label="Read aloud"]')!.getAttribute("data-word") ?? "") && document.querySelector('[data-testid="reader"]')!.getAttribute("data-cfi") === "epubcfi(/6/4)",
+      target.text.split(" ").slice(3, 9),
+      { timeout: 30_000 },
+    )
+    .catch(async (e) => {
+      const at = await page.evaluate(() => {
+        const w = window as unknown as { madeFrames_: [string, number, string, string | null, boolean | null, string][]; madeEvents_: unknown[] };
+        return { events: w.madeEvents_, lastFrames: w.madeFrames_.slice(-3).map((f) => [f[0].split("?")[0].split("/").pop(), Math.round(f[1] * 1000), f[2], f[3], f[5]]) };
+      });
+      throw new Error(`${(e as Error).message}\nbar: ${await bar.textContent()}\naudio events: ${JSON.stringify(at.events)}\nlast frames: ${JSON.stringify(at.lastFrames)}`);
+    });
+  await page.evaluate(() => document.querySelector("audio")!.pause());
+  const frames = await page.evaluate(() => (window as unknown as { madeFrames_: [string, number, string, string | null, boolean | null, string][] }).madeFrames_);
+
+  // The paragraphs played, each with its saved track (as the server sends it, with where its words are on the page).
+  const upTo = ps.indexOf(target);
+  type Made = { sectionId: string; audioKey: string; inPage?: [number, number][]; words: [number, number, number, number][] };
+  const made: Made[] = [];
+  for (const p of ps.slice(0, upTo + 1)) {
+    const t = (await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ section: p.id, voice: "fake-ada" })}`)).json()).track as Made | null;
+    expect(t, `paragraph ${p.id} was made`).not.toBeNull();
+    made.push({ ...t!, sectionId: p.id });
+  }
+  // Every paragraph's track comes with a place on the page for each word: the page's letters there are the word's.
+  const pageLetters = (i: number) => ps.filter((p) => p.chapterIndex === i).map((p) => p.text).join("").replace(/\s+/g, "");
+  for (const t of made) {
+    const p = ps.find((x) => x.id === t.sectionId)!;
+    expect(t.inPage!.map(([a, b]) => pageLetters(p.chapterIndex).slice(a, b))).toEqual(t.words.map(([, , from, to]) => p.text.slice(from, to).replace(/\s+/g, "")));
+  }
+  // Which paragraph an audio address plays: by its saved file (the address is a signed link to it).
+  const sectionOf = (src: string) => made.find((t) => decodeURIComponent(src.split("?")[0]) === `/api/files/${t.audioKey}`)?.sectionId ?? "";
+  expect(new Set(frames.map((f) => f[0]).filter(Boolean).map(sectionOf)), "every audio played is one of the paragraphs").not.toContain("");
+
+  // The words in reading order, each with its paragraph and when the fake voice starts it (0.03 s per character).
+  const expected = ps.slice(0, upTo + 1).flatMap((p) => [...p.text.matchAll(/\S+/g)].map((m) => ({ sectionId: p.id, word: m[0], startMs: m.index! * 30 })));
+  // How far each paragraph's audio got: a word must have been shown if its paragraph played 120 ms past its start
+  // (a page number is a clip of a few hundredths of a second, and may end between two frames).
+  const reached = new Map<string, number>();
+  for (const f of frames) if (f[0]) reached.set(sectionOf(f[0]), Math.max(reached.get(sectionOf(f[0])) ?? 0, f[1] * 1000));
+  for (const col of [2, 3] as const) {
+    const name = col === 2 ? "bar" : "book highlight";
+    // Each change of the word shown, with the frame it first showed on and the paragraph playing then. (When the next
+    // paragraph's audio starts, the last word of the one before stays lit until its first word: that is no new word.)
+    const seen: { sectionId: string; word: string; frame: (typeof frames)[number]; at: number }[] = [];
+    let last: string | null = null;
+    frames.forEach((f, at) => {
+      const word = f[col];
+      if (!word) return;
+      if (word !== last && f[0]) seen.push({ sectionId: sectionOf(f[0]), word, frame: f, at });
+      last = word;
+    });
+    let k = 0;
+    for (const e of expected) {
+      const s = seen[k];
+      if (s && s.sectionId === e.sectionId && s.word === e.word) {
+        const late = s.frame[1] * 1000 - e.startMs;
+        expect(late, `${name}: "${e.word}" shown ${Math.round(late)} ms after it starts`).toBeLessThan(100);
+        expect(late, `${name}: "${e.word}" shown before it starts`).toBeGreaterThanOrEqual(-1);
+        if (col === 3) {
+          const soon = frames.slice(s.at).filter((f) => f[3] === e.word && sectionOf(f[0]) === e.sectionId && f[1] * 1000 < e.startMs + 100);
+          expect(soon.some((f) => f[4] === true), `"${e.word}" was not on the page on screen within 0.1 s`).toBe(true);
+        }
+        k++;
+      } else if (e.startMs <= (reached.get(e.sectionId) ?? -1) - 120) {
+        throw new Error(`${name}: "${e.word}" (${e.sectionId}) was due but not shown next; shown next: ${JSON.stringify(s && { word: s.word, sectionId: s.sectionId })}`);
+      }
+    }
+    expect(seen.slice(k).map((s) => s.word), `${name}: words shown that were not expected next`).toEqual([]);
+    expect(k, `${name}: words shown`).toBeGreaterThan(40);
+  }
+  // Page 2's first word was lit with page 2 shown.
+  const firstOn2 = frames.find((f) => sectionOf(f[0]) === page2[0].id && f[3] === page2[0].text.split(" ")[0]);
+  expect(firstOn2?.[5], "page 2 shown when its first word was lit").toBe("epubcfi(/6/4)");
+  // Paused: the word being read stays lit on its page in every look, and the bar fits (phone and desktop, light and dark).
+  const paused = await litNow(page);
+  expect(paused, "a word is lit while paused").toBeTruthy();
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect.poll(() => litNow(page), { timeout: 10_000 }).toBe(paused);
+      await expect(bar).toContainText("Saved audio: free to play.");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-pdf-made-voice-${name}-${scheme}${engine()}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
 });
 
 // M14 step 6b: away from the reader, a mini-player at the foot of every page reads on.
