@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pin of a scaled Wikimedia thumbnail is fixed on m9-pin-thumb-host. Merge when the four checks are green, then deploy. Spine whitespace is later. Do not build Corner.
+next_action: Pull request 124 lets Pin keep a scaled Wikimedia thumbnail. Merge when the four checks are green, then deploy. Spine whitespace is later. Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09. See it is live at https://web-production-f27a0e.up.railway.app as commit bda2e7e. A scaled Wikimedia thumbnail loads. Pin to the passage still fails on the live site for those thumbnails: the pin checker only accepted upload.wikimedia.org. The fix is on branch m9-pin-thumb-host and is not merged or deployed. After it is deployed, pin the NREL logo, reload, and open it from Notes and from the mark on the sentence. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
+Written 2026-10-09. See it is live at https://web-production-f27a0e.up.railway.app as commit bda2e7e. A scaled Wikimedia thumbnail loads. Pin to the passage still fails on the live site for those thumbnails: the pin checker only accepted upload.wikimedia.org. The fix is pull request 124 (https://github.com/sahuno/neolibrary/pull/124), branch m9-pin-thumb-host. It is not merged or deployed. After it is deployed, pin the NREL logo, reload, and open it from Notes and from the mark on the sentence. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
 
 Spine is the turn: a straight crease from the outer edge to the gutter, clicked, only when two PDF pages are on screen. Corner waits. Do not build continuous scroll or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -149,7 +149,7 @@ Never blocks the loop. Newest first.
 - **Key paths:** lib/library/pinned.ts, lib/library/pinned.test.ts, PROGRESS.md
 - **Commands that worked:** npx vitest run lib/library/pinned.test.ts → Test Files 1 passed, Tests 5 passed (5), including 'pins a scaled Commons thumbnail served from thumb.wikimedia.org' (425ms).
 - **Known issues / blockers:** The live site still has the old checker until this branch is merged and deployed. Retrieval is unchanged once a pin is stored: Notes lists it as Pinned picture, and the mark on the sentence opens the Pinned picture panel. Spine whitespace is later. Open unknowns rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14).
-- **Exact next steps:** Open the pull request from m9-pin-thumb-host. Merge only when the four GitHub checks are green. Deploy after that, because Pin fails on the live reader. Do not change the Spine fold. Do not build Corner. Do not start a whole-book narration.
+- **Exact next steps:** Pull request 124 is open (https://github.com/sahuno/neolibrary/pull/124). Merge only when the four GitHub checks are green. Deploy after that, because Pin fails on the live reader. Do not change the Spine fold. Do not build Corner. Do not start a whole-book narration.
 
 ### 2026-10-09 14:06 · Grok (laptop) · Deployed the See it thumbnail fix, main bda2e7e
 - **Done:** Pull request 122 is merged. Squash commit bda2e7ecfb3af8f79fac3573ff504b1abddc394d. The four GitHub checks on 3705c39 were green (run 37969187746) before the squash. Live site https://web-production-f27a0e.up.railway.app now reports commit bda2e7e. Deployment a68dbbb4-4337-441d-915b-b79569adf706 reached SUCCESS. Sign-in returns 200. The sign-in page allows pictures from thumb.wikimedia.org. Import and Account redirect to sign-in. The newest migration is still 0022_api_token_expiry, on the live database and in the repo, so this deploy did not change the database and no new backup was taken. The host key was SHA256:+S1xg92FrnHz6pY3bpkmh1OGtWQGNANXilPzlxA7B1g. I did not sign in and open See it on the live site.
