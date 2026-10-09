@@ -81,7 +81,9 @@ describe("pinned pictures (M9)", () => {
   it("only pins pictures it can trust: Commons links, or the reader's own generated files", () => {
     expect(cleanPicture(commons, ownerId)).toEqual(commons);
     const scaledThumb = "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Logo.jpg/480px-Logo.jpg?utm_source=commons";
-    expect(cleanPicture({ ...commons, thumbUrl: scaledThumb }, ownerId)?.thumbUrl).toBe(scaledThumb);
+    const cleaned = cleanPicture({ ...commons, thumbUrl: scaledThumb }, ownerId);
+    if (cleaned?.source !== "wikimedia") throw new Error("a scaled thumbnail was refused");
+    expect(cleaned.thumbUrl).toBe(scaledThumb);
     expect(cleanPicture({ ...commons, thumbUrl: "https://evil.example/x.jpg" }, ownerId)).toBeNull();
     expect(cleanPicture({ ...commons, thumbUrl: "https://thumb.wikimedia.org.evil.example/x.jpg" }, ownerId)).toBeNull();
     expect(cleanPicture({ ...commons, imageUrl: "javascript:alert(1)" }, ownerId)).toBeNull();

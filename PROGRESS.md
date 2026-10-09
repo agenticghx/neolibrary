@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 124 lets Pin keep a scaled Wikimedia thumbnail. Merge when the four checks are green, then deploy. Spine whitespace is later. Do not build Corner.
+next_action: Pull request 124 lets Pin keep a scaled Wikimedia thumbnail. The type error is fixed. Merge when the four checks are green, then deploy. Spine whitespace is later. Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -143,6 +143,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 15:09 · Grok · The pin test names the thumbnail only after the picture is known to be from Wikimedia
+- **Done:** CI on pull request 124 failed the type check (run 37977756036). The new assertion read thumbUrl on a picture that might be a generated file, which has no thumbnail address. The test now checks the source first. npx tsc --noEmit exited 0, and the five pin tests passed again. The browser job died on the same type check (Failed to type check), so it should start once this is pushed.
+- **Key paths:** lib/library/pinned.test.ts, PROGRESS.md
+- **Commands that worked:** npx tsc --noEmit && npx vitest run lib/library/pinned.test.ts → exit 0. Tests 5 passed (5).
+- **Known issues / blockers:** Not merged. The live site still refuses a scaled thumbnail until this is deployed. Spine whitespace is later. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14).
+- **Exact next steps:** Push this fix to pull request 124. Merge with the train only when the four checks are green. Deploy after the merge. Do not change the Spine fold. Do not build Corner.
 
 ### 2026-10-09 15:04 · Grok · Let Pin keep a scaled Wikimedia thumbnail
 - **Done:** Pin to the passage refused the pictures See it shows. A scaled Wikimedia thumbnail comes from thumb.wikimedia.org, and the pin checker only accepted upload.wikimedia.org or a local test file. The checker now accepts thumb.wikimedia.org under the same limits, and still refuses every other site. Stored a pin of the NREL logo address (the small copy on thumb.wikimedia.org, the full file on upload.wikimedia.org) with its credit, on the passage. Not merged and not deployed, so the live site still refuses those pins.
