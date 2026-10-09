@@ -27,7 +27,7 @@ export interface ImageSearch {
 
 export class ImageSearchError extends Error {}
 
-const USER_AGENT = "Neolibrary/1.0 (private study library; https://github.com/sahuno/neolibrary)";
+const USER_AGENT = "Neolibrary/1.0 (private study library; https://github.com/agenticghx/neolibrary)";
 
 /** Plain text from the small bits of HTML Commons puts in credit fields. */
 export function textOf(html: string | undefined) {

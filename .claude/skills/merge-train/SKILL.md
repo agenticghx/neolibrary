@@ -5,7 +5,7 @@ description: Merge Neolibrary pull requests under the repository's rules without
 
 # Merge train
 
-Written for Claude sessions on `sahuno/neolibrary` (laptop or cloud). Samuel, the owner, is a scientist; whatever reaches him (PR text, the ledger) is plain English with jargon defined.
+Written for Claude sessions on `agenticghx/neolibrary` (was `sahuno/neolibrary` until 2026-10-09) (laptop or cloud). Samuel, the owner, is a scientist; whatever reaches him (PR text, the ledger) is plain English with jargon defined.
 
 ## Why this skill exists
 
