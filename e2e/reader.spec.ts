@@ -545,3 +545,239 @@ test("two pages is a reading setting for every book", async ({ page }, testInfo)
   await expect.poll(async () => pdfLeaf((await reader(page).getAttribute("data-cfi")) ?? "")).toBe(1);
 });
 });
+
+/** The PDF leaves actually facing the reader, low index first. */
+async function pdfLeaves(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      renderer?: { getContents(): { doc: Document }[] };
+    };
+    const leaves = (view?.renderer?.getContents() ?? []).flatMap(({ doc }) => {
+      const raw = doc?.documentElement?.dataset?.page;
+      const frame = doc?.defaultView?.frameElement as HTMLElement | null;
+      const host = frame?.parentElement;
+      if (!host || raw == null) return [];
+      const box = host.getBoundingClientRect();
+      if (getComputedStyle(host).display === "none" || box.width <= 2 || box.height <= 2) return [];
+      const n = Number(raw);
+      return Number.isInteger(n) ? [n] : [];
+    });
+    return leaves.sort((a, b) => a - b);
+  });
+}
+
+async function pdfSide(page: Page, which: "left" | "right") {
+  return page.evaluate((side) => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      renderer?: { getContents(): { doc: Document }[] };
+    };
+    const sides = (view?.renderer?.getContents() ?? []).flatMap(({ doc }) => {
+      const raw = doc?.documentElement?.dataset?.page;
+      const frame = doc?.defaultView?.frameElement as HTMLElement | null;
+      const host = frame?.parentElement;
+      if (!host || raw == null) return [];
+      const box = host.getBoundingClientRect();
+      if (getComputedStyle(host).display === "none" || box.width <= 2 || box.height <= 2) return [];
+      const index = Number(raw);
+      if (!Number.isInteger(index)) return [];
+      return [{ index, x: box.x, y: box.y, width: box.width, height: box.height }];
+    });
+    sides.sort((a, b) => a.x - b.x);
+    if (sides.length !== 2) return null;
+    return side === "left" ? sides[0]! : sides[1]!;
+  }, which);
+}
+
+async function clickSide(page: Page, which: "left" | "right") {
+  const box = await pdfSide(page, which);
+  expect(box).not.toBeNull();
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+
+async function dragSide(page: Page, which: "left" | "right") {
+  const box = await pdfSide(page, which);
+  expect(box).not.toBeNull();
+  const y = box!.y + box!.height * 0.21;
+  await page.mouse.move(box!.x + box!.width * 0.18, y);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width * 0.78, y, { steps: 12 });
+  await page.mouse.up();
+}
+
+async function selectedWords(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      renderer?: { getContents(): { doc: Document }[] };
+    };
+    for (const { doc } of view?.renderer?.getContents() ?? []) {
+      const text = doc.getSelection()?.toString() ?? "";
+      if (text.trim()) return text;
+    }
+    return "";
+  });
+}
+
+async function pdfWords(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      renderer?: { getContents(): { doc: Document }[] };
+    };
+    return (view?.renderer?.getContents() ?? [])
+      .map(({ doc }) => doc.querySelector(".textLayer")?.textContent ?? "")
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  });
+}
+
+async function openSpinePdf(page: Page) {
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  doc.setTitle("Spine Fold Line");
+  doc.setAuthor("Test");
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  const lines = [
+    "Leaf one stands alone on the right.",
+    "Leaf two sits on the left of the first pair.",
+    "Leaf three sits on the right of the first pair.",
+    "Leaf four sits on the left of the next pair.",
+    "Leaf five sits on the right of the next pair.",
+    "Leaf six closes the book.",
+  ];
+  // Words on the west, middle, and east of each page, so a half-turned sheet shows two different pages.
+  lines.forEach((text, i) => {
+    const leaf = doc.addPage([612, 792]);
+    const n = i + 1;
+    leaf.drawText(`Leaf ${n}`, { x: 48, y: 730, size: 20, font });
+    leaf.drawText("west", { x: 48, y: 690, size: 16, font });
+    leaf.drawText("middle", { x: 250, y: 690, size: 16, font });
+    leaf.drawText("east", { x: 450, y: 690, size: 16, font });
+    // This row sits where the test drags, so a drag selects words and does not turn the page.
+    leaf.drawText(`West ${n}`, { x: 48, y: 658, size: 13, font });
+    leaf.drawText(`Middle ${n}`, { x: 250, y: 658, size: 13, font });
+    leaf.drawText(`East ${n}`, { x: 440, y: 658, size: 13, font });
+    leaf.drawText("Drag across these words to select them and the page must stay put", { x: 36, y: 620, size: 14, font });
+    leaf.drawText(text, { x: 48, y: 590, size: 11, font });
+    leaf.drawText(`West ${n}`, { x: 48, y: 400, size: 16, font });
+    leaf.drawText(`East ${n}`, { x: 450, y: 400, size: 16, font });
+  });
+  await page.goto("/library");
+  const link = page.getByTestId("shelf").getByRole("link", { name: /^Spine Fold Line/ });
+  if ((await link.count()) === 0) {
+    await page.goto("/import");
+    await page.getByLabel("Choose files").setInputFiles({
+      name: "spine-fold-sheet.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(await doc.save()),
+    });
+    await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+    await page.goto("/library");
+  }
+  await page.getByTestId("shelf").getByRole("link", { name: /^Spine Fold Line/ }).click();
+  await page.getByRole("link", { name: /^(Read|Continue reading)$/ }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+}
+
+test.describe("Spine fold", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("a click folds two PDF pages, and a drag does not", async ({ page }, testInfo) => {
+    testInfo.setTimeout(120_000);
+    await mkdir("screenshots", { recursive: true });
+    await openSpinePdf(page);
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await page.getByRole("button", { name: "Two pages", exact: true }).click();
+    // Escape does nothing while the Two pages button has focus, and the open panel covers Next page.
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await expect(page.getByRole("region", { name: "Reading settings" })).toHaveCount(0);
+    await showFacingPair(page);
+    await expect.poll(() => pdfLeaves(page)).toEqual([1, 2]);
+    await expect.poll(() => pdfWords(page)).toContain("Leaf 2");
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.screenshot({ path: "screenshots/reader-spine-desktop-light.png" });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({ path: "screenshots/reader-spine-desktop-dark.png" });
+    await page.emulateMedia({ colorScheme: "light" });
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.spineHold = "mid";
+    });
+    await clickSide(page, "right");
+    await expect(page.locator("[data-spine-fold]")).toBeVisible();
+    await expect.poll(() => pdfLeaves(page)).toEqual([1, 2]);
+    // A second click while the sheet is moving does nothing.
+    await clickSide(page, "right");
+    await page.waitForTimeout(400);
+    await expect.poll(() => pdfLeaves(page)).toEqual([1, 2]);
+    await page.screenshot({ path: "screenshots/reader-spine-mid-desktop-light.png" });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({ path: "screenshots/reader-spine-mid-desktop-dark.png" });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(() => {
+      delete document.documentElement.dataset.spineHold;
+    });
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([3, 4]);
+    await expect(page.locator("[data-spine-fold]")).toHaveCount(0);
+    await expect.poll(() => selectShownWords(page)).not.toBe("");
+
+    await clickSide(page, "left");
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([1, 2]);
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([3, 4]);
+
+    await dragSide(page, "right");
+    await expect(page.locator("[data-spine-fold]")).toHaveCount(0);
+    await expect.poll(() => pdfLeaves(page)).toEqual([3, 4]);
+    await expect.poll(() => selectedWords(page)).not.toBe("");
+
+    // Read aloud turns with goTo. That must not play the fold, even if a test is holding one.
+    await page.evaluate(() => {
+      document.documentElement.dataset.spineHold = "mid";
+    });
+    await page.evaluate(() =>
+      (document.querySelector("foliate-view") as unknown as { goTo(target: string): Promise<void> }).goTo("epubcfi(/6/12)"),
+    );
+    await expect(page.locator("[data-spine-fold]")).toHaveCount(0);
+    await expect.poll(() => pdfLeaves(page)).toEqual([5]);
+    await page.evaluate(() => {
+      delete document.documentElement.dataset.spineHold;
+    });
+
+    const selectedBar = page.getByRole("toolbar", { name: "Selected text" });
+    if ((await selectedBar.count()) > 0) {
+      await selectedBar.getByRole("button", { name: "Close" }).click();
+      await expect(selectedBar).toHaveCount(0);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => sidesShowing(page)).toBe(1);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.screenshot({ path: "screenshots/reader-spine-phone-light.png" });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({ path: "screenshots/reader-spine-phone-dark.png" });
+    const phoneLeaves = await pdfLeaves(page);
+    const phone = await pdfSide(page, "right");
+    // One page has no left and right pair, so a click is not a turn.
+    const only = await page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as {
+        renderer?: { getContents(): { doc: Document }[] };
+      };
+      const boxes = (view?.renderer?.getContents() ?? []).flatMap(({ doc }) => {
+        const frame = doc?.defaultView?.frameElement as HTMLElement | null;
+        const host = frame?.parentElement;
+        if (!host) return [];
+        const box = host.getBoundingClientRect();
+        if (getComputedStyle(host).display === "none" || box.width <= 2) return [];
+        return [{ x: box.x, y: box.y, width: box.width, height: box.height }];
+      });
+      return boxes.length === 1 ? boxes[0]! : null;
+    });
+    expect(phone).toBeNull();
+    expect(only).not.toBeNull();
+    await page.mouse.click(only!.x + only!.width / 2, only!.y + only!.height / 2);
+    await expect(page.locator("[data-spine-fold]")).toHaveCount(0);
+    await expect.poll(() => pdfLeaves(page)).toEqual(phoneLeaves);
+  });
+});

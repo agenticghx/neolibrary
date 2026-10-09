@@ -238,6 +238,15 @@ network returns):
   done. A scrolled EPUB is one column when the document's `column-width` is
   `auto`. The viewer's `columnCount` can stay at 2, and the width of that
   column is not a second column.
+- **The Spine fold** (`lib/reader/spine-fold.ts`) plays only when two PDF
+  pages are actually on screen. A click on the right page turns forward, a
+  click on the left page turns back, and the arrow keys and the footer
+  buttons do the same. A drag that moves more than 6 pixels does not turn.
+  Read aloud still uses `goTo` and skips the fold. One page, a tall window,
+  and an EPUB turn at once. The sheet geometry is `lib/reader/spine.ts`.
+  A test pins the fold halfway with
+  `document.documentElement.dataset.spineHold = "mid"`. Production never
+  sets that. Do not add Three.js for this turn. Corner is not built.
 - A "negative" test page may legitimately match: the "rugged countenance"
   page mentions Utterson and the lawyer too. Use invented text for "no match".
 - Controlled UI state: a checkbox or button whose state only changes after a

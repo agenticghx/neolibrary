@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After pdf-two-page merges, start the Spine fold on branch pdf-spine from origin/main. Do not build Corner. Do not restart port 8733. Do not deploy.
+next_action: Open the Spine fold pull request, merge it when the four checks are green, then deploy. Do not build Corner. Do not restart port 8733.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -19,11 +19,11 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09. Pull request 119 is branch `pdf-two-page`. Reading settings has One page and Two pages for every book the reader opens. Both reviews of that pull request are addressed on the branch. A tall window stays on the page it is showing. The reader does not build a second address for that page; the installed viewer names it, and an address for a page that is not showing is dropped. A failed reopen can be tried again. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart the prototype server on port 8733. Do not deploy. Do not start a whole-book narration. Do not build the Spine fold until this branch has merged.
+Written 2026-10-09 12:49. Pull request 119 is merged and live as `0a70050`. Do not redo One page / Two pages. The Spine fold is committed on branch `pdf-spine`. The halfway picture shows a crease, with Leaf 4 on the gutter side and Leaf 5 on the outer side. Open the pull request. Merge with `train.sh` only when the four GitHub checks are green. Samuel asked to deploy after that. Confirm the newest migration before skipping a backup. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
 
-After `pdf-two-page` merges, the next step is the Spine fold on a new branch named `pdf-spine`, started from `origin/main`. Spine is the turn to build: the vertical fold from the outer edge to the gutter. Corner waits. Do not build Corner, continuous scroll on the single page, or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not port `deform.js`. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
+Spine is the turn: a straight crease from the outer edge to the gutter, clicked, only when two PDF pages are on screen. Corner waits. Do not build continuous scroll or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
-The Account page is merged and not deployed. `main` includes `de68330`. The live site was still `8f8a1a8`. When that deploy happens, back up the live database first, because migration 0022 runs when the server starts. The recipe is in `docs/handoff.md`.
+Migration 0022 is already applied on the live site. The backup from that deploy is `~/Backups/neolibrary/prod-before-0022-20261009T1320Z.sql`. The recipe is in `docs/handoff.md`.
 
 Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
 
@@ -143,6 +143,27 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 12:49 · Grok (laptop) · Spine fold plays when two PDF pages are on screen
+- **Done:** The Spine fold is on branch pdf-spine. A click on the right PDF page folds the sheet onto the next pair. A click on the left page folds it back. Arrow keys and Previous/Next do the same. A drag that selects words does not turn the page. One page, a tall window, and an EPUB turn at once. Read aloud still uses goTo and skips the fold. The halfway picture shows a vertical shadow. Leaf 4 is on the gutter side of that shadow and Leaf 5 is on the outer side, and the words read the right way. The phone picture stays one page. The first halfway picture looked flat because the only mark was a white line on white paper. A unit test fails if the sheet rolls into a tube.
+- **Key paths:** lib/reader/spine.ts; lib/reader/spine.test.ts; lib/reader/spine-fold.ts; lib/reader/pdf-book.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; docs/handoff.md; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/reader/spine.test.ts lib/reader/pdf-book.test.ts at 12:44 local: Test Files 2 passed, Tests 4 passed, exit 0. npx tsc --noEmit and eslint on the reader files: exit 0. npx playwright test --config playwright.spine.config.ts, log /tmp/spine-pw4.log: 2 passed (10.8s), the fold test 4.2s, PW_EXIT:0. The earlier run /tmp/spine-pw3.log failed the drag (PW_EXIT:1) because the pointer started between short words.
+- **Known issues / blockers:** Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). Migration 0022 is already applied. The backup from that deploy is ~/Backups/neolibrary/prod-before-0022-20261009T1320Z.sql. Samuel asked to deploy this fold after it merges. Do not deploy from the feature branch.
+- **Exact next steps:** The Spine fold is committed on pdf-spine. Open the pull request. Merge with train.sh only when the four GitHub checks are green. Then deploy, because Samuel asked. Confirm the newest migration before skipping a backup. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+
+### 2026-10-09 12:34 · Grok (laptop) · Spine fold wired into the reader, browser test still running
+- **Done:** The Spine fold is in the reader on branch pdf-spine, not yet committed. A click on the right PDF page, the left PDF page, the arrow keys, and Previous/Next play the fold when two PDF pages are on screen. One page, a tall window, and an EPUB turn at once. A drag of more than 6 pixels does not turn. Read aloud still uses goTo and skips the fold. The sheet math is a mirror across a straight crease. A unit test fails if the page rolls into a tube. The browser test that takes the mid-fold pictures had not finished at this entry.
+- **Key paths:** lib/reader/spine.ts; lib/reader/spine.test.ts; lib/reader/spine-fold.ts; lib/reader/pdf-book.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; docs/handoff.md
+- **Commands that worked:** npx vitest run lib/reader/spine.test.ts lib/reader/pdf-book.test.ts → 4 passed. npx tsc --noEmit → exit 0. npx eslint on the changed reader files → exit 0.
+- **Known issues / blockers:** The browser test is still running (log /tmp/spine-pw.log). Do not claim the fold looks right until those pictures are seen. Do not commit playwright.spine.config.ts. Do not build Corner. Do not start a whole-book narration. Do not restart port 8733. Samuel asked to deploy after this is merged. Do not deploy from this half-finished tree.
+- **Exact next steps:** 1. Read /tmp/spine-pw.log when PW_EXIT appears. 2. Look at screenshots/reader-spine-mid-desktop-light.png and the rest pictures. Fix the drawing if the sheet is a tube or the words are mirrored. 3. Delete playwright.spine.config.ts. 4. Commit on pdf-spine, open the pull request, and merge with train.sh only when the four GitHub checks are green. 5. Deploy, because Samuel asked. Confirm the newest migration before skipping a backup.
+
+### 2026-10-09 09:27 · Grok (laptop) · Merged pull request 119 and deployed main 0a70050
+- **Done:** Pull request 119 is merged. Squash commit 0a70050670f19b4a1911d45eaa42fe7934af3101. The four GitHub checks on 65e4a36 were green (run 37918480996) before the squash. Live site https://web-production-f27a0e.up.railway.app now reports commit 0a70050. Deployment b170d70e succeeded. Sign-in returns 200. Import and Account redirect to sign-in. Migration 0022_api_token_expiry is applied. Users 2 and books 256, the same as before the deploy. There are 0 API tokens. The backup is ~/Backups/neolibrary/prod-before-0022-20261009T1320Z.sql and a restore into Postgres 18 matched those counts, with the newest migration then still 0021_cost_checks.
+- **Key paths:** https://github.com/sahuno/neolibrary/pull/119; ~/Backups/neolibrary/prod-before-0022-20261009T1320Z.sql; db/migrations/0022_api_token_expiry.up.sql
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh 119 pdf-two-page → MERGED #119 @ 65e4a36, merge commit 0a70050, chain exit 0. curl /api/health → {"status":"ok","commit":"0a70050"}. curl /sign-in → 200. curl /import and /account → 307 to /sign-in. railway up --service web --environment production --ci → Deploy complete, DEPLOY_EXIT 0, deployment b170d70e SUCCESS.
+- **Known issues / blockers:** This ledger entry is not committed. Do not commit it straight to main. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). Do not restart the prototype server on port 8733.
+- **Exact next steps:** 1. Start the Spine fold on branch pdf-spine from origin/main. Do not build Corner. 2. Do not deploy again unless Samuel asks. 3. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-09 06:34 · Grok (laptop) · The viewer names the page on screen
 - **Done:** The second review of pull request 119 is addressed on pdf-two-page. The reader no longer builds a second PDF address from the frame page number. The installed viewer already names the page on screen. An address for a page that is not showing is dropped. heldCfi and pdfDocsOnScreen stay. No helper was added. The page-count check now tells the type checker the renderer element name, which npm run build required. The measure is unchanged.
