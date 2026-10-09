@@ -65,9 +65,27 @@ describe("pinned pictures (M9)", () => {
     expect(toMarkdown({ id: bookId, title: "J", author: "" }, [a], () => "Ch")).toContain("Generated picture: a gas lamp (made by AI, fake-image)");
   });
 
+  it("pins a scaled Commons thumbnail served from thumb.wikimedia.org", async () => {
+    const picture = {
+      ...commons,
+      title: "National Renewable Energy Laboratory logo (2 rows)",
+      thumbUrl:
+        "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/National_Renewable_Energy_Laboratory_logo_%282_rows%29.jpg/500px-National_Renewable_Energy_Laboratory_logo_%282_rows%29.jpg",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/e/e5/National_Renewable_Energy_Laboratory_logo_%282_rows%29.jpg",
+    };
+    const a = await createAnnotation(database.db, ownerId, { kind: "image", bookId, ...at, picture });
+    expect(a).toMatchObject({ kind: "image", picture, targetType: "passage" });
+    expect((await listAnnotations(database.db, ownerId, bookId))[0].picture).toEqual(picture);
+  });
+
   it("only pins pictures it can trust: Commons links, or the reader's own generated files", () => {
     expect(cleanPicture(commons, ownerId)).toEqual(commons);
+    const scaledThumb = "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Logo.jpg/480px-Logo.jpg?utm_source=commons";
+    const cleaned = cleanPicture({ ...commons, thumbUrl: scaledThumb }, ownerId);
+    if (cleaned?.source !== "wikimedia") throw new Error("a scaled thumbnail was refused");
+    expect(cleaned.thumbUrl).toBe(scaledThumb);
     expect(cleanPicture({ ...commons, thumbUrl: "https://evil.example/x.jpg" }, ownerId)).toBeNull();
+    expect(cleanPicture({ ...commons, thumbUrl: "https://thumb.wikimedia.org.evil.example/x.jpg" }, ownerId)).toBeNull();
     expect(cleanPicture({ ...commons, imageUrl: "javascript:alert(1)" }, ownerId)).toBeNull();
     expect(cleanPicture({ ...commons, pageUrl: "http://commons.wikimedia.org/x" }, ownerId)).toBeNull();
     expect(cleanPicture({ ...commons, licenceUrl: "javascript:x" }, ownerId)).toMatchObject({ licenceUrl: null });
