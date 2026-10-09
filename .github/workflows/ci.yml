@@ -48,7 +48,10 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       postgres:
-        image: postgres:18
+        # The official Postgres image from Amazon's public mirror of Docker Hub's library: Docker Hub
+        # limits anonymous downloads, and GitHub's shared runners hit that limit (#127, three failures
+        # on 2026-10-09: "toomanyrequests: You have reached your unauthenticated pull rate limit").
+        image: public.ecr.aws/docker/library/postgres:18
         env:
           POSTGRES_PASSWORD: postgres
         ports:
