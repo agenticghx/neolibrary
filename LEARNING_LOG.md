@@ -66,6 +66,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 76 | 2026-10-09 10:34 | Second review of One page / Two pages | The viewer names the page; the reader only drops a page that is not showing | `npm run build`; the two reader tests on the leftover database | success | do not keep a second writer of a fact the patched viewer already reports |
 | 79 | 2026-10-09 | See it thumbnails | A scaled Commons picture is blocked because its host is not in the page's image rule | `npx vitest run lib/csp.test.ts`; Playwright images project; a real thumbnail in the reader | success | the empty box was a blocked thumbnail, not a layout rule |
 | 80 | 2026-10-09 16:45 | PDF made voice (Part A) | Each word of an AI-voice paragraph in a PDF can be placed on its page the way an uploaded audiobook's words are | npm run check; full browser suite; 1 unit + 1 browser mutation; The Grid pages 22-25 by hand | success (one WebKit flake in the new test, cause removed) | a stale lit word at a paragraph change is not a new word |
+| 81 | 2026-10-09 22:20 | Row 14 (b) | The highlight tests can forgive a word only the machine skipped (no redraw while it was said) and still catch a real skip | 5 unit tests; full browser suite; a player that skips every fifth word | success | judge a skip by the redraws, not by the time it took |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2188,3 +2189,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held. My own analysis script made the same stale-word mistake on *The Grid* (page 22 looked all wrong); the lit words were right, one place behind the count.
 **Lesson.** When the audio moves to the next paragraph, the last word of the one before stays lit until the new first word is lit. A recorder that keys a word by the paragraph playing, not by the lit word changing, reports a whole paragraph as wrong.
 **Next experiment.** Merge and deploy; Samuel's live test on *The Grid* page 22 measures the pause at a page turn (Part B). Then Part A2 (labels), Part D (a PDF audiobook on the laptop).
+
+### Iteration 81 · 2026-10-09 22:20 · Open unknowns row 14, choice (b) · success
+
+**Hypothesis.** The Safari highlight test fails when a busy machine lets a short word pass between two redraws; nothing can light such a word. If the test records the audio's clock at every redraw, it can tell that case (no redraw while the word was said) from a real skip (the page redrew, and the player did not light the word), and forgive only the first.
+**Action.** `lib/player/highlight-check.ts` (`checkHighlight`) holds the rule; `e2e/listen.ts` `expectHighlightKeepsUp` (used by `e2e/safari.spec.ts:42` and `e2e/audio.spec.ts:139`) and the PDF made-voice test in `e2e/readalong.spec.ts` record every redraw and use it. A word lit later than 100 ms still fails.
+**Evaluation.** `npx vitest run lib/player/highlight-check.test.ts` → `Tests 5 passed (5)`. First full browser run in the worktree: `audio.spec.ts:139` and `safari.spec.ts:42` failed with "lit but not said next": my helper left out words lit in the last moments before the pause. Fixed (every word up to the last one lit is checked); second run → `311 passed (9.4m)`. A player built to skip every fifth word fails all three tests: `"Mr." (420-540 ms) was not lit, though the page redrew while it was said`, and the same for "on" and "reader".
+**Result.** The hypothesis held on the laptop. Whether it ends the re-runs on CI shows over the next pull requests: the pattern stays in `flaky-tests.txt` until the test has been quiet for a week.
+**Lesson.** A test that forgives must say exactly what it forgives, and a deliberate bug must still fail it. Judging by redraws keeps the forgiveness to what the machine caused.
+**Next experiment.** Watch CI's WebKit runs of the two tests; a failure now names a word that was redrawn over, which is a real skip.

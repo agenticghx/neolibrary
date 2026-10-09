@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page, type Route } from "@playwright/t
 import { unzipSync, zipSync } from "fflate";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { extractSections, type Section } from "@/lib/library/sections";
+import { checkHighlight } from "@/lib/player/highlight-check";
 import { LOOK_BACK_MS } from "@/lib/player/session";
 import { buildPackage, SECONDS_PER_CHAR } from "@/lib/readalong/fixture";
 import { SKIP_GAP_MS, WORD_TAIL_MS } from "@/lib/readalong/player";
@@ -1713,42 +1714,51 @@ test("a PDF is read aloud in a made voice: every word lit in order on its page, 
   const sectionOf = (src: string) => made.find((t) => decodeURIComponent(src.split("?")[0]) === `/api/files/${t.audioKey}`)?.sectionId ?? "";
   expect(new Set(frames.map((f) => f[0]).filter(Boolean).map(sectionOf)), "every audio played is one of the paragraphs").not.toContain("");
 
-  // The words in reading order, each with its paragraph and when the fake voice starts it (0.03 s per character).
-  const expected = ps.slice(0, upTo + 1).flatMap((p) => [...p.text.matchAll(/\S+/g)].map((m) => ({ sectionId: p.id, word: m[0], startMs: m.index! * 30 })));
-  // How far each paragraph's audio got: a word must have been shown if its paragraph played 120 ms past its start
-  // (a page number is a clip of a few hundredths of a second, and may end between two frames).
-  const reached = new Map<string, number>();
-  for (const f of frames) if (f[0]) reached.set(sectionOf(f[0]), Math.max(reached.get(sectionOf(f[0])) ?? 0, f[1] * 1000));
+  // Paragraph by paragraph, every word lit in order and on time; a word may be missing only if the page never redrew
+  // while it was said (lib/player/highlight-check.ts, Samuel's choice (b)): a page number is a clip of 0.03 s.
+  const played = ps.slice(0, upTo + 1);
   for (const col of [2, 3] as const) {
     const name = col === 2 ? "bar" : "book highlight";
-    // Each change of the word shown, with the frame it first showed on and the paragraph playing then. (When the next
-    // paragraph's audio starts, the last word of the one before stays lit until its first word: that is no new word.)
-    const seen: { sectionId: string; word: string; frame: (typeof frames)[number]; at: number }[] = [];
+    // Each change of the word shown, with the frame it first showed on. (When the next paragraph's audio starts, the
+    // last word of the one before stays lit until its first word: that is no new word.)
+    const changes: { src: string; word: string; frame: (typeof frames)[number]; at: number }[] = [];
     let last: string | null = null;
     frames.forEach((f, at) => {
       const word = f[col];
       if (!word) return;
-      if (word !== last && f[0]) seen.push({ sectionId: sectionOf(f[0]), word, frame: f, at });
+      if (word !== last && f[0]) changes.push({ src: f[0], word, frame: f, at });
       last = word;
     });
-    let k = 0;
-    for (const e of expected) {
-      const s = seen[k];
-      if (s && s.sectionId === e.sectionId && s.word === e.word) {
-        const late = s.frame[1] * 1000 - e.startMs;
-        expect(late, `${name}: "${e.word}" shown ${Math.round(late)} ms after it starts`).toBeLessThan(100);
-        expect(late, `${name}: "${e.word}" shown before it starts`).toBeGreaterThanOrEqual(-1);
-        if (col === 3) {
-          const soon = frames.slice(s.at).filter((f) => f[3] === e.word && sectionOf(f[0]) === e.sectionId && f[1] * 1000 < e.startMs + 100);
-          expect(soon.some((f) => f[4] === true), `"${e.word}" was not on the page on screen within 0.1 s`).toBe(true);
-        }
-        k++;
-      } else if (e.startMs <= (reached.get(e.sectionId) ?? -1) - 120) {
-        throw new Error(`${name}: "${e.word}" (${e.sectionId}) was due but not shown next; shown next: ${JSON.stringify(s && { word: s.word, sectionId: s.sectionId })}`);
+    let lit = 0;
+    played.forEach((p, i) => {
+      const srcs = new Set(frames.map((f) => f[0]).filter((src) => sectionOf(src) === p.id));
+      const starts = [...p.text.matchAll(/\S+/g)].map((m) => m.index! * 30);
+      const all = [...p.text.matchAll(/\S+/g)].map((m, j) => ({ word: m[0], startMs: starts[j], endMs: starts[j + 1] ?? p.text.length * 30 }));
+      const redraws = frames.filter((f) => srcs.has(f[0])).map((f) => f[1] * 1000);
+      const shown = changes.filter((c) => srcs.has(c.src));
+      // The paragraph being read when the audio was paused: only the words it got well past, and any lit since.
+      const until = i < played.length - 1 ? Infinity : Math.max(Math.max(...redraws) - 120, ...shown.map((c) => c.frame[1] * 1000));
+      const said = all.filter((w) => w.startMs <= until);
+      const result = checkHighlight(
+        said,
+        shown.map((c) => ({ word: c.word, atMs: c.frame[1] * 1000 })),
+        redraws,
+      );
+      expect(result.ok ? "ok" : result.reason, `${name}, ${p.id}`).toBe("ok");
+      if (!result.ok) return;
+      lit += result.lit;
+      if (col === 3) {
+        // Each lit word was on the page on screen within 0.1 s of when the voice started it.
+        const skipped = new Set(result.skipped.map((s) => s.startMs));
+        said
+          .filter((w) => !skipped.has(w.startMs))
+          .forEach((w, j) => {
+            const soon = frames.slice(shown[j].at).filter((f) => f[3] === w.word && srcs.has(f[0]) && f[1] * 1000 < w.startMs + 100);
+            expect(soon.some((f) => f[4] === true), `"${w.word}" (${p.id}) was not on the page on screen within 0.1 s`).toBe(true);
+          });
       }
-    }
-    expect(seen.slice(k).map((s) => s.word), `${name}: words shown that were not expected next`).toEqual([]);
-    expect(k, `${name}: words shown`).toBeGreaterThan(40);
+    });
+    expect(lit, `${name}: words lit`).toBeGreaterThan(40);
   }
   // Page 2's first word was lit with page 2 shown.
   const firstOn2 = frames.find((f) => sectionOf(f[0]) === page2[0].id && f[3] === page2[0].text.split(" ")[0]);
