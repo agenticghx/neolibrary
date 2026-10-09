@@ -17,7 +17,11 @@ export type PinnedPicture =
   | { source: "generated"; key: string; subject: string; model: string };
 
 const str = (v: unknown, max = 500) => (typeof v === "string" ? v.trim().slice(0, max) : "");
-const commonsImage = (u: string) => /^https:\/\/upload\.wikimedia\.org\/[^\s"'<>]+$/.test(u) || /^\/fake-images\/[a-z0-9-]+\.svg$/.test(u);
+// A scaled Commons thumbnail is served from thumb.wikimedia.org. A file that
+// needs no scaling stays on upload.wikimedia.org. Pin must accept the address
+// See it already shows, and no other site.
+const commonsImage = (u: string) =>
+  /^https:\/\/(?:upload|thumb)\.wikimedia\.org\/[^\s"'<>]+$/.test(u) || /^\/fake-images\/[a-z0-9-]+\.svg$/.test(u);
 const webPage = (u: string) => /^https:\/\/[^\s"'<>]+$/.test(u);
 
 /** Checks a picture from the browser before it is stored; null if it is not one the app can pin. */
