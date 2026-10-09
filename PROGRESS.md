@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Open the Spine fold pull request, merge it when the four checks are green, then deploy. Do not build Corner. Do not restart port 8733.
+next_action: The Spine fold is live as 44fd0e2. Samuel can try Two pages on a wide window. Corner waits. Do not restart port 8733.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09 12:49. Pull request 119 is merged and live as `0a70050`. Do not redo One page / Two pages. The Spine fold is committed on branch `pdf-spine`. The halfway picture shows a crease, with Leaf 4 on the gutter side and Leaf 5 on the outer side. Open the pull request. Merge with `train.sh` only when the four GitHub checks are green. Samuel asked to deploy after that. Confirm the newest migration before skipping a backup. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
+Written 2026-10-09 13:04. The Spine fold is live at https://web-production-f27a0e.up.railway.app as commit `44fd0e2`. Pull request 120 is merged. Do not redo One page / Two pages. On a wide window, open a PDF, choose Two pages, and click the right page. The sheet should fold and the words should stay readable. Corner waits. Do not build it yet. Do not restart port 8733. Do not start a whole-book narration.
 
 Spine is the turn: a straight crease from the outer edge to the gutter, clicked, only when two PDF pages are on screen. Corner waits. Do not build continuous scroll or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -143,6 +143,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 13:04 · Grok (laptop) · Deployed the Spine fold, main 44fd0e2
+- **Done:** Pull request 120 is merged. Squash commit 44fd0e2a98d5140b53b63bf57751bbfa036cd6e1. The four GitHub checks on 87fefac were green (run 37962013687) before the squash. Live site https://web-production-f27a0e.up.railway.app now reports commit 44fd0e2. Deployment 667158c6-ac9a-4798-bb93-42258cb08f30 succeeded. Sign-in returns 200. Import and Account redirect to sign-in. The newest migration is still 0022_api_token_expiry, on the live database and in the repo, so this deploy did not change the database and no new backup was taken. The host key was SHA256:+S1xg92FrnHz6pY3bpkmh1OGtWQGNANXilPzlxA7B1g.
+- **Key paths:** https://github.com/sahuno/neolibrary/pull/120; https://web-production-f27a0e.up.railway.app
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh 120 pdf-spine → MERGED #120 @ 87fefac, merge commit 44fd0e2, chain exit 0. ssh psql select id from _migrations order by id desc limit 1 → 0022_api_token_expiry. railway variable set NEOLIBRARY_COMMIT=44fd0e2a98d5140b53b63bf57751bbfa036cd6e1 --service web --environment production --skip-deploys. railway up --service web --environment production --ci → Deploy complete, DEPLOY_EXIT 0. curl /api/health → {"status":"ok","service":"neolibrary","commit":"44fd0e2"} HTTP 200. curl /sign-in → 200. curl /import and /account → 307 to /sign-in.
+- **Known issues / blockers:** Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). I did not click through a signed-in book on the live site.
+- **Exact next steps:** The Spine fold is live at https://web-production-f27a0e.up.railway.app as commit 44fd0e2. On a wide window, open a PDF, choose Two pages, and click the right page. The sheet should fold and the words should stay readable. Corner waits. Do not build it yet. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-09 12:49 · Grok (laptop) · Spine fold plays when two PDF pages are on screen
 - **Done:** The Spine fold is on branch pdf-spine. A click on the right PDF page folds the sheet onto the next pair. A click on the left page folds it back. Arrow keys and Previous/Next do the same. A drag that selects words does not turn the page. One page, a tall window, and an EPUB turn at once. Read aloud still uses goTo and skips the fold. The halfway picture shows a vertical shadow. Leaf 4 is on the gutter side of that shadow and Leaf 5 is on the outer side, and the words read the right way. The phone picture stays one page. The first halfway picture looked flat because the only mark was a white line on white paper. A unit test fails if the sheet rolls into a tube.

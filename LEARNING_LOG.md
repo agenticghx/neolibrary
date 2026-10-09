@@ -2159,3 +2159,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held on that run. A click on the right page lands on the next pair and a word there can be selected. A click on the left page returns. A drag selects words and does not turn. Read aloud's `goTo` does not play the fold. A 390-pixel-wide window stays on one page.
 **Lesson.** A white edge disappears on a white page. The shadow on the uncovered page is what shows the crease. A drag only selects when it starts on words, not in the gap between them.
 **Next experiment.** Open the pull request. Merge with the train only when the four GitHub checks are green. Samuel asked to deploy after that. Confirm the newest migration before skipping a backup. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
+
+### Iteration 78 · 2026-10-09 13:04 · Spine fold deployed · success
+
+**Hypothesis.** The merged Spine fold can go live without a database change, and the health page will name that commit.
+**Action.** Pull request 120 merged as `44fd0e2` after run 37962013687 was green. The newest migration on the live database was `0022_api_token_expiry`, the same as in the repo, so no backup was taken. Set `NEOLIBRARY_COMMIT` to `44fd0e2a98d5140b53b63bf57751bbfa036cd6e1`, then uploaded `main` from that commit.
+**Evaluation.** `railway up --service web --environment production --ci` wrote `Deploy complete` and `DEPLOY_EXIT:0`. Deployment `667158c6-ac9a-4798-bb93-42258cb08f30` status `SUCCESS`. `curl /api/health` returned `{"status":"ok","service":"neolibrary","commit":"44fd0e2"}` and HTTP 200. `/sign-in` returned HTTP 200. `/import` and `/account` returned HTTP 307 to `/sign-in`.
+**Result.** The live site is commit `44fd0e2`. The fold itself was checked before the merge, in `/tmp/spine-pw4.log` (`2 passed (10.8s)`). I did not click through a book on the live site, because that needs a signed-in reader.
+**Lesson.** A reader-only deploy still needs the live migration id checked. When it matches the repo, the backup step stays unused.
+**Next experiment.** Samuel can open a PDF on the live site, choose Two pages on a wide window, and click the right page. Corner waits. Do not start a whole-book narration.
