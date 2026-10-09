@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 124 lets Pin keep a scaled Wikimedia thumbnail. The type error is fixed. Merge when the four checks are green, then deploy. Spine whitespace is later. Do not build Corner.
+next_action: Pin of a scaled Wikimedia thumbnail is live at commit 2eb6c28. Try it on the NREL logo. Spine whitespace is later. Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09. See it is live at https://web-production-f27a0e.up.railway.app as commit bda2e7e. A scaled Wikimedia thumbnail loads. Pin to the passage still fails on the live site for those thumbnails: the pin checker only accepted upload.wikimedia.org. The fix is pull request 124 (https://github.com/sahuno/neolibrary/pull/124), branch m9-pin-thumb-host. It is not merged or deployed. After it is deployed, pin the NREL logo, reload, and open it from Notes and from the mark on the sentence. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
+Written 2026-10-09. See it and Pin are live at https://web-production-f27a0e.up.railway.app as commit 2eb6c28 (pull request 124). A scaled Wikimedia thumbnail can be pinned. Select a phrase, open See it, press Pin to the passage, reload, and open the picture from Notes and from the mark on the sentence. I did not sign in and press Pin on the live site. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
 
 Spine is the turn: a straight crease from the outer edge to the gutter, clicked, only when two PDF pages are on screen. Corner waits. Do not build continuous scroll or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -143,6 +143,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 15:21 · Grok · Deployed the pin fix, main 2eb6c28
+- **Done:** Pull request 124 is merged. Squash commit 2eb6c285d79da482d17e213c03ee3789e998e664. The four GitHub checks on run 37978291690 were green before the squash. Live site https://web-production-f27a0e.up.railway.app now reports commit 2eb6c28. Deployment 7471783e-343d-425a-84e1-71ec3c17411f reached SUCCESS. Sign-in returns 200. The newest migration is still 0022_api_token_expiry, in the repo and unchanged by this fix, so no new backup was taken. I did not sign in and press Pin on the live site.
+- **Key paths:** https://github.com/sahuno/neolibrary/pull/124; https://web-production-f27a0e.up.railway.app
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh 124 m9-pin-thumb-host → MERGED #124 @ 393500e, merge commit 2eb6c28, TRAIN_EXIT:0. railway variable set NEOLIBRARY_COMMIT=2eb6c285d79da482d17e213c03ee3789e998e664 --service web --environment production --skip-deploys. railway up --service web --environment production --ci → Deploy complete, exit 0. railway deployment list → 7471783e SUCCESS. curl /api/health → {"status":"ok","service":"neolibrary","commit":"2eb6c28"} HTTP 200. curl /sign-in → HTTP 200.
+- **Known issues / blockers:** Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). I did not click Pin on a signed-in book on the live site. Spine whitespace is later.
+- **Exact next steps:** Pin is live at commit 2eb6c28. Select a phrase, open See it, and press Pin to the passage on a scaled thumbnail such as the NREL logo. Reload, then open it from Notes and from the mark on the sentence. Do not change the Spine fold. Do not build Corner. Do not start a whole-book narration.
 
 ### 2026-10-09 15:09 · Grok · The pin test names the thumbnail only after the picture is known to be from Wikimedia
 - **Done:** CI on pull request 124 failed the type check (run 37977756036). The new assertion read thumbUrl on a picture that might be a generated file, which has no thumbnail address. The test now checks the source first. npx tsc --noEmit exited 0, and the five pin tests passed again. The browser job died on the same type check (Failed to type check), so it should start once this is pushed.
