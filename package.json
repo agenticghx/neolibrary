@@ -6,8 +6,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "predev": "node scripts/copy-pdfjs.mjs",
-    "prebuild": "node scripts/copy-pdfjs.mjs",
+    "postinstall": "node scripts/patch-foliate-fxl.mjs",
+    "predev": "node scripts/copy-pdfjs.mjs && node scripts/patch-foliate-fxl.mjs",
+    "prebuild": "node scripts/copy-pdfjs.mjs && node scripts/patch-foliate-fxl.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",

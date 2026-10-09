@@ -61,6 +61,9 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 71 | 2026-10-08 22:12 | B4 Account | An Account page, disabling a reader, and API tokens that expire after 90 days | `npm run check`; Playwright `--project=shell --ignore-snapshots` | success (CI screenshots still to refresh) | the screenshot projects run before any reader exists; the shell project runs after |
 | 72 | 2026-10-08 22:40 | B4 screenshots | CI's first browser job fails only the pixel comparison, and the new images are the page we built | run 37852607386; looked at Account, Invite, Agent access, Home, and the design page | success (behaviour tests still to run) | a new sidebar link changes every signed-in desktop image; phone changes only where the page's own text changed |
 | 73 | 2026-10-08 22:36 | B4 merge | The second browser job passes, including the tests that did not run the first time, and the pull request merges | run 37853536318; `gh pr view 117` | success | auto-merge squashes once the four checks are green; a backup still has to come before the deploy |
+| 74 | 2026-10-09 09:17 | One page or Two pages | One saved choice drives a PDF and a reflowable book; a tall window stays on one page | `npm run check`; reader Playwright project, then the fixed test alone | success | wait until a PDF page is drawn before pressing Next; this Playwright ignores a timeout written on the test itself |
+| 75 | 2026-10-09 10:13 | Review of One page / Two pages | A tall window stays on the page it is showing, and a failed reopen can be tried again | `npm run check`; the two reader tests on the leftover database | success | a fix in an installed package has to run after install; a column's width is not how many columns there are |
+| 76 | 2026-10-09 10:34 | Second review of One page / Two pages | The viewer names the page; the reader only drops a page that is not showing | `npm run build`; the two reader tests on the leftover database | success | do not keep a second writer of a fact the patched viewer already reports |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -69,6 +72,20 @@ Iterations 38 to 59 have no row in this index (the sessions that wrote them did 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
+- **Do not keep a second writer of a fact another piece already reports**
+  (Iteration 76). The patched viewer names the PDF page on screen. The
+  reader only drops an address for a page that is not showing.
+- **A fix inside an installed package has to run again after install**
+  (Iteration 75). foliate-js comes from npm. Editing `node_modules` alone
+  disappears on the next install. The script is
+  `scripts/patch-foliate-fxl.mjs`, run from `postinstall`, `predev`, and
+  `prebuild`. If the next version of that file does not contain the old
+  text, the script stops instead of pretending the fix is in.
+- **The width of a column is not the number of columns** (Iteration 75).
+  After Scroll, the viewer's column count can stay at 2, and one column
+  about 680px wide is more than half of a 1152px window. The document's
+  own `column-width` is `auto` for one scrolling column. Read it with
+  that document's window.
 - **A page that asks the server again and again needs three rules**
   (Iterations 63-64). Never replace a request still on its way (wait for
   it, with a time limit); show and send only answers about what the person
@@ -2106,3 +2123,30 @@ tests that pin it, in a small PR.
 **Result.** All four checks passed. Browser tests 8 min 37 s, lint 7 min 22 s, Postgres 1 min 0 s, the ledger check 15 s. Auto-merge squashed the pull request at 2026-10-08 22:35 UTC. The commit on `main` is `de68330`. The live site was not deployed. Health on the live site was last read as commit `8f8a1a8` before this merge.
 **Lesson.** The first red browser job was the screenshot comparison. The second run, with CI's own images, went green, including the behaviour tests.
 **Next experiment.** A later session takes a backup of the live database, then deploys `main` `de68330`. Migration 0022 runs when the server starts, so the backup comes first. Do not start a whole-book narration.
+
+### Iteration 74 · 2026-10-09 09:17 · One page or Two pages · success
+
+**Hypothesis.** One saved choice, One page or Two pages, can drive both a PDF and a reflowable book. The default stays one page. On a wide window, Two pages shows two pages and the words can be selected. A 390-pixel-wide window stays on one page. Scroll stays one column. The choice survives a reload and applies to the next book. The Spine fold is not in this change.
+**Action.** `pages` on the device settings (`neolibrary.reader.v1`), default `one`. A reflowable book sets `max-column-count` to `2` only when the book is showing pages and Two pages is chosen. A PDF opens with spread `landscape` for Two pages and `none` for One page, and reopens on the same page when the choice changes. `npm run check`. Playwright project `reader` on a fresh database, then the two-pages test again after the picture loop was fixed.
+**Evaluation.** `npm run check` at 05:14:53 local: lint and types clean, `Tests 546 passed | 2 skipped (548)`, exit 0. `npx playwright test e2e/reader.spec.ts --project=reader --ignore-snapshots` on a fresh database: `181 passed, 1 failed` (1.6m). The failure was the PDF picture loop: Next was pressed before the pages were drawn, so a four-page PDF walked to its last single page (`100% read`) and then stayed on one page. After the loop waits until a page is drawn, `npx playwright test e2e/reader.spec.ts --project=reader --grep "two pages is a reading setting" --no-deps --ignore-snapshots` → `1 passed (4.7s)`. Pictures: EPUB and PDF, desktop and phone, light and dark, plus the settings panel. A later isolated rerun of "a book opens on one page" failed only because that leftover database already contained Facing Pages (`Already in your library`). That test had passed in the fresh-database run.
+**Result.** The hypothesis held on the checks above. A wide window shows two pages for the EPUB and for the PDF. A 390-pixel-wide window shows one. The words on the pages that are showing can be selected. The choice is still Two pages after a reload, and the next book (the PDF) opens in that mode.
+**Lesson.** Wait until a PDF page is actually drawn before pressing Next. Pressing it while the count is still zero turns a page that is not on screen yet. Also, Playwright 1.56.1 ignores `timeout` written on the test itself; the time limit has to be set on the group with `test.describe.configure`.
+**Next experiment.** After this pull request merges, branch `pdf-spine` builds the Spine fold. Corner waits. Do not restart port 8733. Do not deploy.
+
+### Iteration 75 · 2026-10-09 10:13 · Review of One page / Two pages · success
+
+**Hypothesis.** The six review findings are real, and fixing them keeps a tall window on the page it is showing. A late report from a renderer that has already been closed does not replace that page. A failed reopen can be tried again. The one-page check still runs when the PDF is already in the library. Scroll is judged by the layout, not by the button's attribute.
+**Action.** foliate-js is only installed, so `scripts/patch-foliate-fxl.mjs` rewrites the two spots in `fixed-layout.js` on install and before dev and build. The reader rewrites a one-page event to the page on screen, swallows a relocate from the closed renderer, and records the opened spread only after the book has opened again. `fixedBook`, `reopenGen`, and `alive` are gone. `openSpread` and `heldCfi` stay: without them Issue 3 cannot hold. The one-page test uses `openFacingPdf`. `sidesShowing` reads the document's `column-width`.
+**Evaluation.** `npm run check` at 05:59:21 local: `Tests 548 passed | 2 skipped (550)`, exit 0. Then `npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots` on the leftover database.
+**Result.** `2 passed (6.2s)`. The one-page test was 1.1s (Facing Pages already on the shelf). The two-pages test was 4.7s, including Scroll as one column and a 390×844 reload that stays on leaf 1. An earlier fresh-database run passed the one-page test in 1.6s (the upload). In that run the two-pages test failed only because a width span called one scrolled column two columns.
+**Lesson.** Do not edit `node_modules` and call it done. And do not treat the width of a scrolled column as a second column.
+**Next experiment.** Leave this pull request open until the four GitHub checks are green, then merge. After that, branch `pdf-spine` from `origin/main`. Do not build the fold here. Do not restart port 8733. Do not deploy.
+
+### Iteration 76 · 2026-10-09 10:34 · Second review of One page / Two pages · success
+
+**Hypothesis.** The reader does not need to build a PDF address. The patched viewer already names the page on screen. Dropping an address for a page that is not showing is enough, and the tall-window reload still opens leaf 1.
+**Action.** Deleted the rewrite in the relocate handler. `heldCfi` and `pdfDocsOnScreen` stay. No helper. The page-count check's renderer type was missing `localName`, which stopped `npm run build`, so that property is on the type. The measure is unchanged.
+**Evaluation.** `npm run build` after the type fix: TypeScript finished in 1360ms, exit 0. Then `npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots` on the leftover database, against a server built from this change.
+**Result.** `2 passed (6.4s)`. One page 1.4s. Two pages 4.5s, including the 390×844 reload that stays on leaf 1.
+**Lesson.** Do not keep a second writer of a fact the patched viewer already reports. A type the build checks has to name every property the test reads, or CI fails before the browser starts.
+**Next experiment.** Leave this pull request open until the four GitHub checks are green, then merge. After that, branch `pdf-spine` from `origin/main`. Do not build the fold here. Do not restart port 8733. Do not deploy.

@@ -230,6 +230,14 @@ network returns):
   `CFI.compare`/`collapse`, never as strings. The reader opens at a
   paragraph's CFI, not at a bare chapter CFI (`epubcfi(/6/14)` puts the
   reader in an error state).
+- **foliate-js is installed, not copied into this repo.** Two mistakes in
+  its fixed-layout reader (`fixed-layout.js` 1.0.1) report the right-hand
+  page of a pair, so a tall window reloads onto the hidden page.
+  `scripts/patch-foliate-fxl.mjs` rewrites those two spots after `npm install`
+  and again before `dev` and `build`. Do not edit `node_modules` and call it
+  done. A scrolled EPUB is one column when the document's `column-width` is
+  `auto`. The viewer's `columnCount` can stay at 2, and the width of that
+  column is not a second column.
 - A "negative" test page may legitimately match: the "rugged countenance"
   page mentions Utterson and the lawyer too. Use invented text for "no match".
 - Controlled UI state: a checkbox or button whose state only changes after a

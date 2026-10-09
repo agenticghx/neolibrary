@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 117 is merged as main de68330. Do not deploy until a backup is taken; migration 0022 runs when the server starts. Live site stays main 8f8a1a8. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
+next_action: After pdf-two-page merges, start the Spine fold on branch pdf-spine from origin/main. Do not build Corner. Do not restart port 8733. Do not deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-08
+updated: 2026-10-09
 shared_copy: none
 ---
 
@@ -19,17 +19,13 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-08 18:36 local, for the next session. Pull request 117 is merged. Squash commit `de68330` on `main`, 2026-10-08 22:35 UTC. The four checks were green on run 37853536318 (head `361816e`): lint 7 min 22 s, Postgres 1 min 0 s, the ledger check 15 s, the browser job 8 min 37 s. No test was skipped or weakened. `e2e/safari.spec.ts` was not changed.
+Written 2026-10-09. Pull request 119 is branch `pdf-two-page`. Reading settings has One page and Two pages for every book the reader opens. Both reviews of that pull request are addressed on the branch. A tall window stays on the page it is showing. The reader does not build a second address for that page; the installed viewer names it, and an address for a page that is not showing is dropped. A failed reopen can be tried again. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart the prototype server on port 8733. Do not deploy. Do not start a whole-book narration. Do not build the Spine fold until this branch has merged.
 
-The live site is still `main` `8f8a1a8` (Railway deployment `8b5582f2`). The last health read, before this merge, returned `commit` `8f8a1a8`. Do not start a whole-book narration.
+After `pdf-two-page` merges, the next step is the Spine fold on a new branch named `pdf-spine`, started from `origin/main`. Spine is the turn to build: the vertical fold from the outer edge to the gutter. Corner waits. Do not build Corner, continuous scroll on the single page, or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not port `deform.js`. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
-**What merged.** Account at `/account` (change password; sign out of other sessions), Disable and Enable on Invite, and API tokens that expire 90 days after they are made. Migration 0022 adds `expires_at` and has a reverse step. Tokens that already exist get `created_at` plus 2160 hours.
+The Account page is merged and not deployed. `main` includes `de68330`. The live site was still `8f8a1a8`. When that deploy happens, back up the live database first, because migration 0022 runs when the server starts. The recipe is in `docs/handoff.md`.
 
-What to do next:
-
-1. Take a backup of the live database before any deploy. The server runs migrations when it starts, so a deploy of `de68330` runs migration 0022. The recipe is in `docs/handoff.md`: `pg_dump` inside Railway's Postgres, through `ssh` (the address comes from `railway ssh config --service Postgres --dry-run`), streamed to `~/Backups/neolibrary/`, then a restore check into a local Postgres. Do not open a public address for the database.
-2. After that backup checks out, deploy `main` `de68330`. Set `NEOLIBRARY_COMMIT` to the full commit with `--skip-deploys` before `railway up --service web --environment production --ci`. Then read `/api/health` and confirm the commit. A laptop upload does not set Railway's own commit variable, so the health check reads `NEOLIBRARY_COMMIT`.
-3. Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
+Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The defaults already apply: do not make every paid paragraph wait its turn; never call ElevenLabs for a whole book until Samuel explicitly says so; keep `e2e/safari.spec.ts`.
 
 **Left unsettled.** Do not change these without a check: whether Railway lets a visitor spoof `X-Forwarded-For` (sign-in uses the first address; a 50-per-email limit is the backstop); whether `SETUP_CODE` is set on Railway (setup already refuses once an account exists, and production has one).
 
@@ -147,6 +143,69 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 06:34 · Grok (laptop) · The viewer names the page on screen
+- **Done:** The second review of pull request 119 is addressed on pdf-two-page. The reader no longer builds a second PDF address from the frame page number. The installed viewer already names the page on screen. An address for a page that is not showing is dropped. heldCfi and pdfDocsOnScreen stay. No helper was added. The page-count check now tells the type checker the renderer element name, which npm run build required. The measure is unchanged.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; LEARNING_LOG.md; PROGRESS.md
+- **Commands that worked:** npm run build → TypeScript finished in 1360ms, exit 0. npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots → 2 passed (6.4s): one-page 1.4s, two-pages 4.5s.
+- **Known issues / blockers:** Do not merge from this step. Do not deploy. Do not restart port 8733. Do not build the Spine fold in this pull request.
+- **Exact next steps:** Both reviews of pull request 119 are addressed on pdf-two-page. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart port 8733. After the branch merges, start pdf-spine from origin/main. Do not build Corner. Do not deploy. Do not start a whole-book narration.
+
+### 2026-10-09 06:15 · Grok (laptop) · A tall window stays on the page it is showing
+- **Done:** The review of pull request 119 is addressed on pdf-two-page. A tall window with Two pages on stays on the page that is showing, including after a reload. foliate-js is only installed, so scripts/patch-foliate-fxl.mjs rewrites the two spots that reported the other page of a pair. It runs after install and before dev and build. The reader also rewrites a one-page event to the page on screen, ignores a late report from a renderer that has already been closed, and records the opened spread only after the book has opened again, so a failed reopen can be tried again. fixedBook, reopenGen, and alive are gone. The one-page check still runs when Facing Pages is already in the library. Scroll is judged by the document column width, not by the button attribute.
+- **Key paths:** scripts/patch-foliate-fxl.mjs; lib/reader/foliate-fxl-patch.test.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; package.json; LEARNING_LOG.md; docs/handoff.md; PROGRESS.md
+- **Commands that worked:** npm run check (05:59:21) → Tests 548 passed | 2 skipped (550), exit 0. npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots → 2 passed (6.2s): one-page 1.1s, two-pages 4.7s.
+- **Known issues / blockers:** Do not merge from this step. Do not deploy. Do not restart port 8733. Do not build the Spine fold in this pull request.
+- **Exact next steps:** The review of pull request 119 is addressed on pdf-two-page. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart port 8733. After the branch merges, start pdf-spine from origin/main. Do not build Corner. Do not deploy. Do not start a whole-book narration.
+
+### 2026-10-09 05:17 · Grok (laptop) · One page or Two pages for every book
+- **Done:** Reading settings has One page and Two pages for every book the reader opens, not only a PDF. The choice is saved on this device with the other reading settings (localStorage key neolibrary.reader.v1). The default is One page. Two pages shows two pages side by side on a wide window. A window taller than it is wide stays on one page. Scroll stays one column. A PDF still ignores text size, line spacing, and typeface. Changing the choice keeps the place. This pull request does not include the Spine fold. Spine is the turn to build next. Corner waits.
+- **Key paths:** app/(reader)/books/[id]/read/settings.ts; app/(reader)/books/[id]/read/settings.test.ts; app/(reader)/books/[id]/read/Reader.tsx; lib/reader/pdf-book.ts; lib/reader/pdf-book.test.ts; e2e/reader.spec.ts; LEARNING_LOG.md; PROGRESS.md
+- **Commands that worked:** npm run check (05:14:53) → lint and types clean, Tests 546 passed | 2 skipped (548), exit 0. npx playwright test e2e/reader.spec.ts --project=reader --grep "two pages is a reading setting" --no-deps --ignore-snapshots → 1 passed (4.7s). The earlier full reader project on a fresh database was 181 passed, 1 failed; the failure was the PDF picture loop, fixed before the passing rerun. That full run included "a book opens on one page, for an EPUB and for a PDF".
+- **Known issues / blockers:** Do not deploy. Do not narrate a whole book. Do not restart port 8733. Do not build the fold, Corner, scroll, or dragging in this pull request. A later isolated rerun of the one-page test failed only because the leftover e2e database already had Facing Pages (the page said Already in your library). On a fresh database that test passed in the full reader run.
+- **Exact next steps:** After this pull request merges, start branch pdf-spine from origin/main and build the Spine fold. Do not build Corner. Do not restart port 8733. Do not deploy. Do not redo the One page / Two pages work.
+
+### 2026-10-09 04:39 · Grok (laptop) · Checkpoint: Spine is the turn to build
+- **Done:** Handoff written. The two-pull-request plan is approved. Reader code has not started. The prototype server on port 8733 was killed and must not be restarted.
+- **Key paths:** docs/handoffs/2026-10-09-0436-spine-page-turn.md; lib/reader/pdf-book.ts; app/(reader)/books/[id]/read/settings.ts; /tmp/neolibrary-page-turns/deform.js
+- **Commands that worked:** date +%Y-%m-%d-%H%M; git status --short --branch → 2026-10-09-0438, branch m14-ledger-b4-merged, only M PROGRESS.md. The handoff folder is gitignored.
+- **Known issues / blockers:** Do not deploy. Do not narrate a whole book. Do not restart port 8733. Do not build Corner, scroll, or the fold in pull request 1. PROGRESS.md was already dirty on m14-ledger-b4-merged.
+- **Exact next steps:** 1. Read the handoff and start branch pdf-two-page from origin/main. Keep the uncommitted PROGRESS.md text. 2. Pull request 1 only: PDF Reading settings get One page and Two pages, default One page; a tall window stays one page. 3. Tests and Playwright pictures, phone and desktop, light and dark. 4. After that merges, branch pdf-spine for the fold. 5. Do not build Corner, scroll, or dragging.
+
+### 2026-10-09 04:03 · Grok (laptop) · Samuel says the Spine turn looks ok
+- **Done:** Samuel said the Spine page turn looks ok (2026-10-09). That is the vertical fold from the outer edge to the gutter, clicked, with the book facing him. Nothing was added to the PDF reader. The other five prototypes are still up.
+- **Key paths:** PROGRESS.md
+- **Commands that worked:** none
+- **Known issues / blockers:** Do not build the turn into the reader until Samuel says Spine is the one. Do not deploy. Do not start a whole-book narration.
+- **Exact next steps:** Wait for Samuel to say whether Spine is the turn to keep, or whether he wants another of the six, or a mix. The prototypes stay at http://127.0.0.1:8733/.
+
+### 2026-10-08 22:38 · Grok (laptop) · The open book faces the reader
+- **Done:** The six prototypes no longer lie flat on a table. The spread stands upright and faces the camera. Text reads the right way up on a desktop window and on a 390-pixel-wide window. A click still advances the spread. Playwright on Spine: rest and mid-turn screenshots, then one click moved the spread from 0 to 1.
+- **Key paths:** /tmp/neolibrary-page-turns/shared.js
+- **Commands that worked:** curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8733/spine.html
+- **Known issues / blockers:** Refresh the open page. The prototypes are only in /tmp. Do not deploy. Do not start a whole-book narration.
+- **Exact next steps:** Samuel clicks through the six turns at http://127.0.0.1:8733/ and says which one, or which mix. Do not add a turn to the PDF reader until he picks.
+
+### 2026-10-08 22:15 · Grok (laptop) · A click turns the page
+- **Done:** The six prototypes at http://127.0.0.1:8733/ no longer use a drag. A click on the page plays the turn. A second click during the turn does nothing. After the turn, another click advances again. Playwright on Spine: the first click moved spread 0 to 1, the next click moved it to 2. No page error.
+- **Key paths:** /tmp/neolibrary-page-turns/shared.js, /tmp/neolibrary-page-turns/index.html
+- **Commands that worked:** curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8733/spine.html
+- **Known issues / blockers:** Refresh the open page to load the click. The prototypes are only in /tmp. Do not deploy. Do not start a whole-book narration.
+- **Exact next steps:** Samuel clicks through the six turns at http://127.0.0.1:8733/ and says which one, or which mix. Do not add a turn to the PDF reader until he picks.
+
+### 2026-10-08 20:47 · Grok (laptop) · Six page-turn prototypes, none of them a tube
+- **Done:** Built six drag prototypes in /tmp/neolibrary-page-turns and served them at http://127.0.0.1:8733/. Spine, corner, fan, narrow, wave, and card. A short drag falls back. A drag past the middle finishes the turn and advances the spread. Checked with Playwright: release(0.2) stayed on spread 0; release(0.75) advanced to spread 1; a real mouse drag finished the turn. Screenshots at rest and mid-drag, desktop and phone. No page rolls into a tube. The words on the flat part of the sheet stay readable. Not added to the reader. Not committed. Not deployed.
+- **Key paths:** /tmp/neolibrary-page-turns/ (index.html, spine.html, corner.html, fan.html, narrow.html, wave.html, card.html, shared.js, deform.js)
+- **Commands that worked:** curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8733/
+- **Known issues / blockers:** The corner's turned triangle sits at an angle, so those few words are harder to read than the rest of the page. The prototypes are only in /tmp and disappear on a reboot. Do not deploy. Do not start a whole-book narration.
+- **Exact next steps:** Samuel drags the six turns at http://127.0.0.1:8733/ and says which one, or which mix. Do not add a turn to the PDF reader in this step. The Account deploy stays later: backup the live database first, then deploy current main.
+
+### 2026-10-08 19:57 · Grok (laptop) · Checkpoint: six readable page turns, not a rolled tube
+- **Done:** Samuel rejected the page-turn prototype that rolls the sheet into a tube. He asked for six other prototypes before clearing context. The plan is docs/handoffs/2026-10-08-1956-page-turn-prototypes.md. No app code was changed. The Account deploy is still waiting on a backup. The live site was still main 8f8a1a8.
+- **Key paths:** docs/handoffs/2026-10-08-1956-page-turn-prototypes.md
+- **Commands that worked:** date +%Y-%m-%d-%H%M; git status --short --branch
+- **Known issues / blockers:** Do not extend /tmp/neolibrary-page-curl/index.html. A tight cylinder fails the test, because the words wrap around a tube. Do not deploy. Do not start a whole-book narration.
+- **Exact next steps:** 1. Build the six drag prototypes in /tmp/neolibrary-page-turns/ from the handoff: spine, corner, fan, narrow, wave, card. 2. Screenshot each at rest and mid-drag and reject any page that rolls into a tube. 3. Open the index and stop for Samuel to pick. 4. The Account deploy stays later: backup first, then deploy current main.
 
 ### 2026-10-08 18:37 · Grok (laptop) · Pull request 117 merged after the four checks passed
 - **Done:** Pull request 117 merged. Squash commit on main is de68330, at 2026-10-08 22:35 UTC. The four checks on head 361816e were green. Run 37853536318: lint 7 min 22 s, Postgres 1 min 0 s, the ledger check 15 s, the browser job 8 min 37 s. gh pr checks 117 showed all four pass. No test was skipped or weakened. e2e/safari.spec.ts was not changed.

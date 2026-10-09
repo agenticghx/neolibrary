@@ -51,7 +51,16 @@ export const TEXT_LAYER_EVENT = "nl-textlayer";
 type TocItem = { label: string; href: string; subitems: TocItem[] | null };
 type OutlineItem = { title: string; dest: unknown; items: OutlineItem[] };
 
-export async function makePdfBook(file: Blob) {
+/**
+ * Foliate reads this when the fixed-layout renderer opens.
+ * "landscape" pairs facing pages. It is not "both" or "portrait", so a window
+ * taller than it is wide still shows one page.
+ */
+export function spreadForPages(pages: "one" | "two"): "none" | "landscape" {
+  return pages === "two" ? "landscape" : "none";
+}
+
+export async function makePdfBook(file: Blob, pages: "one" | "two" = "one") {
   // The legacy build supports today's browsers (the modern one needs very new JavaScript).
   const pdfjsLib: Pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
@@ -268,8 +277,7 @@ ${TEXT_LAYER_CSS}${SPOKEN_CSS}</style>
   const cache = new Map<number, Awaited<ReturnType<typeof pageDoc>>>();
 
   return {
-    // One centred page at a time (no two-page spreads).
-    rendition: { layout: "pre-paginated", spread: "none" },
+    rendition: { layout: "pre-paginated", spread: spreadForPages(pages) },
     metadata: { title: info?.Title, author: info?.Author },
     toc: outline.map(makeTocItem),
     sections: Array.from({ length: pdf.numPages }, (_, i) => ({
