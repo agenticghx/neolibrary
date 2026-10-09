@@ -64,6 +64,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 74 | 2026-10-09 09:17 | One page or Two pages | One saved choice drives a PDF and a reflowable book; a tall window stays on one page | `npm run check`; reader Playwright project, then the fixed test alone | success | wait until a PDF page is drawn before pressing Next; this Playwright ignores a timeout written on the test itself |
 | 75 | 2026-10-09 10:13 | Review of One page / Two pages | A tall window stays on the page it is showing, and a failed reopen can be tried again | `npm run check`; the two reader tests on the leftover database | success | a fix in an installed package has to run after install; a column's width is not how many columns there are |
 | 76 | 2026-10-09 10:34 | Second review of One page / Two pages | The viewer names the page; the reader only drops a page that is not showing | `npm run build`; the two reader tests on the leftover database | success | do not keep a second writer of a fact the patched viewer already reports |
+| 79 | 2026-10-09 | See it thumbnails | A scaled Commons picture is blocked because its host is not in the page's image rule | `npx vitest run lib/csp.test.ts`; Playwright images project; a real thumbnail in the reader | success | the empty box was a blocked thumbnail, not a layout rule |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2168,3 +2169,12 @@ tests that pin it, in a small PR.
 **Result.** The live site is commit `44fd0e2`. The fold itself was checked before the merge, in `/tmp/spine-pw4.log` (`2 passed (10.8s)`). I did not click through a book on the live site, because that needs a signed-in reader.
 **Lesson.** A reader-only deploy still needs the live migration id checked. When it matches the repo, the backup step stays unused.
 **Next experiment.** Samuel can open a PDF on the live site, choose Two pages on a wide window, and click the right page. Corner waits. Do not start a whole-book narration.
+
+### Iteration 79 · 2026-10-09 · See it thumbnails · success
+
+**Hypothesis.** See it draws a broken icon because a scaled Wikimedia thumbnail comes from `thumb.wikimedia.org`, and the page's image rule only names `upload.wikimedia.org`. The width and height on the picture do not, by themselves, clip the credit.
+**Action.** Allowed `https://thumb.wikimedia.org` next to the upload host. Left the panel's layout alone. A test locks the image rule to those two hosts and no others.
+**Evaluation.** `npx vitest run lib/csp.test.ts` → `Tests 2 passed (2)`, exit 0. eslint on the three changed files and `npx tsc --noEmit` were in the same command, which exited 0. `npx playwright test e2e/images.spec.ts --project=images --ignore-snapshots` → `217 passed (2.2m)`. Against that server, a script put the live NREL chart into the real panel: natural width 500, drawn 302 by 151, the panel did not scroll sideways, the hint was not clipped, the credit was on the card, and Escape closed the panel. Looked at `screenshots/seeit-real-desktop-light.png`, `screenshots/seeit-real-desktop-dark.png`, `screenshots/seeit-real-phone-light.png`, and `screenshots/seeit-real-phone-dark.png`: the chart is in the panel in all four, with the credit under it.
+**Result.** The hypothesis held. A small original on `upload.wikimedia.org` already loaded. The scaled chart did not, until the thumbnail host was allowed.
+**Lesson.** The empty box was a blocked thumbnail. The cut-off sentence in the meeting screenshot was the meeting frame: without it, the same sentence wraps inside the panel.
+**Next experiment.** Merge when the four GitHub checks are green, then deploy that merge. Do not change the Spine fold. Do not build Corner. Do not start a whole-book narration.

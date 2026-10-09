@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: The Spine fold is live as 44fd0e2. Samuel can try Two pages on a wide window. Corner waits. Do not restart port 8733.
+next_action: Merge the See it thumbnail fix when the four GitHub checks are green, then deploy that merge. Do not change the Spine fold.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09 13:04. The Spine fold is live at https://web-production-f27a0e.up.railway.app as commit `44fd0e2`. Pull request 120 is merged. Do not redo One page / Two pages. On a wide window, open a PDF, choose Two pages, and click the right page. The sheet should fold and the words should stay readable. Corner waits. Do not build it yet. Do not restart port 8733. Do not start a whole-book narration.
+Written 2026-10-09. See it can load a scaled Wikimedia thumbnail. The fix is on `m9-see-it-panel`. Merge with `train.sh` only when the four GitHub checks are green, then deploy that merge. Do not deploy from this branch. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
 
 Spine is the turn: a straight crease from the outer edge to the gutter, clicked, only when two PDF pages are on screen. Corner waits. Do not build continuous scroll or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -29,7 +29,7 @@ Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The def
 
 **Left unsettled.** Do not change these without a check: whether Railway lets a visitor spoof `X-Forwarded-For` (sign-in uses the first address; a 50-per-email limit is the backstop); whether `SETUP_CODE` is set on Railway (setup already refuses once an account exists, and production has one).
 
-**Still later, not this work.** The Kuhn word-match follow-up, S6, and skills K1–K3 are in `docs/readalong-plan.md`. A rate limit on `/api/agent/*` is still only a note.
+**Still later, not this work.** Samuel may want less whitespace in the Spine fold (2026-10-09); not essential. The Kuhn word-match follow-up, S6, and skills K1–K3 are in `docs/readalong-plan.md`. A rate limit on `/api/agent/*` is still only a note.
 
 ## Waiting on Samuel
 
@@ -143,6 +143,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 · Grok (laptop) · See it loads a scaled Wikimedia thumbnail
+- **Done:** See it was drawing a broken icon and an empty box. Commons serves a scaled thumbnail from `thumb.wikimedia.org`, and the page only allowed pictures from `upload.wikimedia.org`, so the browser blocked the thumbnail. A file small enough to need no scaling was already allowed, and that one did load. With the thumbnail host allowed, the same panel shows the picture at the panel's width (302 by 151 for a 480 by 240 thumbnail), the hint wraps, and the credit stays on the card. The cut-off lines in Samuel's screenshot stop at the Google Meet frame. Without that frame the hint is whole. The Spine fold was not changed.
+- **Key paths:** proxy.ts; lib/csp.test.ts; e2e/images.spec.ts
+- **Commands that worked:** `npx vitest run lib/csp.test.ts` → Tests 2 passed, exit 0. The same command then ran eslint on the three files and `npx tsc --noEmit`; the chain exited 0. `npx playwright test e2e/images.spec.ts --project=images --ignore-snapshots` → 217 passed (2.2m), including the four See it tests. A local script against that server (`node /tmp/seeit-real.mjs`) loaded the NREL chart from thumb.wikimedia.org: natural width 500, drawn 302 by 151, panel overflow 0, hint clip 0, credit present, Escape closed the panel. No failed Wikimedia request.
+- **Known issues / blockers:** Do not deploy until this pull request is merged and the four checks are green. Do not change the Spine fold. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). The first browser run, without `--ignore-snapshots`, failed the usual Mac-versus-Linux picture comparisons and was stopped. Those pages were not part of this change.
+- **Exact next steps:** Merge with train.sh only when the four GitHub checks are green. Then deploy that merge. Confirm migration 0022 is still the newest before skipping a backup. Do not change the Spine fold. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
+
+### 2026-10-09 13:17 · Grok (laptop) · Checkpoint: See it pictures render badly; Spine whitespace later
+- **Done:** Samuel tried the Spine fold on the live site and said it works. He may want less whitespace in that fold later; that is filed and is not essential. The next job is the See it picture search, which he says does not render well. A handoff tells the next session to diagnose, plan, implement, verify, and deploy. The screenshot is of The Grid on the live reader, with Google Meet chrome on top, so the next session must reproduce the panel without the meeting overlay before changing code.
+- **Key paths:** docs/handoffs/2026-10-09-1317-search-image-panel.md; app/(reader)/books/[id]/read/ImagesPanel.tsx; app/(reader)/books/[id]/read/reader.module.css; app/(reader)/books/[id]/read/Reader.tsx
+- **Commands that worked:** date +%Y-%m-%d-%H%M → 2026-10-09-1317. git status --short --branch → ledger-spine-deploy, clean before this note. curl /api/health earlier this session → commit 44fd0e2 HTTP 200. gh pr view 121 → MERGED 233b557.
+- **Known issues / blockers:** Do not build Corner. Do not change the Spine fold in the next job. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). This note is not committed.
+- **Exact next steps:** Read docs/handoffs/2026-10-09-1317-search-image-panel.md. Branch from origin/main. Reproduce See it without a screen-share overlay, then plan, implement, verify in the browser, merge when the four checks are green, and deploy. Do not build Corner. Do not change the Spine fold. The whitespace tweak waits.
 
 ### 2026-10-09 13:04 · Grok (laptop) · Deployed the Spine fold, main 44fd0e2
 - **Done:** Pull request 120 is merged. Squash commit 44fd0e2a98d5140b53b63bf57751bbfa036cd6e1. The four GitHub checks on 87fefac were green (run 37962013687) before the squash. Live site https://web-production-f27a0e.up.railway.app now reports commit 44fd0e2. Deployment 667158c6-ac9a-4798-bb93-42258cb08f30 succeeded. Sign-in returns 200. Import and Account redirect to sign-in. The newest migration is still 0022_api_token_expiry, on the live database and in the repo, so this deploy did not change the database and no new backup was taken. The host key was SHA256:+S1xg92FrnHz6pY3bpkmh1OGtWQGNANXilPzlxA7B1g.
