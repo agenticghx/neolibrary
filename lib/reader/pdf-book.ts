@@ -292,6 +292,27 @@ ${TEXT_LAYER_CSS}${SPOKEN_CSS}</style>
     resolveHref: async (href: string) => ({ index: await pageIndexOf(href) }),
     splitTOCHref: async (href: string) => [await pageIndexOf(href), null],
     getTOCFragment: (doc: Document) => doc.documentElement,
+    /** A picture of one page, for the Spine fold. The real page stays selectable. */
+    picture: async (index: number, cssWidth: number) => {
+      if (closed || index < 0 || index >= pdf.numPages) return null;
+      const page = await pdf.getPage(index + 1);
+      if (closed) return null;
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: (Math.max(1, cssWidth) * devicePixelRatio) / base.width });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.ceil(viewport.width));
+      canvas.height = Math.max(1, Math.ceil(viewport.height));
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+      try {
+        await page.render({ canvas, canvasContext: context, viewport }).promise;
+      } catch (e) {
+        unexpected(e);
+        return null;
+      }
+      return canvas;
+    },
+    pageCount: pdf.numPages,
     destroy: () => {
       // No new drawing ahead; one under way is cancelled by pdf.js's own clean-up.
       closed = true;

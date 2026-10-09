@@ -19,6 +19,7 @@ import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
+import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
@@ -226,6 +227,17 @@ export function Reader(props: {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const view = useRef<FoliateView | null>(null);
+  /** The open PDF, when this book is one, so a fold can draw a page that is not on screen yet. */
+  const bookRef = useRef<SpineBook | null>(null);
+  const turnRef = useRef<(dir: "next" | "prev") => void>(() => {});
+  // A click, an arrow key, or Previous/Next. Read aloud turns with goTo and does not come through here.
+  useEffect(() => {
+    turnRef.current = (dir) => {
+      const v = view.current;
+      if (!v) return;
+      void turnWithSpine(v, bookRef.current, dir, props.fileType === "pdf");
+    };
+  });
   /**
    * The spread the open PDF renderer was given. Foliate reads the spread only
    * when that renderer opens, so this is written after the reopen has opened.
@@ -324,8 +336,8 @@ export function Reader(props: {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     const target = e.target as HTMLElement | null;
     if (target && ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName)) return;
-    if (e.key === "ArrowRight" || e.key === "PageDown") void view.current?.next();
-    else if (e.key === "ArrowLeft" || e.key === "PageUp") void view.current?.prev();
+    if (e.key === "ArrowRight" || e.key === "PageDown") turnRef.current("next");
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") turnRef.current("prev");
     else if (e.key === "Escape") setPanel("none");
   }, []);
 
@@ -349,6 +361,7 @@ export function Reader(props: {
           props.fileType === "pdf"
             ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob, initial.pages)
             : new File([blob], "book.epub", { type: "application/epub+zip" });
+        bookRef.current = props.fileType === "pdf" ? (book as SpineBook) : null;
         if (cancelled) return;
         openSpread.current = props.fileType === "pdf" ? (book as { rendition: { spread: string } }).rendition.spread : null;
         const v = document.createElement("foliate-view") as FoliateView;
@@ -441,6 +454,19 @@ export function Reader(props: {
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
           doc.addEventListener("pointerdown", () => trackerRef.current.onActivity());
+          if (props.fileType === "pdf") {
+            bindSpineClick(
+              doc,
+              (pageDoc) => {
+                const spread = pdfSpread(v);
+                if (!spread) return null;
+                if (pageDoc === spread.left.doc) return "prev";
+                if (pageDoc === spread.right.doc) return "next";
+                return null;
+              },
+              (dir) => turnRef.current(dir),
+            );
+          }
           // A text selection opens the selection bar (highlight, note, copy).
           let t: ReturnType<typeof setTimeout> | null = null;
           doc.addEventListener("selectionchange", () => {
@@ -468,6 +494,7 @@ export function Reader(props: {
     })();
     return () => {
       cancelled = true;
+      bookRef.current = null;
       clearTimeout(giveUp);
     };
   }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks]);
@@ -1039,13 +1066,13 @@ export function Reader(props: {
       </header>
 
       <div className={styles.stage}>
-        <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => void view.current?.prev()}>
+        <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M11 3 5 9l6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </button>
         <div ref={host} className={styles.host} />
-        <button type="button" className={`${styles.turn} ${styles.turnNext}`} aria-label="Next page" onClick={() => void view.current?.next()}>
+        <button type="button" className={`${styles.turn} ${styles.turnNext}`} aria-label="Next page" onClick={() => turnRef.current("next")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="m7 3 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
