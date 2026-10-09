@@ -20,7 +20,10 @@ export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV 
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' blob:",
-    "img-src 'self' blob: data: https://upload.wikimedia.org",
+    // A scaled Commons thumbnail is served from thumb.wikimedia.org. A file
+    // that needs no scaling stays on upload.wikimedia.org. Omit the first
+    // host and See it draws a broken icon in an empty box (measured 2026-10-09).
+    "img-src 'self' blob: data: https://upload.wikimedia.org https://thumb.wikimedia.org",
     "font-src 'self' blob: data:",
     "media-src 'self' blob:",
     "connect-src 'self' blob:",

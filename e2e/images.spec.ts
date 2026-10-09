@@ -41,7 +41,10 @@ async function seeIt(page: Page, phrase: string) {
 }
 
 test("see it: pictures of a phrase, each with its credit and licence; searching silicon wafer finds results", async ({ page }) => {
+  // The reader is opened from search without a full page load, so the policy is the one on this document.
+  const documentPage = page.waitForResponse((r) => r.request().resourceType() === "document" && r.ok());
   await openReader(page);
+  expect((await documentPage).headers()["content-security-policy"]).toContain("https://thumb.wikimedia.org");
   const panel = await seeIt(page, "a candle");
   await expect(panel.getByLabel("Search pictures")).toHaveValue("a candle");
   await expect(panel).toContainText("No pictures found for “a candle”.");
@@ -58,12 +61,34 @@ test("see it: pictures of a phrase, each with its credit and licence; searching 
   const img = results.nth(0).getByRole("img", { name: "Silicon wafer 1 (test image)" });
   await expect(img).toBeVisible();
   expect(await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(480);
+  // The thumbnail's own width (480) must not push the card wider than the panel, or the credit is clipped.
+  const fit = await img.evaluate((el) => {
+    const card = el.closest("section")!;
+    const picture = el.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    const hint = [...card.querySelectorAll("p")].find((p) => p.textContent?.includes("Wikimedia"));
+    return {
+      overflowX: card.scrollWidth - card.clientWidth,
+      inside: picture.left >= box.left - 1 && picture.right <= box.right + 1,
+      hintClip: hint ? hint.scrollWidth - hint.clientWidth : -1,
+    };
+  });
+  expect(fit.overflowX).toBeLessThanOrEqual(1);
+  expect(fit.inside).toBe(true);
+  expect(fit.hintClip).toBeGreaterThanOrEqual(0);
+  expect(fit.hintClip).toBeLessThanOrEqual(1);
 
   const api = await page.request.get("/api/images/search?q=silicon%20wafer");
   expect((await api.json()).results).toHaveLength(3);
   const anon = await page.context().browser()!.newContext({ storageState: { cookies: [], origins: [] } });
   expect((await anon.request.get(new URL("/api/images/search?q=wafer", page.url()).href)).status()).toBe(401);
   await anon.close();
+
+  // Escape closes the panel. A focused button swallows the key, so leave the button first.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready");
 });
 
 test("no good picture: make one with AI, labelled as generated, paid once and shown again for free", async ({ page }) => {
