@@ -399,18 +399,17 @@ export function Reader(props: {
         setSettings(initial);
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
-          let cfi = d.cfi;
           if (props.fileType === "pdf") {
             const shown = pdfDocsOnScreen(v)
               .map((doc) => Number(doc.documentElement.dataset.page))
               .filter((n) => Number.isInteger(n) && n >= 0);
-            const reported = pdfPage(cfi);
-            // One page on screen, and the event names the other page of the pair: keep the one on screen.
-            if (shown.length === 1 && reported !== shown[0]) cfi = `epubcfi(/6/${(shown[0] + 1) * 2})`;
-            else if (shown.length > 0 && reported >= 0 && !shown.includes(reported)) return;
+            const reported = pdfPage(d.cfi);
+            // The patched viewer names the page on screen. Drop an address for a page that is not showing.
+            if (shown.length > 0 && reported >= 0 && !shown.includes(reported)) return;
             const held = heldCfi.current?.cfi;
-            if (held && pdfPage(cfi) !== pdfPage(held)) return;
+            if (held && pdfPage(d.cfi) !== pdfPage(held)) return;
           }
+          const cfi = d.cfi;
           mark("nl:relocate", { cfi });
           setWhere({ cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
           whereCfi.current = cfi;

@@ -284,6 +284,7 @@ async function sidesShowing(page: Page) {
       lastLocation?: { range: Range | null };
       renderer: {
         columnCount?: number;
+        localName: string;
         getAttribute(name: string): string | null;
         getBoundingClientRect(): DOMRect;
         getContents(): { doc: Document }[];

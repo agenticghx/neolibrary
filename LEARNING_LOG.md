@@ -63,6 +63,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 73 | 2026-10-08 22:36 | B4 merge | The second browser job passes, including the tests that did not run the first time, and the pull request merges | run 37853536318; `gh pr view 117` | success | auto-merge squashes once the four checks are green; a backup still has to come before the deploy |
 | 74 | 2026-10-09 09:17 | One page or Two pages | One saved choice drives a PDF and a reflowable book; a tall window stays on one page | `npm run check`; reader Playwright project, then the fixed test alone | success | wait until a PDF page is drawn before pressing Next; this Playwright ignores a timeout written on the test itself |
 | 75 | 2026-10-09 10:13 | Review of One page / Two pages | A tall window stays on the page it is showing, and a failed reopen can be tried again | `npm run check`; the two reader tests on the leftover database | success | a fix in an installed package has to run after install; a column's width is not how many columns there are |
+| 76 | 2026-10-09 10:34 | Second review of One page / Two pages | The viewer names the page; the reader only drops a page that is not showing | `npm run build`; the two reader tests on the leftover database | success | do not keep a second writer of a fact the patched viewer already reports |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -71,6 +72,9 @@ Iterations 38 to 59 have no row in this index (the sessions that wrote them did 
 Rules learned in this milestone, each with the iterations that taught it
 and how to apply it. A lesson seen twice moves to the top.
 
+- **Do not keep a second writer of a fact another piece already reports**
+  (Iteration 76). The patched viewer names the PDF page on screen. The
+  reader only drops an address for a page that is not showing.
 - **A fix inside an installed package has to run again after install**
   (Iteration 75). foliate-js comes from npm. Editing `node_modules` alone
   disappears on the next install. The script is
@@ -2136,4 +2140,13 @@ tests that pin it, in a small PR.
 **Evaluation.** `npm run check` at 05:59:21 local: `Tests 548 passed | 2 skipped (550)`, exit 0. Then `npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots` on the leftover database.
 **Result.** `2 passed (6.2s)`. The one-page test was 1.1s (Facing Pages already on the shelf). The two-pages test was 4.7s, including Scroll as one column and a 390×844 reload that stays on leaf 1. An earlier fresh-database run passed the one-page test in 1.6s (the upload). In that run the two-pages test failed only because a width span called one scrolled column two columns.
 **Lesson.** Do not edit `node_modules` and call it done. And do not treat the width of a scrolled column as a second column.
+**Next experiment.** Leave this pull request open until the four GitHub checks are green, then merge. After that, branch `pdf-spine` from `origin/main`. Do not build the fold here. Do not restart port 8733. Do not deploy.
+
+### Iteration 76 · 2026-10-09 10:34 · Second review of One page / Two pages · success
+
+**Hypothesis.** The reader does not need to build a PDF address. The patched viewer already names the page on screen. Dropping an address for a page that is not showing is enough, and the tall-window reload still opens leaf 1.
+**Action.** Deleted the rewrite in the relocate handler. `heldCfi` and `pdfDocsOnScreen` stay. No helper. The page-count check's renderer type was missing `localName`, which stopped `npm run build`, so that property is on the type. The measure is unchanged.
+**Evaluation.** `npm run build` after the type fix: TypeScript finished in 1360ms, exit 0. Then `npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots` on the leftover database, against a server built from this change.
+**Result.** `2 passed (6.4s)`. One page 1.4s. Two pages 4.5s, including the 390×844 reload that stays on leaf 1.
+**Lesson.** Do not keep a second writer of a fact the patched viewer already reports. A type the build checks has to name every property the test reads, or CI fails before the browser starts.
 **Next experiment.** Leave this pull request open until the four GitHub checks are green, then merge. After that, branch `pdf-spine` from `origin/main`. Do not build the fold here. Do not restart port 8733. Do not deploy.

@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09. Pull request 119 is branch `pdf-two-page`. Reading settings has One page and Two pages for every book the reader opens. The review of that pull request is addressed on the branch: a tall window stays on the page it is showing, and a failed reopen can be tried again. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart the prototype server on port 8733. Do not deploy. Do not start a whole-book narration. Do not build the Spine fold until this branch has merged.
+Written 2026-10-09. Pull request 119 is branch `pdf-two-page`. Reading settings has One page and Two pages for every book the reader opens. Both reviews of that pull request are addressed on the branch. A tall window stays on the page it is showing. The reader does not build a second address for that page; the installed viewer names it, and an address for a page that is not showing is dropped. A failed reopen can be tried again. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart the prototype server on port 8733. Do not deploy. Do not start a whole-book narration. Do not build the Spine fold until this branch has merged.
 
 After `pdf-two-page` merges, the next step is the Spine fold on a new branch named `pdf-spine`, started from `origin/main`. Spine is the turn to build: the vertical fold from the outer edge to the gutter. Corner waits. Do not build Corner, continuous scroll on the single page, or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not port `deform.js`. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -143,6 +143,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 06:34 · Grok (laptop) · The viewer names the page on screen
+- **Done:** The second review of pull request 119 is addressed on pdf-two-page. The reader no longer builds a second PDF address from the frame page number. The installed viewer already names the page on screen. An address for a page that is not showing is dropped. heldCfi and pdfDocsOnScreen stay. No helper was added. The page-count check now tells the type checker the renderer element name, which npm run build required. The measure is unchanged.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; LEARNING_LOG.md; PROGRESS.md
+- **Commands that worked:** npm run build → TypeScript finished in 1360ms, exit 0. npx playwright test e2e/reader.spec.ts --project=reader --no-deps --grep 'a book opens on one page|two pages is a reading setting' --ignore-snapshots → 2 passed (6.4s): one-page 1.4s, two-pages 4.5s.
+- **Known issues / blockers:** Do not merge from this step. Do not deploy. Do not restart port 8733. Do not build the Spine fold in this pull request.
+- **Exact next steps:** Both reviews of pull request 119 are addressed on pdf-two-page. Do not redo those fixes. Do not redo the One page / Two pages work. Do not merge from this step. Merge only when the four GitHub checks are green. Do not restart port 8733. After the branch merges, start pdf-spine from origin/main. Do not build Corner. Do not deploy. Do not start a whole-book narration.
 
 ### 2026-10-09 06:15 · Grok (laptop) · A tall window stays on the page it is showing
 - **Done:** The review of pull request 119 is addressed on pdf-two-page. A tall window with Two pages on stays on the page that is showing, including after a reload. foliate-js is only installed, so scripts/patch-foliate-fxl.mjs rewrites the two spots that reported the other page of a pair. It runs after install and before dev and build. The reader also rewrites a one-page event to the page on screen, ignores a late report from a renderer that has already been closed, and records the opened spread only after the book has opened again, so a failed reopen can be tried again. fixedBook, reopenGen, and alive are gone. The one-page check still runs when Facing Pages is already in the library. Scroll is judged by the document column width, not by the button attribute.
