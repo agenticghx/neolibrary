@@ -126,7 +126,6 @@ export function noteFor(s: NoteState): string {
     if (ab.begins && !ab.begins.nearby && !s.bookStarted) return `Your audiobook begins further on (${ab.begins.label}): Play turns to it.`;
     return "Your audiobook: free to play.";
   }
-  if (info.fileType === "pdf") return "In a PDF book, Listen plays your own audiobook: add one on the book's page.";
   if (info.estimate === null) return "Reading aloud is not set up yet: the owner needs to add an ElevenLabs key.";
   if (info.track && info.track.voice === s.voice) return "Saved audio: free to play.";
   return `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;

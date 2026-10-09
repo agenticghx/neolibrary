@@ -1,7 +1,7 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { AudioError, speakPassage, type Track } from "@/lib/library/audio";
+import { AudioError, placeOnPage, speakPassage, type Track } from "@/lib/library/audio";
 import { listenInfo } from "@/lib/library/listen";
 import { isCfi } from "@/lib/library/reading";
 import { serverSecret } from "@/lib/secrets";
@@ -64,12 +64,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return Response.json({ error: "Choose a paragraph and a voice." }, { status: 400 });
   }
   try {
-    const out = await speakPassage(await getDb(), await getStorage(), getSpeechModel(), user.id, {
+    const db = await getDb();
+    const out = await speakPassage(db, await getStorage(), getSpeechModel(), user.id, {
       bookId,
       sectionId: body.sectionId,
       voice: body.voice,
     });
-    return Response.json({ track: await withUrl(out.track), reused: out.reused }, { status: out.reused ? 200 : 201 });
+    // In a PDF book, where each word is on its page (the reader lights it there).
+    const track = await placeOnPage(db, bookId, body.sectionId, out.track);
+    return Response.json({ track: await withUrl(track), reused: out.reused }, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);
   }

@@ -37,6 +37,12 @@ export type Track = {
   audioStartMs: number | null;
   audioEndMs: number | null;
   importId: string | null;
+  /**
+   * A made track in a PDF book (docs/pdf-narration-plan.md, Part A): where
+   * each word is on its page, as an uploaded audiobook's `inPage`. Worked out
+   * when asked (placeOnPage), never stored.
+   */
+  inPage?: [number, number][];
 };
 
 type Row = typeof audioTracks.$inferSelect;
@@ -242,6 +248,28 @@ async function speak(
   } finally {
     await release();
   }
+}
+
+/**
+ * A made track as the reader of a PDF book needs it (docs/pdf-narration-plan.md,
+ * Part A): with where each word is on the page of paragraph `sectionId`,
+ * counted as an uploaded audiobook's words are (asParagraphs), so the reader
+ * lights it in the page's text layer. The track's word offsets are into the
+ * text it was made from, and a track is found again by that text (its cache
+ * key), so they hold for `sectionId` even when the track was first made for
+ * another book. An EPUB's track, or a paragraph not in this book, is returned as it is.
+ */
+export async function placeOnPage<T extends Track>(db: Db, bookId: string, sectionId: string, track: T): Promise<T> {
+  const [book] = await db.select({ fileType: books.fileType }).from(books).where(eq(books.id, bookId));
+  if (book?.fileType !== "pdf") return track;
+  const [section] = await db
+    .select({ chapterIndex: sections.chapterIndex, kind: sections.kind })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.id, sectionId)));
+  if (section?.kind !== "paragraph") return track;
+  const at = (await pageOffsets(db, bookId, new Set([section.chapterIndex]))).get(sectionId);
+  if (!at) return track;
+  return { ...track, inPage: track.words.map(([, , from, to]) => [at.base + at.before[from], at.base + at.before[to]]) };
 }
 
 /** Every track of a book, oldest first (for the export). */

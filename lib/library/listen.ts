@@ -3,7 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { getSpeechModel } from "@/lib/speech";
 import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
-import { chapterNames, estimateSpeech, firstStoredTrack, passageFor, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
+import { chapterNames, estimateSpeech, firstStoredTrack, passageFor, placeOnPage, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
 
 /** What the Listen bar shows for "Your audiobook" among the voices (M13 (d)). */
 export const AUDIOBOOK_NAME = "Your audiobook";
@@ -38,7 +38,7 @@ export type ListenInfo = {
    * begins, and whether that is near.
    */
   audiobook: (UploadedReading & { begins: { label: string; nearby: boolean } | null }) | null;
-  /** In a PDF book only the audiobook is offered: a made voice's word times could not be placed on a PDF page yet. */
+  /** In a PDF book, a made track carries where each word is on its page (`track.inPage`, placeOnPage). */
   fileType: "epub" | "pdf";
 };
 
@@ -64,20 +64,19 @@ export async function listenInfo(
   const audiobook = reading ? { ...reading, begins: await beginsAt(db, bookId, passage, reading.paragraphs[0]) } : null;
   let voices: { id: string; name: string }[] = [];
   let track: Track | null = null;
-  let configured = fileType === "epub";
-  if (configured) {
-    try {
-      const model = speech();
-      voices = await model.voices();
-      if (q.voice && !q.voice.startsWith("upload:")) track = await storedTrack(db, ownerId, model, q.voice, passage);
-      // No voice asked (the bar opening): the first voice this paragraph is saved in, so the bar opens in a voice
-      // that plays it for free (a book narrated whole in a voice that is not the first on offer); none saved: none.
-      else track = await firstStoredTrack(db, ownerId, model, voices.map((v) => v.id), passage);
-    } catch (e) {
-      if (!(e instanceof SpeechNotConfigured)) throw e;
-      configured = false;
-    }
+  let configured = true;
+  try {
+    const model = speech();
+    voices = await model.voices();
+    if (q.voice && !q.voice.startsWith("upload:")) track = await storedTrack(db, ownerId, model, q.voice, passage);
+    // No voice asked (the bar opening): the first voice this paragraph is saved in, so the bar opens in a voice
+    // that plays it for free (a book narrated whole in a voice that is not the first on offer); none saved: none.
+    else track = await firstStoredTrack(db, ownerId, model, voices.map((v) => v.id), passage);
+  } catch (e) {
+    if (!(e instanceof SpeechNotConfigured)) throw e;
+    configured = false;
   }
+  if (track) track = await placeOnPage(db, bookId, passage.id, track);
   const chapter = (await chapterNames(db, bookId, new Set([passage.chapterIndex])))[passage.chapterIndex] ?? "";
   return {
     passage: {

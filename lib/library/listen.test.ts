@@ -122,24 +122,66 @@ describe("which voice's saved audio the bar opens with", () => {
   });
 });
 
-describe("Listen in a PDF book (M13 (e))", () => {
-  it("offers only the book's own audiobook: made voices cannot be placed on a PDF page yet", async () => {
+describe("Listen in a PDF book (M13 (e); made voices: docs/pdf-narration-plan.md, Part A)", () => {
+  /** A one-page PDF with two paragraphs of three lines each (a larger gap between them), and its paragraphs. */
+  async function twoParagraphPdf() {
     const { PDFDocument, StandardFonts } = await import("pdf-lib");
     const doc = await PDFDocument.create();
     const font = await doc.embedFont(StandardFonts.TimesRoman);
-    doc.addPage([612, 792]).drawText("One short paragraph on the only page of this test.", { x: 72, y: 700, size: 12, font });
+    const page = doc.addPage([612, 792]);
+    let y = 700;
+    for (const lines of [
+      ["A first paragraph sits at the top of", "the page, so the second one starts", "well after the page's first letter."],
+      ["Then the second paragraph is read", "aloud in a made voice, and each word", "is found on the page by its place."],
+    ]) {
+      for (const line of lines) {
+        page.drawText(line, { x: 72, y, size: 12, font });
+        y -= 15;
+      }
+      y -= 20;
+    }
     const bytes = new Uint8Array(await doc.save());
-    const id = (await importBook(database.db, storage, ownerId, { name: "one.pdf", bytes })).bookId;
+    const id = (await importBook(database.db, storage, ownerId, { name: "two.pdf", bytes })).bookId;
+    const ps = (await getSections(database.db, ownerId, id)).filter((x) => x.kind === "paragraph");
+    expect(ps).toHaveLength(2);
+    return { bytes, id, ps };
+  }
+
+  it("offers the made voices, as in an EPUB, and the book's own audiobook first", async () => {
+    const { bytes, id, ps } = await twoParagraphPdf();
     const before = await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake);
-    expect(before).toMatchObject({ fileType: "pdf", voices: [], estimate: null, track: null, audiobook: null });
-    const [p] = (await getSections(database.db, ownerId, id)).filter((x) => x.kind === "paragraph");
-    const { zip } = buildPackage({ bookBytes: bytes, chapters: [{ title: "One", paragraphs: [p.text], inBook: [0] }] });
+    expect(before).toMatchObject({ fileType: "pdf", track: null, audiobook: null });
+    expect(before.voices.map((v) => v.id)).toEqual(["fake-ada", "fake-ben"]);
+    expect(before.estimate).toBeGreaterThan(0);
+    // Without a voice key, nothing to choose (as in an EPUB).
+    expect(await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, noKey)).toMatchObject({ voices: [], estimate: null });
+    const { zip } = buildPackage({ bookBytes: bytes, chapters: [{ title: "One", paragraphs: ps.map((p) => p.text), inBook: [0, 0] }] });
     const imp = await startImport(database.db, storage, ownerId, id, zip());
     const after = await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake);
-    expect(after.voices).toEqual([{ id: `upload:${imp.id}`, name: AUDIOBOOK_NAME }]);
-    expect(after.audiobook!.paragraphs[0].inPage).toHaveLength(p.text.split(" ").length);
-    // An EPUB still offers the made voices.
-    expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake)).fileType).toBe("epub");
+    expect(after.voices.map((v) => v.id)).toEqual([`upload:${imp.id}`, "fake-ada", "fake-ben"]);
+    expect(after.audiobook!.paragraphs[0].inPage).toHaveLength(ps[0].text.split(" ").length);
+  });
+
+  it("a made track carries where each of its words is on the page: the page's letters there are the word's", async () => {
+    const { id, ps } = await twoParagraphPdf();
+    await speakPassage(database.db, storage, fake, ownerId, { bookId: id, sectionId: ps[1].id, voice: "fake-ada" });
+    const { track } = await listenInfo(database.db, ownerId, id, { section: ps[1].id, voice: "fake-ada" }, withFake);
+    // The page's text as the reader's text layer holds it, spaces aside: both paragraphs, in order.
+    const pageLetters = ps.map((p) => p.text).join("").replace(/\s+/g, "");
+    expect(track!.inPage).toHaveLength(track!.words.length);
+    const onPage = track!.inPage!.map(([a, b]) => pageLetters.slice(a, b));
+    expect(onPage).toEqual(track!.words.map(([, , from, to]) => ps[1].text.slice(from, to).replace(/\s+/g, "")));
+    // The second paragraph's first word comes after all the first paragraph's letters.
+    expect(track!.inPage![0][0]).toBe(ps[0].text.replace(/\s+/g, "").length);
+    expect(onPage.slice(0, 3)).toEqual(["Then", "the", "second"]);
+    // Opening the bar at the top of the page: its first paragraph, with nothing made for it yet.
+    expect((await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake)).track).toBeNull();
+    // An EPUB's made track has no places on a page.
+    await speakPassage(database.db, storage, fake, ownerId, { bookId, sectionId: paragraphs[6].id, voice: "fake-ada" });
+    const epub = await listenInfo(database.db, ownerId, bookId, { section: paragraphs[6].id, voice: "fake-ada" }, withFake);
+    expect(epub.fileType).toBe("epub");
+    expect(epub.track).not.toBeNull();
+    expect(epub.track!.inPage).toBeUndefined();
   });
 });
 
