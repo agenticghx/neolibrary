@@ -18,7 +18,7 @@ import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
-import { TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
+import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
@@ -120,7 +120,8 @@ function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element) {
   if (!r.setStyles) return; // PDFs (fixed layout): pages are pictures; only the reader's chrome is themed.
   r.setAttribute("flow", s.flow);
   r.setAttribute("max-inline-size", "680px");
-  r.setAttribute("max-column-count", "1");
+  // "2" is only the wide-window maximum. Scroll stays one column. A window taller than it is wide still forces one (the paginator's portrait rule).
+  r.setAttribute("max-column-count", s.flow === "paginated" && s.pages === "two" ? "2" : "1");
   r.setAttribute("margin", "40px");
   r.setAttribute("gap", "7%");
   r.setStyles?.(bookCss(s, themeColors(themeEl, s), location.origin));
@@ -206,6 +207,13 @@ export function Reader(props: {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const view = useRef<FoliateView | null>(null);
+  /** A PDF book, so a new page choice can change its spread and open it again. */
+  const fixedBook = useRef<{ rendition: { spread: string } } | null>(null);
+  /** The spread the open PDF renderer was given. Foliate reads it only at open. */
+  const openSpread = useRef<string | null>(null);
+  const alive = useRef(true);
+  const reopenGen = useRef(0);
+  const reopenTask = useRef(Promise.resolve());
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images" | "picture">("none");
@@ -299,7 +307,10 @@ export function Reader(props: {
 
   // Open the book once. Settings live on this device (localStorage).
   useEffect(() => {
-    if (view.current) return;
+    alive.current = true;
+    if (view.current) return () => {
+      alive.current = false;
+    };
     let cancelled = false;
     // Never wait forever: some failures inside the book's frames are thrown
     // where this code cannot catch them (this hid a Safari problem, 2026-10-04).
@@ -315,9 +326,16 @@ export function Reader(props: {
         const blob = await res.blob();
         const book =
           props.fileType === "pdf"
-            ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob)
+            ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob, initial.pages)
             : new File([blob], "book.epub", { type: "application/epub+zip" });
         if (cancelled) return;
+        if (props.fileType === "pdf") {
+          fixedBook.current = book as { rendition: { spread: string } };
+          openSpread.current = fixedBook.current.rendition.spread;
+        } else {
+          fixedBook.current = null;
+          openSpread.current = null;
+        }
         const v = document.createElement("foliate-view") as FoliateView;
         v.className = styles.view;
         host.current!.append(v);
@@ -423,18 +441,40 @@ export function Reader(props: {
       }
     })();
     return () => {
+      alive.current = false;
       cancelled = true;
       clearTimeout(giveUp);
     };
   }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks]);
 
-  // Re-style when settings or the colour scheme change.
+  // Re-style when settings or the colour scheme change. A PDF's spread is read only when its renderer opens, so a new page choice reopens on the same page.
   useEffect(() => {
     if (!settings) return;
     saveSettings(settings);
     // The theme class must be on the element before colours are read from it.
     if (root.current) root.current.className = readerClass(settings);
-    if (view.current && root.current) applySettings(view.current, settings, root.current);
+    const v = view.current;
+    if (v && root.current) applySettings(v, settings, root.current);
+    const book = fixedBook.current;
+    const spread = spreadForPages(settings.pages);
+    if (book && v && openSpread.current !== spread) {
+      openSpread.current = spread;
+      const cfi = whereCfi.current;
+      const gen = ++reopenGen.current;
+      reopenTask.current = reopenTask.current
+        .then(async () => {
+          if (!alive.current || gen !== reopenGen.current) return;
+          book.rendition.spread = spread;
+          v.close();
+          await v.open(book);
+          if (!alive.current || gen !== reopenGen.current) return;
+          await v.init({ lastLocation: cfi, showTextStart: !cfi });
+        })
+        .catch((err) => {
+          console.error(err);
+          if (alive.current && gen === reopenGen.current) setStatus("error");
+        });
+    }
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => view.current && root.current && applySettings(view.current, settings, root.current);
     mq.addEventListener("change", onChange);
@@ -1081,6 +1121,17 @@ export function Reader(props: {
       {panel === "settings" && settings ? (
         <section className={styles.panel} aria-label="Reading settings">
           <p className={styles.panelTitle}>Reading settings</p>
+          <fieldset className={styles.group}>
+            <legend>Pages</legend>
+            <Segment
+              value={settings.pages}
+              options={[
+                ["one", "One page"],
+                ["two", "Two pages"],
+              ]}
+              onChange={(pages) => update({ pages })}
+            />
+          </fieldset>
           {props.fileType === "pdf" ? (
             <p className={styles.hint}>This is a PDF: its pages keep their own layout, so text settings do not apply.</p>
           ) : (

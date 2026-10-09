@@ -68,7 +68,7 @@ test("contents jump to a chapter; layout can switch to scrolling", async ({ page
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Scroll" }).click();
   await expect(page.getByRole("button", { name: "Scroll" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Pages" }).click(); // back to the default for later tests
+  await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the default for later tests
 });
 
 test("scripts inside a book never run", async ({ page }) => {
@@ -248,4 +248,242 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   await hit.click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
+});
+
+/** How many pages are actually facing the reader (not the saved choice). */
+async function sidesShowing(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      lastLocation?: { range: Range | null };
+      renderer: {
+        columnCount?: number;
+        getAttribute(name: string): string | null;
+        getBoundingClientRect(): DOMRect;
+        getContents(): { doc: Document }[];
+      };
+    };
+    const r = view?.renderer;
+    if (!r) return 0;
+    const realPdf = r.getContents().filter(({ doc }) => doc?.documentElement?.dataset?.page != null);
+    if (realPdf.length) {
+      return realPdf.filter(({ doc }) => {
+        const frame = doc.defaultView?.frameElement as HTMLElement | null;
+        const host = frame?.parentElement;
+        if (!host) return false;
+        const box = host.getBoundingClientRect();
+        return getComputedStyle(host).display !== "none" && box.width > 2 && box.height > 2;
+      }).length;
+    }
+    if (r.getAttribute("flow") === "scrolled") return 1;
+    if (typeof r.columnCount === "number" && r.columnCount < 2) return 1;
+    const shown = view.lastLocation?.range;
+    if (!shown || typeof r.columnCount !== "number") return r.columnCount ?? 0;
+    const rects = Array.from(shown.getClientRects()).filter((rect) => rect.width > 20 && rect.height > 0);
+    if (!rects.length) return r.columnCount;
+    const span = Math.max(...rects.map((rect) => rect.right)) - Math.min(...rects.map((rect) => rect.left));
+    return span > r.getBoundingClientRect().width * 0.55 ? 2 : 1;
+  });
+}
+
+/** Step off a single end leaf until two real pages are showing. */
+async function showFacingPair(page: Page) {
+  await expect.poll(() => sidesShowing(page)).toBeGreaterThan(0);
+  for (let i = 0; i < 3 && (await sidesShowing(page)) < 2; i++) {
+    const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+    const label = (await page.locator('[aria-label$="% read"]').getAttribute("aria-label")) ?? "";
+    await page.getByRole("button", { name: label.startsWith("100") ? "Previous page" : "Next page" }).click();
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+    await expect.poll(() => sidesShowing(page)).toBeGreaterThan(0);
+  }
+}
+
+/** The place being read is still inside the pages now showing. */
+function stillShowing(before: string, after: string) {
+  const start = CFI.collapse(before);
+  return CFI.compare(start, CFI.collapse(after)) >= 0 && CFI.compare(start, CFI.collapse(after, true)) <= 0;
+}
+
+async function selectShownWords(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as {
+      lastLocation?: { range: Range | null };
+      renderer: { getContents(): { doc: Document }[] };
+    };
+    const shown = view.lastLocation?.range ?? null;
+    for (const { doc } of view.renderer.getContents()) {
+      const layer = doc.querySelector(".textLayer");
+      const root = layer ?? doc.body;
+      if (!root) continue;
+      const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const text = n.nodeValue ?? "";
+        const start = text.search(/\S/);
+        if (start < 0) continue;
+        if (shown && !layer && !shown.intersectsNode(n)) continue;
+        const end = Math.min(text.length, start + 24);
+        if (end <= start) continue;
+        const range = doc.createRange();
+        range.setStart(n, start);
+        range.setEnd(n, end);
+        const sel = doc.getSelection();
+        if (!sel) continue;
+        sel.removeAllRanges();
+        sel.addRange(range);
+        if (sel.isCollapsed) continue;
+        return text.slice(start, end);
+      }
+    }
+    return "";
+  });
+}
+
+async function uploadFacingPdf(page: Page) {
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  doc.setTitle("Facing Pages");
+  doc.setAuthor("Test");
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  const lines = [
+    "The first leaf stands on its own.",
+    "The second leaf sits across from the third.",
+    "The third leaf sits across from the second.",
+    "The fourth leaf closes the book.",
+  ];
+  lines.forEach((text, i) => {
+    const p = doc.addPage([612, 792]);
+    p.drawText(`Leaf ${i + 1}`, { x: 72, y: 700, size: 18, font });
+    p.drawText(text, { x: 72, y: 660, size: 12, font });
+  });
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({
+    name: "facing-pages.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(await doc.save()),
+  });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+}
+
+async function openFacingPdf(page: Page) {
+  await page.goto("/library");
+  await expect(page.getByTestId("shelf").getByRole("link", { name: /^The Strange Case/ })).toBeVisible();
+  const link = page.getByTestId("shelf").getByRole("link", { name: /^Facing Pages/ });
+  if ((await link.count()) === 0) await uploadFacingPdf(page);
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^Facing Pages/ }).click();
+  await page.getByRole("link", { name: /^(Read|Continue reading)$/ }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+}
+
+test("a book opens on one page, for an EPUB and for a PDF", async ({ page }) => {
+  await openJekyll(page);
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByRole("button", { name: "One page", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Larger text" })).toBeVisible();
+
+  await uploadFacingPdf(page);
+  await openFacingPdf(page);
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByRole("button", { name: "One page", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("This is a PDF")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Larger text" })).toHaveCount(0);
+});
+
+test.describe("page count", () => {
+  // Four reloads, then a second book. The default 30 seconds runs out.
+  test.describe.configure({ timeout: 120_000 });
+
+test("two pages is a reading setting for every book", async ({ page }) => {
+  await openJekyll(page);
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Story of the Door" }).click();
+  await expect(page.locator("footer").getByText("Story of the Door")).toBeVisible();
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  const before = (await reader(page).getAttribute("data-cfi")) ?? "";
+  expect(before).toMatch(/^epubcfi\(/);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Two pages", exact: true }).click();
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect.poll(() => sidesShowing(page)).toBe(2);
+  const after = (await reader(page).getAttribute("data-cfi")) ?? "";
+  expect(stillShowing(before, after)).toBe(true);
+  await expect.poll(() => selectShownWords(page)).not.toBe("");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect.poll(() => sidesShowing(page)).toBe(2);
+
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Scroll", exact: true }).click();
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  await page.getByRole("button", { name: "Pages", exact: true }).click();
+  await expect.poll(() => sidesShowing(page)).toBe(2);
+  await page.keyboard.press("Escape");
+
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => sidesShowing(page)).toBe(2);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("neolibrary.reader.v1") || "{}").pages)).toBe("two");
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByRole("button", { name: "Two pages", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [
+    ["desktop", 1280, 800],
+    ["phone", 390, 844],
+  ] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+      await expect.poll(() => sidesShowing(page)).toBe(name === "phone" ? 1 : 2);
+      await page.screenshot({ path: `screenshots/reader-pages-epub-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByRole("button", { name: "Two pages", exact: true })).toBeVisible();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await page.screenshot({ path: "screenshots/reader-pages-control-desktop-light.png" });
+  await page.keyboard.press("Escape");
+
+  // The same saved choice, on the next book, which is a PDF.
+  await openFacingPdf(page);
+  await showFacingPair(page);
+  await expect.poll(() => sidesShowing(page)).toBe(2);
+  const pdfAt = (await reader(page).getAttribute("data-cfi")) ?? "";
+  await expect.poll(() => selectShownWords(page)).not.toBe("");
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "One page", exact: true }).click();
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+  await expect.poll(async () => reader(page).getAttribute("data-cfi")).toBe(pdfAt);
+  await page.getByRole("button", { name: "Two pages", exact: true }).click();
+  await expect.poll(() => sidesShowing(page)).toBe(2);
+  await expect.poll(async () => stillShowing(pdfAt, (await reader(page).getAttribute("data-cfi")) ?? "")).toBe(true);
+  await page.keyboard.press("Escape");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => sidesShowing(page)).toBe(1);
+
+  for (const [name, w, h] of [
+    ["desktop", 1280, 800],
+    ["phone", 390, 844],
+  ] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+      if (name === "desktop") await showFacingPair(page);
+      await expect.poll(() => sidesShowing(page)).toBe(name === "phone" ? 1 : 2);
+      await page.screenshot({ path: `screenshots/reader-pages-pdf-${name}-${scheme}.png` });
+    }
+  }
+});
 });
