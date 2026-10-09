@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the See it thumbnail fix when the four GitHub checks are green, then deploy that merge. Do not change the Spine fold.
+next_action: See it is live at commit bda2e7e. Spine whitespace is later. Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-09. See it can load a scaled Wikimedia thumbnail. The fix is on `m9-see-it-panel`. Merge with `train.sh` only when the four GitHub checks are green, then deploy that merge. Do not deploy from this branch. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
+Written 2026-10-09. See it is live at https://web-production-f27a0e.up.railway.app as commit bda2e7e. Select a phrase in a book and open See it. A scaled Wikimedia thumbnail should load, with the credit and the licence still on the card. I did not sign in and click through a book on the live site. The sign-in page's picture rule names thumb.wikimedia.org. Do not change the Spine fold. Samuel may want less whitespace in that fold later; that is not this work. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration.
 
 Spine is the turn: a straight crease from the outer edge to the gutter, clicked, only when two PDF pages are on screen. Corner waits. Do not build continuous scroll or dragging to turn. The prototypes stay in `/tmp/neolibrary-page-turns/` and are not in git. Do not add Three.js. Do not extend the rejected tube at `/tmp/neolibrary-page-curl/`.
 
@@ -143,6 +143,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-09 14:06 · Grok (laptop) · Deployed the See it thumbnail fix, main bda2e7e
+- **Done:** Pull request 122 is merged. Squash commit bda2e7ecfb3af8f79fac3573ff504b1abddc394d. The four GitHub checks on 3705c39 were green (run 37969187746) before the squash. Live site https://web-production-f27a0e.up.railway.app now reports commit bda2e7e. Deployment a68dbbb4-4337-441d-915b-b79569adf706 reached SUCCESS. Sign-in returns 200. The sign-in page allows pictures from thumb.wikimedia.org. Import and Account redirect to sign-in. The newest migration is still 0022_api_token_expiry, on the live database and in the repo, so this deploy did not change the database and no new backup was taken. The host key was SHA256:+S1xg92FrnHz6pY3bpkmh1OGtWQGNANXilPzlxA7B1g. I did not sign in and open See it on the live site.
+- **Key paths:** https://github.com/sahuno/neolibrary/pull/122; https://web-production-f27a0e.up.railway.app
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh 122 m9-see-it-panel → MERGED #122 @ 3705c39, merge commit bda2e7e, TRAIN_EXIT:0. ssh psql select id from _migrations order by id desc limit 1 → 0022_api_token_expiry. railway variable set NEOLIBRARY_COMMIT=bda2e7ecfb3af8f79fac3573ff504b1abddc394d --service web --environment production --skip-deploys. railway up --service web --environment production --ci → Deploy complete, DEPLOY_EXIT 0. railway deployment list → a68dbbb4 SUCCESS. curl /api/health → {"status":"ok","service":"neolibrary","commit":"bda2e7e"} HTTP 200. curl /sign-in → 200. curl /import and /account → 307 to /sign-in.
+- **Known issues / blockers:** Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 still wait on Samuel (decide by 2026-10-14). I did not click through a signed-in book on the live site. Spine whitespace is later.
+- **Exact next steps:** See it is live at commit bda2e7e. Samuel can select a phrase and open See it. A scaled Wikimedia thumbnail should load, with the credit and the licence still on the card. Do not change the Spine fold. Do not build Corner. Do not restart port 8733. Do not start a whole-book narration. Rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14).
 
 ### 2026-10-09 · Grok (laptop) · See it loads a scaled Wikimedia thumbnail
 - **Done:** See it was drawing a broken icon and an empty box. Commons serves a scaled thumbnail from `thumb.wikimedia.org`, and the page only allowed pictures from `upload.wikimedia.org`, so the browser blocked the thumbnail. A file small enough to need no scaling was already allowed, and that one did load. With the thumbnail host allowed, the same panel shows the picture at the panel's width (302 by 151 for a 480 by 240 thumbnail), the hint wraps, and the credit stays on the card. The cut-off lines in Samuel's screenshot stop at the Google Meet frame. Without that frame the hint is whole. The Spine fold was not changed.
