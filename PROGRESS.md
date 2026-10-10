@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy the "How books are heard" pull request (m16-heard-sentence); then Part B after Samuel's live test.
+next_action: Part B of docs/pdf-narration-plan.md after Samuel's live test of the AI voice on The Grid page 22; nothing else is in flight.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-10
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-10 05:50 UTC. **Live: 7d61d2c** (Parts A2 and D; deployed at Samuel's request). **In flight:** the "How books are heard" sentence now includes PDFs (branch `m16-heard-sentence`, Samuel's request): merge it with the merge train (the Import page's reference images change: two CI rounds), then deploy it the same way (no database change). The PDF skills are pushed to Samuel's dotfiles. Making a PDF audiobook on the laptop: `node scripts/pdf-paragraphs.mjs BOOK.pdf app.json` here; `split_pdf.py BOOK.pdf OUT` (book-chapters skill); `narrate.py` per script (a free voice unless Samuel says otherwise); `build_package.py … --app-text app.json`; upload on the book's page. Next in `docs/pdf-narration-plan.md`: Part B waits on Samuel's live test (Listen on *The Grid* page 22), then Part C.
+Written 2026-10-10 06:15 UTC. **Live: cd4366b.** Everything from 2026-10-09/10 is merged and deployed: Part A (#126), A2 (#134: a PDF says "Read and listen" with the AI voice on), D (#135: making a PDF audiobook on the laptop), and Samuel's reworded "How books are heard" (#136). The PDF skills are pushed to his dotfiles. Making a PDF audiobook on the laptop: `node scripts/pdf-paragraphs.mjs BOOK.pdf app.json` here; `split_pdf.py BOOK.pdf OUT` (book-chapters skill); `narrate.py` per script (a free voice unless Samuel says otherwise); `build_package.py … --app-text app.json`; upload on the book's page. **Next:** Part B of `docs/pdf-narration-plan.md` waits on Samuel's live test (Listen on *The Grid* page 22), then Part C. This ledger entry is on branch `m16-deploy-record`: start the next branch from it.
 
 Written 2026-10-09 23:15. **The repo is now `agenticghx/neolibrary`** (Samuel moved it to his free organization for faster test machines; old links redirect; `origin` on the laptop is updated). **Faster CI:** when Blacksmith verifies Samuel's account and its app is on `agenticghx` (neolibrary only), switch only the browser job's `runs-on` to a Blacksmith machine and time one full run against 17.7 min (run 37988043034). **The CI rules since today:** no pull request only to record a deploy (merge-train skill, step 6); Postgres comes from Amazon's mirror; the read-aloud tests forgive only words the machine skipped (`lib/player/highlight-check.ts`, row 14 (b)). After a merge-train run, check that the ledger header has one `next_action` line.
 
@@ -159,6 +159,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-10 06:15 UTC · Claude Opus 5.5 (laptop) · Deployed cd4366b: "How books are heard" includes PDFs (#136)
+- **Done:** #136 merged as `cd4366b` (`gh pr view 136` → `MERGED cd4366b…`) after two CI rounds (round 1: the Import page's 4 reference images, refreshed from CI run 38027915223 and looked at; round 2 green, run 38028345391). Deployed at Samuel's request; no database change since 7d61d2c, so no backup. Main's own CI run on it passed. Everything Samuel asked for on 2026-10-09/10 is merged and live: Parts A2 and D of `docs/pdf-narration-plan.md`, the PDF skills pushed to his dotfiles, and his reworded sentence. This entry rides in with the next real pull request (branch `m16-deploy-record`).
+- **Key paths:** https://web-production-f27a0e.up.railway.app/import ("How books are heard"); https://github.com/agenticghx/neolibrary/pull/136
+- **Commands that worked:** `zsh .claude/skills/merge-train/scripts/train.sh 136 m16-heard-sentence` → exit 3 (images), then `CI green on run 38028345391`, `MERGED #136 … cd4366b`. `git diff --stat 7d61d2c cd4366b -- db lib/db` empty. `railway variable set NEOLIBRARY_COMMIT=cd4366bac969c4c7d03fc512bd138bee17e60f69 --service web --environment production --skip-deploys`; `railway up --service web --environment production --ci` → `Deploy complete`, exit 0; `curl /api/health` → `{"status":"ok","service":"neolibrary","commit":"cd4366b"}`; `/sign-in` 200; `/import` 307. `gh run view 38028798245` → `success`, `Browser slices: screenshots,behavior,narration`, `240 passed (8.9m)`.
+- **Known issues / blockers:** none new. The laptop's `stash@{0}` (the 22:53 checkpoint, already in #134) can be dropped.
+- **Exact next steps:** Part B of `docs/pdf-narration-plan.md` waits on Samuel's live test: Listen on *The Grid* page 22 (about $0.85 a page; the $5 per-book cap stops after about 6 pages). Then Part C.
 
 ### 2026-10-10 05:50 UTC · Claude Opus 5.5 (laptop) · Deployed #134 and #135 (live 7d61d2c); skills pushed; "How books are heard" includes PDFs
 - **Done:** Samuel answered the three questions ("yes deploy both and push the dotfiles, yes-3"). (1) **Deployed** `main` at `7d61d2c` (Parts A2 and D): no database change since the live 587528e (`git diff --stat 587528e 7d61d2c -- db lib/db` empty), so no backup. (2) **Pushed** the two dotfiles commits (`72583be`, `0a67c50`) to `sahuno/dotfiles`; the unrelated uncommitted `denkyem/SKILL.md` edit was left alone. (3) **Reworded his sentence** under "How books are heard": "To hear a book, add its file first. Then any book, EPUB or PDF, can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or can get your own audiobook, which plays straight through for free." The two tests that hold his approved words (`e2e/uploads.spec.ts`, `e2e/narration.spec.ts`) now hold the new ones.
