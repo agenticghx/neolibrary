@@ -1784,6 +1784,70 @@ test("a PDF is read aloud in a made voice: every word lit in order on its page, 
   await bar.getByRole("button", { name: "Stop reading aloud" }).click();
 });
 
+// Samuel (2026-10-09): Listen did not work well with two PDF pages side by side. The page read before kept its last
+// word lit while the next page was read, so two words were lit at once.
+test("in Two pages view, only the word being read is lit: the page read before is cleared", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  doc.setTitle("Two Pages Read Aloud");
+  doc.setAuthor("Neolibrary tests");
+  // Fixed dates, so every run makes the same file (a second run finds the book already on the shelf).
+  doc.setCreationDate(new Date("2026-01-01T00:00:00Z"));
+  doc.setModificationDate(new Date("2026-01-01T00:00:00Z"));
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  // A first page on its own, then a pair: the left page and the right page.
+  for (const lines of [
+    ["A first page, shown on its own before the pair."],
+    ["The left page of the pair holds a paragraph", "of three short lines that the voice reads", "first, ending with its final word."],
+    ["Then the right page is read aloud, and only", "the word being said there may be lit while", "the left page beside it shows nothing lit."],
+  ]) {
+    const p = doc.addPage([612, 792]);
+    lines.forEach((line, k) => p.drawText(line, { x: 72, y: 700 - 15 * k, size: 12, font }));
+  }
+  const upload = await page.request.post("/api/books", { multipart: { files: { name: "two-pages-read-aloud.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save({ useObjectStreams: false })) } } });
+  const bookId = (await upload.json()).results[0].bookId as string;
+  await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/4)")}`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Two pages" }).click();
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  /** Each page frame on screen (pages count from 0), with the text lit in it, if any. */
+  const pages = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+      return view.renderer
+        .getContents()
+        .filter(({ doc }) => {
+          const host = doc?.defaultView?.frameElement?.parentElement;
+          const box = host?.getBoundingClientRect();
+          return !!host && !!box && getComputedStyle(host).display !== "none" && box.width > 2;
+        })
+        .map(({ doc }) => {
+          const h = (doc!.defaultView as unknown as { CSS: { highlights?: Map<string, Set<Range>> } }).CSS.highlights?.get("nl-spoken");
+          return { page: Number(doc!.documentElement.dataset.page), lit: h ? [...h].map((r) => r.toString()).join(" ") : null };
+        })
+        .sort((a, b) => a.page - b.page);
+    });
+  // The pair is on screen: the second and third pages, side by side.
+  await expect.poll(async () => (await pages()).map((p) => p.page), { timeout: 10_000 }).toEqual([1, 2]);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await bar.getByLabel("Voice").selectOption("fake-ada");
+  await bar.getByRole("button", { name: "Play" }).click();
+  const litOn = async (n: number) => (await pages()).find((p) => p.page === n)?.lit ?? null;
+  // The left page is read: a word lit there, none on the right page.
+  await expect.poll(() => litOn(1), { timeout: 20_000, intervals: [50] }).not.toBeNull();
+  expect(await litOn(2)).toBeNull();
+  // On into the right page: a word lit there, and the left page's last word no longer lit.
+  await expect.poll(() => litOn(2), { timeout: 30_000, intervals: [50] }).not.toBeNull();
+  const now = await pages();
+  expect(now.map((p) => p.page)).toEqual([1, 2]);
+  expect(now[0].lit, "the left page still holds a lit word").toBeNull();
+  expect("Then the right page is read aloud, and only the word being said there may be lit while the left page beside it shows nothing lit.".split(" ")).toContain(now[1].lit);
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
+});
+
 // M14 step 6b: away from the reader, a mini-player at the foot of every page reads on.
 // An audiobook of 30 paragraphs (a few minutes), so 15 s skips stay inside it.
 async function miniReading(page: Page) {
