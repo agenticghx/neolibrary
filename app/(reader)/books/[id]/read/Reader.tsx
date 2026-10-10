@@ -143,12 +143,17 @@ function themeColors(el: Element, s: ReaderSettings) {
  * Read along in a PDF (M13 (e)): lights non-space characters [a, b) of a
  * page's text layer, in that page's own frame; returns their text, or null
  * if the text layer is not drawn yet. `via`: who asked (the player's frame,
- * or the page's text arriving), for the tests' timing marks.
+ * or the page's text arriving), for the tests' timing marks. Every other
+ * page frame loses its lit word: with two pages side by side, the page read
+ * before kept its last word lit while the next page was read (2026-10-09).
  */
-function lightPdfWord(doc: Document, [a, b]: [number, number], via: "word" | "text-layer"): string | null {
+function lightPdfWord(v: FoliateView, doc: Document, [a, b]: [number, number], via: "word" | "text-layer"): string | null {
   const layer = doc.querySelector(".textLayer");
   const range = layer ? rangeForNonSpace(layer, a, b) : null;
   if (!range) return null;
+  for (const item of v.renderer?.getContents() ?? []) {
+    if (item.doc && item.doc !== doc) (item.doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
+  }
   const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
   win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
   const text = range.toString();
@@ -449,7 +454,7 @@ export function Reader(props: {
           // was laid out for a new size: light the spoken word on it again.
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
             const w = spokenPdf.current;
-            if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(doc, w.at, "text-layer"));
+            if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(v, doc, w.at, "text-layer"));
           });
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
@@ -848,7 +853,7 @@ export function Reader(props: {
       // Going on after a pause returns to this page.
       litCfi.current = passageCfi;
       const doc = pdfDocsOnScreen(v).find((d) => d.documentElement.dataset.page === String(page));
-      if (doc) return recordLit(listenBar.current, lightPdfWord(doc, inPage, "word"));
+      if (doc) return recordLit(listenBar.current, lightPdfWord(v, doc, inPage, "word"));
       // Not shown: the reader turned back from it while it is read. Turn to it
       // again, as an EPUB's pages follow the voice (a page turned to ahead is
       // left alone). Not while a turn is on its way: foliate shows one page at
