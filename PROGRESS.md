@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy m15-listen-safeguards (running total + Keep reading at $1); check the CI run on main the merge starts. Do not build Corner.
+next_action: Listen safeguards and Two pages fix are live at 587528e (main CI with Safari passed). Samuel tries Listen on The Grid; next Part A2, then Part D. Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -155,6 +155,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-10 01:55 UTC · Claude (laptop) · Deployed main 587528e (Listen safeguards); main's own CI run passed with Safari's engine
+- **Done:** #133 (running total and "Keep reading?" at $1) merged as 587528e after CI run 38012924403 (Chromium only, as pull requests now run). Deployed at Samuel's request: no migration since 0022 (`git diff --stat b13794a HEAD -- db/` empty), so no backup; deployment b29a39ae-2785-4e95-a0ec-a2da5026ccc8 SUCCESS. The merge started CI on `main` by itself (auto-merge's dispatch from #132: `workflow_dispatch CI 587528e` at 01:35:10 UTC), the first such run; it ran the Safari engine and passed. The run I had started by hand on c9edbb6 was cancelled by it (one run on `main` at a time); 587528e holds all of that code. This entry rides in the next real pull request (branch `m15-ledger-carry`), as the rule says.
+- **Key paths:** https://web-production-f27a0e.up.railway.app; https://github.com/agenticghx/neolibrary/pull/133
+- **Commands that worked:** `railway up --service web --environment production --ci` → `Deploy complete`; `curl /api/health` → `{"status":"ok","service":"neolibrary","commit":"587528e"}`; `/sign-in` 200; `/import` 307. `gh run list --branch main` → the dispatched CI run; its browser job: `Browser slices: screenshots,behavior,readalong,webkit`, `Running 314 tests using 2 workers`, `314 passed (16.3m)`.
+- **Known issues / blockers:** Back-to-back merges cancel the earlier `main` run (the newest covers both). Blacksmith still waits on Samuel's account.
+- **Exact next steps:** Samuel tries Listen on *The Grid*: Two pages view, the running total, and the Keep reading question after about two pages ($0.85 each). Then Part A2 (PDF labels) and Part D (PDF audiobook on the laptop) from `docs/pdf-narration-plan.md`. Carry this entry into the next pull request (start it from `m15-ledger-carry`).
 
 ### 2026-10-10 01:35 UTC · Claude (laptop) · Listen keeps a running total and asks before paying on past $1 (row 17: both)
 - **Done:** Samuel chose "both" for Open unknowns row 17. With a made voice (ElevenLabs), the Listen bar now (b) adds a running total for this listen ("This listen: 2 paragraphs made, about $1.70."), says "Made just now; it plays free from now on." for a paragraph just paid for (it used to say "Saved audio: free to play."), and (a) when reading on by itself into a paragraph with no saved audio, once $1 has been paid since Play or the last "Keep reading" (`ASK_AGAIN_USD`), stops and asks "Keep reading? The next paragraph costs about $X." with a **Keep reading** button; nothing is paid until it is pressed. The mini-player shows the same question. Saved audio, your own audiobook, and a skip you tap never ask. The total counts paragraphs the server reports as newly made (`reused: false`) at their recorded cost.
