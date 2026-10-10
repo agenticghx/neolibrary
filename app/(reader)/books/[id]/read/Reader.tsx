@@ -25,8 +25,9 @@ import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { RewritePanel } from "./RewritePanel";
+import { RewrittenPane } from "./RewrittenPane";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings } from "./settings";
+import { bookCss, loadRewrittenMode, loadSettings, saveRewrittenMode, saveSettings, SIZES, type ReaderSettings, type RewrittenMode } from "./settings";
 import styles from "./reader.module.css";
 
 type TocItem = { label: string; href: string; subitems?: TocItem[] };
@@ -291,6 +292,10 @@ export function Reader(props: {
   const listenBar = useRef<HTMLDivElement>(null);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
+  /** Read it rewritten (M17): the view, and the last one that showed the rewrite. Kept on this device. */
+  const [rewritten, setRewritten] = useState<{ mode: RewrittenMode; last: Exclude<RewrittenMode, "original"> } | null>(null);
+  /** The place on screen for the rewritten view: an EPUB's visible range, or a PDF's first and last page shown. */
+  const [screen, setScreen] = useState<{ from: string; to: string } | null>(null);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
   const [selection, setSelection] = useState<PendingSelection | null>(null);
@@ -418,12 +423,15 @@ export function Reader(props: {
         root.current!.className = readerClass(initial);
         applySettings(v, initial, root.current!);
         setSettings(initial);
+        setRewritten(loadRewrittenMode());
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
+          let pages: number[] = [];
           if (props.fileType === "pdf") {
             const shown = pdfDocsOnScreen(v)
               .map((doc) => Number(doc.documentElement.dataset.page))
               .filter((n) => Number.isInteger(n) && n >= 0);
+            pages = shown;
             const reported = pdfPage(d.cfi);
             // The patched viewer names the page on screen. Drop an address for a page that is not showing.
             if (shown.length > 0 && reported >= 0 && !shown.includes(reported)) return;
@@ -433,6 +441,9 @@ export function Reader(props: {
           const cfi = d.cfi;
           mark("nl:relocate", { cfi });
           setWhere({ cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+          // A PDF's pages on screen (two side by side bring both); an EPUB's visible range.
+          const pageCfi = (n: number) => `epubcfi(/6/${(n + 1) * 2})`;
+          setScreen(pages.length ? { from: pageCfi(Math.min(...pages)), to: pageCfi(Math.max(...pages)) } : { from: cfi, to: cfi });
           whereCfi.current = cfi;
           turning.current = false;
           visibleText.current = clean(d.range?.toString() ?? "");
@@ -989,6 +1000,14 @@ export function Reader(props: {
   }, [playingBook, props.bookId, stop]);
 
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
+
+  // Read it rewritten (M17); the view as it was left on this device is read when the book opens, with the settings.
+  const showRewritten = (mode: RewrittenMode) => {
+    const next = { mode, last: mode === "original" ? (rewritten?.last ?? "side") : mode };
+    saveRewrittenMode(next);
+    setRewritten(next);
+  };
+  const paneMode = rewritten && rewritten.mode !== "original" && screen ? rewritten.mode : null;
   const percent = Math.round(where.fraction * 100);
 
   return (
@@ -1055,6 +1074,21 @@ export function Reader(props: {
           </button>
           <button
             type="button"
+            className={`${styles.tool} ${styles.leadTool}`}
+            aria-pressed={!!rewritten && rewritten.mode !== "original"}
+            aria-label="Rewritten view"
+            title="Read it rewritten, in your AI explanations style"
+            onClick={() => showRewritten(rewritten && rewritten.mode !== "original" ? "original" : (rewritten?.last ?? "side"))}
+          >
+            <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
+              <rect x="1" y="2" width="7" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M3 5h3M3 7.5h3M3 10h2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+              <path d="M10.5 2.5h5.5v11h-5.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeDasharray="1.6 1.4" />
+              <path d="M12.5 5.5h2M12.5 8h2M12.5 10.5h1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
             className={styles.tool}
             aria-expanded={panel === "notes"}
             onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
@@ -1073,13 +1107,14 @@ export function Reader(props: {
         </div>
       </header>
 
-      <div className={styles.stage}>
+      <div className={paneMode === "side" ? `${styles.stage} ${styles.stageSide}` : styles.stage}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M11 3 5 9l6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </button>
-        <div ref={host} className={styles.host} />
+        {/* Covered by the rewrite alone: kept open (and its turns working) but out of reach. */}
+        <div ref={host} className={styles.host} inert={paneMode === "rewritten"} />
         <button type="button" className={`${styles.turn} ${styles.turnNext}`} aria-label="Next page" onClick={() => turnRef.current("next")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="m7 3 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -1090,6 +1125,9 @@ export function Reader(props: {
           <p className={styles.notice} role="alert">
             This book could not be opened. Go back and try again.
           </p>
+        ) : null}
+        {paneMode && screen ? (
+          <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} />
         ) : null}
       </div>
 
@@ -1287,8 +1325,9 @@ export function Reader(props: {
           <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
           <AiStyleSetting bookId={props.bookId} />
           <p className={styles.hint}>
-            STE is Simplified Technical English: one meaning per word, short sentences. It applies to &ldquo;What do I need to
-            know?&rdquo; and other AI explanations; rewrites choose their own level.
+            STE is Simplified Technical English: one meaning per word, short sentences. This style rewrites the book in the
+            rewritten view (the button beside Notes), and words &ldquo;What do I need to know?&rdquo; and other AI explanations.
+            The Rewrite button on selected text still offers every level.
           </p>
           <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
         </section>

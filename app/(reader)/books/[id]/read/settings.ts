@@ -74,3 +74,30 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
   `;
 }
+
+/**
+ * The rewritten view (M17): the book alone ("original"), the page with the
+ * rewrite beside it ("side"), or the rewrite alone ("rewritten"). Kept on
+ * this device, with the last view that showed the rewrite (the top bar's
+ * button goes back to it).
+ */
+export type RewrittenMode = "original" | "side" | "rewritten";
+const REWRITTEN_KEY = "neolibrary.reader.rewritten.v1";
+
+export function loadRewrittenMode(): { mode: RewrittenMode; last: Exclude<RewrittenMode, "original"> } {
+  try {
+    const raw = JSON.parse(localStorage.getItem(REWRITTEN_KEY) ?? "{}");
+    const last = raw.last === "rewritten" ? "rewritten" : "side";
+    return { mode: ["side", "rewritten"].includes(raw.mode) ? raw.mode : "original", last };
+  } catch {
+    return { mode: "original", last: "side" };
+  }
+}
+
+export function saveRewrittenMode(v: { mode: RewrittenMode; last: Exclude<RewrittenMode, "original"> }) {
+  try {
+    localStorage.setItem(REWRITTEN_KEY, JSON.stringify(v));
+  } catch {
+    // Private mode or storage full: the view just won't be remembered.
+  }
+}

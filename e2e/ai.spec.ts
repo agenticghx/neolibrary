@@ -318,6 +318,181 @@ test("cross-book links: a page that shares ideas with a note in another book say
   expect((await own.json()).links.map((l: { bookId: string }) => l.bookId)).not.toContain(frankenstein);
 });
 
+// M17, read it rewritten (docs/rewritten-view-plan.md): the page on screen, rewritten in the book's
+// AI explanations style (STE strict here, left by the reading-preference test above), beside the page or alone.
+const pane = (page: Page) => page.getByRole("region", { name: "Rewritten" });
+const show = (page: Page) => pane(page).getByRole("group", { name: "Show" });
+
+/** Counts the rewrites the page asks the server to make (each one is paid). */
+function countMade(page: Page) {
+  const made = { n: 0 };
+  page.on("request", (r) => {
+    if (r.method() === "POST" && /\/api\/books\/[0-9a-f-]{36}\/rewritten$/.test(r.url())) made.n++;
+  });
+  return made;
+}
+
+/**
+ * Turns back one page and waits for it. foliate ignores a turn asked for while the last one finishes,
+ * so the click is repeated only while the page has not moved (never past the page wanted).
+ */
+async function turnBack(page: Page, to: string | RegExp) {
+  const from = await reader(page).getAttribute("data-cfi");
+  await expect(async () => {
+    if ((await reader(page).getAttribute("data-cfi")) === from) await page.getByRole("button", { name: "Previous page" }).click();
+    await expect(reader(page)).toHaveAttribute("data-cfi", to, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
+}
+
+/** Turns on one page, and waits until the rewritten view has asked about the new page. */
+async function turnOn(page: Page) {
+  const from = (await reader(page).getAttribute("data-cfi"))!;
+  const asked = page.waitForResponse((r) => r.url().includes("/rewritten?") && r.request().method() === "GET");
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(reader(page)).not.toHaveAttribute("data-cfi", from);
+  await asked;
+}
+
+test("read it rewritten: beside the page, made once at the price shown, kept across page turns, or alone instead of the page", async ({ page }) => {
+  const made = countMade(page);
+  await openAtPhrase(page, "London was startled by a crime of singular ferocity");
+  await expect(pane(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "Rewritten view" }).click();
+  await expect(page.getByRole("button", { name: "Rewritten view" })).toHaveAttribute("aria-pressed", "true");
+  await expect(show(page).getByRole("button", { name: "Side by side" })).toHaveAttribute("aria-pressed", "true");
+  await expect(pane(page)).toContainText("Rewritten · STE strict");
+  const ask = pane(page).getByRole("button", { name: "Rewrite this page in STE strict" });
+  await expect(ask).toBeVisible();
+  await expect(pane(page)).toContainText(/It costs (about \$\d+\.\d\d|under \$0\.01), once\. Saved rewrites are free\./);
+  const missing = await pane(page).getByTestId("rewritten-missing").count();
+  expect(missing).toBeGreaterThan(0);
+  // Beside the page on a computer: the book is still on screen, to its left.
+  const book = await page.locator("foliate-view").boundingBox();
+  const side = await pane(page).boundingBox();
+  expect(side!.x).toBeGreaterThanOrEqual(book!.x + book!.width);
+  expect(made.n).toBe(0);
+
+  await ask.click();
+  const pieces = pane(page).getByTestId("rewritten-piece");
+  await expect(pieces).toHaveCount(missing);
+  await expect(ask).toHaveCount(0);
+  await expect(pieces.first()).toContainText("STE strict · written by the test AI");
+  await expect(pieces.first()).toContainText("Fake rewrite (ste, strict (full ste)): ");
+  await expect(pieces.first()).toContainText(/STE \d+% \(full-STE score\)/);
+  await expect(pieces.first()).toContainText("1 meaning choice");
+  await expect(pieces.first()).toContainText(/fake · \d+ \w+ \d{4} · \$\d/);
+  expect(made.n).toBe(missing);
+
+  // Turn on and back: the page's saved rewrites show again, with no second call.
+  const here = (await reader(page).getAttribute("data-cfi"))!;
+  await turnOn(page);
+  await turnBack(page, here);
+  await expect(pieces).toHaveCount(missing);
+  await expect(pane(page).getByRole("button", { name: /^Rewrite this page/ })).toHaveCount(0);
+  expect(made.n).toBe(missing);
+
+  // The rewrite alone: over the page, which stays open under it (its turns still work, its text is out of reach).
+  await show(page).getByRole("button", { name: "Rewritten" }).click();
+  await expect(show(page).getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("foliate-view").locator("xpath=..")).toHaveAttribute("inert", "");
+  // It covers the whole page, which keeps its size (not pushed aside), with the turn arrows either side.
+  const over = (await pane(page).boundingBox())!;
+  const under = (await page.locator("foliate-view").boundingBox())!;
+  expect(under.width).toBeGreaterThan(600);
+  expect(over.x).toBeLessThanOrEqual(under.x + 1);
+  expect(over.x + over.width).toBeGreaterThanOrEqual(under.x + under.width - 1);
+  const next = (await page.getByRole("button", { name: "Next page" }).boundingBox())!;
+  const prev = (await page.getByRole("button", { name: "Previous page" }).boundingBox())!;
+  expect(next.x).toBeGreaterThanOrEqual(over.x + over.width - 1);
+  expect(prev.x + prev.width).toBeLessThanOrEqual(over.x + 1);
+  expect(Math.abs(next.y - prev.y)).toBeLessThan(2);
+  await expect(pieces).toHaveCount(missing);
+  await turnOn(page);
+  // A paragraph not rewritten yet shows the book's own words, labelled, until it is.
+  await expect(pane(page).getByTestId("rewritten-original").or(pieces).first()).toBeVisible();
+  expect(made.n).toBe(missing);
+
+  // Remembered on this device; Original closes it, and that is remembered too.
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(show(page).getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
+  await show(page).getByRole("button", { name: "Original" }).click();
+  await expect(pane(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Rewritten view" })).toHaveAttribute("aria-pressed", "false");
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(pane(page)).toHaveCount(0);
+  // The button goes back to the last view that showed the rewrite.
+  await page.getByRole("button", { name: "Rewritten view" }).click();
+  await expect(show(page).getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("read it rewritten in a PDF: each page on screen, and the style from reading settings", async ({ page }) => {
+  const made = countMade(page);
+  // The PDF made by reader.spec.ts, at its first page (found by search: the book itself was left on page 3).
+  await openAtPhrase(page, "Good sense is", /Discourse on the Method/);
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);
+  // Each test has a new browser: nothing remembered, so the button opens Side by side.
+  await page.getByRole("button", { name: "Rewritten view" }).click();
+  await expect(show(page).getByRole("button", { name: "Side by side" })).toHaveAttribute("aria-pressed", "true");
+  await pane(page).getByRole("button", { name: "Rewrite this page in STE strict" }).click();
+  const pieces = pane(page).getByTestId("rewritten-piece");
+  await expect(pieces.first()).toContainText("Fake rewrite (ste, strict (full ste)): ");
+  await expect(pane(page)).toContainText("Good sense is");
+  await mkdir("screenshots", { recursive: true });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: "screenshots/reader-rewritten-pdf-side-desktop-light.png" });
+  const first = made.n;
+  expect(first).toBeGreaterThan(0);
+
+  await turnOn(page);
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  await expect(pane(page).getByTestId("rewritten-missing").first()).toContainText("The diversity of our opinions");
+  await turnBack(page, /^epubcfi\(\/6\/2/);
+  await expect(pieces.first()).toContainText("Good sense is");
+  expect(made.n).toBe(first);
+
+  // Plain English for this book only: the pane follows, and offers a Plain rewrite.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const style = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "AI explanations" });
+  await style.getByLabel("Only for this book").check();
+  await style.getByRole("button", { name: "Plain" }).click();
+  await expect(pane(page)).toContainText("Rewritten · Plain");
+  await expect(pane(page).getByRole("button", { name: "Rewrite this page in Plain" })).toBeVisible();
+  // Back to the setting for all books (STE strict), as the later tests expect.
+  await style.getByLabel("Only for this book").uncheck();
+  await expect(pane(page)).toContainText("Rewritten · STE strict");
+  await expect(pieces.first()).toContainText("Good sense is");
+  expect(made.n).toBe(first);
+});
+
+test("the rewritten view is accessible, and looks right beside the page and alone, on phone and desktop, light and dark", async ({ page }) => {
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await openAtPhrase(page, "London was startled by a crime of singular ferocity");
+      // Opened once; remembered by this browser for the other looks.
+      if (!(await page.getByRole("button", { name: "Rewritten view" }).getAttribute("aria-pressed"))?.includes("true")) {
+        await page.getByRole("button", { name: "Rewritten view" }).click();
+      }
+      await expect(pane(page).getByTestId("rewritten-piece").first()).toBeVisible();
+      for (const mode of ["Side by side", "Rewritten"] as const) {
+        await show(page).getByRole("button", { name: mode }).click();
+        await expect(show(page).getByRole("button", { name: mode })).toHaveAttribute("aria-pressed", "true");
+        const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+        expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: `screenshots/reader-rewritten-${mode === "Rewritten" ? "alone" : "side"}-${name}-${scheme}.png` });
+      }
+      await show(page).getByRole("button", { name: "Side by side" }).click();
+    }
+  }
+  await show(page).getByRole("button", { name: "Original" }).click();
+  await expect(pane(page)).toHaveCount(0);
+});
+
 test("the AI and cross-book panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
