@@ -40,11 +40,14 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
     expect(model.calls).toHaveLength(1);
     expect(model.calls[0].prompt).toContain(p.text);
     expect(model.calls[0].prompt).toContain("The Strange Case of Dr. Jekyll and Mr. Hyde, by Robert Louis Stevenson");
-    expect(model.calls[0].system).toContain("Plain English.");
+    // Plain English follows Samuel's plain-english skill (M17), sent without its header.
+    expect(model.calls[0].system).toContain("into plain English");
+    expect(model.calls[0].system).toContain("One idea per sentence.");
+    expect(model.calls[0].system).not.toContain("name: plain-english");
     expect(model.calls[0].system).not.toContain("{{");
 
-    const prompt = readFileSync("prompts/rewrite.md", "utf8");
-    const level = readFileSync("prompts/rewrite-levels/plain.md", "utf8").trim();
+    const prompt = readFileSync("prompts/plain-rewrite.md", "utf8");
+    const skill = readFileSync("prompts/plain/SKILL.md", "utf8").replace(/^---\n[\s\S]*?\n---\n/, "").trim();
     expect(first.generation).toMatchObject({
       kind: "rewrite",
       bookId,
@@ -54,8 +57,8 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
       provenance: {
         provider: "anthropic",
         model: "fake",
-        promptName: "rewrite + rewrite-levels/plain",
-        promptHash: sha256(`${prompt}\n\n${level}`),
+        promptName: "plain-rewrite + plain/SKILL",
+        promptHash: sha256(`${prompt}\n\n${skill}`),
         inputHash: sha256(p.text),
         inputTokens: expect.any(Number),
         outputTokens: expect.any(Number),
@@ -100,7 +103,7 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
       sectionId: paragraphs[2].id,
       kind: "rewrite",
       options: { level: "plain" },
-      promptName: "rewrite + rewrite-levels/plain",
+      promptName: "plain-rewrite + plain/SKILL",
       promptHash: sha256("prompt, first wording"),
       input: paragraphs[2].text,
       system: "s",

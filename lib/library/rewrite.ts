@@ -3,6 +3,7 @@ import { generate, listGenerations, estimateCost, type Caps, type Generation, ty
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import { steCheck } from "@/lib/ai/ste";
+import { plainSkill } from "@/lib/ai/plain-prompt";
 import { steSkill } from "@/lib/ai/ste-prompt";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
@@ -11,8 +12,10 @@ import { sectionForCfi } from "./annotations";
 /**
  * Rewrite one paragraph at a level (M6). Every rewrite is a stored version;
  * the book's own text is never changed. Prompts: `prompts/rewrite.md` plus
- * one instruction file per level in `prompts/rewrite-levels/`; STE uses
- * `prompts/ste-rewrite.md` with Samuel's STE skill (`prompts/ste/`).
+ * one instruction file per level in `prompts/rewrite-levels/`; Plain English
+ * uses `prompts/plain-rewrite.md` with Samuel's plain-english skill
+ * (`prompts/plain/`, since M17), and STE uses `prompts/ste-rewrite.md` with
+ * his STE skill (`prompts/ste/`).
  */
 export { isLevel, LEVELS, STRICTNESS, strictnessFrom, type Level, type Strictness } from "./levels";
 import { LEVELS, STRICTNESS, type Level, type Strictness } from "./levels";
@@ -79,6 +82,20 @@ async function buildRequest(
     };
   }
 
+  if (level === "plain") {
+    const file = await readPrompt("plain-rewrite");
+    const skill = await plainSkill();
+    const { system, user } = splitPrompt(file);
+    return {
+      ...common,
+      options: { level },
+      promptName: "plain-rewrite + plain/SKILL",
+      promptHash: sha256(`${file}\n\n${skill}`),
+      system: fill(system, { skill }),
+      prompt: fill(user, { ...message, task: `Rewrite (${LEVELS[level]})` }),
+    };
+  }
+
   const base = await readPrompt("rewrite");
   const instruction = (await readPrompt(`rewrite-levels/${level}`)).trim();
   const { system, user } = splitPrompt(base);
@@ -105,8 +122,16 @@ export async function rewriteParagraph(
 }
 
 /** The rough cost of a rewrite, shown before asking (ground rule 8). */
-export async function estimateRewrite(db: Db, model: TextModel, ownerId: string, bookId: string, sectionId: string, level: Level) {
-  return estimateCost(model, await buildRequest(db, ownerId, bookId, sectionId, level, "standard"));
+export async function estimateRewrite(
+  db: Db,
+  model: TextModel,
+  ownerId: string,
+  bookId: string,
+  sectionId: string,
+  level: Level,
+  strictness: Strictness = "standard",
+) {
+  return estimateCost(model, await buildRequest(db, ownerId, bookId, sectionId, level, strictness));
 }
 
 export type RewriteView = Generation & {

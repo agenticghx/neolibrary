@@ -39,3 +39,9 @@ export type Style = keyof typeof STYLES;
 export const isStyle = (v: unknown): v is Style => typeof v === "string" && Object.hasOwn(STYLES, v);
 /** The STE strictness of a style, or null for plain English. */
 export const styleStrictness = (s: Style): Strictness | null => (s === "plain" ? null : (s.slice(4) as Strictness));
+
+/** The rewrite that writes in a style (M17): Plain English, or STE at the style's strictness. */
+export function rewriteFor(s: Style): { level: "plain" } | { level: "ste"; strictness: Strictness } {
+  const strictness = styleStrictness(s);
+  return strictness ? { level: "ste", strictness } : { level: "plain" };
+}
