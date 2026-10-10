@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { getBook } from "@/lib/library/paths";
+import { getPreferences } from "@/lib/library/preferences";
 import { isCfi } from "@/lib/library/reading";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
@@ -27,6 +28,7 @@ export default async function ReadPage({
   const sp = await searchParams;
   const at = sp.at;
   const fileUrl = signFileUrl(await serverSecret(db, "file-links"), book.fileKey!);
+  const { rewrittenView } = await getPreferences(db, user.id);
   return (
     <Reader
       bookId={book.id}
@@ -37,6 +39,7 @@ export default async function ReadPage({
       initialCfi={isCfi(at) ? at : book.position}
       initialFraction={book.progress}
       startListening={sp.listen === "1" && found.available.listen}
+      rewrittenView={rewrittenView}
     />
   );
 }

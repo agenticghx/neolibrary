@@ -39,6 +39,8 @@ async function laterMillisecond() {
 
 describe("question bank (M6)", () => {
   it("asks once per chapter for recall, understanding and application questions, and re-serves them", async () => {
+    // In plain English: new readers start in STE light since M17.
+    await setStyle(database.db, ownerId, bookId, { scope: "all", style: "plain" });
     const model = new FakeModel();
     const c = chapter("The Carew Murder Case");
     const first = await questionBank(database.db, model, ownerId, { bookId, chapterId: c.id });

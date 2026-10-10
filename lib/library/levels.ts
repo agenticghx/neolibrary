@@ -45,3 +45,8 @@ export function rewriteFor(s: Style): { level: "plain" } | { level: "ste"; stric
   const strictness = styleStrictness(s);
   return strictness ? { level: "ste", strictness } : { level: "plain" };
 }
+
+/** The view a book opens in (M17): the book alone, the rewrite beside the page, or the rewrite alone. */
+export const VIEWS = { original: "Original", side: "Side by side", rewritten: "Rewritten" } as const;
+export type RewrittenView = keyof typeof VIEWS;
+export const isView = (v: unknown): v is RewrittenView => typeof v === "string" && Object.hasOwn(VIEWS, v);

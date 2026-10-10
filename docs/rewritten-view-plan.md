@@ -50,7 +50,7 @@ its provenance, re-served without a second call; the book's style followed
 (STE strict asks for Strict); the spending cap stops it; another reader gets
 nothing (`lib/library/rewritten.test.ts`).
 
-**R2 · The panel and the switch.** Built 2026-10-10 (`m17-rewritten-panel`). A button in the reader's top bar opens
+**R2 · The panel and the switch.** Merged 2026-10-10 (#139). A button in the reader's top bar opens
 the rewrite. Inside it, a switch: Original, Side by side, Rewritten. Side by
 side: the page and the panel share the screen (beside on a computer, page
 above and panel below on a phone). Rewritten: the panel covers the page;
@@ -65,7 +65,7 @@ page's rewrite, turns the page and back (the stored rewrite shows, no second
 call), in an EPUB and a PDF, in both modes; screenshots on phone and
 computer, light and dark; the accessibility check passes with the panel open.
 
-**R3 · Made as you read.** Built 2026-10-10 (`m17-rewritten-as-you-turn`).
+**R3 · Made as you read.** Merged 2026-10-10 (#140).
 After the first "Rewrite this page", each page turned to is rewritten too,
 without a click, with a running total ("So far: 3 paragraphs rewritten,
 about $0.06."), until Stop, a failure (the spending cap, no connection), or
@@ -84,3 +84,23 @@ the total counts them, it asks after $1.20 and makes nothing more until
 "Keep rewriting", closing and reopening the view keeps it on, Stop turns
 it off (a turn then makes nothing), and a reload starts it off; unit tests
 check the counting (`lib/library/rewritten-turn.test.ts`).
+
+**R4 · Defaults on the account.** Built 2026-10-10 (`m17-rewritten-defaults`).
+Samuel (2026-10-10): "the default view for every book should be the
+side-by-side with ste-light. you should be able to change this in
+preferences under user accounts as well." Migration 0023 adds
+`users.rewritten_view` (original, side or rewritten; new and existing
+readers: side) and makes STE light the AI explanations style for new
+readers; existing readers keep the style they have. The Account page has a
+"Reading preferences" card (the style for all books, and the view a book
+opens with), and the reader's own switch changes the same setting, so it
+follows the reader to every book and device (it was kept on the device in
+R2). The library export carries the view. A consequence: with the rewrite
+beside the page on a computer, a PDF shows one page, not two, so the Spine
+fold (two pages only) does not play until the view is Original.
+
+Done when: unit tests prove new readers start side by side in STE light,
+existing readers keep their style, the migration's reverse step, the
+preferences refuse unknown values, and the export round trip carries the
+view; a browser test changes both on the Account page, opens a book in
+that view and style, and sees the reader's switch change the Account page.

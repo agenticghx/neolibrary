@@ -16,6 +16,7 @@ import { savePosition } from "./reading";
 import { eq } from "drizzle-orm";
 import { annotations, books, generations, users } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
+import { setPreferences } from "./preferences";
 import { FakeSpeech, wav } from "@/lib/speech/fake";
 import { FakeTranscriber } from "@/lib/speech/transcribe";
 import { createVoiceNote } from "./voice-notes";
@@ -86,6 +87,7 @@ describe("library export (ground rule 7)", () => {
     });
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
+    await setPreferences(database.db, ownerId, { rewrittenView: "rewritten" });
 
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.length).toBeGreaterThan(100);
@@ -123,17 +125,17 @@ describe("library export (ground rule 7)", () => {
         chapters: [{ key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 300, words: 1250 }],
       }),
     ]);
-    expect(before.settings).toEqual({ aiStyle: "ste-standard" });
+    expect(before.settings).toEqual({ aiStyle: "ste-standard", rewrittenView: "rewritten" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
     expect(before.generations).toEqual([
       expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
-      expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "plain" } }),
+      expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "ste-light" } }),
       expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
     ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
 
     await wipeLibrary(database.db, ownerId);
-    await database.db.update(users).set({ aiStyle: "plain" }).where(eq(users.id, ownerId));
+    await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
     expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions]).toEqual([[], [], [], [], [], [], [], [], []]);
 

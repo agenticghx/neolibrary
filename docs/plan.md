@@ -607,8 +607,8 @@ from the app's own pages.
 The "AI explanations" style (Plain, STE light, STE, STE strict) rewrites the
 book paragraph by paragraph, shown in a panel beside the page (under it on a
 phone), with a switch between Original, Side by side and Rewritten. The plan,
-Samuel's choices and the three steps (R1 server, R2 panel and switch, R3
-made as you read) with their "Done when": `docs/rewritten-view-plan.md`.
+Samuel's choices and the steps (R1 server, R2 panel and switch, R3 made as
+you read, R4 defaults on the account) with their "Done when": `docs/rewritten-view-plan.md`.
 
 ## How a cloud session works on this repo
 

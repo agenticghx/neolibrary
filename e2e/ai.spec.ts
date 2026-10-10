@@ -323,6 +323,14 @@ test("cross-book links: a page that shares ideas with a note in another book say
 const pane = (page: Page) => page.getByRole("region", { name: "Rewritten" });
 const show = (page: Page) => pane(page).getByRole("group", { name: "Show" });
 
+/** Shows the rewrite beside the page, whatever view the account was left in. */
+async function openSide(page: Page) {
+  const button = page.getByRole("button", { name: "Rewritten view" });
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  await show(page).getByRole("button", { name: "Side by side" }).click();
+  await expect(show(page).getByRole("button", { name: "Side by side" })).toHaveAttribute("aria-pressed", "true");
+}
+
 /** Counts the rewrites the page asks the server to make (each one is paid). */
 function countMade(page: Page) {
   const made = { n: 0 };
@@ -415,19 +423,21 @@ test("read it rewritten: beside the page, made once at the price shown, kept acr
   await expect(pane(page).getByTestId("rewritten-original").or(pieces).first()).toBeVisible();
   expect(made.n).toBe(missing);
 
-  // Remembered on this device; Original closes it, and that is remembered too.
+  // Saved on the account (every book and device opens in it); Original closes it, and that is saved too.
   await page.reload();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(show(page).getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
   await show(page).getByRole("button", { name: "Original" }).click();
   await expect(pane(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Rewritten view" })).toHaveAttribute("aria-pressed", "false");
-  await page.reload();
-  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  await expect(pane(page)).toHaveCount(0);
   // The button goes back to the last view that showed the rewrite.
   await page.getByRole("button", { name: "Rewritten view" }).click();
   await expect(show(page).getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
+  await show(page).getByRole("button", { name: "Original" }).click();
+  await expect.poll(async () => (await (await page.request.get("/api/account/preferences")).json()).rewrittenView).toBe("original");
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(pane(page)).toHaveCount(0);
 });
 
 test("read it rewritten in a PDF: each page on screen, and the style from reading settings", async ({ page }) => {
@@ -435,7 +445,7 @@ test("read it rewritten in a PDF: each page on screen, and the style from readin
   // The PDF made by reader.spec.ts, at its first page (found by search: the book itself was left on page 3).
   await openAtPhrase(page, "Good sense is", /Discourse on the Method/);
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);
-  // Each test has a new browser: nothing remembered, so the button opens Side by side.
+  // The last test left the account on Original: the button opens Side by side.
   await page.getByRole("button", { name: "Rewritten view" }).click();
   await expect(show(page).getByRole("button", { name: "Side by side" })).toHaveAttribute("aria-pressed", "true");
   await pane(page).getByRole("button", { name: "Rewrite this page in STE strict" }).click();
@@ -482,7 +492,7 @@ test("read it rewritten as you turn: made without a click after the first press,
     return route.fulfill({ response: res, json: { ...body, reused: false, generation: { ...body.generation, provenance: { ...body.generation.provenance, costUsd: 0.6 } } } });
   });
   await openAtPhrase(page, "It was late in the afternoon");
-  await page.getByRole("button", { name: "Rewritten view" }).click();
+  await openSide(page);
   await pane(page).getByRole("button", { name: "Rewrite this page in STE strict" }).click();
   const line = pane(page).getByTestId("as-you-turn");
   // One or two paragraphs at once, depending on how many the first page holds.
@@ -529,6 +539,39 @@ test("read it rewritten as you turn: made without a click after the first press,
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(pane(page)).toBeVisible();
   await expect(line).toHaveCount(0);
+});
+
+// Samuel (2026-10-10): books open side by side in STE light, and both are reading preferences on the Account page,
+// the same settings the reader's own switches change. (New readers' defaults: lib/library/preferences.test.ts.)
+test("reading preferences on the Account page: the view a book opens with and the style, shared with the reader", async ({ page }) => {
+  const card = page.getByRole("region", { name: "Reading preferences" });
+  const opensWith = card.getByRole("group", { name: "A book opens with" });
+  const style = card.getByRole("group", { name: "AI explanations" });
+  const before = await (await page.request.get("/api/account/preferences")).json();
+  await page.goto("/account");
+  await opensWith.getByRole("button", { name: "Rewritten" }).click();
+  await style.getByRole("button", { name: "STE light" }).click();
+  await expect(opensWith.getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
+  await expect(style.getByRole("button", { name: "STE light" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (await page.request.get("/api/account/preferences")).json()).toEqual({ aiStyle: "ste-light", rewrittenView: "rewritten" });
+
+  // A book opens that way, in that style.
+  await openAtPhrase(page, "London was startled by a crime of singular ferocity");
+  await expect(show(page).getByRole("button", { name: "Rewritten" })).toHaveAttribute("aria-pressed", "true");
+  await expect(pane(page)).toContainText("Rewritten · STE light");
+
+  // The reader's switch is the same setting.
+  await show(page).getByRole("button", { name: "Side by side" }).click();
+  await page.goto("/account");
+  await expect(opensWith.getByRole("button", { name: "Side by side" })).toHaveAttribute("aria-pressed", "true");
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await mkdir("screenshots", { recursive: true });
+  await page.screenshot({ path: "screenshots/account-reading-preferences-desktop-light.png", fullPage: true });
+
+  // Refused: what the app does not know. Then back as the earlier tests left it, for the tests after this one.
+  expect((await page.request.put("/api/account/preferences", { data: { rewrittenView: "sideways" } })).status()).toBe(400);
+  expect((await page.request.put("/api/account/preferences", { data: before })).ok()).toBe(true);
 });
 
 test("the rewritten view is accessible, and looks right beside the page and alone, on phone and desktop, light and dark", async ({ page }) => {
