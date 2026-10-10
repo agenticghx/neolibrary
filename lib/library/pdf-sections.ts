@@ -10,6 +10,16 @@ type TextItem = { str: string; hasEOL?: boolean; transform: number[]; height: nu
 
 export const pageCfi = (index: number) => `epubcfi(/6/${(index + 1) * 2})`;
 
+/**
+ * The paragraphs as the laptop's read-along tools need them (Part D of
+ * docs/pdf-narration-plan.md): each one's id, its page (1-based, as a PDF
+ * viewer counts) and its text, exactly as the app reads it. A narration
+ * script is then checked against this text, not against another program's
+ * reading of the PDF (scripts/pdf-paragraphs.mjs writes it to a file).
+ */
+export const toolParagraphs = (sections: Section[]) =>
+  sections.filter((s) => s.kind === "paragraph").map((s) => ({ id: s.id, page: s.chapterIndex + 1, text: s.text }));
+
 export async function extractPdfSections(bytes: Uint8Array): Promise<Section[]> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const task = pdfjs.getDocument({

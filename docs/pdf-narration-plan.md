@@ -143,6 +143,33 @@ the PDF side. Good tools exist; use them:
    the free Kyutai voice, uploaded on the book's page on the local app, words
    lit in order.
 
+**Built (2026-10-10, branch `m16-pdf-chapters`):**
+- Here: `scripts/pdf-paragraphs.mjs BOOK.pdf OUT.json` writes the app's own
+  paragraphs of a PDF (`toolParagraphs` in `lib/library/pdf-sections.ts`:
+  each paragraph's id, its page counted from 1, its text).
+- In the skills (on the laptop, `~/.claude/skills`, kept in Samuel's
+  dotfiles, not in this repo): `book-chapters/scripts/split_pdf.py` (steps
+  1–2; the name became `split_pdf.py`, next to `split_epub.py`), its tests
+  in `book-chapters/tests/` (a made-up PDF with each case), and
+  `map_to_book.py --app-text` (step 3; `build_package.py --app-text` passes
+  it on).
+- What *The Grid* taught: all 8 line-end hyphens in chapter 1 are real
+  compound words ("well-appointed"), because the PDF was made from an ebook,
+  so a hyphen is dropped only when the book spells the joined word
+  elsewhere; the "2" of "CO2" is small type set lower and must stay; some
+  justified lines come out of PyMuPDF word by word and are put back together.
+  Whole book: 24 scripts; 862 of 865 script paragraphs found in the app's
+  text (the 3 misses are lines under 15 letters, as with EPUBs).
+- The round trip (2026-10-10): chapter 1 narrated by the free Kyutai Pocket
+  voice (45 minutes of audio), packaged, uploaded to the app on the laptop:
+  the app matched 8,224 of 8,227 spoken words to its pages, and in Chrome
+  every word lit in order, on time and on screen (827 words from page 22,
+  through two page turns; 80 from page 38). On the way, `align.py` learnt
+  to keep word times in order (a blurred "T." had come out after "Boone").
+- Making a PDF audiobook is now: `node scripts/pdf-paragraphs.mjs BOOK.pdf
+  app.json` here; `split_pdf.py BOOK.pdf OUT`; `narrate.py` per script;
+  `build_package.py … --app-text app.json`; upload on the book's page.
+
 ## Part C also: leave running heads and page numbers unread
 
 When the app splits a PDF (Part C), mark a short line that sits at the very
@@ -150,5 +177,5 @@ top or bottom of most pages (a running head, a page number) as "not read".
 It stays in the page's text, so every word's place on the page is unchanged,
 but the voice skips it. Same rule as Part D step 2, in the app.
 
-Order: Part A (merged, #126), then A2 (labels, 2026-10-10). Part D next.
-Part B after Samuel's live test of Part A. Part C after that.
+Order: Part A (merged, #126), A2 (labels, merged #134), Part D (built
+2026-10-10). Part B after Samuel's live test of Part A. Part C after that.
