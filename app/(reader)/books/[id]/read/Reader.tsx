@@ -143,16 +143,19 @@ function themeColors(el: Element, s: ReaderSettings) {
  * Read along in a PDF (M13 (e)): lights non-space characters [a, b) of a
  * page's text layer, in that page's own frame; returns their text, or null
  * if the text layer is not drawn yet. `via`: who asked (the player's frame,
- * or the page's text arriving), for the tests' timing marks. Every other
- * page frame loses its lit word: with two pages side by side, the page read
- * before kept its last word lit while the next page was read (2026-10-09).
+ * or the page's text arriving), for the tests' timing marks. The frames of
+ * every other page lose their lit word: with two pages side by side, the page
+ * read before kept its last word lit while the next page was read
+ * (2026-10-09). A second frame of the same page (one being replaced as the
+ * window changes size) keeps its own, so neither can unlight the other.
  */
 function lightPdfWord(v: FoliateView, doc: Document, [a, b]: [number, number], via: "word" | "text-layer"): string | null {
   const layer = doc.querySelector(".textLayer");
   const range = layer ? rangeForNonSpace(layer, a, b) : null;
   if (!range) return null;
+  const page = doc.documentElement.dataset.page;
   for (const item of v.renderer?.getContents() ?? []) {
-    if (item.doc && item.doc !== doc) (item.doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
+    if (item.doc && item.doc.documentElement.dataset.page !== page) (item.doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
   }
   const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
   win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
