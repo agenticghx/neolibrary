@@ -2,6 +2,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users, type ChapterReading } from "@/lib/db/schema";
 import { assertSafeKey } from "@/lib/storage";
+import { isStyle, isView } from "./levels";
 import { cleanPicture } from "./pinned";
 
 /**
@@ -89,8 +90,8 @@ export type LibraryExport = {
     deleted: boolean;
     createdAt: string;
   }[];
-  /** The reader's settings (added in M6). */
-  settings?: { aiStyle: "plain" | "ste-light" | "ste-standard" | "ste-strict" };
+  /** The reader's settings (added in M6; the view a book opens in, in M17). */
+  settings?: { aiStyle: "plain" | "ste-light" | "ste-standard" | "ste-strict"; rewrittenView?: "original" | "side" | "rewritten" };
   /** Machine-written text (rewrites, …) with its provenance (added in M6). */
   generations?: {
     id: string;
@@ -217,13 +218,13 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(readingSessions)
     .where(eq(readingSessions.ownerId, ownerId))
     .orderBy(asc(readingSessions.startedAt), asc(readingSessions.id));
-  const [settings] = await db.select({ aiStyle: users.aiStyle }).from(users).where(eq(users.id, ownerId));
+  const [settings] = await db.select({ aiStyle: users.aiStyle, rewrittenView: users.rewrittenView }).from(users).where(eq(users.id, ownerId));
 
   return {
     format: EXPORT_FORMAT,
     version: EXPORT_VERSION,
     exportedAt: now.toISOString(),
-    settings: { aiStyle: settings?.aiStyle ?? "plain" },
+    settings: { aiStyle: settings?.aiStyle ?? "ste-light", rewrittenView: settings?.rewrittenView ?? "side" },
     books: bookRows
       .filter((b) => !b.deletedAt)
       .map((b) => ({
@@ -476,7 +477,9 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       const [taken] = await tx.select({ id: annotations.id }).from(annotations).where(inArray(annotations.annotationId, noteIds)).limit(1);
       if (taken) throw new ExportFormatError("Some notes in this file already exist in the library. Nothing was imported.");
     }
-    if (x.settings?.aiStyle) await tx.update(users).set({ aiStyle: x.settings.aiStyle }).where(eq(users.id, ownerId));
+    // Only values the app knows; a file from before M17 has no view, and the reader's own stays.
+    if (isStyle(x.settings?.aiStyle)) await tx.update(users).set({ aiStyle: x.settings.aiStyle }).where(eq(users.id, ownerId));
+    if (isView(x.settings?.rewrittenView)) await tx.update(users).set({ rewrittenView: x.settings.rewrittenView }).where(eq(users.id, ownerId));
     for (const b of x.books) {
       await tx.insert(books).values({
         id: b.id,

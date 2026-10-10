@@ -28,7 +28,7 @@ import { RewritePanel } from "./RewritePanel";
 import { RewrittenPane } from "./RewrittenPane";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadRewrittenMode, loadSettings, saveRewrittenMode, saveSettings, SIZES, type ReaderSettings, type RewrittenMode } from "./settings";
+import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings, type RewrittenMode } from "./settings";
 import styles from "./reader.module.css";
 
 type TocItem = { label: string; href: string; subitems?: TocItem[] };
@@ -233,6 +233,8 @@ export function Reader(props: {
   initialFraction: number;
   /** Open with the Read aloud bar showing (Home's "Listen from here"); the reader still presses Play (Safari needs the click). */
   startListening?: boolean;
+  /** The view the book opens in (M17), from the reader's account: the book alone, the rewrite beside it, or the rewrite alone. */
+  rewrittenView?: RewrittenMode;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -293,8 +295,11 @@ export function Reader(props: {
   const listenBar = useRef<HTMLDivElement>(null);
   const linkedText = useRef("");
   const [rewriteAt, setRewriteAt] = useState<string | null>(null);
-  /** Read it rewritten (M17): the view, and the last one that showed the rewrite. Kept on this device. */
-  const [rewritten, setRewritten] = useState<{ mode: RewrittenMode; last: Exclude<RewrittenMode, "original"> } | null>(null);
+  /** Read it rewritten (M17): the view, from the account, and the last one that showed the rewrite (the top bar's button goes back to it). */
+  const [rewritten, setRewritten] = useState<{ mode: RewrittenMode; last: Exclude<RewrittenMode, "original"> }>(() => {
+    const mode = props.rewrittenView ?? "original";
+    return { mode, last: mode === "rewritten" ? "rewritten" : "side" };
+  });
   /** The place on screen for the rewritten view: an EPUB's visible range, or a PDF's first and last page shown. */
   const [screen, setScreen] = useState<{ from: string; to: string } | null>(null);
   /** Rewriting each page as it is turned to (M17 R3): for this visit only, never remembered. */
@@ -426,7 +431,6 @@ export function Reader(props: {
         root.current!.className = readerClass(initial);
         applySettings(v, initial, root.current!);
         setSettings(initial);
-        setRewritten(loadRewrittenMode());
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
           let pages: number[] = [];
@@ -1004,13 +1008,17 @@ export function Reader(props: {
 
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
 
-  // Read it rewritten (M17); the view as it was left on this device is read when the book opens, with the settings.
+  // Read it rewritten (M17): a change here is the account's view too (also on the Account page), so every
+  // book and device opens in it. Shown at once; if it cannot be saved, it still holds in this reader.
   const showRewritten = (mode: RewrittenMode) => {
-    const next = { mode, last: mode === "original" ? (rewritten?.last ?? "side") : mode };
-    saveRewrittenMode(next);
-    setRewritten(next);
+    setRewritten((r) => ({ mode, last: mode === "original" ? r.last : mode }));
+    void fetch("/api/account/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rewrittenView: mode }),
+    }).catch(() => {});
   };
-  const paneMode = rewritten && rewritten.mode !== "original" && screen ? rewritten.mode : null;
+  const paneMode = rewritten.mode !== "original" && screen ? rewritten.mode : null;
   const percent = Math.round(where.fraction * 100);
 
   return (
@@ -1078,10 +1086,10 @@ export function Reader(props: {
           <button
             type="button"
             className={`${styles.tool} ${styles.leadTool}`}
-            aria-pressed={!!rewritten && rewritten.mode !== "original"}
+            aria-pressed={rewritten.mode !== "original"}
             aria-label="Rewritten view"
             title="Read it rewritten, in your AI explanations style"
-            onClick={() => showRewritten(rewritten && rewritten.mode !== "original" ? "original" : (rewritten?.last ?? "side"))}
+            onClick={() => showRewritten(rewritten.mode !== "original" ? "original" : rewritten.last)}
           >
             <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
               <rect x="1" y="2" width="7" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -1330,7 +1338,8 @@ export function Reader(props: {
           <p className={styles.hint}>
             STE is Simplified Technical English: one meaning per word, short sentences. This style rewrites the book in the
             rewritten view (the button beside Notes), and words &ldquo;What do I need to know?&rdquo; and other AI explanations.
-            The Rewrite button on selected text still offers every level.
+            The Rewrite button on selected text still offers every level. The Account page sets the style and the view every
+            book opens with.
           </p>
           <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
         </section>

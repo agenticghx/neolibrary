@@ -27,5 +27,10 @@ setup("create the owner account", async ({ page }) => {
     await expect(page).toHaveURL(/\/paths\/hidden-machinery$/);
     await expect(page.getByRole("heading", { name: "Hidden Machinery", level: 1 })).toBeVisible();
   }
+  // The reader tests measure the book's own page (two-page spreads, the Spine fold, lit words), and the AI tests were
+  // written for plain English: the owner reads in Plain with the book alone. New readers start side by side in STE
+  // light (M17); those defaults are tested in lib/library/preferences.test.ts and in ai.spec.ts.
+  const prefs = await page.request.put("/api/account/preferences", { data: { aiStyle: "plain", rewrittenView: "original" } });
+  expect(await prefs.json()).toEqual({ aiStyle: "plain", rewrittenView: "original" });
   await page.context().storageState({ path: ADMIN_STATE });
 });

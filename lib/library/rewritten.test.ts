@@ -105,6 +105,8 @@ describe("read it rewritten, in the book's style (M17)", () => {
   });
 
   it("shows the price first, then the stored rewrite with provenance, re-served without a second call", async () => {
+    // In plain English (new readers start in STE light: lib/library/preferences.test.ts).
+    await setStyle(database.db, ownerId, bookId, { scope: "all", style: "plain" });
     const model = new FakeModel();
     const [a, b] = threeInARow();
     const range = rangeCfi(a, b);

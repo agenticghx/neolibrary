@@ -40,6 +40,8 @@ describe('"What do I need to know?" (M6)', () => {
   });
 
   it("asks once per chapter for structured concepts, stores them with provenance, and re-serves them", async () => {
+    // About the plain wording: new readers start in STE light since M17.
+    await setStyle(database.db, ownerId, bookId, { scope: "all", style: "plain" });
     const model = new FakeModel();
     const carew = chapter("The Carew Murder Case");
     const first = await needToKnow(database.db, model, ownerId, { bookId, chapterId: carew.id });
@@ -91,8 +93,8 @@ describe('"What do I need to know?" (M6)', () => {
 });
 
 describe("STE as a reading preference for AI explanations (M6)", () => {
-  it("is plain English by default, set once for all books, and changeable per book", async () => {
-    expect(await getStyles(database.db, ownerId, bookId)).toEqual({ user: "plain", book: null, effective: "plain" });
+  it("is STE light by default (since M17; plain English before), set once for all books, and changeable per book", async () => {
+    expect(await getStyles(database.db, ownerId, bookId)).toEqual({ user: "ste-light", book: null, effective: "ste-light" });
     const model = new FakeModel();
     const carew = chapter("The Carew Murder Case");
 

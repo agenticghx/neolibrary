@@ -11,7 +11,9 @@ export const users = pgTable("users", {
   role: text("role", { enum: ["admin", "reader"] }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   disabledAt: timestamp("disabled_at", { withTimezone: true }),
-  aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }).notNull().default("plain"),
+  aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }).notNull().default("ste-light"),
+  /** The view a book opens in (M17, migration 0023): the book alone, the rewrite beside it, or the rewrite alone. */
+  rewrittenView: text("rewritten_view", { enum: ["original", "side", "rewritten"] }).notNull().default("side"),
 });
 
 export const sessions = pgTable("sessions", {
