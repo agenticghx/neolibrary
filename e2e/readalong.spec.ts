@@ -1773,7 +1773,8 @@ test("a PDF is read aloud in a made voice: every word lit in order on its page, 
       await page.setViewportSize({ width: w, height: h });
       await page.emulateMedia({ colorScheme: scheme });
       await expect.poll(() => litNow(page), { timeout: 10_000 }).toBe(paused);
-      await expect(bar).toContainText("Saved audio: free to play.");
+      // Paid for in this listen ("Made just now", with the running total), or saved by an earlier run.
+      await expect(bar).toContainText(/(Saved audio: free to play|Made just now; it plays free from now on)\./);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-pdf-made-voice-${name}-${scheme}${engine()}.png` });
