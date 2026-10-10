@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { extractPdfSections, pageCfi } from "./pdf-sections";
+import { extractPdfSections, pageCfi, toolParagraphs } from "./pdf-sections";
 
 /**
  * A one-page PDF, written out here: a line of Japanese in a font that is not
@@ -53,5 +53,16 @@ describe("PDF sections", () => {
     // read-along highlight, counting characters from the top, would land on other words.
     const paragraphs = (await extractPdfSections(japanesePdf())).filter((x) => x.kind === "paragraph");
     expect(paragraphs.map((p) => p.text)).toEqual(["日本語 Hello reader of this page"]);
+  });
+
+  it("lists the paragraphs for the laptop's tools: the app's own ids, pages counted from 1, the same text (Part D)", async () => {
+    const bytes = new Uint8Array(readFileSync(new URL("../../fixtures/books/descartes-meditation-one.pdf", import.meta.url)));
+    const s = await extractPdfSections(bytes);
+    const listed = toolParagraphs(s);
+    const paragraphs = s.filter((x) => x.kind === "paragraph");
+    expect(listed.map((p) => p.id)).toEqual(paragraphs.map((p) => p.id));
+    expect(listed.map((p) => p.text)).toEqual(paragraphs.map((p) => p.text));
+    expect(listed[0]).toEqual({ id: "p-page-1-1", page: 1, text: "MEDITATION I. OF THE THINGS OF WHICH WE MAY DOUBT." });
+    expect(listed.every((p, k) => p.page === paragraphs[k].chapterIndex + 1)).toBe(true);
   });
 });

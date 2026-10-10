@@ -2207,3 +2207,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held: one line, plus tests and wording.
 **Lesson.** Grep for the value as well as the label: the unit test asserted `{ read: true, listen: false }` with only a comment saying "Read only".
 **Next experiment.** CI will fail once on the Import page's reference images (its sentence changed); refresh them with the merge train, look at them, merge.
+
+### Iteration 83 · 2026-10-10 05:05 UTC · A PDF audiobook made on the laptop (Part D of docs/pdf-narration-plan.md) · success
+
+**Hypothesis.** The PDF gap is in the laptop's tools, not the app: chapters and clean scripts can come from PyMuPDF (outline, font sizes, positions), and if the check that finds each script paragraph in the book reads the PDF exactly as the app does, its "N of M found" predicts the upload.
+**Action.** `scripts/pdf-paragraphs.mjs` (the app's own paragraphs, via `toolParagraphs`); `split_pdf.py` in the book-chapters skill; `map_to_book.py --app-text`. Then the round trip on *The Grid* chapter 1: free Kyutai voice, package, upload to the local app, playback checked word by word with the browser tests' own `expectEveryWordOnTime`.
+**Evaluation.** Whole book: 862 of 865 script paragraphs found in the app's text. Chapter 1: 76 of 76; the app matched 8,224 of 8,227 spoken words; Chrome lit every one of 827 words from page 22 (two page turns) and 80 from page 38, each on time and on screen. Skill tests: 11 passed; each of three deliberate bugs in `split_pdf.py` failed at least one test.
+**Result.** The hypothesis held, after four surprises: all 8 line-end hyphens in chapter 1 were real compounds (a PDF made from an ebook), so a hyphen is dropped only when the book spells the joined word elsewhere; "CO2"'s 2 is small type set lower and must stay; PyMuPDF gave some justified lines word by word; and the aligner put a blurred "T." after "Boone", which `validate_package.py` refused (fixed in `align.py`).
+**Lesson.** Check a cleaning rule against the book before trusting it: the textbook rule (drop a line-end hyphen) would have spoken "wellappointed" eight times in one chapter. And Playwright's own Chromium cannot play AAC; a test of real `.m4a` audio needs installed Chrome or WebKit.
+**Next experiment.** Samuel's live test of the AI voice on *The Grid* page 22 measures the pause at each page turn (Part B).
