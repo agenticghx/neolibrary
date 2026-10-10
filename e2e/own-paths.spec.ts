@@ -201,13 +201,13 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
     mimeType: "application/pdf",
     buffer: readFileSync("fixtures/books/descartes-meditation-one.pdf"),
   });
-  // The page refreshes with the file in place: a Read button, and the title (the list's, not the file's) Read only.
+  // The page refreshes with the file in place: a Read button, and the title (the list's, not the file's) Read and listen.
   await expect(page.getByRole("link", { name: "Read", exact: true })).toBeVisible();
   // The message outlives the picker, and focus moves to Read.
   await expect(page.getByTestId("attach-status")).toHaveText("Added the book file (kuhn.pdf). It is ready to read.");
   await expect(page.getByRole("link", { name: "Read", exact: true })).toBeFocused();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("The Structure of Scientific Revolutions");
-  await expect(page.getByText("Read only · 0% read")).toBeVisible(); // a PDF: narration is EPUB only
+  await expect(page.getByText("Read and listen · 0% read")).toBeVisible(); // a PDF: the AI voice reads it too (Part A2)
   await expect(page.getByLabel("Choose the book file")).toHaveCount(0);
 
   await page.goto("/paths/philosophy-of-science");

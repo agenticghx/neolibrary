@@ -118,7 +118,7 @@ const g = globalThis as unknown as { __neolibraryNarrations?: Map<string, Job> }
 const jobs = () => (g.__neolibraryNarrations ??= new Map<string, Job>());
 const jobKey = (ownerId: string, bookId: string, voice: string) => `${ownerId}|${bookId}|${voice}`;
 
-/** The owner's book, if it is an EPUB with its file (an AI voice cannot be lined up with a PDF page yet). */
+/** The owner's book, if it is an EPUB with its file (whole-book narration is EPUB only, for now). */
 async function epubOf(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey, fileType: books.fileType })
@@ -126,7 +126,7 @@ async function epubOf(db: Db, ownerId: string, bookId: string) {
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new NarrationError("Book not found", 404);
   if (!book.fileKey) throw new NarrationError("This book has no file yet: add its EPUB first.");
-  if (book.fileType !== "epub") throw new NarrationError("Only an EPUB can be narrated by an AI voice: a voice cannot be lined up with a PDF page yet.");
+  if (book.fileType !== "epub") throw new NarrationError("Only an EPUB can be narrated whole, for now: in a PDF, the AI voice reads a page at a time as you listen.");
   return book;
 }
 

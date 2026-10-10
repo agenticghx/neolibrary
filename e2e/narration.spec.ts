@@ -315,7 +315,7 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     const pdf = exported.find((b) => b.file?.type === "pdf")!;
     const refused = await page.request.get(`/api/books/${pdf.id}/narration`);
     expect(refused.status()).toBe(400);
-    expect((await refused.json()).error).toBe("Only an EPUB can be narrated by an AI voice: a voice cannot be lined up with a PDF page yet.");
+    expect((await refused.json()).error).toBe("Only an EPUB can be narrated whole, for now: in a PDF, the AI voice reads a page at a time as you listen.");
     const anon = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     expect((await anon.request.get(api)).status()).toBe(401);
     expect((await anon.request.post(api, { data: { voice: "fake-ada", confirm: true } })).status()).toBe(401);

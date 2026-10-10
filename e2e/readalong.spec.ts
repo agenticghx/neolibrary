@@ -1364,7 +1364,8 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   const last1 = timings[first2 - 1];
   expect([last1.w, expected[first2].word]).toEqual(["in", "most"]);
   expect(expected[first2].startMs - last1.end * 1000).toBeLessThan(50);
-  // On the shelf this PDF says Read and listen through its uploaded audiobook alone (narration is EPUB only).
+  // On the shelf this PDF says Read and listen (the AI voice reads PDFs too since Part A2, so the label alone no
+  // longer shows the audiobook; the Audiobooks filter below does).
   await page.goto("/library");
   const onShelf = page.getByTestId("shelf").getByRole("listitem").filter({ hasText: "Read-Along Test Pages" });
   await expect(onShelf.getByText("Read and listen", { exact: true })).toBeVisible();

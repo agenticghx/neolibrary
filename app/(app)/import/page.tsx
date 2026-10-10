@@ -36,7 +36,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     .orderBy(asc(sql`lower(${books.title})`));
   const chosen = withFile.find((b) => b.id === book) ?? null;
   const imports = chosen ? await listImports(db, user.id, chosen.id) : [];
-  // Whole-book narration: the library's owner only, for now; EPUBs only (an AI voice cannot be lined up with a PDF page yet).
+  // Whole-book narration: the library's owner only, for now; EPUBs only, for now (in a PDF the AI voice reads a page at a time as you listen).
   const owner = mayNarrateWholeBooks(user);
   const epubs = withFile.filter((b) => b.fileType === "epub").map(({ id, title, author }) => ({ id, title, author }));
   const narrating = owner ? runningNarrations(user.id).filter((r) => epubs.some((b) => b.id === r.bookId)) : [];
@@ -106,7 +106,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           <>
             <p className={styles.note}>
               A separate choice, made on purpose: an AI voice reads the whole book now, paragraph by paragraph, and saves each one, so the book then
-              plays for free. You pay for the whole book up front. EPUB only: an AI voice cannot be lined up with a PDF page yet. Before anything is
+              plays for free. You pay for the whole book up front. EPUB only, for now; in a PDF, the AI voice reads a page at a time as you listen. Before anything is
               made, this says how many paragraphs it is and what it costs, and nothing starts until you confirm.
             </p>
             {epubs.length ? (

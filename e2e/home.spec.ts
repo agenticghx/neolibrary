@@ -23,7 +23,7 @@ const cfiStart = (cfi: string | null) => (cfi ?? "").split(",")[0];
 
 test("Continue shows the book opened last, its newest note, Read from here and Listen from here", async ({ page }) => {
   const book = await jekyll(page);
-  const pdf = await findBook(page, "Discourse on the Method"); // a PDF: Read only, no audiobook
+  const pdf = await findBook(page, "Discourse on the Method"); // a PDF, no audiobook: the AI voice reads it (Part A2)
   expect(book.position, "the reader tests left a saved place in Jekyll").toBeTruthy();
   // Open the PDF, then Jekyll, last (saving their places again, unchanged), and leave a note in Jekyll.
   expect((await page.request.put(`/api/books/${pdf.id}/position`, { data: { cfi: pdf.position ?? "epubcfi(/6/2)", fraction: pdf.progress } })).status()).toBe(204);
@@ -39,11 +39,11 @@ test("Continue shows the book opened last, its newest note, Read from here and L
   await expect(card).toContainText(`${Math.round(book.progress * 100)}%`);
   await expect(card).toContainText("Your last note here");
   await expect(card).toContainText("A thought left for Home.");
-  // The PDF's card: no Listen from here (nothing to listen to), and no note box (no notes in it).
+  // The PDF's card: Listen from here (the AI voice reads PDFs too, Part A2), and no note box (no notes in it).
   const second = cards.nth(1);
   await expect(second.getByRole("heading", { level: 3 })).toHaveText(pdf.title);
   await expect(second.getByRole("link", { name: "Read from here" })).toBeVisible();
-  await expect(second.getByRole("link", { name: "Listen from here" })).toHaveCount(0);
+  await expect(second.getByRole("link", { name: "Listen from here" })).toHaveAttribute("href", `/books/${pdf.id}/read?listen=1`);
   await expect(second.getByText(/^Your last (note|highlight) here$/)).toHaveCount(0);
 
   // Read from here: the reader at the saved place.
@@ -62,10 +62,18 @@ test("Continue shows the book opened last, its newest note, Read from here and L
   // Used once: ?listen=1 leaves the address, so a reload does not open the bar again.
   await expect(page).toHaveURL(new RegExp(`/books/${book.id}/read$`));
 
-  // A book with nothing to listen to never opens the bar, even when asked.
-  await page.goto(`/books/${pdf.id}/read?listen=1`);
+  // The PDF's Listen from here: the reader with the Read aloud bar open in the AI voice, its cost shown before Play.
+  // (Its opposite, a book with nothing to listen to never opening the bar, has no book here to show it: with the
+  // tests' fake voice on, every book that opens in the reader can be heard. lib/library/availability.test.ts keeps
+  // it: with narration off, a PDF without an audiobook is not listenable, and the reader page opens the bar only
+  // for a listenable book.)
+  await page.goto("/");
+  await second.getByRole("link", { name: "Listen from here" }).click();
   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  await expect(page.getByRole("region", { name: "Read aloud" })).toHaveCount(0);
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toBeVisible({ timeout: 10_000 });
+  await expect(bar).toContainText(/This paragraph costs (about|under) \$[\d.]+ to read aloud; then it is saved\.|Saved audio: free to play\./);
+  await expect(page).toHaveURL(new RegExp(`/books/${pdf.id}/read$`));
 });
 
 test("the library: labels, marks, the closed group of titles not available yet, and Import", async ({ page }) => {

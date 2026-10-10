@@ -57,7 +57,8 @@ annotations, many learning materials … not a hidden machinery library."
   **Not available yet** (a title with neither: greyed cover, with a way to
   add the file). "Listen" counts ElevenLabs narration too (Samuel,
   2026-10-05: "of course yes"): with narration switched on, every EPUB is
-  Read and listen; a PDF needs an uploaded audiobook. Titles with nothing available yet appear in the library
+  Read and listen, and every PDF too since 2026-10-10 (the AI voice lights
+  each word on the PDF page: docs/pdf-narration-plan.md, Parts A and A2). Titles with nothing available yet appear in the library
   too, not only on Paths. The older sections below that say "owned" or
   "unowned" mean exactly this.
 - **Collections are unordered groups of materials**, as in Apple Books.
