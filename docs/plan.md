@@ -602,6 +602,14 @@ reaches the database and gets an error page instead of "not found". Use the
 shared `UUID` check from `lib/library/paths.ts` everywhere. Not reachable
 from the app's own pages.
 
+### M17 · Read it rewritten (asked for by Samuel 2026-10-10)
+
+The "AI explanations" style (Plain, STE light, STE, STE strict) rewrites the
+book paragraph by paragraph, shown in a panel beside the page (under it on a
+phone), with a switch between Original, Side by side and Rewritten. The plan,
+Samuel's choices and the three steps (R1 server, R2 panel and switch, R3
+made as you read) with their "Done when": `docs/rewritten-view-plan.md`.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

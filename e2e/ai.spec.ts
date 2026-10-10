@@ -105,7 +105,8 @@ test("the stored versions carry their provenance", async ({ page }) => {
     expect(v.provenance).toMatchObject({
       provider: "anthropic",
       model: "fake",
-      promptName: expect.stringMatching(/^rewrite \+ rewrite-levels\//),
+      // Plain English follows Samuel's plain-english skill (M17); the other levels have an instruction file each.
+      promptName: v.options.level === "plain" ? "plain-rewrite + plain/SKILL" : `rewrite + rewrite-levels/${v.options.level}`,
       promptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
       inputHash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });

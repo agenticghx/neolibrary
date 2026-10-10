@@ -82,6 +82,46 @@ function toAnnotation(latest: Row, first: Row): Annotation {
 }
 
 /** The paragraph (or heading) a CFI falls in: the last section that starts at or before it, in the same chapter. */
+// An element's CFI (a whole paragraph, no character offset) means its first
+// character: compare both sides in that form, so a paragraph's own CFI
+// falls in that paragraph and not in the one before.
+const atStart = (c: string) => (c.includes("!") && !c.includes(",") && !/:\d+(\[[^\]]*\])?\)$/.test(c) ? c.replace(/\)$/, "/1:0)") : c);
+
+/** The spine item (chapter, or a PDF's page) a CFI is in: its first step's number. */
+const spineStep = (c: string) => Number(/^epubcfi\(\/\d+\/(\d+)/.exec(c)?.[1] ?? -1);
+
+/** At most this many paragraphs for one screen: more means a bad range, and a known upper cost. */
+const MAX_ON_SCREEN = 40;
+
+/**
+ * The paragraphs on screen (M17): from the one the screen starts in (`from`)
+ * to the last one that starts on it (`to`), in reading order. A range CFI
+ * (an EPUB's visible page) counts from its start to its end. In a PDF, all of
+ * a page's paragraphs share the page's CFI, so a page brings all of them.
+ * A screen that starts before its chapter's first paragraph (a title) starts
+ * at that paragraph, not in the chapter before.
+ */
+export async function paragraphsBetween(db: Db, bookId: string, from: string, to: string) {
+  const start = atStart(CFI.collapse(from));
+  const end = atStart(CFI.collapse(to, true));
+  const rows = await db
+    .select({ id: sections.id, cfi: sections.cfi, text: sections.text, chapterIndex: sections.chapterIndex })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
+    .orderBy(asc(sections.position));
+  let first = -1;
+  let last = -1;
+  rows.forEach((s, i) => {
+    const at = atStart(s.cfi);
+    // The paragraph the screen starts in, in the same chapter (the first of those sharing its place).
+    if (spineStep(s.cfi) === spineStep(start) && CFI.compare(at, start) <= 0 && (first < 0 || rows[first].cfi !== s.cfi)) first = i;
+    if (CFI.compare(at, end) <= 0) last = i;
+  });
+  if (first < 0) first = rows.findIndex((s) => CFI.compare(atStart(s.cfi), start) > 0);
+  if (first < 0 || last < first) return [];
+  return rows.slice(first, Math.min(last + 1, first + MAX_ON_SCREEN)).filter((s) => s.text.trim());
+}
+
 export async function sectionForCfi(db: Db, bookId: string, cfi: string, quote = ""): Promise<string | null> {
   const start = CFI.collapse(cfi);
   const chapter = /^epubcfi\((\/\d+\/\d+)/.exec(start)?.[1];
@@ -90,10 +130,6 @@ export async function sectionForCfi(db: Db, bookId: string, cfi: string, quote =
     .from(sections)
     .where(eq(sections.bookId, bookId))
     .orderBy(asc(sections.position));
-  // An element's CFI (a whole paragraph, no character offset) means its first
-  // character: compare both sides in that form, so a paragraph's own CFI
-  // falls in that paragraph and not in the one before.
-  const atStart = (c: string) => (c.includes("!") && !c.includes(",") && !/:\d+(\[[^\]]*\])?\)$/.test(c) ? c.replace(/\)$/, "/1:0)") : c);
   const point = atStart(start);
   let best: string | null = null;
   // The sections at the place found: one in an EPUB; in a PDF, all of a page's paragraphs (they share its place).

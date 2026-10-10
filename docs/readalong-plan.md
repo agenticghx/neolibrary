@@ -153,7 +153,7 @@ strict". Found:
   the original exactly on 2026-10-04, but nothing keeps it in step.
 - **Plain:** no skill. One line ("Write in plain, precise English.") for
   "What do I need to know?", one short paragraph
-  (`prompts/rewrite-levels/plain.md`) for rewrites. No method, examples or
+  (`prompts/rewrite-levels/plain.md`) for rewrites (replaced on 2026-10-10 by the skill itself, `prompts/plain/`, in M17). No method, examples or
   checker.
 
 Plan, each built and tested like `readalong-audio` (runs with and without
