@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Two pages Listen fix is live at b13794a. Merge the Safari skip for pull requests; Samuel picks Listen safeguards (row 17); Blacksmith waits on his account. Do not build Corner.
+next_action: Merge m15-ci-after-merge (CI on main after each merge, where Safari is checked), then start one main run by hand. Samuel picks Listen safeguards (row 17). Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -154,6 +154,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-10 01:15 UTC · Claude (laptop) · CI runs on main after each merge again (Safari's engine is checked there)
+- **Done:** After #131 (pull requests skip Safari's engine) I looked for the run on `main` that was to check WebKit after the merge, and there was none: `gh run list --branch main` shows only Auto-merge runs since 2026-10-09 17:12 UTC. The auto-merge workflow merges with the workflow's own token, and GitHub starts no workflow from that push. So I had told Samuel something untrue ("Safari still runs after each merge"); until this fix only the night run (08:00 UTC) checked WebKit. Fix: `ci.yml` accepts `workflow_dispatch`, and `auto-merge.yml` (now with `actions: write`) runs `gh workflow run ci.yml --ref main` right after it merges; a dispatch is the one start a workflow token may make. The run on `main` classifies the merge commit's files as before, so WebKit runs there when read-along or Safari files changed. `docs/ci-time.md` and the merge-train skill say so.
+- **Key paths:** `.github/workflows/ci.yml`, `.github/workflows/auto-merge.yml`, `docs/ci-time.md`, `.claude/skills/merge-train/SKILL.md`
+- **Commands that worked:** `gh run list --branch main --limit 8` (only `workflow_run Auto-merge` since 17:12 UTC); `gh run list --event schedule` (`2026-10-09T15:10:59Z CI 0a70050 success`); both workflow files load as YAML.
+- **Known issues / blockers:** `auto-merge.yml` takes effect only once it is on `main` (GitHub runs workflow_run workflows from main's copy), so this pull request's own merge starts no run; I start one by hand after the merge to check today's code in WebKit. Back-to-back merges cancel the earlier `main` run (concurrency); the night run still covers everything.
+- **Exact next steps:** Merge; then `gh workflow run ci.yml --ref main` by hand and read its WebKit result; from the next merge on, check that the dispatched run appears.
 
 ### 2026-10-10 00:41 UTC · Claude (laptop) · Deployed main b13794a (Listen in Two pages view)
 - **Done:** #130 merged as b13794a (CI run 38008882289 green). Deployed from main at b13794a: no migration since 0022 (`git diff --stat a472268 HEAD -- db/` empty), so no backup. Deployment 62bdd8b9-4c22-427c-bff1-3b8e2232ce9c reached SUCCESS. This record rides in the next real pull request (the Safari skip), as the rule says.

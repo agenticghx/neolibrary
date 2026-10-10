@@ -11,6 +11,10 @@ on:
     branches: [main]
   schedule:
     - cron: "0 8 * * *"
+  # Started on main by the auto-merge workflow right after it merges: a merge made with the
+  # workflow's own token starts no push run, and pull requests skip Safari's engine, so this
+  # run is where WebKit is checked after each merge (2026-10-09).
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
