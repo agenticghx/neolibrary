@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
-import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, LOOK_BACK_MS, noteFor, OFFLINE, saveSpeed, shortChapter, speedLabel, withEarlier, withPart, type Info } from "@/lib/player/session";
+import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, LOOK_BACK_MS, mustAsk, noteFor, NOTHING_MADE, OFFLINE, saveSpeed, shortChapter, speedLabel, withEarlier, withPart, type Info, type Made } from "@/lib/player/session";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import { sentenceAt } from "@/lib/player/sentence";
@@ -91,6 +91,15 @@ export function ListenSession({
   const [bookEnded, setBookEnded] = useState(false);
   /** The audiobook has played in this session (so the note no longer says where it begins). */
   const [bookStarted, setBookStarted] = useState(false);
+  /**
+   * A made voice's spending in this listen (Samuel, 2026-10-09): the running total the bar shows, what has been
+   * paid since Play or the last "Keep reading" (reading on asks first once that reaches ASK_AGAIN_USD), the
+   * question while it waits (what the next paragraph costs), and the paragraph paid for most recently.
+   */
+  const [made, setMade] = useState<Made>(NOTHING_MADE);
+  const sinceOk = useRef(0);
+  const [ask, setAsk] = useState<number | null>(null);
+  const [justMade, setJustMade] = useState("");
   const isBook = !!info?.audiobook && voice === info.audiobook.voice;
 
   /** The page showing the book, if any (the reader, while it is open). */
@@ -195,7 +204,14 @@ export function ListenSession({
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "This paragraph could not be read aloud.");
-    return body.track as Track & { audioUrl: string };
+    const track = body.track as Track & { audioUrl: string };
+    // Made now, and paid for (not saved audio found again): it counts towards the total and the next question.
+    if (!body.reused) {
+      setMade((m) => ({ count: m.count + 1, usd: m.usd + track.costUsd }));
+      sinceOk.current += track.costUsd;
+      setJustMade(track.sectionId);
+    }
+    return track;
   };
 
   const playTrack = async (passage: Passage, track: Track & { audioUrl: string }, startMs = 0, resume = true) => {
@@ -222,6 +238,9 @@ export function ListenSession({
   const play = async () => {
     if (!info) return;
     const el = audio.current!;
+    // A press of Play (or Keep reading) is the reader's go-ahead: reading on asks again after ASK_AGAIN_USD more.
+    sinceOk.current = 0;
+    setAsk(null);
     if (info.track && el.src && !el.ended) {
       // Paused part-way: bring the page back if the reader turned away, and go on.
       lastWord.current = -1;
@@ -243,8 +262,12 @@ export function ListenSession({
     }
   };
 
-  // When a paragraph ends, read on (`resume`: playing; a skip made while paused moves without playing).
-  const next = async (resume = true) => {
+  /**
+   * When a paragraph ends, read on (`resume`: playing; a skip made while paused moves without playing).
+   * `auto`: reading on by itself (not a skip the reader tapped): a paragraph with no saved audio is not paid
+   * for once ASK_AGAIN_USD has been paid since the last go-ahead; the bar asks "Keep reading?" instead.
+   */
+  const next = async (resume = true, auto = false) => {
     if (!info?.passage.nextId) {
       setPlaying(false);
       return;
@@ -255,6 +278,15 @@ export function ListenSession({
       const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: info.passage.nextId, voice })}`);
       const body = (await res.json()) as Info;
       if (!res.ok) throw new Error("The next paragraph could not be found.");
+      if (auto && !body.track && mustAsk(sinceOk.current)) {
+        if (generation.current !== g) return;
+        // Show the next paragraph's cost and wait: Keep reading (the Play button) makes it.
+        setInfo((i) => (i ? { ...i, passage: body.passage, track: null, estimate: body.estimate } : i));
+        setAsk(body.estimate ?? 0);
+        setPlaying(false);
+        return;
+      }
+      setAsk(null);
       const track = body.track ?? (await trackFor(body.passage.id, voice));
       // The voice was changed meanwhile: this audio is no longer wanted.
       if (generation.current !== g) return;
@@ -463,7 +495,7 @@ export function ListenSession({
 
   const onEnded = () => {
     if (!isBook) {
-      void next();
+      void next(true, true);
       return;
     }
     const el = audio.current;
@@ -529,6 +561,7 @@ export function ListenSession({
     setPlaying(false);
     setBookEnded(false);
     setError(null);
+    setAsk(null);
     setVoice(v);
     if (v.startsWith("upload:")) {
       // The audiobook is already here: from the first of its paragraphs at or after where the made voice was.
@@ -557,6 +590,7 @@ export function ListenSession({
   /** A made voice, back past the start of this paragraph: the one before, `fromEndMs` before its end (made now if needed). */
   const readBack = async (sectionId: string, fromEndMs: number, resume: boolean) => {
     const g = generation.current;
+    setAsk(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice })}`);
@@ -689,10 +723,11 @@ export function ListenSession({
     playing,
     busy,
     disabled: !info || busy || (isBook ? !info.audiobook!.paragraphs.length : info.estimate === null && !info.track),
+    asking: !isBook && ask !== null,
     voices: info?.voices ?? [],
     voice,
     speed,
-    note: noteFor({ error, info, isBook, voice, bookEnded, loading, bookStarted }),
+    note: noteFor({ error, info, isBook, voice, bookEnded, loading, bookStarted, made, ask: isBook ? null : ask, justMade: !!info?.track && info.passage.id === justMade }),
     toggle: () => (playing ? audio.current?.pause() : isBook ? playAudiobook() : void play()),
     changeVoice,
     setSpeed: (s) => {
@@ -717,7 +752,7 @@ export function ListenSession({
   const mini: MiniView = {
     title: info?.book.title ?? "",
     // What went wrong, or that the audiobook is loading (the reader's bar says the rest; the design has no line for it).
-    status: error ?? (isBook && loading ? "Loading your audiobook…" : ""),
+    status: error ?? (!isBook && ask !== null ? view.note : isBook && loading ? "Loading your audiobook…" : ""),
     sentence: shownText.slice(around.start, around.end),
     lit: lit ? [lit.from - around.start, lit.to - around.start] : null,
     chapter: shortChapter(heard ? heard.chapter : firstChapter),
@@ -726,6 +761,7 @@ export function ListenSession({
     playing,
     busy,
     disabled: view.disabled,
+    asking: view.asking,
     speed,
     toggle: view.toggle,
     back: () => skip(-15),

@@ -24,6 +24,8 @@ export type MiniView = {
   playing: boolean;
   busy: boolean;
   disabled: boolean;
+  /** A made voice stopped to ask before paying for the next paragraph (the status line says what it costs). */
+  asking?: boolean;
   speed: number;
   /** Play or Pause; called inside the click (Safari starts audio only from a tap or click). */
   toggle: () => void;
@@ -163,7 +165,7 @@ export function MiniPlayer({ view }: { view: MiniView }) {
         <button type="button" className={styles.skip} aria-label="Back 15 seconds" onClick={view.back} disabled={view.disabled}>
           <Icon name="back15" className={styles.icon} />
         </button>
-        <button type="button" className={styles.play} aria-label={view.busy ? "Preparing" : view.playing ? "Pause" : "Play"} onClick={view.toggle} disabled={view.disabled}>
+        <button type="button" className={styles.play} aria-label={view.busy ? "Preparing" : view.playing ? "Pause" : view.asking ? "Keep reading" : "Play"} onClick={view.toggle} disabled={view.disabled}>
           <FilledIcon name={view.playing ? "pause" : "play"} className={styles.playIcon} />
         </button>
         <button type="button" className={styles.skip} aria-label="Forward 15 seconds" onClick={view.forward} disabled={view.disabled}>

@@ -72,6 +72,26 @@ export const OFFLINE = "Reading aloud needs an internet connection: the audio is
 export const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
 
 /**
+ * Samuel (2026-10-09, choice "both"): a made voice reading on by itself pays
+ * for each new paragraph, so it stops and asks "Keep reading?" once this much
+ * has been paid since Play or the last "Keep reading", before it pays for the
+ * next one. Saved audio, the book's own audiobook, and a skip the reader taps
+ * never ask.
+ */
+export const ASK_AGAIN_USD = 1;
+
+/** What has been paid for in this listen (one opening of Listen): paragraphs made, and their cost. */
+export type Made = { count: number; usd: number };
+export const NOTHING_MADE: Made = { count: 0, usd: 0 };
+
+/** Whether reading on into a paragraph with no saved audio must ask first: `sinceOk` paid since Play or the last "Keep reading". */
+export const mustAsk = (sinceOkUsd: number) => sinceOkUsd >= ASK_AGAIN_USD;
+
+/** The running total the bar adds to its line: " This listen: 3 paragraphs made, about $2.55." (nothing when none). */
+export const madeSoFar = (made: Made) =>
+  made.count ? ` This listen: ${made.count} ${made.count === 1 ? "paragraph" : "paragraphs"} made, ${usd(made.usd)}.` : "";
+
+/**
  * The voice a new session starts with: the book's own audiobook when it goes
  * on from near the reading position (or nothing else can read aloud);
  * otherwise the voice this paragraph's audio is saved in, so it plays for
@@ -111,6 +131,12 @@ export type NoteState = {
   loading: boolean;
   /** The audiobook has played in this session (the note no longer says where it begins). */
   bookStarted: boolean;
+  /** Paid for in this listen (a made voice). */
+  made?: Made;
+  /** Reading on stopped to ask first: what the next paragraph costs. */
+  ask?: number | null;
+  /** The paragraph shown was paid for just now, in this listen. */
+  justMade?: boolean;
 };
 
 /** The line the bar shows under its buttons. */
@@ -126,9 +152,11 @@ export function noteFor(s: NoteState): string {
     if (ab.begins && !ab.begins.nearby && !s.bookStarted) return `Your audiobook begins further on (${ab.begins.label}): Play turns to it.`;
     return "Your audiobook: free to play.";
   }
+  const made = madeSoFar(s.made ?? NOTHING_MADE);
+  if (s.ask != null) return `Keep reading? The next paragraph costs ${usd(s.ask)}.${made}`;
   if (info.estimate === null) return "Reading aloud is not set up yet: the owner needs to add an ElevenLabs key.";
-  if (info.track && info.track.voice === s.voice) return "Saved audio: free to play.";
-  return `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.`;
+  if (info.track && info.track.voice === s.voice) return `${s.justMade ? "Made just now; it plays free from now on." : "Saved audio: free to play."}${made}`;
+  return `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.${made}`;
 }
 
 /** "Chapter V" as the mini-player says it: "Ch. V". A chapter with a title keeps it. */

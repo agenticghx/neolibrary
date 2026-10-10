@@ -1848,6 +1848,73 @@ test("in Two pages view, only the word being read is lit: the page read before i
   await bar.getByRole("button", { name: "Stop reading aloud" }).click();
 });
 
+// Samuel (2026-10-09, "both"): a made voice reading on by itself showed no total and never asked. Now the bar keeps
+// a running total, and after $1 of new audio since Play it stops and asks before paying for the next paragraph.
+test("a made voice keeps a running total, and asks before paying on once $1 has been made since Play", async ({ page }) => {
+  test.setTimeout(90_000);
+  // Jekyll and Hyde, well past the paragraphs other tests read: its paragraphs last several seconds in the fake voice.
+  const bookId = await jekyllId(page);
+  // Every paragraph is "not saved yet", and each one made costs $0.60 (the fake voice's real cost is a fraction of a
+  // cent): the client's rule is what is tested, with the server's own answers otherwise unchanged.
+  const made: string[] = [];
+  await page.route(`**/api/books/${bookId}/audio**`, async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (route.request().method() === "POST") {
+      made.push(body.track.sectionId);
+      return route.fulfill({ response: res, json: { ...body, reused: false, track: { ...body.track, costUsd: 0.6 } } });
+    }
+    return route.fulfill({ response: res, json: { ...body, track: null } });
+  });
+  const bar = await openListening(page, bookId, 120);
+  await bar.getByLabel("Voice").selectOption("fake-ben");
+  await expect(bar).toContainText(/This paragraph costs (about|under) \$[\d.]+ to read aloud; then it is saved\./);
+  await expect(bar).not.toContainText("This listen");
+  const toEnd = () =>
+    page.evaluate(() => {
+      const a = document.querySelector("audio")!;
+      a.currentTime = Math.max(0, a.duration - 0.05);
+    });
+  const playing = () => page.waitForFunction(() => Number.isFinite(document.querySelector("audio")!.duration) && !document.querySelector("audio")!.paused);
+
+  // Play: the first paragraph is made ($0.60), then shown as just made, with the total.
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar).toContainText("Made just now; it plays free from now on. This listen: 1 paragraph made, about $0.60.");
+  await playing();
+  // Reading on by itself: $0.60 since Play is under $1, so the second is made without asking.
+  await toEnd();
+  await expect(bar).toContainText("This listen: 2 paragraphs made, about $1.20.");
+  await playing();
+  // Reading on again: $1.20 since Play, so it stops and asks before paying for the third.
+  await toEnd();
+  await expect(bar).toContainText(/Keep reading\? The next paragraph costs (about|under) \$[\d.]+\. This listen: 2 paragraphs made, about \$1\.20\./);
+  await expect(bar.getByRole("button", { name: "Keep reading" })).toBeEnabled();
+  await page.waitForTimeout(1000);
+  expect(made, "nothing paid for while it asks").toHaveLength(2);
+  // The question in every look: the bar fits, with its Keep reading button and the whole line.
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect(bar.getByRole("button", { name: "Keep reading" })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-listen-keep-reading-${name}-${scheme}${engine()}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  // Keep reading: the third is made and plays; the count starts again from here.
+  await bar.getByRole("button", { name: "Keep reading" }).click();
+  await expect(bar).toContainText("Made just now; it plays free from now on. This listen: 3 paragraphs made, about $1.80.");
+  await playing();
+  expect(made).toHaveLength(3);
+  expect(new Set(made).size, "three different paragraphs").toBe(3);
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
+});
+
 // M14 step 6b: away from the reader, a mini-player at the foot of every page reads on.
 // An audiobook of 30 paragraphs (a few minutes), so 15 s skips stay inside it.
 async function miniReading(page: Page) {

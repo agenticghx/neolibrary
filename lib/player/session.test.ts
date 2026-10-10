@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { firstVoice, loadSpeed, noteFor, playsHere, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withEarlier, withPart, type Info, type NoteState } from "./session";
+import { ASK_AGAIN_USD, firstVoice, loadSpeed, madeSoFar, mustAsk, noteFor, playsHere, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withEarlier, withPart, type Info, type NoteState } from "./session";
 
 const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
@@ -94,6 +94,32 @@ describe("noteFor", () => {
     expect(note({ info: info({ fileType: "pdf", track }) })).toBe("Saved audio: free to play.");
     expect(note({ info: info({ fileType: "pdf", estimate: null }) })).toBe("Reading aloud is not set up yet: the owner needs to add an ElevenLabs key.");
     expect(note({ info: info({ estimate: null }) })).toBe("Reading aloud is not set up yet: the owner needs to add an ElevenLabs key.");
+  });
+
+  // Samuel (2026-10-09, "both"): a running total, and a question before paying on past $1.
+  it("adds the running total of this listen, says when a paragraph was just paid for, and asks before paying on", () => {
+    const track = { voice: "fake-ada" } as Info["track"];
+    const made = { count: 2, usd: 1.7 };
+    expect(note({ made })).toBe("This paragraph costs about $0.04 to read aloud; then it is saved. This listen: 2 paragraphs made, about $1.70.");
+    expect(note({ info: info({ track }), made })).toBe("Saved audio: free to play. This listen: 2 paragraphs made, about $1.70.");
+    expect(note({ info: info({ track }), made: { count: 1, usd: 0.85 }, justMade: true })).toBe("Made just now; it plays free from now on. This listen: 1 paragraph made, about $0.85.");
+    expect(note({ info: info({ track }), made, ask: 0.85 })).toBe("Keep reading? The next paragraph costs about $0.85. This listen: 2 paragraphs made, about $1.70.");
+    // Nothing paid in this listen: the line is as before.
+    expect(note({ info: info({ track }), made: { count: 0, usd: 0 } })).toBe("Saved audio: free to play.");
+    // The book's own audiobook is free: no total, no question.
+    expect(note({ isBook: true, voice: "upload:i1", info: info({ audiobook: audiobook() }), made, ask: 0.85 })).toBe("Your audiobook: free to play.");
+    // An error still comes first.
+    expect(note({ error: "Stopped.", made, ask: 0.85 })).toBe("Stopped.");
+  });
+
+  it("asks once ASK_AGAIN_USD ($1) has been paid since the last go-ahead", () => {
+    expect(ASK_AGAIN_USD).toBe(1);
+    expect(mustAsk(0)).toBe(false);
+    expect(mustAsk(0.85)).toBe(false);
+    expect(mustAsk(1)).toBe(true);
+    expect(mustAsk(1.7)).toBe(true);
+    expect(madeSoFar({ count: 0, usd: 0 })).toBe("");
+    expect(madeSoFar({ count: 3, usd: 2.55 })).toBe(" This listen: 3 paragraphs made, about $2.55.");
   });
 
   it("rounds money as the bar shows it", () => {
