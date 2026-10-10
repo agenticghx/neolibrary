@@ -12,7 +12,7 @@ import { startImport } from "@/lib/readalong/importer";
 import { FAKE_SECONDS_PER_CHAR, FakeSpeech } from "@/lib/speech/fake";
 import { speechCost } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
-import { estimateSpeech, listTracks, passageFor, readingPart, readingPartBefore, speakPassage, uploadedReading } from "./audio";
+import { estimateSpeech, listTracks, passageFor, readingPart, readingPartBefore, speakPassage, trackAudioKey, trackAudioUrl, uploadedReading } from "./audio";
 import { fileOwner, importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -34,6 +34,27 @@ beforeEach(async () => {
 afterEach(() => database.raw.close());
 
 const paragraphs = () => all.filter((s) => s.kind === "paragraph");
+
+describe("where a made track plays from (2026-10-10)", () => {
+  const owner = "11111111-1111-4111-8111-111111111111";
+  const book = "22222222-2222-4222-8222-222222222222";
+  const file = "33333333-3333-4333-8333-333333333333.mp3";
+
+  it("is an address in the book, with no expiry, that names the same stored file for its owner", () => {
+    const url = trackAudioUrl(`audio/${owner}/${book}/${file}`);
+    expect(url).toBe(`/api/books/${book}/audio/${file}`);
+    expect(url).not.toMatch(/exp=|sig=/);
+    expect(trackAudioKey(owner, book, file)).toBe(`audio/${owner}/${book}/${file}`);
+  });
+
+  it("names nothing but a track's file: another folder, a path, or a book that is not an id", () => {
+    expect(trackAudioKey(owner, book, "../covers/x.mp3")).toBeNull();
+    expect(trackAudioKey(owner, book, "x.mp3")).toBeNull();
+    expect(trackAudioKey(owner, book, "33333333-3333-4333-8333-333333333333.pdf")).toBeNull();
+    expect(trackAudioKey(owner, "..", file)).toBeNull();
+    expect(() => trackAudioUrl(`readalong/${owner}/${book}/${file}`)).toThrow();
+  });
+});
 
 describe("reading aloud (M7)", () => {
   it("makes a paragraph's audio once, stores it with word timings and cost, and re-serves it", async () => {

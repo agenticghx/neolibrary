@@ -241,7 +241,7 @@ export function ListenSession({
     // A press of Play (or Keep reading) is the reader's go-ahead: reading on asks again after ASK_AGAIN_USD more.
     sinceOk.current = 0;
     setAsk(null);
-    if (info.track && el.src && !el.ended) {
+    if (info.track && el.src && !el.ended && !el.error) {
       // Paused part-way: bring the page back if the reader turned away, and go on.
       lastWord.current = -1;
       onPassage(info.passage.cfi, { resume: true });
@@ -249,12 +249,14 @@ export function ListenSession({
       return;
     }
     const g = generation.current;
+    // After a failed load (onAudioError), load it again from where it stopped.
+    const from = el.error && info.track ? Math.round(el.currentTime * 1000) : 0;
     setBusy(true);
     setError(null);
     try {
       const track = info.track && info.track.voice === voice ? info.track : await trackFor(info.passage.id, voice);
       if (generation.current !== g) return;
-      await playTrack(info.passage, track);
+      await playTrack(info.passage, track, from);
     } catch (e) {
       if (generation.current === g) setError((e as Error).message);
     } finally {
@@ -530,7 +532,15 @@ export function ListenSession({
 
   const onAudioError = () => {
     doneWaiting();
-    if (!isBook) return;
+    if (!isBook) {
+      // A made paragraph that could not be played (the network, or its file): show Play and say so, not a Pause
+      // that plays nothing while the word being read stands still. Play loads it again where it stopped.
+      const el = audio.current;
+      if (!el?.error || !info?.track || el.getAttribute("src") !== info.track.audioUrl) return;
+      setPlaying(false);
+      setError(offline() ? OFFLINE : "This paragraph could not be played. Press Play to try again.");
+      return;
+    }
     setPlaying(false);
     // The next Play loads the file again.
     book.current.file = -1;

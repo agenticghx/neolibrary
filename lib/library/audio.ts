@@ -178,6 +178,23 @@ export const estimateSpeech = (passage: Pick<Passage, "text">) => speechCost(pas
 
 const EXT: Record<string, string> = { "audio/mpeg": "mp3", "audio/wav": "wav" };
 
+/**
+ * Where the reader plays a made track (`audio/<owner>/<book>/<id>.<ext>`):
+ * app/api/books/[id]/audio/[track], checked by the sign-in cookie as an
+ * uploaded audiobook is, not by a five-minute link. A PDF page's audio lasts
+ * minutes; paused longer than the link's life, the player asked for the rest
+ * of the file with an expired link and was refused (403, 2026-10-10).
+ */
+export function trackAudioUrl(audioKey: string): string {
+  const m = /^audio\/[^/]+\/([0-9a-f-]{36})\/([0-9a-f-]{36}\.[a-z0-9]+)$/i.exec(audioKey);
+  if (!m) throw new AudioError("Not a made track's file");
+  return `/api/books/${m[1]}/audio/${m[2]}`;
+}
+
+/** The stored file a track address names, for its owner only; null for any other name. */
+export const trackAudioKey = (ownerId: string, bookId: string, file: string) =>
+  /^[0-9a-f-]{36}$/i.test(bookId) && /^[0-9a-f-]{36}\.(mp3|wav|bin)$/i.test(file) ? `audio/${ownerId}/${bookId}/${file}` : null;
+
 // Two identical requests at the same moment share one call.
 const inflight = new Map<string, Promise<{ track: Track; reused: boolean }>>();
 
