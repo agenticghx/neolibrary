@@ -363,7 +363,7 @@ test("read it rewritten: beside the page, made once at the price shown, kept acr
   await expect(pane(page)).toContainText("Rewritten · STE strict");
   const ask = pane(page).getByRole("button", { name: "Rewrite this page in STE strict" });
   await expect(ask).toBeVisible();
-  await expect(pane(page)).toContainText(/It costs (about \$\d+\.\d\d|under \$0\.01), once\. Saved rewrites are free\./);
+  await expect(pane(page)).toContainText(/It costs (about \$\d+\.\d\d|under \$0\.01), once; saved rewrites are free\. Then each page you turn to is rewritten too, until you press Stop, and it asks again after every \$1\./);
   const missing = await pane(page).getByTestId("rewritten-missing").count();
   expect(missing).toBeGreaterThan(0);
   // Beside the page on a computer: the book is still on screen, to its left.
@@ -382,6 +382,9 @@ test("read it rewritten: beside the page, made once at the price shown, kept acr
   await expect(pieces.first()).toContainText("1 meaning choice");
   await expect(pieces.first()).toContainText(/fake · \d+ \w+ \d{4} · \$\d/);
   expect(made.n).toBe(missing);
+  // Stop rewriting as you turn (the next test covers it): from here on, only what is saved shows.
+  await pane(page).getByTestId("as-you-turn").getByRole("button", { name: "Stop" }).click();
+  await expect(pane(page).getByTestId("as-you-turn")).toHaveCount(0);
 
   // Turn on and back: the page's saved rewrites show again, with no second call.
   const here = (await reader(page).getAttribute("data-cfi"))!;
@@ -439,6 +442,7 @@ test("read it rewritten in a PDF: each page on screen, and the style from readin
   const pieces = pane(page).getByTestId("rewritten-piece");
   await expect(pieces.first()).toContainText("Fake rewrite (ste, strict (full ste)): ");
   await expect(pane(page)).toContainText("Good sense is");
+  await pane(page).getByTestId("as-you-turn").getByRole("button", { name: "Stop" }).click();
   await mkdir("screenshots", { recursive: true });
   await page.waitForTimeout(500);
   await page.screenshot({ path: "screenshots/reader-rewritten-pdf-side-desktop-light.png" });
@@ -464,6 +468,67 @@ test("read it rewritten in a PDF: each page on screen, and the style from readin
   await expect(pane(page)).toContainText("Rewritten · STE strict");
   await expect(pieces.first()).toContainText("Good sense is");
   expect(made.n).toBe(first);
+});
+
+// R3: after one press, each page turned to is rewritten too, with a running total; after $1 since the last
+// go-ahead it asks first (as Listen does since #133). Each paragraph made is billed $0.60 here (the fake's real cost
+// is a fraction of a cent): the client's rule is what is tested, with the server's answers otherwise unchanged.
+test("read it rewritten as you turn: made without a click after the first press, with a total, asking again after $1", async ({ page }) => {
+  const made = countMade(page);
+  await page.route(/\/api\/books\/[0-9a-f-]{36}\/rewritten$/, async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const res = await route.fetch();
+    const body = await res.json();
+    return route.fulfill({ response: res, json: { ...body, reused: false, generation: { ...body.generation, provenance: { ...body.generation.provenance, costUsd: 0.6 } } } });
+  });
+  await openAtPhrase(page, "It was late in the afternoon");
+  await page.getByRole("button", { name: "Rewritten view" }).click();
+  await pane(page).getByRole("button", { name: "Rewrite this page in STE strict" }).click();
+  const line = pane(page).getByTestId("as-you-turn");
+  // One or two paragraphs at once, depending on how many the first page holds.
+  await expect(line).toContainText(/So far: (1 paragraph rewritten, about \$0\.60|2 paragraphs rewritten, about \$1\.20)\./);
+  const question = line.getByText(/^Keep rewriting\?/);
+
+  // Turn on until it asks: no clicks besides the turns, and it stops after the second paragraph ($1.20 since the go-ahead).
+  for (let i = 0; i < 6 && !(await question.isVisible()); i++) {
+    await turnOn(page);
+    await expect.poll(async () => (await question.isVisible()) || (await pane(page).getByTestId("rewritten-missing").count()) === 0).toBe(true);
+  }
+  await expect(question).toHaveText(/^Keep rewriting\? This page costs (about \$\d+\.\d\d|under \$0\.01)\. So far: 2 paragraphs rewritten, about \$1\.20\.$/);
+  expect(made.n).toBe(2);
+  await page.waitForTimeout(1000);
+  expect(made.n).toBe(2);
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await mkdir("screenshots", { recursive: true });
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `screenshots/reader-rewritten-keep-going-desktop-${scheme}.png` });
+  }
+
+  // Keep rewriting: it goes on, and the total with it.
+  await line.getByRole("button", { name: "Keep rewriting" }).click();
+  await expect.poll(() => made.n).toBeGreaterThan(2);
+  await expect(line).toContainText(/So far: [3-9] paragraphs rewritten/);
+
+  // Closing the view and opening it again keeps it on; Stop turns it off, and a turn then makes nothing.
+  await show(page).getByRole("button", { name: "Original" }).click();
+  await page.getByRole("button", { name: "Rewritten view" }).click();
+  await expect(line).toContainText("So far:");
+  await expect.poll(async () => (await line.getByText(/^Writing/).count()) === 0).toBe(true);
+  await line.getByRole("button", { name: "Stop" }).click();
+  await expect(line).toHaveCount(0);
+  const before = made.n;
+  await turnOn(page);
+  await page.waitForTimeout(500);
+  expect(made.n).toBe(before);
+
+  // Never remembered: after a reload it is off until asked again.
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(pane(page)).toBeVisible();
+  await expect(line).toHaveCount(0);
 });
 
 test("the rewritten view is accessible, and looks right beside the page and alone, on phone and desktop, light and dark", async ({ page }) => {

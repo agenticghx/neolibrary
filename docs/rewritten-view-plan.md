@@ -65,11 +65,22 @@ page's rewrite, turns the page and back (the stored rewrite shows, no second
 call), in an EPUB and a PDF, in both modes; screenshots on phone and
 computer, light and dark; the accessibility check passes with the panel open.
 
-**R3 · Made as you read.** After the first press, each new page is rewritten
-as you turn to it, with a running total and a "Keep going?" question past $1
-(as Listen does since #133). Making the next page before you reach it pays
-for a page you may not read: that waits for Samuel's answer to Open unknowns
-row 15 (the same question for Listen), and is off until then.
+**R3 · Made as you read.** Built 2026-10-10 (`m17-rewritten-as-you-turn`).
+After the first "Rewrite this page", each page turned to is rewritten too,
+without a click, with a running total ("So far: 3 paragraphs rewritten,
+about $0.06."), until Stop, a failure (the spending cap, no connection), or
+leaving the reader; the go-ahead is never remembered on the device. Once $1
+has been paid since the last go-ahead it stops and asks "Keep rewriting?"
+(Listen's rule since #133, `ASK_AGAIN_USD`). A page turned away from
+mid-way is finished when you come back (each paragraph is paid once either
+way). In a scrolled EPUB, each new paragraph scrolled into view is made.
+Making the next page before you reach it pays for a page you may not read:
+that waits for Samuel's answer to Open unknowns row 15 (the same question
+for Listen), and is not built.
 
-Done when: tests prove a turn makes the new page's rewrite once, the total
-counts it, and the question stops it at $1 until answered.
+Done when: with the fake Claude (each paragraph billed $0.60 by the test),
+a browser test proves pages are made after the first press without a click,
+the total counts them, it asks after $1.20 and makes nothing more until
+"Keep rewriting", closing and reopening the view keeps it on, Stop turns
+it off (a turn then makes nothing), and a reload starts it off; unit tests
+check the counting (`lib/library/rewritten-turn.test.ts`).

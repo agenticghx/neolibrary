@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M17 R2 (m17-rewritten-panel), then build R3 (pages made as you turn); deploy #137, R1 and R2 when Samuel says yes.
+next_action: Merge M17 R3 (m17-rewritten-as-you-turn); then deploy #137 and M17 when Samuel says yes.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-10
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-10 11:00. **M17 Read it rewritten** (plan `docs/rewritten-view-plan.md`): R1 (server) merged as #138; R2 (the panel with the switch Original / Side by side / Rewritten) is in a pull request from `m17-rewritten-panel`: merge it, then R3 (pages made as you turn, running total, "Keep going?" past $1) as in the newest Log entry. Making the next page ahead waits on row 15. Not deployed: #137, R1, R2 wait for Samuel's yes. Prototype: `~/Documents/neolibrary-grid-ch1/rewrites/compare.html`.
+Written 2026-10-10 11:30. **M17 Read it rewritten** (plan `docs/rewritten-view-plan.md`): R1 (server) merged as #138; R2 (panel and switch) merged as #139; R3 (rewritten as you turn, total, "Keep rewriting?" after $1) is in a pull request from `m17-rewritten-as-you-turn`: merge it. Making the next page ahead waits on row 15. Not deployed: #137 and M17 wait for Samuel's yes. Prototype: `~/Documents/neolibrary-grid-ch1/rewrites/compare.html`.
 
 Written 2026-10-10 07:25 UTC. **Live: cd4366b.** Samuel confirmed Listen works in Two pages view. **In flight:** branch `m16-voice-links`: after a long pause, Play on an AI-voice page was refused (its 5-minute link had expired); made paragraphs now play from a cookie-checked address, like uploaded audiobooks, and a failed load shows Play and a message. Merge it with the merge train and deploy it (no database change). **Part B** (row 15): his live test measured 32–38 s of silence at each page turn while the next page is made; his answer decides whether to make the next page ahead. Everything earlier from 2026-10-09/10 is merged and live (Parts A, A2, D, the "How books are heard" sentence); the PDF skills are pushed to his dotfiles.
 
@@ -164,6 +164,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-10 · Claude Opus 5.5 (laptop) · M17 R3: rewritten as you turn, with a running total and "Keep rewriting?" after $1
+- **Done:** After the first "Rewrite this page", each page turned to is rewritten too, without a click, with a running total ("So far: N paragraphs rewritten, about $X."), until Stop, a failure (spending cap, no connection) or leaving the reader. Once $1 has been paid since the last go-ahead, it stops and asks "Keep rewriting? This page costs about $X." (Listen's rule since #133: `ASK_AGAIN_USD` and `mustAsk` from `lib/player/session.ts`, reused). The go-ahead is kept for the visit in the reader (closing and reopening the view keeps it) but never remembered on the device. The hint under the first button says what happens after it. Making the next page ahead is not built (row 15).
+- **Key paths:** `lib/library/rewritten-turn.ts` (+ test); `app/(reader)/books/[id]/read/RewrittenPane.tsx` (the loop: one at a time, stops on a turn, asks at $1, then the page now on screen); `Reader.tsx` (`turn` state); `reader.module.css` (`.askRow`, `.rewrittenQuestion`); `e2e/ai.spec.ts` (new test; the R2 tests press Stop after their first rewrite); `docs/rewritten-view-plan.md` (R3 as built).
+- **Commands that worked:** `npx vitest run lib/library/` -> 224 passed; `npx playwright test --project=ai --ignore-snapshots` -> 201 passed (new test: each paragraph billed $0.60 by a route in the test, as #133's test does; it asks after exactly 2 paragraphs, $1.20, and makes nothing for 1 s; Keep rewriting goes on; Stop then a turn makes nothing; reload starts off; axe clean). Screenshot `reader-rewritten-keep-going-desktop-light.png` looked at.
+- **Known issues / blockers:** The test's dark screenshot switches the colour scheme with the book open, and the book's page then shows a light band round its edge (the book's frame, not the new panel; the other tests reopen the book per look). Not investigated. R2 merged first (#139, a9e6747, all four checks green on run 38058286193); this is rebased onto it.
+- **Exact next steps:** Merge this with the merge train. Then M17 is built: deploy #137, R1, R2, R3 when Samuel says yes (no database change), and ask him to try it on *The Grid* (a page costs a few cents at STE).
 
 ### 2026-10-10 · Claude Opus 5.5 (laptop) · M17 R2: the rewrite panel and its switch (Original / Side by side / Rewritten)
 - **Done:** R1 merged (#138, bf29ad5, all four checks green on run 38056746591). R2: a top-bar button ("Rewritten view", beside Notes) opens the rewrite of the page on screen in the book's AI explanations style. Inside it, a switch: Original (closes it), Side by side (a column beside the page on a computer, the lower half under the page on a phone), Rewritten (the rewrite over the page; the page stays open underneath, out of reach, so Previous, Next and the arrow keys still turn it). The view is remembered on the device, and the button goes back to the last one. A page without a rewrite shows "Rewrite this page in {style}" with "It costs about $X, once. Saved rewrites are free."; each rewrite is labelled machine-written with its STE score, meaning choices (folded) and model, date and cost. In Rewritten alone, a paragraph not rewritten yet shows the book's own words, labelled. Changing the style under Aa updates the panel at once. A PDF sends the pages on screen (both of a two-page spread), an EPUB its visible range. The hint under Aa, AI explanations now says the style rewrites the book.
