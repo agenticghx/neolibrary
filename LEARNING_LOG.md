@@ -2198,3 +2198,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held on the laptop. Whether it ends the re-runs on CI shows over the next pull requests: the pattern stays in `flaky-tests.txt` until the test has been quiet for a week.
 **Lesson.** A test that forgives must say exactly what it forgives, and a deliberate bug must still fail it. Judging by redraws keeps the forgiveness to what the machine caused.
 **Next experiment.** Watch CI's WebKit runs of the two tests; a failure now names a word that was redrawn over, which is a real skip.
+
+### Iteration 82 · 2026-10-10 04:00 UTC · PDF labels (Part A2 of docs/pdf-narration-plan.md) · success
+
+**Hypothesis.** Since #126 the AI voice reads PDFs with each word lit on the page, so the only thing still calling a PDF "Read only" is one condition in `availabilityOf` (`fileType === "epub"`). Removing it changes the shelf, Paths, the book page and Home's "Listen from here" together, because they all read that one value.
+**Action.** Dropped the EPUB condition; the function now takes only `fileKey`. Flipped the tests that asserted the old rule (unit: `availability.test.ts`, `import.test.ts`; browser: `home.spec.ts`, `reader.spec.ts`, `own-paths.spec.ts`). Kept narration-off cases in the unit tests, since no book in the browser tests can show "nothing to listen to" any more. Reworded the now-false reason on the Import page and in the server's refusal; whole-book narration stays EPUB only.
+**Evaluation.** `npm run check` → `Tests 564 passed | 2 skipped (566)` (the first run failed on `import.test.ts:40`, an assertion of the old rule I had not found by grepping for "Read only"). `npx playwright test --ignore-snapshots` without Safari → `315 passed (9.8m)`. Looked at `screenshots/home-full-desktop-light.png`: the PDF's card has "Listen from here"; every PDF says "Read and listen".
+**Result.** The hypothesis held: one line, plus tests and wording.
+**Lesson.** Grep for the value as well as the label: the unit test asserted `{ read: true, listen: false }` with only a comment saying "Read only".
+**Next experiment.** CI will fail once on the Import page's reference images (its sentence changed); refresh them with the merge train, look at them, merge.

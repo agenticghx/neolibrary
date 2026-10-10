@@ -27,8 +27,9 @@ describe("availabilityOf", () => {
     expect(availabilityOf(epub, false, false)).toEqual({ read: true, listen: false });
   });
 
-  it("never counts narration for a PDF: only an uploaded audiobook makes it listenable", () => {
-    expect(availabilityOf(pdf, false, true)).toEqual({ read: true, listen: false });
+  it("counts narration for a PDF as for an EPUB (Part A2: the AI voice's words are lit on the page)", () => {
+    expect(availabilityOf(pdf, false, true)).toEqual({ read: true, listen: true });
+    expect(availabilityOf(pdf, false, false)).toEqual({ read: true, listen: false });
     expect(availabilityOf(pdf, true, false)).toEqual({ read: true, listen: true });
   });
 

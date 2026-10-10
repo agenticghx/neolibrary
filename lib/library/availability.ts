@@ -3,9 +3,10 @@
  * it is labelled by what can be done with it (Samuel's rule, docs/plan.md,
  * "The library comes first").
  * - read: it has a book file (EPUB or PDF).
- * - listen: it has an uploaded audiobook that finished uploading, or it is an
- *   EPUB and narration (ElevenLabs, made on demand) is switched on. Narration
- *   is EPUB only: its word times cannot be placed on a PDF page yet.
+ * - listen: it has an uploaded audiobook that finished uploading, or it has a
+ *   book file and narration (ElevenLabs, made on demand) is switched on. In a
+ *   PDF too: since #126 a made paragraph's words are lit on the PDF page
+ *   (docs/pdf-narration-plan.md, Parts A and A2).
  * Pure, so a browser-side part can import it; the lookups that need the
  * database or the voice service are in ./listenable.ts.
  */
@@ -27,10 +28,10 @@ export function availabilityLabel(a: Availability): AvailabilityLabel {
 export const isAvailable = (a: Availability) => a.read || a.listen;
 
 export function availabilityOf(
-  book: { fileKey: string | null; fileType: "epub" | "pdf" | null },
+  book: { fileKey: string | null },
   hasAudiobook: boolean,
   narration: boolean,
 ): Availability {
   const read = book.fileKey !== null;
-  return { read, listen: hasAudiobook || (read && book.fileType === "epub" && narration) };
+  return { read, listen: hasAudiobook || (read && narration) };
 }

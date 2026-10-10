@@ -37,7 +37,8 @@ describe("adding the book file to a chosen title (M14 step 5)", () => {
     expect(r).toMatchObject({ status: "attached", bookId: kuhn, title: "The Structure of Scientific Revolutions" });
     const { book, available } = (await getBook(database.db, ownerId, kuhn, true))!;
     expect(book).toMatchObject({ title: "The Structure of Scientific Revolutions", author: "Thomas S. Kuhn", fileType: "pdf" });
-    expect(available).toEqual({ read: true, listen: false }); // a PDF: Read only
+    expect(available).toEqual({ read: true, listen: true }); // a PDF, narration on: Read and listen (Part A2)
+    expect((await getBook(database.db, ownerId, kuhn, false))!.available).toEqual({ read: true, listen: false }); // narration off: Read only
   });
 
   it("refuses another reader's title, a title that has its file, and an unknown id", async () => {

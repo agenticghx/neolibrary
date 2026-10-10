@@ -60,10 +60,12 @@ Words used here:
   out too. *The Grid* has neither. Kuhn's PDF has a journal footer.
 - A page is read as one piece, so the voice stops at the foot of each page,
   often mid-sentence, while the next page's audio is made (see Part B).
-- Library labels and Home's "Listen from here" still treat a PDF without an
-  uploaded audiobook as "Read only". That changes in a second small pull
-  request (Part A2), because it changes several browser tests and reference
-  screenshots.
+- ~~Library labels and Home's "Listen from here" still treat a PDF without an
+  uploaded audiobook as "Read only".~~ Done in Part A2 (branch
+  `m16-pdf-labels`, 2026-10-10): with the AI voice on, a PDF says "Read and
+  listen", Home's card offers "Listen from here", and the Import page no
+  longer says a voice "cannot be lined up with a PDF page" (whole-book
+  narration stays EPUB only).
 
 **Cost, and the cap (read before pressing Listen):** one page of *The Grid*
 is one paragraph, about $0.85 at the default price setting ($0.30 per 1,000
@@ -148,5 +150,5 @@ top or bottom of most pages (a running head, a page number) as "not read".
 It stays in the page's text, so every word's place on the page is unchanged,
 but the voice skips it. Same rule as Part D step 2, in the app.
 
-Order: Part A now (this PR), then A2 (labels). Part D next. Part B after
-Samuel's live test of Part A. Part C after that.
+Order: Part A (merged, #126), then A2 (labels, 2026-10-10). Part D next.
+Part B after Samuel's live test of Part A. Part C after that.
