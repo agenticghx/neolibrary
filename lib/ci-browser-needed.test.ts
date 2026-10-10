@@ -119,7 +119,8 @@ function fixture() {
     "readalong-safari": ["readalong"],
     narration: ["readalong-safari"],
   };
-  return Object.entries(deps).map(([name, dependencies]) => ({ name, dependencies }));
+  const webkit = new Set(["safari", "readalong-safari"]);
+  return Object.entries(deps).map(([name, dependencies]) => ({ name, dependencies, ...(webkit.has(name) ? { use: { browserName: "webkit" } } : {}) }));
 }
 
 function namesOf(projects: { name: string }[]) {
@@ -207,6 +208,31 @@ describe("applyBrowserSlices", () => {
 
   it("runs no project when the slice list is none", () => {
     expect(applyBrowserSlices(fixture(), [])).toEqual([]);
+  });
+
+  // Samuel (2026-10-09): pull requests skip Safari's engine; main and the night run keep it.
+  it("skipWebkit drops every WebKit project, and narration waits on the Chromium audiobook pass", () => {
+    for (const slices of [null, ALL]) {
+      const projects = applyBrowserSlices(fixture(), slices, { skipWebkit: true });
+      expect(namesOf(projects)).not.toContain("safari");
+      expect(namesOf(projects)).not.toContain("readalong-safari");
+      expect(namesOf(projects)).toContain("readalong");
+      expect(depsOf(projects, "narration")).toEqual(["readalong"]);
+      expect(projects).toHaveLength(fixture().length - 2);
+    }
+  });
+
+  it("skipWebkit with read-along on keeps the Chromium audiobook pass only", () => {
+    const projects = applyBrowserSlices(fixture(), ["readalong"], { skipWebkit: true });
+    expect(namesOf(projects)).toContain("readalong");
+    expect(namesOf(projects)).not.toContain("readalong-safari");
+    expect(namesOf(projects)).not.toContain("safari");
+    expect(depsOf(projects, "readalong")).toEqual(["offline"]);
+  });
+
+  it("without skipWebkit, the WebKit projects stay (main and the night run)", () => {
+    expect(applyBrowserSlices(fixture(), null, { skipWebkit: false })).toEqual(fixture());
+    expect(namesOf(applyBrowserSlices(fixture(), ["readalong"], {}))).toContain("readalong-safari");
   });
 });
 

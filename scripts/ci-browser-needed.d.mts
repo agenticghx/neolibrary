@@ -17,9 +17,10 @@ export function parseBrowserSlices(value: string | undefined | null): BrowserSli
 
 export function sliceForProject(name: string): "setup" | BrowserSlice | null;
 
-export function applyBrowserSlices<T extends { name?: string; dependencies?: string[] }>(
+export function applyBrowserSlices<T extends { name?: string; dependencies?: string[]; use?: { browserName?: string } }>(
   projects: readonly T[],
   slices: readonly string[] | null,
+  opts?: { skipWebkit?: boolean },
 ): T[];
 
 /** Page names the 2×2 screenshot grid requires for this slice list. */

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy m15-two-page-listen (Listen in Two pages view); Samuel picks Listen safeguards (Open unknowns row 17); Blacksmith waits on his account. Do not build Corner.
+next_action: Two pages Listen fix is live at b13794a. Merge the Safari skip for pull requests; Samuel picks Listen safeguards (row 17); Blacksmith waits on his account. Do not build Corner.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-09
 shared_copy: none
@@ -127,6 +127,7 @@ Never blocks the loop. Newest first.
 
 ## Decisions
 
+- 2026-10-09 · Pull requests skip Safari's engine (WebKit) in the browser check; the run on `main` after each merge and the night run keep it (`CI_SKIP_WEBKIT`, `docs/ci-time.md`) · by Samuel
 - 2026-10-09 · Open unknowns row 14, choice (b): the read-aloud browser tests accept a missing word only when the page never redrew while it was said (a busy test machine can let a short word pass between two redraws); every other word must still be lit in order and on time. The rule is `lib/player/highlight-check.ts`, used by `e2e/safari.spec.ts:42`, `e2e/audio.spec.ts` and the PDF made-voice test · by Samuel
 - 2026-10-09 · No pull request only to record a deploy: the deploy's ledger entry rides in with the next real pull request (written into the merge-train skill, step 6). CI downloads Postgres from Amazon's public mirror (`public.ecr.aws/docker/library/postgres:18`) instead of Docker Hub, whose download limit failed #127 three times · by Samuel
 - 2026-10-09 · The AI voice (ElevenLabs, a paragraph at a time) may read PDF books in the reader, each word lit on the page; this replaces "a PDF needs an uploaded audiobook" from 2026-10-05. Library labels and Home's "Listen from here" follow in Part A2 of `docs/pdf-narration-plan.md`; whole-book narration stays EPUB only · by Samuel (asked for it 2026-10-09)
@@ -153,6 +154,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-10 00:41 UTC · Claude (laptop) · Deployed main b13794a (Listen in Two pages view)
+- **Done:** #130 merged as b13794a (CI run 38008882289 green). Deployed from main at b13794a: no migration since 0022 (`git diff --stat a472268 HEAD -- db/` empty), so no backup. Deployment 62bdd8b9-4c22-427c-bff1-3b8e2232ce9c reached SUCCESS. This record rides in the next real pull request (the Safari skip), as the rule says.
+- **Key paths:** https://web-production-f27a0e.up.railway.app
+- **Commands that worked:** `railway variable set NEOLIBRARY_COMMIT=b13794a… --skip-deploys`; `railway up --service web --environment production --ci` → `Deploy complete`, exit 0. `curl /api/health` → `{"status":"ok","service":"neolibrary","commit":"b13794a"}`; `/sign-in` 200; `/import` 307.
+- **Known issues / blockers:** None from the deploy. Samuel's row 17 (Listen safeguards) is open.
+- **Exact next steps:** Merge the Safari skip (#131 or the next number), then read `main`'s run for WebKit. Samuel tries Listen in Two pages view on *The Grid*.
+
+### 2026-10-09 20:45 (local) · Claude (laptop) · Pull requests skip Safari's engine; main and the night run keep it
+- **Done:** Samuel: "skip safari checks but maintain after finals; safari takes more time". A pull request's browser check now runs Chromium only: `ci.yml` sets `CI_SKIP_WEBKIT=1` and installs only Chromium on pull requests; `applyBrowserSlices` (`scripts/ci-browser-needed.mjs`) drops every WebKit project (`safari`, `readalong-safari`) and `narration` then waits on `readalong`. The run on `main` after each merge and the night run (08:00 UTC) keep WebKit. The merge-train skill (step 6) now says to read `main`'s run after a merge; `docs/ci-time.md` explains it. On the laptop nothing changes unless the variable is set. Built in the worktree `../neolibrary-wt-webkit`, branch `m15-skip-webkit-on-prs`.
+- **Key paths:** `.github/workflows/ci.yml`, `scripts/ci-browser-needed.mjs`, `scripts/ci-browser-needed.d.mts`, `playwright.config.ts`, `lib/ci-browser-needed.test.ts`, `docs/ci-time.md`, `.claude/skills/merge-train/SKILL.md`
+- **Commands that worked:** `npx vitest run lib/ci-browser-needed.test.ts` → `Tests 22 passed (22)` (three new: WebKit projects dropped with narration rewired to readalong; read-along on keeps only the Chromium pass; without the switch nothing changes). `npx playwright test --list`: unset → `Total: 311 tests in 21 files` (readalong-safari 34, safari 3); `CI_SKIP_WEBKIT=1` → `Total: 274 tests in 20 files`.
+- **Known issues / blockers:** A Safari-only bug now shows after the merge, on `main`, not before it. The first pull request that runs CI with this change (this one) is the check that the workflow edit works on GitHub.
+- **Exact next steps:** Merge after `m15-two-page-listen`; then confirm on this PR's own run that WebKit was skipped, and on the next `main` run that it ran.
 
 ### 2026-10-09 20:03 (local) · Claude (laptop) · Listen in Two pages view: the page read before no longer keeps a lit word
 - **Done:** Samuel reported that Listen does not work well in Two pages view. Reproduced on *The Grid* (his copy, never in git) in a throwaway local app with the fake voice, Two pages at 1440x900, pages 22-25: the voice and the right page's highlight work and the pair turns on time, but the left page keeps its last word lit while the right page is read, so two words are lit at once (seen in a screenshot: "to" stuck at the foot of page 22, "nothing" lit on page 23). Cause: `lightPdfWord` lit the word in its page's frame and never cleared the other page frames; in one-page view the old page is gone, so it never showed. Fix: `lightPdfWord` (Reader.tsx) now clears the spoken highlight in every other page frame. New browser test in `e2e/readalong.spec.ts`: a 3-page PDF, Two pages, the made voice from the left page into the right page; the left page must hold no lit word once the right page's word is lit. Also answered Samuel's question on how far Listen goes: it reads on paragraph by paragraph, making (paying for) each new paragraph as the voice reaches it, until Pause or the close button, the end of the book, a failure, or the voice cap ($5 per book, $20 per month: the defaults; no `VOICE_CAP_*` setting on Railway); leaving the reader does not stop it (the mini-player reads on). His safeguard choice is Open unknowns row 17.

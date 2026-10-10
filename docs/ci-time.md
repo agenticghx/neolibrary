@@ -47,6 +47,10 @@ The screenshot grid requires every page in `e2e/pages.ts` that this run actually
 
 On this laptop, leave `CI_BROWSER_SLICES` unset. Playwright then runs the same projects, with the same dependencies, as before.
 
+## Pull requests skip Safari's engine (2026-10-09)
+
+Samuel's decision: Safari's engine (WebKit) is the slow part, so a pull request's browser check runs Chromium only. `ci.yml` sets `CI_SKIP_WEBKIT=1` on pull requests and installs only Chromium; `applyBrowserSlices` (`scripts/ci-browser-needed.mjs`) then drops every project whose `browserName` is `webkit` (`safari`, `readalong-safari`: 37 of 311 tests), and `narration` waits on `readalong` instead. The run on `main` after each merge and the night run keep WebKit. A WebKit failure therefore shows on `main`, after the merge: the merge-train skill (step 6) says to read that run. On the laptop, nothing changes unless `CI_SKIP_WEBKIT=1` is set.
+
 ## The night run
 
 `.github/workflows/ci.yml` schedules `0 8 * * *` (08:00 UTC). That run is the browser job only, and it forces every slice, including WebKit. Lint and Postgres already ran on the push to `main`.
