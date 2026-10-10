@@ -108,6 +108,8 @@ export default defineConfig({
     { name: "narration", testMatch: /narration\.spec\.ts/, dependencies: ["readalong-safari"], use: { ...desktop } },
     ],
     parseBrowserSlices(process.env.CI_BROWSER_SLICES),
+    // Pull requests skip Safari's engine (CI_SKIP_WEBKIT=1, set by ci.yml); main and the night run keep it.
+    { skipWebkit: process.env.CI_SKIP_WEBKIT === "1" },
   ),
   webServer: {
     // A fresh in-process database (PGlite) for every run. Idle connections are

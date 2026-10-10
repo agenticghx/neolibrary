@@ -264,21 +264,26 @@ function dependenciesFor(project, names) {
 }
 
 /**
- * `slices === null`: return `projects` unchanged (local runs, and the timing config).
+ * `slices === null`: every project (local runs, and the timing config).
  * Otherwise drop projects whose slice is off. `setup` stays when any slice is on.
- * An unknown project name stays. Each remaining project then depends on the
- * nearest project that still runs, so Playwright is not pointed at a dropped name.
- * @param {readonly {name: string, dependencies?: string[]}[]} projects
+ * An unknown project name stays. `skipWebkit` (pull requests, Samuel 2026-10-09:
+ * Safari's engine is the slow part) also drops every project that runs in
+ * WebKit; they run after the merge, on `main`, and in the night run.
+ * Each remaining project then depends on the nearest project that still runs,
+ * so Playwright is not pointed at a dropped name.
+ * @param {readonly {name: string, dependencies?: string[], use?: {browserName?: string}}[]} projects
  * @param {readonly string[] | null} slices
+ * @param {{skipWebkit?: boolean}} [opts]
  */
-export function applyBrowserSlices(projects, slices) {
-  if (slices == null) return projects;
-  const on = expand(slices);
-  if (on.size === 0) return [];
+export function applyBrowserSlices(projects, slices, opts = {}) {
+  if (slices == null && !opts.skipWebkit) return projects;
+  const on = slices == null ? null : expand(slices);
+  if (on && on.size === 0) return [];
   const kept = [];
   for (const project of projects) {
+    if (opts.skipWebkit && project.use?.browserName === "webkit") continue;
     const slice = sliceForProject(project.name);
-    if (slice === "setup" || slice == null || on.has(slice)) kept.push(project);
+    if (on == null || slice === "setup" || slice == null || on.has(slice)) kept.push(project);
   }
   const names = new Set(kept.map((project) => project.name));
   let changed = kept.length !== projects.length;

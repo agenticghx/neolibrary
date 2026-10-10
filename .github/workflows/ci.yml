@@ -126,10 +126,16 @@ jobs:
               *,screenshots,*) echo "screenshots=true" >> "$GITHUB_OUTPUT" ;;
               *) echo "screenshots=false" >> "$GITHUB_OUTPUT" ;;
             esac
-            case ",$slices," in
-              *,webkit,*|*,readalong,*) echo "webkit=true" >> "$GITHUB_OUTPUT" ;;
-              *) echo "webkit=false" >> "$GITHUB_OUTPUT" ;;
-            esac
+            # Pull requests skip Safari's engine (Samuel, 2026-10-09: it is the slow part); the run on
+            # main after the merge, and the night run, keep it. See docs/ci-time.md.
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "webkit=false" >> "$GITHUB_OUTPUT"
+            else
+              case ",$slices," in
+                *,webkit,*|*,readalong,*) echo "webkit=true" >> "$GITHUB_OUTPUT" ;;
+                *) echo "webkit=false" >> "$GITHUB_OUTPUT" ;;
+              esac
+            fi
             echo "Browser slices: $slices"
           }
           # The night run judges WebKit even when the day's pull requests skipped it.
@@ -182,6 +188,7 @@ jobs:
         if: steps.pages.outputs.run == 'true'
         env:
           CI_BROWSER_SLICES: ${{ steps.pages.outputs.slices }}
+          CI_SKIP_WEBKIT: ${{ github.event_name == 'pull_request' && '1' || '' }}
         run: npx playwright test
 
       - name: Require the 2x2 screenshot grid
