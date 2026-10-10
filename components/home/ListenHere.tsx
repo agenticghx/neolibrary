@@ -8,8 +8,9 @@ import { playsHere, type Info } from "@/lib/player/session";
 /**
  * The Listen data fetched on Home, kept for a few minutes, so that coming
  * back to Home does not fetch it again (it is up to 8,000 words of text and
- * timings). Four minutes: less than the five-minute life of the signed audio
- * links inside it. A failed fetch is not kept.
+ * timings). Four minutes, so it does not go stale (its audio addresses no
+ * longer expire: they are checked by the sign-in cookie). A failed fetch is
+ * not kept.
  */
 const ahead = new Map<string, { at: number; info: Promise<Info | null> }>();
 const KEEP_MS = 4 * 60 * 1000;

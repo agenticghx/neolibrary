@@ -552,8 +552,8 @@ test.beforeEach(({ page }) => {
   audioRequests.set(page, { start, list });
   const since = () => Date.now() - start;
   page.on("request", (r) => {
-    // An audiobook's files, a made voice's (a signed file link), and anything else the browser loads as media.
-    if (r.resourceType() !== "media" && !/\/readalong\/[^/]+\/audio\/\d+|\/api\/files\/audio\//.test(r.url())) return;
+    // An audiobook's files, a made voice's (its file in the book: /api/books/<book>/audio/<id>.<ext>), and anything else the browser loads as media.
+    if (r.resourceType() !== "media" && !/\/readalong\/[^/]+\/audio\/\d+|\/api\/books\/[^/]+\/audio\/[0-9a-f-]{36}\./.test(r.url())) return;
     const entry: AudioRequest = { url: new URL(r.url()).pathname, asked: r.headers().range ?? null, at: since() };
     list.push(entry);
     entries.set(r, entry);
@@ -1711,8 +1711,8 @@ test("a PDF is read aloud in a made voice: every word lit in order on its page, 
     const p = ps.find((x) => x.id === t.sectionId)!;
     expect(t.inPage!.map(([a, b]) => pageLetters(p.chapterIndex).slice(a, b))).toEqual(t.words.map(([, , from, to]) => p.text.slice(from, to).replace(/\s+/g, "")));
   }
-  // Which paragraph an audio address plays: by its saved file (the address is a signed link to it).
-  const sectionOf = (src: string) => made.find((t) => decodeURIComponent(src.split("?")[0]) === `/api/files/${t.audioKey}`)?.sectionId ?? "";
+  // Which paragraph an audio address plays: by its saved file (the address names the book and the file, trackAudioUrl).
+  const sectionOf = (src: string) => made.find((t) => decodeURIComponent(src.split("?")[0]) === `/api/books/${bookId}/audio/${t.audioKey.split("/").pop()}`)?.sectionId ?? "";
   expect(new Set(frames.map((f) => f[0]).filter(Boolean).map(sectionOf)), "every audio played is one of the paragraphs").not.toContain("");
 
   // Paragraph by paragraph, every word lit in order and on time; a word may be missing only if the page never redrew
@@ -1859,7 +1859,8 @@ test("a made voice keeps a running total, and asks before paying on once $1 has 
   // Every paragraph is "not saved yet", and each one made costs $0.60 (the fake voice's real cost is a fraction of a
   // cent): the client's rule is what is tested, with the server's own answers otherwise unchanged.
   const made: string[] = [];
-  await page.route(`**/api/books/${bookId}/audio**`, async (route) => {
+  // The Listen answers only (/audio and /audio?…), not the audio files themselves (/audio/<id>.wav).
+  await page.route((url) => url.pathname === `/api/books/${bookId}/audio`, async (route) => {
     const res = await route.fetch();
     const body = await res.json();
     if (route.request().method() === "POST") {

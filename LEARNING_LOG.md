@@ -2225,3 +2225,12 @@ tests that pin it, in a small PR.
 **Result.** The page and its tests agree; the merge waits on CI.
 **Lesson.** An approved sentence lives in three places (the page and two tests); `git grep` a phrase of it before changing it.
 **Next experiment.** Merge, deploy, check `/api/health`.
+
+### Iteration 85 · 2026-10-10 07:25 UTC · Play after a long pause on an AI-voice page · success
+
+**Hypothesis.** Samuel's frozen highlight after Pause, then Play in Two pages view is not a Two pages bug: the live logs would show the audio request that failed.
+**Action.** Reproduced his steps on the laptop with the fake voice (left page, right page, left into right): the lit word moved on every time. Read Railway's http logs for his session: page 43's audio began at 06:12:41 UTC with a five-minute signed link; at 06:49:29 the player asked for the rest of the file with it and got `403`. The player ignored audio errors for an AI voice. Made paragraphs now play from a cookie-checked address, as uploaded audiobooks already did for this very reason, and a failed load shows Play and a message.
+**Evaluation.** `npm run check` → `567 passed`; browser suite → `316 passed (9.7m)` on the fourth run (one laptop audio pause, then two tests that pinned the old address). The new test fails with the old `return` put back.
+**Result.** The hypothesis held. The same logs measured Part B: 32 s and 38 s to make each new page.
+**Lesson.** When a live bug does not reproduce locally, the difference is often time: a five-minute link cannot fail in a test that pauses for two seconds. The live logs found it in one query.
+**Next experiment.** After the deploy, Samuel pauses a made page for more than five minutes and presses Play.

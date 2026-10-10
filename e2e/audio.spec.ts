@@ -37,6 +37,11 @@ test("a paragraph is read aloud once, stored with word timings, and its audio is
   expect((await again.json()).track.id).toBe(track.id);
   expect((await (await page.request.get(`/api/books/${bookId}/audio?cfi=${cfi}&voice=fake-ada`)).json()).track.id).toBe(track.id);
 
+  // Its address names the book and the file, and does not expire (checked by the sign-in cookie, as an
+  // uploaded audiobook is: a paused PDF page's link expired and was refused, 2026-10-10).
+  expect(track.audioUrl).toMatch(new RegExp(`^/api/books/${bookId}/audio/[0-9a-f-]{36}\\.wav$`));
+  expect((await page.request.get(track.audioUrl.replace(bookId, "00000000-0000-4000-8000-000000000000"))).status()).toBe(404);
+  expect((await page.request.get(`/api/books/${bookId}/audio/not-a-track.wav`)).status()).toBe(404);
   const audio = await page.request.get(track.audioUrl);
   expect(audio.status()).toBe(200);
   expect(audio.headers()["content-type"]).toBe("audio/wav");
@@ -133,6 +138,36 @@ test("the player reads aloud, highlights the word the timings say, and reads on 
   await bar.getByRole("button", { name: "Stop reading aloud" }).click();
   await expect(bar).toHaveCount(0);
   expect(await spoken(page)).toBeNull();
+});
+
+// Samuel (2026-10-10): paused on a PDF page for half an hour, then Play: the audio's link had expired and was refused
+// (403), and the bar still said Pause while the word being read stood still. Its address no longer expires; and a made
+// paragraph whose file cannot be loaded now shows Play and says so, and Play loads it again.
+test("a made paragraph whose audio cannot be loaded shows Play and says so, and Play loads it again", async ({ page }) => {
+  await openAtLover(page);
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await expect(bar).toContainText("Saved audio: free to play.");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  await seek(page, 0.6);
+  await expect(bar).toHaveAttribute("data-word", "Utterson");
+  // While it plays, the file is refused, as the expired link was, and the audio asks for it again.
+  await page.route("**/api/books/*/audio/*.wav", (route) => route.fulfill({ status: 403, contentType: "application/json", body: "{}" }));
+  await page.evaluate(() => {
+    const a = document.querySelector("audio")!;
+    a.src = a.getAttribute("src")!;
+    void a.play().catch(() => {});
+  });
+  await expect(bar).toContainText("This paragraph could not be played. Press Play to try again.");
+  await expect(bar.getByRole("button", { name: "Play" })).toBeVisible();
+  // The file can be had again: Play loads it, plays, and lights the words.
+  await page.unroute("**/api/books/*/audio/*.wav");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await expect(bar.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(bar).not.toContainText("could not be played");
+  await expect(bar).toHaveAttribute("data-word", /\S+/);
+  await bar.getByRole("button", { name: "Stop reading aloud" }).click();
 });
 
 // Samuel (2026-10-04): the highlight did not keep up with the voice.

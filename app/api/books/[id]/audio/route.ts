@@ -1,11 +1,9 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { AudioError, placeOnPage, speakPassage, type Track } from "@/lib/library/audio";
+import { AudioError, placeOnPage, speakPassage, trackAudioUrl, type Track } from "@/lib/library/audio";
 import { listenInfo } from "@/lib/library/listen";
 import { isCfi } from "@/lib/library/reading";
-import { serverSecret } from "@/lib/secrets";
-import { signFileUrl } from "@/lib/signed-url";
 import { getSpeechModel } from "@/lib/speech";
 import { SpeechError, SpeechNotConfigured } from "@/lib/speech/model";
 import { getStorage } from "@/lib/storage";
@@ -14,10 +12,9 @@ export const dynamic = "force-dynamic";
 
 const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 
-async function withUrl(track: Track | null) {
-  if (!track) return null;
-  const secret = await serverSecret(await getDb(), "file-links");
-  return { ...track, audioUrl: signFileUrl(secret, track.audioKey) };
+/** A made track with the address it plays from (checked by the sign-in cookie: trackAudioUrl). */
+function withUrl(track: Track | null) {
+  return track ? { ...track, audioUrl: trackAudioUrl(track.audioKey) } : null;
 }
 
 function errorResponse(e: unknown) {
@@ -47,7 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       section: url.searchParams.get("section"),
       voice: url.searchParams.get("voice"),
     });
-    return Response.json({ ...info, track: await withUrl(info.track) });
+    return Response.json({ ...info, track: withUrl(info.track) });
   } catch (e) {
     return errorResponse(e);
   }
@@ -72,7 +69,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     // In a PDF book, where each word is on its page (the reader lights it there).
     const track = await placeOnPage(db, bookId, body.sectionId, out.track);
-    return Response.json({ track: await withUrl(track), reused: out.reused }, { status: out.reused ? 200 : 201 });
+    return Response.json({ track: withUrl(track), reused: out.reused }, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);
   }
