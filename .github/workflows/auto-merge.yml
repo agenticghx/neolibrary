@@ -19,6 +19,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write   # start CI on main after the merge (gh workflow run)
 
 jobs:
   merge:
@@ -46,3 +47,8 @@ jobs:
           fi
           echo "CI passed on $SHA; merging PR #$pr."
           gh pr merge "$pr" --repo "$REPO" --squash --match-head-commit "$SHA"
+          # A merge made with this workflow's token starts no CI run on main (GitHub's rule against
+          # workflows starting workflows), but a dispatch does. Pull requests skip Safari's engine,
+          # so this run on main is where WebKit is checked after the merge (2026-10-09).
+          gh workflow run ci.yml --repo "$REPO" --ref main
+          echo "Started CI on main for the merge."

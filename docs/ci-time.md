@@ -49,7 +49,7 @@ On this laptop, leave `CI_BROWSER_SLICES` unset. Playwright then runs the same p
 
 ## Pull requests skip Safari's engine (2026-10-09)
 
-Samuel's decision: Safari's engine (WebKit) is the slow part, so a pull request's browser check runs Chromium only. `ci.yml` sets `CI_SKIP_WEBKIT=1` on pull requests and installs only Chromium; `applyBrowserSlices` (`scripts/ci-browser-needed.mjs`) then drops every project whose `browserName` is `webkit` (`safari`, `readalong-safari`: 37 of 311 tests), and `narration` waits on `readalong` instead. The run on `main` after each merge and the night run keep WebKit. A WebKit failure therefore shows on `main`, after the merge: the merge-train skill (step 6) says to read that run. On the laptop, nothing changes unless `CI_SKIP_WEBKIT=1` is set.
+Samuel's decision: Safari's engine (WebKit) is the slow part, so a pull request's browser check runs Chromium only. `ci.yml` sets `CI_SKIP_WEBKIT=1` on pull requests and installs only Chromium; `applyBrowserSlices` (`scripts/ci-browser-needed.mjs`) then drops every project whose `browserName` is `webkit` (`safari`, `readalong-safari`: 37 of 311 tests), and `narration` waits on `readalong` instead. The run on `main` after each merge and the night run keep WebKit. A WebKit failure therefore shows on `main`, after the merge: the merge-train skill (step 6) says to read that run. That run on `main` is started by `auto-merge.yml` right after it merges (`gh workflow run ci.yml --ref main`): a merge made with a workflow's own token starts no push run, and from 2026-10-09 15:10 UTC to the fix no merge had a run on `main` at all; only the night run checked WebKit. On the laptop, nothing changes unless `CI_SKIP_WEBKIT=1` is set.
 
 ## The night run
 
