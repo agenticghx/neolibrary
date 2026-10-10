@@ -26,6 +26,7 @@ import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { RewritePanel } from "./RewritePanel";
 import { RewrittenPane } from "./RewrittenPane";
+import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadRewrittenMode, loadSettings, saveRewrittenMode, saveSettings, SIZES, type ReaderSettings, type RewrittenMode } from "./settings";
 import styles from "./reader.module.css";
@@ -296,6 +297,8 @@ export function Reader(props: {
   const [rewritten, setRewritten] = useState<{ mode: RewrittenMode; last: Exclude<RewrittenMode, "original"> } | null>(null);
   /** The place on screen for the rewritten view: an EPUB's visible range, or a PDF's first and last page shown. */
   const [screen, setScreen] = useState<{ from: string; to: string } | null>(null);
+  /** Rewriting each page as it is turned to (M17 R3): for this visit only, never remembered. */
+  const [turn, setTurn] = useState<AsYouTurn>(TURN_OFF);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
   const [selection, setSelection] = useState<PendingSelection | null>(null);
@@ -1127,7 +1130,7 @@ export function Reader(props: {
           </p>
         ) : null}
         {paneMode && screen ? (
-          <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} />
+          <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} turn={turn} setTurn={setTurn} />
         ) : null}
       </div>
 
