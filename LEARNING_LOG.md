@@ -2216,3 +2216,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held, after four surprises: all 8 line-end hyphens in chapter 1 were real compounds (a PDF made from an ebook), so a hyphen is dropped only when the book spells the joined word elsewhere; "CO2"'s 2 is small type set lower and must stay; PyMuPDF gave some justified lines word by word; and the aligner put a blurred "T." after "Boone", which `validate_package.py` refused (fixed in `align.py`).
 **Lesson.** Check a cleaning rule against the book before trusting it: the textbook rule (drop a line-end hyphen) would have spoken "wellappointed" eight times in one chapter. And Playwright's own Chromium cannot play AAC; a test of real `.m4a` audio needs installed Chrome or WebKit.
 **Next experiment.** Samuel's live test of the AI voice on *The Grid* page 22 measures the pause at each page turn (Part B).
+
+### Iteration 84 · 2026-10-10 05:50 UTC · "How books are heard" includes PDFs · success
+
+**Hypothesis.** Samuel's sentence on the Import page is held word for word by two browser tests; changing it at his request means changing the page and both tests together, and the Import page's four reference images.
+**Action.** Reworded the sentence as he approved ("Then any book, EPUB or PDF, can be read aloud … or can get your own audiobook …"); updated `e2e/uploads.spec.ts` and `e2e/narration.spec.ts`. Deployed #134 and #135 first, as he asked (live `7d61d2c`).
+**Evaluation.** `npm run check` → `Tests 565 passed | 2 skipped (567)`; CI renders the new reference images, and the two tests check the new words.
+**Result.** The page and its tests agree; the merge waits on CI.
+**Lesson.** An approved sentence lives in three places (the page and two tests); `git grep` a phrase of it before changing it.
+**Next experiment.** Merge, deploy, check `/api/health`.

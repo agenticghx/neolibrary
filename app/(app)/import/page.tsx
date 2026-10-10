@@ -126,8 +126,8 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
           How books are heard
         </h2>
         <p className={styles.lede}>
-          To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each
-          paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.
+          To hear a book, add its file first. Then any book, EPUB or PDF, can be read aloud paragraph by paragraph by an AI voice (paid the
+          first time each paragraph plays, then free), or can get your own audiobook, which plays straight through for free.
         </p>
         {owner ? (
           <p className={styles.lede}>

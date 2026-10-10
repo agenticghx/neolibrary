@@ -292,7 +292,7 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
   // How books are heard: the words Samuel approved, whole and unchanged (toHaveText with strings ignores line breaks only),
   // then (V5) one sentence of its own on the whole-book choice.
   await expect(page.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText([
-    "To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.",
+    "To hear a book, add its file first. Then any book, EPUB or PDF, can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or can get your own audiobook, which plays straight through for free.",
     "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”.",
   ]);
 });
