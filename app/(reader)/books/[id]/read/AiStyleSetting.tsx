@@ -13,6 +13,12 @@ const OPTIONS: [Style, string][] = [
   ["ste-strict", "STE strict"],
 ];
 
+/** The short name of each style, as the setting shows it. */
+export const STYLE_NAMES = Object.fromEntries(OPTIONS) as Record<Style, string>;
+
+/** Sent on the window when the style changes, so the rewritten view (M17) follows it. */
+export const STYLE_EVENT = "neolibrary:ai-style";
+
 /**
  * The style AI explanations are written in (M6): plain English or STE
  * (Simplified Technical English) at a strictness. Set for all books, or for
@@ -48,8 +54,10 @@ export function AiStyleSetting({ bookId }: { bookId: string }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (res.ok) setValue(await res.json());
-    else {
+    if (res.ok) {
+      setValue(await res.json());
+      window.dispatchEvent(new Event(STYLE_EVENT));
+    } else {
       setValue(before);
       setError("Not saved. Try again.");
     }

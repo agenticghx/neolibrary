@@ -34,7 +34,7 @@ is copyrighted.
 
 ## Steps (one pull request each)
 
-**R1 · The server.** Plain rewrites follow Samuel's plain-english skill
+**R1 · The server.** Merged 2026-10-10 (#138). Plain rewrites follow Samuel's plain-english skill
 (copied to `prompts/plain/`, kept in step by `lib/ai/plain-sync.test.ts`).
 A style maps to a rewrite level (`rewriteFor` in `lib/library/levels.ts`).
 `paragraphsBetween` (`lib/library/annotations.ts`) finds the paragraphs on
@@ -50,7 +50,7 @@ its provenance, re-served without a second call; the book's style followed
 (STE strict asks for Strict); the spending cap stops it; another reader gets
 nothing (`lib/library/rewritten.test.ts`).
 
-**R2 · The panel and the switch.** A button in the reader's top bar opens
+**R2 · The panel and the switch.** Built 2026-10-10 (`m17-rewritten-panel`). A button in the reader's top bar opens
 the rewrite. Inside it, a switch: Original, Side by side, Rewritten. Side by
 side: the page and the panel share the screen (beside on a computer, page
 above and panel below on a phone). Rewritten: the panel covers the page;
