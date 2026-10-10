@@ -15,6 +15,8 @@ export type ListenView = {
   busy: boolean;
   /** Play cannot be pressed: nothing to play yet, or it is being prepared. */
   disabled: boolean;
+  /** A made voice stopped to ask before paying for the next paragraph: Play reads "Keep reading". */
+  asking: boolean;
   voices: { id: string; name: string }[];
   voice: string;
   speed: number;

@@ -17,7 +17,7 @@ export function ListenBar({ view, onClose, ref }: { view: ListenView; onClose: (
   return (
     <div ref={ref} className={styles.listenBar} role="region" aria-label="Read aloud" data-passage={view.passageCfi}>
       <button type="button" className={styles.primaryTool} disabled={view.disabled} onClick={view.toggle}>
-        {view.busy ? "Preparing…" : view.playing ? "Pause" : "Play"}
+        {view.busy ? "Preparing…" : view.playing ? "Pause" : view.asking ? "Keep reading" : "Play"}
       </button>
       {view.voices.length ? (
         <label className={styles.listenField}>
