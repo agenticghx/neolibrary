@@ -16,9 +16,9 @@ test.use({ storageState: ADMIN_STATE });
 
 /** What a reader who is not the library's owner sees instead of the form, and the server's reason when it refuses her. */
 const OWNER_ONLY = "Whole-book narration is for the library's owner, for now.";
-/** Samuel's approved words under "How books are heard" (uploads.spec.ts checks them, and the owner's added sentence). */
+/** Samuel's approved words under "How books are heard" (reworded at his request 2026-10-10: PDFs too; uploads.spec.ts checks them, and the owner's added sentence). */
 const HEARD =
-  "To hear a book, add its file first. Then an EPUB can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or any book, EPUB or PDF, can get your own audiobook, which plays straight through for free.";
+  "To hear a book, add its file first. Then any book, EPUB or PDF, can be read aloud paragraph by paragraph by an AI voice (paid the first time each paragraph plays, then free), or can get your own audiobook, which plays straight through for free.";
 
 /**
  * A book of 2,500 paragraphs, all different (a saved paragraph is found by its text, so a repeated one
