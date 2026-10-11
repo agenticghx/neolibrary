@@ -1,9 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { hiddenMachinery } from "../data/paths/hidden-machinery";
+import { ADMIN } from "./pages";
 
 // M14 step 2: the sidebar on desktop; tabs on a phone, and the account menu on
-// Home only (step 3b, Samuel's choice B). Runs after the uploads project (the
+// Home only (step 3b, Samuel's choice B). M18: the account menu opens above the
+// name at the foot of the sidebar (computer A), and as a sheet from the bottom
+// on a phone (phone B). Runs after the uploads project (the
 // library has books), before the reader. Never signs the owner out (the other
 // projects share the session).
 
@@ -62,18 +65,23 @@ test.describe("desktop sidebar", () => {
     await expect(page).toHaveURL(/\/search\?q=countenance$/);
     await expect(page.getByRole("button", { name: "Search" })).toHaveCount(1);
 
-    // The foot: account links, Invite for an admin, and Sign out.
-    // The foot stays in view on a laptop screen (the links above it scroll).
-    await expect(aside(page).getByRole("button", { name: "Sign out" })).toBeInViewport();
+    // The foot: the reader's initial and name, in view on a laptop screen (the links above it scroll).
+    // A click opens the account menu (M18): the account links, Invite for an admin, and Sign out.
+    const who = aside(page).getByRole("button", { name: `Account: ${ADMIN.name}` });
+    await expect(who).toBeInViewport();
+    await expect(aside(page).getByRole("button", { name: "Sign out" })).toBeHidden();
     for (const [name, url, heading] of [
       ["Reading stats", /\/stats$/, "Reading stats"],
       ["Your data", /\/data$/, "No lock-in"],
       ["Account", /\/account$/, "Account"],
       ["Invite", /\/admin\/invites$/, "Invite people"],
     ] as const) {
+      await who.click();
       await aside(page).getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(url);
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      // The new page closes the menu.
+      await expect(who).toHaveAttribute("aria-expanded", "false");
       if (name === "Account") {
         await expect(page.getByLabel("Current password")).toBeVisible();
         await expect(page.getByLabel("New password")).toBeVisible();
@@ -92,11 +100,54 @@ test.describe("desktop sidebar", () => {
     await expect(page.getByRole("button", { name: "Add this path" })).toHaveCount(0);
   });
 
-  test("Home has no account button on desktop: the account is at the foot of the sidebar", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Account: / })).toBeHidden();
-    await expect(aside(page).getByRole("button", { name: "Sign out" })).toBeVisible();
+  test("the account menu opens above the name, like the Claude app's, and closes", async ({ page }) => {
+    const who = aside(page).getByRole("button", { name: `Account: ${ADMIN.name}` });
+    // Each colour scheme from a fresh page: switching on an open page measures colours mid-transition.
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto("/");
+      await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+      // Home has no account button of its own on desktop: the account is at the foot of the sidebar.
+      await expect(page.getByRole("main").getByRole("button", { name: /^Account: / })).toHaveCount(0);
+      // Closed: the initial, the name and the arrow; no links.
+      await expect(who).toHaveText(`${ADMIN.name.charAt(0)}${ADMIN.name}`);
+      await expect(who).toHaveAttribute("aria-expanded", "false");
+      await expect(aside(page).getByRole("link", { name: "Reading stats", exact: true })).toBeHidden();
+      await who.click();
+      await expect(who).toHaveAttribute("aria-expanded", "true");
+      const menu = page.locator(`[id="${await who.getAttribute("aria-controls")}"]`);
+      // The email in grey at the top; Account, Reading stats, Your data | Invite | Sign out last.
+      await expect(menu.locator("p").first()).toHaveText(ADMIN.email);
+      await expect(menu.getByRole("link")).toHaveText(["Account", "Reading stats", "Your data", "Invite"]);
+      await expect(menu.getByRole("separator")).toHaveCount(2);
+      await expect(menu.getByRole("button", { name: "Sign out" })).toBeVisible();
+      // A card above the name, over the bottom of the list, inside the sidebar.
+      const [menuBox, whoBox, asideBox] = [await menu.boundingBox(), await who.boundingBox(), await aside(page).boundingBox()];
+      expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(whoBox!.y);
+      expect(menuBox!.x).toBeGreaterThanOrEqual(asideBox!.x);
+      expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(asideBox!.x + asideBox!.width);
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+      await page.screenshot({ path: `screenshots/account-menu-desktop-${scheme}.png` });
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${scheme} ${v.id}: ${v.nodes.map((n) => `${n.target.join(" ")} (${n.any[0]?.message ?? ""})`).join("; ")}`)).toEqual([]);
+    }
+    // Escape closes it and gives focus back to the name.
+    await page.getByRole("link", { name: "Your data", exact: true }).focus();
+    await page.keyboard.press("Escape");
+    await expect(who).toHaveAttribute("aria-expanded", "false");
+    await expect(who).toBeFocused();
+    // A click on the page closes it, and so does the name again.
+    await who.click();
+    await page.getByRole("heading", { level: 1, name: "Home" }).click();
+    await expect(who).toHaveAttribute("aria-expanded", "false");
+    await who.click();
+    await who.click();
+    await expect(who).toHaveAttribute("aria-expanded", "false");
+    // Tab past Sign out (into the page) closes it.
+    await who.click();
+    await page.getByRole("button", { name: "Sign out" }).focus();
+    await page.keyboard.press("Tab");
+    await expect(who).toHaveAttribute("aria-expanded", "false");
   });
 
   test("the first Tab offers to skip the navigation", async ({ page }) => {
@@ -203,8 +254,9 @@ test.describe("phone", () => {
     }
   });
 
-  test("the account menu on Home holds the account links and Sign out, and closes", async ({ page }) => {
+  test("the account menu on Home opens a sheet from the bottom with the account links and Sign out, and closes", async ({ page }) => {
     const button = page.getByRole("button", { name: /^Account: / });
+    const tabs = page.getByTestId("tab-bar");
     // Each colour scheme from a fresh page: switching on an open page measures colours mid-transition.
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
@@ -221,8 +273,19 @@ test.describe("phone", () => {
       await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");
-      for (const name of ["Reading stats", "Your data", "Account", "Invite"]) await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+      const sheet = page.locator(`[id="${await button.getAttribute("aria-controls")}"]`);
+      await expect(sheet.locator("p").first()).toHaveText(ADMIN.email);
+      await expect(sheet.getByRole("link")).toHaveText(["Account", "Reading stats", "Your data", "Invite"]);
+      await expect(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+      // A sheet along the bottom of the screen, its rows sized for a thumb, over the tab bar.
+      const sheetBox = (await sheet.boundingBox())!;
+      expect(sheetBox.x).toBe(0);
+      expect(sheetBox.width).toBe(390);
+      expect(Math.abs(sheetBox.y + sheetBox.height - 844)).toBeLessThanOrEqual(1);
+      for (const row of await sheet.getByRole("link").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      const tabBox = (await tabs.boundingBox())!;
+      expect(await sheet.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [tabBox.x + tabBox.width / 2, tabBox.y + tabBox.height / 2])).toBe(true);
       await page.screenshot({ path: `screenshots/account-menu-phone-${scheme}.png` });
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(results.violations.map((v) => `${scheme} ${v.id}: ${v.nodes.map((n) => `${n.target.join(" ")} (${n.any[0]?.message ?? ""})`).join("; ")}`)).toEqual([]);
@@ -232,13 +295,44 @@ test.describe("phone", () => {
     await page.keyboard.press("Escape");
     await expect(button).toHaveAttribute("aria-expanded", "false");
     await expect(button).toBeFocused();
-    // A tap outside closes it, and so does the button again.
+
+    // A tap on the dimmed page closes it, and only that: the tap does not also open the link under the finger.
     await button.click();
-    await page.mouse.click(12, 500); // the page's left margin, away from the menu (which covers the heading)
+    // Measured once the sheet has finished sliding up, and only links on the page: the sheet's own rows
+    // are inside main too (CI run 38120118560 picked "Your data" mid-slide and tapped it).
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    const sheetId = (await button.getAttribute("aria-controls"))!;
+    const sheetTop = (await page.locator(`[id="${sheetId}"]`).boundingBox())!.y;
+    const under = await page
+      .getByRole("main")
+      .getByRole("link")
+      .evaluateAll(
+        (links, [top, id]) => {
+          for (const a of links) {
+            if (a.closest(`[id="${id}"]`)) continue;
+            const r = a.getBoundingClientRect();
+            const y = r.top + r.height / 2;
+            if (y > 120 && y < top - 8) return { x: r.left + r.width / 2, y };
+          }
+          return null;
+        },
+        [sheetTop, sheetId] as const,
+      );
+    expect(under, "a link on the page above the sheet").not.toBeNull();
+    await page.evaluate(() =>
+      document.addEventListener(
+        "click",
+        (e) => {
+          Object.assign(window, { tapped: (e.target as Element).closest("a")?.getAttribute("href") ?? "no link" });
+          e.preventDefault();
+        },
+        { capture: true, once: true },
+      ),
+    );
+    await page.touchscreen.tap(under!.x, under!.y);
+    await expect.poll(() => page.evaluate(() => (window as Window & { tapped?: string }).tapped)).toBe("no link");
     await expect(button).toHaveAttribute("aria-expanded", "false");
-    await button.click();
-    await button.click();
-    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(page).toHaveURL(/:\d+\/$/);
 
     // A link inside it opens its page (which has no account button); back on Home it is closed.
     await button.click();

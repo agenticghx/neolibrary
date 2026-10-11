@@ -59,9 +59,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className={styles.headActions}>
           <ImportLink />
           {/* On a phone the account (Reading stats, Your data, Invite, Sign out) lives here, on Home only
-              (Samuel's choice B, 2026-10-06); on desktop it is at the foot of the sidebar. */}
+              (Samuel's choice B, 2026-10-06), and opens as a sheet from the bottom (his pick "phone B",
+              2026-10-11); on desktop it is at the foot of the sidebar. */}
           <div className={styles.phoneOnly}>
-            <AccountMenu name={user.name} admin={user.role === "admin"} />
+            <AccountMenu placement="sheet" name={user.name} email={user.email} admin={user.role === "admin"} />
           </div>
         </div>
       </header>

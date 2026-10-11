@@ -18,6 +18,15 @@ const PATHS = {
   forward15: "M19 12a7 7 0 1 1-2.1-5M19 4v4h-4M9.2 10v5M14.2 10H12v2.2h2.2V15H12",
   // Think aloud (M14 step 6c; the design's path): a microphone.
   mic: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3",
+  // The account menu (M18; Samuel's picks, computer A and phone B): a gear, bars, a stack of disks,
+  // a person with a plus, a door with an arrow out, and the arrow beside the name.
+  account:
+    "M12 9.2a2.8 2.8 0 1 1 0 5.6a2.8 2.8 0 0 1 0-5.6zM10.6 3h2.8l.5 2.3 1.6.9 2.2-.8 1.4 2.4-1.7 1.6v1.8l1.7 1.6-1.4 2.4-2.2-.8-1.6.9-.5 2.3h-2.8l-.5-2.3-1.6-.9-2.2.8-1.4-2.4 1.7-1.6v-1.8L4.9 7.8l1.4-2.4 2.2.8 1.6-.9z",
+  stats: "M4 20h16M7 16.5V12M12 16.5V6.5M17 16.5V9.5",
+  data: "M12 3.5c4.1 0 7.5 1.2 7.5 2.8S16.1 9 12 9 4.5 7.9 4.5 6.3 7.9 3.5 12 3.5zM4.5 6.3v11.4c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8V6.3M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8",
+  invite: "M10 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7zM3.5 20v-.5A5.5 5.5 0 0 1 9 14h2M18 14v6M15 17h6",
+  signOut: "M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5M15.5 16l4-4-4-4M19.5 12H9.5",
+  chevron: "M7 10l5 5 5-5",
 } as const;
 
 /** Solid shapes (the mini-player's Play and Pause), filled with the current text colour. */
