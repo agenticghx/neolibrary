@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { AuthError, changePassword, createInvite, endOtherSessions, revokeInvite, setReaderDisabled } from "@/lib/auth/service";
 import { requireAdmin, requireUser, SESSION_COOKIE, stopSession } from "@/lib/auth/session";
 import { addSection, addTitle, createPath, moveTitle, PathError, removeTitle, renamePath, seedPath } from "@/lib/library/paths";
-import { createAnnotation, deleteAnnotation } from "@/lib/library/annotations";
+import { AnnotationError, createAnnotation, deleteAnnotation, restoreAnnotation } from "@/lib/library/annotations";
 import { starterPath } from "@/lib/library/seed";
 import { addSampleBooks } from "@/lib/library/samples";
 import { getStorage } from "@/lib/storage";
@@ -125,6 +125,17 @@ export async function addTargetNoteAction(data: FormData) {
 export async function removeNoteAction(data: FormData) {
   const user = await requireUser();
   await deleteAnnotation(await getDb(), user.id, String(data.get("id")));
+  revalidatePath("/", "layout");
+}
+
+/** Brings back a removed note (M19: "Removed notes" on Your data). One that is gone or not yours changes nothing. */
+export async function restoreNoteAction(data: FormData) {
+  const user = await requireUser();
+  try {
+    await restoreAnnotation(await getDb(), user.id, String(data.get("id")));
+  } catch (e) {
+    if (!(e instanceof AnnotationError)) throw e;
+  }
   revalidatePath("/", "layout");
 }
 

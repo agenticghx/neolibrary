@@ -9,11 +9,13 @@
  * - create: a new annotation; `id` is its id, `body` what to POST.
  * - edit: a change to `annotationId` (`body` = { body?, color? }); `id` is the change's id.
  * - remove: hides `annotationId`; `id` is the change's id.
+ * - restore: brings back a removed `annotationId` (M19, Undo); `id` is the change's id, `body.annotation` the note
+ *   as it was, so the reader can show it while it waits.
  * Items saved before edits existed have no `op` and are creates.
  */
 export type OutboxItem = {
   id: string;
-  op?: "create" | "edit" | "remove";
+  op?: "create" | "edit" | "remove" | "restore";
   annotationId?: string;
   bookId: string;
   body: Record<string, unknown>;
@@ -84,7 +86,9 @@ export async function flushOutbox(): Promise<{ sent: number; refused: number }> 
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ ...item.body, changeId: item.id }),
               })
-            : await fetch(`/api/annotations/${item.annotationId}?changeId=${item.id}`, { method: "DELETE" });
+            : op === "restore"
+              ? await fetch(`/api/annotations/${item.annotationId}/restore?changeId=${item.id}`, { method: "POST" })
+              : await fetch(`/api/annotations/${item.annotationId}?changeId=${item.id}`, { method: "DELETE" });
     } catch {
       break;
     }

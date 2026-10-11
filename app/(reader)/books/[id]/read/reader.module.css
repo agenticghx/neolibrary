@@ -864,7 +864,26 @@
   font-size: var(--text-sm);
 }
 
-.backLink {
+/*
+ * "Note removed. Undo" at the top of Notes (M19). Empty, it takes no room but stays in the page (not display: none),
+ * so screen readers announce it when it fills.
+ */
+.removedLine {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.removedLine:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.backLink,
+.linkButton {
   justify-self: start;
   padding: 0;
   border: 0;

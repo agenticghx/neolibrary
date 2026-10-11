@@ -1,13 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
+import { listRemovedAnnotations, type Kind, type RemovedAnnotation } from "@/lib/library/annotations";
+import { restoreNoteAction } from "../actions";
 import { ImportForm } from "./ImportForm";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Your data" };
 
+const KIND_LABEL: Record<Kind, string> = {
+  highlight: "Highlight",
+  bookmark: "Bookmark",
+  note: "Note",
+  voice: "Voice note",
+  sticker: "Sticker",
+  drawing: "Handwritten note",
+  image: "Pinned picture",
+};
+
+/** A removed note in a line: its words (the passage, the note or what was said), cut short. */
+function excerpt(n: RemovedAnnotation) {
+  const text = (n.body || n.quote.exact || n.voice?.transcript || "").replace(/\s+/g, " ").trim();
+  return text.length > 140 ? `${text.slice(0, 139)}…` : text;
+}
+
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
 export default async function DataPage() {
-  await requireUser();
+  const user = await requireUser();
+  // Removed notes (M19): nothing is erased (ground rule 9), so each can be brought back. Shown only when there are some.
+  const removed = await listRemovedAnnotations(await getDb(), user.id, 50);
   return (
     <main className={styles.main}>
       <p className={styles.eyebrow}>Your data</p>
@@ -41,6 +64,37 @@ export default async function DataPage() {
           Agent access
         </Link>
       </section>
+      {removed.length ? (
+        <section className={styles.card} aria-labelledby="removed">
+          <h2 id="removed" className={styles.cardTitle}>
+            Removed notes
+          </h2>
+          <p className={styles.cardText}>Nothing you remove is erased. Bring a note back and it returns to its page.</p>
+          <ul className={styles.removedList} data-testid="removed-notes">
+            {removed.map((n) => (
+              <li key={n.id} className={styles.removedItem}>
+                <span className={styles.removedWhat}>
+                  {KIND_LABEL[n.kind]}
+                  {excerpt(n) ? <span className={styles.removedText}> · {excerpt(n)}</span> : null}
+                </span>
+                <span className={styles.removedMeta}>
+                  {n.on ? `${n.on} · ` : ""}removed {day(n.removedAt)}
+                </span>
+                <form action={restoreNoteAction}>
+                  <input type="hidden" name="id" value={n.id} />
+                  <button
+                    type="submit"
+                    className={styles.smallButton}
+                    aria-label={`Bring back: ${KIND_LABEL[n.kind]}${excerpt(n) ? `, ${excerpt(n)}` : ""}`}
+                  >
+                    Bring back
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }

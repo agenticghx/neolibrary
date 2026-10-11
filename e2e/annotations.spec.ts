@@ -1,4 +1,6 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
 import { ADMIN_STATE } from "./pages";
 
 // M5 "Done when" (part): Playwright makes a highlight + note, reloads, and finds both.
@@ -202,4 +204,71 @@ test("notes on a pillar and on the whole path", async ({ page }) => {
   await semis.getByRole("button", { name: /^Remove note/ }).click();
   await expect(semis.getByText("Watch a fab tour before Fabless.")).toHaveCount(0);
   await expect(semis.getByText("Add note")).toBeVisible();
+});
+
+// M19 P3a (the site review's third finding): a note removed by mistake comes back. For ten seconds Notes offers
+// Undo; after that, "Removed notes" on Your data has Bring back. Nothing is erased (ground rule 9).
+test("a removed note comes back: Undo in Notes, or Bring back on Your data", async ({ page }) => {
+  test.setTimeout(60_000); // four looks of Your data, each reloaded
+  await openAtRuggedCountenance(page);
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const count = async () => Number(/\((\d+)\)/.exec((await notesButton.textContent()) ?? "")?.[1] ?? 0);
+  const before = await count();
+  await selectPhrase(page, "never lighted by a smile");
+  await page.getByRole("toolbar", { name: "Selected text" }).getByRole("button", { name: "Highlight in Amber" }).click();
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+  await notesButton.click();
+  const list = page.getByTestId("notes");
+  const item = list.locator("li").filter({ has: page.locator("blockquote", { hasText: /^never lighted by a smile$/ }) });
+  await expect(item).toHaveCount(1);
+  const status = page.getByRole("navigation", { name: "Notes" }).getByRole("status");
+
+  // Undo, at once: the note is back, here and on the server.
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(item).toHaveCount(0);
+  await expect(status).toHaveText("Note removed. Undo");
+  await expect(notesButton).toHaveText(before ? `Notes (${before})` : "Notes");
+  await status.getByRole("button", { name: "Undo" }).click();
+  await expect(item).toHaveCount(1);
+  await expect(status).toHaveText("");
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+
+  // Removed again, then brought back from Your data.
+  await notesButton.click();
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(item).toHaveCount(0);
+  const book = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  const removed = (await (await page.request.get(`/api/books/${book}/annotations`)).json()).annotations.length;
+  expect(removed).toBe(before);
+  await page.goto("/data");
+  const card = page.getByRole("region", { name: "Removed notes" });
+  const row = card.getByRole("listitem").filter({ hasText: "never lighted by a smile" });
+  await expect(row).toContainText("Highlight · never lighted by a smile");
+  await expect(row).toContainText(/The Strange Case of Dr\. Jekyll and Mr\. Hyde · removed \d+ \w+ \d{4}/);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await card.scrollIntoViewIfNeeded();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${name} ${scheme} ${v.id}: ${v.help}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/data-removed-notes-${name}-${scheme}.png`, fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await row.getByRole("button", { name: /^Bring back: Highlight, never lighted by a smile/ }).click();
+  await expect(row).toHaveCount(0);
+  await openAtRuggedCountenance(page);
+  await expect(notesButton).toHaveText(`Notes (${before + 1})`);
+
+  // Leave the book as the later tests expect it.
+  await notesButton.click();
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(notesButton).toHaveText(before ? `Notes (${before})` : "Notes");
 });

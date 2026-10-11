@@ -21,6 +21,8 @@ export function NotesPanel({
   onGo,
   onSave,
   onDelete,
+  removed = null,
+  onUndo,
   onAddBookNote,
 }: {
   bookId: string;
@@ -32,6 +34,9 @@ export function NotesPanel({
   onGo: (a: Annotation) => void;
   onSave: (a: Annotation, body: string) => Promise<void>;
   onDelete: (a: Annotation) => Promise<void>;
+  /** The note just removed, while it can still be brought back (M19), and how. */
+  removed?: Annotation | null;
+  onUndo?: () => void;
   onAddBookNote: (body: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -41,6 +46,17 @@ export function NotesPanel({
   return (
     <nav className={styles.panel} aria-label="Notes">
       <p className={styles.panelTitle}>Notes</p>
+      {/* Always in the page, so a screen reader announces "Note removed" when it appears. */}
+      <p className={styles.removedLine} role="status">
+        {removed ? (
+          <>
+            Note removed.{" "}
+            <button type="button" className={styles.linkButton} onClick={onUndo}>
+              Undo
+            </button>
+          </>
+        ) : null}
+      </p>
       <form
         className={styles.noteForm}
         onSubmit={async (e) => {
