@@ -610,6 +610,22 @@ phone), with a switch between Original, Side by side and Rewritten. The plan,
 Samuel's choices and the steps (R1 server, R2 panel and switch, R3 made as
 you read, R4 defaults on the account) with their "Done when": `docs/rewritten-view-plan.md`.
 
+### M18 · The account menu (asked for by Samuel 2026-10-10)
+
+The sidebar's foot shows only your initial, name and an arrow; clicking it
+opens a card above it (computer) or a sheet from the bottom (phone) with
+Account, Reading stats, Your data, Invite and Sign out. Merged as #142 and
+live on 2026-10-11.
+
+### M19 · The site review's top 5 (asked for by Samuel 2026-10-11)
+
+An independent review by Fable 5.1 ranked five improvements: panels beside
+the book instead of over it, PDF pages dimmed at night, undo for a removed
+note and a way to remove a book, cover titles that do not break, and one
+Study button with one set of style names. The steps (P1, P1b, P2, P3a, P4,
+P5, P3b), their order, their "Done when" and six decisions with defaults:
+`docs/review-top5-plan.md`.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

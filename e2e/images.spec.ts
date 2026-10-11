@@ -165,6 +165,140 @@ test("pin a picture to a passage: it survives a reload, with its credit, and ope
   await page.screenshot({ path: "screenshots/reader-pinned-picture.png" });
 });
 
+// M19 P1 (the site review's first finding): on a computer every panel opens in a column beside the book, so
+// the passage you asked about stays readable; the book narrows and keeps your place. A phone keeps the card.
+test("panels open beside the book on a computer, never over it, and the reading place stays", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openReader(page);
+  const reader = page.getByTestId("reader");
+  const book = page.locator("foliate-view");
+  const close = async () => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Escape");
+  };
+  const clickPassage = async (text: string) => {
+    const point = await page.evaluate((text) => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      for (const { doc } of view.renderer.getContents()) {
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const i = n.nodeValue!.indexOf(text);
+          if (i < 0) continue;
+          const r = doc.createRange();
+          r.setStart(n, i);
+          r.setEnd(n, i + 5);
+          const box = r.getBoundingClientRect();
+          const frame = (doc.defaultView!.frameElement as HTMLElement).getBoundingClientRect();
+          return { x: frame.left + box.left + box.width / 2, y: frame.top + box.top + box.height / 2 };
+        }
+      }
+      return null;
+    }, text);
+    expect(point).not.toBeNull();
+    await page.mouse.click(point!.x, point!.y);
+  };
+  const panels: [string, () => Promise<void>][] = [
+    ["Notes", () => page.getByRole("button", { name: /^Notes/ }).click()],
+    ["Reading settings", () => page.getByRole("button", { name: "Reading settings" }).click()],
+    ["What do I need to know?", () => page.getByRole("button", { name: "What do I need to know?" }).click()],
+    [
+      "Test yourself",
+      async () => {
+        await page.getByRole("button", { name: "What do I need to know?" }).click();
+        await page.getByRole("button", { name: /^Test yourself on this chapter/ }).click();
+      },
+    ],
+    ["Elsewhere in your library", () => page.getByRole("button", { name: /links? to your other books$/ }).click()],
+    [
+      "See it",
+      async () => {
+        await selectPhrase(page, "a candle");
+        await page.getByRole("toolbar", { name: "Selected text" }).getByRole("button", { name: "See it" }).click();
+      },
+    ],
+    [
+      "Rewrite",
+      async () => {
+        await selectPhrase(page, "a candle");
+        await page.getByRole("toolbar", { name: "Selected text" }).getByRole("button", { name: "Rewrite" }).click();
+      },
+    ],
+    ["Pinned picture", () => clickPassage("neighbouring church")],
+  ];
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, open] of panels) {
+    await expect(reader).toHaveAttribute("data-cfi", /^epubcfi\(/);
+    const place = await reader.getAttribute("data-cfi");
+    await open();
+    const panel = page.getByRole(name === "Notes" ? "navigation" : "region", { name, exact: true });
+    await expect(panel, name).toBeVisible();
+    // The book narrows to make room: its box ends where the panel's begins.
+    await expect
+      .poll(async () => {
+        const p = (await panel.boundingBox())!;
+        const b = (await book.boundingBox())!;
+        return b.x + b.width <= p.x + 0.5;
+      }, { message: `${name} beside the book` })
+      .toBe(true);
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+    expect(results.violations.map((v) => `${name} · ${v.id}: ${v.help}`)).toEqual([]);
+    if (name === "Notes" || name === "Rewrite") {
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-panel-${name.toLowerCase()}-desktop-light.png` });
+    }
+    await close();
+    await expect(panel, name).toBeHidden();
+    // Laid out again at full width, the book is back at the same place.
+    await expect.poll(() => reader.getAttribute("data-cfi"), { message: `${name}: same place after closing` }).toBe(place);
+  }
+
+  // With Side by side on, the panel is a third column: the page and the rewrite both stay uncovered.
+  const view = page.getByRole("button", { name: "Rewritten view" });
+  const show = page.getByRole("group", { name: "Show" });
+  // The view is the account's (M17 R4): note it, so it can be put back for the tests after this one.
+  const was = (await view.getAttribute("aria-pressed")) === "true" ? await show.locator('[aria-pressed="true"]').textContent() : "Original";
+  if (was === "Original") await view.click();
+  await show.getByRole("button", { name: "Side by side" }).click();
+  const pane = page.getByRole("region", { name: "Rewritten" });
+  await expect(pane).toBeVisible();
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const notes = page.getByRole("navigation", { name: "Notes" });
+  await expect(notes).toBeVisible();
+  await expect(pane).toBeVisible();
+  await expect
+    .poll(async () => {
+      const n = (await notes.boundingBox())!;
+      const b = (await book.boundingBox())!;
+      const r = (await pane.boundingBox())!;
+      return b.x + b.width <= r.x + 0.5 && r.x + r.width <= n.x + 0.5 && b.width > 300;
+    }, { message: "page, rewrite, then Notes, side by side" })
+    .toBe(true);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: "screenshots/reader-panel-side-by-side-desktop-light.png" });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(notes).toBeHidden();
+  await expect(pane).toBeVisible();
+  await show.getByRole("button", { name: was!, exact: true }).click();
+  await expect(view).toHaveAttribute("aria-pressed", String(was !== "Original"));
+
+  // Dark, for the screenshot grid.
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(notes).toBeVisible();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: "screenshots/reader-panel-notes-desktop-dark.png" });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // A phone keeps the card over the page: there is no room for a column.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(notes).toBeVisible();
+  expect(await notes.evaluate((el) => getComputedStyle(el).position)).toBe("fixed");
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await page.setViewportSize({ width: 1280, height: 800 });
+});
+
 test("the see-it panel is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
