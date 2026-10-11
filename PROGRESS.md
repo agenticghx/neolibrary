@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M19 P3a, P5 and P3b in order, deploying as they land; then Samuel tries all five (docs/review-top5-plan.md).
+next_action: Merge M19 the P2 tint fix, P5 and P3b in order, deploying as they land; then Samuel tries all five (docs/review-top5-plan.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -173,6 +173,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 10:22 · Claude Opus 5.5 (laptop) · M19 P5: one Study button with two tabs; one set of style names everywhere
+- **Done:** The reader's '?' button is now Study (the word on a computer, an open-book icon on a phone); its panel has tabs Need to know and Test yourself (arrow keys move between them), replacing the link inside the panel. One list of short style names (STYLE_NAMES in lib/library/levels.ts: Plain, STE light, STE, STE strict) is used by Aa, the Account page, the Rewrite panel and the Study and rewritten-view headings. The Rewrite panel shows the four styles first (the Light/Standard/Strict dial became STE light/STE/STE strict; the percentage box stays) and For a biologist, Add missing background, Shorter under 'More ways'. Stored keys unchanged (no paid rewrite is orphaned). The five-line note in Reading settings is now two.
+- **Key paths:** app/(reader)/books/[id]/read/StudyTabs.tsx (new); Reader.tsx; NeedToKnowPanel.tsx; QuestionsPanel.tsx; RewritePanel.tsx; AiStyleSetting.tsx; RewrittenPane.tsx; reader.module.css; lib/library/levels.ts; app/(app)/account/ReadingPreferences.tsx; e2e/ai.spec.ts; e2e/images.spec.ts; e2e/reader.spec.ts
+- **Commands that worked:** npx tsc --noEmit; npx eslint; npx stylelint
+- **Known issues / blockers:** ai.spec.ts renames: 11 'What do I need to know?' buttons to Study, 3 'Test yourself on this chapter' links to the tab, the dial to the style buttons; listed in the PR.
+- **Exact next steps:** Run the ai project locally; PR after P3a merges; then P3b.
 ### 2026-10-11 10:36 · Claude Opus 5.5 (laptop) · Deployed M19 P1 and P4 (live 3de6ff7)
 - **Done:** Samuel said 'Go build and deploy'. #143 (P1, panels beside the book) merged as 8117e45 and #144 (P4, cover titles) as 3de6ff7; main's CI passed on both (runs 38146086342 and 38146830939). Deployed 3de6ff7 with railway up from a detached worktree; no database change since f6b71a4, so no backup. #145 (P1b, keyboard focus) merged as d740ebe after the deploy.
 - **Key paths:** ../neolibrary-deploy (detached worktree, not in git)

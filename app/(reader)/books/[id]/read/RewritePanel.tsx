@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { STRICTNESS, strictnessFrom, type Strictness } from "@/lib/library/levels";
+import { LEVELS, rewriteFor, STYLE_NAMES, strictnessFrom, type Strictness, type Style } from "@/lib/library/levels";
 import type { RewriteView } from "@/lib/library/rewrite";
 import styles from "./reader.module.css";
 
@@ -13,7 +13,8 @@ type Data = {
   fake: boolean;
 };
 
-const STRICT_SHORT: Record<Strictness, string> = { light: "Light", standard: "Standard", strict: "Strict" };
+/** The other ways to rewrite a paragraph, beside the four styles (M19 P5: one set of style names everywhere). */
+const MORE = ["biologist", "background", "shorter"] as const;
 
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -60,9 +61,9 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
     };
   }, [bookId, cfi, show]);
 
-  const ask = async (level: string, fresh = false, strict: Strictness = strictness) => {
+  const ask = async (level: string, fresh = false, strict: Strictness = strictness, key: string = level) => {
     if (!data) return;
-    setBusy(fresh ? "again" : level);
+    setBusy(fresh ? "again" : key);
     setError(null);
     try {
       const res = await fetch(`/api/books/${bookId}/rewrites`, {
@@ -81,14 +82,17 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
   };
 
   const current = data?.versions[index];
+  // The rewrite's name: one of the four styles (Plain, STE light, STE, STE strict), or one of the other ways.
   const levelOf = (g: RewriteView) =>
     g.options.level === "ste"
-      ? `STE, ${STRICT_SHORT[g.options.strictness as Strictness] ?? g.options.strictness}`
-      : (data?.levels[g.options.level] ?? g.options.level);
-  // Changing the dial while an STE rewrite is showing asks for that strictness.
+      ? (STYLE_NAMES[`ste-${g.options.strictness}` as Style] ?? `STE ${g.options.strictness}`)
+      : g.options.level === "plain"
+        ? STYLE_NAMES.plain
+        : (LEVELS[g.options.level as keyof typeof LEVELS] ?? g.options.level);
+  // A percentage while an STE rewrite is showing asks for the strictness it maps to.
   const pickStrictness = (next: Strictness) => {
     setStrictness(next);
-    if (current?.options.level === "ste" && current.options.strictness !== next) void ask("ste", false, next);
+    if (current?.options.level === "ste" && current.options.strictness !== next) void ask("ste", false, next, `ste-${next}`);
   };
   const estimate = data?.estimates ? Math.max(...Object.values(data.estimates)) : null;
 
@@ -104,41 +108,28 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
           </div>
           <fieldset className={styles.group}>
             <legend>Rewrite as</legend>
-            <div className={styles.levels}>
-              {Object.entries(data.levels).map(([level, label]) => (
-                <button
-                  key={level}
-                  type="button"
-                  className={styles.segmentButton}
-                  aria-pressed={current?.options.level === level && (level !== "ste" || current.options.strictness === strictness)}
-                  disabled={busy !== null}
-                  onClick={() => void ask(level)}
-                >
-                  {busy === level ? "Writing…" : label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset className={styles.group}>
-            <legend>STE strictness</legend>
             <div className={styles.strictRow}>
-              <div className={styles.segment}>
-                {(Object.keys(STRICTNESS) as Strictness[]).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={styles.segmentButton}
-                    aria-pressed={strictness === k}
-                    title={STRICTNESS[k]}
-                    disabled={busy !== null}
-                    onClick={() => {
-                      setPercent("");
-                      pickStrictness(k);
-                    }}
-                  >
-                    {STRICT_SHORT[k]}
-                  </button>
-                ))}
+              <div className={styles.levels}>
+                {(Object.keys(STYLE_NAMES) as Style[]).map((style) => {
+                  const r = rewriteFor(style);
+                  const pressed = current?.options.level === r.level && (r.level !== "ste" || current.options.strictness === r.strictness);
+                  return (
+                    <button
+                      key={style}
+                      type="button"
+                      className={styles.segmentButton}
+                      aria-pressed={pressed}
+                      disabled={busy !== null}
+                      onClick={() => {
+                        setPercent("");
+                        if (r.level === "ste") setStrictness(r.strictness);
+                        void ask(r.level, false, r.level === "ste" ? r.strictness : strictness, style);
+                      }}
+                    >
+                      {busy === style ? "Writing…" : STYLE_NAMES[style]}
+                    </button>
+                  );
+                })}
               </div>
               <label>
                 <span className="visually-hidden">or a percentage</span>
@@ -157,6 +148,23 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
                   }}
                 />
               </label>
+            </div>
+          </fieldset>
+          <fieldset className={styles.group}>
+            <legend>More ways</legend>
+            <div className={styles.levels}>
+              {MORE.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={styles.segmentButton}
+                  aria-pressed={current?.options.level === level}
+                  disabled={busy !== null}
+                  onClick={() => void ask(level)}
+                >
+                  {busy === level ? "Writing…" : LEVELS[level]}
+                </button>
+              ))}
             </div>
           </fieldset>
           <p className={styles.hint}>

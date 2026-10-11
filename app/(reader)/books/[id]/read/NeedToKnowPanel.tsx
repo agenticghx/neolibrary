@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { STYLES, type Style } from "@/lib/library/levels";
+import { STYLE_NAMES, type Style } from "@/lib/library/levels";
+import { StudyTabs } from "./StudyTabs";
 import type { PrerequisitesView } from "@/lib/library/prerequisites";
 import styles from "./reader.module.css";
 
@@ -74,10 +75,11 @@ export function NeedToKnowPanel({ bookId, cfi, onQuestions }: { bookId: string; 
   return (
     <section className={styles.panel} aria-label="What do I need to know?">
       <p className={styles.panelTitle}>What do I need to know?</p>
+      <StudyTabs current="know" onPick={(tab) => tab === "questions" && onQuestions()} />
       {!data && !error ? <p className={styles.hint}>Finding the chapter…</p> : null}
       {data ? (
         <p className={styles.groupLabel}>
-          {data.chapter.label} · {STYLES[data.style]}
+          {data.chapter.label} · {STYLE_NAMES[data.style]}
         </p>
       ) : null}
       {data && !latest ? (
@@ -98,11 +100,6 @@ export function NeedToKnowPanel({ bookId, cfi, onQuestions }: { bookId: string; 
         <p className={styles.formError} role="alert">
           {error}
         </p>
-      ) : null}
-      {data ? (
-        <button type="button" className={styles.backLink} onClick={onQuestions}>
-          Test yourself on this chapter ›
-        </button>
       ) : null}
       {data && latest ? (
         <>

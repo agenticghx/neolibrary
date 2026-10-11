@@ -140,7 +140,7 @@ test("the keyboard follows a panel: focus moves in when it opens, and Escape bri
   await openJekyll(page);
   const pairs = [
     [page.getByRole("button", { name: "Contents" }), page.getByRole("navigation", { name: "Contents" })],
-    [page.getByRole("button", { name: "What do I need to know?" }), page.getByRole("region", { name: "What do I need to know?" })],
+    [page.getByRole("button", { name: "Study" }), page.getByRole("region", { name: "What do I need to know?" })],
     [page.getByRole("button", { name: /^Notes/ }), page.getByRole("navigation", { name: "Notes" })],
     [page.getByRole("button", { name: "Reading settings" }), page.getByRole("region", { name: "Reading settings" })],
   ] as const;

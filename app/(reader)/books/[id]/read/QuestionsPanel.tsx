@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { STYLES, type Style } from "@/lib/library/levels";
+import { STYLE_NAMES, type Style } from "@/lib/library/levels";
+import { StudyTabs } from "./StudyTabs";
 import type { QuestionsView } from "@/lib/library/questions";
 import styles from "./reader.module.css";
 
@@ -91,13 +92,11 @@ export function QuestionsPanel({ bookId, cfi, onBack }: { bookId: string; cfi: s
   return (
     <section className={styles.panel} aria-label="Test yourself">
       <p className={styles.panelTitle}>Test yourself</p>
-      <button type="button" className={styles.backLink} onClick={onBack}>
-        ‹ What do I need to know?
-      </button>
+      <StudyTabs current="questions" onPick={(tab) => tab === "know" && onBack()} />
       {!data && !error ? <p className={styles.hint}>Finding the chapter…</p> : null}
       {data ? (
         <p className={styles.groupLabel}>
-          {data.chapter.label} · {STYLES[data.style]}
+          {data.chapter.label} · {STYLE_NAMES[data.style]}
         </p>
       ) : null}
       {data && !bank ? (
