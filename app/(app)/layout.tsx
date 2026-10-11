@@ -1,3 +1,4 @@
+import { CommandPalette } from "@/components/palette/CommandPalette";
 import { MiniPlayerSlot } from "@/components/player/MiniPlayerSlot";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { SkipLink } from "@/components/shell/SkipLink";
@@ -28,6 +29,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <MiniPlayerSlot />
       </div>
       <TabBar />
+      {/* Cmd+K or Ctrl+K: jump to a book, a Path, a page or a note (M21). */}
+      <CommandPalette admin={user.role === "admin"} />
     </div>
   );
 }

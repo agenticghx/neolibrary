@@ -122,6 +122,14 @@ highlight.
 - **App bar** (`app/(app)/layout.tsx`): mark + wordmark on the left; Library,
   Invite (admins only) and Sign out on the right, in quiet ink.
 
+- **Command palette** (`components/palette/CommandPalette.tsx`, M21): Cmd+K
+  (Ctrl+K on Windows and Linux) anywhere signed in, the reader included. A
+  raised card near the top of the screen over the dimmed page (`--scrim`): a
+  search box, then rows with the title in the book face (notes in italic), a
+  quieter second line, and a small capital tag (Book, Reader, Path, Section,
+  Page, Note). The highlighted row is tinted `--highlight`. Matching is in
+  `lib/palette/score.ts` (letters in order, best at word starts).
+
 - **Reader** (`app/(reader)/books/[id]/read/`): full-screen, its own quiet
   bar (mark, title · author, Contents, Aa), a single 680px text column, page
   turns at the sides, chapter + progress at the foot. Book pages get the app's
