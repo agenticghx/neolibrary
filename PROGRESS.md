@@ -3,6 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Merge M20 Q4 to Q9 (#154 to #158, then Q9) and the M21 Readability PR (merge train), then ask Samuel whether to deploy.
 next_action: Merge the calendar follow-up, then the M21 queue (#163, #162, #164, #165, Focus).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
@@ -189,6 +190,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 16:22 · Claude Opus 5.5 (laptop, M21 agent) · M21 Readability: a reading-level badge on rewrites, and the experiment on The Grid
+- **Done:** Added lib/library/readability.ts (Flesch-Kincaid grade and Flesch reading ease; sentence splitting that keeps Mr., initials, U.S. and decimals inside a sentence; a spelling-based syllable estimate, 109 of 115 untuned common words right at first, 111 after one rule). Every rewrite now shows a quiet badge, Grade 15 [drawn arrow] 12, in the Rewrite panel and the Rewritten view; screen readers hear "Reading level: original grade 15, this rewrite grade 12"; it opens to a one-line note on what the grade means and that it counts length, not meaning. Ran the experiment on all 304 pieces of The Grid in the four styles: original mean grade 13.3; rewrites 9.0 (Plain), 9.1 (STE light), 8.7 (STE), 8.4 (STE strict); 93-94% of pieces easier, the rest are headings of about 6 words. Agrees with plain_check.py on the rise in reading ease to within 0.5 point per style (absolute level about 4 points lower, from counting choices). PR open, not merged, not deployed.
+- **Key paths:** lib/library/readability.ts, lib/library/readability.test.ts, app/(reader)/books/[id]/read/ReadabilityBadge.tsx, app/(reader)/books/[id]/read/Readability.module.css, RewritePanel.tsx, RewrittenPane.tsx, e2e/ai.spec.ts (inside the first rewrite test, the read-it-rewritten test and the panels test), scripts/readability-report.mjs, docs/readability-experiment.md
+- **Commands that worked:** npm run check (exit 0; 611 unit tests passed); PORT=3306 npx playwright test --project ai --ignore-snapshots (212 passed, 4.1m); node scripts/readability-report.mjs (prints numbers only, writes nothing)
+- **Known issues / blockers:** The fake AI rewrite is the paragraph's first two sentences, so the browser test checks the badge shape, not a drop. The arrow character is not in the bundled fonts (lib/glyphs.test.ts), so the arrow is an inline SVG. The badge's spoken label does not contain its visible words exactly (WCAG 2.5.3 label-in-name, for voice control); say if that matters.
+- **Exact next steps:** Merge the M21 Readability PR through the merge train once its checks are green. Optional follow-ups: show reading ease too; hide the badge on pieces under about 20 words, where the formula means nothing.
 ### 2026-10-11 16:36 · Claude Opus 5.5 (laptop) · M21 Calendar follow-up: the fix that missed #161
 - **Done:** #161 (the reading calendar) was merged by the auto-merge Action at its first push (db7ef4c). Its second commit (22d52dd) missed the merge: the calendar scrolls inside its own box on a 320 px phone instead of widening the page, and e2e/stats.spec.ts test 2 finds its week by date instead of expecting exactly one row in Week by week, which fails from Monday 12 October 2026 UTC (a second week of reading appears). Cherry-picked here.
 - **Key paths:** app/(app)/stats/ReadingCalendar.tsx; app/(app)/stats/page.module.css; e2e/stats.spec.ts
