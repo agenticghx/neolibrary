@@ -103,6 +103,12 @@
   --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
   --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
   --scrim: #24323959; /* the page dimmed behind a sheet (the phone account menu, M18) */
+
+  /* Reading calendar (M21): a day's shade, from a little reading (1) to an hour or more (4); no reading is --paper-sunken */
+  --heat-1: #bdd6cb;
+  --heat-2: #8bb8aa;
+  --heat-3: #5a9185;
+  --heat-4: #376963;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -132,6 +138,10 @@
     --shadow-cover: 0 1px 1px #0000004d, 0 8px 18px #00000059, 0 20px 34px -14px #00000073;
     --shadow-raised: 0 1px 2px #0000004d, 0 10px 28px -10px #0006;
     --scrim: #00000080; /* the page dimmed behind a sheet (the phone account menu, M18) */
+    --heat-1: #2a4a45; /* reading calendar shades (M21) */
+    --heat-2: #3d6b63;
+    --heat-3: #5a9488;
+    --heat-4: #8bbab0;
   }
 }
 
@@ -177,6 +187,10 @@
   --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
   --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
   --scrim: #24323959; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --heat-1: #bdd6cb; /* reading calendar shades (M21) */
+  --heat-2: #8bb8aa;
+  --heat-3: #5a9185;
+  --heat-4: #376963;
 }
 
 /* Sepia: warm, low-glare light */
@@ -207,6 +221,10 @@
   --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
   --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
   --scrim: #24323959; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --heat-1: #e3cfa6; /* reading calendar shades (M21) */
+  --heat-2: #c9a671;
+  --heat-3: #a07848;
+  --heat-4: #73502c;
 }
 
 /* Night: the dark theme */
@@ -237,4 +255,8 @@
   --shadow-cover: 0 1px 1px #0000004d, 0 8px 18px #00000059, 0 20px 34px -14px #00000073;
   --shadow-raised: 0 1px 2px #0000004d, 0 10px 28px -10px #0006;
   --scrim: #00000080; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --heat-1: #2a4a45; /* reading calendar shades (M21) */
+  --heat-2: #3d6b63;
+  --heat-3: #5a9488;
+  --heat-4: #8bbab0;
 }

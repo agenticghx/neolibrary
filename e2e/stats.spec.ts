@@ -172,3 +172,108 @@ test("a chapter read much slower than usual gets a simple suggestion", async ({ 
     }
   }
 });
+
+// M21: the reading calendar and streaks. The server's clock is the real one, so sittings are sent (the way the
+// reader sends them) on days counted back from today in UTC: a run of three days up to today (the sitting above
+// is today's), half a minute three days ago (under a minute: it breaks the run), two more days, and a best day.
+// The expected numbers are worked out from your exported sittings, so the earlier tests' reading counts too.
+test("the reading calendar shades each day, says its minutes, and counts your streaks", async ({ page }) => {
+  type Row = { id: string; title: string };
+  type Sitting = { startedAt: string; activeSeconds: number };
+  const exported = async () => (await page.request.get("/api/export")).json();
+  const tm = ((await exported()).books as Row[]).find((b) => b.title === "The Time Machine")!;
+  const DAY = 86_400_000;
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const key = (daysAgo: number) => new Date(today - daysAgo * DAY).toISOString().slice(0, 10);
+  const seeds: [daysAgo: number, seconds: number][] = [[1, 20 * 60], [2, 7 * 60], [3, 30], [5, 45 * 60], [6, 16 * 60], [10, 95 * 60]];
+  for (const [daysAgo, seconds] of seeds) {
+    const sent = await page.request.post(`/api/books/${tm.id}/reading`, {
+      data: { sessionId: crypto.randomUUID(), startedAt: `${key(daysAgo)}T12:00:00.000Z`, activeSeconds: seconds, words: seconds * 4, pages: 3 },
+    });
+    expect(sent.status()).toBe(204);
+  }
+
+  // What the page should say, from every stored sitting: seconds per UTC day, a day read from a full minute.
+  const byDay = new Map<string, number>();
+  for (const s of (await exported()).readingSessions as Sitting[]) byDay.set(s.startedAt.slice(0, 10), (byDay.get(s.startedAt.slice(0, 10)) ?? 0) + s.activeSeconds);
+  const seconds = (daysAgo: number) => byDay.get(key(daysAgo)) ?? 0;
+  const isRead = (d: string) => (byDay.get(d) ?? 0) >= 60;
+  let current = 0;
+  for (let n = isRead(key(0)) ? 0 : 1; isRead(key(n)); n++) current++;
+  const readDays = [...byDay.keys()].filter(isRead).map((d) => Date.parse(`${d}T00:00:00Z`) / DAY);
+  const longest = Math.max(...readDays.map((d) => { let n = 0; while (readDays.includes(d - n)) n++; return n; }));
+  const [bestDay, bestSeconds] = [...byDay].sort(([a, x], [b, y]) => y - x || (a < b ? -1 : 1))[0];
+  const monday = today - ((now.getUTCDay() + 6) % 7) * DAY;
+  const firstShown = monday - 25 * 7 * DAY;
+  const daysRead = readDays.filter((d) => d * DAY >= firstShown && d * DAY <= today).length;
+  expect(current, "today and the two days before were read").toBeGreaterThanOrEqual(3);
+  expect(bestSeconds).toBeGreaterThanOrEqual(95 * 60);
+
+  const label = (daysAgo: number) => {
+    const s = seconds(daysAgo);
+    const m = Math.floor(s / 60);
+    const minutes = s === 0 ? "no reading" : m === 0 ? "under a minute" : m === 1 ? "1 minute" : `${m} minutes`;
+    const name = new Date(today - daysAgo * DAY).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+    return `${name}${daysAgo === 0 ? ", today" : ""}: ${minutes}`;
+  };
+  const step = (daysAgo: number) => [1, 15, 30, 60].filter((m) => Math.floor(seconds(daysAgo) / 60) >= m).length;
+  const time = (s: number) => { const m = Math.floor(s / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`; };
+
+  await page.goto("/stats");
+  const calendar = page.getByTestId("stats-calendar");
+  await expect(calendar.getByRole("heading", { level: 2, name: "Reading calendar" })).toBeVisible();
+  const grid = calendar.getByRole("table", { name: /Minutes read each day for the last 26 weeks/ });
+  // 25 full weeks and this week up to today; the days still to come have no square.
+  await expect(grid.locator("td[data-step]")).toHaveCount(25 * 7 + ((now.getUTCDay() + 6) % 7) + 1);
+  for (let daysAgo = 0; daysAgo <= 11; daysAgo++) {
+    const cell = grid.getByRole("cell", { name: label(daysAgo), exact: true });
+    await expect(cell, label(daysAgo)).toHaveCount(1);
+    await expect(cell).toHaveAttribute("data-step", String(step(daysAgo)));
+  }
+  // Rows are weekdays, columns weeks, each with a header screen readers announce.
+  await expect(grid.getByRole("rowheader")).toHaveText(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((d) => new RegExp(`^${d}`)));
+  await expect(grid.getByRole("columnheader")).toHaveCount(26);
+  await expect(grid.getByRole("columnheader").last()).toContainText(`Week of ${new Date(monday).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}`);
+
+  const days = (n: number) => (n === 1 ? "1 day" : `${n} days`);
+  await expect(page.getByTestId("streak-current")).toHaveText(days(current));
+  await expect(page.getByTestId("streak-longest")).toHaveText(days(longest));
+  await expect(page.getByTestId("streak-best")).toHaveText(time(bestSeconds));
+  await expect(page.getByTestId("streak-best-date")).toHaveText(
+    new Date(`${bestDay}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }),
+  );
+  await expect(page.getByTestId("streak-days")).toHaveText(String(daysRead));
+  await expect(calendar.getByRole("definition").filter({ has: page.getByTestId("streak-current") })).toContainText(isRead(key(0)) ? "Including today" : "Read today to keep it going");
+
+  const legend = page.getByTestId("calendar-legend");
+  await expect(legend).toContainText("Less");
+  await expect(legend).toContainText("More");
+  await expect(legend.getByRole("list", { name: "Shades, from less reading to more" }).getByRole("listitem")).toHaveText([
+    "No reading",
+    "1 to 14 minutes",
+    "15 to 29 minutes",
+    "30 to 59 minutes",
+    "60 minutes or more",
+  ]);
+
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(calendar).toBeVisible();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      // Never wider than the screen; if the calendar scrolls, it starts at today, at its right end.
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const box = (await calendar.getByRole("region", { name: "Reading calendar, the last 26 weeks" }).boundingBox())!;
+      const todayBox = (await grid.getByRole("cell", { name: label(0), exact: true }).boundingBox())!;
+      expect(todayBox.x).toBeGreaterThanOrEqual(box.x);
+      expect(todayBox.x + todayBox.width).toBeLessThanOrEqual(box.x + box.width);
+      await calendar.scrollIntoViewIfNeeded();
+      await calendar.screenshot({ path: `screenshots/stats-calendar-${name}-${scheme}.png` });
+    }
+  }
+});

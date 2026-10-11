@@ -6,7 +6,8 @@ import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
-import { chapterStatsByBook, cleanChapters, countsForSpeed, recordReading, suggestionsFrom, statsByBook, statsByPathSlot, statsByWeek, weekStart, wordsPerMinute } from "./reading-stats";
+import { removeBook } from "./remove-book";
+import { chapterStatsByBook, cleanChapters, countsForSpeed, recordReading, readingCalendar, suggestionsFrom, statsByBook, statsByPathSlot, statsByWeek, weekStart, wordsPerMinute } from "./reading-stats";
 
 let database: Database;
 let ownerId: string;
@@ -182,5 +183,23 @@ describe("reading statistics (M10)", () => {
     // Steady reading, or too few chapters, suggests nothing.
     expect(suggestionsFrom([{ ...books[0], chapters: books[0].chapters.slice(0, 3) }])).toEqual([]);
     expect(suggestionsFrom([{ ...books[0], chapters: books[0].chapters.slice(2) }])).toEqual([]);
+  });
+
+  it("the reading calendar (M21) adds up each UTC day from the stored sittings, also of a removed book, and other readers' never", async () => {
+    const now = new Date("2026-10-11T15:00:00Z");
+    const sit = (id: number, bookId: string, startedAt: string, activeSeconds: number) =>
+      recordReading(database.db, ownerId, { sessionId: `aaaaaaaa-0000-4000-8000-00000000000${id}`, bookId, startedAt, activeSeconds, words: activeSeconds * 4, pages: 1 }, now);
+    await sit(1, tm, "2026-10-10T09:00:00Z", 600);
+    await sit(2, jekyll, "2026-10-10T23:30:00Z", 900); // still the 10th in UTC
+    await sit(3, tm, "2026-10-11T00:15:00+02:00", 300); // 22:15 UTC on the 10th
+    await sit(4, jekyll, "2026-10-11T08:00:00Z", 1500);
+    await sit(5, tm, "2026-01-05T08:00:00Z", 7200); // long before the calendar: the best day all the same
+    await removeBook(database.db, ownerId, jekyll, now);
+    const cal = await readingCalendar(database.db, ownerId, now);
+    const last = cal.weeks.at(-1)!;
+    expect(last[5]).toEqual({ date: "2026-10-10", seconds: 1800, step: 3, today: false });
+    expect(last[6]).toEqual({ date: "2026-10-11", seconds: 1500, step: 2, today: true });
+    expect(cal).toMatchObject({ current: 2, longest: 2, best: { date: "2026-01-05", seconds: 7200 }, daysRead: 2 });
+    expect((await readingCalendar(database.db, "00000000-0000-4000-8000-000000000000", now)).daysRead).toBe(0);
   });
 });

@@ -32,6 +32,8 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["cover-empty-ink", "cover-empty", 4.5],
   ["focus-ring", "paper", 3],
   ["machine-rule", "machine-bg", 3],
+  // The reading calendar's strongest shade (an hour or more) stands out from the page like any UI graphic.
+  ["heat-4", "paper", 3],
 ];
 
 describe.each([
@@ -43,6 +45,23 @@ describe.each([
     expect(tokens[fg], `missing --${fg}`).toBeDefined();
     expect(tokens[bg], `missing --${bg}`).toBeDefined();
     expect(contrastRatio(tokens[fg], tokens[bg])).toBeGreaterThanOrEqual(min);
+  });
+});
+
+// M21: the reading calendar's shades go from no reading (--paper-sunken) to --heat-4, each step
+// further from the page than the one before, and each one visibly different from its neighbour.
+describe.each([
+  ["light", light],
+  ["dark", dark],
+  ["sepia", themes.sepia],
+])("%s reading calendar shades", (_name, tokens) => {
+  const steps = ["paper-sunken", "heat-1", "heat-2", "heat-3", "heat-4"];
+  it("each step stands further from the page than the one before", () => {
+    const fromPaper = steps.map((s) => contrastRatio(tokens[s], tokens.paper));
+    expect(fromPaper).toEqual([...fromPaper].sort((a, b) => a - b));
+  });
+  it.each(steps.slice(1).map((s, i) => [steps[i], s]))("%s and %s differ by 1.1:1 or more", (a, b) => {
+    expect(contrastRatio(tokens[a], tokens[b])).toBeGreaterThanOrEqual(1.1);
   });
 });
 
