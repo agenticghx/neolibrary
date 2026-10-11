@@ -86,3 +86,28 @@ test("a book id that is not yours (or not real) is a 404", async ({ page }) => {
   expect((await page.goto("/books/not-a-uuid"))?.status()).toBe(404);
   expect((await page.goto(`/books/${"-".repeat(36)}`))?.status()).toBe(404); // 36 characters that are not an id
 });
+
+// M20 Q6: the row of stops under a Path's title is a way to move down a long page (29 pillars): each stop is a link
+// to its pillar, named for a screen reader, with the pillar you are on marked.
+test("each stop under the title goes to its pillar", async ({ page }) => {
+  await page.goto("/paths/hidden-machinery");
+  const track = page.getByRole("list", { name: /^\d+ of \d+ pillars finished$/ });
+  // One stop per numbered pillar, as many as the list's own name counts.
+  const stops = Number(/ of (\d+) /.exec((await track.getAttribute("aria-label")) ?? "")?.[1]);
+  expect(stops).toBeGreaterThan(20);
+  await expect(track.getByRole("link")).toHaveCount(stops);
+  await expect(track.locator('[aria-current="location"]')).toHaveAccessibleName("Electricity & the grid, you are here");
+  const banking = page.getByRole("heading", { level: 3, name: "Banking & credit" });
+  await expect(banking).not.toBeInViewport();
+  await track.getByRole("link", { name: "Banking & credit" }).click();
+  await expect(page).toHaveURL(/#p-banking$/);
+  await expect(banking).toBeInViewport();
+  // From the keyboard too: back to the top, then Tab to the first stop and Enter.
+  await page.goto("/paths/hidden-machinery");
+  const first = track.getByRole("link").first();
+  const href = (await first.getAttribute("href"))!;
+  expect(href).toMatch(/^#p-/);
+  await first.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
+});
