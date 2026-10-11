@@ -8,6 +8,17 @@ import { SPINE_H, SPINE_W, spinePoint } from "./spine";
 const STRIPS = 56;
 const FOLD_MS = 540;
 
+// Dimmed pages (M19 P2): the pages on screen are dimmed by a CSS filter on their picture (DIM_CSS in pdf-book.ts),
+// which a copy of their pixels does not carry. So the fold dims its own pictures the same way, and paints the
+// paper the colour a dimmed white page has; without this the turning sheet flashed white at night.
+const DIM_FILTER = "invert(0.88) hue-rotate(180deg)";
+const DIM_PAPER = "rgb(31, 31, 31)";
+
+/** How the fold paints: the paper under a picture, and the crease's bright edge and shadow. */
+type Look = { paper: string; edge: number; shadow: string; shadowAlpha: number };
+const PRINTED: Look = { paper: "#fff", edge: 0.95, shadow: "36, 50, 57", shadowAlpha: 1 };
+const DIMMED: Look = { paper: DIM_PAPER, edge: 0.3, shadow: "0, 0, 0", shadowAlpha: 1.6 };
+
 export type SpineView = HTMLElement & {
   next(): Promise<void>;
   prev(): Promise<void>;
@@ -69,16 +80,69 @@ function liveCopy(doc: Document) {
   return copy;
 }
 
-function blankLike(sample: HTMLCanvasElement) {
+function blankLike(sample: HTMLCanvasElement, paper: string) {
   const canvas = document.createElement("canvas");
   canvas.width = sample.width;
   canvas.height = sample.height;
   const context = canvas.getContext("2d");
   if (context) {
-    context.fillStyle = "#fff";
+    context.fillStyle = paper;
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
   return canvas;
+}
+
+/**
+ * DIM_FILTER worked out by hand, for a browser whose canvas cannot draw through a filter: invert(0.88) takes each
+ * channel c to 0.88 * 255 + (1 - 2 * 0.88) * c, then hue-rotate(180deg) is the Filter Effects colour matrix.
+ * Uint8ClampedArray rounds and clamps.
+ */
+export function dimPixels(px: Uint8ClampedArray) {
+  for (let i = 0; i < px.length; i += 4) {
+    const r = 224.4 - 0.76 * px[i]!;
+    const g = 224.4 - 0.76 * px[i + 1]!;
+    const b = 224.4 - 0.76 * px[i + 2]!;
+    px[i] = -0.574 * r + 1.43 * g + 0.144 * b;
+    px[i + 1] = 0.426 * r + 0.43 * g + 0.144 * b;
+    px[i + 2] = 0.426 * r + 1.43 * g - 0.856 * b;
+  }
+}
+
+let filterWorks: boolean | null = null;
+/** Whether a canvas here draws through a CSS filter (Safari before 18 ignores it): a white pixel drawn inverted. */
+function canvasFilters() {
+  if (document.documentElement.dataset.spineNoFilter) return false; // a test takes the by-hand path; production never sets it
+  if (filterWorks !== null) return filterWorks;
+  const white = document.createElement("canvas");
+  const probe = document.createElement("canvas");
+  white.width = white.height = probe.width = probe.height = 1;
+  const w = white.getContext("2d");
+  const p = probe.getContext("2d", { willReadFrequently: true });
+  if (!w || !p) return (filterWorks = false);
+  w.fillStyle = "#fff";
+  w.fillRect(0, 0, 1, 1);
+  p.filter = "invert(1)";
+  p.drawImage(white, 0, 0);
+  return (filterWorks = p.getImageData(0, 0, 1, 1).data[0]! < 128);
+}
+
+/** A page picture as the dimmed page on screen shows it. */
+function dimmed(img: HTMLCanvasElement) {
+  const out = document.createElement("canvas");
+  out.width = img.width;
+  out.height = img.height;
+  const context = out.getContext("2d", { willReadFrequently: !canvasFilters() });
+  if (!context) return img;
+  if (canvasFilters()) {
+    context.filter = DIM_FILTER;
+    context.drawImage(img, 0, 0);
+    return out;
+  }
+  context.drawImage(img, 0, 0);
+  const data = context.getImageData(0, 0, out.width, out.height);
+  dimPixels(data.data);
+  context.putImageData(data, 0, 0);
+  return out;
 }
 
 function place(rect: DOMRect, gutterOnLeft: boolean, t: number) {
@@ -86,7 +150,7 @@ function place(rect: DOMRect, gutterOnLeft: boolean, t: number) {
 }
 
 /** Draw one spread at progress p. t = 0 is the gutter and t = 1 is the outer edge. */
-function paint(canvas: HTMLCanvasElement, p: number, turning: DOMRect, stay: DOMRect, front: HTMLCanvasElement, back: HTMLCanvasElement, under: HTMLCanvasElement, stayImg: HTMLCanvasElement) {
+function paint(canvas: HTMLCanvasElement, p: number, turning: DOMRect, stay: DOMRect, front: HTMLCanvasElement, back: HTMLCanvasElement, under: HTMLCanvasElement, stayImg: HTMLCanvasElement, look: Look) {
   const context = canvas.getContext("2d");
   if (!context) return;
   const ratio = window.devicePixelRatio || 1;
@@ -111,7 +175,7 @@ function paint(canvas: HTMLCanvasElement, p: number, turning: DOMRect, stay: DOM
 
   const fillPage = (rect: DOMRect, img: HTMLCanvasElement) => {
     const [x, y] = toLocal(rect.left, rect.top);
-    context.fillStyle = "#fff";
+    context.fillStyle = look.paper;
     context.fillRect(x, y, rect.width, rect.height);
     context.drawImage(img, x, y, rect.width, rect.height);
   };
@@ -166,13 +230,13 @@ function paint(canvas: HTMLCanvasElement, p: number, turning: DOMRect, stay: DOM
     const shade = turning.width * 0.02;
     const edge = Math.max(1.5, turning.width * 0.006);
     const band = turning.width * 0.05;
-    context.fillStyle = `rgba(36, 50, 57, ${0.16 * life})`;
+    context.fillStyle = `rgba(${look.shadow}, ${0.16 * look.shadowAlpha * life})`;
     context.fillRect(outward > 0 ? lx - shade : lx, ly, shade, turning.height);
-    context.fillStyle = `rgba(255, 255, 255, ${0.95 * life})`;
+    context.fillStyle = `rgba(255, 255, 255, ${look.edge * life})`;
     context.fillRect(outward > 0 ? lx - edge : lx, ly, edge, turning.height);
     const shadow = context.createLinearGradient(lx, ly, lx + outward * band, ly);
-    shadow.addColorStop(0, `rgba(36, 50, 57, ${0.34 * life})`);
-    shadow.addColorStop(1, "rgba(36, 50, 57, 0)");
+    shadow.addColorStop(0, `rgba(${look.shadow}, ${0.34 * look.shadowAlpha * life})`);
+    shadow.addColorStop(1, `rgba(${look.shadow}, 0)`);
     context.fillStyle = shadow;
     context.fillRect(outward > 0 ? lx : lx - band, ly, band, turning.height);
   }
@@ -209,15 +273,19 @@ export async function turnWithSpine(view: SpineView, book: SpineBook | null, dir
     await plain();
   };
   try {
-    const front = liveCopy(turning.doc) ?? (await book.picture(turning.index, turning.rect.width));
-    const stayImg = liveCopy(stay.doc) ?? (await book.picture(stay.index, stay.rect.width));
-    const back = await book.picture(backIndex, turning.rect.width);
+    const dim = turning.doc.documentElement.hasAttribute("data-dim");
+    const look = dim ? DIMMED : PRINTED;
+    const shown = (img: HTMLCanvasElement | null) => (img && dim ? dimmed(img) : img);
+    const front = shown(liveCopy(turning.doc) ?? (await book.picture(turning.index, turning.rect.width)));
+    const stayImg = shown(liveCopy(stay.doc) ?? (await book.picture(stay.index, stay.rect.width)));
+    const back = shown(await book.picture(backIndex, turning.rect.width));
     if (!front || !stayImg || !back) {
       await go();
       return;
     }
     const under =
-      underIndex >= 0 && underIndex < book.pageCount ? ((await book.picture(underIndex, turning.rect.width)) ?? blankLike(front)) : blankLike(front);
+      (underIndex >= 0 && underIndex < book.pageCount ? shown(await book.picture(underIndex, turning.rect.width)) : null) ??
+      blankLike(front, look.paper);
     const turningRect = turning.rect;
     const stayRect = stay.rect;
     view.style.visibility = "hidden";
@@ -229,7 +297,7 @@ export async function turnWithSpine(view: SpineView, book: SpineBook | null, dir
         // A test pins the fold at halfway so a picture can be taken. Production never sets this.
         if (document.documentElement.dataset.spineHold === "mid" && elapsed > FOLD_MS / 2) elapsed = FOLD_MS / 2;
         const p = Math.min(1, elapsed / FOLD_MS);
-        paint(canvas, p, turningRect, stayRect, front, back, under, stayImg);
+        paint(canvas, p, turningRect, stayRect, front, back, under, stayImg, look);
         if (p < 1) requestAnimationFrame(frame);
         else resolve();
       };
