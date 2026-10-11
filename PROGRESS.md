@@ -173,6 +173,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 09:35 · Claude Opus 5.5 (laptop) · Checkpoint: Fable 5.1 site review done; M19 plan for its top 5 written and committed locally
+- **Done:** Fixed the deploy entry's UTC label (2672668). Fable 5.1 reviewed the site; the top 5 were checked against the code and are in Samuel's private Claude Doc 'Neolibrary site review'. docs/review-top5-plan.md (M19) has seven steps, each with a Done when, and six decisions with defaults; it is committed as cfb6649 on m18-deploy-record, not pushed. No M19 code yet.
+- **Key paths:** docs/handoffs/2026-10-11-0934-site-review-m19-plan.md; docs/review-top5-plan.md; docs/plan.md; docs/handoffs/2026-10-11-0815-fable-site-review.md
+- **Commands that worked:** git log -3 (cfb6649, 2672668, f6b71a4); git status (m18-deploy-record ahead 2)
+- **Known issues / blockers:** Building waits for Samuel's go. Most file:line references in the plan come from read-only agent reports; re-check them before editing.
+- **Exact next steps:** 1. Ask Samuel whether to start M19 P1; on his go, branch m19-panels-beside from m18-deploy-record. 2. Then P1b, P2, P3a, P5, P3b in order; P4 any time in a worktree. 3. Samuel tries the account menu live. 4. The Grid verdict and Notes.
+
 ### 2026-10-11 08:44 · Claude Opus 5.5 (laptop) · M19 planned: the site review's top 5 as seven pull requests, each with its Done when
 - **Done:** Wrote docs/review-top5-plan.md from three read-only code searches (reader layout and toolbar; PDF pages and covers; notes and book removal). Steps in order: P1 panels beside the book; P1b keyboard focus; P2 dim PDF pages at night; P3a undo a removed note; P4 cover titles (any time); P5 one Study button, one set of style names; P3b remove a book. None needs a migration. Corrected three points of the review: only the Not available yet group has broken titles (Path covers fit); no reader page has reference images; nothing purges removed data, so no '30 days' (Samuel's doc fixed too). Added M18 and M19 to docs/plan.md; Open unknowns row 20 points at the plan.
 - **Key paths:** docs/review-top5-plan.md; docs/plan.md (M18, M19); PROGRESS.md (row 20, Exact next steps)
