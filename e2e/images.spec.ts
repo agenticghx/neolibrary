@@ -84,8 +84,7 @@ test("see it: pictures of a phrase, each with its credit and licence; searching 
   expect((await anon.request.get(new URL("/api/images/search?q=wafer", page.url()).href)).status()).toBe(401);
   await anon.close();
 
-  // Escape closes the panel. A focused button swallows the key, so leave the button first.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  // Escape closes the panel, even with a button in it focused (M19 P1b: the button no longer swallows the key).
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready");
@@ -172,10 +171,7 @@ test("panels open beside the book on a computer, never over it, and the reading 
   await openReader(page);
   const reader = page.getByTestId("reader");
   const book = page.locator("foliate-view");
-  const close = async () => {
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-    await page.keyboard.press("Escape");
-  };
+  const close = () => page.keyboard.press("Escape");
   const clickPassage = async (text: string) => {
     const point = await page.evaluate((text) => {
       const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };

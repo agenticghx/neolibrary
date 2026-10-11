@@ -3,6 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Merge M19 P1, P4 and P1b; then build P2, per docs/review-top5-plan.md.
 next_action: Merge M19 P1, then P4, per docs/review-top5-plan.md.
 next_action: Finish M19 P1 (rerun, PR, merge train), then P4 and P1b, per docs/review-top5-plan.md.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
@@ -173,6 +174,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 10:03 · Claude Opus 5.5 (laptop) · M19 P1b: the keyboard follows a reader panel
+- **Done:** Opening a panel moves keyboard focus into it; Escape closes it and returns focus to the button that opened it (when the focus went away with the panel). Escape now works with a toolbar button focused; other keys stay with the button. The 'blur first' workarounds in e2e/images.spec.ts are gone (the tests are stricter). New test in e2e/reader.spec.ts for Contents, What do I need to know?, Notes and Reading settings.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; e2e/images.spec.ts
+- **Commands that worked:** npx playwright test --project images --ignore-snapshots
+- **Known issues / blockers:** Stacked on m19-panels-beside (#143): merge after it.
+- **Exact next steps:** Merge after P1 and P4; then P2 (dim PDF pages), per docs/review-top5-plan.md.
 
 ### 2026-10-11 09:57 · Claude Opus 5.5 (laptop) · M19 P4: titles on the greyed Not available yet covers no longer break mid-word
 - **Done:** The narrow covers of Not available yet (Home and Library) get the Path page's small lettering (new Cover size fillSmall), and every cover title hyphenates a word that still does not fit (hyphens: auto) instead of chopping it. New test: every word of up to 13 letters stays on one line, desktop and phone, Home and Library.
