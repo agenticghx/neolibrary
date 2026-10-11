@@ -42,6 +42,8 @@ export type LibraryExport = {
     /** This book's style for AI explanations (null = the reader's setting); added in M6. */
     aiStyle?: "plain" | "ste-light" | "ste-standard" | "ste-strict" | null;
     lastOpenedAt: string | null;
+    /** When the reader removed it from the library (M19); absent or null when it is on the shelves. */
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
   }[];
@@ -225,8 +227,10 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     version: EXPORT_VERSION,
     exportedAt: now.toISOString(),
     settings: { aiStyle: settings?.aiStyle ?? "ste-light", rewrittenView: settings?.rewrittenView ?? "side" },
+    // A book removed from the library (M19) still has its file and notes, so it goes in the file, marked removed;
+    // a title taken off a Path (no file, nothing linked to it) stays out, as before.
     books: bookRows
-      .filter((b) => !b.deletedAt)
+      .filter((b) => !b.deletedAt || b.fileKey)
       .map((b) => ({
         id: b.id,
         title: b.title,
@@ -244,6 +248,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         position: b.position,
         aiStyle: b.aiStyle,
         lastOpenedAt: iso(b.lastOpenedAt),
+        ...(b.deletedAt ? { deletedAt: b.deletedAt.toISOString() } : {}),
         createdAt: b.createdAt.toISOString(),
         updatedAt: b.updatedAt.toISOString(),
       })),
@@ -414,6 +419,7 @@ function checkImport(x: LibraryExport, ownerId: string) {
   for (const b of x.books) {
     if (b.file && !ownKey(b.file.key, "books", ownerId)) refuse(`The file of "${b.title}" is not stored in your library.`);
     if (b.coverKey != null && !ownKey(b.coverKey, "covers", ownerId)) refuse(`The cover of "${b.title}" is not stored in your library.`);
+    if (b.deletedAt != null && (typeof b.deletedAt !== "string" || Number.isNaN(Date.parse(b.deletedAt)))) refuse(`"${b.title}" has a removal date that is not a date.`);
   }
   const pathIds = new Set(x.paths.map((p) => p.id));
   const pillarIds = new Set(x.paths.flatMap((p) => p.pillars.map((pil) => pil.id)));
@@ -502,6 +508,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         position: b.position ?? null,
         aiStyle: b.aiStyle ?? null,
         lastOpenedAt: date(b.lastOpenedAt),
+        deletedAt: typeof b.deletedAt === "string" ? date(b.deletedAt) : null,
         createdAt: new Date(b.createdAt),
         updatedAt: new Date(b.updatedAt),
       });

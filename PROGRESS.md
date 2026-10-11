@@ -173,6 +173,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 10:28 · Claude Opus 5.5 (laptop) · M19 P3b: a book can be removed from the library and brought back
+- **Done:** Book page: 'Remove from library' (folded, confirmed) for books with a file that fill no Path title; the book leaves shelves, search (books and notes), collection counts, per-book stats and the agent's view (weekly totals keep its time); file, notes and reading history are kept. Your data: 'Removed books' with Bring back. Uploading a removed book again brings it back with its notes ('restored') instead of a copy. Export carries removed books with deletedAt, import keeps it (fixes the hazard where export dropped a removed book but kept its notes); a bad date is refused. Reuses books.deleted_at: no migration.
+- **Key paths:** lib/library/remove-book.ts (+test); lib/library/import.ts; lib/library/export.ts; lib/library/reading-stats.ts; lib/library/shelf.ts; lib/library/search.ts; app/(app)/actions.ts; app/(app)/books/[id]/page.tsx, page.module.css; app/(app)/data/page.tsx; components/upload/useBookUpload.ts; e2e/uploads.spec.ts; e2e/own-paths.spec.ts; docs/review-top5-plan.md
+- **Commands that worked:** npx vitest run lib/library/remove-book.test.ts (4 passed)
+- **Known issues / blockers:** Stacked on m19-study (P5): merge after it.
+- **Exact next steps:** Merge after P5; deploy; Samuel tries all five.
+
 ### 2026-10-11 10:48 · Claude Opus 5.5 (laptop) · M19 P2 follow-up: the read-aloud tint check knows dimmed PDF pages; CI runs it when the PDF page changes
 - **Done:** After #146 (dimmed PDF pages) merged, a full local run failed readalong.spec.ts:1339 in dark: its on-screen check looked for the light page's tint (206,226,219) only. On a dimmed page the word is still tinted, at about (68,80,76) over the dark grey paper. The check now expects the tint of the page as shown (it reads data-dim), waits until the page is dimmed in dark and not in light (a race once measured before the dimming), and counts a pixel as tinted only if it also has the tint's green cast (on a dimmed page the tint is near grey, and grey letter edges after the word passed on colour distance alone: 0.06 against a 0.05 limit, phone dark). #146's CI had not run the read-aloud tests: the slice picker did not count lib/reader/pdf-book.ts as read-along code; it does now (with a unit test).
 - **Key paths:** e2e/readalong.spec.ts (tintSeen); scripts/ci-browser-needed.mjs (isReadalong); lib/ci-browser-needed.test.ts

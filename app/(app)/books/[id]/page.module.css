@@ -171,6 +171,38 @@
   font-weight: var(--weight-semibold);
 }
 
+/* "Remove from library" (M19): quiet, folded, and confirmed before anything happens. */
+.remove {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: var(--border-hair) solid var(--rule);
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.remove summary {
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.removeText {
+  margin: var(--space-3) 0;
+}
+
+.removeButton {
+  padding: var(--space-1) var(--space-4);
+  border: var(--border-hair) solid var(--ink-500);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
+  color: var(--ink-900);
+  font: inherit;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  border-color: var(--ink-900);
+}
+
 /* A heading that receives focus after an upload (so keyboard users continue
    from the section). The ring shows after keyboard use, not after a click. */
 .landing:focus:not(:focus-visible) {

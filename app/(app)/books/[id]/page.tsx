@@ -16,7 +16,7 @@ import { needsReread } from "@/lib/library/questions";
 import { collectionsForBook } from "@/lib/library/shelf";
 import { listImports } from "@/lib/readalong/importer";
 import { AudiobookUpload } from "./AudiobookUpload";
-import { toggleCollectionAction } from "../../actions";
+import { removeBookAction, toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Book" };
@@ -163,6 +163,23 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
           </p>
           {/* Always here, so its message outlives the refresh that brings the file (it draws nothing for a book that had one). */}
           <AttachFile bookId={book.id} hasFile={hasFile} readLinkId="read-book" />
+          {/* M19 P3b: a book can leave the library, behind a confirmation, and come back from Your data. A book that fills a
+              title on a Path (listed above) stays: it is part of that Path. */}
+          {hasFile && !places.length ? (
+            <details className={styles.remove}>
+              <summary>Remove from library</summary>
+              <p className={styles.removeText}>
+                Remove <em>{book.title}</em>? It leaves your shelves, search and reading stats. Your notes and the file are
+                kept, and Your data can bring it back.
+              </p>
+              <form action={removeBookAction}>
+                <input type="hidden" name="bookId" value={book.id} />
+                <button type="submit" className={styles.removeButton}>
+                  Remove from library
+                </button>
+              </form>
+            </details>
+          ) : null}
         </div>
       </div>
     </main>

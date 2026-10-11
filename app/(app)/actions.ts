@@ -7,6 +7,7 @@ import { AuthError, changePassword, createInvite, endOtherSessions, revokeInvite
 import { requireAdmin, requireUser, SESSION_COOKIE, stopSession } from "@/lib/auth/session";
 import { addSection, addTitle, createPath, moveTitle, PathError, removeTitle, renamePath, seedPath } from "@/lib/library/paths";
 import { AnnotationError, createAnnotation, deleteAnnotation, restoreAnnotation } from "@/lib/library/annotations";
+import { removeBook, RemoveBookError, restoreBook } from "@/lib/library/remove-book";
 import { starterPath } from "@/lib/library/seed";
 import { addSampleBooks } from "@/lib/library/samples";
 import { getStorage } from "@/lib/storage";
@@ -125,6 +126,30 @@ export async function addTargetNoteAction(data: FormData) {
 export async function removeNoteAction(data: FormData) {
   const user = await requireUser();
   await deleteAnnotation(await getDb(), user.id, String(data.get("id")));
+  revalidatePath("/", "layout");
+}
+
+/** Takes a book out of the library (M19): it leaves the shelves; its file and notes stay, and Your data brings it back. */
+export async function removeBookAction(data: FormData) {
+  const user = await requireUser();
+  try {
+    await removeBook(await getDb(), user.id, String(data.get("bookId")));
+  } catch (e) {
+    if (!(e instanceof RemoveBookError)) throw e;
+    return; // a book on a Path, or one already gone: the page says so, nothing changes
+  }
+  revalidatePath("/", "layout");
+  redirect("/library");
+}
+
+/** Brings a removed book back to the library (M19: "Removed books" on Your data). */
+export async function restoreBookAction(data: FormData) {
+  const user = await requireUser();
+  try {
+    await restoreBook(await getDb(), user.id, String(data.get("bookId")));
+  } catch (e) {
+    if (!(e instanceof RemoveBookError)) throw e;
+  }
   revalidatePath("/", "layout");
 }
 

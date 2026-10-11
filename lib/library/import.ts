@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
@@ -8,7 +8,9 @@ import { buildSections } from "./sections-store";
 
 export type ImportResult =
   | { status: "added" | "attached"; bookId: string; title: string }
-  | { status: "duplicate"; bookId: string; title: string };
+  | { status: "duplicate"; bookId: string; title: string }
+  /** The reader had removed this book (M19): it comes back, with its notes, rather than as a second copy. */
+  | { status: "restored"; bookId: string; title: string };
 
 /**
  * Adds an uploaded file to the owner's library:
@@ -51,6 +53,16 @@ export async function importBook(
     const same = mine.filter((b) => sameBook(info.title, info.author, b));
     const withFile = same.find((b) => b.fileKey);
     if (withFile) return { status: "duplicate", bookId: withFile.id, title: withFile.title };
+    // Removed from the library earlier (M19): bring that book back, its notes and place with it, instead of a copy.
+    const removed = await db
+      .select({ id: books.id, title: books.title, author: books.author })
+      .from(books)
+      .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey)));
+    const back = removed.find((b) => sameBook(info.title, info.author, b));
+    if (back) {
+      await db.update(books).set({ deletedAt: null }).where(eq(books.id, back.id));
+      return { status: "restored", bookId: back.id, title: back.title };
+    }
     const waiting = same.filter((b) => !b.fileKey);
     wanted = pickBook(waiting, info.title);
     if (!wanted && waiting.length > 1) {
