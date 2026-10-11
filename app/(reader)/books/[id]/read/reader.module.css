@@ -356,6 +356,13 @@
   font-size: var(--text-sm);
 }
 
+/* "Keep reading?" (M20): the question comes first, on its own line, then its button and the settings. */
+.listenAsking .listenNote {
+  order: -1;
+  flex-basis: 100%;
+  color: var(--ink-900);
+}
+
 .linksButton {
   flex: none;
   padding: 0;
@@ -769,6 +776,15 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+
+/* A note's own actions (Go to, Edit note, Share, Remove) fit one line of the panel (M20): Remove used to wrap alone. */
+.noteItem > .noteActions {
+  gap: 0;
+}
+
+.noteItem > .noteActions .tool {
+  padding-inline: var(--space-2);
 }
 
 /* Notes panel list */

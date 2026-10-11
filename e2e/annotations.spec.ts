@@ -88,6 +88,11 @@ test("editing keeps every version; removing hides; book notes work", async ({ pa
   await noted.getByLabel("Edit note").fill("Reticence as character, not coldness.");
   await noted.getByRole("button", { name: "Save" }).click();
   await expect(list.getByText("Reticence as character, not coldness.")).toBeVisible();
+  // M20 Q9: its four actions sit on one line of the panel beside the book (Remove used to wrap onto a line alone).
+  const actions = noted.getByRole("button", { name: /^(Go to|Edit note|Share|Remove)$/ });
+  await expect(actions).toHaveCount(4);
+  const tops = await actions.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size, `tops ${tops}`).toBe(1);
 
   const all = (await (await page.request.get(`/api/books/${await bookId(page)}/annotations`)).json()).annotations;
   const edited = all.find((a: { body: string }) => a.body.startsWith("Reticence"));

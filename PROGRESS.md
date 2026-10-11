@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q4 to Q8 (#154 to #158), then ask Samuel whether to deploy.
+next_action: Merge M20 Q4 to Q9 (#154 to #158, then Q9), then ask Samuel whether to deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -18,6 +18,19 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-11 14:50 (laptop clock). **M20 (the site review's other findings that need no decision) is built; live is still b0646b5.** Nine small pull requests:
+- Q1 HTTPS only (#151);
+- Q2 a refused note kept under "Could not be saved" (#152);
+- Q3 Download for offline after five minutes (#153, and #159 for its test's same-second race);
+- Q4 Go to page or percentage in Contents (#154);
+- Q5 Find in this book (#155);
+- Q6 Path stops as links (#156);
+- Q7 the margins follow a change of theme (#157);
+- Q8 a large book opens on a slow connection (#158);
+- Q9 Keep reading? and a note's actions no longer squeezed (this one).
+
+#151, #152, #153 and #159 are merged; the rest merge one at a time through the merge train (a chain script in the session's scratchpad rebases each, keeps one `next_action` line, and runs `train.sh`). **Deploy waits for Samuel's word** ("Go build and deploy" covered M19 only). After the deploy, check `/api/health` and that `/sign-in` sends `strict-transport-security`. Five findings wait for Samuel: Open unknowns row 21.
 
 Written 2026-10-11 11:45 (laptop clock). **Live: b0646b5. M19 is built and deployed:** all five of the site review's improvements (`docs/review-top5-plan.md`), as #143 P1 panels beside the book, #145 P1b keyboard focus, #146 P2 dimmed PDF pages, #147 P3a undo a removed note, #144 P4 cover titles, #148 P5 Study and one set of style names, #150 P3b remove a book, plus #149 (the read-aloud tint check after P2, and CI's slice picker now runs read-along tests when lib/reader/pdf-book.ts changes). Samuel tries them signed in: Notes or Rewrite on a computer (the page stays readable), *The Grid* in Night, Remove then Undo in Notes, Not available yet on Home, Study, and Remove from library on a spare book. This entry sits on local branch `m19-deploy-record` (not pushed): commit it with the next real pull request.
 
@@ -175,6 +188,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 14:51 · Claude Opus 5.5 (laptop) · M20 Q9: Keep reading? and a note's actions, no longer squeezed
+- **Done:** #159 (Q3's test race) merged as 78b9593. Q9: the Listen bar puts the Keep reading? question first on its own line (class listenAsking); a note's four actions fit one line of the Notes panel (no gap, narrower padding). Exact next steps rewritten for M20.
+- **Key paths:** app/(reader)/books/[id]/read/ListenBar.tsx; app/(reader)/books/[id]/read/reader.module.css; e2e/readalong.spec.ts; e2e/annotations.spec.ts; PROGRESS.md (Exact next steps)
+- **Commands that worked:** PORT=3200 npx playwright test --project readalong --ignore-snapshots → run 1: 1 failed, the known flake readalong 'page 2 shown when its first word was lit' (docs/ci-flakes.md), with two suites running at once on the laptop; run 2: 1 failed, Q3's same-second race (this branch predated #159); run 3, on top of #159: 291 passed
+- **Known issues / blockers:** none beyond the known read-along flake
+- **Exact next steps:** Merge #154 to #158 (the chain is running), then this one; then ask Samuel whether to deploy M20.
 
 ### 2026-10-11 14:29 · Claude Opus 5.5 (laptop) · M20 Q8: a large book opens on a slow connection
 - **Done:** #153 (Q3) merged as aaa1569. Q8: lib/reader/download.ts downloads the book file with no overall limit, giving up only after 30 s with no bytes; the reader's 30 s limit for opening now starts once the file has arrived; a file over 2 MB shows Opening the book… N of M MB downloaded. Stacked on Q7 (#157) because both add a line to docs/plan.md M20.
