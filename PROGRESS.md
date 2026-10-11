@@ -4,7 +4,6 @@ status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: Merge M20 Q2 (#152) and Q3, then Q4 to Q6.
-next_action: Merge M20 Q2, then Q3 to Q5 (built, being tested).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
