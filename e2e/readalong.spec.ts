@@ -1304,26 +1304,40 @@ async function tintSeen(page: Page) {
       if (!h || !win?.frameElement) continue;
       const r = [...h][0].getBoundingClientRect();
       const f = win.frameElement.getBoundingClientRect();
-      return { x: f.left + r.left, y: f.top + r.top, width: r.width, height: r.height };
+      return { x: f.left + r.left, y: f.top + r.top, width: r.width, height: r.height, dim: doc!.documentElement.hasAttribute("data-dim") };
     }
     return null;
   });
   expect(box, "a word is lit").not.toBeNull();
   // Inside the box (a pixel in from each edge), and the same size just after it.
   const clip = (dx: number) => ({ x: Math.ceil(box!.x + dx) + 1, y: Math.ceil(box!.y) + 1, width: Math.floor(box!.width) - 2, height: Math.floor(box!.height) - 2 });
+  // The tint over the paper. A white page: rgb(156 196 182 / 0.5) over white, about (206, 226, 219). A page dimmed at
+  // night (M19 P2): rgb(156 196 182 / 0.3) over its dark grey paper (white inverted at 0.88, about 31), about (68, 80, 76).
+  const tint = box!.dim ? [68, 80, 76] : [206, 226, 219];
   const share = async (dx: number) =>
-    page.evaluate(async (b64) => {
+    page.evaluate(async ({ b64, tint }) => {
       const img = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: "image/png" }));
       const canvas = new OffscreenCanvas(img.width, img.height);
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0);
       const d = ctx.getImageData(0, 0, img.width, img.height).data;
-      // rgb(156 196 182 / 0.5) over white paper: about (206, 226, 219).
       let n = 0;
-      for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 206) < 12 && Math.abs(d[i + 1] - 226) < 12 && Math.abs(d[i + 2] - 219) < 12) n++;
-      return n / (d.length / 4);
-    }, (await page.screenshot({ clip: clip(dx) })).toString("base64"));
-  return { lit: await share(0), after: await share(box!.width + 2) };
+      const sum = [0, 0, 0];
+      // Near the tint's colour, and as green as it (half its green cast at least): on a dimmed page the tint is close
+      // to grey, so the grey edges of light letters would pass on colour distance alone.
+      const cast = (tint[1] - tint[0]) / 2;
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i] - tint[0]) < 12 && Math.abs(d[i + 1] - tint[1]) < 12 && Math.abs(d[i + 2] - tint[2]) < 12 && d[i + 1] - d[i] >= cast) n++;
+        for (let k = 0; k < 3; k++) sum[k] += d[i + k];
+      }
+      const px = d.length / 4;
+      return { share: n / px, mean: sum.map((v) => Math.round(v / px)).join(",") };
+    }, { b64: (await page.screenshot({ clip: clip(dx) })).toString("base64"), tint });
+  const lit = await share(0);
+  const after = await share(box!.width + 2);
+  // What was measured, for a failure message: the page dimmed or not, and the mean colour in and after the box.
+  const seen = `dim=${box!.dim}, box ${Math.round(box!.width)}x${Math.round(box!.height)}, mean in ${lit.mean}, after ${after.mean}`;
+  return { lit: lit.share, after: after.share, seen };
 }
 
 /** Counts the page's text layer redraws from now on (window.redraws_). */
@@ -1456,11 +1470,20 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
       // A new width redraws the page: wait for it, so the check is on the new drawing.
       if (resize) await expect.poll(() => redraws(page), { timeout: 10_000 }).toBeGreaterThan(0);
       await expect.poll(() => litNow(page), { timeout: 5000 }).toBe(word.word);
+      // M19 P2: the page is dimmed in the dark (Auto follows the device), as printed in the light. Settled before measuring.
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document | null }[] } };
+            return view.renderer.getContents().some(({ doc }) => doc?.documentElement.hasAttribute("data-dim"));
+          }),
+        )
+        .toBe(scheme === "dark");
       await lies();
       // And it can be seen: tinted on screen, the next word on its line not.
       const seen = await tintSeen(page);
-      expect(seen.lit, `share of "opens" tinted: ${seen.lit.toFixed(2)}`).toBeGreaterThan(0.25);
-      expect(seen.after, `share of the box after it tinted: ${seen.after.toFixed(2)}`).toBeLessThan(0.05);
+      expect(seen.lit, `share of "opens" tinted: ${seen.lit.toFixed(2)} (${name} ${scheme}; ${seen.seen})`).toBeGreaterThan(0.25);
+      expect(seen.after, `share of the box after it tinted: ${seen.after.toFixed(2)} (${name} ${scheme}; ${seen.seen})`).toBeLessThan(0.05);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

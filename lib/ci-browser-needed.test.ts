@@ -55,6 +55,8 @@ describe("browserSlices", () => {
   it("runs the audiobook file and WebKit when the player or the audiobook changes", () => {
     expect(browserSlices(["lib/readalong/player.ts"])).toEqual(["behavior", "readalong", "webkit"]);
     expect(browserSlices(["e2e/readalong.spec.ts"])).toEqual(["behavior", "readalong", "webkit"]);
+    // The PDF page's document holds the read-aloud highlight (M19: #146 changed it and skipped these tests).
+    expect(browserSlices(["lib/reader/pdf-book.ts"])).toEqual(expect.arrayContaining(["readalong"]));
     expect(browserSlices(["app/(app)/books/[id]/AudiobookUpload.tsx"])).toEqual([
       "screenshots",
       "behavior",

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M19 the P2 tint fix, P5 and P3b in order, deploying as they land; then Samuel tries all five (docs/review-top5-plan.md).
+next_action: Merge M19 the P2 tint fix and P3b, then deploy; then Samuel tries all five (docs/review-top5-plan.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -173,6 +173,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 10:48 · Claude Opus 5.5 (laptop) · M19 P2 follow-up: the read-aloud tint check knows dimmed PDF pages; CI runs it when the PDF page changes
+- **Done:** After #146 (dimmed PDF pages) merged, a full local run failed readalong.spec.ts:1339 in dark: its on-screen check looked for the light page's tint (206,226,219) only. On a dimmed page the word is still tinted, at about (68,80,76) over the dark grey paper. The check now expects the tint of the page as shown (it reads data-dim), waits until the page is dimmed in dark and not in light (a race once measured before the dimming), and counts a pixel as tinted only if it also has the tint's green cast (on a dimmed page the tint is near grey, and grey letter edges after the word passed on colour distance alone: 0.06 against a 0.05 limit, phone dark). #146's CI had not run the read-aloud tests: the slice picker did not count lib/reader/pdf-book.ts as read-along code; it does now (with a unit test).
+- **Key paths:** e2e/readalong.spec.ts (tintSeen); scripts/ci-browser-needed.mjs (isReadalong); lib/ci-browser-needed.test.ts
+- **Commands that worked:** npx vitest run lib/ci-browser-needed.test.ts (22 passed); npx playwright test --project readalong --ignore-snapshots
+- **Known issues / blockers:** Main's CI on 20ed7a4 may show this failure until this merges.
+- **Exact next steps:** Merge this after P3a (#147); then P5, P3b; deploy.
 ### 2026-10-11 10:22 · Claude Opus 5.5 (laptop) · M19 P5: one Study button with two tabs; one set of style names everywhere
 - **Done:** The reader's '?' button is now Study (the word on a computer, an open-book icon on a phone); its panel has tabs Need to know and Test yourself (arrow keys move between them), replacing the link inside the panel. One list of short style names (STYLE_NAMES in lib/library/levels.ts: Plain, STE light, STE, STE strict) is used by Aa, the Account page, the Rewrite panel and the Study and rewritten-view headings. The Rewrite panel shows the four styles first (the Light/Standard/Strict dial became STE light/STE/STE strict; the percentage box stays) and For a biologist, Add missing background, Shorter under 'More ways'. Stored keys unchanged (no paid rewrite is orphaned). The five-line note in Reading settings is now two.
 - **Key paths:** app/(reader)/books/[id]/read/StudyTabs.tsx (new); Reader.tsx; NeedToKnowPanel.tsx; QuestionsPanel.tsx; RewritePanel.tsx; AiStyleSetting.tsx; RewrittenPane.tsx; reader.module.css; lib/library/levels.ts; app/(app)/account/ReadingPreferences.tsx; e2e/ai.spec.ts; e2e/images.spec.ts; e2e/reader.spec.ts
