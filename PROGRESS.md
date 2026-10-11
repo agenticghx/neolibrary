@@ -3,6 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Merge the M21 PRs one at a time through the merge train (Review adds migration 0024: back up before deploy), then ask Samuel whether to deploy.
+next_action: Merge the M21 palette PR (m21-palette) through the merge train; then ask Samuel whether to deploy.
+next_action: Merge the M21 batch (including M21 Ask) one at a time with the merge train, then ask Samuel whether to deploy.
 next_action: Merge the palette race fix, then #166 (Focus) once its Linux failure is fixed; then back up and deploy M20 and M21.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
@@ -189,6 +192,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 16:31 · Claude Opus 5.5 (laptop, M21 agent) · M21 Review: Daily review of highlights and notes (spaced repetition), PR open, not merged
+- **Done:** Built /review: today's cards one at a time (the passage with book and chapter; the note hidden until Show or Space; Again/Hard/Good/Easy by button or keys 1-4; Again goes to the end of today's pile; Go to passage opens /books/<id>/read?at=<cfi>; '2 of 3' progress; empty state 'Nothing to review today. Next card: <day>'). Schedule: a simple SM-2 as pure functions with unit tests (ease starts 2.5, floor 1.3; Good 1, 6, then interval x ease; Again resets the interval; whole days in UTC). Cards: current highlights and notes with a quote and a CFI, plus notes on a whole book; never removed notes or notes on removed books. At most 20 new cards a day, oldest first. Migration 0024 adds review_cards (one row per reader per rated note); the down step drops it. Export/import carry the schedules (round-trip test covers them; import refuses a schedule for a note the file does not bring). Sidebar: Review under Home with 'N due today'; phone: one line on Home while cards wait (the five tabs and the account menu are pinned by shell.spec). New Playwright project 'review' (last, after stats), behaviour slice in scripts/ci-browser-needed.mjs, not in CHAIN.
+- **Key paths:** db/migrations/0024_review.{up,down}.sql; lib/db/schema.ts (reviewCards); lib/library/review-schedule.ts (+test); lib/library/review.ts (+test); lib/library/export.ts (+test); app/(app)/review/{page.tsx,ReviewSession.tsx,page.module.css}; app/api/review/route.ts; components/shell/{Sidebar.tsx,icons.tsx}; app/(app)/page.tsx; components/home/Home.module.css; e2e/review.spec.ts; e2e/pages.ts; playwright.config.ts; scripts/ci-browser-needed.mjs; lib/ci-browser-needed.test.ts; lib/db/migrate.test.ts; docs/ci-time.md
+- **Commands that worked:** npm run check (exit 0; 613 passed, 2 skipped); PORT=3301 npx playwright test --project review --ignore-snapshots (238 passed, 3.3 min); npx vitest run lib/library/review.test.ts lib/library/review-schedule.test.ts lib/library/export.test.ts lib/db/migrate.test.ts
+- **Known issues / blockers:** Days are UTC days: in New York a card comes due at 8 pm (7 pm in winter) the evening before. The sidebar row changes every signed-in desktop reference screenshot once (merger refreshes them). The 0023 migration test assumed 0023 was the last migration; it now steps back to just before 0023, as the 0022 test does. Migration 0024 needs a backup before it runs in production.
+- **Exact next steps:** Merge the M21 Review PR through the merge train (refresh reference screenshots from CI). Before deploying: back up production (migration 0024). Follow-ups: the reader's own time zone for day boundaries; a daily-new-cards setting; review from the reader's Notes panel.
 ### 2026-10-11 17:45 · Claude Opus 5.5 (laptop) · M21 Palette: Cmd+K right after Escape no longer shuts the palette again
 - **Done:** #164's CI failed in #163's palette test "works in the reader, and its keys do not turn the page" (run 38175236571): the third Cmd+K, 12 ms after Escape, left no palette. Reproduced in Playwright's Linux image on the laptop (4 of 4 runs failed; the Mac passes). A logged run showed the cause: the dialog's `close` event arrives a moment after it closes; Cmd+K inside that moment opened the palette again (showModal at 2 ms), then the late close event (5 ms) reached `onClose`, which called `close()` on the new one. `onClose` now ignores a close event while the dialog is open. A reader pressing Cmd+K quickly after Escape saw the same flash.
 - **Key paths:** components/palette/CommandPalette.tsx (onClose); docs/ci-flakes.md (Causes removed)
