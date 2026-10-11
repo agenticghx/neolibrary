@@ -423,3 +423,45 @@ test("a PDF downloaded for offline opens with the network off, pages and all", a
   await context.unrouteAll();
   await context.setOffline(false);
 });
+
+// M20 Q3: the reader page's link to the book file lasts five minutes. "Download for offline" pressed later than
+// that used the same link and failed (403). It now asks for a fresh link. Here the page's own link answers 403, as an
+// expired one does, and the download still succeeds, through a different link, and the book opens offline.
+test("Download for offline works after the page's file link has expired", async ({ page, context }) => {
+  const timeMachine = await bookId(page, "The Time Machine");
+  const opened = page.waitForRequest((r) => new URL(r.url()).pathname.startsWith("/api/files/books/"));
+  await page.goto(`/books/${timeMachine}/read`);
+  const original = (await opened).url();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
+
+  await context.route((url) => url.href === original, (route) => route.fulfill({ status: 403, json: { error: "Link expired" } }));
+  expect(await page.evaluate((u) => fetch(u, { cache: "no-store" }).then((r) => r.status), original)).toBe(403);
+  const fileLinks: string[] = [];
+  page.on("request", (r) => {
+    if (new URL(r.url()).pathname.startsWith("/api/files/books/")) fileLinks.push(r.url());
+  });
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const offline = page.getByTestId("offline");
+  await offline.getByRole("button", { name: "Download for offline" }).click();
+  await expect(offline.getByRole("status")).toHaveText("Available offline on this device. Signing out removes it.");
+  await expect(offline.getByRole("alert")).toHaveCount(0);
+  expect(fileLinks.length).toBeGreaterThan(0);
+  expect(fileLinks.every((u) => u !== original)).toBe(true);
+
+  // With the network off, the book opens from the device.
+  await context.setOffline(true);
+  await context.route("**/*", (route) => route.abort("internetdisconnected"));
+  await page.goto(`/books/${timeMachine}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => visibleText(page)).not.toBe("");
+  await context.unrouteAll();
+  await context.setOffline(false);
+
+  // Leave the device as it was: the download removed.
+  await page.goto(`/books/${timeMachine}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByTestId("offline").getByRole("button", { name: "Remove download" }).click();
+  await expect(page.getByTestId("offline").getByRole("button", { name: "Download for offline" })).toBeVisible();
+});
