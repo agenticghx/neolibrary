@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q2, then Q3 to Q5 (built, being tested).
+next_action: Merge M20 Q2 (#152) and Q3, then Q4 to Q6.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -175,6 +175,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 14:03 · Claude Opus 5.5 (laptop) · M20 Q3: Download for offline asks for a fresh file link
+- **Done:** Q3: lib/offline.ts no longer reuses the reader page's five-minute file link; it asks GET /api/books/<id>/file-link (new, owner only, the book must be readable) for a fresh one at download time. The file is still kept by its path, so the service worker finds it whatever the link.
+- **Key paths:** lib/offline.ts; app/api/books/[id]/file-link/route.ts; app/(reader)/books/[id]/read/OfflineSetting.tsx; e2e/offline.spec.ts
+- **Commands that worked:** npx playwright test --project offline --ignore-snapshots → 254 passed (the new test makes the page's own link answer 403, as an expired one does; the download succeeds through a different link and the book opens offline); npm run check → EXIT=0
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge Q2 (#152), then Q3; Q4 and Q5 are in their browser tests; Q6 is written.
 ### 2026-10-11 13:59 · Claude Opus 5.5 (laptop) · M20 Q2: a note the library refuses is kept under Could not be saved
 - **Done:** #151 (Q1, HSTS) merged as cc9d7f7. Q2: lib/outbox.ts keeps an item the server refuses (4xx other than 401/408/429), marked with the server's reason, and never sends it again; the reader leaves refused items out of the notes list and the Notes panel lists them under Could not be saved (what it was, the passage, the words written, the library's reason, Dismiss).
 - **Key paths:** lib/outbox.ts; lib/outbox.test.ts; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/NotesPanel.tsx; app/(reader)/books/[id]/read/reader.module.css; e2e/offline.spec.ts

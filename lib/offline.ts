@@ -39,7 +39,7 @@ async function pdfViewerFiles(): Promise<string[]> {
   return ((await res.json()) as string[]).map((f) => absolute(`/pdfjs/${f.split("/").map(encodeURIComponent).join("/")}`));
 }
 
-export async function downloadForOffline(bookId: string, fileUrl: string, fileType: "epub" | "pdf" = "epub") {
+export async function downloadForOffline(bookId: string, fileType: "epub" | "pdf" = "epub") {
   const books = await caches.open(BOOKS);
   const assets = await caches.open(ASSETS);
   const get = async (url: string) => {
@@ -47,8 +47,10 @@ export async function downloadForOffline(bookId: string, fileUrl: string, fileTy
     if (!res.ok) throw new Error(`Could not download ${new URL(url, location.origin).pathname} (${res.status}).`);
     return res;
   };
-  const file = new URL(fileUrl, location.origin);
-  await books.put(file.origin + file.pathname, await get(fileUrl));
+  // A fresh link: the one the page opened with lasts five minutes (M20 Q3). Kept by path, so either link finds it.
+  const { url } = (await (await get(`/api/books/${bookId}/file-link`)).json()) as { url: string };
+  const file = new URL(url, location.origin);
+  await books.put(file.origin + file.pathname, await get(url));
   await books.put(absolute(`/api/books/${bookId}/annotations`), await get(`/api/books/${bookId}/annotations`));
   const appFiles = loadedAssets();
   if (fileType === "pdf") {

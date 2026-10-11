@@ -58,7 +58,7 @@ export function OfflineSetting({ bookId, fileUrl, fileType }: { bookId: string; 
             type="button"
             className={styles.primaryTool}
             disabled={state === "working"}
-            onClick={() => void run(() => downloadForOffline(bookId, fileUrl, fileType), "downloaded", "online-only")}
+            onClick={() => void run(() => downloadForOffline(bookId, fileType), "downloaded", "online-only")}
           >
             {state === "working" ? "Downloading…" : "Download for offline"}
           </button>
