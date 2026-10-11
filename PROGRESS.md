@@ -4,9 +4,6 @@ status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: Merge the M21 PRs one at a time through the merge train (Review adds migration 0024: back up before deploy), then ask Samuel whether to deploy.
-next_action: Merge the M21 palette PR (m21-palette) through the merge train; then ask Samuel whether to deploy.
-next_action: Merge the M21 batch (including M21 Ask) one at a time with the merge train, then ask Samuel whether to deploy.
-next_action: Merge the palette race fix, then #166 (Focus) once its Linux failure is fixed; then back up and deploy M20 and M21.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
