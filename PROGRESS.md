@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M21 Calendar PR (m21-calendar) through the merge train when green.
+next_action: Merge the M21 palette PR (m21-palette) through the merge train; then ask Samuel whether to deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -189,6 +189,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 16:22 · Claude Opus 5.5 (laptop, M21 agent) · M21 Palette: Cmd+K (Ctrl+K) jumps to any book, Path, page or recent note
+- **Done:** Built the command palette on branch m21-palette (one PR, not merged, not deployed). Cmd+K on a Mac, Ctrl+K elsewhere, anywhere signed in and in the reader, opens a search box over the dimmed page: books (Enter opens the book page; Shift+Enter or the Read row opens the reader), Paths and their sections (path page at #p-<slug>), pages (Home, Library, Search, Paths, New path, Import, Reading stats, Your data, Account, Agent access; Invite people and Spending for an admin only), the 50 newest highlights and notes (reader at ?at=<cfi>), and Search the library for what was typed. Fuzzy matching with unit tests (letters in order, word starts and runs score higher, a title above an author, scattered letters dropped). Light GET /api/palette for the signed-in reader, fetched each time it opens. Modal dialog, ARIA combobox and listbox, result count announced, focus kept inside and returned on Escape (into the book frame too).
+- **Key paths:** components/palette/CommandPalette.tsx, components/palette/CommandPalette.module.css, lib/palette/score.ts, lib/palette/items.ts, lib/palette/data.ts (+ .test.ts for each), app/api/palette/route.ts, app/(app)/layout.tsx, app/(reader)/layout.tsx, e2e/shell.spec.ts (describe 'command palette'), docs/design.md
+- **Commands that worked:** npm run check (exit 0; 94 files passed, 612 tests passed); PORT=3302 npx playwright test --project shell --ignore-snapshots (177 passed); npx vitest run lib/palette (15 passed)
+- **Known issues / blockers:** The reader's book pages are frames inside foliate's closed shadow root: the palette listens to each frame through foliate's own 'load' event (caught on its way down to foliate-view) and renderer.getContents(); if foliate changes that, Cmd+K with focus in the book stops working (the shell test 'works in the reader' would fail). The palette tests block the service worker (serviceWorkers: block) so page.route can keep the reader's saves off the server. No sidebar hint for Cmd+K (another agent owns the sidebar).
+- **Exact next steps:** Merge the M21 palette PR with the merge train once its checks are green. Possible follow-ups (not built): a Cmd+K hint in the sidebar search box; the Read row placed right under its book's row; matching notes by their book's title too.
 ### 2026-10-11 16:23 · Claude Opus 5.5 (laptop, M21 agent) · M21 Calendar: a reading calendar and streaks on Reading stats (branch m21-calendar, PR open, not merged)
 - **Done:** Reading stats opens with a 26-week calendar (one square per UTC day, weeks as columns Monday-first, 5 shade steps: none, 1-14, 15-29, 30-59, 60+ minutes; month and weekday labels; Less...More legend) and four numbers: current streak (today, or up to yesterday), longest streak and best day (all time), days read in 26 weeks. A real table: each square reads its day and minutes for screen readers. Scrolls inside its own box on narrow phones, starting at today. New tokens --heat-1..--heat-4 in all five colour blocks, with contrast checks.
 - **Key paths:** app/(app)/stats/ReadingCalendar.tsx, app/(app)/stats/page.tsx, app/(app)/stats/page.module.css, lib/library/reading-stats.ts (dayKey, secondsByDay, heatStep, calendarWeeks, streaksFrom, readingCalendar), lib/library/reading-calendar.test.ts, lib/library/reading-stats.test.ts, lib/tokens.test.ts, app/tokens.css, docs/design.md, e2e/stats.spec.ts

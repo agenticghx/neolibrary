@@ -1,0 +1,203 @@
+/* The command palette (M21): a raised card near the top of the screen over the dimmed page. */
+
+/* The <dialog> covers the whole screen, transparent: a click on it outside the card closes it. */
+.dialog {
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--ink-900);
+}
+
+.dialog::backdrop {
+  background-color: var(--scrim);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - var(--space-4) * 2);
+  max-width: 40rem;
+  max-height: calc(100% - var(--space-9) * 2);
+  margin: var(--space-9) auto 0;
+  overflow: hidden;
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+  font-family: var(--font-sans);
+}
+
+.dialog[open] .panel {
+  animation: palette-in var(--dur-fast) var(--ease-out);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border-bottom: var(--border-hair) solid var(--rule);
+}
+
+.icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--ink-500);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-md);
+}
+
+.input::placeholder {
+  color: var(--ink-500);
+}
+
+.close {
+  flex: none;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.close:hover {
+  background-color: var(--paper-sunken);
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.list:empty {
+  display: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.option[aria-selected="true"] {
+  background-color: var(--highlight);
+}
+
+.text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.label,
+.detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.label {
+  color: var(--ink-900);
+  font-size: var(--text-md);
+  line-height: var(--leading-ui);
+}
+
+/* Books, Paths and notes are set in the book face; the reader's own words in italic (docs/design.md, rule 4). */
+.serif {
+  font-family: var(--font-serif);
+}
+
+.note {
+  font-style: italic;
+}
+
+.detail {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
+.tag {
+  flex: none;
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* On the highlighted row the quiet greys darken a step, to keep their contrast on the tint. */
+.option[aria-selected="true"] .detail,
+.option[aria-selected="true"] .tag {
+  color: var(--ink-700);
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--border-hair) solid var(--rule);
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+}
+
+.kbd {
+  padding: 0 var(--space-1);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-sm);
+  background-color: var(--paper);
+  color: var(--ink-700);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    translate: 0 calc(var(--space-2) * -1);
+  }
+}
+
+/* A phone: the card near the top, the full width less a margin; no key hints (no keyboard to press them on). */
+@media (width <= 40rem) {
+  .panel {
+    width: calc(100% - var(--space-3) * 2);
+    max-height: calc(100% - var(--space-4) * 2);
+    margin-top: var(--space-4);
+  }
+
+  .foot {
+    display: none;
+  }
+}

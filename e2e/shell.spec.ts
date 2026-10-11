@@ -343,3 +343,152 @@ test.describe("phone", () => {
     await expect(button).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+// M21: the command palette. Cmd+K (Ctrl+K on Windows and Linux) anywhere signed in, the reader included, opens a
+// box that jumps to a book, a Path or its sections, a page, or a recent note, or searches the library.
+test.describe("command palette", () => {
+  // No service worker: requests then reach page.route, which keeps the reader's saves off the server (below).
+  test.use({ viewport: { width: 1280, height: 800 }, serviceWorkers: "block" });
+
+  const palette = (page: Page) => page.getByRole("dialog", { name: "Go to" });
+  const box = (page: Page) => palette(page).getByRole("combobox", { name: "Go to a book, path, page or note" });
+  type PaletteBook = { id: string; title: string; hasFile: boolean };
+  const bookNamed = async (page: Page, title: RegExp) =>
+    ((await (await page.request.get("/api/palette")).json()).books as PaletteBook[]).find((b) => title.test(b.title))!;
+
+  test("jumps to a book, a page and a note with the keyboard; Escape closes it and gives focus back", async ({ page }) => {
+    await page.goto("/library");
+    await expect(palette(page)).toBeHidden();
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(palette(page)).toBeVisible();
+    await expect(box(page)).toBeFocused();
+    await expect(box(page)).toHaveAttribute("aria-expanded", "true");
+    // Nothing typed: suggestions, the pages among them.
+    await expect(palette(page).getByRole("listbox", { name: "Suggestions" }).getByRole("option", { name: /^Home/ })).toBeVisible();
+
+    // Part of a book's title; the best match is highlighted and announced; Enter opens the book's page.
+    await box(page).fill("time mach");
+    const first = palette(page).getByRole("option").first();
+    await expect(first).toContainText("The Time Machine");
+    await expect(first).toContainText("Book");
+    await expect(first).toHaveAttribute("aria-selected", "true");
+    await expect(box(page)).toHaveAttribute("aria-activedescendant", (await first.getAttribute("id"))!);
+    await expect(palette(page).getByRole("status")).toHaveText(/^\d+ results?, and Search the library\.$/);
+    await expect(palette(page).getByRole("option").last()).toHaveText(/Search the library for “time mach”/);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/books\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { level: 1, name: "The Time Machine" })).toBeVisible();
+    await expect(palette(page)).toBeHidden();
+
+    // A page: the arrows move the highlight (and wrap), Enter opens it.
+    await page.keyboard.press("ControlOrMeta+k");
+    await box(page).fill("agent acc");
+    const options = palette(page).getByRole("option");
+    await expect(options.first()).toContainText("Agent access");
+    await page.keyboard.press("ArrowDown");
+    await expect(options.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(options.first()).toHaveAttribute("aria-selected", "false");
+    await page.keyboard.press("ArrowUp");
+    await expect(options.first()).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/agents$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Agent access" })).toBeVisible();
+
+    // A note, by its words, opens the reader at its passage. The reader itself is not loaded here (a stand-in
+    // page answers): later projects expect the books unopened. The note is removed again at the end.
+    const book = await bookNamed(page, /^The Time Machine$/);
+    const cfi = "epubcfi(/6/4!/4/2/1:0)";
+    const note = (await (await page.request.post(`/api/books/${book.id}/annotations`, { data: { kind: "note", cfi, body: "Palette test: the Morlocks mind the machines." } })).json()) as { id: string };
+    try {
+      await page.route(/\/books\/[0-9a-f-]{36}\/read(\?|$)/, (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Reader</title><h1>Reader stand-in</h1>" }));
+      await page.keyboard.press("ControlOrMeta+k");
+      await box(page).fill("morlocks mind");
+      await expect(options.first()).toContainText("Palette test: the Morlocks mind the machines.");
+      await expect(options.first()).toContainText("The Time Machine");
+      await expect(options.first()).toContainText("Note");
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("heading", { name: "Reader stand-in" })).toBeVisible();
+      expect(new URL(page.url()).pathname).toBe(`/books/${book.id}/read`);
+      expect(new URL(page.url()).searchParams.get("at")).toBe(cfi);
+      await page.unroute(/\/books\/[0-9a-f-]{36}\/read(\?|$)/);
+    } finally {
+      await page.request.delete(`/api/annotations/${note.id}`);
+    }
+
+    // Escape closes it and puts focus back where it was. Focus stays inside while it is open.
+    await page.goto("/library");
+    const filter = page.getByRole("searchbox", { name: "Filter by title or author" });
+    await filter.focus();
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(box(page)).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(palette(page).getByRole("button", { name: "Close" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(box(page)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(palette(page)).toBeHidden();
+    await expect(filter).toBeFocused();
+    // The same keys close it again; a click on the dimmed page closes it too.
+    await page.keyboard.press("ControlOrMeta+k");
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(palette(page)).toBeHidden();
+    await page.keyboard.press("ControlOrMeta+k");
+    await page.mouse.click(10, 790);
+    await expect(palette(page)).toBeHidden();
+  });
+
+  test("works in the reader, and its keys do not turn the page", async ({ page }) => {
+    // Nothing the reader saves reaches the server here: the reader tests that follow expect the book unopened.
+    await page.route(/\/api\/books\/[0-9a-f-]{36}\/(position|reading)$/, (route) => route.fulfill({ status: 200, json: {} }));
+    const book = await bookNamed(page, /^The Strange Case/);
+    await page.goto(`/books/${book.id}/read`);
+    const reader = page.getByTestId("reader");
+    await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    const before = await reader.getAttribute("data-cfi");
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(box(page)).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Escape");
+    await expect(palette(page)).toBeHidden();
+    expect(await reader.getAttribute("data-cfi")).toBe(before);
+    // With focus inside the book's own page (a frame, in foliate's closed shadow root), the keys still open it,
+    // and Escape puts focus back in the book.
+    const inBook = () => page.evaluate(() => document.activeElement?.tagName === "FOLIATE-VIEW");
+    await page.locator("foliate-view").click();
+    await expect.poll(inBook).toBe(true);
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(palette(page)).toBeVisible();
+    await expect(box(page)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(palette(page)).toBeHidden();
+    await expect.poll(inBook).toBe(true);
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(box(page)).toBeFocused();
+    await box(page).fill("library");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/library$/);
+  });
+
+  test("is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
+    for (const [name, width, height] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+      for (const scheme of ["light", "dark"] as const) {
+        await page.setViewportSize({ width, height });
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.goto("/");
+        await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+        await page.keyboard.press("ControlOrMeta+k");
+        await box(page).fill("machin");
+        await expect(palette(page).getByRole("option").first()).toBeVisible();
+        await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+        const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+        expect(results.violations.map((v) => `${name} ${scheme} ${v.id}: ${v.nodes.map((n) => `${n.target.join(" ")} (${n.any[0]?.message ?? ""})`).join("; ")}`)).toEqual([]);
+        await page.screenshot({ path: `screenshots/palette-${name}-${scheme}.png` });
+        // The card stays inside the screen: no sideways scroll.
+        const card = (await palette(page).locator("div").first().boundingBox())!;
+        expect(card.x).toBeGreaterThanOrEqual(0);
+        expect(card.x + card.width).toBeLessThanOrEqual(width);
+      }
+    }
+  });
+});
