@@ -435,6 +435,11 @@ test("Download for offline works after the page's file link has expired", async 
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
 
+  // A link names its expiry in whole seconds, so one signed in the same second as the page's own would be the very
+  // same link (CI pressed Download that fast once, run 38163565879). Wait for the next second: then the server's fresh
+  // link differs from the page's, as it does after the five minutes this test stands in for.
+  const signedAt = Number(new URL(original).searchParams.get("exp")) - 5 * 60;
+  await expect.poll(() => Math.floor(Date.now() / 1000), { timeout: 3_000 }).toBeGreaterThan(signedAt);
   await context.route((url) => url.href === original, (route) => route.fulfill({ status: 403, json: { error: "Link expired" } }));
   expect(await page.evaluate((u) => fetch(u, { cache: "no-store" }).then((r) => r.status), original)).toBe(403);
   const fileLinks: string[] = [];
