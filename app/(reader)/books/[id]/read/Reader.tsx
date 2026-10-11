@@ -130,14 +130,17 @@ function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element) {
   r.setStyles?.(bookCss(s, themeColors(themeEl, s), location.origin));
 }
 
+/** The reader is dark: Night, or Auto while the device is dark. */
+const isDark = (s: ReaderSettings) =>
+  s.theme === "night" || (s.theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+
 /** Colours for book pages, read from the design tokens on the reader element (so a theme class applies). */
 function themeColors(el: Element, s: ReaderSettings) {
   const cs = getComputedStyle(el);
   const colors: Record<string, string> = Object.fromEntries(
     Object.entries(TOKENS).map(([k, v]) => [k, cs.getPropertyValue(v).trim()]),
   );
-  colors.scheme =
-    s.theme === "night" || (s.theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+  colors.scheme = isDark(s) ? "dark" : "light";
   return colors;
 }
 
@@ -239,6 +242,9 @@ export function Reader(props: {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
+  // Dimmed PDF pages (M19 P2): each page document as it loads, and whether pages are dimmed now.
+  const pageDocs = useRef(new Set<Document>());
+  const dimRef = useRef(false);
   const view = useRef<FoliateView | null>(null);
   /** The open PDF, when this book is one, so a fold can draw a page that is not on screen yet. */
   const bookRef = useRef<SpineBook | null>(null);
@@ -507,6 +513,8 @@ export function Reader(props: {
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
           doc.addEventListener("pointerdown", () => trackerRef.current.onActivity());
           if (props.fileType === "pdf") {
+            pageDocs.current.add(doc);
+            doc.documentElement.toggleAttribute("data-dim", dimRef.current);
             bindSpineClick(
               doc,
               (pageDoc) => {
@@ -608,14 +616,26 @@ export function Reader(props: {
         }
       });
     }
+    // PDF pages are dimmed in the dark themes unless turned off (M19 P2); pages that load later read dimRef.
+    const dimPages = () => {
+      dimRef.current = props.fileType === "pdf" && settings.dimPdf && isDark(settings);
+      for (const doc of pageDocs.current) {
+        if (!doc.defaultView) pageDocs.current.delete(doc); // a page no longer shown
+        else doc.documentElement.toggleAttribute("data-dim", dimRef.current);
+      }
+    };
+    dimPages();
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => view.current && root.current && applySettings(view.current, settings, root.current);
+    const onChange = () => {
+      if (view.current && root.current) applySettings(view.current, settings, root.current);
+      dimPages();
+    };
     mq.addEventListener("change", onChange);
     return () => {
       stop = true;
       mq.removeEventListener("change", onChange);
     };
-  }, [settings]);
+  }, [settings, props.fileType]);
 
   // Save on leaving; keyboard paging.
   useEffect(() => {
@@ -1305,7 +1325,20 @@ export function Reader(props: {
                 onChange={(theme) => update({ theme })}
               />
             </fieldset>
-            <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
+            {props.fileType === "pdf" ? (
+            <fieldset className={styles.group}>
+              <legend>PDF pages at night</legend>
+              <Segment
+                value={settings.dimPdf ? "dim" : "printed"}
+                options={[
+                  ["dim", "Dimmed"],
+                  ["printed", "As printed"],
+                ]}
+                onChange={(v) => update({ dimPdf: v === "dim" })}
+              />
+            </fieldset>
+          ) : null}
+          <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
             <AiStyleSetting bookId={props.bookId} />
             <p className={styles.hint}>
               STE is Simplified Technical English: one meaning per word, short sentences. This style rewrites the book in the

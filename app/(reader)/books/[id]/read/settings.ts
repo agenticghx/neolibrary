@@ -6,6 +6,8 @@ export type ReaderSettings = {
   spacing: "compact" | "normal" | "loose";
   face: "serif" | "sans" | "book";
   theme: "auto" | "paper" | "sepia" | "night";
+  /** PDFs only: in the Night theme (or Auto while the device is dark), show the page dimmed: dark paper, light ink (M19). */
+  dimPdf: boolean;
 };
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
@@ -15,6 +17,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   spacing: "normal",
   face: "serif",
   theme: "auto",
+  dimPdf: true,
 };
 export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
@@ -30,6 +33,7 @@ export function loadSettings(): ReaderSettings {
       spacing: raw.spacing in SPACING ? raw.spacing : "normal",
       face: ["serif", "sans", "book"].includes(raw.face) ? raw.face : "serif",
       theme: ["auto", "paper", "sepia", "night"].includes(raw.theme) ? raw.theme : "auto",
+      dimPdf: raw.dimPdf !== false, // on unless turned off; settings saved before it existed get it on
     };
   } catch {
     return DEFAULT_SETTINGS;
