@@ -198,7 +198,10 @@ export function CommandPalette({ admin }: { admin: boolean }) {
         e.preventDefault();
         close(true);
       }}
-      onClose={() => close(false)}
+      // The close event comes a moment after the dialog closes: if Cmd+K opened it again meanwhile, it is stale.
+      onClose={() => {
+        if (!dialog.current?.open) close(false);
+      }}
       // A click on the dimmed page around the panel closes it.
       onClick={(e) => {
         if (e.target === e.currentTarget) close(true);

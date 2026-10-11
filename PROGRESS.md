@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M21 batch (including M21 Ask) one at a time with the merge train, then ask Samuel whether to deploy.
+next_action: Merge the palette race fix, then #166 (Focus) once its Linux failure is fixed; then back up and deploy M20 and M21.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 17:45 · Claude Opus 5.5 (laptop) · M21 Palette: Cmd+K right after Escape no longer shuts the palette again
+- **Done:** #164's CI failed in #163's palette test "works in the reader, and its keys do not turn the page" (run 38175236571): the third Cmd+K, 12 ms after Escape, left no palette. Reproduced in Playwright's Linux image on the laptop (4 of 4 runs failed; the Mac passes). A logged run showed the cause: the dialog's `close` event arrives a moment after it closes; Cmd+K inside that moment opened the palette again (showModal at 2 ms), then the late close event (5 ms) reached `onClose`, which called `close()` on the new one. `onClose` now ignores a close event while the dialog is open. A reader pressing Cmd+K quickly after Escape saw the same flash.
+- **Key paths:** components/palette/CommandPalette.tsx (onClose); docs/ci-flakes.md (Causes removed)
+- **Commands that worked:** colima start; docker run mcr.microsoft.com/playwright:v1.56.1-noble … npx playwright test --project shell --ignore-snapshots → without the fix 1 failed (line 467) on 4 runs; with it 177 passed. The folder must be under $HOME (colima shares only the home folder).
+- **Known issues / blockers:** none for this fix. #166 (Focus) fails on CI's Linux for another reason (a mouse drag on the ruler selects nothing); being looked at.
+- **Exact next steps:** Merge this, then #166 once its Linux failure is fixed; then back up and deploy M20 and M21 (Samuel said "deploy all", 2026-10-11).
 
 ### 2026-10-11 16:25 · Claude Opus 5.5 (laptop, M21 agent) · M21 Ask: ask this book a question, answered only from its own paragraphs, with citations (branch m21-ask, PR open, not merged)
 - **Done:** Study has a third tab, Ask. The reader types a question; the server finds the paragraphs of this book that share its meaningful words (stop words dropped, the rest joined with OR, ranked by Postgres full-text search, owner and book only), sends the question and the top 8 numbered passages to Claude (prompts/ask.md: answer only from these, cite [1], say plainly when they do not answer), and stores the answer in the generations table (kind ask; same question again is free). Each [n] is a button to its paragraph; cited passages are listed under the answer with chapter and first words. Price shown first: "Ask (about $0.05)", the most a question can cost; measured real prompts are 1,800-3,100 tokens in, so about $0.013-0.03 a question. Spending caps apply; no matching paragraph means no call and no cost. A citation number that is not one of the passages stays plain text. On a computer [1] keeps the panel open; on a phone it closes it, and reopening Ask shows the last answer. Study tabs now size to their labels so all three fit on one line. Reader.tsx: 17 lines added, 5 changed (another agent owns it; a rebase conflict is expected). e2e/ai.spec.ts: one line in the middle (tab list now includes Ask) plus one new test at the end.
