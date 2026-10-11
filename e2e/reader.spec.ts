@@ -890,6 +890,81 @@ test.describe("Spine fold", () => {
     await expect(page.locator("[data-spine-fold]")).toHaveCount(0);
     await expect.poll(() => pdfLeaves(page)).toEqual(phoneLeaves);
   });
+
+  // M19 P2 follow-up (Samuel, 2026-10-11): in Night the pages were dimmed but the sheet turning over flashed white,
+  // because the fold paints copies of the pages' pixels and the dimming is a filter on the page, not in its pixels.
+  // The fold's own picture, held halfway, is now as dark as the dimmed pages, by the canvas filter and by the
+  // by-hand path older Safari takes; with "As printed" it stays as bright as the paper.
+  test("in Night the turning sheet is dimmed like the pages, and as printed when they are", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await openSpinePdf(page);
+    const settings = page.getByRole("region", { name: "Reading settings" });
+    const choose = async (name: string) => {
+      if (!(await settings.isVisible())) await page.getByRole("button", { name: "Reading settings" }).click();
+      await settings.getByRole("button", { name, exact: true }).click();
+      await expect(settings.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true");
+    };
+    const closeSettings = async () => {
+      await page.getByRole("button", { name: "Reading settings" }).click();
+      await expect(settings).toHaveCount(0);
+    };
+    await choose("Two pages");
+    await choose("Night");
+    await choose("Dimmed");
+    await closeSettings();
+    await showFacingPair(page);
+    await expect.poll(() => pdfLeaves(page)).toEqual([1, 2]);
+
+    // How light the fold's picture is on average, held halfway (0 black, 255 white); then the turn finishes.
+    const midFold = async (side: "left" | "right", shot?: string) => {
+      await page.evaluate(() => {
+        document.documentElement.dataset.spineHold = "mid";
+      });
+      await clickSide(page, side);
+      await expect(page.locator("[data-spine-fold]")).toBeVisible();
+      await page.waitForTimeout(400);
+      if (shot) await page.screenshot({ path: shot });
+      const light = await page.evaluate(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>("[data-spine-fold]")!;
+        const px = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+        let sum = 0;
+        let n = 0;
+        for (let i = 0; i < px.length; i += 64) {
+          if (px[i + 3] === 0) continue;
+          sum += 0.2126 * px[i]! + 0.7152 * px[i + 1]! + 0.0722 * px[i + 2]!;
+          n++;
+        }
+        return Math.round(sum / Math.max(1, n));
+      });
+      await page.evaluate(() => {
+        delete document.documentElement.dataset.spineHold;
+      });
+      await expect(page.locator("[data-spine-fold]")).toHaveCount(0, { timeout: 10_000 });
+      return light;
+    };
+
+    await mkdir("screenshots", { recursive: true });
+    const byFilter = await midFold("right", "screenshots/reader-spine-mid-dim-desktop.png");
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([3, 4]);
+    await page.evaluate(() => {
+      document.documentElement.dataset.spineNoFilter = "1";
+    });
+    const byHand = await midFold("left");
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([1, 2]);
+    await page.evaluate(() => {
+      delete document.documentElement.dataset.spineNoFilter;
+    });
+    await choose("As printed");
+    await closeSettings();
+    const printed = await midFold("right");
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([3, 4]);
+
+    expect(byFilter, "dimmed, through the canvas filter").toBeLessThan(80);
+    expect(byHand, "dimmed, by hand").toBeLessThan(80);
+    expect(Math.abs(byFilter - byHand), "the two ways agree").toBeLessThan(12);
+    expect(printed, "as printed").toBeGreaterThan(180);
+  });
 });
 
 // M19 P2 (the site review's second finding): a PDF page stayed a white rectangle in a dark reader. In Night, or Auto

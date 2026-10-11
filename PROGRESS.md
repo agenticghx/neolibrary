@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the m21-focus PR (M21 Focus) once CI is green
+next_action: Merge the dimmed page-turn fix (m19-dim-fold) and deploy it; M20 and M21 are deployed after #166.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 18:40 · Claude Opus 5.5 (laptop) · M19 P2 follow-up: the page turn stays dimmed at night
+- **Done:** Samuel saw it on the live site (Meditations, Two pages, Night, Dimmed): the pages were dimmed, but the sheet turning over was bright white mid-turn. Cause: the Spine fold paints copies of the pages' pixels (lib/reader/spine-fold.ts liveCopy, book.picture), and the dimming is a CSS filter on the live page (DIM_CSS in lib/reader/pdf-book.ts), not in its pixels; blank backs were filled white. Now, when the pages carry data-dim, the fold dims its pictures with the same filter (by the canvas filter; where a canvas cannot filter, as in Safari before 18, by the same arithmetic by hand, dimPixels), fills paper with the dimmed grey, and tones the crease down.
+- **Key paths:** lib/reader/spine-fold.ts; lib/reader/spine-fold.test.ts; e2e/reader.spec.ts (Spine fold › in Night the turning sheet is dimmed…)
+- **Commands that worked:** npx vitest run lib/reader/spine-fold.test.ts → 2 passed; PORT=3308 npx playwright test --project reader --ignore-snapshots -g "Spine fold|dimmed at night" → 180 passed; the same new test on the old spine-fold.ts → failed, lightness 253 (expected < 80); screenshots/reader-spine-mid-dim-desktop.png looked at (all dark mid-turn)
+- **Known issues / blockers:** none encountered. The fold plays only with two pages on screen, so phones are unaffected.
+- **Exact next steps:** Merge this through the merge train; deploy it (no database change).
 
 ### 2026-10-11 18:05 · Claude Opus 5.5 (laptop) · M21 Focus: the ruler's selection check works on CI's Linux
 - **Done:** #166's browser job failed twice on CI (run 38174119620, attempts 1 and 2) at the same step of "Focus: the reading ruler…": after a mouse drag along a line, no "Selected text" bar. Reproduced in Playwright's Linux image on the laptop; the Mac passes. Not the ruler: on Linux a mouse drag in an EPUB page selects nothing with Focus off too (Off, Ruler, Paragraph, two lines each: `Caret:""`), while the PDF drag test passes there. The test now checks what the ruler could break: the band's pointer-events is none and no point along the line hits it (elementFromPoint), then selects the same words by script (as the other EPUB tests do) and highlights them. Proved on the Mac that it catches a band that takes clicks (pointer-events auto, z-index 1 → failed "the band takes no clicks"), then reverted.
