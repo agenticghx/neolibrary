@@ -31,7 +31,9 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings, type RewrittenMode } from "./settings";
+import { bookCss, loadSettings, saveSettings, SIZES, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
+import { clearFocus, focusAt, focusBlock, FOCUS_BLOCKS, setFocusMode } from "./focus";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import styles from "./reader.module.css";
 
 type TocItem = { label: string; href: string; subitems?: TocItem[] };
@@ -358,6 +360,16 @@ export function Reader(props: {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   // While a large file downloads: "12 of 80 MB" (M20).
   const [downloaded, setDownloaded] = useState<string | null>(null);
+  // Focus (M21, EPUBs): the mode now, the paragraph read aloud, and where the mouse rests (in the reader's coordinates).
+  const focusRef = useRef<FocusMode>("off");
+  const spokenBlock = useRef<Element | null>(null);
+  const pointer = useRef<{ x: number; y: number; inside: boolean } | null>(null);
+  // The Keyboard shortcuts dialog (M21): "?" or the link in Reading settings.
+  const [shortcuts, setShortcuts] = useState(false);
+  const shortcutsOpen = useRef(false);
+  useEffect(() => {
+    shortcutsOpen.current = shortcuts;
+  }, [shortcuts]);
   const pending = useRef<Relocate | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -395,15 +407,69 @@ export function Reader(props: {
     [props.bookId],
   );
 
+  // Every key here is listed in the Keyboard shortcuts dialog (ShortcutsDialog.tsx): change both together.
   const onKey = useCallback((e: KeyboardEvent) => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    // The shortcuts dialog has the keyboard while it is open (and handles Escape itself).
+    if (shortcutsOpen.current) return;
     const target = e.target as HTMLElement | null;
-    if (target && ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)) return;
+    if (target && (["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName.toUpperCase()) || target.isContentEditable)) return;
+    // "?" lists the shortcuts (M21), even with a button focused: it is not a key a button uses.
+    if (e.key === "?") {
+      e.preventDefault();
+      setShortcuts(true);
+      return;
+    }
     // A focused button keeps its own keys (Enter, Space, arrows), but Escape still closes the panel (M19 P1b).
     if (target?.tagName === "BUTTON" && e.key !== "Escape") return;
     if (e.key === "ArrowRight" || e.key === "PageDown") turnRef.current("next");
     else if (e.key === "ArrowLeft" || e.key === "PageUp") turnRef.current("prev");
     else if (e.key === "Escape") setPanel("none");
+  }, []);
+
+  /**
+   * Puts Focus (M21) where it belongs on the pages shown: the paragraph read aloud (paragraph focus); else what is
+   * under a mouse resting on the page; else the first line or paragraph on the page (the keyboard, a tap elsewhere,
+   * or a page just opened). `range`: the text on screen, from a relocate.
+   */
+  const refocus = useCallback((range?: Range | null) => {
+    const v = view.current;
+    const mode = focusRef.current;
+    if (!v?.renderer || mode === "off") return;
+    let contents: { doc: Document }[] = [];
+    try {
+      contents = v.renderer.getContents();
+    } catch {
+      return;
+    }
+    for (const { doc } of contents) {
+      if (!doc?.documentElement || !doc.body) continue;
+      clearFocus(doc);
+      const spoken = spokenBlock.current;
+      if (mode === "paragraph" && spoken && doc.contains(spoken)) {
+        focusBlock(doc, spoken);
+        continue;
+      }
+      const frameEl = doc.defaultView?.frameElement as HTMLElement | null;
+      const frame = frameEl?.getBoundingClientRect();
+      const p = pointer.current;
+      if (p?.inside && frame && focusAt(doc, p.x - frame.left, p.y - frame.top)) continue;
+      const onScreen = range ?? (v as { lastLocation?: { range?: Range | null } | null }).lastLocation?.range;
+      if (!frameEl || !frame || !onScreen || onScreen.startContainer.ownerDocument !== doc) continue;
+      // The first text inside the box that shows the page (foliate's page container, around the frame's own box):
+      // the range can start with a space left at the end of the page before, which lies outside it.
+      const seen = (frameEl.parentElement?.parentElement ?? v).getBoundingClientRect();
+      const first = Array.from(onScreen.getClientRects()).find(
+        (r) =>
+          r.width > 0 &&
+          r.height > 0 &&
+          frame.left + r.left >= seen.left - 1 &&
+          frame.left + r.right <= seen.right + 1 &&
+          frame.top + r.top >= seen.top - 1 &&
+          frame.top + r.bottom <= seen.bottom + 1,
+      );
+      if (first) focusAt(doc, first.left + 1, (first.top + first.bottom) / 2);
+    }
   }, []);
 
   // Open the book once. Settings live on this device (localStorage).
@@ -417,6 +483,7 @@ export function Reader(props: {
     (async () => {
       try {
         const initial = loadSettings();
+        focusRef.current = props.fileType === "pdf" ? "off" : initial.focus;
         await import("foliate-js/view.js");
         const blob = await downloadBook(props.fileUrl, {
           stallMs: OPEN_TIMEOUT_MS,
@@ -516,6 +583,8 @@ export function Reader(props: {
             flush();
             lookForLinks(visibleText.current);
           }, 600);
+          // Focus (M21) on the page now in front of the reader.
+          if (props.fileType !== "pdf") refocus(d.range ?? null);
         });
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
@@ -529,6 +598,32 @@ export function Reader(props: {
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
           doc.addEventListener("pointerdown", () => trackerRef.current.onActivity());
+          if (props.fileType !== "pdf") {
+            // Focus (M21): the line or paragraph under the mouse as it moves (once a frame), or where a finger taps.
+            setFocusMode(doc, focusRef.current);
+            let frame = 0;
+            let at = { x: 0, y: 0 };
+            const follow = (e: PointerEvent, now: boolean) => {
+              const box = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+              if (box) pointer.current = { x: box.left + e.clientX, y: box.top + e.clientY, inside: e.pointerType === "mouse" };
+              // While a paragraph is read aloud, paragraph focus stays on it.
+              if (focusRef.current === "off" || (focusRef.current === "paragraph" && spokenBlock.current)) return;
+              at = { x: e.clientX, y: e.clientY };
+              if (now) focusAt(doc, at.x, at.y);
+              else if (!frame)
+                frame = requestAnimationFrame(() => {
+                  frame = 0;
+                  focusAt(doc, at.x, at.y);
+                });
+            };
+            doc.addEventListener("pointermove", (e) => {
+              if (e.pointerType === "mouse") follow(e, false);
+            });
+            doc.addEventListener("pointerdown", (e) => follow(e, true));
+            doc.addEventListener("pointerout", (e) => {
+              if (!e.relatedTarget && pointer.current) pointer.current = { ...pointer.current, inside: false };
+            });
+          }
           if (props.fileType === "pdf") {
             pageDocs.current.add(doc);
             doc.documentElement.toggleAttribute("data-dim", dimRef.current);
@@ -575,7 +670,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks, refocus]);
 
   // Re-style when settings or the colour scheme change. A PDF's spread is read only when its renderer opens, so a new page choice reopens on the same page.
   useEffect(() => {
@@ -585,6 +680,18 @@ export function Reader(props: {
     if (root.current) root.current.className = readerClass(settings);
     const v = view.current;
     if (v && root.current) applySettings(v, settings, root.current);
+    // Focus (M21): EPUBs only. A new mode is set on every page shown; a new size or layout moves the lines, so the
+    // band and the dimming are put back once the page is laid out again.
+    const focus: FocusMode = props.fileType === "pdf" ? "off" : settings.focus;
+    if (focusRef.current !== focus) {
+      focusRef.current = focus;
+      try {
+        for (const { doc } of v?.renderer?.getContents() ?? []) if (doc?.documentElement) setFocusMode(doc, focus);
+      } catch {
+        // No pages yet: each page sets its mode as it loads.
+      }
+    }
+    const relaid = requestAnimationFrame(() => refocus());
     const spread = spreadForPages(settings.pages);
     const book = v?.book;
     // The latest choice, including when this run does not itself reopen (a theme change, or a choice that is already open).
@@ -651,9 +758,10 @@ export function Reader(props: {
     mq.addEventListener("change", onChange);
     return () => {
       stop = true;
+      cancelAnimationFrame(relaid);
       mq.removeEventListener("change", onChange);
     };
-  }, [settings, props.fileType]);
+  }, [settings, props.fileType, refocus]);
 
   // Save on leaving; keyboard paging.
   useEffect(() => {
@@ -1005,15 +1113,21 @@ export function Reader(props: {
     const doc = v.renderer.getContents().find((c) => c.index === index)?.doc;
     if (!doc) return null;
     let range: Range | null = null;
+    let el: Element | null = null;
     try {
       const start = anchor(doc).startContainer;
-      const el = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
+      el = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
       range = el ? rangeForOffsets(el, from, to) : null;
     } catch {
       // A chapter that is still opening has an empty document for a moment: not there yet.
       return null;
     }
     if (!range) return null;
+    // Paragraph focus (M21) follows the paragraph read aloud.
+    if (el && focusRef.current === "paragraph") {
+      spokenBlock.current = el.closest(FOCUS_BLOCKS) ?? el;
+      focusBlock(doc, spokenBlock.current);
+    }
     const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
     win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
     const text = range.toString();
@@ -1070,6 +1184,9 @@ export function Reader(props: {
   const stopListening = () => {
     litCfi.current = null;
     spokenPdf.current = null;
+    // Paragraph focus goes back to the pointer, or the top of the page.
+    spokenBlock.current = null;
+    refocus();
     // The book may still be opening (no renderer yet): stop all the same.
     for (const { doc } of view.current?.renderer?.getContents() ?? []) {
       (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
@@ -1421,6 +1538,18 @@ export function Reader(props: {
                 onChange={(face) => update({ face })}
               />
             </fieldset>
+            <fieldset className={styles.group}>
+              <legend>Focus</legend>
+              <Segment
+                value={settings.focus}
+                options={[["off", "Off"], ["ruler", "Ruler"], ["paragraph", "Paragraph"]]}
+                onChange={(focus) => update({ focus })}
+              />
+              <p className={styles.hint}>
+                Ruler: a soft band sits behind the line under your pointer, or the line you tap. Paragraph: the paragraph
+                you are on stays clear and the rest dims.
+              </p>
+            </fieldset>
               </>
             )}
             <fieldset className={styles.group}>
@@ -1445,6 +1574,9 @@ export function Reader(props: {
             </fieldset>
           ) : null}
           <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
+            <button type="button" className={styles.linkButton} onClick={() => setShortcuts(true)}>
+              Keyboard shortcuts
+            </button>
             <AiStyleSetting bookId={props.bookId} />
             <p className={styles.hint}>
               STE is Simplified Technical English: one meaning per word, short sentences. The style is used by the rewritten view,
@@ -1522,6 +1654,7 @@ export function Reader(props: {
         />
       ) : null}
 
+      <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
     </div>
   );
 }

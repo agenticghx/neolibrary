@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from "./settings";
+import { bookCss, DEFAULT_SETTINGS, loadSettings, saveSettings } from "./settings";
 
 /** A stand-in for the browser's localStorage (this test runs in Node). */
 function memoryStorage(): Storage {
@@ -52,5 +52,34 @@ describe("reading settings on this device", () => {
     expect(loadSettings().dimPdf).toBe(false);
     saveSettings({ ...DEFAULT_SETTINGS, dimPdf: true });
     expect(loadSettings().dimPdf).toBe(true);
+  });
+
+  it("opens with Focus off, including for settings saved before Focus existed, and keeps a choice (M21)", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    expect(DEFAULT_SETTINGS.focus).toBe("off");
+    // Saved by an earlier version of the reader: every other choice is kept, Focus is off.
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ flow: "scrolled", pages: "two", size: 120, theme: "sepia", dimPdf: false }));
+    expect(loadSettings()).toEqual({ ...DEFAULT_SETTINGS, flow: "scrolled", pages: "two", size: 120, theme: "sepia", dimPdf: false, focus: "off" });
+    for (const focus of ["ruler", "paragraph", "off"] as const) {
+      saveSettings({ ...DEFAULT_SETTINGS, focus });
+      expect(loadSettings().focus).toBe(focus);
+    }
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ focus: "spotlight" }));
+    expect(loadSettings().focus).toBe("off");
+  });
+
+  it("styles a book page for Focus: dimmed text in the theme's own ink, and no added hyphens while it is on (M21)", () => {
+    const colors = { paper: "#f3ede1", ink: "#243239", accent: "#376963", highlight: "#cfe0d8", spoken: "#9cc4b6", scheme: "light" };
+    const off = bookCss(DEFAULT_SETTINGS, colors, "https://example.org");
+    const ruler = bookCss({ ...DEFAULT_SETTINGS, focus: "ruler" }, colors, "https://example.org");
+    expect(off).toContain("hyphens: auto;");
+    expect(off).not.toContain("hyphens: manual");
+    expect(ruler).toContain("hyphens: manual !important");
+    for (const css of [off, ruler]) {
+      expect(css).toContain("::highlight(nl-dim) { color: color-mix(in srgb, #243239 45%, #f3ede1); }");
+      expect(css).toMatch(/\[data-nl-ruler\] \{[^}]*pointer-events: none/);
+      expect(css).toMatch(/prefers-reduced-motion: reduce\) \{ \[data-nl-ruler\] \{ transition: none !important; \}/);
+    }
   });
 });
