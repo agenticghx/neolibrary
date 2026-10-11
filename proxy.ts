@@ -13,6 +13,12 @@ import { agentUnauthorised } from "@/lib/auth/agent-401";
 //    carry this request's nonce) may run. Books can contain JavaScript; the
 //    reader shows them in blob: frames, which inherit this policy, so their
 //    scripts are blocked (foliate-js requires this).
+// 3. HTTPS only (M20): a browser that has seen this site over https once
+//    uses https for it for a year, even when someone types plain http.
+//    Railway already redirects http, but that first request would go out
+//    unencrypted. Sent only on https (Railway says so in x-forwarded-proto);
+//    browsers ignore it on http, and the local test servers are http.
+export const HSTS = "max-age=31536000";
 const PUBLIC = [/^\/sign-in$/, /^\/setup$/, /^\/invite\/[^/]+$/, /^\/api\/health$/, /^\/sw\.js$/, /^\/manifest\.webmanifest$/];
 
 export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV === "development") {
@@ -50,6 +56,12 @@ function withPolicy(req: NextRequest) {
 }
 
 export function proxy(req: NextRequest) {
+  const res = gate(req);
+  if (req.headers.get("x-forwarded-proto") === "https") res.headers.set("strict-transport-security", HSTS);
+  return res;
+}
+
+function gate(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const isApi = pathname.startsWith("/api/");
   const agent = pathname.startsWith("/api/agent/") && /^Bearer\s/i.test(req.headers.get("authorization") ?? "");

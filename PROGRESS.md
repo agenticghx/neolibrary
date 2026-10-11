@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries M19's five improvements signed in on the live site (b0646b5).
+next_action: Merge M20 Q1 (HSTS), then build Q2 (a note the server refuses is kept).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -174,6 +174,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 13:47 · Claude Opus 5.5 (laptop) · M20 Q1: the site sends HSTS (https only)
+- **Done:** Started M20, the site review's other findings (docs/plan.md M20: Q1 to Q6, plus what is left for Samuel). Q1: proxy.ts sends Strict-Transport-Security: max-age=31536000 on every https response (pages, API answers, the sign-in redirect), never on http. Checked first: the live site answers plain http with 301 to https and sends no HSTS header.
+- **Key paths:** proxy.ts; lib/csp.test.ts; docs/plan.md (M20)
+- **Commands that worked:** curl -sI http://<live host>/sign-in → 301 to https; curl -sI https://<live host>/sign-in → no strict-transport-security; npx vitest run lib/csp.test.ts → 4 passed; npm run check → EXIT=0, 589 passed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge Q1 through the merge train; then Q2 (a refused note is kept), Q3 (offline download after five minutes), Q4 (jump to a place), Q5 (find in this book), Q6 (Path dots as links). Deploy waits for Samuel's word.
+
+### 2026-10-11 12:45 · Claude Opus 5.5 (laptop) · Checkpoint: M19 (site review top 5) built, merged as #143-#150, live at b0646b5
+- **Done:** All M19 steps merged with green checks and deployed (live b0646b5, main CI run 38152096353 success); #149 fixed the read-aloud tint check P2 broke and made CI run read-along tests when lib/reader/pdf-book.ts changes. Final ledger commit 3d6d0cc on local m19-deploy-record, not pushed. Samuel's review doc carries a status line.
+- **Key paths:** docs/handoffs/2026-10-11-1245-m19-built-and-live.md; docs/review-top5-plan.md; docs/ci-flakes.md
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh <pr> <branch>; railway up --service web --environment production --ci; curl /api/health -> commit b0646b5
+- **Known issues / blockers:** Not tried signed in on the live site. Known WebKit flake safari.spec.ts:42 seen once more.
+- **Exact next steps:** 1. Samuel tries the five improvements signed in. 2. Push m19-deploy-record's ledger commit with the next real PR. 3. The review's other findings if he wants them. 4. The Grid verdict and Notes; the account menu tried live.
 
 ### 2026-10-11 11:52 · Claude Opus 5.5 (laptop) · M19 done: all five review improvements merged and live (b0646b5)
 - **Done:** Merged #148 P5 (4b96825), #149 P2 tint-check follow-up (53a1213), #150 P3b (b0646b5). Main's CI passed on b0646b5 (run 38152096353). Deployed b0646b5 (Deploy complete); no database change in all of M19. Open unknowns row 20 marked built.
