@@ -626,6 +626,36 @@ Study button with one set of style names. The steps (P1, P1b, P2, P3a, P4,
 P5, P3b), their order, their "Done when" and six decisions with defaults:
 `docs/review-top5-plan.md`.
 
+### M20 · The site review's other findings (Samuel: "Keep going", 2026-10-11)
+
+The findings outside the top 5 that need no decision from Samuel, one small
+pull request each, smallest and surest first:
+
+- **Q1 · HTTPS only.** The site sends `Strict-Transport-Security`, so a
+  browser that has visited once never asks for the plain-http address again.
+  Done when: a unit test shows the header on https requests and not on http,
+  and the live `/sign-in` sends it after the deploy.
+- **Q2 · A note the server refuses is kept.** Today the offline outbox drops
+  it with no word. Done when: a browser test makes the server refuse a note
+  made offline, and the Notes panel then shows it under "Could not be saved"
+  with the server's reason and a way to dismiss it.
+- **Q3 · Download for offline works after five minutes.** The reader's file
+  link lasts five minutes, and the download reused it. Done when: a browser
+  test makes the old link fail, and the download still succeeds.
+- **Q4 · Jump to a place.** Contents gets "Go to page" for a PDF and a
+  percentage for an EPUB. Done when: a browser test types a page or
+  percentage and the reader lands there, with the four screenshots.
+- **Q5 · Find in this book.** Contents gets a search box that uses the
+  library search for this book only and opens a hit in place. Done when: a
+  browser test finds a word and lands on its page.
+- **Q6 · Path dots are links.** Each dot under a Path's title jumps to its
+  pillar. Done when: a browser test clicks a dot and the pillar is in view.
+
+Left for Samuel (Open unknowns): the view remembered per book (it changes
+his 2026-10-10 call that the view is one account setting), the PDF
+page-turn pause (row 15), "Want to Read" without the titles not available
+yet, the phone reader's top bar, and a password reset he issues.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

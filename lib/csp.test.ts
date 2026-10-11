@@ -1,5 +1,25 @@
+import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
-import { contentSecurityPolicy } from "@/proxy";
+import { contentSecurityPolicy, HSTS, proxy } from "@/proxy";
+
+describe("HTTPS only (M20 Q1)", () => {
+  const request = (path: string, proto: string, signedIn = true) =>
+    new NextRequest(`http://localhost${path}`, {
+      headers: { "x-forwarded-proto": proto, ...(signedIn ? { cookie: "nl_session=x" } : {}) },
+    });
+
+  it("tells the browser to use https for a year, on pages, API answers and the sign-in redirect", () => {
+    expect(HSTS).toBe("max-age=31536000");
+    for (const req of [request("/library", "https"), request("/api/health", "https"), request("/library", "https", false)]) {
+      expect(proxy(req).headers.get("strict-transport-security"), req.nextUrl.pathname).toBe(HSTS);
+    }
+    expect(proxy(request("/library", "https", false)).status).toBe(307);
+  });
+
+  it("says nothing over plain http (the local test servers)", () => {
+    expect(proxy(request("/library", "http")).headers.get("strict-transport-security")).toBeNull();
+  });
+});
 
 describe("content security policy", () => {
   it("lets only this site frame its pages: the reader's own book frames need it in Safari", () => {
