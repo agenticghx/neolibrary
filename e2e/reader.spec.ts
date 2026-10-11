@@ -1127,6 +1127,60 @@ async function focusShown(page: Page, points: { x: number; y: number }[] = []) {
   }, points);
 }
 
+/** What a pointer at each point would land on in the book's page (points in the reader's coordinates), and whether the band takes the pointer. */
+async function underPointer(page: Page, points: { x: number; y: number }[]) {
+  return page.evaluate((points) => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const win = doc.defaultView;
+      const frame = (win?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      const band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
+      if (!win || !frame || !band) continue;
+      const at = points.map(({ x, y }) => {
+        const el = doc.elementFromPoint(x - frame.left, y - frame.top);
+        return { band: !!el?.closest("[data-nl-ruler]"), inText: !!el && el !== doc.body && el !== doc.documentElement && doc.body.contains(el) };
+      });
+      return { band: win.getComputedStyle(band).pointerEvents, at };
+    }
+    return null;
+  }, points);
+}
+
+/** Selects the words between two points of a line, as a mouse drag from the first to the second would; returns them. */
+async function selectBetween(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+  return page.evaluate(
+    ([from, to]) => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      for (const { doc } of view.renderer.getContents()) {
+        const frame = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+        if (!frame) continue;
+        const d = doc as Document & {
+          caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+          caretRangeFromPoint?: (x: number, y: number) => Range | null;
+        };
+        const caret = (x: number, y: number) => {
+          const p = d.caretPositionFromPoint?.(x - frame.left, y - frame.top);
+          if (p) return { node: p.offsetNode, offset: p.offset };
+          const r = d.caretRangeFromPoint?.(x - frame.left, y - frame.top);
+          return r ? { node: r.startContainer, offset: r.startOffset } : null;
+        };
+        const a = caret(from.x, from.y);
+        const b = caret(to.x, to.y);
+        if (!a || !b) continue;
+        const range = doc.createRange();
+        range.setStart(a.node, a.offset);
+        range.setEnd(b.node, b.offset);
+        const sel = doc.getSelection()!;
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return sel.toString();
+      }
+      return "";
+    },
+    [from, to] as const,
+  );
+}
+
 const middle = (l: FocusLine) => ({ x: Math.round((l.left + l.right) / 2), y: Math.round(l.y) });
 
 /** Opens Jekyll at a chapter of plain paragraphs and turns Focus to `mode` in Reading settings. */
@@ -1180,12 +1234,18 @@ test("Focus: the reading ruler follows the pointer and dims the rest, without ge
   await expect.poll(async () => near((await focusShown(page))?.band, there.y), { message: "band moved with the pointer" }).toBe(true);
   expect((await focusShown(page, [there, here]))?.dimmed).toEqual([false, true]);
 
-  // Selecting with the mouse and highlighting still work with the ruler on (nothing it adds takes the pointer).
+  // Selecting and highlighting still work with the ruler on: nothing it adds takes the pointer. A mouse drag cannot
+  // show it on CI (in Linux Chromium a drag in an EPUB page selects nothing, with Focus off too: 2026-10-11), so
+  // the points a drag along the line would cross are hit-tested with the band on that line, then the same words are
+  // selected as the drag would select them.
   const line = b.lines[0];
   await page.mouse.move(line.left + 4, line.y);
-  await page.mouse.down();
-  await page.mouse.move(line.left + 160, line.y, { steps: 10 });
-  await page.mouse.up();
+  await expect.poll(async () => near((await focusShown(page))?.band, line.y), { message: "band on the line to select" }).toBe(true);
+  const hits = await underPointer(page, [line.left + 4, line.left + 80, line.left + 160, line.right + 8].map((x) => ({ x, y: line.y })));
+  expect(hits?.band, "the band takes no clicks").toBe("none");
+  expect(hits?.at.map((h) => h.band), "no point on the line hits the band").toEqual([false, false, false, false]);
+  expect(hits?.at.slice(0, 3).map((h) => h.inText), "the words under the pointer are the book's").toEqual([true, true, true]);
+  expect(await selectBetween(page, { x: line.left + 4, y: line.y }, { x: line.left + 160, y: line.y })).not.toBe("");
   const bar = page.getByRole("toolbar", { name: "Selected text" });
   await expect(bar).toBeVisible();
   await bar.getByRole("button", { name: "Highlight in Amber" }).click();

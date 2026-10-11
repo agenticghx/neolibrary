@@ -26,12 +26,15 @@ Each cost at least one wasted step. Read this the first time something behaves o
 - **The browser install step can take an hour.** "Install Chromium and WebKit" took 52 minutes on run 37643052389 (a slow download from Playwright's servers), with the tests not yet started. A silent train is not a hung train: read the job's steps with their start and end times (`gh api repos/<owner>/<repo>/actions/jobs/<id> --jq '.steps[]'`). Caching `~/.cache/ms-playwright` keyed on the Playwright version (`actions/cache`) would remove this cost; worth a small PR.
 
 - **A ledger committed with conflict markers passes the hygiene check and gets merged.** On 2026-10-07 a hand-run rebase loop ignored its resolver's failure (nested markers from an earlier bad merge), committed `PROGRESS.md` with `<<<<<<<` lines, and the train merged it; three later PRs rebased on it carried the markers on. Two guards now: the train aborts when its resolver fails or markers remain; `scripts/check-pr-hygiene.mjs` fails on a marker line. When resolving by hand, always end with `grep -cE '^(<<<<<<<|=======|>>>>>>>)' PROGRESS.md LEARNING_LOG.md` → 0.
+- **A mouse drag selects nothing in an EPUB page on CI's Linux Chromium,** with Focus off too (Off, Ruler and Paragraph each gave an empty caret, 2026-10-11, #166), while a drag in a PDF's text layer works there and every drag works on the Mac. So EPUB tests select by script (`selectPhrase`, `selectBetween`), and a drag belongs only in PDF tests.
+- **A failure only CI's Linux shows can be reproduced on the laptop** in Playwright's own Linux image: `colima start`, then `docker run --rm --ipc=host -v <copy>:/work -v nl_linux_nm:/work/node_modules -w /work -e PORT=3307 mcr.microsoft.com/playwright:v1.56.1-noble bash -lc 'npm ci && npx playwright test --project <p> --ignore-snapshots'`. The copy must be under `$HOME` (colima shares only the home folder; elsewhere the container sees an empty folder). Logging added to the test (events, `elementFromPoint`, a wrapped `HTMLDialogElement.prototype.close` printing its stack) found #168's cause in two runs.
 
 ## Shell (macOS, zsh)
 
 - **zsh does not word-split a string in `for x in $var`.** `for pair in "$a $b"` loops once. Use literal words, arrays, or `${=var}`.
 - **macOS `sed` has no GNU `0,/re/` first-match address;** it silently does nothing, and `-i` needs `''`. Use `perl -pi -e` (first match per line) or `perl -0pi -e` (whole file), and print `git diff --stat` after any scripted edit before running anything on it.
 - **A command started with a plain `&` inside a tool call may die with that shell.** Check it is alive (`pgrep -f train.sh`), or start it as a harness background task.
+- **A train or queue started by an earlier session keeps running after `/clear`** (it is a background process, not part of the conversation). On 2026-10-11 two queues ran at once on the same working tree and both merged #167. Before starting a train: `ps -axo pid,command | grep -E 'train\.sh|queue|chain' | grep -v grep`.
 - **`tail -F`** (capital F) follows a log by name and survives the file being created or truncated later; `-f` does not.
 
 ## Reading a stuck train
