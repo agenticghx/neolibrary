@@ -1,0 +1,9 @@
+/*
+ * Three Study tabs (M21) in the panel's width: each takes room in proportion to its label, so "Need to know" and
+ * "Test yourself" stay on one line beside the short "Ask". The rest of their look is in reader.module.css.
+ */
+.tabs .tab {
+  flex: 1 1 auto;
+  padding-inline: var(--space-2);
+  white-space: nowrap;
+}

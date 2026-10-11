@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { STYLE_NAMES, type Style } from "@/lib/library/levels";
-import { StudyTabs } from "./StudyTabs";
+import { StudyTabs, type StudyTab } from "./StudyTabs";
 import type { PrerequisitesView } from "@/lib/library/prerequisites";
 import styles from "./reader.module.css";
 
@@ -23,7 +23,7 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
  * assumes, each in two lines with a link to read more. Machine-written, so it
  * uses the machine style and says where it came from.
  */
-export function NeedToKnowPanel({ bookId, cfi, onQuestions }: { bookId: string; cfi: string; onQuestions: () => void }) {
+export function NeedToKnowPanel({ bookId, cfi, onTab }: { bookId: string; cfi: string; onTab: (tab: StudyTab) => void }) {
   const [data, setData] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export function NeedToKnowPanel({ bookId, cfi, onQuestions }: { bookId: string; 
   return (
     <section className={styles.panel} aria-label="What do I need to know?">
       <p className={styles.panelTitle}>What do I need to know?</p>
-      <StudyTabs current="know" onPick={(tab) => tab === "questions" && onQuestions()} />
+      <StudyTabs current="know" onPick={onTab} />
       {!data && !error ? <p className={styles.hint}>Finding the chapter…</p> : null}
       {data ? (
         <p className={styles.groupLabel}>
