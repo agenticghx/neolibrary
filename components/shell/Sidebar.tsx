@@ -1,8 +1,8 @@
 import Form from "next/form";
 import Link from "next/link";
-import { signOutAction } from "@/app/(app)/actions";
 import { Mark } from "@/components/Mark";
 import { partsWord } from "@/lib/library/path-words";
+import { AccountMenu } from "./AccountMenu";
 import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
 import styles from "./Shell.module.css";
@@ -18,7 +18,7 @@ export const LIBRARY_LINKS: { label: string; href: string; icon: IconName }[] = 
 ];
 
 type Props = {
-  user: { name: string; role: string };
+  user: { name: string; email: string; role: string };
   paths: { id: string; slug: string; title: string; started: number; total: number; readingList: boolean }[];
   collections: { id: string; name: string }[];
 };
@@ -102,24 +102,9 @@ export function Sidebar({ user, paths, collections }: Props) {
           <Item href="/library?new=collection" icon="plus" label="New collection" />
         </ul>
       </nav>
+      {/* The account (M18, Samuel's pick "computer A"): the initial, the name and an arrow; the menu opens above them. */}
       <div className={styles.foot}>
-        <p className={styles.who}>
-          <span className={styles.initialSmall} aria-hidden="true">
-            {user.name.trim().charAt(0).toUpperCase() || "?"}
-          </span>
-          {user.name}
-        </p>
-        <p className={styles.footLinks}>
-          <Link href="/stats">Reading stats</Link>
-          <Link href="/data">Your data</Link>
-          <Link href="/account">Account</Link>
-          {user.role === "admin" ? <Link href="/admin/invites">Invite</Link> : null}
-        </p>
-        <form action={signOutAction}>
-          <button type="submit" className={styles.signOut}>
-            Sign out
-          </button>
-        </form>
+        <AccountMenu placement="sidebar" name={user.name} email={user.email} admin={user.role === "admin"} />
       </div>
     </aside>
   );

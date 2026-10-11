@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 /**
  * Pages covered by the screenshot and accessibility checks. Add new pages here.
  * `signedIn: false` pages are checked as a logged-out visitor.
@@ -37,6 +39,16 @@ export const pages: PageCase[] = [
 export const ADMIN = { name: "Samuel Example", email: "owner@example.com", password: "a long test password" };
 export const SETUP_CODE = "e2e-setup-code";
 export const ADMIN_STATE = "e2e/.auth/admin.json";
+
+/**
+ * Opens the account menu (M18): the reader's name at the foot of the sidebar on desktop, the round
+ * initial on Home on a phone. Account, Reading stats, Your data, Invite and Sign out are inside it.
+ */
+export async function openAccountMenu(page: Page) {
+  const button = page.getByRole("button", { name: /^Account: / });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  return button;
+}
 /**
  * The most bytes one answer to a byte-range request carries in the browser
  * tests (8 MB in production, lib/http-range.ts): small, so audio plays past

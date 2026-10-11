@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import * as CFI from "foliate-js/epubcfi.js";
 import { expectHighlightKeepsUp } from "./listen";
-import { ADMIN, ADMIN_STATE } from "./pages";
+import { ADMIN, ADMIN_STATE, openAccountMenu } from "./pages";
 
 // M7 (a): reading aloud through the API, with the fake voice (AI_FAKE=1 in
 // the test server). The player in the reader comes next.
@@ -294,6 +294,7 @@ test("signing out stops reading aloud", async ({ browser }) => {
   await page.getByRole("link", { name: "Back to your library" }).click();
   await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
+  await openAccountMenu(page);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.locator("audio")).toHaveCount(0);

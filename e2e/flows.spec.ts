@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser } from "@playwright/test";
-import { ADMIN, ADMIN_STATE } from "./pages";
+import { ADMIN, ADMIN_STATE, openAccountMenu } from "./pages";
 
 // M2 "Done when": a logged-out visitor gets nothing (pages, API, file URLs),
 // and an invited user can log in.
@@ -98,6 +98,8 @@ test.describe("signed in", () => {
     await expect(guest.getByRole("main").getByRole("link", { name: "Hidden Machinery", exact: true })).toBeVisible();
     await expect(guest.getByRole("button", { name: "Add this path" })).toHaveCount(0);
     // A reader who is not an admin is not offered Invite. Account is theirs too.
+    await openAccountMenu(guest);
+    await expect(guestSidebar.getByRole("link", { name: "Your data", exact: true })).toBeVisible();
     await expect(guestSidebar.getByRole("link", { name: "Invite", exact: true })).toHaveCount(0);
     await guestSidebar.getByRole("link", { name: "Account", exact: true }).click();
     await expect(guest.getByRole("heading", { name: "Account", level: 1 })).toBeVisible();
@@ -111,6 +113,7 @@ test.describe("signed in", () => {
 
     // Sign out, then back in.
     await guest.goto("/");
+    await openAccountMenu(guest);
     await guest.getByRole("button", { name: "Sign out" }).click();
     await expect(guest).toHaveURL(/\/sign-in$/);
     expect((await ctx.request.get("/api/me")).status()).toBe(401);

@@ -172,19 +172,39 @@
   font-weight: var(--weight-regular);
 }
 
+/* The account (M18, Samuel's picks of 2026-10-11, from the Claude app): one row at the foot of the sidebar
+   (the initial, the name, an arrow); the menu (components/shell/AccountMenu.tsx) opens as a card above it. */
+
 .foot {
-  display: grid;
   flex: none;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-3) 0;
+  padding-top: var(--space-2);
   border-top: var(--border-hair) solid var(--rule);
+}
+
+.accountFoot {
+  position: relative;
 }
 
 .who {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
   font-weight: var(--weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.who:hover,
+.who[aria-expanded="true"] {
+  background-color: var(--paper);
 }
 
 .initialSmall {
@@ -199,46 +219,78 @@
   font-weight: var(--weight-semibold);
 }
 
-/* Links on a sunken or raised panel: ink with an accent underline (accent text is under 4.5:1 there in dark mode). */
-.footLinks,
-.accountPanel {
-  font-size: var(--text-sm);
+.whoName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.footLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-}
-
-.footLinks a,
-.accountPanel a {
-  color: var(--ink-900);
-  text-decoration-color: var(--accent);
-}
-
-.signOut {
-  padding: 0;
-  border: 0;
-  background-color: transparent;
+.chevron {
+  flex: none;
   color: var(--ink-700);
-  font: inherit;
+  transition: rotate var(--dur-fast) var(--ease-out);
+}
+
+.who[aria-expanded="true"] .chevron {
+  rotate: 180deg;
+}
+
+/* Over the bottom of the list, just above the line that tops the foot. */
+.popover {
+  position: absolute;
+  right: calc(var(--space-1) * -1);
+  bottom: calc(100% + var(--space-2));
+  left: calc(var(--space-1) * -1);
+  z-index: var(--z-raised);
+  display: grid;
+  padding: var(--space-1);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+/* The menu's parts, in both places: the email in grey, whole rows with an icon, thin lines between groups. */
+.email {
+  padding: var(--space-1) var(--space-3);
+  color: var(--ink-500);
   font-size: var(--text-sm);
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.menuRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.signOut:hover {
+.menuRow:hover {
+  background-color: var(--paper-sunken);
   color: var(--ink-900);
 }
 
-/* Finger-sized rows in the phone menu. */
-.accountPanel a,
-.accountPanel .signOut {
-  display: flex;
-  align-items: center;
-  min-height: 2.75rem;
+.menuIcon {
+  flex: none;
+  color: var(--ink-700);
+}
+
+.menuRule {
+  width: 100%;
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: var(--border-hair) solid var(--rule);
 }
 
 /* Phone parts, hidden on desktop */
@@ -302,7 +354,9 @@
   }
 }
 
-/* Account menu (phone, on Home: Samuel's choice B): an outlined circle beside the filled Import button. */
+/* Account menu (phone, on Home: Samuel's choice B): an outlined circle beside the filled Import button.
+   It opens a sheet from the bottom of the screen (his pick "phone B", 2026-10-11), over the tabs and the
+   mini-player, with the page dimmed behind it. */
 
 .account {
   position: relative;
@@ -322,27 +376,69 @@
   cursor: pointer;
 }
 
-.accountPanel {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: var(--z-overlay);
-  display: grid;
-  gap: var(--space-3);
-  min-width: 13rem;
-  padding: var(--space-4);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+.initial[aria-expanded="true"] {
+  background-color: var(--paper-sunken);
 }
 
-.accountPanel[hidden] {
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-overlay) + 1);
+  background-color: var(--scrim);
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+.sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: calc(var(--z-overlay) + 1);
+  display: grid;
+  gap: var(--space-0);
+  max-width: 36rem;
+  max-height: calc(100dvh - var(--space-7));
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-3) calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  border-top: var(--border-hair) solid var(--rule);
+  border-radius: calc(var(--radius-lg) * 2) calc(var(--radius-lg) * 2) 0 0;
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+  animation: sheet-up var(--dur-base) var(--ease-out);
+}
+
+/* Rows sized for a thumb. */
+.sheet .menuRow {
+  min-height: 3rem;
+}
+
+/* The handle at the top, as on a phone's own sheets. */
+.grab {
+  justify-self: center;
+  width: 2.25rem;
+  height: var(--space-1);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--rule);
+}
+
+.popover[hidden],
+.scrim[hidden],
+.sheet[hidden] {
   display: none;
 }
 
-.accountName {
-  font-weight: var(--weight-semibold);
+@keyframes sheet-up {
+  from {
+    translate: 0 100%;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 /* The first Tab on a page: skip the navigation and go straight to the page. */
