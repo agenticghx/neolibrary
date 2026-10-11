@@ -13,6 +13,7 @@ import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { continueBooks, latestNotes, libraryItems, notYetAvailable } from "@/lib/library/home";
 import { chapterFor } from "@/lib/library/prerequisites";
+import { dueCount } from "@/lib/library/review";
 import { listShelf, parseSort } from "@/lib/library/shelf";
 import { addSampleBooksAction } from "./actions";
 
@@ -24,7 +25,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const user = await requireUser();
   const db = await getDb();
   const sort = parseSort((await searchParams).sort);
-  const [shelf, waiting, opened] = await Promise.all([listShelf(db, user.id, { sort }), notYetAvailable(db, user.id), continueBooks(db, user.id, 2)]);
+  const [shelf, waiting, opened, due] = await Promise.all([
+    listShelf(db, user.id, { sort }),
+    notYetAvailable(db, user.id),
+    continueBooks(db, user.id, 2),
+    dueCount(db, user.id).catch(() => 0),
+  ]);
   const sign = await coverSigner();
   // One pass for both lists: the notes and audiobook look-ups run once.
   const waitingIds = new Set(waiting.map((b) => b.id));
@@ -66,6 +72,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
         </div>
       </header>
+
+      {/* Daily review (M21) on a phone, only while cards wait: the tabs are full, and the sidebar that counts them is desktop only. */}
+      {due > 0 ? (
+        <p className={styles.phoneOnly}>
+          <Link href="/review" className={styles.reviewDue}>
+            Review: {due} {due === 1 ? "card" : "cards"} due today
+          </Link>
+        </p>
+      ) : null}
 
       {nothing ? (
         <>

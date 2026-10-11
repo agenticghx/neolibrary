@@ -316,3 +316,23 @@ export const readingSessions = pgTable("reading_sessions", {
 
 /** Time and words of one sitting inside one chapter (M10 (c)). */
 export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };
+
+/** M21: one reader's Daily review schedule for one highlight or note (see db/migrations/0024_review.up.sql). */
+export const reviewCards = pgTable(
+  "review_cards",
+  {
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    annotationId: uuid("annotation_id").notNull(),
+    ease: doublePrecision("ease").notNull().default(2.5),
+    intervalDays: integer("interval_days").notNull().default(0),
+    reps: integer("reps").notNull().default(0),
+    lapses: integer("lapses").notNull().default(0),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    firstReviewedAt: timestamp("first_reviewed_at", { withTimezone: true }).notNull(),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }).notNull(),
+    lastRating: text("last_rating", { enum: ["again", "hard", "good", "easy"] }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.annotationId] })],
+);

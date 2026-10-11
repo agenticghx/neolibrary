@@ -26,6 +26,7 @@ import { markQuestion, questionBank } from "./questions";
 import { rewriteParagraph } from "./rewrite";
 import { getSections } from "./sections-store";
 import { createCollection, listShelf, setInCollection } from "./shelf";
+import { rateCard, reviewQueue } from "./review";
 import { buildPackage } from "@/lib/readalong/fixture";
 import { startImport } from "@/lib/readalong/importer";
 
@@ -92,6 +93,19 @@ describe("library export (ground rule 7)", () => {
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
     await setPreferences(database.db, ownerId, { rewrittenView: "rewritten" });
+    // M21: Daily review. A highlight with a note, rated twice (Good, then Hard); "First"/"Second" (a note on the book) rated Again.
+    const marked = await createAnnotation(database.db, ownerId, {
+      kind: "highlight",
+      bookId,
+      cfi: paragraph.cfi.replace(/\)$/, ",/1:0,/1:12)"),
+      quote: { exact: paragraph.text.slice(0, 12) },
+      body: "Remember this",
+    });
+    await rateCard(database.db, ownerId, marked.id, "good", new Date("2026-10-10T09:00:00Z"));
+    await rateCard(database.db, ownerId, marked.id, "hard", new Date("2026-10-11T09:00:00Z"));
+    await rateCard(database.db, ownerId, note.id, "again", new Date("2026-10-11T09:01:00Z"));
+    const reviewNow = new Date("2026-10-11T10:00:00Z");
+    const queueBefore = await reviewQueue(database.db, ownerId, reviewNow);
 
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.length).toBeGreaterThan(100);
@@ -108,8 +122,9 @@ describe("library export (ground rule 7)", () => {
       ["Hidden later", 1, false],
       ["Hidden later", 2, true],
       ["", 1, false],
+      ["Remember this", 1, false],
     ]);
-    expect(before.annotations!.at(-1)).toMatchObject({
+    expect(before.annotations!.find((a) => a.kind === "voice")).toMatchObject({
       kind: "voice",
       audio: { key: voice.annotation.voice!.audioKey, mime: "audio/wav", durationMs: 1000 },
       transcript: voice.annotation.voice!.transcript,
@@ -142,19 +157,26 @@ describe("library export (ground rule 7)", () => {
       expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
     ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
+    expect(before.reviewCards).toEqual([
+      expect.objectContaining({ annotationId: marked.id, ease: 2.35, intervalDays: 2, reps: 2, lapses: 0, lastRating: "hard", firstReviewedAt: "2026-10-10T09:00:00.000Z", dueAt: "2026-10-13T00:00:00.000Z" }),
+      expect.objectContaining({ annotationId: note.id, intervalDays: 0, reps: 0, lastRating: "again", dueAt: "2026-10-11T00:00:00.000Z" }),
+    ]);
 
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
-    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions]).toEqual([[], [], [], [], [], [], [], [], []]);
+    expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions, empty.reviewCards]).toEqual([[], [], [], [], [], [], [], [], [], []]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));
+    // The same cards are due, on the same days.
+    expect(await reviewQueue(database.db, ownerId, reviewNow)).toEqual(queueBefore);
     expect((await listShelf(database.db, ownerId, { collectionId: c.id })).map((b) => b.title)).toEqual(["The Time Machine"]);
     expect((await listAnnotations(database.db, ownerId, bookId)).map((a) => [a.kind, a.body])).toEqual([
       ["note", "Second"],
       ["note", "Brought back"],
       ["voice", ""],
+      ["highlight", "Remember this"],
     ]);
   });
 
@@ -275,10 +297,11 @@ describe("a library file may only point inside the importing reader's library", 
     finishedAt: now,
     ...over,
   });
+  const card = () => ({ annotationId: "", ease: 2.5, intervalDays: 1, reps: 1, lapses: 0, dueAt: now, firstReviewedAt: now, lastReviewedAt: now, lastRating: "good" as const });
   /** Nothing of the file was written: the reader's library is still empty. */
   const nothingImported = async () => {
     const e = await exportLibrary(database.db, ownerId);
-    expect([e.books, e.paths, e.collections, e.annotations, e.generations, e.questionMarks, e.audioTracks, e.readalongImports, e.readingSessions]).toEqual([[], [], [], [], [], [], [], [], []]);
+    expect([e.books, e.paths, e.collections, e.annotations, e.generations, e.questionMarks, e.audioTracks, e.readalongImports, e.readingSessions, e.reviewCards]).toEqual([[], [], [], [], [], [], [], [], [], []]);
   };
 
   it("keeps imported costs as recorded, but they do not count toward the spending caps", async () => {
@@ -382,6 +405,22 @@ describe("a library file may only point inside the importing reader's library", 
       [
         { readingSessions: [{ id: crypto.randomUUID(), bookId: theirs.id, startedAt: now, endedAt: now, activeSeconds: 1, words: 1, pages: 1 }] },
         "A reading session is for a book that is not in this file.",
+      ],
+      // M21: a review schedule is for a note the file brings, and is a schedule the app can use.
+      [{ reviewCards: [{ ...card(), annotationId: crypto.randomUUID() }] }, "A review card is for a note that is not in this file."],
+      [
+        (() => {
+          const n = note();
+          return { annotations: [n], reviewCards: [{ ...card(), annotationId: n.annotationId, ease: 1.2 }] };
+        })(),
+        "A review card's schedule is not one Neolibrary can use.",
+      ],
+      [
+        (() => {
+          const n = note();
+          return { annotations: [n], reviewCards: [{ ...card(), annotationId: n.annotationId, lastRating: "perfect" as never }] };
+        })(),
+        "A review card's schedule is not one Neolibrary can use.",
       ],
     ];
     for (const [extra, message] of cases) {

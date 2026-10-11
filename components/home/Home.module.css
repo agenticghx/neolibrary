@@ -324,3 +324,11 @@
     display: none;
   }
 }
+
+/* Daily review on a phone (M21): one quiet line under Home's title, while cards wait. */
+.reviewDue {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-size: var(--text-md);
+}

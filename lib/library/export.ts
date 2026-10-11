@@ -1,9 +1,10 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, slots, users, type ChapterReading } from "@/lib/db/schema";
+import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, type ChapterReading } from "@/lib/db/schema";
 import { assertSafeKey } from "@/lib/storage";
 import { isStyle, isView } from "./levels";
 import { cleanPicture } from "./pinned";
+import { isRating, MIN_EASE, type Rating } from "./review-schedule";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -164,6 +165,18 @@ export type LibraryExport = {
     pages: number;
     chapters?: ChapterReading[];
   }[];
+  /** Daily review's schedule for each highlight or note rated so far (added in M21). */
+  reviewCards?: {
+    annotationId: string;
+    ease: number;
+    intervalDays: number;
+    reps: number;
+    lapses: number;
+    dueAt: string;
+    firstReviewedAt: string;
+    lastReviewedAt: string;
+    lastRating: Rating;
+  }[];
 };
 
 export async function exportLibrary(db: Db, ownerId: string, now = new Date()): Promise<LibraryExport> {
@@ -220,6 +233,9 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(readingSessions)
     .where(eq(readingSessions.ownerId, ownerId))
     .orderBy(asc(readingSessions.startedAt), asc(readingSessions.id));
+  const reviewRows = await db.select().from(reviewCards).where(eq(reviewCards.ownerId, ownerId)).orderBy(asc(reviewCards.firstReviewedAt), asc(reviewCards.annotationId));
+  // Only schedules of notes the file brings (a schedule has no database link to its note).
+  const exportedNotes = new Set(annotationRows.map((a) => a.annotationId));
   const [settings] = await db.select({ aiStyle: users.aiStyle, rewrittenView: users.rewrittenView }).from(users).where(eq(users.id, ownerId));
 
   return {
@@ -372,6 +388,19 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       pages: r.pages,
       chapters: r.chapters,
     })),
+    reviewCards: reviewRows
+      .filter((r) => exportedNotes.has(r.annotationId))
+      .map((r) => ({
+        annotationId: r.annotationId,
+        ease: r.ease,
+        intervalDays: r.intervalDays,
+        reps: r.reps,
+        lapses: r.lapses,
+        dueAt: r.dueAt.toISOString(),
+        firstReviewedAt: r.firstReviewedAt.toISOString(),
+        lastReviewedAt: r.lastReviewedAt.toISOString(),
+        lastRating: r.lastRating,
+      })),
   };
 }
 
@@ -381,6 +410,7 @@ export class ExportFormatError extends Error {}
 export async function wipeLibrary(db: Db, ownerId: string) {
   await db.transaction(async (tx) => {
     await tx.delete(annotations).where(eq(annotations.ownerId, ownerId));
+    await tx.delete(reviewCards).where(eq(reviewCards.ownerId, ownerId));
     await tx.delete(questionMarks).where(eq(questionMarks.ownerId, ownerId));
     await tx.delete(audioTracks).where(eq(audioTracks.ownerId, ownerId));
     await tx.delete(readalongImports).where(eq(readalongImports.ownerId, ownerId));
@@ -460,6 +490,18 @@ function checkImport(x: LibraryExport, ownerId: string) {
     if (!isCost(t.costUsd)) refuse("A read-aloud track's cost is not an amount of money.");
   }
   for (const r of x.readingSessions ?? []) if (!bookIds.has(r.bookId)) refuse("A reading session is for a book that is not in this file.");
+  const noteIds = new Set((x.annotations ?? []).map((a) => a.annotationId));
+  const isDate = (d: unknown) => typeof d === "string" && !Number.isNaN(Date.parse(d));
+  const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
+  const reviewed = new Set<string>();
+  for (const r of x.reviewCards ?? []) {
+    if (!noteIds.has(r.annotationId)) refuse("A review card is for a note that is not in this file.");
+    if (reviewed.has(r.annotationId)) refuse("A note has two review schedules in this file.");
+    reviewed.add(r.annotationId);
+    const scheduleOk =
+      typeof r.ease === "number" && Number.isFinite(r.ease) && r.ease >= MIN_EASE && isCount(r.intervalDays) && isCount(r.reps) && isCount(r.lapses) && isRating(r.lastRating);
+    if (!scheduleOk || !isDate(r.dueAt) || !isDate(r.firstReviewedAt) || !isDate(r.lastReviewedAt)) refuse("A review card's schedule is not one Neolibrary can use.");
+  }
 }
 
 /**
@@ -593,6 +635,20 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       await tx
         .insert(readingSessions)
         .values({ ...r, ownerId, startedAt: new Date(r.startedAt), endedAt: new Date(r.endedAt), chapters: r.chapters ?? [] });
+    }
+    for (const r of x.reviewCards ?? []) {
+      await tx.insert(reviewCards).values({
+        ownerId,
+        annotationId: r.annotationId,
+        ease: r.ease,
+        intervalDays: r.intervalDays,
+        reps: r.reps,
+        lapses: r.lapses,
+        lastRating: r.lastRating,
+        dueAt: new Date(r.dueAt),
+        firstReviewedAt: new Date(r.firstReviewedAt),
+        lastReviewedAt: new Date(r.lastReviewedAt),
+      });
     }
   });
 }

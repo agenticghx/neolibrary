@@ -17,6 +17,7 @@ The projects share one database, so they run in a line. Each number is the gap f
 | readalong (Chromium) | 175 | readalong |
 | readalong-safari (the same file in WebKit) | 236 | readalong |
 | narration (fake voice) | 57 | narration |
+| review (Daily review, M21; a branch off stats, beside home) | not timed yet | behavior |
 
 The audiobook file is serial (`test.describe.configure({ mode: "serial" })` in `e2e/readalong.spec.ts`). Extra cores do not run it alongside itself. WebKit is the highlight test in `e2e/safari.spec.ts` plus that second pass of the audiobook file.
 
@@ -43,7 +44,7 @@ The word "narrative" in a Path (the narrative book, then the engineering book) i
 
 A slice that needs the shared database also runs the behaviour chain in front of it. Narration waits on the audiobook projects when those ran, and on the offline project when they did not. It does not wait on Safari's highlight test.
 
-The screenshot grid requires every page in `e2e/pages.ts` that this run actually photographs. The mini-player images are taken by the audiobook file. The Path-edit images are taken by `own-paths.spec.ts`. A style-only run does not fail for images those files did not take.
+The screenshot grid requires every page in `e2e/pages.ts` that this run actually photographs. The mini-player images are taken by the audiobook file. The Path-edit images are taken by `own-paths.spec.ts`, and the Daily review images by `review.spec.ts`. A style-only run does not fail for images those files did not take.
 
 On this laptop, leave `CI_BROWSER_SLICES` unset. Playwright then runs the same projects, with the same dependencies, as before.
 
