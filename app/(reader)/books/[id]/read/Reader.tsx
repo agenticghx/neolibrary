@@ -1020,6 +1020,19 @@ export function Reader(props: {
   };
   const paneMode = rewritten.mode !== "original" && screen ? rewritten.mode : null;
   const percent = Math.round(where.fraction * 100);
+  // A panel beside the book on a computer (M19): the same conditions that draw each panel below. Contents is not
+  // one of them: it stays over the page on the left and closes once a chapter is picked.
+  const panelBeside =
+    panel === "notes" ||
+    panel === "links" ||
+    panel === "images" ||
+    ((panel === "know" || panel === "questions") && Boolean(where.cfi)) ||
+    (panel === "picture" && Boolean(activePicture?.picture)) ||
+    (panel === "rewrite" && Boolean(rewriteAt)) ||
+    (panel === "settings" && Boolean(settings));
+  const stageClass = [styles.stage, paneMode === "side" ? styles.stageSide : "", panelBeside ? styles.stagePanel : ""]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
@@ -1118,7 +1131,7 @@ export function Reader(props: {
         </div>
       </header>
 
-      <div className={paneMode === "side" ? `${styles.stage} ${styles.stageSide}` : styles.stage}>
+      <div className={stageClass}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M11 3 5 9l6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -1139,6 +1152,143 @@ export function Reader(props: {
         ) : null}
         {paneMode && screen ? (
           <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} turn={turn} setTurn={setTurn} />
+        ) : null}
+
+        {/* One panel at a time. On a computer it sits in a column beside the book (M19), never over it. */}
+        {panel === "notes" ? (
+          <NotesPanel
+            bookId={props.bookId}
+            title={props.title}
+            author={props.author}
+            themeEl={() => root.current}
+            items={notes}
+            activeId={activeId}
+            onGo={(a) => {
+              if (a.cfi) void view.current?.goTo(a.cfi);
+            }}
+            onSave={saveNote}
+            onDelete={removeNote}
+            onAddBookNote={addBookNote}
+          />
+        ) : null}
+
+        {panel === "know" && where.cfi ? (
+          <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onQuestions={() => setPanel("questions")} />
+        ) : null}
+        {panel === "questions" && where.cfi ? (
+          <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onBack={() => setPanel("know")} />
+        ) : null}
+
+        {panel === "links" ? <CrossLinksPanel links={links} /> : null}
+
+        {panel === "images" ? (
+          <ImagesPanel key={imagesFor} bookId={props.bookId} initialQuery={imagesFor} onPin={imagesAt ? pinPicture : undefined} />
+        ) : null}
+
+        {panel === "picture" && activePicture?.picture ? (
+          <PictureCard picture={activePicture.picture} url={activePicture.pictureUrl} quote={activePicture.quote.exact} />
+        ) : null}
+
+        {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
+
+        {panel === "contents" ? (
+          <nav className={`${styles.panel} ${styles.panelLeft}`} aria-label="Contents">
+            <p className={styles.panelTitle}>Contents</p>
+            <TocList
+              items={toc}
+              current={where.chapter}
+              onPick={(href) => {
+                void view.current?.goTo(href);
+                setPanel("none");
+              }}
+            />
+          </nav>
+        ) : null}
+
+        {panel === "settings" && settings ? (
+          <section className={styles.panel} aria-label="Reading settings">
+            <p className={styles.panelTitle}>Reading settings</p>
+            <fieldset className={styles.group}>
+              <legend>Pages</legend>
+              <Segment
+                value={settings.pages}
+                options={[
+                  ["one", "One page"],
+                  ["two", "Two pages"],
+                ]}
+                onChange={(pages) => update({ pages })}
+              />
+            </fieldset>
+            {props.fileType === "pdf" ? (
+              <p className={styles.hint}>This is a PDF: its pages keep their own layout, so text settings do not apply.</p>
+            ) : (
+              <>
+            <fieldset className={styles.group}>
+              <legend>Layout</legend>
+              <Segment value={settings.flow} options={[["paginated", "Pages"], ["scrolled", "Scroll"]]} onChange={(flow) => update({ flow })} />
+            </fieldset>
+            <fieldset className={styles.group}>
+              <legend>Text size</legend>
+              <div className={styles.sizeRow}>
+                <button
+                  type="button"
+                  className={styles.step}
+                  aria-label="Smaller text"
+                  disabled={settings.size === SIZES[0]}
+                  onClick={() => update({ size: SIZES[Math.max(0, SIZES.indexOf(settings.size) - 1)] })}
+                >
+                  A−
+                </button>
+                <span className={styles.sizeValue} data-testid="text-size">
+                  {settings.size}%
+                </span>
+                <button
+                  type="button"
+                  className={styles.step}
+                  aria-label="Larger text"
+                  disabled={settings.size === SIZES.at(-1)}
+                  onClick={() => update({ size: SIZES[Math.min(SIZES.length - 1, SIZES.indexOf(settings.size) + 1)] })}
+                >
+                  A+
+                </button>
+              </div>
+            </fieldset>
+            <fieldset className={styles.group}>
+              <legend>Line spacing</legend>
+              <Segment
+                value={settings.spacing}
+                options={[["compact", "Compact"], ["normal", "Normal"], ["loose", "Loose"]]}
+                onChange={(spacing) => update({ spacing })}
+              />
+            </fieldset>
+            <fieldset className={styles.group}>
+              <legend>Typeface</legend>
+              <Segment
+                value={settings.face}
+                options={[["serif", "Serif"], ["sans", "Sans"], ["book", "Book's own"]]}
+                onChange={(face) => update({ face })}
+              />
+            </fieldset>
+              </>
+            )}
+            <fieldset className={styles.group}>
+              <legend>Theme</legend>
+              <Segment
+                value={settings.theme}
+                options={[["auto", "Auto"], ["paper", "Paper"], ["sepia", "Sepia"], ["night", "Night"]]}
+                onChange={(theme) => update({ theme })}
+              />
+            </fieldset>
+            <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
+            <AiStyleSetting bookId={props.bookId} />
+            <p className={styles.hint}>
+              STE is Simplified Technical English: one meaning per word, short sentences. This style rewrites the book in the
+              rewritten view (the button beside Notes), and words &ldquo;What do I need to know?&rdquo; and other AI explanations.
+              The Rewrite button on selected text still offers every level. The Account page sets the style and the view every
+              book opens with.
+            </p>
+            <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
+          </section>
         ) : null}
       </div>
 
@@ -1209,141 +1359,6 @@ export function Reader(props: {
         />
       ) : null}
 
-      {panel === "notes" ? (
-        <NotesPanel
-          bookId={props.bookId}
-          title={props.title}
-          author={props.author}
-          themeEl={() => root.current}
-          items={notes}
-          activeId={activeId}
-          onGo={(a) => {
-            if (a.cfi) void view.current?.goTo(a.cfi);
-          }}
-          onSave={saveNote}
-          onDelete={removeNote}
-          onAddBookNote={addBookNote}
-        />
-      ) : null}
-
-      {panel === "know" && where.cfi ? (
-        <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onQuestions={() => setPanel("questions")} />
-      ) : null}
-      {panel === "questions" && where.cfi ? (
-        <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onBack={() => setPanel("know")} />
-      ) : null}
-
-      {panel === "links" ? <CrossLinksPanel links={links} /> : null}
-
-      {panel === "images" ? (
-        <ImagesPanel key={imagesFor} bookId={props.bookId} initialQuery={imagesFor} onPin={imagesAt ? pinPicture : undefined} />
-      ) : null}
-
-      {panel === "picture" && activePicture?.picture ? (
-        <PictureCard picture={activePicture.picture} url={activePicture.pictureUrl} quote={activePicture.quote.exact} />
-      ) : null}
-
-      {panel === "rewrite" && rewriteAt ? <RewritePanel key={rewriteAt} bookId={props.bookId} cfi={rewriteAt} /> : null}
-
-      {panel === "contents" ? (
-        <nav className={`${styles.panel} ${styles.panelLeft}`} aria-label="Contents">
-          <p className={styles.panelTitle}>Contents</p>
-          <TocList
-            items={toc}
-            current={where.chapter}
-            onPick={(href) => {
-              void view.current?.goTo(href);
-              setPanel("none");
-            }}
-          />
-        </nav>
-      ) : null}
-
-      {panel === "settings" && settings ? (
-        <section className={styles.panel} aria-label="Reading settings">
-          <p className={styles.panelTitle}>Reading settings</p>
-          <fieldset className={styles.group}>
-            <legend>Pages</legend>
-            <Segment
-              value={settings.pages}
-              options={[
-                ["one", "One page"],
-                ["two", "Two pages"],
-              ]}
-              onChange={(pages) => update({ pages })}
-            />
-          </fieldset>
-          {props.fileType === "pdf" ? (
-            <p className={styles.hint}>This is a PDF: its pages keep their own layout, so text settings do not apply.</p>
-          ) : (
-            <>
-          <fieldset className={styles.group}>
-            <legend>Layout</legend>
-            <Segment value={settings.flow} options={[["paginated", "Pages"], ["scrolled", "Scroll"]]} onChange={(flow) => update({ flow })} />
-          </fieldset>
-          <fieldset className={styles.group}>
-            <legend>Text size</legend>
-            <div className={styles.sizeRow}>
-              <button
-                type="button"
-                className={styles.step}
-                aria-label="Smaller text"
-                disabled={settings.size === SIZES[0]}
-                onClick={() => update({ size: SIZES[Math.max(0, SIZES.indexOf(settings.size) - 1)] })}
-              >
-                A−
-              </button>
-              <span className={styles.sizeValue} data-testid="text-size">
-                {settings.size}%
-              </span>
-              <button
-                type="button"
-                className={styles.step}
-                aria-label="Larger text"
-                disabled={settings.size === SIZES.at(-1)}
-                onClick={() => update({ size: SIZES[Math.min(SIZES.length - 1, SIZES.indexOf(settings.size) + 1)] })}
-              >
-                A+
-              </button>
-            </div>
-          </fieldset>
-          <fieldset className={styles.group}>
-            <legend>Line spacing</legend>
-            <Segment
-              value={settings.spacing}
-              options={[["compact", "Compact"], ["normal", "Normal"], ["loose", "Loose"]]}
-              onChange={(spacing) => update({ spacing })}
-            />
-          </fieldset>
-          <fieldset className={styles.group}>
-            <legend>Typeface</legend>
-            <Segment
-              value={settings.face}
-              options={[["serif", "Serif"], ["sans", "Sans"], ["book", "Book's own"]]}
-              onChange={(face) => update({ face })}
-            />
-          </fieldset>
-            </>
-          )}
-          <fieldset className={styles.group}>
-            <legend>Theme</legend>
-            <Segment
-              value={settings.theme}
-              options={[["auto", "Auto"], ["paper", "Paper"], ["sepia", "Sepia"], ["night", "Night"]]}
-              onChange={(theme) => update({ theme })}
-            />
-          </fieldset>
-          <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
-          <AiStyleSetting bookId={props.bookId} />
-          <p className={styles.hint}>
-            STE is Simplified Technical English: one meaning per word, short sentences. This style rewrites the book in the
-            rewritten view (the button beside Notes), and words &ldquo;What do I need to know?&rdquo; and other AI explanations.
-            The Rewrite button on selected text still offers every level. The Account page sets the style and the view every
-            book opens with.
-          </p>
-          <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
-        </section>
-      ) : null}
     </div>
   );
 }

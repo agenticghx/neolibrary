@@ -79,6 +79,7 @@
 .stage {
   position: relative;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   grid-template-columns: var(--space-8) 1fr var(--space-8);
   min-height: 0;
 }
@@ -133,6 +134,38 @@
 .stageSide .rewritten {
   grid-row: 1;
   grid-column: 4;
+}
+
+/*
+ * M19: on a computer a panel (Notes, Rewrite, Reading settings…) takes a column beside the book, so it never
+ * covers the text; the book narrows and lays itself out again. With Side by side on, the panel is a third column
+ * and the page and the rewrite share the rest, so a change of style in Reading settings shows in the rewrite.
+ * Contents stays over the page on the left: it closes once a chapter is picked.
+ */
+@media (width > 48rem) {
+  .stagePanel {
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) 22rem;
+  }
+
+  .stageSide.stagePanel {
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(0, 1fr) 22rem;
+  }
+
+  .stage > .panel:not(.panelLeft) {
+    position: relative;
+    inset: auto;
+    z-index: var(--z-raised);
+    grid-row: 1;
+    grid-column: 4;
+    align-self: start;
+    width: auto;
+    max-height: calc(100% - var(--space-3) * 2);
+    margin: var(--space-3) var(--space-3) var(--space-3) 0;
+  }
+
+  .stageSide.stagePanel > .panel:not(.panelLeft) {
+    grid-column: 5;
+  }
 }
 
 .rewrittenHead {

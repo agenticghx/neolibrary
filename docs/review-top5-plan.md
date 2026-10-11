@@ -80,9 +80,9 @@ P1: build `m19-panels-beside` on top of it.
 
 **What changes for the reader.** On a computer (a window wider than 48rem,
 768 pixels), a panel opens in a column beside the book. The book narrows and
-reflows, and no text is covered. Contents opens in a column on the left;
-every other panel opens on the right. On a phone nothing changes: the panel
-is a card over the page, as today.
+reflows, and no text is covered. Every panel except Contents opens on the
+right. On a phone nothing changes: the panel is a card over the page, as
+today.
 
 **How.**
 - Today every panel is `.panel`, a card with `position: fixed` at the right
@@ -91,15 +91,18 @@ is a card over the page, as today.
   button (`:79-84`). Side by side already adds a fourth column, `.stageSide`
   (`:111-113`). Its book reflows by itself, through foliate's own resize
   watcher (`node_modules/foliate-js/paginator.js:422`).
-- Add the same kind of column for panels:
-  - a right column for every panel except Contents;
-  - a left column for Contents (`.panelLeft` today).
-  - Render the open panel inside `.stage` rather than after the footer
-    (`Reader.tsx:1212-1345`). Inside the column it is no longer fixed: it
-    fills the column's height and scrolls on its own.
-- **With Side by side on**, the open panel takes the right column on top of
-  the rewrite pane. The pane stays mounted beneath and comes back when the
-  panel closes. The book is never covered.
+- Add the same kind of column for panels: a right column for every panel
+  except Contents. Render the open panel inside `.stage` rather than after
+  the footer (`Reader.tsx:1212-1345`). Inside the column it is no longer
+  fixed: it scrolls on its own.
+- **Contents stays over the page on the left**, as before (built 2026-10-11).
+  It closes once a chapter is picked, and `e2e/reader.spec.ts:97` records the
+  earlier decision that opening it does not move the page.
+- **With Side by side on**, the panel becomes a third column, and the page
+  and the rewrite share the rest equally. Nothing is covered, so a change of
+  style in Reading settings shows in the rewrite at once. `e2e/ai.spec.ts:474`
+  tests exactly that; a first try that hid the rewrite behind the panel
+  failed it.
 - With Rewritten alone (the rewrite covers the book), a panel still opens in
   the right column.
 - Only one panel is open at a time already (`Reader.tsx:267`), so there is
@@ -109,16 +112,16 @@ is a card over the page, as today.
 
 **Files.** `Reader.tsx`, `reader.module.css`; possibly `RewrittenPane.tsx`.
 
-**Done when.** A new browser test at 1280 × 800 checks every panel: Contents,
-Notes, Reading settings, What do I need to know?, Test yourself, Rewrite, See
+**Done when.** A new browser test at 1280 × 800 checks every panel beside the
+book: Notes, Reading settings, What do I need to know?, Test yourself, Rewrite, See
 it, Elsewhere in your library and a pinned picture. For each one:
 - the panel's box and the book's box (`.host`) do not overlap;
 - the reading place (the location the reader saves) is the same before the
   panel opens and after it closes.
 
 It also checks Side by side and the phone:
-- with Side by side on, opening Notes covers the pane and not the book, and
-  closing Notes brings the pane back;
+- with Side by side on, the page, the rewrite and Notes sit side by side,
+  none covering another;
 - at 390 × 844 a panel still opens as a card, as today.
 
 axe passes with each panel open. Screenshots `reader-panel-*-desktop-{light,dark}.png`
@@ -412,7 +415,7 @@ break in the middle of a word ("Airpor t System s").
 | 1 | P3b: may a book on a Path be removed (and turn back into "Not available yet")? | No: Remove is not offered for a Path book |
 | 2 | P3b: uploading a book you removed | Say so and offer Bring back; no duplicate |
 | 3 | P2: dim PDF pages at night by default? | Yes, with a switch to turn it off |
-| 4 | P1: Contents in its own left column on a computer? | Yes |
+| 4 | P1: Contents in its own left column on a computer? | No: it stays over the page, as decided earlier (`e2e/reader.spec.ts:97`) |
 | 5 | P5: Study on a phone, the word or an icon? | The word on a computer; an open-book icon named "Study" on a phone, where the bar is full |
 | 6 | Add reference images for the reader? | No: reader images vary with fonts and timing; rely on assertions and looking |
 
