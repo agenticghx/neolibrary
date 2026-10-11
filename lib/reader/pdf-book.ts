@@ -45,6 +45,20 @@ const TEXT_LAYER_CSS = `
 // contrast of about 4.9 to 1 with the tinted paper.
 const SPOKEN_CSS = `::highlight(nl-spoken) { background-color: rgb(156 196 182 / 0.5); }`;
 
+// Dimmed pages (M19): in the reader's dark themes, with "Dim PDF pages at night"
+// on, the reader marks each page's root with data-dim. Only the page's picture
+// is inverted (white paper becomes dark grey, black ink light grey; the hue
+// turn keeps colours roughly as printed); the text layer above it, where
+// selection and the read-aloud highlight live, is left alone. Those two get
+// colours that show on a dark page: the spoken word a light tint at 30%, which
+// keeps the light letters under it at about 5.7 to 1 against the tinted paper.
+const DIM_CSS = `
+:root[data-dim] { background: rgb(31 31 31); }
+:root[data-dim] #canvas { filter: invert(0.88) hue-rotate(180deg); }
+:root[data-dim] .textLayer ::selection { background: rgb(156 196 182 / 0.35); }
+:root[data-dim] ::highlight(nl-spoken) { background-color: rgb(156 196 182 / 0.3); }
+`;
+
 /** Fired on a page's document when its text layer is complete (the page is shown) and each time it is laid out for a new size. */
 export const TEXT_LAYER_EVENT = "nl-textlayer";
 
@@ -252,7 +266,7 @@ export async function makePdfBook(file: Blob, pages: "one" | "two" = "one") {
 <meta name="viewport" content="width=${viewport.width}, height=${viewport.height}">
 <style>html, body { margin: 0; padding: 0; }
 :root { --user-unit: 1; --total-scale-factor: calc(var(--scale-factor) * var(--user-unit)); --scale-round-x: 1px; --scale-round-y: 1px; }
-${TEXT_LAYER_CSS}${SPOKEN_CSS}</style>
+${TEXT_LAYER_CSS}${SPOKEN_CSS}${DIM_CSS}</style>
 <div id="canvas"></div><div class="textLayer"></div>`,
         ],
         { type: "text/html" },

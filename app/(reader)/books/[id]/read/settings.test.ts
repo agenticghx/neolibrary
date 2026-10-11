@@ -41,4 +41,16 @@ describe("reading settings on this device", () => {
     expect(loadSettings().pages).toBe("one");
     expect(loadSettings().flow).toBe("paginated");
   });
+
+  it("dims PDF pages at night unless turned off, including for settings saved before the switch existed (M19)", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    expect(DEFAULT_SETTINGS.dimPdf).toBe(true);
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ pages: "two", theme: "night" }));
+    expect(loadSettings().dimPdf).toBe(true);
+    saveSettings({ ...DEFAULT_SETTINGS, dimPdf: false });
+    expect(loadSettings().dimPdf).toBe(false);
+    saveSettings({ ...DEFAULT_SETTINGS, dimPdf: true });
+    expect(loadSettings().dimPdf).toBe(true);
+  });
 });

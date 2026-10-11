@@ -809,3 +809,70 @@ test.describe("Spine fold", () => {
     await expect.poll(() => pdfLeaves(page)).toEqual(phoneLeaves);
   });
 });
+
+// M19 P2 (the site review's second finding): a PDF page stayed a white rectangle in a dark reader. In Night, or Auto
+// while the device is dark, every page shown is dimmed (its picture inverted, the text layer untouched); Paper, or
+// "As printed", shows it as printed. Pages that load later (the next page) are dimmed too.
+test("PDF pages are dimmed at night, and can be shown as printed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await openFacingPdf(page);
+  const filters = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer?: { getContents(): { doc: Document }[] } };
+      return (view?.renderer?.getContents() ?? []).flatMap(({ doc }) => {
+        const canvas = doc?.querySelector("#canvas");
+        return canvas && doc.defaultView ? [doc.defaultView.getComputedStyle(canvas).filter] : [];
+      });
+    });
+  const dimmed = async () => {
+    const f = await filters();
+    return f.length === 0 ? "no pages" : f.every((x) => x.includes("invert")) ? "dimmed" : f.every((x) => x === "none") ? "as printed" : f.join(" | ");
+  };
+  const settings = page.getByRole("region", { name: "Reading settings" });
+  const choose = async (name: string) => {
+    if (!(await settings.isVisible())) await page.getByRole("button", { name: "Reading settings" }).click();
+    await settings.getByRole("button", { name, exact: true }).click();
+    await expect(settings.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true");
+  };
+
+  await choose("Auto");
+  await expect.poll(dimmed).toBe("as printed");
+  await choose("Night");
+  await expect.poll(dimmed).toBe("dimmed");
+  // The switch shows only for a PDF, and turns it off and on.
+  await choose("As printed");
+  await expect.poll(dimmed).toBe("as printed");
+  await choose("Dimmed");
+  await expect.poll(dimmed).toBe("dimmed");
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await page.keyboard.press("Escape");
+  // A page that loads later is dimmed as it loads.
+  const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+  await expect.poll(dimmed).toBe("dimmed");
+  await mkdir("screenshots", { recursive: true });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: "screenshots/reader-pdf-dim-desktop-dark.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(dimmed).toBe("dimmed");
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: "screenshots/reader-pdf-dim-phone-dark.png" });
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  // Paper is never dimmed; Auto follows the device.
+  await choose("Paper");
+  await expect.poll(dimmed).toBe("as printed");
+  await choose("Auto");
+  await expect.poll(dimmed).toBe("as printed");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(dimmed).toBe("dimmed");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect.poll(dimmed).toBe("as printed");
+  // An EPUB has no such switch: its text is recoloured instead.
+  await openJekyll(page);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(settings.getByRole("group", { name: "PDF pages at night" })).toHaveCount(0);
+});
