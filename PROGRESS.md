@@ -173,6 +173,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 10:36 · Claude Opus 5.5 (laptop) · Deployed M19 P1 and P4 (live 3de6ff7)
+- **Done:** Samuel said 'Go build and deploy'. #143 (P1, panels beside the book) merged as 8117e45 and #144 (P4, cover titles) as 3de6ff7; main's CI passed on both (runs 38146086342 and 38146830939). Deployed 3de6ff7 with railway up from a detached worktree; no database change since f6b71a4, so no backup. #145 (P1b, keyboard focus) merged as d740ebe after the deploy.
+- **Key paths:** ../neolibrary-deploy (detached worktree, not in git)
+- **Commands that worked:** railway link --project neolibrary --service web --environment production; railway variable set NEOLIBRARY_COMMIT=<sha> --skip-deploys; railway up --service web --environment production --ci (Deploy complete); curl /api/health -> commit 3de6ff7; /sign-in 200; /import 307; /account 307
+- **Known issues / blockers:** Nobody has tried it signed in on the live site (Claude cannot sign in).
+- **Exact next steps:** Merge P2 (#146), P3a, P5, P3b in order; deploy again after them; Samuel tries all five.
+
 ### 2026-10-11 10:16 · Claude Opus 5.5 (laptop) · M19 P3a: a removed note can be brought back (Undo in Notes, Bring back on Your data)
 - **Done:** After Remove in Notes, 'Note removed. Undo' shows for ten seconds (role=status); Undo brings the note back with its highlight. Your data has a 'Removed notes' card (only when there are some) with Bring back per note. Server: restoreAnnotation adds a version deleted:false copying the content (idempotent on changeId), listRemovedAnnotations (with the book, Path or pillar name), POST /api/annotations/{id}/restore, restoreNoteAction. Offline: Undo of a removal still in the outbox drops it; otherwise a 'restore' item waits in the outbox and the note shows at once. No migration.
 - **Key paths:** lib/library/annotations.ts (+test); lib/library/export.test.ts (round trip with a restored note); app/api/annotations/[id]/restore/route.ts; lib/outbox.ts; app/(reader)/books/[id]/read/Reader.tsx, NotesPanel.tsx, reader.module.css; app/(app)/data/page.tsx, page.module.css; app/(app)/actions.ts; e2e/annotations.spec.ts; e2e/offline.spec.ts
