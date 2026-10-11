@@ -155,25 +155,24 @@
   line-height: var(--leading-ui);
 }
 
-/* The calendar and its legend, as wide as the calendar (the legend ends under today), never wider than the page. */
-.calendarBox {
-  display: grid;
-  gap: var(--space-2);
-  inline-size: fit-content;
-  max-inline-size: 100%;
-}
-
 /* The calendar scrolls sideways in its own box on a narrow screen. Right to left, so it starts at its right end (today);
-   the table inside is left to right again. */
+   what it holds is left to right again. */
 .calendarScroll {
   direction: rtl;
   overflow-x: auto;
   padding-block: var(--space-1);
 }
 
-.calendar {
+/* The calendar and its legend, as wide as the calendar (the legend ends under today). */
+.calendarInner {
+  display: grid;
+  gap: var(--space-2);
   direction: ltr;
+  inline-size: max-content;
   margin-inline-end: auto;
+}
+
+.calendar {
   border-collapse: separate;
   border-spacing: var(--space-1);
   color: var(--ink-500);
