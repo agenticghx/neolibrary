@@ -1926,6 +1926,10 @@ test("a made voice keeps a running total, and asks before paying on once $1 has 
       await page.emulateMedia({ colorScheme: scheme });
       await expect(bar.getByRole("button", { name: "Keep reading" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // M20 Q9: the question comes first, on its own line above its button (on a phone it was squeezed beside Speed).
+      const question = (await bar.locator("p[aria-live]").boundingBox())!;
+      const button = (await bar.getByRole("button", { name: "Keep reading" }).boundingBox())!;
+      expect(question.y + question.height, `${name}: the question above Keep reading`).toBeLessThanOrEqual(button.y + 1);
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-listen-keep-reading-${name}-${scheme}${engine()}.png` });
     }

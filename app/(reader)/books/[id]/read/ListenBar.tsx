@@ -15,7 +15,13 @@ import styles from "./reader.module.css";
 export function ListenBar({ view, onClose, ref }: { view: ListenView; onClose: () => void; ref?: Ref<HTMLDivElement> }) {
   // data-word is written by the reader as it lights each word (Reader.tsx, recordLit), not by React: keep it out of this JSX, or two writers would fight.
   return (
-    <div ref={ref} className={styles.listenBar} role="region" aria-label="Read aloud" data-passage={view.passageCfi}>
+    <div
+      ref={ref}
+      className={view.asking ? `${styles.listenBar} ${styles.listenAsking}` : styles.listenBar}
+      role="region"
+      aria-label="Read aloud"
+      data-passage={view.passageCfi}
+    >
       <button type="button" className={styles.primaryTool} disabled={view.disabled} onClick={view.toggle}>
         {view.busy ? "Preparing…" : view.playing ? "Pause" : view.asking ? "Keep reading" : "Play"}
       </button>
