@@ -103,9 +103,12 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   const gridWpm = String(Math.round(g.words / (g.activeSeconds / 60)));
 
   await page.reload();
-  // Both sittings fall in the current week: one row with both books' time.
+  // Both sittings fall in the week of 5 October (the browser's clock above): one row with both books' time.
+  // Found by its date, not as the only row: the earlier projects read on the real date, which from
+  // Monday 12 October 2026 is a later week with a row of its own (M21).
   const weeks = page.getByTestId("stats-weeks").locator("tbody tr");
-  await expect(weeks).toHaveCount(1);
+  await expect(weeks.filter({ has: page.getByRole("rowheader", { name: "5 Oct", exact: true }) })).toHaveCount(1);
+  await expect(weeks.first()).toHaveText(/^5 Oct/);
   await expect(weeks.first()).toContainText(/[45] min/);
   const pillar = page.getByTestId("stats-pillars").getByRole("row").filter({ hasText: "Electricity & the grid" });
   await expect(pillar).toContainText("Hidden Machinery");
@@ -257,6 +260,16 @@ test("the reading calendar shades each day, says its minutes, and counts your st
     "60 minutes or more",
   ]);
 
+  // Never wider than the screen; if the calendar scrolls, it starts at today, at its right end.
+  const region = calendar.getByRole("region", { name: "Reading calendar, the last 26 weeks" });
+  const todayInView = async () => {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const box = (await region.boundingBox())!;
+    const todayBox = (await grid.getByRole("cell", { name: label(0), exact: true }).boundingBox())!;
+    expect(todayBox.x).toBeGreaterThanOrEqual(box.x);
+    expect(todayBox.x + todayBox.width).toBeLessThanOrEqual(box.x + box.width);
+  };
+
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
@@ -266,14 +279,23 @@ test("the reading calendar shades each day, says its minutes, and counts your st
       await expect(calendar).toBeVisible();
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
-      // Never wider than the screen; if the calendar scrolls, it starts at today, at its right end.
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      const box = (await calendar.getByRole("region", { name: "Reading calendar, the last 26 weeks" }).boundingBox())!;
-      const todayBox = (await grid.getByRole("cell", { name: label(0), exact: true }).boundingBox())!;
-      expect(todayBox.x).toBeGreaterThanOrEqual(box.x);
-      expect(todayBox.x + todayBox.width).toBeLessThanOrEqual(box.x + box.width);
+      await todayInView();
       await calendar.scrollIntoViewIfNeeded();
       await calendar.screenshot({ path: `screenshots/stats-calendar-${name}-${scheme}.png` });
     }
   }
+
+  // A small phone (320 px wide) cannot hold all 26 weeks: the calendar scrolls inside its own box and opens at today,
+  // with the oldest weeks out of view on the left.
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.reload();
+  await expect(calendar).toBeVisible();
+  expect(await region.evaluate((el) => el.scrollWidth > el.clientWidth), "the calendar scrolls at 320 px").toBe(true);
+  await todayInView();
+  expect((await grid.locator("td[data-step]").first().boundingBox())!.x).toBeLessThan((await region.boundingBox())!.x);
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+  await calendar.scrollIntoViewIfNeeded();
+  await calendar.screenshot({ path: "screenshots/stats-calendar-narrow-light.png" });
 });

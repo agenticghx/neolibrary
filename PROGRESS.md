@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M21 palette PR (m21-palette) through the merge train; then ask Samuel whether to deploy.
+next_action: Merge the calendar follow-up, then the M21 queue (#163, #162, #164, #165, Focus).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -189,6 +189,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 16:36 · Claude Opus 5.5 (laptop) · M21 Calendar follow-up: the fix that missed #161
+- **Done:** #161 (the reading calendar) was merged by the auto-merge Action at its first push (db7ef4c). Its second commit (22d52dd) missed the merge: the calendar scrolls inside its own box on a 320 px phone instead of widening the page, and e2e/stats.spec.ts test 2 finds its week by date instead of expecting exactly one row in Week by week, which fails from Monday 12 October 2026 UTC (a second week of reading appears). Cherry-picked here.
+- **Key paths:** app/(app)/stats/ReadingCalendar.tsx; app/(app)/stats/page.module.css; e2e/stats.spec.ts
+- **Commands that worked:** gh pr view 161 --json headRefOid,mergeCommit → merged head db7ef4c; git diff --stat 1039040 origin/m21-calendar → 3 files; agent's run: PORT=3304 npx playwright test --project stats → 238 passed
+- **Known issues / blockers:** Without this, main's stats test fails from 2026-10-12 00:00 UTC and blocks every pull request.
+- **Exact next steps:** Merge this first, then #163, #162, #164, #165 and Focus.
+
 ### 2026-10-11 16:22 · Claude Opus 5.5 (laptop, M21 agent) · M21 Palette: Cmd+K (Ctrl+K) jumps to any book, Path, page or recent note
 - **Done:** Built the command palette on branch m21-palette (one PR, not merged, not deployed). Cmd+K on a Mac, Ctrl+K elsewhere, anywhere signed in and in the reader, opens a search box over the dimmed page: books (Enter opens the book page; Shift+Enter or the Read row opens the reader), Paths and their sections (path page at #p-<slug>), pages (Home, Library, Search, Paths, New path, Import, Reading stats, Your data, Account, Agent access; Invite people and Spending for an admin only), the 50 newest highlights and notes (reader at ?at=<cfi>), and Search the library for what was typed. Fuzzy matching with unit tests (letters in order, word starts and runs score higher, a title above an author, scattered letters dropped). Light GET /api/palette for the signed-in reader, fetched each time it opens. Modal dialog, ARIA combobox and listbox, result count announced, focus kept inside and returned on Escape (into the book frame too).
 - **Key paths:** components/palette/CommandPalette.tsx, components/palette/CommandPalette.module.css, lib/palette/score.ts, lib/palette/items.ts, lib/palette/data.ts (+ .test.ts for each), app/api/palette/route.ts, app/(app)/layout.tsx, app/(reader)/layout.tsx, e2e/shell.spec.ts (describe 'command palette'), docs/design.md
@@ -198,8 +205,8 @@ Never blocks the loop. Newest first.
 ### 2026-10-11 16:23 · Claude Opus 5.5 (laptop, M21 agent) · M21 Calendar: a reading calendar and streaks on Reading stats (branch m21-calendar, PR open, not merged)
 - **Done:** Reading stats opens with a 26-week calendar (one square per UTC day, weeks as columns Monday-first, 5 shade steps: none, 1-14, 15-29, 30-59, 60+ minutes; month and weekday labels; Less...More legend) and four numbers: current streak (today, or up to yesterday), longest streak and best day (all time), days read in 26 weeks. A real table: each square reads its day and minutes for screen readers. Scrolls inside its own box on narrow phones, starting at today. New tokens --heat-1..--heat-4 in all five colour blocks, with contrast checks.
 - **Key paths:** app/(app)/stats/ReadingCalendar.tsx, app/(app)/stats/page.tsx, app/(app)/stats/page.module.css, lib/library/reading-stats.ts (dayKey, secondsByDay, heatStep, calendarWeeks, streaksFrom, readingCalendar), lib/library/reading-calendar.test.ts, lib/library/reading-stats.test.ts, lib/tokens.test.ts, app/tokens.css, docs/design.md, e2e/stats.spec.ts
-- **Commands that worked:** npm run check (exit 0, 630 passed); PORT=3304 npx playwright test --project stats --ignore-snapshots (238 passed, 5.8m); screenshots/stats-calendar-{desktop,phone}-{light,dark}.png looked at
-- **Known issues / blockers:** Days are UTC days (no per-reader time zone is stored; adding one needs a migration, owned by another agent this batch). stats-* reference screenshots should not change: the calendar shows only once there is reading. Not built: hover tooltips on squares, per-reader time zone.
+- **Commands that worked:** npm run check (exit 0, 630 passed); PORT=3304 npx playwright test --project stats --ignore-snapshots (238 passed, 3.9m, incl. a 320 px pass proving the calendar scrolls inside its box and opens at today); screenshots/stats-calendar-{desktop,phone}-{light,dark}.png looked at
+- **Known issues / blockers:** Days are UTC days (no per-reader time zone is stored; adding one needs a migration, owned by another agent this batch). stats-* reference screenshots should not change: the calendar shows only once there is reading. Not built: hover tooltips on squares, per-reader time zone. Also fixed in this PR: stats.spec test 2 asserted exactly one week row, which fails from Monday 12 Oct 2026 UTC (earlier projects read on the real date); it now finds the week of 5 Oct by its date (still date-bound: that week leaves the 12-week table in late Dec 2026).
 - **Exact next steps:** Merge the M21 Calendar PR through the merge train once its checks are green; follow-up: a per-reader time zone for the calendar's days.
 
 ### 2026-10-11 14:51 · Claude Opus 5.5 (laptop) · M20 Q9: Keep reading? and a note's actions, no longer squeezed
