@@ -1,20 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Style } from "@/lib/library/levels";
+import { STYLE_NAMES, type Style } from "@/lib/library/levels";
 import styles from "./reader.module.css";
 
 type Styles = { user: Style; book: Style | null; effective: Style };
 
-const OPTIONS: [Style, string][] = [
-  ["plain", "Plain"],
-  ["ste-light", "STE light"],
-  ["ste-standard", "STE"],
-  ["ste-strict", "STE strict"],
-];
-
-/** The short name of each style, as the setting shows it. */
-export const STYLE_NAMES = Object.fromEntries(OPTIONS) as Record<Style, string>;
+const OPTIONS = Object.entries(STYLE_NAMES) as [Style, string][];
 
 /** Sent on the window when the style changes, so the rewritten view (M17) follows it. */
 export const STYLE_EVENT = "neolibrary:ai-style";

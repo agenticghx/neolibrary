@@ -5,7 +5,8 @@ import type { Style } from "@/lib/library/levels";
 import type { RewriteView } from "@/lib/library/rewrite";
 import type { Piece } from "@/lib/library/rewritten";
 import { goAhead, mustAskAgain, paidFor, soFar, usd, type AsYouTurn } from "@/lib/library/rewritten-turn";
-import { STYLE_EVENT, STYLE_NAMES } from "./AiStyleSetting";
+import { STYLE_NAMES } from "@/lib/library/levels";
+import { STYLE_EVENT } from "./AiStyleSetting";
 import type { RewrittenMode } from "./settings";
 import styles from "./reader.module.css";
 

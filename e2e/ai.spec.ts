@@ -54,8 +54,8 @@ test("rewrite a paragraph at two levels, flip between versions, and get them bac
   await expect(panel(page)).toContainText("Mr. Utterson came home to his bachelor house"); // the paragraph, shown above
   await expect(rewrite(page)).toHaveCount(0);
 
-  await panel(page).getByRole("button", { name: "Plain English" }).click();
-  await expect(rewrite(page)).toContainText("Rewrite · Plain English · written by the test AI");
+  await panel(page).getByRole("button", { name: "Plain", exact: true }).click();
+  await expect(rewrite(page)).toContainText("Rewrite · Plain · written by the test AI");
   await expect(rewrite(page)).toContainText("Fake rewrite (plain english): ");
   await expect(rewrite(page)).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
   await expect(panel(page)).toContainText("Version 1 of 1");
@@ -64,10 +64,10 @@ test("rewrite a paragraph at two levels, flip between versions, and get them bac
   await expect(rewrite(page)).toContainText("Rewrite · Shorter");
   await expect(panel(page)).toContainText("Version 2 of 2");
   await panel(page).getByRole("button", { name: "Earlier version" }).click();
-  await expect(rewrite(page)).toContainText("Rewrite · Plain English");
+  await expect(rewrite(page)).toContainText("Rewrite · Plain ·");
 
-  // Asking for Plain English again re-serves the stored version: no new version, no second call.
-  await panel(page).getByRole("button", { name: "Plain English" }).click();
+  // Asking for Plain again re-serves the stored version: no new version, no second call.
+  await panel(page).getByRole("button", { name: "Plain", exact: true }).click();
   await expect(panel(page)).toContainText("Version 1 of 2");
 
   // The book's own text is untouched.
@@ -118,29 +118,31 @@ test("the stored versions carry their provenance", async ({ page }) => {
   await anon.close();
 });
 
-test("STE rewrites: a strictness dial, a full-STE score badge and the meaning-change notes", async ({ page }) => {
+// M19 P5: the Light / Standard / Strict dial became three of the four styles (STE light, STE, STE strict), the
+// names Aa and the Account page use. The percentage box stays.
+test("STE rewrites: STE light, STE and STE strict, a full-STE score badge and the meaning-change notes", async ({ page }) => {
   await openAtPhrase(page, "lover of the sane and customary");
   await openRewrite(page, "lover of the sane and customary");
   await expect(panel(page)).toContainText("Version 3 of 3");
-  const dial = panel(page).getByRole("group", { name: "STE strictness" });
-  await expect(dial.getByRole("button", { name: "Standard" })).toHaveAttribute("aria-pressed", "true");
-  await dial.getByRole("button", { name: "Strict" }).click();
-  await panel(page).getByRole("button", { name: "STE", exact: true }).click();
-  await expect(rewrite(page)).toContainText("Rewrite · STE, Strict · written by the test AI");
+  const dial = panel(page).getByRole("group", { name: "Rewrite as" });
+  await expect(dial.getByRole("button")).toHaveText(["Plain", "STE light", "STE", "STE strict"]);
+  await dial.getByRole("button", { name: "STE strict" }).click();
+  await expect(rewrite(page)).toContainText("Rewrite · STE strict · written by the test AI");
+  await expect(dial.getByRole("button", { name: "STE strict" })).toHaveAttribute("aria-pressed", "true");
   await expect(rewrite(page)).toContainText(/STE \d+% \(full-STE score\)/);
   await expect(rewrite(page)).toContainText("Meaning changes");
   await expect(rewrite(page).getByRole("listitem")).toHaveText(["The test AI chose no meanings; this note shows where real ones go."]);
   await expect(rewrite(page)).not.toContainText("---notes---");
   await expect(panel(page)).toContainText("Version 4 of 4");
 
-  // A percentage picks the level (75% is Standard) and, with STE showing, asks for it.
+  // A percentage picks the strictness (75% is STE, the standard one) and, with STE showing, asks for it.
   await dial.getByLabel("or a percentage").fill("75");
-  await expect(rewrite(page)).toContainText("Rewrite · STE, Standard");
+  await expect(rewrite(page)).toContainText("Rewrite · STE · written by the test AI");
   await expect(panel(page)).toContainText("Version 5 of 5");
-  await expect(dial.getByRole("button", { name: "Standard" })).toHaveAttribute("aria-pressed", "true");
-  // Back to Strict: the stored version is re-served.
-  await dial.getByRole("button", { name: "Strict" }).click();
-  await expect(rewrite(page)).toContainText("Rewrite · STE, Strict");
+  await expect(dial.getByRole("button", { name: "STE", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // Back to STE strict: the stored version is re-served.
+  await dial.getByRole("button", { name: "STE strict" }).click();
+  await expect(rewrite(page)).toContainText("Rewrite · STE strict");
   await expect(panel(page)).toContainText("Version 4 of 5");
 
   const url = await page.evaluate(() => performance.getEntriesByType("resource").map((e) => e.name).find((n) => n.includes("/rewrites?")));
@@ -162,7 +164,7 @@ test('"What do I need to know?" explains the chapter\'s assumed concepts once, a
   await openAtPhrase(page, "lover of the sane and customary");
   const know = page.getByRole("region", { name: "What do I need to know?" });
   const box = page.getByTestId("need-to-know");
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
   await expect(know).toContainText("Search for Mr. Hyde");
   await know.getByRole("button", { name: /^Show me \((about \$|under \$)/ }).click();
   await expect(box).toContainText("Before you read · written by the test AI");
@@ -174,19 +176,19 @@ test('"What do I need to know?" explains the chapter\'s assumed concepts once, a
   await expect(box).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
 
   // Closing and reopening shows the stored answer; nothing is asked again.
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
   await expect(know).toHaveCount(0);
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
   await expect(know).toContainText("Saved answer");
   await know.getByRole("button", { name: "Try again" }).click();
   await expect(know).toContainText("Latest of 2 answers");
 
   // Another chapter has its own answer.
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
   await page.getByRole("button", { name: "Contents" }).click();
   await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "The Carew Murder Case" }).click();
   await expect(page.locator("footer")).toContainText("The Carew Murder Case");
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
   await expect(know).toContainText("The Carew Murder Case");
   await expect(know.getByRole("button", { name: /^Show me/ })).toBeVisible();
 });
@@ -203,8 +205,8 @@ test("STE as a reading preference: set for all books in reading settings, or for
   await style.getByRole("button", { name: "STE strict" }).click();
   await expect(style.getByRole("button", { name: "STE strict" })).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
-  await expect(know).toContainText("Search for Mr. Hyde · STE, Strict (full STE)");
+  await page.getByRole("button", { name: "Study" }).click();
+  await expect(know).toContainText("Search for Mr. Hyde · STE strict");
   await know.getByRole("button", { name: /^Show me/ }).click();
   await expect(box).toContainText(/STE \d+% \(full-STE score\)/);
   await expect(know).toContainText("Saved answer");
@@ -214,8 +216,8 @@ test("STE as a reading preference: set for all books in reading settings, or for
   await style.getByLabel("Only for this book").check();
   await style.getByRole("button", { name: "Plain" }).click();
   await expect(style.getByRole("button", { name: "Plain" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
-  await expect(know).toContainText("Search for Mr. Hyde · Plain English");
+  await page.getByRole("button", { name: "Study" }).click();
+  await expect(know).toContainText("Search for Mr. Hyde · Plain");
   await expect(know).toContainText("Latest of 2 answers");
   await expect(box).not.toContainText("full-STE score");
 
@@ -230,14 +232,48 @@ test("STE as a reading preference: set for all books in reading settings, or for
   expect((await page.request.put(`/api/books/${bookIdOf(page)}/ai-style`, { data: { scope: "all", style: "loud" } })).status()).toBe(400);
 });
 
+// M19 P5 (the site review's fifth finding): one Study button, whose panel has two tabs, so Test yourself is no longer
+// behind a link; and the Rewrite panel offers the same four style names as Aa and the Account page, with the other
+// ways under "More ways".
+test("Study opens on Need to know, with Test yourself one tab away; Rewrite offers the four styles first", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary");
+  await expect(page.getByRole("button", { name: "What do I need to know?" })).toHaveCount(0); // the "?" is gone
+  await page.getByRole("button", { name: "Study" }).click();
+  const tabs = page.getByRole("tablist", { name: "Study" });
+  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself"]);
+  await expect(tabs.getByRole("tab", { name: "Need to know" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("region", { name: "What do I need to know?" })).toBeVisible();
+  await tabs.getByRole("tab", { name: "Test yourself" }).click();
+  await expect(page.getByRole("region", { name: "Test yourself" })).toBeVisible();
+  await expect(tabs.getByRole("tab", { name: "Test yourself" })).toHaveAttribute("aria-selected", "true");
+  // The arrow keys move between the tabs.
+  await tabs.getByRole("tab", { name: "Test yourself" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("region", { name: "What do I need to know?" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("region", { name: "What do I need to know?" })).toHaveCount(0);
+
+  await openRewrite(page, "lover of the sane and customary");
+  await expect(panel(page).getByRole("group", { name: "Rewrite as" }).getByRole("button")).toHaveText(["Plain", "STE light", "STE", "STE strict"]);
+  await expect(panel(page).getByRole("group", { name: "More ways" }).getByRole("button")).toHaveText([
+    "For a biologist",
+    "Add missing background",
+    "Shorter",
+  ]);
+  // Reading settings names the styles the same way, and no longer needs a note to tell the two sets apart.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(page.getByRole("group", { name: "AI explanations" }).getByRole("button")).toContainText(["Plain", "STE light", "STE", "STE strict"]);
+  await expect(page.getByRole("region", { name: "Reading settings" })).not.toContainText("still offers every level");
+});
+
 test("question bank: answers hidden until asked, marks kept, and wrong answers flag the chapter for a re-read", async ({ page }) => {
   await openAtPhrase(page, "lover of the sane and customary");
   const test = page.getByRole("region", { name: "Test yourself" });
   const list = page.getByTestId("questions");
   const score = page.getByTestId("question-score");
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
-  await page.getByRole("button", { name: "Test yourself on this chapter ›" }).click();
-  await expect(test).toContainText("Search for Mr. Hyde · STE, Strict (full STE)"); // the reading preference from the last test
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Test yourself" }).click();
+  await expect(test).toContainText("Search for Mr. Hyde · STE strict"); // the reading preference from the last test
   await test.getByRole("button", { name: /^Make questions \((about|under) \$/ }).click();
   await expect(list).toContainText("Question bank · written by the test AI");
   const items = list.locator("li");
@@ -259,8 +295,8 @@ test("question bank: answers hidden until asked, marks kept, and wrong answers f
   // Marks survive a reload; answers are hidden again.
   await page.reload();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  await page.getByRole("button", { name: "What do I need to know?" }).click();
-  await page.getByRole("button", { name: "Test yourself on this chapter ›" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Test yourself" }).click();
   await expect(score).toHaveText("1 right · 1 wrong · 7 to go");
   await expect(test).toContainText("Saved questions");
   await expect(items.nth(0)).not.toContainText("A made-up model answer");
@@ -615,7 +651,7 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       await page.waitForTimeout(500);
       await page.screenshot({ path: `screenshots/reader-rewrite-${name}-${scheme}.png` });
 
-      await page.getByRole("button", { name: "What do I need to know?" }).click();
+      await page.getByRole("button", { name: "Study" }).click();
       await expect(page.getByTestId("need-to-know")).toBeVisible();
       const know = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(know.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
@@ -628,8 +664,8 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       expect(set.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       await page.screenshot({ path: `screenshots/reader-settings-${name}-${scheme}.png` });
 
-      await page.getByRole("button", { name: "What do I need to know?" }).click();
-      await page.getByRole("button", { name: "Test yourself on this chapter ›" }).click();
+      await page.getByRole("button", { name: "Study" }).click();
+      await page.getByRole("tab", { name: "Test yourself" }).click();
       await page.getByTestId("questions").locator("li").nth(1).getByRole("button", { name: "Show answer" }).click();
       const qs = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(qs.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);

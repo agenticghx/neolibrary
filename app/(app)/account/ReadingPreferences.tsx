@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { STYLES, VIEWS, type RewrittenView, type Style } from "@/lib/library/levels";
+import { STYLE_NAMES, STYLES, VIEWS, type RewrittenView, type Style } from "@/lib/library/levels";
 import type { Preferences } from "@/lib/library/preferences";
 import styles from "./page.module.css";
 
-const STYLE_NAMES: Record<Style, string> = { plain: "Plain", "ste-light": "STE light", "ste-standard": "STE", "ste-strict": "STE strict" };
 
 /**
  * Reading preferences (M17): the AI explanations style for all books, and the

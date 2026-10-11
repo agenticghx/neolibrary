@@ -841,6 +841,51 @@
   gap: var(--space-2);
 }
 
+/* The four styles, two by two (Plain, STE light / STE, STE strict); the percentage box sits at the row's end. */
+.strictRow .levels {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Study (M19 P5): its two tabs, Need to know and Test yourself, at the top of both panels. */
+.studyTabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-sunken);
+}
+
+.studyTab {
+  flex: 1;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.studyTab[aria-selected="true"] {
+  border-color: var(--rule);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-raised);
+}
+
+/* The Study button: the word on a computer, an open book on a phone. */
+.studyButton {
+  display: inline-flex;
+  align-items: center;
+}
+
+.studyIcon {
+  display: none;
+}
+
 .strictRow .segment {
   flex: 1;
 }
@@ -1148,6 +1193,14 @@
 
   .bar .tool {
     padding: var(--space-1) var(--space-2);
+  }
+
+  .studyIcon {
+    display: block;
+  }
+
+  .studyWord {
+    display: none;
   }
 
   .stage {

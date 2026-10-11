@@ -196,12 +196,12 @@ test("panels open beside the book on a computer, never over it, and the reading 
   const panels: [string, () => Promise<void>][] = [
     ["Notes", () => page.getByRole("button", { name: /^Notes/ }).click()],
     ["Reading settings", () => page.getByRole("button", { name: "Reading settings" }).click()],
-    ["What do I need to know?", () => page.getByRole("button", { name: "What do I need to know?" }).click()],
+    ["What do I need to know?", () => page.getByRole("button", { name: "Study" }).click()],
     [
       "Test yourself",
       async () => {
-        await page.getByRole("button", { name: "What do I need to know?" }).click();
-        await page.getByRole("button", { name: /^Test yourself on this chapter/ }).click();
+        await page.getByRole("button", { name: "Study" }).click();
+        await page.getByRole("tab", { name: "Test yourself" }).click();
       },
     ],
     ["Elsewhere in your library", () => page.getByRole("button", { name: /links? to your other books$/ }).click()],

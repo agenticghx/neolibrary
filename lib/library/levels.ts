@@ -36,6 +36,11 @@ export const STYLES = {
   "ste-strict": "STE, Strict (full STE)",
 } as const;
 export type Style = keyof typeof STYLES;
+/**
+ * The short name of each style, the same on every screen (M19): the reader's Aa setting, the Account page, the
+ * Rewrite panel and the headings of Study and the rewritten view.
+ */
+export const STYLE_NAMES: Record<Style, string> = { plain: "Plain", "ste-light": "STE light", "ste-standard": "STE", "ste-strict": "STE strict" };
 export const isStyle = (v: unknown): v is Style => typeof v === "string" && Object.hasOwn(STYLES, v);
 /** The STE strictness of a style, or null for plain English. */
 export const styleStrictness = (s: Style): Strictness | null => (s === "plain" ? null : (s.slice(4) as Strictness));

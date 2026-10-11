@@ -1164,19 +1164,26 @@ export function Reader(props: {
               <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
             </svg>
           </button>
+          {/* Study (M19 P5): "What do I need to know?" and Test yourself, as tabs. The word on a computer; an open book on a
+              phone, where the bar is full. It was a "?" in a circle, which reads as Help. */}
           <button
             type="button"
-            className={styles.tool}
+            className={`${styles.tool} ${styles.studyButton}`}
             aria-expanded={panel === "know" || panel === "questions"}
-            aria-label="What do I need to know?"
-            title="What do I need to know? Test yourself"
+            aria-label="Study"
+            title="Study: what this chapter takes for granted, and questions on it"
             onClick={() => setPanel(panel === "know" || panel === "questions" ? "none" : "know")}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M6.2 6.2a1.9 1.9 0 1 1 2.6 1.75c-.5.22-.8.6-.8 1.15v.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              <circle cx="8" cy="11.6" r=".85" fill="currentColor" />
+            <svg className={styles.studyIcon} width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M8 4.3C6.4 3.1 4.2 2.8 1.8 3.3v9.4c2.4-.5 4.6-.2 6.2 1 1.6-1.2 3.8-1.5 6.2-1V3.3c-2.4-.5-4.6-.2-6.2 1zM8 4.3v9.4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
             </svg>
+            <span className={styles.studyWord}>Study</span>
           </button>
           <button
             type="button"
@@ -1379,10 +1386,8 @@ export function Reader(props: {
           <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
             <AiStyleSetting bookId={props.bookId} />
             <p className={styles.hint}>
-              STE is Simplified Technical English: one meaning per word, short sentences. This style rewrites the book in the
-              rewritten view (the button beside Notes), and words &ldquo;What do I need to know?&rdquo; and other AI explanations.
-              The Rewrite button on selected text still offers every level. The Account page sets the style and the view every
-              book opens with.
+              STE is Simplified Technical English: one meaning per word, short sentences. The style is used by the rewritten view,
+              Study and Rewrite; the Account page sets it for every book.
             </p>
             <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
           </section>
