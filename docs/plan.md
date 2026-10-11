@@ -654,6 +654,13 @@ pull request each, smallest and surest first:
   to Q5). With the theme on Auto, a device turning dark left a light frame
   around the dark page until a reload. Done when: a browser test fails
   without the fix and passes with it.
+- **Q8 · A large book opens on a slow connection.** The reader gave up 30 s
+  after it began opening, download included, so a large PDF on a phone
+  could be called broken while still arriving. Now it waits while pieces
+  keep coming, gives up after 30 s with nothing, and says "12 of 80 MB
+  downloaded". Done when: unit tests show a slow but steady download
+  succeeding and a stopped one giving up, and a browser test on a slowed
+  connection sees the progress line and the book open.
 
 Left for Samuel (Open unknowns): the view remembered per book (it changes
 his 2026-10-10 call that the view is one account setting), the PDF

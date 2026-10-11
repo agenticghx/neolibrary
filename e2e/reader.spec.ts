@@ -322,6 +322,44 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
 });
 
+// M20 Q8: a large book on a slow connection. The reader says how much of the file has arrived, and it waits as long
+// as pieces keep coming (before, it gave up 30 s after it began opening, download included). The connection is slowed
+// with Chromium's DevTools; the service worker is kept out of this page so the slowing applies to the download itself.
+test.describe("a large book on a slow connection", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("says how much of the file has arrived, then opens", async ({ page }) => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const { randomBytes } = await import("node:crypto");
+    const doc = await PDFDocument.create();
+    doc.setTitle("A Heavy Book");
+    doc.setAuthor("Test");
+    const font = await doc.embedFont(StandardFonts.TimesRoman);
+    doc.addPage([612, 792]).drawText("A heavy book: three megabytes, mostly an attachment.", { x: 72, y: 700, size: 14, font });
+    await doc.attach(randomBytes(3 * 1024 * 1024), "filler.bin", { mimeType: "application/octet-stream" });
+    await page.goto("/import");
+    await page.getByLabel("Choose files").setInputFiles({ name: "heavy.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
+    await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible({ timeout: 20_000 });
+    const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string; deletedAt?: string }[];
+    const heavy = books.find((b) => b.title === "A Heavy Book" && !b.deletedAt)!;
+
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.enable");
+    // About 1 MB a second: the 3 MB file takes about 3 s.
+    await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: 1024 * 1024, uploadThroughput: -1 });
+    await page.goto(`/books/${heavy.id}/read`);
+    await expect(page.getByText(/^Opening the book… \d+\.\d of 3\.0 MB downloaded$/)).toBeVisible({ timeout: 10_000 });
+    await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
+    await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+
+    // Leave the shelves as the later tests expect them: the heavy book removed.
+    await page.goto(`/books/${heavy.id}`);
+    await page.locator("summary", { hasText: "Remove from library" }).click();
+    await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
+    await expect(page).toHaveURL(/\/library$/);
+  });
+});
+
 /** The PDF leaf in an address (epubcfi(/6/4) is leaf 1), or -1. */
 function pdfLeaf(cfi: string) {
   const n = Number(/^epubcfi\(\/6\/(\d+)/.exec(cfi)?.[1]);

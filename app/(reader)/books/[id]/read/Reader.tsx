@@ -6,6 +6,7 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { usePlayer } from "@/components/player/PlayerProvider";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
 import { addToOutbox, describeRefused, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
+import { downloadBook, downloadedWords } from "@/lib/reader/download";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
@@ -222,7 +223,11 @@ function pdfDocsOnScreen(v: FoliateView): Document[] {
   }
 }
 
-/** How long a book may take to open before the reader says it could not be opened. */
+/**
+ * How long the reader waits before it says a book could not be opened: for
+ * the next piece of the file while it downloads (a large PDF on a slow
+ * connection may take minutes in all, M20), then for the book to open.
+ */
 const OPEN_TIMEOUT_MS = 30_000;
 
 /** Fired once a book's notes have loaded: send what waits in the outbox (M12). */
@@ -350,6 +355,8 @@ export function Reader(props: {
     chapter: "",
   });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  // While a large file downloads: "12 of 80 MB" (M20).
+  const [downloaded, setDownloaded] = useState<string | null>(null);
   const pending = useRef<Relocate | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -404,16 +411,21 @@ export function Reader(props: {
     let cancelled = false;
     // Never wait forever: some failures inside the book's frames are thrown
     // where this code cannot catch them (this hid a Safari problem, 2026-10-04).
-    const giveUp = setTimeout(() => {
-      if (!cancelled) setStatus((s) => (s === "loading" ? "error" : s));
-    }, OPEN_TIMEOUT_MS);
+    // The clock starts once the file has arrived; the download has its own (M20).
+    let giveUp: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       try {
         const initial = loadSettings();
         await import("foliate-js/view.js");
-        const res = await fetch(props.fileUrl);
-        if (!res.ok) throw new Error(`file ${res.status}`);
-        const blob = await res.blob();
+        const blob = await downloadBook(props.fileUrl, {
+          stallMs: OPEN_TIMEOUT_MS,
+          onProgress: (got, total) => {
+            if (!cancelled) setDownloaded(downloadedWords(got, total));
+          },
+        });
+        giveUp = setTimeout(() => {
+          if (!cancelled) setStatus((s) => (s === "loading" ? "error" : s));
+        }, OPEN_TIMEOUT_MS);
         const book =
           props.fileType === "pdf"
             ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob, initial.pages)
@@ -1248,7 +1260,11 @@ export function Reader(props: {
             <path d="m7 3 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </button>
-        {status === "loading" ? <p className={styles.notice}>Opening the book…</p> : null}
+        {status === "loading" ? (
+          <p className={styles.notice} role="status">
+            Opening the book…{downloaded ? ` ${downloaded} downloaded` : ""}
+          </p>
+        ) : null}
         {status === "error" ? (
           <p className={styles.notice} role="alert">
             This book could not be opened. Go back and try again.
