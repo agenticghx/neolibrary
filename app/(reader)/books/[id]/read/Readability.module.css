@@ -1,0 +1,33 @@
+/* The reading-level badge under a rewrite (M21, ReadabilityBadge.tsx): quiet, like the STE score badge. */
+
+.readability {
+  justify-self: start;
+  color: var(--machine-ink);
+  font-size: var(--text-xs);
+  line-height: var(--leading-ui);
+}
+
+/* The browser's own disclosure arrow stays (inside the border): it says the badge opens. */
+.badge {
+  width: fit-content;
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-hair) solid var(--machine-rule);
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+  list-style-position: inside;
+  cursor: pointer;
+}
+
+.arrow {
+  width: var(--space-3);
+  height: var(--space-3);
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  vertical-align: -0.1em;
+}
+
+.note {
+  max-width: var(--measure-read);
+  margin-top: var(--space-1);
+}
