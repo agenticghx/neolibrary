@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M19 the P2 tint fix and P3b, then deploy; then Samuel tries all five (docs/review-top5-plan.md).
+next_action: Merge M19 #149 and #150 (P3b), deploy, then Samuel tries all five (docs/review-top5-plan.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -172,6 +172,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 11:18 · Claude Opus 5.5 (laptop) · Deployed M19 P1b, P2, P3a and P5 (live 4b96825)
+- **Done:** Merged: #145 P1b (d740ebe), #146 P2 (20ed7a4), #147 P3a (b876b73), #148 P5 (4b96825). Main's CI passed on each merge commit's run except a scheduled full run on 20ed7a4 (38148803577): the read-aloud tint check broken by #146 (fixed in #149) and the known WebKit flake safari.spec.ts:42 (recorded in docs/ci-flakes.md). Deployed 4b96825; no database change since 3de6ff7.
+- **Key paths:** ../neolibrary-deploy (detached worktree)
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=<sha> --skip-deploys; railway up --service web --environment production --ci (Deploy complete); curl /api/health -> commit 4b96825; /sign-in 200; /import 307; /data 307
+- **Known issues / blockers:** Nobody has tried M19 signed in on the live site (Claude cannot sign in).
+- **Exact next steps:** Merge #149 (tint check) and #150 (P3b); deploy P3b; Samuel tries all five.
 
 ### 2026-10-11 10:28 · Claude Opus 5.5 (laptop) · M19 P3b: a book can be removed from the library and brought back
 - **Done:** Book page: 'Remove from library' (folded, confirmed) for books with a file that fill no Path title; the book leaves shelves, search (books and notes), collection counts, per-book stats and the agent's view (weekly totals keep its time); file, notes and reading history are kept. Your data: 'Removed books' with Bring back. Uploading a removed book again brings it back with its notes ('restored') instead of a copy. Export carries removed books with deletedAt, import keeps it (fixes the hazard where export dropped a removed book but kept its notes); a bad date is refused. Reuses books.deleted_at: no migration.
