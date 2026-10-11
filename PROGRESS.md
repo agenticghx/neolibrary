@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Finish and merge the account menu PR (m18-account-menu: computer A, phone B); ask Samuel before deploying.
+next_action: Samuel tries the account menu live (f6b71a4); commit this ledger entry with the next real PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -19,7 +19,9 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-10 17:40 (laptop clock). **The Grid is rewritten end to end, live.** Every piece from the Introduction to the Acknowledgments (pages 7-248, 304 pieces) has a `claude -p` rewrite in each of the four styles in the live database (free to read; chapter 1 from earlier, the rest made today). Samuel reads it in the panel beside the page and switches style with Aa → AI explanations. Not rewritten: front matter, Notes, Index (ask before doing the Notes). Files, scores, scripts and the undo statement: `~/Documents/neolibrary-grid-book/README.md` (not in git). This ledger entry is uncommitted on main: commit it with the next pull request.
+Written 2026-10-11 03:26 (laptop clock). **Live: f6b71a4** (#142, the account menu, deployed at Samuel's word "deploy it once it merges"). On a computer, the foot of the sidebar shows only the initial, the name and a down-arrow; a click opens a card above it (email, Account, Reading stats, Your data | Invite | Sign out). On a phone, the round initial on Home opens a sheet from the bottom with the page dimmed. Samuel tries it signed in. Two calls he can overrule in one line: the mockup's grey "only you" beside Invite is left out; the sheet's handle is a cue only (no drag to close). This entry sits on local branch `m18-deploy-record` (not pushed): commit it with the next real pull request. Main's CI on f6b71a4 passed (run 38121169705: browser tests, Postgres, lint and unit tests all success).
+
+Written 2026-10-10 17:40 (laptop clock). **The Grid is rewritten end to end, live.** Every piece from the Introduction to the Acknowledgments (pages 7-248, 304 pieces) has a `claude -p` rewrite in each of the four styles in the live database (free to read; chapter 1 from earlier, the rest made today). Samuel reads it in the panel beside the page and switches style with Aa → AI explanations. Not rewritten: front matter, Notes, Index (ask before doing the Notes). Files, scores, scripts and the undo statement: `~/Documents/neolibrary-grid-book/README.md` (not in git). (Committed with #142.)
 
 Written 2026-10-10 10:45 (laptop clock). **Live: 5521b6a** (#137 and M17 Read it rewritten, deployed at Samuel's yes). Samuel tries it on *The Grid*: the button beside Notes, then "Rewrite this page in {style}" (a few cents a page at STE); Side by side and Rewritten. Also a pause of more than 5 minutes then Play (#137). Making the next page ahead (Listen and rewrites) waits on row 15. Plan: `docs/rewritten-view-plan.md`; prototype `~/Documents/neolibrary-grid-ch1/rewrites/compare.html`.
 
@@ -167,6 +169,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 03:26 · Claude Opus 5.5 (laptop) · Merged #142 (account menu: computer A, phone B) and deployed it: live at f6b71a4
+- **Done:** #142 merged as f6b71a4 (gh pr view 142 -> MERGED f6b71a48) after three CI rounds: (1) run 38119617786, the 30 desktop reference images (15 pages x light/dark; every page shows the new sidebar foot), refreshed from CI, home-desktop-light and stats-desktop-dark looked at, no phone image changed; (2) run 38120118560, a race in the new phone test (it measured mid-slide and counted the sheet's own rows as page links, so it tapped 'Your data'), fixed in the test, assertion unchanged, local shell chain 172 passed (38.6s); (3) run 38120609214 green. Deployed at Samuel's word ('deploy it once it merges'); no database change since cf6709a, so no backup. Screenshots looked at: account-menu desktop light/dark and phone dark.
+- **Key paths:** components/shell/AccountMenu.tsx; components/shell/Sidebar.tsx; components/shell/Shell.module.css; app/tokens.css (--scrim); e2e/shell.spec.ts; e2e/pages.ts (openAccountMenu); e2e/__screenshots__/*-desktop-*.png (30)
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh 142 m18-account-menu (exit 3 images, exit 4 test race, then 'CI green on run 38120609214', 'MERGED #142 ... f6b71a4'); git diff --stat cf6709a origin/main -- db lib/db -> empty; git worktree add --detach ../neolibrary-deploy f6b71a4; railway link --project <id> --service web --environment production; railway variable set NEOLIBRARY_COMMIT=<f6b71a4 full sha> --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete, exit 0; curl /api/health -> {"status":"ok","service":"neolibrary","commit":"f6b71a4"}; /sign-in 200; /import 307; /account 307
+- **Known issues / blockers:** Not seen signed in on the live site (Claude cannot sign in). Main's CI on f6b71a4 passed afterwards (run 38121169705 -> success). This entry is on local branch m18-deploy-record, not pushed.
+- **Exact next steps:** 1. Samuel tries the menu signed in (computer and phone). 2. Commit this entry with the next real pull request. 3. Still open: Samuel's verdict on The Grid rewritten; whether to rewrite its Notes.
 
 ### 2026-10-11 02:54 · Claude Opus 5.5 (laptop) · Account menu built (computer A, phone B) on m18-account-menu; browser tests running
 - **Done:** Samuel picked computer A (card above the name) and phone B (sheet from the bottom), row 19 closed. Built: one client AccountMenu with placement sidebar|sheet; the sidebar foot shows initial, name and a down-arrow; the menu holds the email, Account, Reading stats, Your data | Invite (admin) | Sign out, with icons and rules. Phone sheet sits over the tabs with the page dimmed (new --scrim token in all five theme blocks); a tap on the dimmed page closes it on click, so the tap does not also open the link underneath. Tests updated: shell.spec (new desktop menu test, phone sheet test with a touch tap), flows.spec and audio.spec open the menu first (openAccountMenu helper in e2e/pages.ts). npm run check passed (EXIT=0, 581 unit tests). Left out of the mockup: the grey 'only you' beside Invite.
