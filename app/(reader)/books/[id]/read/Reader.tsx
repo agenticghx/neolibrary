@@ -238,6 +238,7 @@ export function Reader(props: {
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
   const view = useRef<FoliateView | null>(null);
   /** The open PDF, when this book is one, so a fold can draw a page that is not on screen yet. */
   const bookRef = useRef<SpineBook | null>(null);
@@ -265,6 +266,29 @@ export function Reader(props: {
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images" | "picture">("none");
+  // The keyboard follows the panel (M19 P1b), as in the account menu: focus moves into a panel when it opens, and
+  // back to the button that opened it when it closes, if the focus went away with the panel.
+  const opener = useRef<HTMLElement | null>(null);
+  const shownPanel = useRef<typeof panel>("none");
+  useEffect(() => {
+    const was = shownPanel.current;
+    shownPanel.current = panel;
+    if (panel === "none") {
+      const back = opener.current;
+      opener.current = null;
+      const lost = document.activeElement === null || document.activeElement === document.body;
+      if (was !== "none" && back?.isConnected && lost) back.focus();
+      return;
+    }
+    if (was === "none") {
+      const active = document.activeElement;
+      opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    const box = stage.current?.querySelector<HTMLElement>(`:scope > .${CSS.escape(styles.panel)}`);
+    if (!box || box.contains(document.activeElement)) return; // a panel that put focus on its own field keeps it
+    box.tabIndex = -1;
+    box.focus({ preventScroll: true });
+  }, [panel]);
   const [imagesFor, setImagesFor] = useState("");
   const [imagesAt, setImagesAt] = useState<PendingSelection | null>(null);
   const [links, setLinks] = useState<CrossLink[]>([]);
@@ -356,7 +380,9 @@ export function Reader(props: {
   const onKey = useCallback((e: KeyboardEvent) => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     const target = e.target as HTMLElement | null;
-    if (target && ["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(target.tagName)) return;
+    if (target && ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)) return;
+    // A focused button keeps its own keys (Enter, Space, arrows), but Escape still closes the panel (M19 P1b).
+    if (target?.tagName === "BUTTON" && e.key !== "Escape") return;
     if (e.key === "ArrowRight" || e.key === "PageDown") turnRef.current("next");
     else if (e.key === "ArrowLeft" || e.key === "PageUp") turnRef.current("prev");
     else if (e.key === "Escape") setPanel("none");
@@ -1131,7 +1157,7 @@ export function Reader(props: {
         </div>
       </header>
 
-      <div className={stageClass}>
+      <div ref={stage} className={stageClass}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M11 3 5 9l6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

@@ -134,6 +134,34 @@ test("the back arrow leaves the book for the library; contents open on the left 
   await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 });
 
+// M19 P1b (the site review): the keyboard follows a panel, as in the account menu. Focus moves into a panel when it
+// opens, and Escape closes it and puts focus back on the button that opened it, even right after a click on it.
+test("the keyboard follows a panel: focus moves in when it opens, and Escape brings it back to its button", async ({ page }) => {
+  await openJekyll(page);
+  const pairs = [
+    [page.getByRole("button", { name: "Contents" }), page.getByRole("navigation", { name: "Contents" })],
+    [page.getByRole("button", { name: "What do I need to know?" }), page.getByRole("region", { name: "What do I need to know?" })],
+    [page.getByRole("button", { name: /^Notes/ }), page.getByRole("navigation", { name: "Notes" })],
+    [page.getByRole("button", { name: "Reading settings" }), page.getByRole("region", { name: "Reading settings" })],
+  ] as const;
+  for (const [button, panel] of pairs) {
+    await button.focus();
+    await page.keyboard.press("Enter");
+    await expect(panel).toBeVisible();
+    await expect.poll(() => panel.evaluate((el) => el.contains(document.activeElement)), { message: "focus inside the panel" }).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(button).toBeFocused();
+  }
+  // Escape with the toolbar button itself focused (it used to swallow the key, so the panel stayed open).
+  const [button, panel] = pairs[3];
+  await button.click();
+  await expect(panel).toBeVisible();
+  await button.focus();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await openJekyll(page);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
