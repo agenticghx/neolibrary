@@ -233,6 +233,50 @@ test("the theme picker recolours the reader (Sepia), and Auto follows the device
   await expect(reader(page)).toHaveCSS("background-color", "rgb(243, 237, 225)");
 });
 
+// The book viewer paints the margins around the text with the colour the page had when its chapter loaded, unless the
+// page names its theme colour (--theme-bg-color). Without it, a device turning dark (theme Auto) or a new theme left a
+// light frame around a dark page until the next chapter or a reload (seen 2026-10-11 in M20's dark screenshots).
+test("the margins around the text follow a change of theme without a reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await openJekyll(page);
+  // The band above the text: the viewer's top margin, outside the chapter's own frame.
+  const margin = async () => {
+    const png = (await page.screenshot({ clip: { x: 600, y: 64, width: 80, height: 24 } })).toString("base64");
+    return page.evaluate(async (b64) => {
+      const img = await createImageBitmap(new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: "image/png" }));
+      const ctx = new OffscreenCanvas(img.width, img.height).getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, img.width, img.height).data;
+      const sum = [0, 0, 0];
+      for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) sum[k] += d[i + k];
+      return sum.map((v) => Math.round(v / (d.length / 4)));
+    }, png);
+  };
+  const paper = async () => (await reader(page).evaluate((el) => getComputedStyle(el).backgroundColor)).match(/\d+/g)!.slice(0, 3).map(Number);
+  const near = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) <= 6);
+  const check = async (why: string) => {
+    const want = await paper();
+    await expect.poll(async () => near(await margin(), want), { message: `${why}: margin ${await margin()} vs paper ${want}` }).toBe(true);
+  };
+  await check("light");
+  const light = await paper();
+  // The device turns dark while the book is open (theme Auto).
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(async () => near(await paper(), light)).toBe(false);
+  await check("device dark");
+  // A theme chosen in the reader: Sepia, then back to Auto.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Sepia" }).click();
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await check("Sepia");
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Auto" }).click();
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.emulateMedia({ colorScheme: "light" });
+  await check("back to light");
+});
+
 test("a PDF opens in the reader, turns pages, and its text is searchable", async ({ page }) => {
   const { PDFDocument, StandardFonts } = await import("pdf-lib");
   const doc = await PDFDocument.create();

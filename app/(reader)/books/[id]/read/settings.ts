@@ -61,7 +61,7 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
   return `
     ${fonts}
     @namespace epub "http://www.idpf.org/2007/ops";
-    html { color-scheme: ${colors.scheme}; font-size: ${s.size}% !important; }
+    html { color-scheme: ${colors.scheme}; font-size: ${s.size}% !important; --theme-bg-color: ${colors.paper}; }
     html, body { background: ${colors.paper} !important; color: ${colors.ink} !important; }
     ${family ? `body, p, li, blockquote, dd, div, span, h1, h2, h3, h4, h5, h6 { font-family: ${family} !important; }` : ""}
     p, li, blockquote, dd {
