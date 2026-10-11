@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q3 to Q6 (#153 to #156), then ask Samuel whether to deploy.
+next_action: Merge M20 Q3 to Q7 (#153 to #157), then ask Samuel whether to deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -175,6 +175,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 14:19 · Claude Opus 5.5 (laptop) · M20 Q7: the margins around the text follow a change of theme
+- **Done:** Found in M20's dark screenshots: with the theme on Auto, a device turning dark while a book was open left a light frame around the dark page until a reload. Cause: foliate-js's paginator keeps the page background it read when the chapter loaded (docBackground) and repaints the margins with it on setStyles, unless the page sets --theme-bg-color. bookCss now sets --theme-bg-color to the theme's paper colour. PDFs are not affected (their pages are pictures).
+- **Key paths:** app/(reader)/books/[id]/read/settings.ts (bookCss); e2e/reader.spec.ts; docs/plan.md (M20 Q7); node_modules/foliate-js/paginator.js (#replaceBackground, setStyles: read only)
+- **Commands that worked:** npx playwright test --project reader --ignore-snapshots → without the fix: 1 failed, 'device dark: margin 243,237,225 vs paper 27,40,47'; with it: 187 passed; npm run check → EXIT=0, 592 passed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge Q3 to Q7 (#153 to #157) one at a time; then ask Samuel whether to deploy M20.
 
 ### 2026-10-11 14:13 · Claude Opus 5.5 (laptop) · M20 Q6: Path stops are links; Open unknowns row 21
 - **Done:** Q6: components/PathView.tsx makes each stop under a Path's title a link to its pillar's heading (#p-<slug>), named with its title, finished and you are here (aria-current=location); it draws nothing, so the row looks the same. Open unknowns row 21 lists the five review findings that wait for Samuel (view per book, the PDF page-turn pause, Want to Read without titles not available yet, the phone top bar, a password reset he issues).
