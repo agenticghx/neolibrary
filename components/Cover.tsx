@@ -31,8 +31,11 @@ export function Cover({
   available: Availability;
   /** Show the availability label ("Read only", ...) under the cover; off where the page shows it itself. */
   caption?: boolean;
-  /** "fill": as wide as its grid column (the library grid); "mini": a small swatch beside a title (Continue). */
-  size?: "md" | "sm" | "fill" | "mini";
+  /**
+   * "fill": as wide as its grid column (the library grid); "fillSmall": the same in a narrow column, with small
+   * lettering ("Not available yet"); "mini": a small swatch beside a title (Continue).
+   */
+  size?: "md" | "sm" | "fill" | "fillSmall" | "mini";
   /** The page shows the title beside the cover: hide the cover's own lettering from screen readers. */
   decorative?: boolean;
   href?: string;
@@ -52,7 +55,15 @@ export function Cover({
   const className = [
     styles.cover,
     any ? styles[tone] : styles.empty,
-    size === "sm" ? styles.small : size === "fill" ? styles.fill : size === "mini" ? styles.mini : "",
+    size === "sm"
+      ? styles.small
+      : size === "fill"
+        ? styles.fill
+        : size === "fillSmall"
+          ? `${styles.fill} ${styles.fillSmall}`
+          : size === "mini"
+            ? styles.mini
+            : "",
     current ? styles.current : "",
   ].join(" ");
   const titleClass = [styles.title, styles[titleSize(title)]].join(" ");
@@ -93,7 +104,7 @@ export function Cover({
       </div>
     );
   return (
-    <figure className={[styles.figure, size === "fill" ? styles.fillFigure : ""].join(" ")}>
+    <figure className={[styles.figure, size === "fill" || size === "fillSmall" ? styles.fillFigure : ""].join(" ")}>
       {href ? (
         <Link href={href} className={styles.link} aria-label={`${title}${any ? "" : " (not available yet)"}`}>
           {face}

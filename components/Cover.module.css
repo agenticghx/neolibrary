@@ -98,11 +98,13 @@
   box-shadow: none;
 }
 
+/* A word too long for the cover is hyphenated, never chopped ("Airpor t"); break-word is the last resort. */
 .title {
   font-size: var(--text-lg);
   line-height: var(--leading-tight);
   font-weight: var(--weight-medium);
   text-wrap: balance;
+  hyphens: auto;
   overflow-wrap: break-word;
   min-width: 0;
   max-width: 100%;
@@ -183,6 +185,23 @@
 
 .fill {
   width: 100%;
+}
+
+/*
+ * The narrow columns of "Not available yet" (M19): the lettering a phone already uses for these covers, instead of
+ * the full-size title that broke words in half ("Airpor t"). Before the phone rules below, which keep their own.
+ */
+.fillSmall {
+  padding: var(--space-3) var(--space-2);
+}
+
+.fillSmall .title {
+  font-size: var(--text-sm);
+}
+
+.fillSmall .long,
+.fillSmall .veryLong {
+  font-size: var(--text-xs);
 }
 
 @media (width <= 48rem) {
