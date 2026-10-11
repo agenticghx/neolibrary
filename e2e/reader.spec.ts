@@ -1051,3 +1051,375 @@ test("Find in this book lists the places with a phrase and opens one", async ({ 
     )
     .toContain("born in the year");
 });
+
+// M21 Focus: a reading ruler and paragraph focus for EPUBs, and the Keyboard shortcuts dialog.
+
+type FocusLine = { left: number; right: number; y: number };
+
+/** The book's paragraphs on screen, each with its lines (their ends and middle height), in the page's coordinates. */
+async function paragraphsOnScreen(page: Page): Promise<{ text: string; lines: FocusLine[] }[]> {
+  return page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as HTMLElement & { renderer: { getContents(): { doc: Document }[] } };
+    const out: { text: string; lines: { left: number; right: number; y: number }[] }[] = [];
+    for (const { doc } of view.renderer.getContents()) {
+      const frameEl = doc.defaultView?.frameElement as HTMLElement | null;
+      const frame = frameEl?.getBoundingClientRect();
+      // What is on screen: foliate's page container (the frame's grandparent), which hides the pages either side.
+      const seen = frameEl?.parentElement?.parentElement?.getBoundingClientRect();
+      if (!frame || !seen) continue;
+      for (const p of Array.from(doc.querySelectorAll("p"))) {
+        const range = doc.createRange();
+        range.selectNodeContents(p);
+        const lines: { left: number; right: number; y: number }[] = [];
+        for (const b of Array.from(range.getClientRects())) {
+          if (b.width < 1 || b.height < 1) continue;
+          const line = { left: frame.left + b.left, right: frame.left + b.right, y: frame.top + (b.top + b.bottom) / 2 };
+          if (line.left < seen.left || line.right > seen.right || line.y < seen.top || line.y > seen.bottom) continue;
+          const same = lines.find((l) => Math.abs(l.y - line.y) < 4);
+          if (same) {
+            same.left = Math.min(same.left, line.left);
+            same.right = Math.max(same.right, line.right);
+          } else lines.push(line);
+        }
+        if (lines.length) out.push({ text: (p.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 50), lines });
+      }
+    }
+    return out;
+  });
+}
+
+/**
+ * What Focus shows on the book's page: its mode, the ruler's band (page coordinates; null when hidden), and whether
+ * the text at each point is dimmed (inside the page's "nl-dim" highlight).
+ */
+async function focusShown(page: Page, points: { x: number; y: number }[] = []) {
+  return page.evaluate((points) => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const win = doc.defaultView as (Window & { CSS: typeof CSS }) | null;
+      const frame = (win?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      if (!win || !frame) continue;
+      const band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
+      const box = band && win.getComputedStyle(band).display !== "none" ? band.getBoundingClientRect() : null;
+      const dim = win.CSS.highlights?.get("nl-dim");
+      const ranges = dim ? Array.from(dim as unknown as Iterable<Range>) : [];
+      const caret = (x: number, y: number) => {
+        const d = doc as Document & {
+          caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+          caretRangeFromPoint?: (x: number, y: number) => Range | null;
+        };
+        const p = d.caretPositionFromPoint?.(x, y);
+        if (p) return { node: p.offsetNode, offset: p.offset };
+        const r = d.caretRangeFromPoint?.(x, y);
+        return r ? { node: r.startContainer, offset: r.startOffset } : null;
+      };
+      const dimmed = points.map(({ x, y }) => {
+        const at = caret(x - frame.left, y - frame.top);
+        return !!at && ranges.some((r) => r.isPointInRange(at.node, at.offset));
+      });
+      return {
+        mode: doc.documentElement.getAttribute("data-nl-focus"),
+        band: box ? { top: frame.top + box.top, bottom: frame.top + box.bottom, left: frame.left + box.left, right: frame.left + box.right } : null,
+        dimmed,
+      };
+    }
+    return null;
+  }, points);
+}
+
+/** What a pointer at each point would land on in the book's page (points in the reader's coordinates), and whether the band takes the pointer. */
+async function underPointer(page: Page, points: { x: number; y: number }[]) {
+  return page.evaluate((points) => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const win = doc.defaultView;
+      const frame = (win?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      const band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
+      if (!win || !frame || !band) continue;
+      const at = points.map(({ x, y }) => {
+        const el = doc.elementFromPoint(x - frame.left, y - frame.top);
+        return { band: !!el?.closest("[data-nl-ruler]"), inText: !!el && el !== doc.body && el !== doc.documentElement && doc.body.contains(el) };
+      });
+      return { band: win.getComputedStyle(band).pointerEvents, at };
+    }
+    return null;
+  }, points);
+}
+
+/** Selects the words between two points of a line, as a mouse drag from the first to the second would; returns them. */
+async function selectBetween(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+  return page.evaluate(
+    ([from, to]) => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      for (const { doc } of view.renderer.getContents()) {
+        const frame = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+        if (!frame) continue;
+        const d = doc as Document & {
+          caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+          caretRangeFromPoint?: (x: number, y: number) => Range | null;
+        };
+        const caret = (x: number, y: number) => {
+          const p = d.caretPositionFromPoint?.(x - frame.left, y - frame.top);
+          if (p) return { node: p.offsetNode, offset: p.offset };
+          const r = d.caretRangeFromPoint?.(x - frame.left, y - frame.top);
+          return r ? { node: r.startContainer, offset: r.startOffset } : null;
+        };
+        const a = caret(from.x, from.y);
+        const b = caret(to.x, to.y);
+        if (!a || !b) continue;
+        const range = doc.createRange();
+        range.setStart(a.node, a.offset);
+        range.setEnd(b.node, b.offset);
+        const sel = doc.getSelection()!;
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return sel.toString();
+      }
+      return "";
+    },
+    [from, to] as const,
+  );
+}
+
+const middle = (l: FocusLine) => ({ x: Math.round((l.left + l.right) / 2), y: Math.round(l.y) });
+
+/** Opens Jekyll at a chapter of plain paragraphs and turns Focus to `mode` in Reading settings. */
+async function jekyllWithFocus(page: Page, mode: "Off" | "Ruler" | "Paragraph") {
+  await openJekyll(page);
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Search for Mr. Hyde" }).click();
+  await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const focus = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Focus" });
+  await focus.getByRole("button", { name: mode, exact: true }).click();
+  await expect(focus.getByRole("button", { name: mode, exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("region", { name: "Reading settings" })).toBeHidden();
+}
+
+/** Two paragraphs on screen with at least two full lines each, turning pages until a page has them. */
+async function twoParagraphs(page: Page) {
+  const usable = async () =>
+    (await paragraphsOnScreen(page)).filter((p) => p.lines.length >= 2 && p.lines.slice(0, 2).every((l) => l.right - l.left > 120));
+  let found = await usable();
+  for (let turn = 0; turn < 6 && found.length < 2; turn++) {
+    const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+    await page.waitForTimeout(200);
+    found = await usable();
+  }
+  expect(found.length, "a page with two paragraphs of two lines or more").toBeGreaterThanOrEqual(2);
+  return [found[0], found[1]] as const;
+}
+
+const near = (band: { top: number; bottom: number } | null | undefined, y: number) => !!band && band.top <= y && band.bottom >= y && band.bottom - band.top < 60;
+
+test("Focus: the reading ruler follows the pointer and dims the rest, without getting in the way of selecting and highlighting", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await jekyllWithFocus(page, "Ruler");
+  await expect(page.getByRole("button", { name: /^Notes/ })).toHaveText("Notes");
+  const [a, b] = await twoParagraphs(page);
+
+  // The band sits behind the line under the pointer; the line above it and the next paragraph are dimmed, the line is not.
+  const here = middle(a.lines[1]);
+  await page.mouse.move(here.x, here.y);
+  await expect.poll(async () => near((await focusShown(page))?.band, here.y), { message: "band on the second line" }).toBe(true);
+  expect((await focusShown(page, [here, middle(a.lines[0]), middle(b.lines[0])]))?.dimmed).toEqual([false, true, true]);
+  // It follows the pointer to another paragraph.
+  const there = middle(b.lines[1]);
+  await page.mouse.move(there.x, there.y, { steps: 8 });
+  await expect.poll(async () => near((await focusShown(page))?.band, there.y), { message: "band moved with the pointer" }).toBe(true);
+  expect((await focusShown(page, [there, here]))?.dimmed).toEqual([false, true]);
+
+  // Selecting and highlighting still work with the ruler on: nothing it adds takes the pointer. A mouse drag cannot
+  // show it on CI (in Linux Chromium a drag in an EPUB page selects nothing, with Focus off too: 2026-10-11), so
+  // the points a drag along the line would cross are hit-tested with the band on that line, then the same words are
+  // selected as the drag would select them.
+  const line = b.lines[0];
+  await page.mouse.move(line.left + 4, line.y);
+  await expect.poll(async () => near((await focusShown(page))?.band, line.y), { message: "band on the line to select" }).toBe(true);
+  const hits = await underPointer(page, [line.left + 4, line.left + 80, line.left + 160, line.right + 8].map((x) => ({ x, y: line.y })));
+  expect(hits?.band, "the band takes no clicks").toBe("none");
+  expect(hits?.at.map((h) => h.band), "no point on the line hits the band").toEqual([false, false, false, false]);
+  expect(hits?.at.slice(0, 3).map((h) => h.inText), "the words under the pointer are the book's").toEqual([true, true, true]);
+  expect(await selectBetween(page, { x: line.left + 4, y: line.y }, { x: line.left + 160, y: line.y })).not.toBe("");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await expect(bar).toBeVisible();
+  await bar.getByRole("button", { name: "Highlight in Amber" }).click();
+  await expect(page.getByRole("button", { name: /^Notes/ })).toHaveText("Notes (1)");
+  // Put the book back as the later tests expect it: no notes.
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await page.getByTestId("notes").getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("button", { name: /^Notes/ })).toHaveText("Notes");
+  await page.keyboard.press("Escape");
+
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      const [p] = await twoParagraphs(page);
+      const to = middle(p.lines[1]);
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.mouse.move(to.x, to.y);
+      await expect.poll(async () => near((await focusShown(page))?.band, to.y), { message: `band in ${name} ${scheme}` }).toBe(true);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-focus-ruler-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+});
+
+test("Focus: paragraph focus dims every paragraph but the one under the pointer, or the first on the page from the keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await jekyllWithFocus(page, "Paragraph");
+  const [a, b] = await twoParagraphs(page);
+  const inA = [middle(a.lines[0]), middle(a.lines[1])];
+  const inB = [middle(b.lines[0]), middle(b.lines[1])];
+
+  await page.mouse.move(inA[1].x, inA[1].y);
+  await expect.poll(async () => (await focusShown(page, [...inA, ...inB]))?.dimmed, { message: "A clear, B dimmed" }).toEqual([false, false, true, true]);
+  expect((await focusShown(page))?.band).toBeNull();
+  await page.mouse.move(inB[0].x, inB[0].y, { steps: 8 });
+  await expect.poll(async () => (await focusShown(page, [...inA, ...inB]))?.dimmed, { message: "B clear, A dimmed" }).toEqual([true, true, false, false]);
+
+  // From the keyboard (the mouse off the book): a new page puts the first paragraph on it in focus.
+  await page.mouse.move(640, 20);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+  await page.keyboard.press("ArrowRight");
+  await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+  await expect
+    .poll(async () => {
+      const shown = await paragraphsOnScreen(page);
+      const first = shown[0];
+      const later = shown.find((p, i) => i > 0 && p.lines.length > 0);
+      if (!first || !later) return "too few paragraphs";
+      return (await focusShown(page, [middle(first.lines[0]), middle(later.lines[0])]))?.dimmed;
+    }, { message: "first paragraph clear, a later one dimmed" })
+    .toEqual([false, true]);
+
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      const [, p] = await twoParagraphs(page);
+      const to = middle(p.lines[0]);
+      await page.mouse.move(to.x, to.y);
+      await expect.poll(async () => (await focusShown(page, [to]))?.dimmed, { message: `paragraph in ${name} ${scheme}` }).toEqual([false]);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-focus-paragraph-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+});
+
+test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ? or its link, and Escape brings the keyboard back", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  const settings = page.getByRole("region", { name: "Reading settings" });
+  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+
+  // A PDF page is a picture: no Focus. The shortcuts link is there for every book.
+  await openFacingPdf(page);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await expect(settings.getByRole("group", { name: "Theme" })).toBeVisible();
+  await expect(settings.getByRole("group", { name: "Focus" })).toHaveCount(0);
+  const link = settings.getByRole("button", { name: "Keyboard shortcuts" });
+  await link.click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+  // Every key the reader answers to, and nothing else.
+  await expect(dialog.locator("dd")).toHaveText([
+    "Next page",
+    "Previous page",
+    "Close the open panel, or this list",
+    "Show this list",
+    "In Study, move between Need to know and Test yourself",
+  ]);
+  await expect(dialog.locator("dt").first()).toHaveText("Right arrow or Page Down");
+  // The keyboard stays in the dialog, and the page does not turn behind it.
+  const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+  for (const key of ["Tab", "Shift+Tab", "Tab"]) {
+    await page.keyboard.press(key);
+    await expect.poll(() => dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(300);
+  expect(await reader(page).getAttribute("data-cfi")).toBe(at);
+  // Escape closes the dialog only: Reading settings stays open, with the keyboard back on the link.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(settings).toBeVisible();
+  await expect(link).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
+
+  // "?" from the reader's bar, in an EPUB.
+  await openJekyll(page);
+  const settingsButton = page.getByRole("button", { name: "Reading settings" });
+  await settingsButton.focus();
+  await page.keyboard.press("?");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-shortcuts-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(settingsButton).toBeFocused();
+
+  // "?" inside the book's page works too; Close shuts the dialog.
+  const [p] = await twoParagraphs(page);
+  await page.mouse.click(middle(p.lines[0]).x, middle(p.lines[0]).y);
+  await page.keyboard.press("?");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).toBeHidden();
+
+  // Not while typing: "?" goes into the box.
+  await page.getByRole("button", { name: "Contents" }).click();
+  const find = page.getByRole("navigation", { name: "Contents" }).getByLabel("Find in this book");
+  await find.fill("why");
+  await find.press("?");
+  await expect(find).toHaveValue("why?");
+  await expect(dialog).toBeHidden();
+
+  // Reading settings with Focus and the link, for the PR's screenshots.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await settings.getByRole("group", { name: "Focus" }).getByRole("button", { name: "Ruler", exact: true }).click();
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await settings.getByRole("group", { name: "Focus" }).scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-focus-settings-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+});

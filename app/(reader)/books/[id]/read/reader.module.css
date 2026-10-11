@@ -1358,3 +1358,69 @@
     bottom: var(--space-7);
   }
 }
+
+/* Keyboard shortcuts (M21): a modal dialog over the reader, from "?" or the link in Reading settings. */
+.shortcuts {
+  width: min(30rem, calc(100vw - var(--space-6)));
+  max-height: calc(100dvh - var(--space-7));
+  padding: var(--space-5);
+  overflow-y: auto;
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-raised);
+}
+
+.shortcuts::backdrop {
+  background-color: var(--scrim);
+}
+
+.shortcutsHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.shortcutList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+
+.shortcutRow {
+  display: grid;
+  grid-template-columns: 9.5rem 1fr;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-hair) solid var(--rule);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
+.shortcutRow dd {
+  margin: 0;
+  color: var(--ink-700);
+}
+
+.shortcutOr {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+}
+
+.kbd {
+  display: inline-block;
+  min-width: 1.8em;
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-sm);
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  text-align: center;
+  white-space: nowrap;
+}
