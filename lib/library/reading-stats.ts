@@ -227,6 +227,127 @@ export async function statsByWeek(db: Db, ownerId: string, now = new Date(), wee
   return list;
 }
 
+/*
+ * The reading calendar and streaks (M21).
+ *
+ * Days are UTC days (midnight to midnight UTC), for the same reasons and in the
+ * same way as the weekly table above: the server does not know the reader's time
+ * zone (nothing stores it), and with UTC days the calendar's columns (weeks from
+ * Monday, UTC) add up to the rows of "Week by week". A sitting counts whole on
+ * the day it started, as it does for its week, even if it runs past midnight.
+ * For a reader in New York, reading at 9 pm local time lands on the next UTC day;
+ * the page says that days are UTC.
+ */
+
+/** A day counts as read, for streaks and shading, once it has a full minute of active reading. */
+export const DAY_READ_SECONDS = 60;
+
+/**
+ * The calendar's shades: the fewest whole minutes in a day for each step. Fixed
+ * steps rather than steps scaled to your busiest day, so a square means the same
+ * thing from month to month: 1–14 minutes, 15–29, 30–59, an hour or more.
+ */
+export const HEAT_STEPS = [1, 15, 30, 60] as const;
+
+export type HeatStep = 0 | 1 | 2 | 3 | 4;
+
+export function heatStep(seconds: number): HeatStep {
+  const minutes = Math.floor(seconds / 60);
+  return HEAT_STEPS.filter((m) => minutes >= m).length as HeatStep;
+}
+
+/** The UTC day holding this moment, as YYYY-MM-DD. */
+export function dayKey(at: Date) {
+  return at.toISOString().slice(0, 10);
+}
+
+/** Whole days since 1970-01-01 (UTC midnights are exactly a day apart: no summer time in UTC). */
+const dayNumber = (key: string) => Math.round(Date.parse(`${key}T00:00:00Z`) / DAY);
+const keyOfDay = (n: number) => new Date(n * DAY).toISOString().slice(0, 10);
+
+/** Active seconds per UTC day, each sitting counted on the day it started. */
+export function secondsByDay(rows: { startedAt: Date; activeSeconds: number }[]) {
+  const byDay = new Map<string, number>();
+  for (const r of rows) {
+    const d = dayKey(r.startedAt);
+    byDay.set(d, (byDay.get(d) ?? 0) + r.activeSeconds);
+  }
+  return byDay;
+}
+
+export type CalendarDay = { date: string; seconds: number; step: HeatStep; today: boolean };
+
+/**
+ * The last `weeks` weeks as columns of seven days, Monday first, oldest week
+ * first; the last column is the week holding `now`, and its days after today
+ * are null (not yet happened).
+ */
+export function calendarWeeks(byDay: Map<string, number>, now: Date, weeks = 26): (CalendarDay | null)[][] {
+  const today = dayNumber(dayKey(now));
+  const first = dayNumber(weekStart(now)) - (weeks - 1) * 7;
+  return Array.from({ length: weeks }, (_, w) =>
+    Array.from({ length: 7 }, (_, d) => {
+      const n = first + w * 7 + d;
+      if (n > today) return null;
+      const date = keyOfDay(n);
+      const seconds = byDay.get(date) ?? 0;
+      return { date, seconds, step: heatStep(seconds), today: n === today };
+    }),
+  );
+}
+
+export type Streaks = {
+  /** Days in a row with reading, up to today; or up to yesterday while today has none yet (the streak is still alive). */
+  current: number;
+  /** The most days in a row with reading, ever. */
+  longest: number;
+  /** The day with the most reading, ever (the first such day on a tie), or null before any. */
+  best: { date: string; seconds: number } | null;
+  /** Days with reading in the calendar's weeks (the last `weeks` weeks up to today). */
+  daysRead: number;
+};
+
+/** Streaks from active seconds per UTC day. A day counts once it has DAY_READ_SECONDS of reading. */
+export function streaksFrom(byDay: Map<string, number>, now: Date, weeks = 26): Streaks {
+  const today = dayNumber(dayKey(now));
+  const read = new Set<number>();
+  let best: Streaks["best"] = null;
+  for (const [date, seconds] of [...byDay].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (seconds < DAY_READ_SECONDS) continue;
+    read.add(dayNumber(date));
+    if (!best || seconds > best.seconds) best = { date, seconds };
+  }
+  let longest = 0;
+  for (const n of read) {
+    if (read.has(n - 1)) continue; // not the first day of its run
+    let len = 1;
+    while (read.has(n + len)) len++;
+    longest = Math.max(longest, len);
+  }
+  let current = 0;
+  for (let n = read.has(today) ? today : today - 1; read.has(n); n--) current++;
+  const first = dayNumber(weekStart(now)) - (weeks - 1) * 7;
+  const daysRead = [...read].filter((n) => n >= first && n <= today).length;
+  return { current, longest, best, daysRead };
+}
+
+export type ReadingCalendar = Streaks & { weeks: (CalendarDay | null)[][] };
+
+/**
+ * The calendar of the last `weeks` weeks, and the streaks. Every sitting is read
+ * (only its start and active time), so a streak or best day older than the
+ * calendar still counts; time with books since removed from the library (M19)
+ * is kept, as it is in the weekly table.
+ */
+export async function readingCalendar(db: Db, ownerId: string, now = new Date(), weeks = 26): Promise<ReadingCalendar> {
+  const rows = await db
+    .select({ startedAt: readingSessions.startedAt, activeSeconds: readingSessions.activeSeconds })
+    .from(readingSessions)
+    .where(eq(readingSessions.ownerId, ownerId));
+  const byDay = secondsByDay(rows);
+  return { weeks: calendarWeeks(byDay, now, weeks), ...streaksFrom(byDay, now, weeks) };
+}
+
 export type ChapterStats = { key: string; label: string; position: number; activeSeconds: number; words: number; wpm: number };
 
 export type Suggestion = {

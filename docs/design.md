@@ -82,6 +82,7 @@ text `--leading-ui` (1.4). Headings balance their lines (`text-wrap: balance`).
 | `--machine-bg` / `--machine-rule` | `#ece6f0` / `#7a6a8c` | `#2a2a3a` / `#a796bb` | AI-written text |
 | `--cover-navy`, `--cover-green` | | | covers of titles you can read or listen to |
 | `--cover-empty` | `#d9d3c7` | `#2b3a41` | a title not available yet (undyed cloth) |
+| `--heat-1` … `--heat-4` | `#bdd6cb` … `#376963` | `#2a4a45` … `#8bbab0` | the reading calendar's shades on Reading stats (M21): 1–14 minutes in a day up to an hour or more; a day with none is `--paper-sunken`. Each step stands further from the page than the last (`lib/tokens.test.ts`) |
 
 No pure black or pure white anywhere.
 

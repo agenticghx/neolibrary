@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import {
   CHAPTERS_NEEDED,
   chapterStatsByBook,
+  readingCalendar,
   statsByBook,
   statsByPathSlot,
   statsByWeek,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/library/reading-stats";
 import styles from "../admin/invites/page.module.css";
 import own from "./page.module.css";
+import { ReadingCalendar } from "./ReadingCalendar";
 
 export const metadata: Metadata = { title: "Reading stats" };
 export const dynamic = "force-dynamic";
@@ -59,10 +61,11 @@ export default async function StatsPage() {
   const user = await requireUser();
   const db = await getDb();
   const books = await statsByBook(db, user.id);
-  const [weeks, { pillars, kinds }, chapterBooks] = await Promise.all([
+  const [weeks, { pillars, kinds }, chapterBooks, calendar] = await Promise.all([
     statsByWeek(db, user.id),
     statsByPathSlot(db, user.id, books),
     chapterStatsByBook(db, user.id),
+    readingCalendar(db, user.id),
   ]);
   const suggestions = suggestionsFrom(chapterBooks);
   const measured = chapterBooks.filter((b) => b.chapters.length >= CHAPTERS_NEEDED).length;
@@ -82,6 +85,8 @@ export default async function StatsPage() {
         <p className={styles.empty}>Nothing yet. Read a book for a minute or more and your numbers appear here.</p>
       ) : (
         <>
+          <ReadingCalendar calendar={calendar} />
+
           <section aria-labelledby="by-week" className={styles.list}>
             <h2 id="by-week" className={styles.listTitle}>
               Week by week

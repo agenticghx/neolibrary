@@ -109,3 +109,183 @@
   text-decoration: underline;
   text-decoration-color: var(--accent);
 }
+
+/* Reading calendar and streaks (M21) */
+.streaks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.streak {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+}
+
+.streak dt {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}
+
+.streak dd {
+  display: grid;
+  gap: var(--space-0);
+  margin: 0;
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+}
+
+.streakValue {
+  white-space: nowrap;
+}
+
+.streakSub {
+  color: var(--ink-500);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-ui);
+}
+
+/* The calendar and its legend, as wide as the calendar (the legend ends under today), never wider than the page. */
+.calendarBox {
+  display: grid;
+  gap: var(--space-2);
+  inline-size: fit-content;
+  max-inline-size: 100%;
+}
+
+/* The calendar scrolls sideways in its own box on a narrow screen. Right to left, so it starts at its right end (today);
+   the table inside is left to right again. */
+.calendarScroll {
+  direction: rtl;
+  overflow-x: auto;
+  padding-block: var(--space-1);
+}
+
+.calendar {
+  direction: ltr;
+  margin-inline-end: auto;
+  border-collapse: separate;
+  border-spacing: var(--space-1);
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  line-height: var(--leading-ui);
+}
+
+/* Labels sit over the squares without widening their column or row. */
+.week,
+.weekday {
+  position: relative;
+  padding: 0;
+  font-weight: normal;
+}
+
+.week {
+  block-size: 1.25rem;
+}
+
+.weekday {
+  inline-size: 2rem;
+}
+
+.weekday span[aria-hidden] {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  translate: 0 -50%;
+}
+
+.month {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  white-space: nowrap;
+}
+
+/* A month starting in the last weeks reads leftwards, so it never sticks out past today. */
+.monthEnd {
+  inset-inline: auto 0;
+}
+
+.day,
+.future {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.step0 {
+  background-color: var(--paper-sunken);
+}
+
+.step1 {
+  background-color: var(--heat-1);
+}
+
+.step2 {
+  background-color: var(--heat-2);
+}
+
+.step3 {
+  background-color: var(--heat-3);
+}
+
+.step4 {
+  background-color: var(--heat-4);
+}
+
+.today {
+  outline: var(--border-hair) solid var(--ink-700);
+  outline-offset: var(--border-hair);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+}
+
+.legendList {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendList li {
+  display: block;
+}
+
+@media (width <= 48rem) {
+  .streaks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calendar {
+    border-spacing: var(--space-0);
+  }
+
+  .weekday {
+    inline-size: 1.75rem;
+  }
+
+  .day,
+  .future {
+    inline-size: 0.625rem;
+    block-size: 0.625rem;
+  }
+}
