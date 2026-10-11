@@ -27,6 +27,8 @@ const PATHS = {
   invite: "M10 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7zM3.5 20v-.5A5.5 5.5 0 0 1 9 14h2M18 14v6M15 17h6",
   signOut: "M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5M15.5 16l4-4-4-4M19.5 12H9.5",
   chevron: "M7 10l5 5 5-5",
+  // Daily review (M21): two cards, one behind the other.
+  review: "M4 8h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM7 5h12a1 1 0 0 1 1 1v10M7 13h5M7 16h3",
 } as const;
 
 /** Solid shapes (the mini-player's Play and Pause), filled with the current text colour. */

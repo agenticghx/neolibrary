@@ -120,6 +120,7 @@ function fixture() {
     readalong: ["offline"],
     "readalong-safari": ["readalong"],
     narration: ["readalong-safari"],
+    review: ["stats"],
   };
   const webkit = new Set(["safari", "readalong-safari"]);
   return Object.entries(deps).map(([name, dependencies]) => ({ name, dependencies, ...(webkit.has(name) ? { use: { browserName: "webkit" } } : {}) }));
@@ -158,11 +159,15 @@ describe("applyBrowserSlices", () => {
       "own-paths",
       "agents",
       "offline",
+      "review",
       "extra",
     ]);
     expect(depsOf(projects, "flows")).toEqual(["setup"]);
     expect(depsOf(projects, "offline")).toEqual(["agents"]);
     expect(depsOf(projects, "extra")).toEqual(["setup"]);
+    // Daily review (M21) stays a branch off stats; home still waits on stats, not on review.
+    expect(depsOf(projects, "review")).toEqual(["stats"]);
+    expect(depsOf(projects, "home")).toEqual(["stats"]);
     expect(namesOf(projects)).not.toContain("readalong");
     expect(namesOf(projects)).not.toContain("readalong-safari");
     expect(namesOf(projects)).not.toContain("safari");
@@ -252,6 +257,9 @@ describe("gridPageNames", () => {
     expect(withBehavior).not.toContain("miniplayer");
     expect(gridPageNames(pages, ALL)).toContain("miniplayer");
     expect(gridPageNames(pages, ["behavior"])).toEqual([]);
+    // M21: the review page's images come from review.spec.ts, in the behaviour slice.
+    expect(shots).not.toContain("review");
+    expect(withBehavior).toContain("review");
   });
 });
 
@@ -270,6 +278,8 @@ describe("playwright.config.ts", () => {
     const flows = config.projects?.find((project) => project.name === "flows");
     expect(narration?.dependencies).toEqual(["readalong-safari"]);
     expect(flows?.dependencies).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
+    expect(config.projects?.find((project) => project.name === "review")?.dependencies).toEqual(["stats"]);
+    expect(config.projects?.at(-1)?.name).toBe("review");
     expect(config.projects?.map((project) => project.name)).toContain("safari");
   });
 });

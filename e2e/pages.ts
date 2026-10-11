@@ -31,6 +31,8 @@ export const pages: PageCase[] = [
   { name: "agents", path: "/agents", signedIn: true },
   { name: "stats", path: "/stats", signedIn: true },
   { name: "search", path: "/search", signedIn: true },
+  // M21: Daily review with cards to rate (written by review.spec.ts, as a reader of its own).
+  { name: "review", path: "/review", signedIn: true, spec: "review.spec.ts" },
   { name: "invites", path: "/admin/invites", signedIn: true },
   { name: "costs", path: "/admin/costs", signedIn: true },
   { name: "design", path: "/design", signedIn: true },

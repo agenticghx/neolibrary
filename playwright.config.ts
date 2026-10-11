@@ -106,6 +106,9 @@ export default defineConfig({
     // 16. AI voice narration for an entire book (M14 follow-up V5), with the fake voice, last of all: it makes a
     // book's audio in bulk and spends (pretend) money against the voice spending limits shared by every test.
     { name: "narration", testMatch: /narration\.spec\.ts/, dependencies: ["readalong-safari"], use: { ...desktop } },
+    // 17. Daily review (M21): a reader of its own rates highlights and notes, so it changes nothing the others count;
+    // a branch off stats, as safari is off reader.
+    { name: "review", testMatch: /\/review\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     ],
     parseBrowserSlices(process.env.CI_BROWSER_SLICES),
     // Pull requests skip Safari's engine (CI_SKIP_WEBKIT=1, set by ci.yml); main and the night run keep it.

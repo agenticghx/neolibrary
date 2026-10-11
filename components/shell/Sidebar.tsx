@@ -1,7 +1,10 @@
 import Form from "next/form";
 import Link from "next/link";
 import { Mark } from "@/components/Mark";
+import { currentUser } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
 import { partsWord } from "@/lib/library/path-words";
+import { dueCount } from "@/lib/library/review";
 import { AccountMenu } from "./AccountMenu";
 import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
@@ -37,7 +40,17 @@ function Item({ href, icon, label, meta }: { href: string; icon: IconName; label
   );
 }
 
-/** Desktop navigation (M14, "Home on desktop A"): Home, the library's filters and Import, Paths, Collections, and the account. */
+/**
+ * Daily review (M21), with how many cards wait today. The layout (not ours to change) does not pass the
+ * count, so the item reads it itself; currentUser() is cached for the request. A failed count shows no count.
+ */
+async function ReviewItem() {
+  const user = await currentUser();
+  const due = user ? await getDb().then((db) => dueCount(db, user.id)).catch(() => 0) : 0;
+  return <Item href="/review" icon="review" label="Review" meta={due > 0 ? `${due} due today` : undefined} />;
+}
+
+/** Desktop navigation (M14, "Home on desktop A"): Home and Review (M21), the library's filters and Import, Paths, Collections, and the account. */
 export function Sidebar({ user, paths, collections }: Props) {
   return (
     <aside className={styles.sidebar} aria-label="Sidebar">
@@ -57,6 +70,7 @@ export function Sidebar({ user, paths, collections }: Props) {
       <nav aria-label="Main" className={styles.nav}>
         <ul className={styles.group}>
           <Item href="/" icon="home" label="Home" />
+          <ReviewItem />
         </ul>
         <p className={styles.groupLabel} id="nav-library">
           Library

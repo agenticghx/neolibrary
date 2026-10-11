@@ -1,0 +1,26 @@
+import { currentUser } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
+import { rateCard, reviewQueue, ReviewError } from "@/lib/library/review";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Daily review (M21): rates one card, { annotationId, rating } with rating one of
+ * again, hard, good, easy. Answers with the card's new date, how many cards are
+ * still waiting today, and when the next one comes due after those.
+ */
+export async function POST(req: Request) {
+  const user = await currentUser();
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const body = await req.json().catch(() => ({}));
+  const db = await getDb();
+  try {
+    const now = new Date();
+    const s = await rateCard(db, user.id, body?.annotationId, body?.rating, now);
+    const queue = await reviewQueue(db, user.id, now);
+    return Response.json({ dueAt: s.dueAt.toISOString(), intervalDays: s.intervalDays, remaining: queue.cards.length, nextDueAt: queue.nextDueAt });
+  } catch (e) {
+    if (e instanceof ReviewError) return Response.json({ error: e.message }, { status: 400 });
+    throw e;
+  }
+}

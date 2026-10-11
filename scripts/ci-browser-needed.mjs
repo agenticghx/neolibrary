@@ -73,6 +73,8 @@ const PROJECT_SLICE = {
   readalong: "readalong",
   "readalong-safari": "readalong",
   narration: "narration",
+  // M21: hangs off `stats` like `safari` off `reader`, so it is not in CHAIN (in CHAIN, `home` would wait on it).
+  review: "behavior",
 };
 
 const NARRATION_FILES = new Set([
@@ -320,6 +322,7 @@ export function gridPageNames(pageSource, slices) {
   const specSlice = {
     "own-paths.spec.ts": "behavior",
     "readalong.spec.ts": "readalong",
+    "review.spec.ts": "behavior",
   };
   const names = [];
   for (const line of String(pageSource).split("\n")) {

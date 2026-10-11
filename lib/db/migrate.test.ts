@@ -61,9 +61,12 @@ describe("migrations", () => {
   it("0023 opens books side by side for everyone, keeps each reader's style, and starts new readers in STE light", async () => {
     database = await openDatabase({});
     await migrateUp(database.raw);
-    await migrateDown(database.raw, 1);
+    // Back to just before 0023, however many migrations came after it (as the 0022 test).
+    const ids = (await loadMigrations()).map((m) => m.id);
+    const from0023 = ids.slice(ids.indexOf("0023_reading_defaults"));
+    await migrateDown(database.raw, from0023.length);
     await database.raw.query("INSERT INTO users (email, name, password_hash, role, ai_style) VALUES ('p@example.com', 'P', 'x', 'reader', 'plain')");
-    expect(await migrateUp(database.raw)).toEqual(["0023_reading_defaults"]);
+    expect(await migrateUp(database.raw)).toEqual(from0023);
     await database.raw.query("INSERT INTO users (email, name, password_hash, role) VALUES ('n@example.com', 'N', 'x', 'reader')");
     const rows = await database.raw.query<{ email: string; ai_style: string; rewritten_view: string }>(
       "SELECT email, ai_style, rewritten_view FROM users ORDER BY email",
@@ -72,10 +75,29 @@ describe("migrations", () => {
       { email: "n@example.com", ai_style: "ste-light", rewritten_view: "side" },
       { email: "p@example.com", ai_style: "plain", rewritten_view: "side" },
     ]);
-    await migrateDown(database.raw, 1);
+    await migrateDown(database.raw, from0023.length);
     const cols = await database.raw.query<{ column_name: string }>("SELECT column_name FROM information_schema.columns WHERE table_name = 'users'");
     expect(cols.map((c) => c.column_name)).not.toContain("rewritten_view");
     await database.raw.query("INSERT INTO users (email, name, password_hash, role) VALUES ('o@example.com', 'O', 'x', 'reader')");
     expect((await database.raw.query<{ ai_style: string }>("SELECT ai_style FROM users WHERE email = 'o@example.com'"))[0].ai_style).toBe("plain");
+  });
+
+  it("0024 keeps one review schedule per reader and note, refuses an ease below 1.3, and the reverse step removes it", async () => {
+    database = await openDatabase({});
+    await migrateUp(database.raw);
+    const [user] = await database.raw.query<{ id: string }>(
+      "INSERT INTO users (email, name, password_hash, role) VALUES ('r@example.com', 'R', 'x', 'reader') RETURNING id",
+    );
+    const card = (ease: string) =>
+      database.raw.query(
+        "INSERT INTO review_cards (owner_id, annotation_id, ease, due_at, first_reviewed_at, last_reviewed_at, last_rating) VALUES ($1, gen_random_uuid(), $2::float8, now(), now(), now(), 'good')",
+        [user.id, ease],
+      );
+    for (const ease of ["1.2", "NaN", "Infinity"]) await expect(card(ease)).rejects.toThrow("review_cards_ease_check");
+    await card("1.3");
+    expect(await tables()).toContain("review_cards");
+    const ids = (await loadMigrations()).map((m) => m.id);
+    await migrateDown(database.raw, ids.length - ids.indexOf("0024_review"));
+    expect(await tables()).not.toContain("review_cards");
   });
 });
