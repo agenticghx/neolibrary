@@ -107,9 +107,9 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
         </div>
       </dl>
 
-      <div className={own.calendarBox}>
-        {/* Scrolls sideways inside its own box when the screen is too narrow, starting at today (the right end). */}
-        <div className={own.calendarScroll} tabIndex={0} role="region" aria-label="Reading calendar, the last 26 weeks">
+      {/* Scrolls sideways inside its own box when the screen is too narrow, starting at today (the right end). */}
+      <div className={own.calendarScroll} tabIndex={0} role="region" aria-label="Reading calendar, the last 26 weeks">
+        <div className={own.calendarInner}>
           <table className={own.calendar} data-testid="calendar-grid">
             <caption className="visually-hidden">
               Minutes read each day for the last 26 weeks. Each column is a week from Monday to Sunday, the oldest first.
@@ -156,18 +156,18 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
               ))}
             </tbody>
           </table>
-        </div>
 
-        <div className={own.legend} data-testid="calendar-legend">
-          <span aria-hidden="true">Less</span>
-          <ul className={own.legendList} aria-label="Shades, from less reading to more">
-            {LEGEND.map((text, step) => (
-              <li key={text} className={`${own.day} ${STEP_CLASS[step]}`}>
-                <span className="visually-hidden">{text}</span>
-              </li>
-            ))}
-          </ul>
-          <span aria-hidden="true">More</span>
+          <div className={own.legend} data-testid="calendar-legend">
+            <span aria-hidden="true">Less</span>
+            <ul className={own.legendList} aria-label="Shades, from less reading to more">
+              {LEGEND.map((text, step) => (
+                <li key={text} className={`${own.day} ${STEP_CLASS[step]}`}>
+                  <span className="visually-hidden">{text}</span>
+                </li>
+              ))}
+            </ul>
+            <span aria-hidden="true">More</span>
+          </div>
         </div>
       </div>
       <p className={own.note}>
