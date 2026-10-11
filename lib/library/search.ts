@@ -32,7 +32,11 @@ export function splitSnippet(s: string): SearchHit["snippet"] {
   return out;
 }
 
-export async function searchLibrary(db: Db, ownerId: string, query: string, limit = 60): Promise<SearchHit[]> {
+/**
+ * With `bookId` (M20, "Find in this book"), only that book is searched and the
+ * hits come in reading order; otherwise the best matches come first.
+ */
+export async function searchLibrary(db: Db, ownerId: string, query: string, limit = 60, bookId?: string): Promise<SearchHit[]> {
   const q = query.trim().slice(0, 200);
   if (!q) return [];
   const rows = await db.execute(sql`
@@ -47,7 +51,8 @@ export async function searchLibrary(db: Db, ownerId: string, query: string, limi
     JOIN query ON s.search @@ query.q
     LEFT JOIN sections ch ON ch.book_id = s.book_id AND ch.kind = 'chapter' AND ch.chapter_index = s.chapter_index
     WHERE b.owner_id = ${ownerId} AND b.deleted_at IS NULL AND s.kind <> 'chapter'
-    ORDER BY ts_rank(s.search, query.q) DESC, b.title, s.position
+      ${bookId ? sql`AND b.id = ${bookId}` : sql``}
+    ORDER BY ${bookId ? sql`s.position` : sql`ts_rank(s.search, query.q) DESC, b.title, s.position`}
     LIMIT ${limit}
   `);
   const list = (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows) as (Omit<SearchHit, "snippet"> & {

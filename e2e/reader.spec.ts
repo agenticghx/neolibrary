@@ -923,3 +923,49 @@ test("Contents goes to a page of a PDF and a percentage of an EPUB", async ({ pa
   await percentBox.press("Enter");
   await expect.poll(percentRead).toBeLessThanOrEqual(5);
 });
+
+// M20 Q5: Find in this book, in Contents: the library's search for this book only, hits in reading order; a hit
+// opens its paragraph without leaving the reader.
+test("Find in this book lists the places with a phrase and opens one", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openJekyll(page);
+  const contents = page.getByRole("navigation", { name: "Contents" });
+  await page.getByRole("button", { name: "Contents" }).click();
+  const find = contents.getByRole("search");
+  await find.getByLabel("Find in this book").fill("zebra crossing");
+  await find.getByRole("button", { name: "Find" }).click();
+  await expect(contents.getByRole("status")).toHaveText("Nothing found for “zebra crossing”.");
+
+  await find.getByLabel("Find in this book").fill('"born in the year"');
+  await find.getByLabel("Find in this book").press("Enter");
+  await expect(contents.getByRole("status")).toHaveText("1 place with “born in the year”, in reading order.");
+  const hit = contents.getByTestId("find-hits").getByRole("button");
+  await expect(hit).toHaveCount(1);
+  await expect(hit).toContainText("Henry Jekyll’s Full Statement of the Case");
+  await expect(hit.locator("mark")).toHaveText(["born", "year"]);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-find-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  await hit.click();
+  await expect(contents).toHaveCount(0);
+  await expect(page.locator("footer").getByText("Henry Jekyll’s Full Statement of the Case")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector("foliate-view") as unknown as { lastLocation: { range: Range } | null } | null;
+        return view?.lastLocation?.range.toString() ?? "";
+      }),
+    )
+    .toContain("born in the year");
+});
