@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q2 (#152) and Q3, then Q4 to Q6.
+next_action: Merge the Q3 test fix, then M20 Q4 to Q8 (#154 to #158).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -174,6 +174,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 14:36 · Claude Opus 5.5 (laptop) · M20: the Q3 test's same-second race, fixed
+- **Done:** #154's CI failed in Q3's new test (run 38163565879): Could not download … (403). Cause, from the run's page snapshot and lib/signed-url.ts: links carry exp in whole seconds, so a link signed in the same second as the page's is identical, and the test's 403 rule caught the fresh link too. The test now waits until the clock passes the page link's signing second. Not a flake and not an app bug.
+- **Key paths:** e2e/offline.spec.ts; lib/signed-url.ts (read)
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/attempt-log.sh 38163565879 → 1 failed: Download for offline works after the page's file link has expired; gh run download 38163565879 -n playwright-report → error-context.md shows alert 'Could not download /api/files/books/… (403).'; npx playwright test --project offline → 255 passed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge this first, then #154 to #158 one at a time.
 
 ### 2026-10-11 14:03 · Claude Opus 5.5 (laptop) · M20 Q3: Download for offline asks for a fresh file link
 - **Done:** Q3: lib/offline.ts no longer reuses the reader page's five-minute file link; it asks GET /api/books/<id>/file-link (new, owner only, the book must be readable) for a fresh one at download time. The file is still kept by its path, so the service worker finds it whatever the link.
