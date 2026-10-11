@@ -65,6 +65,14 @@
   transform: translate(-50%, -50%);
 }
 
+/* The whole stop is the link to its pillar; it draws nothing itself. */
+.stopLink {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-raised);
+  border-radius: var(--radius-sm);
+}
+
 .stopDone::after {
   border-color: var(--accent);
   background-color: var(--accent);
@@ -136,6 +144,7 @@
 }
 
 .pillarTitle {
+  scroll-margin-top: var(--space-5);
   font-size: var(--text-lg);
   font-weight: var(--weight-regular);
 }

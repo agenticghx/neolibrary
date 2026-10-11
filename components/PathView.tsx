@@ -193,8 +193,16 @@ export function PathView({ path, notes = new Map(), editHref }: { path: PathData
                   p.status === "done" ? styles.stopDone : "",
                   i === hereIndex ? styles.stopHere : "",
                 ].join(" ")}
-                title={p.title}
-              />
+              >
+                {/* Each stop goes to its part of the page (M20): the page is long, 29 pillars on a reading list. */}
+                <a
+                  href={`#p-${p.slug}`}
+                  className={styles.stopLink}
+                  title={p.title}
+                  aria-label={[p.title, p.status === "done" ? "finished" : "", i === hereIndex ? "you are here" : ""].filter(Boolean).join(", ")}
+                  aria-current={i === hereIndex ? "location" : undefined}
+                />
+              </li>
             ))}
           </ol>
         ) : null}
