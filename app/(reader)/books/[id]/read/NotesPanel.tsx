@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { NotesExport } from "@/components/NotesExport";
 import type { Annotation } from "@/lib/library/annotations";
+import type { NotSaved } from "@/lib/outbox";
 import { ShareMenu } from "./ShareMenu";
 import { StickerIcon } from "@/components/StickerIcon";
 import { DrawingPreview } from "./DrawingPad";
@@ -23,6 +24,8 @@ export function NotesPanel({
   onDelete,
   removed = null,
   onUndo,
+  notSaved = [],
+  onDismiss,
   onAddBookNote,
 }: {
   bookId: string;
@@ -37,6 +40,9 @@ export function NotesPanel({
   /** The note just removed, while it can still be brought back (M19), and how. */
   removed?: Annotation | null;
   onUndo?: () => void;
+  /** Made without a connection and then refused by the server (M20): shown so nothing is lost without a word. */
+  notSaved?: NotSaved[];
+  onDismiss?: (id: string) => void;
   onAddBookNote: (body: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -57,6 +63,32 @@ export function NotesPanel({
           </>
         ) : null}
       </p>
+      {notSaved.length ? (
+        <section className={styles.notSaved} aria-labelledby="not-saved-title" data-testid="not-saved">
+          <p id="not-saved-title" className={styles.groupLabel}>
+            Could not be saved
+          </p>
+          <p className={styles.hint}>
+            Made on this device without a connection. When the connection came back, the library did not accept{" "}
+            {notSaved.length === 1 ? "it" : "them"}. What you wrote is below, so you can copy it.
+          </p>
+          <ul className={styles.notes}>
+            {notSaved.map((n) => (
+              <li key={n.id} className={styles.noteItem}>
+                <p className={styles.noteKind}>{n.what}</p>
+                {n.quote ? <blockquote className={styles.noteQuote}>{n.quote}</blockquote> : null}
+                {n.text ? <p className={styles.noteBody}>{n.text}</p> : null}
+                <p className={styles.formError}>The library said: {n.reason}</p>
+                <div className={styles.noteActions}>
+                  <button type="button" className={styles.tool} aria-label={`Dismiss: ${n.what}`} onClick={() => onDismiss?.(n.id)}>
+                    Dismiss
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <form
         className={styles.noteForm}
         onSubmit={async (e) => {

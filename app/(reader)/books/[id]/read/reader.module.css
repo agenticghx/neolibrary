@@ -927,6 +927,15 @@
   clip-path: inset(50%);
 }
 
+/* Changes the server refused (M20): kept in the Notes panel until dismissed. */
+.notSaved {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
 .backLink,
 .linkButton {
   justify-self: start;

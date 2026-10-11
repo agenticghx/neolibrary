@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q1 (HSTS), then build Q2 (a note the server refuses is kept).
+next_action: Merge M20 Q2, then Q3 to Q5 (built, being tested).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -174,6 +174,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 13:59 · Claude Opus 5.5 (laptop) · M20 Q2: a note the library refuses is kept under Could not be saved
+- **Done:** #151 (Q1, HSTS) merged as cc9d7f7. Q2: lib/outbox.ts keeps an item the server refuses (4xx other than 401/408/429), marked with the server's reason, and never sends it again; the reader leaves refused items out of the notes list and the Notes panel lists them under Could not be saved (what it was, the passage, the words written, the library's reason, Dismiss).
+- **Key paths:** lib/outbox.ts; lib/outbox.test.ts; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/NotesPanel.tsx; app/(reader)/books/[id]/read/reader.module.css; e2e/offline.spec.ts
+- **Commands that worked:** gh pr view 151 --json state,mergeCommit → MERGED cc9d7f7; npx playwright test --project offline --ignore-snapshots → run 1: 1 failed (my test's locator matched two Add note buttons), run 2: 254 passed; npm run check → EXIT=0, 592 passed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge Q2; then Q3 (offline download after five minutes), Q4 (Go to page or percentage), Q5 (Find in this book), Q6 (Path dots). Deploy waits for Samuel's word.
 
 ### 2026-10-11 13:47 · Claude Opus 5.5 (laptop) · M20 Q1: the site sends HSTS (https only)
 - **Done:** Started M20, the site review's other findings (docs/plan.md M20: Q1 to Q6, plus what is left for Samuel). Q1: proxy.ts sends Strict-Transport-Security: max-age=31536000 on every https response (pages, API answers, the sign-in redirect), never on http. Checked first: the live site answers plain http with 301 to https and sends no HSTS header.
