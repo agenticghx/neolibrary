@@ -42,6 +42,18 @@ describe("full-text search", () => {
     expect(await searchLibrary(database.db, ownerId, "   ")).toEqual([]);
   });
 
+  it("searches one book, in reading order, for Find in this book (M20)", async () => {
+    const jekyll = (await searchLibrary(database.db, ownerId, '"rugged countenance"'))[0].bookId;
+    const hits = await searchLibrary(database.db, ownerId, "door", 60, jekyll);
+    expect(hits.length).toBeGreaterThan(3);
+    expect(hits.every((h) => h.bookId === jekyll)).toBe(true);
+    // Reading order: the first hit is in the first chapter.
+    expect(hits[0].chapter).toBe("Story of the Door");
+    const all = await searchLibrary(database.db, ownerId, "door");
+    expect(all.some((h) => h.bookId !== jekyll)).toBe(true);
+    expect(await searchLibrary(database.db, ownerId, "travelling", 60, jekyll)).toEqual([]);
+  });
+
   it("only searches your own books", async () => {
     const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
     const { token } = await createInvite(database.db, admin);

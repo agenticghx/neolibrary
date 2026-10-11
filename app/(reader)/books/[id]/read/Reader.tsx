@@ -26,6 +26,7 @@ import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { RewritePanel } from "./RewritePanel";
 import { RewrittenPane } from "./RewrittenPane";
+import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, saveSettings, SIZES, type ReaderSettings, type RewrittenMode } from "./settings";
@@ -1307,6 +1308,13 @@ export function Reader(props: {
               onGo={(n) => {
                 // A PDF's page n is section n - 1, whose address is epubcfi(/6/2n); an EPUB goes to n% of the book.
                 void (pageCount ? view.current?.goTo(`epubcfi(/6/${n * 2})`) : view.current?.goToFraction(n / 100));
+                setPanel("none");
+              }}
+            />
+            <FindInBook
+              bookId={props.bookId}
+              onGo={(cfi) => {
+                void view.current?.goTo(cfi);
                 setPanel("none");
               }}
             />

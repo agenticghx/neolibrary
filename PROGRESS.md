@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q2 to Q6 (#152 onward), one at a time.
+next_action: Merge M20 Q3 (#153), then Q4, Q5 and Q6.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -174,6 +174,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 14:12 · Claude Opus 5.5 (laptop) · M20 Q5: Find in this book, in Contents
+- **Done:** #152 (Q2) merged as 9eb2a98. Q5: Contents has Find in this book: GET /api/books/<id>/search?q= runs the library search (lib/library/search.ts searchLibrary, now with a bookId that limits it to one book and orders hits by position) and the panel lists up to 60 places in reading order, words marked; a place opens its paragraph.
+- **Key paths:** app/(reader)/books/[id]/read/FindInBook.tsx; app/api/books/[id]/search/route.ts; lib/library/search.ts; lib/library/search.test.ts; app/(reader)/books/[id]/read/reader.module.css; e2e/reader.spec.ts
+- **Commands that worked:** npx vitest run lib/library/search.test.ts → 7 passed; npx playwright test --project reader --ignore-snapshots → 188 passed (twice: before and after dropping doubled quotes in the status line and the last result's double rule); npm run check → EXIT=0, 590 passed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge Q3 (#153), Q4 (#154), Q5, Q6 in order.
 
 ### 2026-10-11 14:10 · Claude Opus 5.5 (laptop) · M20 Q4: Contents goes to a page or a percentage
 - **Done:** Q4: a Go to box at the top of Contents: Go to page (1 to N) for a PDF (page n is section n-1, epubcfi(/6/2n)), Go to a percentage of the book for an EPUB (foliate goToFraction); it starts from the page on screen and refuses a number outside the book. Works from the keyboard and with a screen reader; the foot's progress bar stays a picture.
