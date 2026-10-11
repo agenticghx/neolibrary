@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q4 to Q9 (#154 to #158, then Q9), then ask Samuel whether to deploy.
+next_action: Merge the M21 Calendar PR (m21-calendar) through the merge train when green.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 16:23 · Claude Opus 5.5 (laptop, M21 agent) · M21 Calendar: a reading calendar and streaks on Reading stats (branch m21-calendar, PR open, not merged)
+- **Done:** Reading stats opens with a 26-week calendar (one square per UTC day, weeks as columns Monday-first, 5 shade steps: none, 1-14, 15-29, 30-59, 60+ minutes; month and weekday labels; Less...More legend) and four numbers: current streak (today, or up to yesterday), longest streak and best day (all time), days read in 26 weeks. A real table: each square reads its day and minutes for screen readers. Scrolls inside its own box on narrow phones, starting at today. New tokens --heat-1..--heat-4 in all five colour blocks, with contrast checks.
+- **Key paths:** app/(app)/stats/ReadingCalendar.tsx, app/(app)/stats/page.tsx, app/(app)/stats/page.module.css, lib/library/reading-stats.ts (dayKey, secondsByDay, heatStep, calendarWeeks, streaksFrom, readingCalendar), lib/library/reading-calendar.test.ts, lib/library/reading-stats.test.ts, lib/tokens.test.ts, app/tokens.css, docs/design.md, e2e/stats.spec.ts
+- **Commands that worked:** npm run check (exit 0, 630 passed); PORT=3304 npx playwright test --project stats --ignore-snapshots (238 passed, 5.8m); screenshots/stats-calendar-{desktop,phone}-{light,dark}.png looked at
+- **Known issues / blockers:** Days are UTC days (no per-reader time zone is stored; adding one needs a migration, owned by another agent this batch). stats-* reference screenshots should not change: the calendar shows only once there is reading. Not built: hover tooltips on squares, per-reader time zone.
+- **Exact next steps:** Merge the M21 Calendar PR through the merge train once its checks are green; follow-up: a per-reader time zone for the calendar's days.
 
 ### 2026-10-11 14:51 · Claude Opus 5.5 (laptop) · M20 Q9: Keep reading? and a note's actions, no longer squeezed
 - **Done:** #159 (Q3's test race) merged as 78b9593. Q9: the Listen bar puts the Keep reading? question first on its own line (class listenAsking); a note's four actions fit one line of the Notes panel (no gap, narrower padding). Exact next steps rewritten for M20.
