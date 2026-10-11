@@ -118,6 +118,9 @@ function isReadalong(f) {
     f.startsWith("components/player/") ||
     f === "lib/library/audio.ts" ||
     f.endsWith("/AudiobookUpload.tsx") ||
+    // A PDF page's own document: its text layer and the read-aloud highlight live there, and the dimming of M19 P2
+    // changed both. Its tests are the read-along ones (a change here once skipped them and broke one, #146).
+    f === "lib/reader/pdf-book.ts" ||
     /(^|\/)readalong(\/|\.)/.test(f)
   );
 }
