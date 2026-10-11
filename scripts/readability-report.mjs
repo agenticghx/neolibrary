@@ -129,42 +129,43 @@ for (const [style, fileKey, name] of STYLES) {
   });
 }
 
-if (json) {
-  console.log(JSON.stringify({ book, ch1, originals: originals.size, rows }, null, 2));
-  process.exit(0);
-}
+// No process.exit: on a pipe, Node may still be writing a large output when the process is cut short.
+if (json) console.log(JSON.stringify({ book, ch1, originals: originals.size, rows }, null, 2));
+else tables();
 
-const f1 = (n) => n.toFixed(1);
-const pct = (n) => `${Math.round(n * 100)}%`;
-console.log(`Pieces in the book (pages 7 to 248): ${originals.size}`);
-console.log("");
-console.log("Flesch-Kincaid grade (lower is easier), per piece");
-console.log("");
-console.log("| Style | Pieces | Original mean | Original median | Rewrite mean | Rewrite median | Mean drop | Easier |");
-console.log("|---|---:|---:|---:|---:|---:|---:|---:|");
-for (const r of rows) {
-  const g = r.grade;
-  console.log(`| ${r.name} | ${r.pieces} | ${f1(g.originalMean)} | ${f1(g.originalMedian)} | ${f1(g.rewriteMean)} | ${f1(g.rewriteMedian)} | ${f1(g.meanDrop)} | ${pct(g.shareEasier)} |`);
-}
-console.log("");
-console.log("Flesch reading ease (higher is easier), per piece");
-console.log("");
-console.log("| Style | Pieces | Original mean | Original median | Rewrite mean | Rewrite median | Mean rise | Easier |");
-console.log("|---|---:|---:|---:|---:|---:|---:|---:|");
-for (const r of rows) {
-  const e = r.ease;
-  console.log(`| ${r.name} | ${r.pieces} | ${f1(e.originalMean)} | ${f1(e.originalMedian)} | ${f1(e.rewriteMean)} | ${f1(e.rewriteMedian)} | ${f1(e.meanRise)} | ${pct(e.shareEasier)} |`);
-}
-console.log("");
-console.log("The whole text at once (all pieces joined), to compare with scores.md");
-console.log("");
-console.log("| Version | Words | Sentences | Words per sentence | Grade | Reading ease |");
-console.log("|---|---:|---:|---:|---:|---:|");
-const line = (name, m) => `| ${name} | ${m.words} | ${m.sentences} | ${f1(m.words / m.sentences)} | ${f1(m.grade)} | ${f1(m.ease)} |`;
-console.log(line("Original", rows[0].pooled.original));
-for (const r of rows) console.log(line(r.name, r.pooled.rewrite));
-const gaps = rows.filter((r) => r.missing || r.unscored);
-if (gaps.length) {
+function tables() {
+  const f1 = (n) => n.toFixed(1);
+  const pct = (n) => `${Math.round(n * 100)}%`;
+  console.log(`Pieces in the book (pages 7 to 248): ${originals.size}`);
   console.log("");
-  for (const r of gaps) console.log(`${r.name}: ${r.missing} pieces without a rewrite, ${r.unscored} with no words to score.`);
+  console.log("Flesch-Kincaid grade (lower is easier), per piece");
+  console.log("");
+  console.log("| Style | Pieces | Original mean | Original median | Rewrite mean | Rewrite median | Mean drop | Easier |");
+  console.log("|---|---:|---:|---:|---:|---:|---:|---:|");
+  for (const r of rows) {
+    const g = r.grade;
+    console.log(`| ${r.name} | ${r.pieces} | ${f1(g.originalMean)} | ${f1(g.originalMedian)} | ${f1(g.rewriteMean)} | ${f1(g.rewriteMedian)} | ${f1(g.meanDrop)} | ${pct(g.shareEasier)} |`);
+  }
+  console.log("");
+  console.log("Flesch reading ease (higher is easier), per piece");
+  console.log("");
+  console.log("| Style | Pieces | Original mean | Original median | Rewrite mean | Rewrite median | Mean rise | Easier |");
+  console.log("|---|---:|---:|---:|---:|---:|---:|---:|");
+  for (const r of rows) {
+    const e = r.ease;
+    console.log(`| ${r.name} | ${r.pieces} | ${f1(e.originalMean)} | ${f1(e.originalMedian)} | ${f1(e.rewriteMean)} | ${f1(e.rewriteMedian)} | ${f1(e.meanRise)} | ${pct(e.shareEasier)} |`);
+  }
+  console.log("");
+  console.log("The whole text at once (all pieces joined), to compare with scores.md");
+  console.log("");
+  console.log("| Version | Words | Sentences | Words per sentence | Grade | Reading ease |");
+  console.log("|---|---:|---:|---:|---:|---:|");
+  const line = (name, m) => `| ${name} | ${m.words} | ${m.sentences} | ${f1(m.words / m.sentences)} | ${f1(m.grade)} | ${f1(m.ease)} |`;
+  console.log(line("Original", rows[0].pooled.original));
+  for (const r of rows) console.log(line(r.name, r.pooled.rewrite));
+  const gaps = rows.filter((r) => r.missing || r.unscored);
+  if (gaps.length) {
+    console.log("");
+    for (const r of gaps) console.log(`${r.name}: ${r.missing} pieces without a rewrite, ${r.unscored} with no words to score.`);
+  }
 }

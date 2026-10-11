@@ -4,7 +4,6 @@ status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: Merge M20 Q4 to Q9 (#154 to #158, then Q9) and the M21 Readability PR (merge train), then ask Samuel whether to deploy.
-next_action: Merge the calendar follow-up, then the M21 queue (#163, #162, #164, #165, Focus).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
