@@ -298,18 +298,26 @@ test.describe("phone", () => {
 
     // A tap on the dimmed page closes it, and only that: the tap does not also open the link under the finger.
     await button.click();
-    const sheetTop = (await page.locator(`[id="${await button.getAttribute("aria-controls")}"]`).boundingBox())!.y;
+    // Measured once the sheet has finished sliding up, and only links on the page: the sheet's own rows
+    // are inside main too (CI run 38120118560 picked "Your data" mid-slide and tapped it).
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    const sheetId = (await button.getAttribute("aria-controls"))!;
+    const sheetTop = (await page.locator(`[id="${sheetId}"]`).boundingBox())!.y;
     const under = await page
       .getByRole("main")
       .getByRole("link")
-      .evaluateAll((links, top) => {
-        for (const a of links) {
-          const r = a.getBoundingClientRect();
-          const y = r.top + r.height / 2;
-          if (y > 120 && y < top - 8) return { x: r.left + r.width / 2, y };
-        }
-        return null;
-      }, sheetTop);
+      .evaluateAll(
+        (links, [top, id]) => {
+          for (const a of links) {
+            if (a.closest(`[id="${id}"]`)) continue;
+            const r = a.getBoundingClientRect();
+            const y = r.top + r.height / 2;
+            if (y > 120 && y < top - 8) return { x: r.left + r.width / 2, y };
+          }
+          return null;
+        },
+        [sheetTop, sheetId] as const,
+      );
     expect(under, "a link on the page above the sheet").not.toBeNull();
     await page.evaluate(() =>
       document.addEventListener(
