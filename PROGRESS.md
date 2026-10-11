@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M20 Q3 to Q7 (#153 to #157), then ask Samuel whether to deploy.
+next_action: Merge M20 Q4 to Q8 (#154 to #158), then ask Samuel whether to deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -175,6 +175,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 14:29 · Claude Opus 5.5 (laptop) · M20 Q8: a large book opens on a slow connection
+- **Done:** #153 (Q3) merged as aaa1569. Q8: lib/reader/download.ts downloads the book file with no overall limit, giving up only after 30 s with no bytes; the reader's 30 s limit for opening now starts once the file has arrived; a file over 2 MB shows Opening the book… N of M MB downloaded. Stacked on Q7 (#157) because both add a line to docs/plan.md M20.
+- **Key paths:** lib/reader/download.ts; lib/reader/download.test.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; docs/plan.md (M20 Q8)
+- **Commands that worked:** npx vitest run lib/reader/download.test.ts → 4 passed (a download longer than two stall limits succeeds while pieces come; one that stops gives up; a 403 is reported); npx playwright test --project reader → 187 passed (a 3 MB PDF on a connection slowed to 1 MB/s shows 'x.x of 3.0 MB downloaded' and opens); npx playwright test --project offline (with Q7) → 256 passed; npm run check → EXIT=0, 596 passed
+- **Known issues / blockers:** One offline run was restarted: I rebased its working copy while it was building, so that run could not be trusted. The rerun passed.
+- **Exact next steps:** Merge #154 to #158 one at a time (a chain runs them); then ask Samuel whether to deploy M20.
 
 ### 2026-10-11 14:19 · Claude Opus 5.5 (laptop) · M20 Q7: the margins around the text follow a change of theme
 - **Done:** Found in M20's dark screenshots: with the theme on Auto, a device turning dark while a book was open left a light frame around the dark page until a reload. Cause: foliate-js's paginator keeps the page background it read when the chapter loaded (docBackground) and repaints the margins with it on setStyles, unless the page sets --theme-bg-color. bookCss now sets --theme-bg-color to the theme's paper colour. PDFs are not affected (their pages are pictures).
