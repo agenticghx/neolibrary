@@ -4,7 +4,6 @@ status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: Merge the dimmed page-turn fix (m19-dim-fold) and deploy it; M20 and M21 are deployed after #166.
-next_action: Merge the m21-focus PR (M21 Focus) once CI is green
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
