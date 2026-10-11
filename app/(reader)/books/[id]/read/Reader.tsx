@@ -36,10 +36,11 @@ type FoliateView = HTMLElement & {
   open(book: File | object): Promise<void>;
   init(opts: { lastLocation?: string | null; showTextStart?: boolean }): Promise<void>;
   goTo(target: string | number): Promise<void>;
+  goToFraction(fraction: number): Promise<void>;
   prev(): Promise<void>;
   next(): Promise<void>;
   close(): void;
-  book: { toc?: TocItem[]; dir?: string; rendition?: { spread?: string } };
+  book: { toc?: TocItem[]; dir?: string; rendition?: { spread?: string }; sections?: unknown[] };
   /** `index`: in a PDF, the page shown, or being opened once a turn has begun. */
   renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[]; readonly index?: number };
   getCFI(index: number, range: Range): string;
@@ -271,6 +272,8 @@ export function Reader(props: {
   const heldCfi = useRef<{ cfi: string | null } | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
+  // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
+  const [pageCount, setPageCount] = useState(0);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images" | "picture">("none");
   // The keyboard follows the panel (M19 P1b), as in the account menu: focus moves into a panel when it opens, and
   // back to the button that opened it when it closes, if the focus went away with the panel.
@@ -543,6 +546,7 @@ export function Reader(props: {
           });
         });
         setToc(v.book.toc ?? []);
+        setPageCount(props.fileType === "pdf" ? (v.book.sections?.length ?? 0) : 0);
         await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi });
         clearTimeout(giveUp);
         setStatus("ready");
@@ -1297,6 +1301,15 @@ export function Reader(props: {
         {panel === "contents" ? (
           <nav className={`${styles.panel} ${styles.panelLeft}`} aria-label="Contents">
             <p className={styles.panelTitle}>Contents</p>
+            <JumpTo
+              pages={pageCount}
+              current={pageCount ? Math.max(pdfPage(where.cfi ?? ""), 0) + 1 : percent}
+              onGo={(n) => {
+                // A PDF's page n is section n - 1, whose address is epubcfi(/6/2n); an EPUB goes to n% of the book.
+                void (pageCount ? view.current?.goTo(`epubcfi(/6/${n * 2})`) : view.current?.goToFraction(n / 100));
+                setPanel("none");
+              }}
+            />
             <TocList
               items={toc}
               current={where.chapter}
@@ -1498,6 +1511,49 @@ function Segment<T extends string>({
 }
 
 /** The table of contents; the chapter being read is marked (as in Kindle). */
+/**
+ * Go to a page of a PDF, or to a percentage of an EPUB (M20 Q4): the way to
+ * move far in a book without turning page by page, for a keyboard or a
+ * screen reader too (the progress bar at the foot is only a picture).
+ */
+function JumpTo({ pages, current, onGo }: { pages: number; current: number; onGo: (n: number) => void }) {
+  const [value, setValue] = useState(String(current));
+  const pdf = pages > 0;
+  const [min, max] = pdf ? [1, pages] : [0, 100];
+  const n = Number(value);
+  const valid = value.trim() !== "" && Number.isInteger(n) && n >= min && n <= max;
+  return (
+    <form
+      className={styles.jumpTo}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) onGo(n);
+      }}
+    >
+      <label htmlFor="jump-to" className={styles.groupLabel}>
+        {pdf ? `Go to page (1 to ${pages})` : "Go to a percentage of the book"}
+      </label>
+      <div className={styles.jumpRow}>
+        <input
+          id="jump-to"
+          className={styles.jumpInput}
+          type="number"
+          inputMode="numeric"
+          min={min}
+          max={max}
+          step={1}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        {pdf ? null : <span className={styles.hint}>%</span>}
+        <button type="submit" className={styles.tool} disabled={!valid}>
+          Go
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function TocList({ items, onPick, current }: { items: TocItem[]; onPick: (href: string) => void; current: string }) {
   if (!items.length) return <p className={styles.hint}>This book has no table of contents.</p>;
   return (
