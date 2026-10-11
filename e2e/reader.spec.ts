@@ -876,3 +876,50 @@ test("PDF pages are dimmed at night, and can be shown as printed", async ({ page
   await page.getByRole("button", { name: "Reading settings" }).click();
   await expect(settings.getByRole("group", { name: "PDF pages at night" })).toHaveCount(0);
 });
+
+// M20 Q4: Contents can take you to a place far away without turning page by page, for a keyboard or a screen
+// reader too: a page of a PDF, a percentage of an EPUB. A number outside the book cannot be sent.
+test("Contents goes to a page of a PDF and a percentage of an EPUB", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  const contents = page.getByRole("navigation", { name: "Contents" });
+
+  await openFacingPdf(page);
+  // The book opens where an earlier test left it; the box starts from the page on screen.
+  const onPage = async () => Number(/^epubcfi\(\/6\/(\d+)\)/.exec((await reader(page).getAttribute("data-cfi")) ?? "")?.[1]) / 2;
+  await expect.poll(onPage).toBeGreaterThanOrEqual(1);
+  const start = await onPage();
+  const target = start === 3 ? 2 : 3;
+  await page.getByRole("button", { name: "Contents" }).click();
+  const pageBox = contents.getByLabel("Go to page (1 to 4)");
+  await expect(pageBox).toHaveValue(String(start));
+  await pageBox.fill("5");
+  await expect(contents.getByRole("button", { name: "Go", exact: true })).toBeDisabled();
+  await pageBox.fill(String(target));
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await pageBox.press("Enter");
+  await expect(contents).toHaveCount(0);
+  await expect.poll(onPage).toBe(target);
+  // Opened again, it starts from the new page.
+  await page.getByRole("button", { name: "Contents" }).click();
+  await expect(pageBox).toHaveValue(String(target));
+  await pageBox.fill("1");
+  await contents.getByRole("button", { name: "Go", exact: true }).click();
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2\)/);
+
+  await openJekyll(page);
+  const percentRead = async () => Number(/^(\d+)%/.exec((await page.locator("footer [aria-label$='% read']").textContent()) ?? "")?.[1]);
+  await page.getByRole("button", { name: "Contents" }).click();
+  const percentBox = contents.getByLabel("Go to a percentage of the book");
+  await percentBox.fill("101");
+  await expect(contents.getByRole("button", { name: "Go", exact: true })).toBeDisabled();
+  await percentBox.fill("60");
+  await contents.getByRole("button", { name: "Go", exact: true }).click();
+  await expect.poll(percentRead).toBeGreaterThanOrEqual(55);
+  expect(await percentRead()).toBeLessThanOrEqual(65);
+  await page.getByRole("button", { name: "Contents" }).click();
+  await percentBox.fill("0");
+  await percentBox.press("Enter");
+  await expect.poll(percentRead).toBeLessThanOrEqual(5);
+});

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the Q3 test fix, then M20 Q4 to Q8 (#154 to #158).
+next_action: Merge M20 Q2 to Q6 (#152 onward), one at a time.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -175,6 +175,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 14:10 · Claude Opus 5.5 (laptop) · M20 Q4: Contents goes to a page or a percentage
+- **Done:** Q4: a Go to box at the top of Contents: Go to page (1 to N) for a PDF (page n is section n-1, epubcfi(/6/2n)), Go to a percentage of the book for an EPUB (foliate goToFraction); it starts from the page on screen and refuses a number outside the book. Works from the keyboard and with a screen reader; the foot's progress bar stays a picture.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (JumpTo); app/(reader)/books/[id]/read/reader.module.css; e2e/reader.spec.ts
+- **Commands that worked:** npx playwright test --project reader --ignore-snapshots → run 1: 1 failed (my test assumed the PDF opens on page 1; it reopens where an earlier test left it, page 3, and the box rightly showed 3), run 2: 188 passed with Q5; npm run check → EXIT=0, 589 passed
+- **Known issues / blockers:** Seen in screenshots, not caused by M20: with the theme on Auto, when the device switches to dark while a book is open, a light frame stays around the dark page until a reload (screenshots taken after emulateMedia without a reload; after a reload it is fully dark).
+- **Exact next steps:** Merge Q2 (#152), Q3 (#153), Q4, Q5, Q6 in that order. Then look at the light frame after a live switch to dark.
 ### 2026-10-11 14:36 · Claude Opus 5.5 (laptop) · M20: the Q3 test's same-second race, fixed
 - **Done:** #154's CI failed in Q3's new test (run 38163565879): Could not download … (403). Cause, from the run's page snapshot and lib/signed-url.ts: links carry exp in whole seconds, so a link signed in the same second as the page's is identical, and the test's 403 rule caught the fresh link too. The test now waits until the clock passes the page link's signing second. Not a flake and not an app bug.
 - **Key paths:** e2e/offline.spec.ts; lib/signed-url.ts (read)
