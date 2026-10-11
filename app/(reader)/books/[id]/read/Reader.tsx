@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { usePlayer } from "@/components/player/PlayerProvider";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
-import { addToOutbox, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
+import { addToOutbox, describeRefused, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
@@ -696,12 +696,22 @@ export function Reader(props: {
     }
     const waiting = await outboxFor(props.bookId).catch(() => []);
     setAll(withOutbox(server ?? notesRef.current, waiting));
+    setRefused(waiting.filter((w) => w.refused));
+  };
+
+  // Changes the server refused (M20): kept on the device and listed in Notes, never sent again.
+  const [refused, setRefused] = useState<OutboxItem[]>([]);
+  const dismissRefused = async (id: string) => {
+    await removeFromOutbox(id);
+    await reload();
   };
 
   const madeOffline = useRef(new Set<string>());
 
   /** Shows what waits in the outbox on top of the server's list: new notes added, edits applied, removals hidden. */
-  const withOutbox = (base: Annotation[], waiting: OutboxItem[]) => {
+  const withOutbox = (base: Annotation[], all: OutboxItem[]) => {
+    // A refused change is not waiting any more: the server's version stands.
+    const waiting = all.filter((w) => !w.refused);
     const created = waiting.filter((w) => opOf(w) === "create");
     const createdIds = new Set(created.map((w) => w.id));
     madeOffline.current = createdIds;
@@ -1259,6 +1269,8 @@ export function Reader(props: {
             onDelete={removeNote}
             removed={removed?.note ?? null}
             onUndo={() => void undoRemove()}
+            notSaved={refused.map((w) => describeRefused(w, notes))}
+            onDismiss={(id) => void dismissRefused(id)}
             onAddBookNote={addBookNote}
           />
         ) : null}

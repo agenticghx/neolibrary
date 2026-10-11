@@ -296,6 +296,79 @@ test("a note removed and brought back while offline is still there when the netw
   await server.dispose();
 });
 
+// M20 Q2: a note made without a connection that the library then refuses (as it does for a book removed from the
+// library meanwhile) is no longer dropped without a word: it stays on the device under "Could not be saved", with the
+// library's reason and the words the reader wrote, is not sent again, and leaves only when dismissed.
+test("a note the library refuses when the connection returns is kept under Could not be saved", async ({ page, context, playwright }) => {
+  const frankenstein = await bookId(page, "Frankenstein");
+  const server = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: ADMIN_STATE });
+  const onServer = async () => ((await (await server.get(`/api/books/${frankenstein}/annotations`)).json()).annotations as { body: string }[]);
+  const words = "Written on the train; the library will not take it.";
+  const open = async () => {
+    await page.goto(`/books/${frankenstein}/read`);
+    await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await page.getByRole("button", { name: /^Notes/ }).click();
+  };
+  const panel = page.getByRole("navigation", { name: "Notes" });
+  const notSaved = panel.getByTestId("not-saved");
+
+  // No connection when the note is added: it waits on the device.
+  await open();
+  await context.route("**/api/books/*/annotations", (route) =>
+    route.request().method() === "POST" ? route.abort("internetdisconnected") : route.continue(),
+  );
+  await panel.getByLabel("A note about this book").fill(words);
+  await panel.locator("form").filter({ has: page.getByLabel("A note about this book") }).getByRole("button", { name: "Add note" }).click();
+  await expect(panel.getByTestId("notes").getByRole("listitem").filter({ hasText: words }).getByTestId("note-pending")).toBeVisible();
+
+  // The connection is back, and the library refuses the note.
+  await context.unrouteAll();
+  let sent = 0;
+  await context.route("**/api/books/*/annotations", (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    sent += 1;
+    return route.fulfill({ status: 400, json: { error: "Book not found." } });
+  });
+  await open();
+  const item = notSaved.getByRole("listitem");
+  await expect(item).toHaveCount(1);
+  await expect(notSaved).toContainText("Could not be saved");
+  await expect(item).toContainText("A new note");
+  await expect(item).toContainText(words);
+  await expect(item).toContainText("The library said: Book not found.");
+  // Not shown as a note waiting to sync, since it never will.
+  await expect(page.getByTestId("notes").getByRole("listitem").filter({ hasText: words })).toHaveCount(0);
+  expect(sent).toBe(1);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await notSaved.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-not-saved-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Opened again: still listed, and not sent a second time.
+  await open();
+  await expect(item).toHaveCount(1);
+  expect(sent).toBe(1);
+
+  // Dismissed: gone from the device, and the server never had it.
+  await item.getByRole("button", { name: "Dismiss: A new note" }).click();
+  await expect(notSaved).toHaveCount(0);
+  await context.unrouteAll();
+  await open();
+  await expect(notSaved).toHaveCount(0);
+  expect((await onServer()).some((a) => a.body === words)).toBe(false);
+  await server.dispose();
+});
+
 // PDF books too: the PDF viewer's files are kept with the first PDF downloaded.
 test("a PDF downloaded for offline opens with the network off, pages and all", async ({ page, context }) => {
   const discourse = await bookId(page, "Discourse on the Method");
