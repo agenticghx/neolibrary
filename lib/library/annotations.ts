@@ -341,7 +341,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * offline, M12) it becomes the new version's id, so sending the same change
  * again adds nothing and returns the annotation as it stands.
  */
-async function addVersion(db: Db, ownerId: string, annotationId: string, change: Partial<Row>, now: Date, changeId?: unknown) {
+async function addVersion(db: Db, ownerId: string, annotationId: string, change: Partial<Row>, now: Date, changeId?: unknown, restoring = false) {
   if (changeId !== undefined && (typeof changeId !== "string" || !UUID.test(changeId))) throw new AnnotationError("Bad change id.");
   const all = await versions(db, ownerId, annotationId);
   const latest = all[0];
@@ -352,7 +352,8 @@ async function addVersion(db: Db, ownerId: string, annotationId: string, change:
       return toAnnotation(latest, all[all.length - 1]);
     }
   }
-  if (!latest || latest.deleted) throw new AnnotationError("Annotation not found.");
+  if (!latest || (latest.deleted && !restoring)) throw new AnnotationError("Annotation not found.");
+  if (restoring && !latest.deleted) return toAnnotation(latest, all[all.length - 1]); // already back: nothing to add
   const { id: _id, version, createdAt: _c, ...rest } = latest;
   void _id;
   void _c;
@@ -383,6 +384,49 @@ export async function updateAnnotation(
 /** Hides an annotation (soft delete): a new version marked deleted. */
 export async function deleteAnnotation(db: Db, ownerId: string, annotationId: string, now = new Date(), changeId?: unknown) {
   await addVersion(db, ownerId, annotationId, { deleted: true }, now, changeId);
+}
+
+/**
+ * Brings back a removed annotation (M19): a new version, not deleted, with the content it had when it was
+ * removed (a removal copies it). Nothing is overwritten; one that is not removed is returned as it is.
+ */
+export async function restoreAnnotation(db: Db, ownerId: string, annotationId: string, now = new Date(), changeId?: unknown) {
+  return addVersion(db, ownerId, annotationId, { deleted: false }, now, changeId, true);
+}
+
+/** A removed annotation, with when it was removed and what it was on (a book's title, a Path's or pillar's). */
+export type RemovedAnnotation = Annotation & { removedAt: string; on: string };
+
+/** A reader's removed annotations, newest removal first (M19: "Removed notes" on Your data, each with Bring back). */
+export async function listRemovedAnnotations(db: Db, ownerId: string, limit = 100): Promise<RemovedAnnotation[]> {
+  const rows = await db.select().from(annotations).where(eq(annotations.ownerId, ownerId)).orderBy(asc(annotations.annotationId), asc(annotations.version));
+  const byId = new Map<string, Row[]>();
+  for (const r of rows) byId.set(r.annotationId, [...(byId.get(r.annotationId) ?? []), r]);
+  const removed = [...byId.values()]
+    .map((list) => ({ latest: list[list.length - 1], first: list[0] }))
+    .filter(({ latest }) => latest.deleted)
+    .sort((a, b) => b.latest.createdAt.getTime() - a.latest.createdAt.getTime())
+    .slice(0, limit);
+  const ids = (type: "path" | "pillar") => [
+    ...new Set(removed.filter(({ latest }) => latest.targetType === type).map(({ latest }) => latest.targetId).filter((id): id is string => Boolean(id))),
+  ];
+  const bookIds = [...new Set(removed.map(({ latest }) => latest.bookId).filter((id): id is string => Boolean(id)))];
+  const names = new Map<string, string>();
+  if (bookIds.length) for (const b of await db.select({ id: books.id, title: books.title }).from(books).where(and(eq(books.ownerId, ownerId), inArray(books.id, bookIds)))) names.set(b.id, b.title);
+  const pathIds = ids("path");
+  if (pathIds.length) for (const p of await db.select({ id: paths.id, title: paths.title }).from(paths).where(and(eq(paths.ownerId, ownerId), inArray(paths.id, pathIds)))) names.set(p.id, p.title);
+  const pillarIds = ids("pillar");
+  if (pillarIds.length)
+    for (const p of await db
+      .select({ id: pillars.id, title: pillars.title })
+      .from(pillars)
+      .innerJoin(paths, eq(paths.id, pillars.pathId))
+      .where(and(eq(paths.ownerId, ownerId), inArray(pillars.id, pillarIds))))
+      names.set(p.id, p.title);
+  return removed.map(({ latest, first }) => {
+    const key = latest.targetType === "path" || latest.targetType === "pillar" ? latest.targetId : latest.bookId;
+    return { ...toAnnotation(latest, first), removedAt: latest.createdAt.toISOString(), on: (key && names.get(key)) ?? "" };
+  });
 }
 
 export async function history(db: Db, ownerId: string, annotationId: string) {

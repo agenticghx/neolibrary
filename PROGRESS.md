@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M19 P2, P3a, P5 and P3b in order, deploying as they land; then Samuel tries all five (docs/review-top5-plan.md).
+next_action: Merge M19 P3a, P5 and P3b in order, deploying as they land; then Samuel tries all five (docs/review-top5-plan.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -172,6 +172,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 10:36 · Claude Opus 5.5 (laptop) · Deployed M19 P1 and P4 (live 3de6ff7)
+- **Done:** Samuel said 'Go build and deploy'. #143 (P1, panels beside the book) merged as 8117e45 and #144 (P4, cover titles) as 3de6ff7; main's CI passed on both (runs 38146086342 and 38146830939). Deployed 3de6ff7 with railway up from a detached worktree; no database change since f6b71a4, so no backup. #145 (P1b, keyboard focus) merged as d740ebe after the deploy.
+- **Key paths:** ../neolibrary-deploy (detached worktree, not in git)
+- **Commands that worked:** railway link --project neolibrary --service web --environment production; railway variable set NEOLIBRARY_COMMIT=<sha> --skip-deploys; railway up --service web --environment production --ci (Deploy complete); curl /api/health -> commit 3de6ff7; /sign-in 200; /import 307; /account 307
+- **Known issues / blockers:** Nobody has tried it signed in on the live site (Claude cannot sign in).
+- **Exact next steps:** Merge P2 (#146), P3a, P5, P3b in order; deploy again after them; Samuel tries all five.
+
+### 2026-10-11 10:16 · Claude Opus 5.5 (laptop) · M19 P3a: a removed note can be brought back (Undo in Notes, Bring back on Your data)
+- **Done:** After Remove in Notes, 'Note removed. Undo' shows for ten seconds (role=status); Undo brings the note back with its highlight. Your data has a 'Removed notes' card (only when there are some) with Bring back per note. Server: restoreAnnotation adds a version deleted:false copying the content (idempotent on changeId), listRemovedAnnotations (with the book, Path or pillar name), POST /api/annotations/{id}/restore, restoreNoteAction. Offline: Undo of a removal still in the outbox drops it; otherwise a 'restore' item waits in the outbox and the note shows at once. No migration.
+- **Key paths:** lib/library/annotations.ts (+test); lib/library/export.test.ts (round trip with a restored note); app/api/annotations/[id]/restore/route.ts; lib/outbox.ts; app/(reader)/books/[id]/read/Reader.tsx, NotesPanel.tsx, reader.module.css; app/(app)/data/page.tsx, page.module.css; app/(app)/actions.ts; e2e/annotations.spec.ts; e2e/offline.spec.ts
+- **Commands that worked:** npx vitest run lib/library/annotations.test.ts lib/library/export.test.ts (18 passed)
+- **Known issues / blockers:** Stacked on m19-dim-pdf (P2): merge after it.
+- **Exact next steps:** Merge after P2; then P5 (Study button, one set of style names), per docs/review-top5-plan.md.
 
 ### 2026-10-11 10:06 · Claude Opus 5.5 (laptop) · M19 P2: PDF pages are dimmed at night (switch: Dimmed / As printed)
 - **Done:** In Night, or Auto while the device is dark, each PDF page's picture is inverted (dark paper, light ink); the text layer is untouched, with a lighter selection colour and a 30% spoken-word tint that show on a dark page. Reading settings has 'PDF pages at night: Dimmed / As printed' for PDFs only (on by default, kept on the device; old saved settings get it on). Pages that load later are dimmed as they load; a device switch to dark in Auto applies at once.

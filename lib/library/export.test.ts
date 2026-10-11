@@ -7,7 +7,7 @@ import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { readFileSync } from "node:fs";
-import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation } from "./annotations";
+import { createAnnotation, deleteAnnotation, listAnnotations, restoreAnnotation, updateAnnotation } from "./annotations";
 import { costReport } from "./costs";
 import { exportLibrary, importLibrary, wipeLibrary, type LibraryExport } from "./export";
 import { importBook } from "./import";
@@ -52,6 +52,10 @@ describe("library export (ground rule 7)", () => {
     await updateAnnotation(database.db, ownerId, note.id, { body: "Second" });
     const gone = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Hidden later" });
     await deleteAnnotation(database.db, ownerId, gone.id);
+    // M19: removed, then brought back (three versions; nothing overwritten).
+    const back = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Brought back" });
+    await deleteAnnotation(database.db, ownerId, back.id);
+    await restoreAnnotation(database.db, ownerId, back.id);
     const [paragraph] = (await getSections(database.db, ownerId, bookId)).filter((x) => x.kind === "paragraph");
     await rewriteParagraph(database.db, new FakeModel(), ownerId, { bookId, sectionId: paragraph.id, level: "plain" });
     const carew = (await getSections(database.db, ownerId, bookId)).find((x) => x.kind === "chapter")!;
@@ -93,7 +97,12 @@ describe("library export (ground rule 7)", () => {
     expect(before.books.length).toBeGreaterThan(100);
     expect(before.paths[0].pillars.length).toBe(hiddenMachinery.pillars.length);
     expect(before.books.find((b) => b.id === bookId)).toMatchObject({ position: "epubcfi(/6/8!/4/2/1:0)", progress: 0.25 });
-    expect(before.annotations!.map((a) => [a.body, a.version, a.deleted])).toEqual([
+    expect(before.annotations!.filter((a) => a.body === "Brought back").map((a) => [a.version, a.deleted])).toEqual([
+      [1, false],
+      [2, true],
+      [3, false],
+    ]);
+    expect(before.annotations!.filter((a) => a.body !== "Brought back").map((a) => [a.body, a.version, a.deleted])).toEqual([
       ["First", 1, false],
       ["Second", 2, false],
       ["Hidden later", 1, false],
@@ -144,6 +153,7 @@ describe("library export (ground rule 7)", () => {
     expect((await listShelf(database.db, ownerId, { collectionId: c.id })).map((b) => b.title)).toEqual(["The Time Machine"]);
     expect((await listAnnotations(database.db, ownerId, bookId)).map((a) => [a.kind, a.body])).toEqual([
       ["note", "Second"],
+      ["note", "Brought back"],
       ["voice", ""],
     ]);
   });

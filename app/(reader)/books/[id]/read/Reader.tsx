@@ -709,19 +709,25 @@ export function Reader(props: {
     for (const w of waiting) {
       if (opOf(w) === "edit") list = list.map((a) => (a.id === w.annotationId ? { ...a, ...(w.body as Partial<Annotation>), pending: true } : a));
       if (opOf(w) === "remove") list = list.filter((a) => a.id !== w.annotationId);
+      // Brought back while offline (M19): shown again at once, as it was.
+      const back = opOf(w) === "restore" ? (w.body.annotation as Annotation | undefined) : undefined;
+      if (back && !list.some((a) => a.id === back.id)) list = [...list, { ...back, pending: true }];
     }
     return list;
   };
 
   /** Edits or removes a note the server has; with no network the change waits in the outbox (M12). */
-  const change = async (a: Annotation, op: "edit" | "remove", body: Record<string, unknown> = {}) => {
+  const change = async (a: Annotation, op: "edit" | "remove" | "restore", body: Record<string, unknown> = {}) => {
     const changeId = crypto.randomUUID();
     try {
       if (op === "edit") await api(`/api/annotations/${a.id}`, "PATCH", { ...body, changeId });
+      else if (op === "restore") await api(`/api/annotations/${a.id}/restore?changeId=${changeId}`, "POST");
       else await api(`/api/annotations/${a.id}?changeId=${changeId}`, "DELETE");
+      return { changeId, queued: false };
     } catch (e) {
       if (!isOffline(e)) throw e;
       await addToOutbox({ id: changeId, op, annotationId: a.id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
+      return { changeId, queued: true };
     }
   };
 
@@ -871,10 +877,40 @@ export function Reader(props: {
     } else await change(a, "remove");
   };
 
+  // "Note removed · Undo" (M19): the last note removed, and how to bring it back, for ten seconds.
+  const [removed, setRemoved] = useState<{ note: Annotation; undo: () => Promise<void> } | null>(null);
+  const removedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const removeNote = async (a: Annotation) => {
-    await forget(a);
+    let undo: () => Promise<void>;
+    const waiting = await waitingCreate(a.id);
+    if (waiting) {
+      // Made offline and never sent: dropping it from the outbox removes it; Undo puts it back.
+      for (const w of await outboxFor(props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
+      undo = () => addToOutbox(waiting);
+    } else {
+      const { changeId, queued } = await change(a, "remove");
+      undo = async () => {
+        // The removal is still waiting to be sent: taking it back is enough. Otherwise the server brings the note back.
+        if (queued && (await outboxFor(props.bookId).catch(() => [])).some((w) => w.id === changeId)) await removeFromOutbox(changeId);
+        else await change(a, "restore", { annotation: a });
+      };
+    }
     if (a.kind === "highlight" && a.cfi) await view.current?.deleteAnnotation({ value: a.cfi });
     await reload();
+    if (removedTimer.current) clearTimeout(removedTimer.current);
+    setRemoved({ note: a, undo });
+    removedTimer.current = setTimeout(() => setRemoved(null), 10_000);
+  };
+
+  const undoRemove = async () => {
+    const r = removed;
+    if (!r) return;
+    if (removedTimer.current) clearTimeout(removedTimer.current);
+    setRemoved(null);
+    await r.undo();
+    await reload();
+    if (["highlight", "sticker", "drawing", "image"].includes(r.note.kind) && r.note.cfi) await view.current?.addAnnotation({ value: r.note.cfi });
   };
 
   const addBookNote = async (body: string) => {
@@ -1214,6 +1250,8 @@ export function Reader(props: {
             }}
             onSave={saveNote}
             onDelete={removeNote}
+            removed={removed?.note ?? null}
+            onUndo={() => void undoRemove()}
             onAddBookNote={addBookNote}
           />
         ) : null}

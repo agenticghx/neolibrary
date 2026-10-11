@@ -4,7 +4,16 @@ import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
-import { createAnnotation, createAnnotationOnce, deleteAnnotation, history, listAnnotations, updateAnnotation } from "./annotations";
+import {
+  createAnnotation,
+  createAnnotationOnce,
+  deleteAnnotation,
+  history,
+  listAnnotations,
+  listRemovedAnnotations,
+  restoreAnnotation,
+  updateAnnotation,
+} from "./annotations";
 import { importBook } from "./import";
 import { getSections } from "./sections-store";
 
@@ -150,5 +159,53 @@ describe("notes on paths and pillars", () => {
     const other = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Other." });
     await expect(updateAnnotation(database.db, ownerId, other.id, { body: "x", changeId: edit })).rejects.toThrow("already taken");
     await expect(updateAnnotation(database.db, ownerId, other.id, { body: "x", changeId: "nope" })).rejects.toThrow("Bad change id.");
+  });
+});
+
+describe("bringing back a removed note (M19)", () => {
+  it("adds a version with the note as it was, once however often it is sent; another reader cannot", async () => {
+    const p = paras[40];
+    const a = await createAnnotation(database.db, ownerId, { kind: "highlight", bookId, cfi: rangeIn(p, 0, 5), quote: { exact: p.text.slice(0, 5) }, color: "sky" });
+    await updateAnnotation(database.db, ownerId, a.id, { body: "Keep this." });
+    await deleteAnnotation(database.db, ownerId, a.id);
+    expect(await listAnnotations(database.db, ownerId, bookId)).toEqual([]);
+
+    const removed = await listRemovedAnnotations(database.db, ownerId);
+    expect(removed).toHaveLength(1);
+    expect(removed[0]).toMatchObject({ id: a.id, body: "Keep this.", color: "sky", cfi: a.cfi });
+    expect(removed[0].on).toMatch(/Jekyll/);
+    expect(Date.parse(removed[0].removedAt)).not.toBeNaN();
+
+    const change = "1a2b3c4d-0000-4000-8000-0000000000aa";
+    expect(await restoreAnnotation(database.db, ownerId, a.id, new Date(), change)).toMatchObject({
+      id: a.id,
+      version: 4,
+      body: "Keep this.",
+      color: "sky",
+      cfi: a.cfi,
+      createdAt: a.createdAt,
+    });
+    await restoreAnnotation(database.db, ownerId, a.id, new Date(), change); // sent again (offline sync): nothing added
+    await restoreAnnotation(database.db, ownerId, a.id); // already back: nothing added
+    expect((await history(database.db, ownerId, a.id)).map((v) => [v.version, v.body, v.deleted])).toEqual([
+      [1, "", false],
+      [2, "Keep this.", false],
+      [3, "Keep this.", true],
+      [4, "Keep this.", false],
+    ]);
+    expect(await listAnnotations(database.db, ownerId, bookId)).toHaveLength(1);
+    expect(await listRemovedAnnotations(database.db, ownerId)).toEqual([]);
+
+    // Removed again and brought back again: still nothing overwritten.
+    await deleteAnnotation(database.db, ownerId, a.id);
+    await restoreAnnotation(database.db, ownerId, a.id);
+    expect(await history(database.db, ownerId, a.id)).toHaveLength(6);
+
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const other = (await acceptInvite(database.db, token, { email: "x@example.com", name: "X", password: "long enough pw" })).id;
+    await deleteAnnotation(database.db, ownerId, a.id);
+    await expect(restoreAnnotation(database.db, other, a.id)).rejects.toThrow("not found");
+    expect(await listRemovedAnnotations(database.db, other)).toEqual([]);
+    await expect(restoreAnnotation(database.db, ownerId, "00000000-0000-4000-8000-000000000000")).rejects.toThrow("not found");
   });
 });

@@ -249,6 +249,53 @@ test("a note edited and a note removed offline are changed on the server when th
   await server.dispose();
 });
 
+// M19 P3a: Undo works offline too. A removal still waiting in the outbox is simply taken back; a removal the server
+// already has is brought back by a restore that waits in the outbox, shows at once, and is sent once.
+test("a note removed and brought back while offline is still there when the network returns", async ({ page, context, playwright }) => {
+  const frankenstein = await bookId(page, "Frankenstein");
+  const server = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: ADMIN_STATE });
+  type Row = { id: string; body: string };
+  const onServer = async () => ((await (await server.get(`/api/books/${frankenstein}/annotations`)).json()).annotations as Row[]);
+  const versions = async (id: string) => ((await (await server.get(`/api/annotations/${id}`)).json()).versions as unknown[]).length;
+  const early = (await (await server.post(`/api/books/${frankenstein}/annotations`, { data: { kind: "note", body: "Removed and undone on the train." } })).json()) as Row;
+  const late = (await (await server.post(`/api/books/${frankenstein}/annotations`, { data: { kind: "note", body: "Removed at home, undone on the train." } })).json()) as Row;
+
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByTestId("offline").getByRole("button", { name: "Download for offline" }).click();
+  await expect(page.getByTestId("offline").getByRole("status")).toBeVisible();
+  // Removed while online: the server has the removal.
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const notes = page.getByTestId("notes");
+  await notes.getByRole("listitem").filter({ hasText: late.body }).getByRole("button", { name: "Remove" }).click();
+  await expect.poll(async () => (await onServer()).some((a) => a.id === late.id)).toBe(false);
+
+  await context.setOffline(true);
+  await context.route("**/*", (route) => route.abort("internetdisconnected"));
+  const status = page.getByRole("navigation", { name: "Notes" }).getByRole("status");
+  // Undo of a removal the server already has: a restore waits in the outbox, and the note shows at once.
+  await status.getByRole("button", { name: "Undo" }).click();
+  await expect(notes.getByRole("listitem").filter({ hasText: late.body })).toHaveCount(1);
+  // Undo of a removal made offline: the waiting removal is taken back.
+  await notes.getByRole("listitem").filter({ hasText: early.body }).getByRole("button", { name: "Remove" }).click();
+  await expect(notes.getByRole("listitem").filter({ hasText: early.body })).toHaveCount(0);
+  await status.getByRole("button", { name: "Undo" }).click();
+  await expect(notes.getByRole("listitem").filter({ hasText: early.body })).toHaveCount(1);
+
+  // Network back: both are on the server; the early note was never removed there, the late one was brought back once.
+  await context.unrouteAll();
+  await context.setOffline(false);
+  await expect.poll(async () => (await onServer()).some((a) => a.id === late.id), { timeout: 15_000 }).toBe(true);
+  await page.reload();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  expect((await onServer()).some((a) => a.id === early.id)).toBe(true);
+  expect(await versions(early.id)).toBe(1);
+  expect(await versions(late.id)).toBe(3);
+  await server.dispose();
+});
+
 // PDF books too: the PDF viewer's files are kept with the first PDF downloaded.
 test("a PDF downloaded for offline opens with the network off, pages and all", async ({ page, context }) => {
   const discourse = await bookId(page, "Discourse on the Method");
