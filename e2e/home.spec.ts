@@ -273,3 +273,54 @@ test("Home is accessible, fits a phone, and looks right in light and dark", asyn
     }
   }
 });
+
+// M19 P4 (the site review's fourth finding): the greyed covers of "Not available yet" broke titles in the middle
+// of a word ("Airpor t System s"). Every word up to 13 letters must now stay on one line of its cover, on a
+// computer and a phone, on Home and in the Library; a longer word may be hyphenated, never chopped.
+test("covers in Not available yet never break a word in half", async ({ page }) => {
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [
+    ["desktop", 1280, 800],
+    ["phone", 390, 844],
+  ] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    for (const path of ["/", "/library"]) {
+      await page.goto(path);
+      await page.locator("details summary").filter({ hasText: /^Not available yet/ }).click();
+      const grid = page.getByTestId("not-yet");
+      await expect(grid.locator("li").first()).toBeVisible();
+      const broken = await grid.evaluate((ul) => {
+        const out: string[] = [];
+        for (const li of ul.querySelectorAll("li")) {
+          // The cover's lettering: the span on the cover whose text is the whole title.
+          const title = li.querySelector("figure span")!;
+          const node = title.firstChild;
+          if (!node || node.nodeType !== Node.TEXT_NODE) continue;
+          const text = node.nodeValue!;
+          // A word is what lies between spaces and hyphens: a break after a hyphen ("Billion-/Dollar") is fine.
+          for (const m of text.matchAll(/[^\s\-\u2010-\u2015]+/g)) {
+            const letters = m[0].replace(/[^\p{L}]/gu, "").length;
+            if (letters > 13) continue;
+            const r = document.createRange();
+            r.setStart(node, m.index!);
+            r.setEnd(node, m.index! + m[0].length);
+            // Rects on separate lines differ in top; a word on one line has one line of boxes.
+            const tops = new Set([...r.getClientRects()].map((b) => Math.round(b.top)));
+            if (tops.size > 1) out.push(`${text}: "${m[0]}"`);
+          }
+        }
+        return out;
+      });
+      expect(broken, `${name} ${path}`).toEqual([]);
+    }
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto("/");
+      await page.locator("details summary").filter({ hasText: /^Not available yet/ }).click();
+      await page.getByTestId("not-yet").scrollIntoViewIfNeeded();
+      await page.waitForTimeout(200);
+      await page.screenshot({ path: `screenshots/home-not-yet-${name}-${scheme}.png` });
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  }
+});

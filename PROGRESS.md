@@ -3,6 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Merge M19 P1, then P4, per docs/review-top5-plan.md.
 next_action: Finish M19 P1 (rerun, PR, merge train), then P4 and P1b, per docs/review-top5-plan.md.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
@@ -173,6 +174,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-11 09:57 · Claude Opus 5.5 (laptop) · M19 P4: titles on the greyed Not available yet covers no longer break mid-word
+- **Done:** The narrow covers of Not available yet (Home and Library) get the Path page's small lettering (new Cover size fillSmall), and every cover title hyphenates a word that still does not fit (hyphens: auto) instead of chopping it. New test: every word of up to 13 letters stays on one line, desktop and phone, Home and Library.
+- **Key paths:** components/Cover.tsx; components/Cover.module.css; components/home/Library.tsx; e2e/home.spec.ts
+- **Commands that worked:** npx playwright test --project home --ignore-snapshots
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge after P1 (m19-panels-beside); the plan is docs/review-top5-plan.md.
 ### 2026-10-11 09:57 · Claude Opus 5.5 (laptop) · M19 P1: on a computer, panels open beside the book instead of over it
 - **Done:** Samuel said 'Go build and deploy' (M19). P1 built on m19-panels-beside: the reader's panels are drawn inside the book's area and, on a computer, take a 22rem column; the book reflows. With Side by side on, the panel is a third column (page and rewrite share the rest). Contents stays over the page on the left (reader.spec.ts:97). Phone unchanged. New test in e2e/images.spec.ts (every panel beside the book, same place after closing, Side by side, phone card, axe). First local run: 1 failure, ai.spec.ts:474, because the first design hid the rewrite behind the panel; changed to the third column; rerun in progress. P4 (cover titles) built in worktree ../neolibrary-m19-covers on m19-cover-titles, tests not yet run.
 - **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader.module.css; e2e/images.spec.ts; docs/review-top5-plan.md (P1 updated)

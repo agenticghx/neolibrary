@@ -25,7 +25,7 @@ export function LibraryGrid({ items, testId = "shelf", compact = false }: { item
               available={b.available}
               caption={false}
               decorative
-              size="fill"
+              size={compact ? "fillSmall" : "fill"}
               imageUrl={b.coverUrl}
               marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }}
             />
