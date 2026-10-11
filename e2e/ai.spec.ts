@@ -59,6 +59,19 @@ test("rewrite a paragraph at two levels, flip between versions, and get them bac
   await expect(rewrite(page)).toContainText("Fake rewrite (plain english): ");
   await expect(rewrite(page)).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
   await expect(panel(page)).toContainText("Version 1 of 1");
+  // M21: the reading level of the paragraph and of its rewrite (Flesch-Kincaid grade), the same numbers seen and heard.
+  // The fake rewrite is the paragraph's first two sentences, so it need not be easier: only the shape is checked.
+  const level = rewrite(page).getByTestId("readability");
+  const shown = level.locator('summary [data-part="shown"]');
+  await expect(shown).toHaveText(/^Grade \d+\s+\d+$/); // the arrow between them is drawn
+  await expect(shown.locator("svg")).toBeVisible();
+  await expect(level).toContainText(/Reading level: original grade \d+, this rewrite grade \d+/);
+  const seen = /Grade (\d+)\s+(\d+)/.exec((await shown.textContent())!)!;
+  await expect(level.locator("summary .visually-hidden")).toHaveText(`Reading level: original grade ${seen[1]}, this rewrite grade ${seen[2]}`);
+  const note = level.getByText("It counts sentence and word length only, not meaning.", { exact: false });
+  await expect(note).toBeHidden();
+  await level.locator("summary").click();
+  await expect(note).toBeVisible();
 
   await panel(page).getByRole("button", { name: "Shorter" }).click();
   await expect(rewrite(page)).toContainText("Rewrite · Shorter");
@@ -425,6 +438,9 @@ test("read it rewritten: beside the page, made once at the price shown, kept acr
   await expect(pieces.first()).toContainText(/STE \d+% \(full-STE score\)/);
   await expect(pieces.first()).toContainText("1 meaning choice");
   await expect(pieces.first()).toContainText(/fake · \d+ \w+ \d{4} · \$\d/);
+  // M21: each rewritten paragraph carries its reading-level badge too.
+  await expect(pieces.first().getByTestId("readability")).toContainText(/Reading level: original grade \d+, this rewrite grade \d+/);
+  await expect(pieces.getByTestId("readability")).toHaveCount(missing);
   expect(made.n).toBe(missing);
   // Stop rewriting as you turn (the next test covers it): from here on, only what is saved shows.
   await pane(page).getByTestId("as-you-turn").getByRole("button", { name: "Stop" }).click();
@@ -650,6 +666,16 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       await page.waitForTimeout(500);
       await page.screenshot({ path: `screenshots/reader-rewrite-${name}-${scheme}.png` });
+
+      // M21: the reading-level badge, opened to show its note.
+      const level = rewrite(page).getByTestId("readability");
+      await level.locator("summary").click();
+      await expect(level.getByText("not meaning", { exact: false })).toBeVisible();
+      await level.scrollIntoViewIfNeeded();
+      const lv = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(lv.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/rewrite-readability-${name}-${scheme}.png` });
 
       await page.getByRole("button", { name: "Study" }).click();
       await expect(page.getByTestId("need-to-know")).toBeVisible();

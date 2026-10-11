@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { LEVELS, rewriteFor, STYLE_NAMES, strictnessFrom, type Strictness, type Style } from "@/lib/library/levels";
 import type { RewriteView } from "@/lib/library/rewrite";
+import { ReadabilityBadge } from "./ReadabilityBadge";
 import styles from "./reader.module.css";
 
 type Data = {
@@ -193,6 +194,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
                 STE {Math.round(current.ste.score)}% (full-STE score)
               </p>
             ) : null}
+            <ReadabilityBadge original={data.paragraph.text} rewrite={current.text} />
             {current.meaningChanges.length ? (
               <div className={styles.meaning}>
                 <p className={styles.machineLabel}>Meaning changes</p>
