@@ -21,13 +21,25 @@ export class FakeModel implements TextModel {
 
 /** A readable stand-in: the passage's first sentences, labelled with the task. */
 function fakeAnswer(req: TextRequest) {
-  const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   const task = /^Task: (.+)$/m.exec(req.prompt)?.[1] ?? "answer";
+  if (task === "Ask this book") return fakeAsk(req.prompt);
+  const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   if (req.schema) return JSON.stringify(/question/i.test(task) ? fakeQuestions(text) : fakeConcepts(text));
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
   const answer = `Fake ${task.toLowerCase()}: ${sentences.slice(0, 2).join(" ").replace(/\s+/g, " ").trim()}`;
   // STE answers carry a notes section, like the real prompt asks for.
   return /STE/.test(task) ? `${answer}\n---notes---\n- The test AI chose no meanings; this note shows where real ones go.` : answer;
+}
+
+/**
+ * Ask this book (M21): quotes the start of passage 1 and cites it as [1]; with no passages, says the book does
+ * not answer it, as the real prompt asks.
+ */
+function fakeAsk(prompt: string) {
+  const first = /<passage n="1"[^>]*>\s*([\s\S]*?)\s*<\/passage>/.exec(prompt)?.[1];
+  if (!first) return "The passages found in this book do not answer this. (The test AI was given no passages.)";
+  const words = first.replace(/\s+/g, " ").split(" ").slice(0, 12).join(" ");
+  return `The test AI's answer, from the passages: the book says “${words}…” [1]`;
 }
 
 /** Prerequisites: the first few capitalised words of the text, as made-up concepts. */

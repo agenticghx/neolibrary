@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { STYLE_NAMES, type Style } from "@/lib/library/levels";
-import { StudyTabs } from "./StudyTabs";
+import { StudyTabs, type StudyTab } from "./StudyTabs";
 import type { QuestionsView } from "@/lib/library/questions";
 import styles from "./reader.module.css";
 
@@ -23,7 +23,7 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
  * Question bank for the chapter being read (M6): answers stay hidden until
  * asked for; the reader marks each one right or wrong.
  */
-export function QuestionsPanel({ bookId, cfi, onBack }: { bookId: string; cfi: string; onBack: () => void }) {
+export function QuestionsPanel({ bookId, cfi, onTab }: { bookId: string; cfi: string; onTab: (tab: StudyTab) => void }) {
   const [data, setData] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +92,7 @@ export function QuestionsPanel({ bookId, cfi, onBack }: { bookId: string; cfi: s
   return (
     <section className={styles.panel} aria-label="Test yourself">
       <p className={styles.panelTitle}>Test yourself</p>
-      <StudyTabs current="questions" onPick={(tab) => tab === "know" && onBack()} />
+      <StudyTabs current="questions" onPick={onTab} />
       {!data && !error ? <p className={styles.hint}>Finding the chapter…</p> : null}
       {data ? (
         <p className={styles.groupLabel}>

@@ -253,7 +253,7 @@ test("Study opens on Need to know, with Test yourself one tab away; Rewrite offe
   await expect(page.getByRole("button", { name: "What do I need to know?" })).toHaveCount(0); // the "?" is gone
   await page.getByRole("button", { name: "Study" }).click();
   const tabs = page.getByRole("tablist", { name: "Study" });
-  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself"]);
+  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask"]);
   await expect(tabs.getByRole("tab", { name: "Need to know" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("region", { name: "What do I need to know?" })).toBeVisible();
   await tabs.getByRole("tab", { name: "Test yourself" }).click();
@@ -704,4 +704,78 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       await page.screenshot({ path: `screenshots/reader-crosslinks-${name}-${scheme}.png` });
     }
   }
+});
+
+// M21: Ask this book, the third Study tab. A question is answered only from the book's own paragraphs (the fake AI
+// quotes passage 1 and cites it as [1]); the price shows before anything is spent; [1] opens its paragraph.
+test("Ask this book: a question answered from the book's paragraphs, with a [1] that opens the passage", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAtPhrase(page, "London was startled by a crime of singular ferocity");
+  const askPanel = page.getByRole("region", { name: "Ask this book" });
+  const answer = page.getByTestId("ask-answer");
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Ask" }).click();
+  await expect(page.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true");
+
+  // The price shows before anything is spent; the button waits for a question.
+  const button = askPanel.getByRole("button", { name: /^Ask \((about \$0\.\d\d|under \$0\.01)\)$/ });
+  await expect(button).toBeDisabled();
+
+  // No word of the question is in this book: nothing is asked, nothing is spent.
+  await askPanel.getByLabel("Your question").fill("What about the Eloi and the Morlocks?");
+  await button.click();
+  await expect(askPanel.getByRole("status")).toContainText("No paragraph of this book has the words");
+  await expect(answer).toHaveCount(0);
+
+  await askPanel.getByLabel("Your question").fill("What was his rugged countenance like?");
+  await button.click();
+  await expect(answer).toContainText("Answer from the book · written by the test AI");
+  await expect(answer).toContainText("“Mr. Utterson the lawyer was a man of a rugged countenance that…”");
+  await expect(answer).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
+  await expect(askPanel).toContainText("“What was his rugged countenance like?”");
+  const cited = page.getByTestId("ask-passages").getByRole("button");
+  await expect(cited).toHaveCount(1);
+  await expect(cited).toContainText("[1] Story of the Door");
+  await expect(cited).toContainText("Mr. Utterson the lawyer was a man of a rugged countenance");
+
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect(answer).toBeVisible();
+      await page.waitForTimeout(300);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/ask-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // [1] opens its paragraph, in the first chapter; on a computer the panel stays beside the book for [2], [3]…
+  const landed = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { lastLocation: { range: Range } | null } | null;
+      return view?.lastLocation?.range.toString() ?? "";
+    });
+  await answer.getByRole("button", { name: "[1] go to passage 1" }).click();
+  await expect(page.locator("footer")).toContainText("Story of the Door");
+  await expect.poll(landed).toContain("rugged countenance");
+  await expect(answer).toBeVisible();
+
+  // The answer is kept: closed and opened again it is still there, free. On a phone, where the panel covers the
+  // page, a passage closes it.
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "The Carew Murder Case" }).click();
+  await expect(page.locator("footer")).toContainText("The Carew Murder Case");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Ask" }).click();
+  await expect(answer).toContainText("rugged countenance");
+  await cited.click();
+  await expect(askPanel).toHaveCount(0);
+  await expect.poll(landed).toContain("rugged countenance");
+  await page.setViewportSize({ width: 1280, height: 800 });
 });

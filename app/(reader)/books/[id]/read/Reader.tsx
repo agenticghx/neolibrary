@@ -22,6 +22,7 @@ import { mark } from "@/lib/perf-marks";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
+import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -280,7 +281,7 @@ export function Reader(props: {
   const [toc, setToc] = useState<TocItem[]>([]);
   // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
   const [pageCount, setPageCount] = useState(0);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "links" | "images" | "picture">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "links" | "images" | "picture">("none");
   // The keyboard follows the panel (M19 P1b), as in the account menu: focus moves into a panel when it opens, and
   // back to the button that opened it when it closes, if the focus went away with the panel.
   const opener = useRef<HTMLElement | null>(null);
@@ -1135,6 +1136,7 @@ export function Reader(props: {
     panel === "notes" ||
     panel === "links" ||
     panel === "images" ||
+    panel === "ask" ||
     ((panel === "know" || panel === "questions") && Boolean(where.cfi)) ||
     (panel === "picture" && Boolean(activePicture?.picture)) ||
     (panel === "rewrite" && Boolean(rewriteAt)) ||
@@ -1196,10 +1198,10 @@ export function Reader(props: {
           <button
             type="button"
             className={`${styles.tool} ${styles.studyButton}`}
-            aria-expanded={panel === "know" || panel === "questions"}
+            aria-expanded={panel === "know" || panel === "questions" || panel === "ask"}
             aria-label="Study"
             title="Study: what this chapter takes for granted, and questions on it"
-            onClick={() => setPanel(panel === "know" || panel === "questions" ? "none" : "know")}
+            onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" ? "none" : "know")}
           >
             <svg className={styles.studyIcon} width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <path
@@ -1297,10 +1299,20 @@ export function Reader(props: {
         ) : null}
 
         {panel === "know" && where.cfi ? (
-          <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onQuestions={() => setPanel("questions")} />
+          <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onTab={setPanel} />
         ) : null}
         {panel === "questions" && where.cfi ? (
-          <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onBack={() => setPanel("know")} />
+          <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onTab={setPanel} />
+        ) : null}
+        {panel === "ask" ? (
+          <AskPanel
+            bookId={props.bookId}
+            onTab={setPanel}
+            onGo={(cfi, close) => {
+              void view.current?.goTo(cfi);
+              if (close) setPanel("none");
+            }}
+          />
         ) : null}
 
         {panel === "links" ? <CrossLinksPanel links={links} /> : null}
