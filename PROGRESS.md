@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M21 palette PR (m21-palette) through the merge train; then ask Samuel whether to deploy.
+next_action: Merge the calendar follow-up, then the M21 queue (#163, #162, #164, #165, Focus).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 16:36 · Claude Opus 5.5 (laptop) · M21 Calendar follow-up: the fix that missed #161
+- **Done:** #161 (the reading calendar) was merged by the auto-merge Action at its first push (db7ef4c). Its second commit (22d52dd) missed the merge: the calendar scrolls inside its own box on a 320 px phone instead of widening the page, and e2e/stats.spec.ts test 2 finds its week by date instead of expecting exactly one row in Week by week, which fails from Monday 12 October 2026 UTC (a second week of reading appears). Cherry-picked here.
+- **Key paths:** app/(app)/stats/ReadingCalendar.tsx; app/(app)/stats/page.module.css; e2e/stats.spec.ts
+- **Commands that worked:** gh pr view 161 --json headRefOid,mergeCommit → merged head db7ef4c; git diff --stat 1039040 origin/m21-calendar → 3 files; agent's run: PORT=3304 npx playwright test --project stats → 238 passed
+- **Known issues / blockers:** Without this, main's stats test fails from 2026-10-12 00:00 UTC and blocks every pull request.
+- **Exact next steps:** Merge this first, then #163, #162, #164, #165 and Focus.
 
 ### 2026-10-11 16:22 · Claude Opus 5.5 (laptop, M21 agent) · M21 Palette: Cmd+K (Ctrl+K) jumps to any book, Path, page or recent note
 - **Done:** Built the command palette on branch m21-palette (one PR, not merged, not deployed). Cmd+K on a Mac, Ctrl+K elsewhere, anywhere signed in and in the reader, opens a search box over the dimmed page: books (Enter opens the book page; Shift+Enter or the Read row opens the reader), Paths and their sections (path page at #p-<slug>), pages (Home, Library, Search, Paths, New path, Import, Reading stats, Your data, Account, Agent access; Invite people and Spending for an admin only), the 50 newest highlights and notes (reader at ?at=<cfi>), and Search the library for what was typed. Fuzzy matching with unit tests (letters in order, word starts and runs score higher, a title above an author, scattered letters dropped). Light GET /api/palette for the signed-in reader, fetched each time it opens. Modal dialog, ARIA combobox and listbox, result count announced, focus kept inside and returned on Escape (into the book frame too).
