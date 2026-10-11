@@ -87,9 +87,11 @@ export class CollectionError extends Error {}
 
 export async function listCollections(db: Db, ownerId: string) {
   const rows = await db
-    .select({ id: collections.id, name: collections.name, count: sql<number>`count(${collectionBooks.bookId})::int` })
+    .select({ id: collections.id, name: collections.name, count: sql<number>`count(${books.id})::int` })
     .from(collections)
     .leftJoin(collectionBooks, eq(collectionBooks.collectionId, collections.id))
+    // Only books still in the library count (a removed one, M19, keeps its place for when it comes back).
+    .leftJoin(books, and(eq(books.id, collectionBooks.bookId), isNull(books.deletedAt)))
     .where(eq(collections.ownerId, ownerId))
     .groupBy(collections.id)
     .orderBy(asc(sql`lower(${collections.name})`));

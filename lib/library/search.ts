@@ -89,7 +89,7 @@ export async function searchNotes(db: Db, ownerId: string, query: string, limit 
     LEFT JOIN paths pa ON pa.id = a.target_id AND a.target_type = 'path'
     LEFT JOIN paths pp ON pp.id = pi.path_id
     JOIN query ON to_tsvector('english', a.body || ' ' || a.transcript || ' ' || a.quote_exact) @@ query.q
-    WHERE NOT a.deleted
+    WHERE NOT a.deleted AND (a.book_id IS NULL OR b.deleted_at IS NULL) -- not on a book removed from the library (M19)
     ORDER BY ts_rank(to_tsvector('english', a.body || ' ' || a.transcript || ' ' || a.quote_exact), query.q) DESC, a.created_at DESC
     LIMIT ${limit}
   `);

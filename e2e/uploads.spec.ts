@@ -296,3 +296,72 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
     "An AI voice can also narrate an entire EPUB in advance, paid up front, when you choose it above under “Create AI voice narration for an entire book”.",
   ]);
 });
+
+// M19 P3b (the site review's third finding): a book can leave the library, behind a confirmation, and come back
+// from Your data with its notes. Uploading it again brings the same book back instead of a second copy.
+test("a book can be removed from the library and brought back, with its notes", async ({ page }) => {
+  test.setTimeout(60_000); // four looks of Your data, each reloaded
+  const spare = Buffer.from(readableEpub("A Spare Book", ["<p>A short chapter about a lighthouse keeper.</p>"], "Ann Example"));
+  const upload = async () => {
+    await page.goto("/import");
+    await page.getByLabel("Choose files").setInputFiles({ name: "spare.epub", mimeType: "application/epub+zip", buffer: spare });
+    return page.getByTestId("upload-results");
+  };
+  await expect((await upload()).getByText("Added to your library")).toBeVisible();
+  const shelf = page.getByTestId("shelf");
+  await page.goto("/library");
+  await shelf.getByRole("link", { name: /^A Spare Book/ }).click();
+  await expect(page.getByRole("heading", { name: "A Spare Book", level: 1 })).toBeVisible();
+  const bookUrl = page.url();
+  const id = /\/books\/([0-9a-f-]{36})/.exec(bookUrl)![1];
+  await page.request.post(`/api/books/${id}/annotations`, { data: { kind: "note", body: "Keep this thought about lighthouses." } });
+
+  // Folded until asked, and confirmed before anything happens.
+  const confirm = page.locator("form").getByRole("button", { name: "Remove from library" });
+  await expect(confirm).toBeHidden();
+  await page.locator("summary", { hasText: "Remove from library" }).click();
+  await expect(page.getByText("Your notes and the file are kept, and Your data can bring it back.")).toBeVisible();
+  await confirm.click();
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(shelf.getByRole("link", { name: /^A Spare Book/ })).toHaveCount(0);
+  expect((await page.goto(bookUrl))?.status()).toBe(404);
+
+  await page.goto("/data");
+  const card = page.getByRole("region", { name: "Removed books" });
+  await expect(card.getByRole("listitem").filter({ hasText: "A Spare Book" })).toContainText(/A Spare Book · Ann Example\s*removed \d+ \w+ \d{4}/);
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(results.violations.map((v) => `${name} ${scheme} ${v.id}: ${v.help}`)).toEqual([]);
+      await card.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `screenshots/data-removed-books-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await card.getByRole("button", { name: "Bring back: A Spare Book" }).click();
+  await expect(card).toHaveCount(0);
+  await page.goto("/library");
+  await expect(shelf.getByRole("link", { name: /^A Spare Book/ })).toHaveCount(1);
+  await page.goto(bookUrl);
+  await expect(page.getByRole("region", { name: "Your notes" })).toContainText("1 notes on the book");
+
+  // Removed again, then uploaded again: the same book comes back, notes and all; no second copy.
+  await page.locator("summary", { hasText: "Remove from library" }).click();
+  await confirm.click();
+  await expect(page).toHaveURL(/\/library$/);
+  await expect((await upload()).getByText("You had removed this book: it is back, with your notes")).toBeVisible();
+  await page.goto("/library");
+  await expect(shelf.getByRole("link", { name: /^A Spare Book/ })).toHaveCount(1);
+  await page.goto(bookUrl);
+  await expect(page.getByRole("region", { name: "Your notes" })).toContainText("1 notes on the book");
+
+  // Leave the shelves as the later tests expect them: the spare book removed (kept, out of every list).
+  await page.locator("summary", { hasText: "Remove from library" }).click();
+  await confirm.click();
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(shelf.getByRole("link", { name: /^A Spare Book/ })).toHaveCount(0);
+});

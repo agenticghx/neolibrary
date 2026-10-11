@@ -212,11 +212,13 @@ test("/library has the same View switch", async ({ page }) => {
 // M14 step 4 "Done when": every filter shows exactly its titles (D5), worked out here from the
 // library's own export, so the test holds whatever the earlier projects added.
 test("each library filter shows exactly its titles, with the right count", async ({ page }) => {
-  type B = { id: string; title: string; file: { type: "epub" | "pdf" | null } | null; progress: number; lastOpenedAt: string | null };
+  type B = { id: string; title: string; file: { type: "epub" | "pdf" | null } | null; progress: number; lastOpenedAt: string | null; deletedAt?: string | null };
   type Imp = { bookId: string; status: string };
   const data = (await (await page.request.get("/api/export")).json()) as { books: B[]; readalongImports?: Imp[] };
-  const withFile = data.books.filter((b) => b.file);
-  const titleOnly = data.books.filter((b) => !b.file);
+  // A book removed from the library (M19) is in the file, marked removed, and on no shelf.
+  const shelved = data.books.filter((b) => !b.deletedAt);
+  const withFile = shelved.filter((b) => b.file);
+  const titleOnly = shelved.filter((b) => !b.file);
   const audio = new Set((data.readalongImports ?? []).filter((i) => i.status === "ready").map((i) => i.bookId));
   const expected: Record<string, { grid: B[]; waiting: number; heading: string }> = {
     want: { grid: withFile.filter((b) => b.progress === 0 && !b.lastOpenedAt), waiting: titleOnly.length, heading: "Want to Read" },

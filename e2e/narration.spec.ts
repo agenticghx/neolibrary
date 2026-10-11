@@ -94,7 +94,10 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
 
   const section = page.getByRole("region", { name: "Create AI voice narration for an entire book" });
   // EPUB only: the books offered are exactly the library's EPUBs with a file (the page updated itself after the upload).
-  const exported = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string; author: string; file: { type: string } | null }[];
+  // (A book removed from the library, M19, is in the file marked removed, and offered nowhere.)
+  const exported = ((await (await page.request.get("/api/export")).json()).books as { id: string; title: string; author: string; file: { type: string } | null; deletedAt?: string | null }[]).filter(
+    (b) => !b.deletedAt,
+  );
   const label = (b: { title: string; author: string }) => (b.author ? `${b.title}, by ${b.author}` : b.title);
   const bookSelect = section.getByLabel("Book to narrate");
   await expect

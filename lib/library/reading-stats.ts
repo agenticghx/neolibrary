@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, readingSessions, slots, type ChapterReading } from "@/lib/db/schema";
 
@@ -126,7 +126,8 @@ export async function statsByBook(db: Db, ownerId: string): Promise<BookStats[]>
     })
     .from(readingSessions)
     .innerJoin(books, eq(books.id, readingSessions.bookId))
-    .where(eq(readingSessions.ownerId, ownerId))
+    // A book removed from the library (M19) leaves the per-book list; the weekly totals keep its time.
+    .where(and(eq(readingSessions.ownerId, ownerId), isNull(books.deletedAt)))
     .groupBy(readingSessions.bookId, books.title, books.author)
     .orderBy(sql`sum(${readingSessions.activeSeconds}) desc`, asc(books.title));
   return rows.map((r) => ({ ...r, wpm: wordsPerMinute(r.speedWords, r.speedSeconds) }));
@@ -262,7 +263,7 @@ export async function chapterStatsByBook(db: Db, ownerId: string) {
     .select({ bookId: readingSessions.bookId, title: books.title, chapters: readingSessions.chapters })
     .from(readingSessions)
     .innerJoin(books, eq(books.id, readingSessions.bookId))
-    .where(eq(readingSessions.ownerId, ownerId));
+    .where(and(eq(readingSessions.ownerId, ownerId), isNull(books.deletedAt)));
   const byBook = new Map<string, { title: string; chapters: Map<string, Omit<ChapterStats, "wpm">> }>();
   for (const r of rows) {
     const book = byBook.get(r.bookId) ?? { title: r.title, chapters: new Map() };

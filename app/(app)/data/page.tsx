@@ -3,7 +3,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { listRemovedAnnotations, type Kind, type RemovedAnnotation } from "@/lib/library/annotations";
-import { restoreNoteAction } from "../actions";
+import { listRemovedBooks } from "@/lib/library/remove-book";
+import { restoreBookAction, restoreNoteAction } from "../actions";
 import { ImportForm } from "./ImportForm";
 import styles from "./page.module.css";
 
@@ -31,6 +32,7 @@ export default async function DataPage() {
   const user = await requireUser();
   // Removed notes (M19): nothing is erased (ground rule 9), so each can be brought back. Shown only when there are some.
   const removed = await listRemovedAnnotations(await getDb(), user.id, 50);
+  const removedBooks = await listRemovedBooks(await getDb(), user.id);
   return (
     <main className={styles.main}>
       <p className={styles.eyebrow}>Your data</p>
@@ -64,6 +66,31 @@ export default async function DataPage() {
           Agent access
         </Link>
       </section>
+      {removedBooks.length ? (
+        <section className={styles.card} aria-labelledby="removed-books">
+          <h2 id="removed-books" className={styles.cardTitle}>
+            Removed books
+          </h2>
+          <p className={styles.cardText}>Their files and notes are kept. Bring a book back and it returns to your shelves.</p>
+          <ul className={styles.removedList} data-testid="removed-books">
+            {removedBooks.map((b) => (
+              <li key={b.id} className={styles.removedItem}>
+                <span className={styles.removedWhat}>
+                  {b.title}
+                  {b.author ? <span className={styles.removedText}> · {b.author}</span> : null}
+                </span>
+                <span className={styles.removedMeta}>removed {day(b.removedAt)}</span>
+                <form action={restoreBookAction}>
+                  <input type="hidden" name="bookId" value={b.id} />
+                  <button type="submit" className={styles.smallButton} aria-label={`Bring back: ${b.title}`}>
+                    Bring back
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {removed.length ? (
         <section className={styles.card} aria-labelledby="removed">
           <h2 id="removed" className={styles.cardTitle}>

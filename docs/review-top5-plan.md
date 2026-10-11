@@ -381,8 +381,9 @@ break in the middle of a word ("Airpor t System s").
   - Today export leaves removed books out but keeps their notes, and import
     then refuses the file (`lib/library/export.ts:229` vs `:413-456`).
   - Fix both sides, and prove it with a round-trip test.
-- **Uploading a removed book again** today makes a duplicate (`import.ts:49`).
-  Instead, say "You removed this book on <date>" with a Bring back button.
+- **Uploading a removed book again** made a duplicate (`import.ts:49`).
+  Instead, the same book comes back, with its notes, and the upload says
+  "You had removed this book: it is back, with your notes".
 - **A book that fills a title on a Path** (default, Samuel's call): Remove is
   not offered. The page says the book is part of that Path. Fable suggested
   that removing it should turn it back into "Not available yet", but that
@@ -413,7 +414,7 @@ break in the middle of a word ("Airpor t System s").
 | # | Question | Default until he says otherwise |
 | --- | --- | --- |
 | 1 | P3b: may a book on a Path be removed (and turn back into "Not available yet")? | No: Remove is not offered for a Path book |
-| 2 | P3b: uploading a book you removed | Say so and offer Bring back; no duplicate |
+| 2 | P3b: uploading a book you removed | It comes back, with its notes, and the upload says so; no duplicate (built 2026-10-11: simpler than a second Bring back button, same outcome) |
 | 3 | P2: dim PDF pages at night by default? | Yes, with a switch to turn it off |
 | 4 | P1: Contents in its own left column on a computer? | No: it stays over the page, as decided earlier (`e2e/reader.spec.ts:97`) |
 | 5 | P5: Study on a phone, the word or an icon? | The word on a computer; an open-book icon named "Study" on a phone, where the bar is full |

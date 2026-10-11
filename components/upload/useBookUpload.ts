@@ -9,6 +9,7 @@ export const UPLOAD_MESSAGES = {
   added: "Added to your library",
   attached: "Added to a title that was waiting for it",
   duplicate: "Already in your library",
+  restored: "You had removed this book: it is back, with your notes",
 } as const;
 
 export const ACCEPT = ".epub,.pdf,application/epub+zip,application/pdf";
