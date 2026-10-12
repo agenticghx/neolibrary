@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReadingParagraph } from "@/lib/library/audio";
-import { ASK_AGAIN_USD, firstVoice, loadSpeed, madeSoFar, mustAsk, noteFor, playsHere, saveSpeed, shortChapter, SPEED_KEY, speedLabel, usd, withEarlier, withPart, type Info, type NoteState } from "./session";
+import { ASK_AGAIN_USD, firstVoice, loadSpeed, madeSoFar, mayLookAhead, mustAsk, noteFor, playsHere, saveSpeed, shortChapter, shouldMakeAhead, SPEED_KEY, speedLabel, usd, withEarlier, withPart, type Info, type NoteState } from "./session";
 
 const paragraph: ReadingParagraph = { sectionId: "s1", cfi: "epubcfi(/6/2)", chapterIndex: 0, position: 1, text: "Once.", file: 0, startMs: 0, endMs: 1000, words: [[0, 500, 0, 4]] };
 const audiobook = (over: Partial<NonNullable<Info["audiobook"]>> = {}): NonNullable<Info["audiobook"]> => ({
@@ -120,6 +120,23 @@ describe("noteFor", () => {
     expect(mustAsk(1.7)).toBe(true);
     expect(madeSoFar({ count: 0, usd: 0 })).toBe("");
     expect(madeSoFar({ count: 3, usd: 2.55 })).toBe(" This listen: 3 paragraphs made, about $2.55.");
+  });
+
+  // Samuel (2026-10-12): a PDF page is made while the current one plays. One ahead, from Play, inside the $1 check.
+  it("looks up the next PDF paragraph while this one plays, and makes it only while under $1", () => {
+    const ok = { fileType: "pdf" as const, madeVoice: true, nextId: "next", already: false, asking: false };
+    expect(mayLookAhead(ok)).toBe(true);
+    expect(mayLookAhead({ ...ok, fileType: "epub" })).toBe(false);
+    expect(mayLookAhead({ ...ok, madeVoice: false })).toBe(false);
+    expect(mayLookAhead({ ...ok, nextId: null })).toBe(false);
+    expect(mayLookAhead({ ...ok, already: true })).toBe(false);
+    expect(mayLookAhead({ ...ok, asking: true })).toBe(false);
+    // Saved audio is not made again. At $1 the next one waits for "Keep reading?".
+    expect(shouldMakeAhead(false, 0)).toBe(true);
+    expect(shouldMakeAhead(false, 0.85)).toBe(true);
+    expect(shouldMakeAhead(true, 0)).toBe(false);
+    expect(shouldMakeAhead(false, 1)).toBe(false);
+    expect(shouldMakeAhead(false, 1.7)).toBe(false);
   });
 
   it("rounds money as the bar shows it", () => {

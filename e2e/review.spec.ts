@@ -159,6 +159,11 @@ test("Daily review: the passage, Show, rate with the keys, Again comes back, the
   await expect(empty).toContainText("Nothing to review today.");
   await expect(empty).toContainText(`Next card: ${formatDay(dayAfter(new Date(), 1).toISOString())}.`);
   await expect(reviewLink).toHaveText("Review");
+  // The last rating calls router.refresh() so the sidebar count updates. During that
+  // refresh the page title can be empty for a moment (CI run 38273542441: axe reported
+  // document-title on html). The check still requires a title; it waits until the refresh
+  // has put "Review" back.
+  await expect.poll(() => reader.title()).toMatch(/Review/);
   await axe(reader, "empty");
   // And so after a reload: both cards were saved.
   await reader.reload();

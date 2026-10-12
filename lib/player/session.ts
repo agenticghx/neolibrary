@@ -87,6 +87,36 @@ export const NOTHING_MADE: Made = { count: 0, usd: 0 };
 /** Whether reading on into a paragraph with no saved audio must ask first: `sinceOk` paid since Play or the last "Keep reading". */
 export const mustAsk = (sinceOkUsd: number) => sinceOkUsd >= ASK_AGAIN_USD;
 
+/**
+ * Whether to look up the next paragraph while this one plays
+ * (docs/pdf-narration-plan.md, Part B; Samuel, 2026-10-12). A PDF page is one
+ * long paragraph, and making its voice takes about half a minute, so the
+ * voice used to stop at the page turn. Looking starts when this paragraph
+ * starts to play: one paragraph ahead, in a PDF's made voice only. Paying
+ * for that paragraph still uses the $1 check (`shouldMakeAhead`). An EPUB
+ * is unchanged: its paragraphs are short, and making the next one during
+ * this one would spend money before the question the reader already has.
+ */
+export function mayLookAhead(s: {
+  fileType: "epub" | "pdf";
+  /** The chosen voice is a made voice, not the book's own audiobook. */
+  madeVoice: boolean;
+  nextId: string | null;
+  /** This next paragraph is already being prepared for this voice. */
+  already: boolean;
+  /** The bar is asking "Keep reading?" and playback has stopped. */
+  asking: boolean;
+}): boolean {
+  return s.fileType === "pdf" && s.madeVoice && s.nextId !== null && !s.already && !s.asking;
+}
+
+/**
+ * After that look-up: make the next paragraph now only when it is not already
+ * saved and the $1 check still allows paying. One made ahead counts toward
+ * the next "Keep reading?" question, the same as one made when a paragraph ends.
+ */
+export const shouldMakeAhead = (hasTrack: boolean, sinceOkUsd: number) => !hasTrack && !mustAsk(sinceOkUsd);
+
 /** The running total the bar adds to its line: " This listen: 3 paragraphs made, about $2.55." (nothing when none). */
 export const madeSoFar = (made: Made) =>
   made.count ? ` This listen: ${made.count} ${made.count === 1 ? "paragraph" : "paragraphs"} made, ${usd(made.usd)}.` : "";
