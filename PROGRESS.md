@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Finish M22 C3a (choose a cover by hand) on m22-choose-cover: browser run, PR, merge, deploy; then Samuel can pick covers for Lift Off and Payments Systems.
+next_action: Samuel picks covers on /covers (Lift Off, Payments Systems, the weak ones); Claude builds M22 C3b (upload a picture as a cover).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-11 23:10 (laptop clock). **Live: 17b18ae. M22 C3a (choose a cover by hand) is deployed** (#173, green on the first round). Samuel opens **/covers**: "Choose a cover" on *Lift Off* (search "Liftoff Berger") and *Payments Systems in the U.S.*; "Choose another" or "Not this cover" on any weak picture. Backup ~/Backups/neolibrary/prod-before-17b18ae-20261012T0306Z.sql. This entry sits on local branch `m22-c3a-deploy-record` (not pushed): commit it with the next real pull request. Next for Claude: C3b, upload a picture as a cover (migration 0026).
 
 Written 2026-10-11 22:55 (laptop clock). **M22 C3a (choose a cover by hand) is built and tested on branch `m22-choose-cover`** (on top of the deploy-record commit, so the 357d746 deploy entry rides in). On Covers, "Choose another" and "Choose a cover" open a search of both catalogues by typed words; the reader picks by eye; the server rebuilds the address from a short code. Unit tests 741 passed; the covers browser chain 247 passed. Next: PR, merge with the train (round 1 fails on the /covers reference images by design: look, commit, push), deploy (no migration). Then Samuel can pick covers for *Lift Off* (search "Liftoff Berger") and *Payments Systems in the U.S.* himself. After that: C3b, upload a picture (migration 0026).
 
@@ -200,6 +202,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 23:12 · Claude Opus 5.5 (laptop) · M22 C3a deployed (live 17b18ae): choose a cover by hand
+- **Done:** #173 merged as 17b18ae by the train, all four checks green on the first round (run 38197493945). My PR text expected a first round failing on the /covers reference images; it did not, because the reference picture is the test owner's library, which has no found covers and no titles without one, so the new buttons never show there. Backup ~/Backups/neolibrary/prod-before-17b18ae-20261012T0306Z.sql (6,492,667 bytes; no migration). Deployed 17b18ae. Checked live: /api/health commit 17b18ae; /sign-in 200 with strict-transport-security; /covers 307 signed out; GET /api/covers/search and POST /api/covers/<id>/choose 401 signed out. The real search, run from the laptop with the code as deployed (nothing written to the live site): 'Liftoff Berger' 9 results in 4.1 s, first ol:11033056 Liftoff by Eric Berger; 'Payments Systems in the U.S.' 10 results in 1.6 s, first ol:8858250 by Benson, Loftesness, Jones; every result with a data: preview; the chosen picture passes the cover check (38 KB and 70 KB JPEGs).
+- **Key paths:** ~/Backups/neolibrary/prod-before-17b18ae-20261012T0306Z.sql (laptop only); app/(app)/covers/ChooseCover.tsx; lib/library/cover-lookup.ts
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/train.sh 173 m22-choose-cover -> MERGED 17b18ae; railway variable set NEOLIBRARY_COMMIT=17b18ae --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl /api/health -> commit 17b18ae; GOOGLE_BOOKS_API_KEY=… npx tsx <scratchpad>/real-search.ts (searchCovers on the real catalogues)
+- **Known issues / blockers:** Only Samuel can pick his covers (signed in); Claude does not. Main's CI on 17b18ae not read at the time of writing.
+- **Exact next steps:** 1) Samuel opens /covers: Choose a cover for Lift Off (search 'Liftoff Berger') and Payments Systems in the U.S.; Not this cover or Choose another on the weak ones (How Buildings Learn, The Gift Relationship, Fragile by Design, Making Maps, Maritime Economics, Principles of Corporate Finance, Manias Panics and Crashes, The Perfectionists). 2) Read main's CI on 17b18ae. 3) C3b: upload a picture as a cover (migration 0026 with its reverse; export carries 'upload'). 4) Commit this entry with the next real pull request.
 
 ### 2026-10-11 22:44 · Claude Opus 5.5 (laptop) · M22 C3a: choose a cover by hand (branch m22-choose-cover)
 - **Done:** Samuel: 'Keep going'. Next M22 step from the plan's Later list (now C3a/C3b in docs/plan.md). On Covers, 'Choose another' beside 'Not this cover', and 'Choose a cover' on each title without one, open a dialog that searches Open Library and Google Books at once by the words typed (title + surname to start), with no title/author check; previews come back inside the answer as data: addresses (the site's CSP allows no other site's pictures); the browser sends back only a short code (ol:<cover>:<work>:<edition>, gb:<volume>, fake:<slug>:<n>) and the server rebuilds the catalogue address from it (no address from the browser is fetched). The replaced picture joins cover_rejected; a picture chosen back leaves it. Never over the cover inside a book file. Checked by hand that free-text search solves the two titles left without a cover: Open Library and Google both find 'Liftoff' (Eric Berger) and 'Payments Systems in the U.S.' (Benson, Loftesness) with a cover. No migration.
