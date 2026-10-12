@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy M22 C3b (upload your own cover; migration 0026, backup first); Samuel picks or uploads covers on /covers.
+next_action: Samuel picks or uploads covers on /covers (Lift Off, Payments Systems, weak ones); then chooses the next work (Open unknowns row 21, or ideas from the AI-native brainstorm).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-11 23:45 (laptop clock). **Live: e6b3006. M22 is complete (covers for every title)**, apart from "Later: a PDF's first page as its cover". Deployed today: #172 Google Books (24 more covers), #173 C3a choose a cover by hand, #174 C3b upload your own picture (migration 0026; backup ~/Backups/neolibrary/prod-before-0026-20261012T0339Z.sql, restore-checked). **Every remaining step waits on Samuel:** (1) on **/covers**, Choose a cover for *Lift Off* (search "Liftoff Berger") and *Payments Systems in the U.S.*, and turn down or replace weak pictures; (2) pick the next work: Open unknowns row 21's five items, or two or three ideas from `docs/suggestionsForAINative.md` (untracked); a PDF's first page as its cover would replace covers he may have checked, so it waits for his word. The ledger entry for the e6b3006 deploy sits on local branch `m22-c3b-deploy-record` (not pushed): commit it with the next real pull request (the 357d746 and 17b18ae deploy entries went in with #173 and #174).
 
 Written 2026-10-11 23:35 (laptop clock). **M22 C3b (upload your own picture as a cover) is built and tested on branch `m22-cover-upload`** (on top of the C3a deploy-record commit, so that ledger entry rides in). It adds migration 0026 (cover_source 'upload', with a reverse step): back up before deploying. Unit tests 745 passed; the covers browser chain 247 passed. Next: PR, merge with the train, back up, deploy, check `_migrations` has 0026.
 
@@ -204,6 +206,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 23:43 · Claude Opus 5.5 (laptop) · M22 C3b deployed (live e6b3006, migration 0026): upload your own picture as a cover
+- **Done:** #174 merged as e6b3006 by the train, all four checks green on the first round (run 38199744903, Real Postgres included). Backup ~/Backups/neolibrary/prod-before-0026-20261012T0339Z.sql (6,492,667 bytes), restored into a throwaway Postgres: exit 0, 20 tables, 25 migrations (last 0025_cover_lookup), 2 users, 256 books, 1,221 generations. Deployed e6b3006. Live: _migrations 26, last 0026_cover_upload; books_cover_source_check now allows 'upload'; covers unchanged (openlibrary 225, googlebooks 24, file 3, none 4); /api/health commit e6b3006; /sign-in 200 with strict-transport-security; /covers and /import 307 signed out; POST /api/covers/<id>/upload 401 signed out. Main's CI on 17b18ae (C3a) passed: run 38198345110. M22 is complete except 'Later: a PDF's first page as its cover'.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0026-20261012T0339Z.sql (laptop only); db/migrations/0026_cover_upload.{up,down}.sql
+- **Commands that worked:** ssh <postgres ssh user>@ssh.railway.com 'pg_dump --no-owner -U "$PGUSER" -d "$PGDATABASE"' < /dev/null > prod-before-0026-….sql -> exit 0; node restorecheck/check.js <backup> -> restore exit=0; railway variable set NEOLIBRARY_COMMIT=e6b3006 --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; psql over SSH: select count(*), max(id) from _migrations -> 26, 0026_cover_upload
+- **Known issues / blockers:** Main's CI on e6b3006 passed (run 38200557078: lint and unit tests, Postgres, browser tests with WebKit). Everything left in M22 and beyond waits on Samuel: his covers on /covers, Open unknowns row 21, the AI-native brainstorm (docs/suggestionsForAINative.md, untracked).
+- **Exact next steps:** 1) Samuel, on /covers: Choose a cover for Lift Off (search 'Liftoff Berger') and Payments Systems in the U.S.; Not this cover / Choose another / Or use your own picture on weak ones (How Buildings Learn, The Gift Relationship, Fragile by Design, Making Maps, Maritime Economics, Principles of Corporate Finance, Manias Panics and Crashes, The Perfectionists). 2) Commit this entry with the next real pull request. 3) Next work needs Samuel's pick: row 21's five items, or two or three ideas from docs/suggestionsForAINative.md; 'a PDF's first page as its cover' would change covers he may have checked, so it waits for his word too.
 
 ### 2026-10-11 23:25 · Claude Opus 5.5 (laptop) · M22 C3b: upload your own picture as a cover (branch m22-cover-upload; migration 0026)
 - **Done:** In the Choose a cover dialog, below the search results: 'Or use your own picture' (a JPEG, PNG or WebP, at most 3 MB; 'Use this picture'). The server reads at most 3 MB while the body arrives, requires an image content type (another site's form cannot send one, and the sign-in cookie is SameSite=Lax), and checks the bytes themselves (checkCover: JPEG/PNG/WebP, a cover's size and shape), whatever the browser said. Stored as covers/<owner>/<book>-upload-<hash>.<ext>; cover_source 'upload' (migration 0026 widens the check; its reverse step relabels uploads as 'file' so they keep showing). It replaces a found cover (whose picture is then never offered again) and can itself be replaced by Choose another or removed by Not this cover (the next catalogue match takes its place); never over the cover inside a book file. Covers page: 'Your own picture' instead of a catalogue credit; a title's page: 'The cover is your own picture. Change it?'. Export carries 'upload' (round-trip test). The browser's own 'Choose file' button styled as the dialog's quiet buttons (it was light grey in dark mode).
