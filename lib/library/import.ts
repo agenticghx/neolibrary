@@ -81,6 +81,9 @@ export async function importBook(
 
   const fileKey = `books/${ownerId}/${bookId}.${info.type}`;
   await storage.put(fileKey, file.bytes, info.type === "epub" ? "application/epub+zip" : "application/pdf");
+  // A title waiting on a Path may already show a cover found in a catalogue (M22): the file's own cover replaces
+  // it; a file without one (most PDFs) keeps it.
+  const [had] = wanted ? await db.select({ coverKey: books.coverKey }).from(books).where(eq(books.id, bookId)) : [];
   let coverKey: string | null = null;
   if (info.cover) {
     coverKey = `covers/${ownerId}/${bookId}.${info.cover.ext}`;
@@ -93,7 +96,7 @@ export async function importBook(
       fileName: file.name.slice(0, 255),
       fileType: info.type,
       fileSize: file.bytes.byteLength,
-      coverKey,
+      ...(coverKey ? { coverKey, coverSource: "file" as const, coverRef: null, coverPage: null } : {}),
       language: info.language,
       publisher: info.publisher,
       description: info.description,
@@ -105,6 +108,7 @@ export async function importBook(
       updatedAt: new Date(),
     })
     .where(eq(books.id, bookId));
+  if (coverKey && had?.coverKey && had.coverKey !== coverKey) await storage.delete(had.coverKey);
   await buildSections(db, bookId, file.bytes, info.toc, info.type);
   return { status: wanted ? "attached" : "added", bookId, title: wanted?.title ?? info.title };
 }

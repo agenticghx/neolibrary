@@ -1,0 +1,235 @@
+{
+ "docs": [
+  {
+   "author_name": [
+    "Martin Amis"
+   ],
+   "cover_edition_key": "OL2538323M",
+   "cover_i": 94212,
+   "key": "/works/OL16847W",
+   "title": "Money",
+   "editions": {
+    "numFound": 19,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL2866903M",
+      "cover_i": 10216140,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Ken Follett"
+   ],
+   "cover_i": 196451,
+   "key": "/works/OL15649848W",
+   "title": "Paper Money",
+   "editions": {
+    "numFound": 22,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL28701817M",
+      "cover_i": 12389914,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Ann M. Martin"
+   ],
+   "cover_edition_key": "OL1172172M",
+   "cover_i": 384161,
+   "key": "/works/OL818094W",
+   "title": "Stacey and the mystery money",
+   "editions": {
+    "numFound": 3,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL17446816M",
+      "cover_i": 12146876,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Martin Limón",
+    "Martin Limón"
+   ],
+   "cover_edition_key": "OL685174M",
+   "cover_i": 368066,
+   "key": "/works/OL2706670W",
+   "title": "Buddha's money",
+   "editions": {
+    "numFound": 3,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL32082708M",
+      "cover_i": 10736171,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Martin Shubik"
+   ],
+   "cover_edition_key": "OL10238609M",
+   "cover_i": 2342871,
+   "key": "/works/OL18221W",
+   "title": "The Theory of Money and Financial Institutions",
+   "editions": {
+    "numFound": 6,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL10237622M",
+      "cover_i": 2342023,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Felix Martin"
+   ],
+   "cover_edition_key": "OL26682281M",
+   "cover_i": 8355279,
+   "key": "/works/OL18236082W",
+   "title": "Money",
+   "editions": {
+    "numFound": 2,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL35606055M",
+      "cover_i": 12312457,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Martin Mayer"
+   ],
+   "cover_edition_key": "OL6155339M",
+   "cover_i": 10676539,
+   "key": "/works/OL2958376W",
+   "title": "Wall Street: men and money",
+   "editions": {
+    "numFound": 3,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL6155339M",
+      "cover_i": 10676539,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Martin R. Allen"
+   ],
+   "cover_edition_key": "OL25139805M",
+   "cover_i": 13230821,
+   "key": "/works/OL16361918W",
+   "title": "Mints and money in medieval England",
+   "editions": {
+    "numFound": 6,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL25139805M",
+      "cover_i": 13230821,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "Susan Bradley",
+    "Mary Martin"
+   ],
+   "cover_edition_key": "OL7616082M",
+   "cover_i": 303986,
+   "key": "/works/OL17012824W",
+   "title": "Sudden money",
+   "editions": {
+    "numFound": 3,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL7616082M",
+      "cover_i": 303986,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "author_name": [
+    "William F. Martin"
+   ],
+   "cover_edition_key": "OL25162846M",
+   "cover_i": 10366147,
+   "key": "/works/OL16451659W",
+   "title": "The inner world of money",
+   "editions": {
+    "numFound": 1,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL25162846M",
+      "cover_i": 10366147,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

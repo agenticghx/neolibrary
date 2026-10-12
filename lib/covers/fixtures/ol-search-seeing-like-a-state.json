@@ -1,0 +1,27 @@
+{
+ "docs": [
+  {
+   "author_name": [
+    "James C. Scott"
+   ],
+   "cover_edition_key": "OL35399905M",
+   "cover_i": 12242192,
+   "key": "/works/OL26241985W",
+   "title": "Seeing Like a State",
+   "editions": {
+    "numFound": 9,
+    "start": 0,
+    "numFoundExact": true,
+    "docs": [
+     {
+      "key": "/books/OL9626676M",
+      "cover_i": 8290759,
+      "language": [
+       "eng"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

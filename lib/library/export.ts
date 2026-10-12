@@ -32,6 +32,17 @@ export type LibraryExport = {
     unverified: boolean;
     file: { key: string; name: string | null; type: "epub" | "pdf" | null; size: number | null } | null;
     coverKey: string | null;
+    /**
+     * Where the cover came from (M22): its book file, or a catalogue found by title and author, with the address of
+     * the picture, the catalogue's page, when the catalogues were last asked and the pictures turned down; and the
+     * edition's ISBN. Absent in older exports (a cover there came from its file).
+     */
+    coverSource?: "file" | "openlibrary" | "googlebooks" | "fake" | null;
+    coverRef?: string | null;
+    coverPage?: string | null;
+    coverCheckedAt?: string | null;
+    coverRejected?: string[];
+    isbn?: string | null;
     language: string | null;
     publisher: string | null;
     description: string | null;
@@ -255,6 +266,12 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         unverified: b.unverified,
         file: b.fileKey ? { key: b.fileKey, name: b.fileName, type: b.fileType, size: b.fileSize } : null,
         coverKey: b.coverKey,
+        coverSource: b.coverSource,
+        coverRef: b.coverRef,
+        coverPage: b.coverPage,
+        coverCheckedAt: b.coverCheckedAt?.toISOString() ?? null,
+        coverRejected: b.coverRejected,
+        isbn: b.isbn,
         language: b.language,
         publisher: b.publisher,
         description: b.description,
@@ -423,6 +440,18 @@ export async function wipeLibrary(db: Db, ownerId: string) {
 }
 
 /** A stored file's key, if it is a safe key in this reader's own folder (keys are `<folder>/<ownerId>/…`, see import.ts, audio.ts, voice-notes.ts). */
+const COVER_SOURCES: unknown[] = ["file", "openlibrary", "googlebooks", "fake"];
+
+/** A web address on https, as the catalogues give (lib/covers/sources.ts). */
+function isHttps(url: unknown) {
+  if (typeof url !== "string") return false;
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function ownKey(key: unknown, folder: "books" | "covers" | "audio", ownerId: string) {
   if (typeof key !== "string" || !key.startsWith(`${folder}/${ownerId}/`)) return false;
   try {
@@ -449,6 +478,12 @@ function checkImport(x: LibraryExport, ownerId: string) {
   for (const b of x.books) {
     if (b.file && !ownKey(b.file.key, "books", ownerId)) refuse(`The file of "${b.title}" is not stored in your library.`);
     if (b.coverKey != null && !ownKey(b.coverKey, "covers", ownerId)) refuse(`The cover of "${b.title}" is not stored in your library.`);
+    if (b.coverSource != null && !COVER_SOURCES.includes(b.coverSource)) refuse(`The cover of "${b.title}" names a source Neolibrary does not know.`);
+    // The catalogue page becomes a link on the Covers page: only a web address, never javascript: or a file.
+    if (b.coverRejected != null && !Array.isArray(b.coverRejected)) refuse(`The cover of "${b.title}" has a list of turned-down covers that is not a list.`);
+    for (const url of [b.coverRef, b.coverPage, ...(b.coverRejected ?? [])]) {
+      if (url != null && !isHttps(url)) refuse(`The cover of "${b.title}" names a catalogue address that is not an https web address.`);
+    }
     if (b.deletedAt != null && (typeof b.deletedAt !== "string" || Number.isNaN(Date.parse(b.deletedAt)))) refuse(`"${b.title}" has a removal date that is not a date.`);
   }
   const pathIds = new Set(x.paths.map((p) => p.id));
@@ -541,6 +576,13 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         fileType: b.file?.type ?? null,
         fileSize: b.file?.size ?? null,
         coverKey: b.coverKey,
+        // An export from before M22 has no cover source: its covers came from their files.
+        coverSource: b.coverSource ?? (b.coverKey ? "file" : null),
+        coverRef: b.coverRef ?? null,
+        coverPage: b.coverPage ?? null,
+        coverCheckedAt: typeof b.coverCheckedAt === "string" ? date(b.coverCheckedAt) : null,
+        coverRejected: b.coverRejected ?? [],
+        isbn: typeof b.isbn === "string" ? b.isbn.slice(0, 20) : null,
         language: b.language,
         publisher: b.publisher,
         description: b.description,

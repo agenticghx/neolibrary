@@ -667,6 +667,37 @@ his 2026-10-10 call that the view is one account setting), the PDF
 page-turn pause (row 15), "Want to Read" without the titles not available
 yet, the phone reader's top bar, and a password reset he issues.
 
+### M22 · Covers for every title (asked for by Samuel 2026-10-11)
+
+Samuel: "how can I automatically get book covers, starting with the titles in
+Hidden Machinery … go build it and test it on all the books." Most titles on
+a Path have no file yet, so no cover; nor do most PDFs. Reading apps get
+covers from the store (the publisher's feed), from the file, or from public
+catalogues by ISBN or title and author. Here: the catalogues, by title and
+author, for any title without a cover.
+
+- **C1 · The cover finder** (no change on screen yet). Open Library first
+  (free, no key; an English edition's cover before the work's own), then
+  Google Books when `GOOGLE_BOOKS_API_KEY` is set. A match needs the title
+  (with or without its subtitle) and the author's last name; a bundle of
+  several books never matches. The picture must be a JPEG, PNG or WebP of a
+  cover's size and shape; it is downloaded once, stored in the bucket, and
+  the book records where it came from (migration 0025). A cover inside the
+  book's file always wins; a file without one keeps the found cover. The
+  server looks covers up by itself 20 s after it starts and every 6 hours,
+  one title a second; a title the catalogues lack is asked again after 30
+  days. The library export carries it all. Done when: unit tests on real
+  catalogue answers pass, and a run on a copy of the live library finds
+  covers for most titles with every match checked by eye.
+- **C2 · Covers on screen.** A title not available yet shows its found
+  cover greyed (it takes its colours with its file); a Covers page lists the
+  found covers with "Not this cover" (the next match takes its place) and
+  "Find covers now". Done when: a browser test finds, turns down and
+  replaces a cover with the fake catalogue, with screenshots on a phone and
+  a computer, light and dark.
+
+Later: a PDF's first page as its cover; choosing a cover by hand.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

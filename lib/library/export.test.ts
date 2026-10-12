@@ -13,7 +13,7 @@ import { exportLibrary, importLibrary, wipeLibrary, type LibraryExport } from ".
 import { importBook } from "./import";
 import { seedPath } from "./paths";
 import { savePosition } from "./reading";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { annotations, books, generations, users } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
 import { setPreferences } from "./preferences";
@@ -29,6 +29,8 @@ import { createCollection, listShelf, setInCollection } from "./shelf";
 import { rateCard, reviewQueue } from "./review";
 import { buildPackage } from "@/lib/readalong/fixture";
 import { startImport } from "@/lib/readalong/importer";
+import { FakeCovers } from "@/lib/covers/sources";
+import { findMissingCovers, rejectCover } from "./cover-lookup";
 
 let database: Database;
 let ownerId: string;
@@ -46,6 +48,11 @@ describe("library export (ground rule 7)", () => {
     await seedPath(database.db, ownerId, hiddenMachinery);
     const file = new Uint8Array(readFileSync(new URL("../../fixtures/books/wells-the-time-machine.epub", import.meta.url)));
     const { bookId } = await importBook(database.db, storage, ownerId, { name: "tm.epub", bytes: file });
+    // M22: covers found for the Path's titles, one turned down for the next, carried through the export.
+    const covers = new FakeCovers();
+    await findMissingCovers(database.db, storage, covers);
+    const [chipWar] = await database.db.select({ id: books.id }).from(books).where(and(eq(books.ownerId, ownerId), eq(books.title, "Chip War")));
+    await rejectCover(database.db, storage, covers, ownerId, chipWar.id);
     const c = await createCollection(database.db, ownerId, "Time travel");
     await setInCollection(database.db, ownerId, c.id, bookId, true);
     await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/8!/4/2/1:0)", fraction: 0.25 });
@@ -157,6 +164,15 @@ describe("library export (ground rule 7)", () => {
       expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
     ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
+    expect(before.books.find((b) => b.title === "Chip War")).toMatchObject({
+      coverSource: "fake",
+      coverRef: expect.stringContaining("/chip-war/2.png"),
+      coverPage: expect.stringMatching(/^https:\/\//),
+      coverRejected: [expect.stringContaining("/chip-war/1.png")],
+      coverCheckedAt: expect.any(String),
+      isbn: "9780000000002",
+    });
+    expect(before.books.find((b) => b.title === "Oil 101")).toMatchObject({ coverKey: null, coverSource: null, coverCheckedAt: expect.any(String) });
     expect(before.reviewCards).toEqual([
       expect.objectContaining({ annotationId: marked.id, ease: 2.35, intervalDays: 2, reps: 2, lapses: 0, lastRating: "hard", firstReviewedAt: "2026-10-10T09:00:00.000Z", dueAt: "2026-10-13T00:00:00.000Z" }),
       expect.objectContaining({ annotationId: note.id, intervalDays: 0, reps: 0, lastRating: "again", dueAt: "2026-10-11T00:00:00.000Z" }),
@@ -341,6 +357,8 @@ describe("a library file may only point inside the importing reader's library", 
       }),
     );
     const e = await exportLibrary(database.db, ownerId);
+    // An export from before M22 names no cover source: a cover in it came from its book file.
+    expect(e.books[0].coverSource).toBe("file");
     expect([e.books[0].coverKey, e.annotations!.map((a) => a.audio?.key ?? a.picture), e.audioTracks!.map((t) => t.importId)]).toEqual([
       `covers/${ownerId}/${bookId}.jpg`,
       [`${own}/notes/n.wav`, picture],
@@ -374,6 +392,20 @@ describe("a library file may only point inside the importing reader's library", 
         { annotations: [note({ kind: "image", body: "", picture: { source: "generated", key: `images/${otherId}/${bookId}/${crypto.randomUUID()}.png`, subject: "s", model: "m" } })] },
         "A pinned picture is not one your library can show.",
       ],
+    ];
+    for (const [extra, message] of cases) {
+      await expect(importLibrary(database.db, ownerId, libraryFile(extra))).rejects.toThrow(message);
+      await nothingImported();
+    }
+  });
+
+  it("refuses a cover source it does not know, and a catalogue address that is not an https web address (M22)", async () => {
+    const cases: [Partial<LibraryExport>, string][] = [
+      [{ books: [{ ...book(), coverSource: "amazon" as never }] }, "names a source Neolibrary does not know"],
+      [{ books: [{ ...book(), coverPage: "javascript:alert(1)" }] }, "not an https web address"],
+      [{ books: [{ ...book(), coverRef: "http://covers.openlibrary.org/b/id/1-L.jpg" }] }, "not an https web address"],
+      [{ books: [{ ...book(), coverRejected: ["file:///etc/passwd"] }] }, "not an https web address"],
+      [{ books: [{ ...book(), coverRejected: "https://x.example.org/" as never }] }, "is not a list"],
     ];
     for (const [extra, message] of cases) {
       await expect(importLibrary(database.db, ownerId, libraryFile(extra))).rejects.toThrow(message);

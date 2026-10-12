@@ -17,4 +17,7 @@ export async function register() {
     return 0;
   });
   if (built) console.log(`  Built sections for ${built} book(s).`);
+  // M22: covers for titles without one, looked up in the background (COVER_LOOKUP=off switches it off).
+  const { scheduleCoverLookups } = await import("./lib/library/cover-job");
+  scheduleCoverLookups(getDb, getStorage);
 }
