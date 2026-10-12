@@ -100,4 +100,29 @@ describe("migrations", () => {
     await migrateDown(database.raw, ids.length - ids.indexOf("0024_review"));
     expect(await tables()).not.toContain("review_cards");
   });
+
+  it("0025 marks every cover stored before it as from its file, refuses an unknown source, and the reverse step removes the columns", async () => {
+    database = await openDatabase({});
+    await migrateUp(database.raw);
+    const ids = (await loadMigrations()).map((m) => m.id);
+    const from0025 = ids.slice(ids.indexOf("0025_cover_lookup"));
+    await migrateDown(database.raw, from0025.length);
+    const [user] = await database.raw.query<{ id: string }>(
+      "INSERT INTO users (email, name, password_hash, role) VALUES ('c@example.com', 'C', 'x', 'reader') RETURNING id",
+    );
+    await database.raw.query("INSERT INTO books (owner_id, title, cover_key) VALUES ($1, 'With a cover', 'covers/x/y.jpg'), ($1, 'Waiting', NULL)", [user.id]);
+    expect(await migrateUp(database.raw)).toEqual(from0025);
+    const rows = await database.raw.query<{ title: string; cover_source: string | null; cover_rejected: unknown }>(
+      "SELECT title, cover_source, cover_rejected FROM books ORDER BY title",
+    );
+    expect(rows).toEqual([
+      { title: "Waiting", cover_source: null, cover_rejected: [] },
+      { title: "With a cover", cover_source: "file", cover_rejected: [] },
+    ]);
+    await expect(database.raw.query("UPDATE books SET cover_source = 'amazon'")).rejects.toThrow("books_cover_source_check");
+    await migrateDown(database.raw, from0025.length);
+    const cols = await database.raw.query<{ column_name: string }>("SELECT column_name FROM information_schema.columns WHERE table_name = 'books'");
+    expect(cols.map((c) => c.column_name)).not.toEqual(expect.arrayContaining(["cover_source"]));
+    expect(cols.map((c) => c.column_name).filter((c) => /^cover_|^isbn$/.test(c))).toEqual(["cover_key"]);
+  });
 });

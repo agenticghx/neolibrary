@@ -75,6 +75,17 @@ export const books = pgTable("books", {
   fileType: text("file_type", { enum: ["epub", "pdf"] }),
   fileSize: integer("file_size"),
   coverKey: text("cover_key"),
+  /** Where the cover came from (M22): its book file, or a catalogue found by title and author. */
+  coverSource: text("cover_source", { enum: ["file", "openlibrary", "googlebooks", "fake"] }),
+  /** For a found cover: the address its picture was downloaded from (which picture it is). */
+  coverRef: text("cover_ref"),
+  /** For a found cover: the catalogue's page for the record it came from (credit). */
+  coverPage: text("cover_page"),
+  /** When the catalogues were last asked for this title's cover, found or not. */
+  coverCheckedAt: timestamp("cover_checked_at", { withTimezone: true }),
+  /** Pictures the reader turned down, by cover_ref; never offered again. */
+  coverRejected: jsonb("cover_rejected").$type<string[]>().notNull().default([]),
+  isbn: text("isbn"),
   language: text("language"),
   publisher: text("publisher"),
   description: text("description"),
