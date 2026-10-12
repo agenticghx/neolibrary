@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the PDF page-ahead pull request once the four checks are green, then deploy (no database change). Samuel tries Listen on The Grid; covers on /covers are still his.
+next_action: Wait for PR 175's four checks after the spine-test fix, merge when they are green, then deploy (no database change). Samuel tries Listen on The Grid; covers on /covers are still his.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-12
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-12 (laptop clock). **M23 is built on `m23-pdf-page-ahead` (not deployed).** While a PDF page plays in a made voice, the next paragraph is made at once, one ahead, and its cost counts toward the $1 "Keep reading?" question. An EPUB and an uploaded audiobook are unchanged. No database change. Next: open the pull request, merge when the four checks are green, deploy, and Samuel tries Listen on *The Grid* (the silence at the page turn should be gone; one page he never reaches may still be paid for). Covers on /covers are still his. Open unknowns row 21 (a), (c), (d) and (e) still wait.
+Written 2026-10-12 (laptop clock). **M23 is on pull request 175 (`m23-pdf-page-ahead`, not deployed).** While a PDF page plays in a made voice, the next paragraph is made at once, one ahead, and its cost counts toward the $1 "Keep reading?" question. An EPUB and an uploaded audiobook are unchanged. No database change. The first browser check failed on an older test: Night's page-turn check opened Spine Fold Line on pages 3 and 4, the place the test before it had saved, and expected pages 1 and 2 (run 38271487444). That test now walks back to pages 1 and 2. On the laptop, setup plus both Spine fold tests passed (3 passed, 18.1 s). Next: the four checks on the new commit, then merge, deploy, and Samuel tries Listen on *The Grid* (the silence at the page turn should be gone; one page he never reaches may still be paid for). Covers on /covers are still his. Open unknowns row 21 (a), (c), (d) and (e) still wait.
 
 Written 2026-10-11 23:45 (laptop clock). **Live: e6b3006. M22 is complete (covers for every title)**, apart from "Later: a PDF's first page as its cover". Deployed today: #172 Google Books (24 more covers), #173 C3a choose a cover by hand, #174 C3b upload your own picture (migration 0026; backup ~/Backups/neolibrary/prod-before-0026-20261012T0339Z.sql, restore-checked). **Every remaining step waits on Samuel:** (1) on **/covers**, Choose a cover for *Lift Off* (search "Liftoff Berger") and *Payments Systems in the U.S.*, and turn down or replace weak pictures; (2) pick the next work: Open unknowns row 21's five items, or two or three ideas from `docs/suggestionsForAINative.md` (untracked); a PDF's first page as its cover would replace covers he may have checked, so it waits for his word. The ledger entry for the e6b3006 deploy sits on local branch `m22-c3b-deploy-record` (not pushed): commit it with the next real pull request (the 357d746 and 17b18ae deploy entries went in with #173 and #174).
 
@@ -209,6 +209,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-12 11:53 · Grok 4.7 (laptop) · M23: the Night page-turn test starts on pages 1 and 2
+- **Done:** PR 175 browser check failed on the Night spine test (run 38271487444): it expected PDF pages 1 and 2 and saw 3 and 4. The test before it leaves the same book on pages 3 and 4, and Continue reading reopens that saved place. The page-ahead change does not open Listen. The test now walks back to pages 1 and 2 before it measures the turn. The assertion is unchanged. Main the same day passed this test in 4.7 s (run 38200557078), so the save does not always land in time.
+- **Key paths:** e2e/reader.spec.ts, docs/ci-flakes.md, PROGRESS.md
+- **Commands that worked:** npx playwright test --config pw-spine.config.ts (one-off, deleted): 3 passed (18.1s). setup 1.0s, click-and-drag 4.2s, Night 4.9s.
+- **Known issues / blockers:** The four GitHub checks are not green on this commit yet. Do not merge. One page the reader never reaches may still be paid for once this is live.
+- **Exact next steps:** 1. Push this commit to PR 175. 2. Merge only when the four checks are green on the head commit, then deploy (no database change). 3. Samuel tries Listen on The Grid.
 
 ### 2026-10-12 11:35 · Grok 4.7 (laptop) · M23: make the next PDF page while this one plays
 - **Done:** Samuel said yes (2026-10-12). While a PDF paragraph plays in a made voice, the player now looks up the next one and makes it if it is not saved. One ahead, from the moment Play starts this paragraph. The cost counts toward the $1 Keep reading question; once that dollar is reached the following page is not made until he agrees. An EPUB and an uploaded audiobook are unchanged. No database change. Part B of docs/pdf-narration-plan.md. The unpushed e6b3006 deploy ledger (bdb28f8) is on this branch and rides in with the pull request.

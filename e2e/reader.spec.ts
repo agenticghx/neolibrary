@@ -441,6 +441,23 @@ async function showFacingPair(page: Page) {
   }
 }
 
+/**
+ * PDF pages 1 and 2. Continue reading reopens wherever the last turn was saved
+ * (the test before this one leaves Spine Fold Line on pages 3 and 4), and a
+ * later pair is already two pages, so showFacingPair stays there.
+ */
+async function showFirstPair(page: Page) {
+  await showFacingPair(page);
+  for (let i = 0; i < 6; i++) {
+    const leaves = await pdfLeaves(page);
+    if (leaves.length === 2 && leaves[0] === 1) return;
+    const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+    await page.getByRole("button", { name: "Previous page" }).click();
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+    await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).not.toEqual(leaves);
+  }
+}
+
 /** The place being read is still inside the pages now showing. */
 function stillShowing(before: string, after: string) {
   const start = CFI.collapse(before);
@@ -913,7 +930,19 @@ test.describe("Spine fold", () => {
     await choose("Night");
     await choose("Dimmed");
     await closeSettings();
+    // The click-and-drag test above saves this book on pages 3 and 4. Continue
+    // reading reopens there once that save has landed (CI run 38271487444
+    // received [3, 4] here). A pair is already two pages, so stepping until
+    // two show does not go back. If this open is still on the first pair,
+    // turn forward once so the walk back is what the test checks.
     await showFacingPair(page);
+    if ((await pdfLeaves(page))[0] === 1) {
+      const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+      await page.getByRole("button", { name: "Next page" }).click();
+      await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+      await expect.poll(() => pdfLeaves(page), { timeout: 10_000 }).toEqual([3, 4]);
+    }
+    await showFirstPair(page);
     await expect.poll(() => pdfLeaves(page)).toEqual([1, 2]);
 
     // How light the fold's picture is on average, held halfway (0 black, 255 white); then the turn finishes.
