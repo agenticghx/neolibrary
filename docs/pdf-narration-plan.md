@@ -87,16 +87,37 @@ the cap. The test is two or three pages, not the chapter.
   Grid* on the live site (about $0.85 a page) and says whether it sounds
   right and keeps time.
 
-## Part B: no pause at every page turn (after measuring)
+## Part B: no pause at every page turn (Samuel said yes, 2026-10-12)
 
-The player asks for the next paragraph's audio only when the current one
-ends. A PDF page is a long paragraph, so making it takes ElevenLabs several
-seconds, and the voice would stop mid-sentence at each page turn while it is
-made. Fix: start making the next paragraph while the current one plays.
-That spends money on one paragraph you may never hear if you stop, so first
-measure how long the pause is with the real voice (Part A's live test), then
-decide. If it is built: one paragraph ahead at most, and only after the
-current one is half played.
+The player used to ask for the next paragraph's audio only when the current
+one ended. A PDF page is a long paragraph. Samuel's live test measured 32 s
+and 38 s of silence at each page turn of *The Grid* while the next page was
+made. He chose to make the next page while the current one plays.
+
+What was built:
+- When a PDF paragraph starts to play in a made voice, the player looks up
+  the next paragraph at once and makes it if it is not already saved. One
+  paragraph ahead, no more. On *The Grid* a paragraph is a page, so that is
+  the next page. A page that the app split into several paragraphs is still
+  prepared one paragraph ahead, not the whole following page.
+- The cost counts toward the $1 "Keep reading?" question, the same as a
+  paragraph made when the previous one ends. Once $1 has been paid since
+  Play or the last "Keep reading?", the player does not make another page
+  ahead. The page already made still plays. The one after it waits for
+  "Keep reading?".
+- Stopping during the current page can still pay for the next one, which
+  you may never hear. That is the cost of not waiting half a minute.
+- An uploaded audiobook is unchanged (its audio is already made). An EPUB
+  is unchanged: its paragraphs are short, and making the next one during
+  this one would spend money before the question.
+- The earlier idea, "only after half the page has played", was not used.
+  Starting at Play is what leaves time for a 32 s make during a page that
+  takes a few minutes to hear.
+
+Done when: a browser test plays a PDF, sees the next page requested while
+the first is still playing, hears that next page when the first ends, and
+is asked before a third page once $1 has been counted. Unit tests cover
+when looking ahead is allowed.
 
 ## Part C: real paragraphs in PDFs (later)
 
@@ -178,4 +199,5 @@ It stays in the page's text, so every word's place on the page is unchanged,
 but the voice skips it. Same rule as Part D step 2, in the app.
 
 Order: Part A (merged, #126), A2 (labels, merged #134), Part D (built
-2026-10-10). Part B after Samuel's live test of Part A. Part C after that.
+2026-10-10), Part B (built 2026-10-12, branch `m23-pdf-page-ahead`). Part C
+after that.

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
-import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, LOOK_BACK_MS, mustAsk, noteFor, NOTHING_MADE, OFFLINE, saveSpeed, shortChapter, speedLabel, withEarlier, withPart, type Info, type Made } from "@/lib/player/session";
+import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, LOOK_BACK_MS, mayLookAhead, mustAsk, noteFor, NOTHING_MADE, OFFLINE, saveSpeed, shortChapter, shouldMakeAhead, speedLabel, withEarlier, withPart, type Info, type Made } from "@/lib/player/session";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import { sentenceAt } from "@/lib/player/sentence";
@@ -18,7 +18,10 @@ const offline = () => typeof navigator !== "undefined" && navigator.onLine === f
 /**
  * Read aloud (M7): plays the paragraph at the reading position, then the
  * next, one paragraph of audio at a time (made on first play, stored after),
- * and highlights each word as it is spoken.
+ * and highlights each word as it is spoken. In a PDF, the next paragraph is
+ * made while this one plays (one ahead, from Play, inside the $1 check:
+ * lib/player/session.ts, mayLookAhead), so the voice does not stop for the
+ * half-minute a page takes to make.
  *
  * With the book's own audiobook (M13 (d), "Your audiobook" among the voices):
  * one long file per chapter or book, played straight on from the reading
@@ -99,6 +102,9 @@ export function ListenSession({
   const [made, setMade] = useState<Made>(NOTHING_MADE);
   const sinceOk = useRef(0);
   const [ask, setAsk] = useState<number | null>(null);
+  /** The same as `ask !== null`, set in the Play click before React re-renders, so looking ahead is not blocked by the question just answered. */
+  const askingNow = useRef(false);
+  askingNow.current = ask !== null;
   const [justMade, setJustMade] = useState("");
   const isBook = !!info?.audiobook && voice === info.audiobook.voice;
 
@@ -196,7 +202,7 @@ export function ListenSession({
   }, [bookId, at, prepared]);
 
   /** The stored track for a paragraph in the chosen voice, made now if needed. */
-  const trackFor = async (sectionId: string, v: string) => {
+  const trackFor = async (sectionId: string, v: string, opts?: { ahead?: boolean }) => {
     const res = await fetch(`/api/books/${bookId}/audio`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -206,12 +212,55 @@ export function ListenSession({
     if (!res.ok) throw new Error(body.error ?? "This paragraph could not be read aloud.");
     const track = body.track as Track & { audioUrl: string };
     // Made now, and paid for (not saved audio found again): it counts towards the total and the next question.
+    // One made ahead counts the same way. It is not "made just now" on the bar: the paragraph playing is.
     if (!body.reused) {
       setMade((m) => ({ count: m.count + 1, usd: m.usd + track.costUsd }));
       sinceOk.current += track.costUsd;
-      setJustMade(track.sectionId);
+      if (!opts?.ahead) setJustMade(track.sectionId);
     }
     return track;
+  };
+
+  /**
+   * The next PDF paragraph, looked up while this one plays (Part B). Held until
+   * this one ends, so the page turn plays it instead of starting the make.
+   * A failure stays quiet while this page plays; the turn tries again and
+   * reports the error then.
+   */
+  type AheadReady = { passage: Passage; track: Track & { audioUrl: string } };
+  const aheadRef = useRef<{ sectionId: string; voice: string; generation: number; promise: Promise<AheadReady | null> } | null>(null);
+  const maybeAhead = (passage: Passage) => {
+    const nextId = passage.nextId;
+    const v = voice;
+    const g = generation.current;
+    const held = aheadRef.current;
+    const already = !!nextId && !!held && held.sectionId === nextId && held.voice === v && held.generation === g;
+    const madeVoice = !(info?.audiobook && v === info.audiobook.voice);
+    if (!nextId || !mayLookAhead({ fileType: info?.fileType ?? "epub", madeVoice, nextId, already, asking: askingNow.current })) return;
+    const sectionId = nextId;
+    const promise = (async (): Promise<AheadReady | null> => {
+      try {
+        const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice: v })}`);
+        const body = (await res.json().catch(() => null)) as Info | null;
+        if (!res.ok || !body?.passage || generation.current !== g) return null;
+        if (body.track) return { passage: body.passage, track: body.track };
+        // The $1 check again, at the moment of paying: this paragraph's own cost may have landed since Play.
+        if (!shouldMakeAhead(false, sinceOk.current)) return null;
+        const track = await trackFor(body.passage.id, v, { ahead: true });
+        if (generation.current !== g) return null;
+        return { passage: body.passage, track };
+      } catch {
+        return null;
+      }
+    })();
+    aheadRef.current = { sectionId, voice: v, generation: g, promise };
+  };
+  /** The paragraph prepared for `sectionId`, if this session started it and the voice has not changed. */
+  const takeAhead = async (sectionId: string): Promise<AheadReady | null> => {
+    const held = aheadRef.current;
+    if (!held || held.sectionId !== sectionId || held.voice !== voice || held.generation !== generation.current) return null;
+    aheadRef.current = null;
+    return held.promise;
   };
 
   const playTrack = async (passage: Passage, track: Track & { audioUrl: string }, startMs = 0, resume = true) => {
@@ -231,8 +280,9 @@ export function ListenSession({
     }
     el.defaultPlaybackRate = speedNow.current;
     el.playbackRate = speedNow.current;
-    // A skip made while paused moves without playing.
+    // A skip made while paused moves without playing. While it plays, a PDF's next paragraph starts being made.
     if (resume) await el.play();
+    if (resume) maybeAhead(passage);
   };
 
   const play = async () => {
@@ -240,12 +290,16 @@ export function ListenSession({
     const el = audio.current!;
     // A press of Play (or Keep reading) is the reader's go-ahead: reading on asks again after ASK_AGAIN_USD more.
     sinceOk.current = 0;
+    askingNow.current = false;
     setAsk(null);
     if (info.track && el.src && !el.ended && !el.error) {
       // Paused part-way: bring the page back if the reader turned away, and go on.
       lastWord.current = -1;
       onPassage(info.passage.cfi, { resume: true });
       await el.play();
+      // The first Play already looked ahead. A Play after a pause, or after a skip that landed while paused, does
+      // too: maybeAhead does nothing when that next paragraph is already being prepared.
+      maybeAhead(info.passage);
       return;
     }
     const g = generation.current;
@@ -277,6 +331,14 @@ export function ListenSession({
     const g = generation.current;
     setBusy(true);
     try {
+      // Prepared while this paragraph played (a PDF): play it. Already paid, or saved, so it does not ask again.
+      const ready = await takeAhead(info.passage.nextId);
+      if (generation.current !== g) return;
+      if (ready) {
+        setAsk(null);
+        await playTrack(ready.passage, ready.track, 0, resume);
+        return;
+      }
       const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: info.passage.nextId, voice })}`);
       const body = (await res.json()) as Info;
       if (!res.ok) throw new Error("The next paragraph could not be found.");

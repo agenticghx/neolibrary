@@ -1873,6 +1873,130 @@ test("in Two pages view, only the word being read is lit: the page read before i
   await bar.getByRole("button", { name: "Stop reading aloud" }).click();
 });
 
+// docs/pdf-narration-plan.md, Part B (Samuel, 2026-10-12): a PDF page is made while the current one plays, one
+// paragraph ahead, from Play. Its cost counts toward the $1 "Keep reading?" question, so the page after that
+// is not made until the reader agrees. An EPUB is left alone (the test below).
+test("a PDF makes the next page while this one plays, and asks before the page after $1", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  doc.setTitle("Page Ahead Read Aloud");
+  doc.setAuthor("Neolibrary tests");
+  doc.setCreationDate(new Date("2026-01-01T00:00:00Z"));
+  doc.setModificationDate(new Date("2026-01-01T00:00:00Z"));
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  // One paragraph a page (equal line spacing, so the splitter does not break it). The first lasts several
+  // seconds in the fake voice, so the next page's request is seen while it is still playing.
+  const pages = [
+    "While this page is read aloud the next page is prepared, so the voice does not fall silent at the turn. While this page is read aloud the next page is prepared, so the voice does not fall silent at the turn of the page. The same page keeps going so the test can see the next page asked for before this one ends.",
+    "The second page is the one made while the first page plays, and it is already saved when the first page ends.",
+    "The third page is not made until Keep reading: two pages at sixty cents are already past a dollar.",
+  ];
+  for (const text of pages) {
+    const p = doc.addPage([612, 792]);
+    const words = text.split(" ");
+    let line = "";
+    let y = 700;
+    const flush = () => {
+      if (!line) return;
+      p.drawText(line, { x: 72, y, size: 12, font });
+      y -= 15;
+      line = "";
+    };
+    for (const w of words) {
+      const next = line ? `${line} ${w}` : w;
+      if (font.widthOfTextAtSize(next, 12) > 460) flush();
+      line = line ? `${line} ${w}` : w;
+    }
+    flush();
+  }
+  const upload = await page.request.post("/api/books", {
+    multipart: { files: { name: "page-ahead-read-aloud.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save({ useObjectStreams: false })) } },
+  });
+  const bookId = (await upload.json()).results[0].bookId as string;
+  const opening = await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: "epubcfi(/6/2)" })}`)).json();
+  expect(opening.fileType).toBe("pdf");
+  expect(opening.passage.characters).toBeGreaterThan(200);
+  const firstId = opening.passage.id as string;
+  const secondId = opening.passage.nextId as string;
+  const second = await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ section: secondId, voice: "fake-ada" })}`)).json();
+  const thirdId = second.passage.nextId as string;
+  expect(thirdId).toEqual(expect.any(String));
+  expect([firstId, secondId, thirdId].every((id, i, all) => all.indexOf(id) === i)).toBe(true);
+
+  const posts: string[] = [];
+  let releaseSecond!: () => void;
+  const held = new Promise<void>((resolve) => {
+    releaseSecond = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === `/api/books/${bookId}/audio`,
+    async (route) => {
+      const req = route.request();
+      if (req.method() === "POST") {
+        const sectionId = (req.postDataJSON() as { sectionId: string }).sectionId;
+        posts.push(sectionId);
+        // Hold the next page's make so the test can see that this page is still playing when it was asked for.
+        if (sectionId === secondId) await held;
+      }
+      const res = await route.fetch();
+      const body = await res.json();
+      if (req.method() === "GET") return route.fulfill({ response: res, json: { ...body, track: null } });
+      // The client's $1 rule is what is tested. The server's own audio is unchanged; each new paragraph counts as $0.60.
+      return route.fulfill({ response: res, json: { ...body, reused: false, track: { ...body.track, costUsd: 0.6 } } });
+    },
+  );
+
+  try {
+    await page.goto(`/books/${bookId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
+    await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await page.getByRole("button", { name: "Listen" }).click();
+    const bar = page.getByRole("region", { name: "Read aloud" });
+    await bar.getByLabel("Voice").selectOption("fake-ada");
+    await bar.getByRole("button", { name: "Play" }).click();
+    await expect.poll(() => posts.includes(secondId), { timeout: 15_000 }).toBe(true);
+    const during = await page.evaluate(() => {
+      const a = document.querySelector("audio")!;
+      return { paused: a.paused, ended: a.ended, src: a.getAttribute("src") ?? "", time: a.currentTime };
+    });
+    expect(during.paused, "the first page is still playing when the next page is requested").toBe(false);
+    expect(during.ended).toBe(false);
+    expect(during.src).not.toBe("");
+    expect(posts.filter((id) => id === thirdId), "only one page ahead").toEqual([]);
+    releaseSecond();
+    await expect(bar).toContainText("This listen: 2 paragraphs made, about $1.20.");
+    const still = await page.evaluate(() => {
+      const a = document.querySelector("audio")!;
+      return { paused: a.paused, ended: a.ended, src: a.getAttribute("src") ?? "" };
+    });
+    expect(still.src, "paying for the next page does not switch to it").toBe(during.src);
+    expect(still.ended).toBe(false);
+    expect(still.paused).toBe(false);
+
+    // The first page ends: the second, already made, plays at once. The third is past $1, so it is not made.
+    await page.evaluate(() => {
+      const a = document.querySelector("audio")!;
+      a.currentTime = Math.max(0, a.duration - 0.05);
+    });
+    await expect.poll(
+      () => page.evaluate(() => document.querySelector("audio")!.getAttribute("src") ?? ""),
+      { timeout: 15_000 },
+    ).not.toBe(during.src);
+    await page.waitForTimeout(500);
+    expect(posts.filter((id) => id === thirdId)).toEqual([]);
+    await page.evaluate(() => {
+      const a = document.querySelector("audio")!;
+      a.currentTime = Math.max(0, a.duration - 0.05);
+    });
+    await expect(bar).toContainText(/Keep reading\? The next paragraph costs (about|under) \$[\d.]+\. This listen: 2 paragraphs made, about \$1\.20\./);
+    await page.waitForTimeout(500);
+    expect(posts, "the third page is not paid for while the question is up").toEqual([firstId, secondId]);
+    await bar.getByRole("button", { name: "Stop reading aloud" }).click();
+  } finally {
+    releaseSecond();
+  }
+});
+
 // Samuel (2026-10-09, "both"): a made voice reading on by itself showed no total and never asked. Now the bar keeps
 // a running total, and after $1 of new audio since Play it stops and asks before paying for the next paragraph.
 test("a made voice keeps a running total, and asks before paying on once $1 has been made since Play", async ({ page }) => {

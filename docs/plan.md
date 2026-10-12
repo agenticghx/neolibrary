@@ -663,9 +663,10 @@ pull request each, smallest and surest first:
   connection sees the progress line and the book open.
 
 Left for Samuel (Open unknowns): the view remembered per book (it changes
-his 2026-10-10 call that the view is one account setting), the PDF
-page-turn pause (row 15), "Want to Read" without the titles not available
-yet, the phone reader's top bar, and a password reset he issues.
+his 2026-10-10 call that the view is one account setting), "Want to Read"
+without the titles not available yet, the phone reader's top bar, and a
+password reset he issues. The PDF page-turn pause (row 15) was decided
+2026-10-12: make the next page while this one plays (M23).
 
 ### M22 · Covers for every title (asked for by Samuel 2026-10-11)
 
@@ -721,6 +722,15 @@ author, for any title without a cover.
   browser test refuses a text file called .png, then uploads a picture.
 
 Later: a PDF's first page as its cover.
+
+### M23 · The next PDF page while this one plays (Samuel, 2026-10-12)
+
+A PDF page read by the made voice used to go silent for about half a minute
+at each page turn, while the next page was made (measured 32 s and 38 s on
+*The Grid*). The player now makes the next paragraph as soon as this one
+starts to play. One ahead. The cost counts toward the $1 "Keep reading?"
+question. An EPUB and an uploaded audiobook are unchanged. The rules and
+the "Done when" are Part B of `docs/pdf-narration-plan.md`.
 
 ## How a cloud session works on this repo
 
