@@ -711,7 +711,14 @@ author, for any title without a cover.
   test gives Oil 101 (none in the fake catalogue) a cover and replaces
   another, with the dialog in four looks.
 - **C3b · Upload a picture as a cover** (migration 0026 adds 'upload' to
-  `cover_source`, with its reverse; the export carries it).
+  `cover_source`, with its reverse; the export carries it). In the same
+  dialog, "Or use your own picture": a JPEG, PNG or WebP of at most 3 MB,
+  checked by its bytes on the server, in place of a found cover (never
+  offered again) or as a title's first; never over a book file's cover.
+  Done when: the migration goes up and back down with an uploaded cover
+  kept showing, unit tests refuse another reader's book, a file's cover and
+  bytes that are not a cover-shaped picture, the export carries it, and a
+  browser test refuses a text file called .png, then uploads a picture.
 
 Later: a PDF's first page as its cover.
 

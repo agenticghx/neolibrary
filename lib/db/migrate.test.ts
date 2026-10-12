@@ -58,6 +58,21 @@ describe("migrations", () => {
     expect(cols.map((c) => c.column_name)).not.toContain("expires_at");
   });
 
+  it("0026 lets a cover be the reader's own picture; going back keeps it showing, recorded as the book file's", async () => {
+    database = await openDatabase({});
+    await migrateUp(database.raw);
+    const ids = (await loadMigrations()).map((m) => m.id);
+    const from0026 = ids.slice(ids.indexOf("0026_cover_upload"));
+    const [user] = await database.raw.query<{ id: string }>("INSERT INTO users (email, name, password_hash, role) VALUES ('u@example.com', 'U', 'x', 'reader') RETURNING id");
+    await database.raw.query("INSERT INTO books (owner_id, title, author, cover_key, cover_source) VALUES ($1, 'Mine', 'M', 'covers/x/y-upload-1.png', 'upload')", [user.id]);
+    await migrateDown(database.raw, from0026.length);
+    expect(await database.raw.query("SELECT cover_key, cover_source FROM books")).toEqual([{ cover_key: "covers/x/y-upload-1.png", cover_source: "file" }]);
+    await expect(database.raw.query("UPDATE books SET cover_source = 'upload'")).rejects.toThrow(/books_cover_source_check/);
+    expect(await migrateUp(database.raw)).toEqual(from0026);
+    await database.raw.query("UPDATE books SET cover_source = 'upload'");
+    await expect(database.raw.query("UPDATE books SET cover_source = 'elsewhere'")).rejects.toThrow(/books_cover_source_check/);
+  });
+
   it("0023 opens books side by side for everyone, keeps each reader's style, and starts new readers in STE light", async () => {
     database = await openDatabase({});
     await migrateUp(database.raw);

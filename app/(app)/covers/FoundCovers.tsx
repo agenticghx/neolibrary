@@ -7,7 +7,7 @@ import styles from "./page.module.css";
 
 export type FoundCover = { id: string; title: string; author: string; imageUrl: string; pageUrl: string | null; source: string };
 
-/** The found covers (M22), each with where it came from, "Not this cover" and "Choose another" (C3a). */
+/** The found covers (M22) and the reader's own (C3b), each with where it came from, "Not this cover" and "Choose another" (C3a). */
 export function FoundCovers({ covers, onStatus, onChoose }: { covers: FoundCover[]; onStatus: (line: string, changed?: boolean) => void; onChoose: (b: Choosing) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -34,11 +34,13 @@ export function FoundCovers({ covers, onStatus, onChoose }: { covers: FoundCover
         <li key={c.id} className={styles.item} data-title={c.title}>
           {/* Signed, short-lived URL to the reader's own stored copy; next/image cannot optimise it. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={c.imageUrl} alt={`Cover found for ${c.title}`} className={styles.picture} />
+          <img src={c.imageUrl} alt={c.source === "upload" ? `Your own cover for ${c.title}` : `Cover found for ${c.title}`} className={styles.picture} />
           <p className={styles.itemTitle}>{c.title}</p>
           {c.author ? <p className={styles.itemAuthor}>{c.author}</p> : null}
           <p className={styles.itemSource}>
-            {c.pageUrl ? (
+            {c.source === "upload" ? (
+              "Your own picture"
+            ) : c.pageUrl ? (
               <a href={c.pageUrl} target="_blank" rel="noopener noreferrer">
                 From {catalogueName(c.source)}
               </a>

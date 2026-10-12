@@ -18,6 +18,7 @@ import { annotations, books, generations, users } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
 import { setPreferences } from "./preferences";
 import { FakeSpeech, wav } from "@/lib/speech/fake";
+import { bookPng } from "@/lib/covers/fake-png";
 import { FakeTranscriber } from "@/lib/speech/transcribe";
 import { createVoiceNote } from "./voice-notes";
 import { recordReading } from "./reading-stats";
@@ -30,7 +31,7 @@ import { rateCard, reviewQueue } from "./review";
 import { buildPackage } from "@/lib/readalong/fixture";
 import { startImport } from "@/lib/readalong/importer";
 import { FakeCovers } from "@/lib/covers/sources";
-import { findMissingCovers, rejectCover } from "./cover-lookup";
+import { findMissingCovers, rejectCover, uploadCover } from "./cover-lookup";
 
 let database: Database;
 let ownerId: string;
@@ -53,6 +54,9 @@ describe("library export (ground rule 7)", () => {
     await findMissingCovers(database.db, storage, covers);
     const [chipWar] = await database.db.select({ id: books.id }).from(books).where(and(eq(books.ownerId, ownerId), eq(books.title, "Chip War")));
     await rejectCover(database.db, storage, covers, ownerId, chipWar.id);
+    // C3b: the reader's own picture in place of The Grid's found cover.
+    const [grid] = await database.db.select({ id: books.id }).from(books).where(and(eq(books.ownerId, ownerId), eq(books.title, "The Grid")));
+    await uploadCover(database.db, storage, ownerId, grid.id, bookPng(300, 450, [10, 120, 90]));
     const c = await createCollection(database.db, ownerId, "Time travel");
     await setInCollection(database.db, ownerId, c.id, bookId, true);
     await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/8!/4/2/1:0)", fraction: 0.25 });
@@ -173,6 +177,13 @@ describe("library export (ground rule 7)", () => {
       isbn: "9780000000002",
     });
     expect(before.books.find((b) => b.title === "Oil 101")).toMatchObject({ coverKey: null, coverSource: null, coverCheckedAt: expect.any(String) });
+    expect(before.books.find((b) => b.title === "The Grid")).toMatchObject({
+      coverKey: expect.stringMatching(/-upload-[0-9a-f]{10}\.png$/),
+      coverSource: "upload",
+      coverRef: null,
+      coverPage: null,
+      coverRejected: [expect.stringContaining("/the-grid/1.png")],
+    });
     expect(before.reviewCards).toEqual([
       expect.objectContaining({ annotationId: marked.id, ease: 2.35, intervalDays: 2, reps: 2, lapses: 0, lastRating: "hard", firstReviewedAt: "2026-10-10T09:00:00.000Z", dueAt: "2026-10-13T00:00:00.000Z" }),
       expect.objectContaining({ annotationId: note.id, intervalDays: 0, reps: 0, lastRating: "again", dueAt: "2026-10-11T00:00:00.000Z" }),

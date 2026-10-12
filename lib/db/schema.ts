@@ -75,8 +75,8 @@ export const books = pgTable("books", {
   fileType: text("file_type", { enum: ["epub", "pdf"] }),
   fileSize: integer("file_size"),
   coverKey: text("cover_key"),
-  /** Where the cover came from (M22): its book file, or a catalogue found by title and author. */
-  coverSource: text("cover_source", { enum: ["file", "openlibrary", "googlebooks", "fake"] }),
+  /** Where the cover came from (M22): its book file, a catalogue found by title and author, or the reader's own picture (C3b). */
+  coverSource: text("cover_source", { enum: ["file", "openlibrary", "googlebooks", "fake", "upload"] }),
   /** For a found cover: the address its picture was downloaded from (which picture it is). */
   coverRef: text("cover_ref"),
   /** For a found cover: the catalogue's page for the record it came from (credit). */

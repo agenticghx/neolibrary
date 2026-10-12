@@ -77,7 +77,11 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
             </ul>
           ) : null}
           {book.note ? <p className={styles.note}>{book.note}</p> : null}
-          {book.coverKey && book.coverSource && book.coverSource !== "file" ? (
+          {book.coverSource === "upload" && book.coverKey ? (
+            <p className={styles.note} data-testid="cover-credit">
+              The cover is your own picture. <Link href="/covers">Change it?</Link>
+            </p>
+          ) : book.coverKey && book.coverSource && book.coverSource !== "file" ? (
             <p className={styles.note} data-testid="cover-credit">
               Cover found in {book.coverSource === "googlebooks" ? "Google Books" : book.coverSource === "openlibrary" ? "Open Library" : "a catalogue"} by
               title and author. <Link href="/covers">Not the right cover?</Link>

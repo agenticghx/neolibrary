@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { mkdir } from "node:fs/promises";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { bookPng } from "../lib/covers/fake-png";
 import { ADMIN_STATE } from "./pages";
 
 // M22 "Done when": with the fake catalogue (two covers for every title, none for "Oil 101"), a reader of its own
@@ -10,7 +11,8 @@ import { ADMIN_STATE } from "./pages";
 // projects that run beside this one (home, review) see no covers: the automatic lookup is off in these tests
 // (COVER_LOOKUP=off), and this test asks for its reader's titles only.
 // C3a "Done when": the reader gives Oil 101 a cover from their own search ("Choose a cover"), replaces it with
-// "Choose another", and sees the dialog in four looks.
+// "Choose another", and sees the dialog in four looks. C3b: The Grid gets the reader's own picture (a text file
+// called .png is refused by the server's own check first).
 
 const axe = async (page: Page, look: string) => {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
@@ -176,6 +178,25 @@ test("Covers: Find covers now, a cover turned down for the next and then for goo
   await reader.getByRole("combobox", { name: "Go to a book, path, page or note" }).fill("covers");
   await reader.keyboard.press("Enter");
   await expect(reader).toHaveURL(/\/covers$/);
+
+  // Your own picture (C3b): The Grid has no cover left in the fake catalogue; the reader uploads one.
+  await reader.getByRole("button", { name: "Choose a cover: The Grid" }).click();
+  const own = reader.getByRole("dialog", { name: "Choose a cover" });
+  await expect(own.getByTestId("choose-status")).toHaveText("3 pictures found.");
+  const useOwn = own.getByRole("button", { name: "Use this picture" });
+  await expect(useOwn).toBeDisabled();
+  const picker = own.getByLabel("A JPEG, PNG or WebP picture of the cover, at most 3 MB");
+  await picker.setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: Buffer.from("<svg onload=alert(1)>not a picture</svg>") });
+  await useOwn.click();
+  await expect(own.getByTestId("choose-status")).toHaveText("That picture cannot be a cover: not a JPEG, PNG or WebP picture.");
+  await picker.setInputFiles({ name: "my-grid.png", mimeType: "image/png", buffer: Buffer.from(bookPng(300, 450, [10, 120, 90])) });
+  await useOwn.click();
+  await expect(own).toHaveCount(0);
+  await expect(reader.getByTestId("reject-status")).toHaveText("“The Grid”: your picture is its cover.");
+  const ownCard = reader.locator('[data-testid="found-covers"] li[data-title="The Grid"]');
+  await expect.poll(() => ownCard.getByRole("img", { name: "Your own cover for The Grid" }).evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(300);
+  await expect(ownCard).toContainText("Your own picture");
+  await expect(reader.getByText("Every title has a cover.")).toBeVisible();
 
   await fourLooks(reader, "covers", async () => {
     await expect(reader.getByRole("heading", { name: "Covers", level: 1 })).toBeVisible();

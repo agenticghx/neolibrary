@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel picks covers on /covers (Lift Off, Payments Systems, the weak ones); Claude builds M22 C3b (upload a picture as a cover).
+next_action: Merge and deploy M22 C3b (upload your own cover; migration 0026, backup first); Samuel picks or uploads covers on /covers.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-11
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-11 23:35 (laptop clock). **M22 C3b (upload your own picture as a cover) is built and tested on branch `m22-cover-upload`** (on top of the C3a deploy-record commit, so that ledger entry rides in). It adds migration 0026 (cover_source 'upload', with a reverse step): back up before deploying. Unit tests 745 passed; the covers browser chain 247 passed. Next: PR, merge with the train, back up, deploy, check `_migrations` has 0026.
 
 Written 2026-10-11 23:10 (laptop clock). **Live: 17b18ae. M22 C3a (choose a cover by hand) is deployed** (#173, green on the first round). Samuel opens **/covers**: "Choose a cover" on *Lift Off* (search "Liftoff Berger") and *Payments Systems in the U.S.*; "Choose another" or "Not this cover" on any weak picture. Backup ~/Backups/neolibrary/prod-before-17b18ae-20261012T0306Z.sql. This entry sits on local branch `m22-c3a-deploy-record` (not pushed): commit it with the next real pull request. Next for Claude: C3b, upload a picture as a cover (migration 0026).
 
@@ -202,6 +204,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-11 23:25 · Claude Opus 5.5 (laptop) · M22 C3b: upload your own picture as a cover (branch m22-cover-upload; migration 0026)
+- **Done:** In the Choose a cover dialog, below the search results: 'Or use your own picture' (a JPEG, PNG or WebP, at most 3 MB; 'Use this picture'). The server reads at most 3 MB while the body arrives, requires an image content type (another site's form cannot send one, and the sign-in cookie is SameSite=Lax), and checks the bytes themselves (checkCover: JPEG/PNG/WebP, a cover's size and shape), whatever the browser said. Stored as covers/<owner>/<book>-upload-<hash>.<ext>; cover_source 'upload' (migration 0026 widens the check; its reverse step relabels uploads as 'file' so they keep showing). It replaces a found cover (whose picture is then never offered again) and can itself be replaced by Choose another or removed by Not this cover (the next catalogue match takes its place); never over the cover inside a book file. Covers page: 'Your own picture' instead of a catalogue credit; a title's page: 'The cover is your own picture. Change it?'. Export carries 'upload' (round-trip test). The browser's own 'Choose file' button styled as the dialog's quiet buttons (it was light grey in dark mode).
+- **Key paths:** db/migrations/0026_cover_upload.{up,down}.sql; lib/db/schema.ts; lib/library/cover-lookup.ts (uploadCover, uploadCoverKey, REPLACEABLE); app/api/covers/[id]/upload/route.ts; app/(app)/covers/{ChooseCover,FoundCovers}.tsx, page.module.css; app/(app)/books/[id]/page.tsx; lib/library/export.ts; tests: lib/db/migrate.test.ts, lib/library/cover-lookup.test.ts, lib/library/export.test.ts, e2e/covers.spec.ts
+- **Commands that worked:** npx vitest run lib/db/migrate.test.ts -> 7 passed (0026 up, down keeps an upload as 'file', the old rule refuses 'upload', up again); npx vitest run lib/library/cover-lookup.test.ts -> 16 passed; npx vitest run lib/library/export.test.ts -> 11 passed; npm run test -> 745 passed, 2 skipped; npm run lint, npm run typecheck -> clean; PORT=3309 npx playwright test --project covers --ignore-snapshots -> 247 passed (twice: before and after styling the file button); screenshots/covers-choose-{desktop,phone}-{light,dark}.png looked at
+- **Known issues / blockers:** Migration 0026: back up before it runs in production (ground rule). As with every cover, a later book-file import with its own cover replaces an uploaded one (today's rule; Samuel can overrule).
+- **Exact next steps:** 1) PR, merge with the train. 2) Back up the live database, deploy (migration 0026 runs at start), check _migrations has 0026 and /api/health. 3) Samuel can then upload a picture for any title on /covers (Choose a cover or Choose another → Or use your own picture). 4) M22 is then complete except 'Later: a PDF's first page as its cover'.
 
 ### 2026-10-11 23:12 · Claude Opus 5.5 (laptop) · M22 C3a deployed (live 17b18ae): choose a cover by hand
 - **Done:** #173 merged as 17b18ae by the train, all four checks green on the first round (run 38197493945). My PR text expected a first round failing on the /covers reference images; it did not, because the reference picture is the test owner's library, which has no found covers and no titles without one, so the new buttons never show there. Backup ~/Backups/neolibrary/prod-before-17b18ae-20261012T0306Z.sql (6,492,667 bytes; no migration). Deployed 17b18ae. Checked live: /api/health commit 17b18ae; /sign-in 200 with strict-transport-security; /covers 307 signed out; GET /api/covers/search and POST /api/covers/<id>/choose 401 signed out. The real search, run from the laptop with the code as deployed (nothing written to the live site): 'Liftoff Berger' 9 results in 4.1 s, first ol:11033056 Liftoff by Eric Berger; 'Payments Systems in the U.S.' 10 results in 1.6 s, first ol:8858250 by Benson, Loftesness, Jones; every result with a data: preview; the chosen picture passes the cover check (38 KB and 70 KB JPEGs).

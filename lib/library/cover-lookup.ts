@@ -13,7 +13,8 @@ import type { Storage } from "@/lib/storage";
  * The picture is checked, stored in the bucket under its own name, and the
  * book records where it came from. A cover inside the book's file always wins
  * (lib/library/import.ts); the reader can turn a found cover down, and it is
- * never offered again, or choose one by hand from their own search (C3a).
+ * never offered again, choose one by hand from their own search (C3a), or
+ * upload their own picture (C3b).
  */
 
 export class CoverError extends Error {}
@@ -133,10 +134,13 @@ export async function findMissingCovers(
 }
 
 const FOUND = ["openlibrary", "googlebooks", "fake"] as const;
+/** Covers the reader can turn down or replace: the catalogues' and their own picture; never the book file's. */
+const REPLACEABLE = [...FOUND, "upload"] as const;
 
 /**
  * "Not this cover": the found cover is removed and never offered again for this title; the next match, if any,
- * takes its place at once. A cover that came with the book's file is not the catalogues' to take back.
+ * takes its place at once. The reader's own picture (C3b) is removed the same way. A cover that came with the
+ * book's file is not the catalogues' to take back.
  */
 export async function rejectCover(
   db: Db,
@@ -153,10 +157,11 @@ export async function rejectCover(
         .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)))
     : [];
   if (!book) throw new CoverError("Book not found.");
-  if (!book.coverKey || !book.coverRef || !FOUND.includes(book.coverSource as (typeof FOUND)[number])) {
+  if (!book.coverKey || !REPLACEABLE.includes(book.coverSource as (typeof REPLACEABLE)[number])) {
     throw new CoverError("This cover came with the book's file, or there is none to turn down.");
   }
-  const rejected = [...book.coverRejected, book.coverRef];
+  // A catalogue's picture is never offered again; the reader's own has no address to remember.
+  const rejected = book.coverRef ? [...book.coverRejected, book.coverRef] : book.coverRejected;
   await db
     .update(books)
     .set({ coverKey: null, coverSource: null, coverRef: null, coverPage: null, coverRejected: rejected, coverCheckedAt: now() })
@@ -241,7 +246,57 @@ export async function chooseCover(
       ...(isbn ? { isbn } : {}),
     })
     // Not if the book file's own cover arrived meanwhile.
-    .where(and(eq(books.id, book.id), or(isNull(books.coverSource), inArray(books.coverSource, [...FOUND]))))
+    .where(and(eq(books.id, book.id), or(isNull(books.coverSource), inArray(books.coverSource, [...REPLACEABLE]))))
+    .returning({ id: books.id });
+  if (!done.length) {
+    await storage.delete(key);
+    throw new CoverError("This title has the cover inside its book file.");
+  }
+  if (book.coverKey && book.coverKey !== key) await storage.delete(book.coverKey);
+}
+
+/** The reader's own picture's name: never a book file's cover (covers/<owner>/<book>.<ext>) or a found one's. */
+export const uploadCoverKey = (ownerId: string, bookId: string, data: Uint8Array, ext: string) =>
+  `covers/${ownerId}/${bookId}-upload-${createHash("sha256").update(data).digest("hex").slice(0, 10)}.${ext}`;
+
+/**
+ * The reader's own picture as a title's cover (C3b): a JPEG, PNG or WebP of a cover's size and shape (checked
+ * here from its bytes, whatever the browser said it was), in place of a found one (never offered again) or as a
+ * title's first. Never in place of the cover inside the book's file.
+ */
+export async function uploadCover(
+  db: Db,
+  storage: Storage,
+  ownerId: string,
+  bookId: string,
+  data: Uint8Array,
+  now: () => Date = () => new Date(),
+): Promise<void> {
+  const [book] = /^[0-9a-f-]{36}$/i.test(bookId)
+    ? await db
+        .select()
+        .from(books)
+        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+    : [];
+  if (!book) throw new CoverError("Book not found.");
+  if (book.coverSource === "file") throw new CoverError("This title has the cover inside its book file.");
+  const image = checkCover(data);
+  if ("refused" in image) throw new CoverError(`That picture cannot be a cover: ${image.refused}.`);
+  const key = uploadCoverKey(book.ownerId, book.id, image.data, image.ext);
+  if (key === book.coverKey) return;
+  await storage.put(key, image.data, image.contentType);
+  const done = await db
+    .update(books)
+    .set({
+      coverKey: key,
+      coverSource: "upload",
+      coverRef: null,
+      coverPage: null,
+      coverRejected: book.coverRef ? [...book.coverRejected, book.coverRef] : book.coverRejected,
+      coverCheckedAt: now(),
+    })
+    // Not if the book file's own cover arrived meanwhile.
+    .where(and(eq(books.id, book.id), or(isNull(books.coverSource), inArray(books.coverSource, [...REPLACEABLE]))))
     .returning({ id: books.id });
   if (!done.length) {
     await storage.delete(key);
@@ -254,7 +309,7 @@ export async function chooseCover(
 export async function coverCounts(db: Db, ownerId: string) {
   const [row] = await db
     .select({
-      found: sql<number>`count(*) filter (where ${books.coverSource} in ('openlibrary', 'googlebooks', 'fake'))`.mapWith(Number),
+      found: sql<number>`count(*) filter (where ${books.coverSource} in ('openlibrary', 'googlebooks', 'fake', 'upload'))`.mapWith(Number),
       none: sql<number>`count(*) filter (where ${books.coverKey} is null)`.mapWith(Number),
     })
     .from(books)
