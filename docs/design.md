@@ -107,12 +107,18 @@ highlight.
 
 - **Mark** (`components/Mark.tsx`): an open book with a teal doorway in the
   spine. Also the browser icon (`app/icon.svg`).
-- **Cover** (`components/Cover.tsx`): a plain typographic cover (title, slot
-  letter N or E, a darker spine edge). Titles you can read or listen to are
-  navy or green cloth; a title not available yet is greyed (undyed cloth).
-  Each cover is captioned by availability: Read and listen, Read only, Listen
-  only, or Not available yet (`lib/library/availability.ts`). Never copies
-  real cover art.
+- **Cover** (`components/Cover.tsx`): the book's own cover picture when it
+  has one (from its file, or found in a public catalogue by title and author:
+  M22, `lib/covers/`), else a plain typographic cover (title, slot letter N or
+  E, a darker spine edge) that never imitates real cover art. Titles you can
+  read or listen to are navy or green cloth; a title not available yet is
+  greyed: undyed cloth, or its found picture in grey over the cloth colour
+  (`grayscale(1)`, opacity 0.55), and it takes its colours when its file or
+  audio arrives. Each cover is captioned by availability: Read and listen,
+  Read only, Listen only, or Not available yet (`lib/library/availability.ts`).
+- **Covers page** (`app/(app)/covers/`, M22): the found covers in a grid, each
+  with where it came from and "Not this cover" (the next match takes its
+  place); the titles without one; "Find covers now" with its progress.
 - **AuthShell** (`components/AuthShell.tsx`): the quiet room around the
   sign-in, setup and invitation forms (mark, wordmark, "By invitation only").
 - **ActionForm / Field** (`components/ActionForm.tsx`, styles in

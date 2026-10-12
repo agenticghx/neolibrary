@@ -98,6 +98,16 @@
   box-shadow: none;
 }
 
+/*
+ * M22: a title not available yet may show its cover, found in a catalogue. It stays greyed, like the undyed
+ * cloth it stands in for (the picture in grey, part see-through over the cloth colour); it takes its colours
+ * when the title's file or audio arrives.
+ */
+.empty.withImage .image {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
 /* A word too long for the cover is hyphenated, never chopped ("Airpor t"); break-word is the last resort. */
 .title {
   font-size: var(--text-lg);

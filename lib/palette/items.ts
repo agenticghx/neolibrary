@@ -28,6 +28,7 @@ export const PAGES: { label: string; href: string; words?: string; admin?: boole
   { label: "Paths", href: "/paths", words: "reading plans" },
   { label: "New path", href: "/paths/new", words: "create plan" },
   { label: "Import", href: "/import", words: "upload add audiobook epub pdf" },
+  { label: "Covers", href: "/covers", words: "book covers pictures catalogue open library" },
   { label: "Reading stats", href: "/stats", words: "statistics time speed" },
   { label: "Your data", href: "/data", words: "export download backup removed notes" },
   { label: "Account", href: "/account", words: "password settings preferences profile" },

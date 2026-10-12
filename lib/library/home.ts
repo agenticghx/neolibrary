@@ -117,7 +117,8 @@ export async function libraryItems(
     id: b.id,
     title: b.title,
     author: b.author,
-    coverUrl: b.fileKey ? signCover(b.coverKey) : null,
+    // A title not available yet shows its cover too (M22: found in a catalogue), greyed by Cover.
+    coverUrl: signCover(b.coverKey),
     progress: b.progress,
     pageCount: b.pageCount,
     fileSize: b.fileSize,

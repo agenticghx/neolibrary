@@ -6,9 +6,11 @@ export type CoverTone = "navy" | "green";
 export type Slot = "N" | "E" | "extra" | "master";
 
 /**
- * A plain typographic book cover (title + slot letter on cloth).
- * Never imitates real published cover art. A title with nothing to read or
- * listen to yet is drawn greyed (undyed cloth) and never shows an image.
+ * A book's cover: its own picture when it has one (from its file, or found in
+ * a catalogue by title and author, M22), else a plain typographic cover (title
+ * and slot letter on cloth) that never imitates real cover art. A title with
+ * nothing to read or listen to yet is greyed: undyed cloth, or its picture in
+ * grey; it takes its colours when its file or audio arrives.
  */
 export function Cover({
   title,
@@ -43,7 +45,7 @@ export function Cover({
   progress?: number;
   /** Marks the book to read next ("you are here"). */
   current?: boolean;
-  /** The book's own cover image (from its file), shown instead of the typographic cover. */
+  /** The book's own cover picture (from its file, or found in a catalogue), shown instead of the typographic cover. */
   imageUrl?: string | null;
   /**
    * Marks drawn on the cover (decorative; the text beside it says the same): a folded corner when
@@ -88,8 +90,8 @@ export function Cover({
       </>
     ) : null;
   const face =
-    imageUrl && any ? (
-      <div className={[className, styles.withImage].join(" ")} aria-hidden={decorative || undefined}>
+    imageUrl ? (
+      <div className={[className, styles.withImage].join(" ")} aria-hidden={decorative || undefined} data-cover="picture">
         {/* Signed, short-lived URL to the user's own file; next/image cannot optimise it. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl} alt="" className={styles.image} />

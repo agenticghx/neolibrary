@@ -136,13 +136,18 @@ describe("libraryItems", () => {
     expect([n.audiobook, n.available.listen]).toEqual([false, true]);
   });
 
-  it("signs a cover only for a book with a file", async () => {
+  // M22 (Samuel, 2026-10-11): a title not available yet shows the cover found for it (Cover draws it greyed);
+  // before M22 only a book with a file had its cover signed.
+  it("signs the cover of every title that has one, with a file or not, and none for a title without", async () => {
     const withFile = await add(ownerId, "Has a file", { coverKey: "covers/a.jpg" });
-    const titleOnly = await add(ownerId, "Title only", { fileKey: null, fileType: null, coverKey: "covers/b.jpg" });
+    const titleOnly = await add(ownerId, "Title only", { fileKey: null, fileType: null, coverKey: "covers/b-found-0123456789.jpg", coverSource: "openlibrary" });
+    const bare = await add(ownerId, "Nothing yet", { fileKey: null, fileType: null, coverKey: null });
     const list = (await database.db.select().from(books)).filter((b) => b.ownerId === ownerId);
     const items = await libraryItems(database.db, ownerId, list, (key) => (key ? `/c/${key}` : null), true);
     expect(items.find((i) => i.id === withFile)!.coverUrl).toBe("/c/covers/a.jpg");
-    expect(items.find((i) => i.id === titleOnly)!.coverUrl).toBeNull();
+    expect(items.find((i) => i.id === titleOnly)!.coverUrl).toBe("/c/covers/b-found-0123456789.jpg");
+    expect(items.find((i) => i.id === titleOnly)!.available).toEqual({ read: false, listen: false });
+    expect(items.find((i) => i.id === bare)!.coverUrl).toBeNull();
   });
 });
 

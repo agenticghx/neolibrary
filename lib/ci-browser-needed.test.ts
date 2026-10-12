@@ -121,6 +121,7 @@ function fixture() {
     "readalong-safari": ["readalong"],
     narration: ["readalong-safari"],
     review: ["stats"],
+    covers: ["stats"],
   };
   const webkit = new Set(["safari", "readalong-safari"]);
   return Object.entries(deps).map(([name, dependencies]) => ({ name, dependencies, ...(webkit.has(name) ? { use: { browserName: "webkit" } } : {}) }));
@@ -160,6 +161,7 @@ describe("applyBrowserSlices", () => {
       "agents",
       "offline",
       "review",
+      "covers",
       "extra",
     ]);
     expect(depsOf(projects, "flows")).toEqual(["setup"]);
@@ -167,6 +169,7 @@ describe("applyBrowserSlices", () => {
     expect(depsOf(projects, "extra")).toEqual(["setup"]);
     // Daily review (M21) stays a branch off stats; home still waits on stats, not on review.
     expect(depsOf(projects, "review")).toEqual(["stats"]);
+    expect(depsOf(projects, "covers")).toEqual(["stats"]);
     expect(depsOf(projects, "home")).toEqual(["stats"]);
     expect(namesOf(projects)).not.toContain("readalong");
     expect(namesOf(projects)).not.toContain("readalong-safari");
@@ -260,6 +263,9 @@ describe("gridPageNames", () => {
     // M21: the review page's images come from review.spec.ts, in the behaviour slice.
     expect(shots).not.toContain("review");
     expect(withBehavior).toContain("review");
+    // M22: the Covers page's images come from covers.spec.ts, in the behaviour slice.
+    expect(shots).not.toContain("covers");
+    expect(withBehavior).toContain("covers");
   });
 });
 
@@ -279,7 +285,8 @@ describe("playwright.config.ts", () => {
     expect(narration?.dependencies).toEqual(["readalong-safari"]);
     expect(flows?.dependencies).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
     expect(config.projects?.find((project) => project.name === "review")?.dependencies).toEqual(["stats"]);
-    expect(config.projects?.at(-1)?.name).toBe("review");
+    expect(config.projects?.find((project) => project.name === "covers")?.dependencies).toEqual(["stats"]);
+    expect(config.projects?.at(-1)?.name).toBe("covers");
     expect(config.projects?.map((project) => project.name)).toContain("safari");
   });
 });

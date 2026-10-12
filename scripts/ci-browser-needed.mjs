@@ -75,6 +75,8 @@ const PROJECT_SLICE = {
   narration: "narration",
   // M21: hangs off `stats` like `safari` off `reader`, so it is not in CHAIN (in CHAIN, `home` would wait on it).
   review: "behavior",
+  // M22: a branch off `stats` too.
+  covers: "behavior",
 };
 
 const NARRATION_FILES = new Set([
@@ -323,6 +325,7 @@ export function gridPageNames(pageSource, slices) {
     "own-paths.spec.ts": "behavior",
     "readalong.spec.ts": "readalong",
     "review.spec.ts": "behavior",
+    "covers.spec.ts": "behavior",
   };
   const names = [];
   for (const line of String(pageSource).split("\n")) {

@@ -109,6 +109,8 @@ export default defineConfig({
     // 17. Daily review (M21): a reader of its own rates highlights and notes, so it changes nothing the others count;
     // a branch off stats, as safari is off reader.
     { name: "review", testMatch: /\/review\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
+    // 18. Covers (M22): a reader of its own finds covers (the fake catalogue), turns one down; a branch off stats too.
+    { name: "covers", testMatch: /\/covers\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     ],
     parseBrowserSlices(process.env.CI_BROWSER_SLICES),
     // Pull requests skip Safari's engine (CI_SKIP_WEBKIT=1, set by ci.yml); main and the night run keep it.
