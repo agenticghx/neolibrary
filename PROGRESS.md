@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for PR 175's four checks after the spine-test fix, merge when they are green, then deploy (no database change). Samuel tries Listen on The Grid; covers on /covers are still his.
+next_action: Wait for PR 175's four checks after the review-title fix, merge when they are green, then deploy (no database change). Samuel tries Listen on The Grid; covers on /covers are still his.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-12
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-12 (laptop clock). **M23 is on pull request 175 (`m23-pdf-page-ahead`, not deployed).** While a PDF page plays in a made voice, the next paragraph is made at once, one ahead, and its cost counts toward the $1 "Keep reading?" question. An EPUB and an uploaded audiobook are unchanged. No database change. The first browser check failed on an older test: Night's page-turn check opened Spine Fold Line on pages 3 and 4, the place the test before it had saved, and expected pages 1 and 2 (run 38271487444). That test now walks back to pages 1 and 2. On the laptop, setup plus both Spine fold tests passed (3 passed, 18.1 s). Next: the four checks on the new commit, then merge, deploy, and Samuel tries Listen on *The Grid* (the silence at the page turn should be gone; one page he never reaches may still be paid for). Covers on /covers are still his. Open unknowns row 21 (a), (c), (d) and (e) still wait.
+Written 2026-10-12 (laptop clock). **M23 is on pull request 175 (`m23-pdf-page-ahead`, not deployed).** While a PDF page plays in a made voice, the next paragraph is made at once, one ahead, and its cost counts toward the $1 "Keep reading?" question. An EPUB and an uploaded audiobook are unchanged. No database change. Two older browser tests failed on the way, and both are fixed in the test, not in the player. Night's page-turn check now walks back to pages 1 and 2 (run 38271487444 saw pages 3 and 4). The next run (38273542441) passed that test and the new page-ahead test (2.7 s), then Daily review's accessibility check saw an empty page title while a refresh was still replacing it. That check now waits until the title reads Review. On the laptop the Daily review test passed (2 passed, 11.7 s). Next: the four checks on the new commit, then merge, deploy, and Samuel tries Listen on *The Grid* (the silence at the page turn should be gone; one page he never reaches may still be paid for). Covers on /covers are still his. Open unknowns row 21 (a), (c), (d) and (e) still wait.
 
 Written 2026-10-11 23:45 (laptop clock). **Live: e6b3006. M22 is complete (covers for every title)**, apart from "Later: a PDF's first page as its cover". Deployed today: #172 Google Books (24 more covers), #173 C3a choose a cover by hand, #174 C3b upload your own picture (migration 0026; backup ~/Backups/neolibrary/prod-before-0026-20261012T0339Z.sql, restore-checked). **Every remaining step waits on Samuel:** (1) on **/covers**, Choose a cover for *Lift Off* (search "Liftoff Berger") and *Payments Systems in the U.S.*, and turn down or replace weak pictures; (2) pick the next work: Open unknowns row 21's five items, or two or three ideas from `docs/suggestionsForAINative.md` (untracked); a PDF's first page as its cover would replace covers he may have checked, so it waits for his word. The ledger entry for the e6b3006 deploy sits on local branch `m22-c3b-deploy-record` (not pushed): commit it with the next real pull request (the 357d746 and 17b18ae deploy entries went in with #173 and #174).
 
@@ -209,6 +209,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-12 12:10 · Grok 4.7 (laptop) · M23: Daily review waits for its title before the accessibility check
+- **Done:** The second browser check (run 38273542441) passed the Night spine test and the new page-ahead test (2.7 s). It failed on Daily review: axe reported document-title on html, with an empty title, right after the last rating. That rating calls router.refresh() so the sidebar count updates, and the title can be empty for a moment while the refresh lands. The check now waits until the title reads Review, then runs the same accessibility check. The page-ahead player code is unchanged.
+- **Key paths:** e2e/review.spec.ts, docs/ci-flakes.md, PROGRESS.md
+- **Commands that worked:** npx playwright test --config pw-review.config.ts (one-off, deleted): 2 passed (11.7s). setup 734ms, Daily review 3.3s.
+- **Known issues / blockers:** The four GitHub checks are not green on this commit yet. Do not merge.
+- **Exact next steps:** 1. Push this commit to PR 175. 2. Merge only when the four checks are green on the head commit, then deploy (no database change). 3. Samuel tries Listen on The Grid.
 
 ### 2026-10-12 11:53 · Grok 4.7 (laptop) · M23: the Night page-turn test starts on pages 1 and 2
 - **Done:** PR 175 browser check failed on the Night spine test (run 38271487444): it expected PDF pages 1 and 2 and saw 3 and 4. The test before it leaves the same book on pages 3 and 4, and Continue reading reopens that saved place. The page-ahead change does not open Listen. The test now walks back to pages 1 and 2 before it measures the turn. The assertion is unchanged. Main the same day passed this test in 4.7 s (run 38200557078), so the save does not always land in time.
