@@ -9,6 +9,8 @@ import { ADMIN_STATE } from "./pages";
 // on a title not available yet, in the Library and on the title's page. A reader of its own (invited here), so the
 // projects that run beside this one (home, review) see no covers: the automatic lookup is off in these tests
 // (COVER_LOOKUP=off), and this test asks for its reader's titles only.
+// C3a "Done when": the reader gives Oil 101 a cover from their own search ("Choose a cover"), replaces it with
+// "Choose another", and sees the dialog in four looks.
 
 const axe = async (page: Page, look: string) => {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
@@ -101,6 +103,45 @@ test("Covers: Find covers now, a cover turned down for the next and then for goo
   await expect(reader.getByTestId("find-status")).toContainText("; 2 without one.", { timeout: 60_000 });
   await expect(reader.getByTestId("no-cover")).toContainText("The Grid");
 
+  // Choose a cover (C3a): the fake catalogue has no match for Oil 101, so the reader searches and picks one.
+  await reader.getByRole("button", { name: "Choose a cover: Oil 101" }).click();
+  const chooser = reader.getByRole("dialog", { name: "Choose a cover" });
+  const words = chooser.getByRole("searchbox", { name: "Search the catalogues" });
+  const said = chooser.getByTestId("choose-status");
+  await expect(words).toHaveValue("Oil 101 Downey");
+  await expect(words).toBeFocused();
+  await expect(said).toHaveText("3 pictures found."); // searched at once, with the title and surname
+  await expect(chooser.getByRole("button", { name: /^Use this cover: / })).toHaveCount(3);
+  await expect(chooser.getByRole("img", { name: "Cover of Oil 101 Downey (1)" })).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await words.fill("nothing like it");
+  await chooser.getByRole("button", { name: "Search" }).click();
+  await expect(said).toContainText("Nothing with a cover for these words.");
+  await expect(chooser.getByRole("button", { name: /^Use this cover: / })).toHaveCount(0);
+  await words.fill("Oil 101 Downey");
+  await words.press("Enter");
+  await expect(said).toHaveText("3 pictures found.");
+  await chooser.getByRole("button", { name: "Use this cover: Oil 101 Downey (2)" }).click();
+  await expect(chooser).toHaveCount(0);
+  await expect(reader.getByTestId("reject-status")).toHaveText("“Oil 101”: the cover you chose is shown.");
+  const oil = reader.locator('[data-testid="found-covers"] li[data-title="Oil 101"]');
+  const oilPicture = oil.getByRole("img", { name: "Cover found for Oil 101" });
+  await expect.poll(() => oilPicture.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(120);
+  await expect(oil.getByRole("link", { name: "From the test catalogue" })).toHaveAttribute("href", "https://catalogue.example.org/fake/oil-101-downey");
+  await expect(reader.getByTestId("no-cover").getByRole("listitem")).toHaveText([/^The Grid/]);
+
+  // Choose another: Escape closes it with nothing changed, the keyboard back on the button; then another result.
+  const another = oil.getByRole("button", { name: "Choose another cover: Oil 101" });
+  await another.click();
+  await expect(said).toHaveText("3 pictures found.");
+  await reader.keyboard.press("Escape");
+  await expect(chooser).toHaveCount(0);
+  await expect(another).toBeFocused();
+  const chosen = (await oilPicture.getAttribute("src"))!.split("?")[0];
+  await another.click();
+  await expect(said).toHaveText("3 pictures found.");
+  await chooser.getByRole("button", { name: "Use this cover: Oil 101 Downey (3)" }).click();
+  await expect.poll(async () => (await oilPicture.getAttribute("src"))?.split("?")[0]).not.toBe(chosen);
+
   // In the Library, a title not available yet shows its found cover in grey, still said to be not available.
   await reader.goto("/library");
   await reader.getByText(/^Not available yet \(\d+\)$/).click();
@@ -138,6 +179,12 @@ test("Covers: Find covers now, a cover turned down for the next and then for goo
 
   await fourLooks(reader, "covers", async () => {
     await expect(reader.getByRole("heading", { name: "Covers", level: 1 })).toBeVisible();
+    await picturesLoaded(reader);
+  });
+  // The chooser open, in the four looks too (opened again after each reload).
+  await fourLooks(reader, "covers-choose", async () => {
+    await reader.locator('[data-testid="found-covers"] li[data-title="Oil 101"]').getByRole("button", { name: "Choose another cover: Oil 101" }).click();
+    await expect(reader.getByTestId("choose-status")).toHaveText("3 pictures found.");
     await picturesLoaded(reader);
   });
   await reader.context().close();

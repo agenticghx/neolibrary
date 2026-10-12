@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { bookPng } from "./fake-png";
-import { CoverSourceError, CoverSources, FakeCovers, getCoverSource, GoogleBooksCovers, OpenLibraryCovers } from "./sources";
+import { candidateOfChoice, CoverSourceError, CoverSources, FakeCovers, getCoverSource, GoogleBooksCovers, OpenLibraryCovers } from "./sources";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 
@@ -202,7 +202,7 @@ describe("choosing the catalogues", () => {
   });
 
   it("keeps one catalogue's matches when another cannot be reached; with no match from any, says it could not ask", async () => {
-    const down = { name: "googlebooks", find: async () => Promise.reject(new CoverSourceError("Google Books could not search (503).")), download: async () => null, isbnOf: async () => null };
+    const down = { name: "googlebooks", find: async () => Promise.reject(new CoverSourceError("Google Books could not search (503).")), search: async () => [], download: async () => null, isbnOf: async () => null };
     const both = new CoverSources([new FakeCovers(), down]);
     expect((await both.find({ title: "The Grid", author: "Bakke" })).length).toBe(2);
     await expect(both.find({ title: "Oil 101", author: "Downey" })).rejects.toThrow("Google Books could not search (503).");
@@ -214,5 +214,72 @@ describe("choosing the catalogues", () => {
     const fake = new FakeCovers();
     expect((await fake.find({ title: "The Grid", author: "Bakke" })).length).toBe(2);
     expect(await fake.find({ title: "Oil 101", author: "Downey" })).toEqual([]);
+  });
+});
+
+/** A stand-in for fetch for a reader's own search: the saved answer for the search, a small cover for any picture. */
+function searchFake(answer: string, seen: string[] = []) {
+  return (async (input: string | URL) => {
+    const url = String(input);
+    seen.push(url);
+    if (url.includes("/search.json") || url.includes("/books/v1/volumes")) return new Response(fixture(answer));
+    return new Response(bookPng(120, 180, [90, 60, 40]).buffer as ArrayBuffer, { headers: { "content-type": "image/png" } });
+  }) as unknown as typeof fetch;
+}
+
+describe("a reader's own search (C3a, Choose a cover)", () => {
+  it("Open Library: every record with a cover for the words typed, whatever its title, with a preview and a code (real answer for Liftoff Berger)", async () => {
+    const seen: string[] = [];
+    const choices = await new OpenLibraryCovers(searchFake("ol-q-liftoff-berger.json", seen), 0).search("Liftoff Berger");
+    expect(choices.map(({ preview, ...c }) => ({ ...c, preview: preview?.byteLength ? "a picture" : null }))).toEqual([
+      { choice: "ol:11033056:OL21893953W:OL32375357M", source: "openlibrary", title: "Liftoff", authors: ["Eric Berger"], year: "2021", preview: "a picture" },
+    ]);
+    const search = new URL(seen[0]);
+    expect([search.searchParams.get("q"), search.searchParams.get("limit")]).toEqual(["Liftoff Berger", "8"]);
+    expect(seen[1]).toBe("https://covers.openlibrary.org/b/id/11033056-M.jpg?default=false");
+  });
+
+  it("Google Books: every volume with a picture, its year, the thumbnail as the preview, and three tries at most (real answer, trimmed)", async () => {
+    const seen: string[] = [];
+    const choices = await new GoogleBooksCovers("KEY", searchFake("gb-q-liftoff-berger.json", seen), 0, 0).search("Liftoff Berger");
+    expect(choices).toHaveLength(10);
+    expect(choices[0]).toMatchObject({ choice: "gb:TDyDzQEACAAJ", source: "googlebooks", title: "Liftoff", authors: ["Eric Berger"], year: "2021" });
+    expect(choices[6]).toMatchObject({ title: "L'express", authors: [], year: "2021" });
+    expect(new URL(seen[0]).searchParams.get("maxResults")).toBe("8");
+    expect(seen).toContain("https://books.google.com/books/content?id=TDyDzQEACAAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api");
+    let calls = 0;
+    const down = (async () => (calls++, new Response("", { status: 503 }))) as unknown as typeof fetch;
+    await expect(new GoogleBooksCovers("KEY", down, 0, 0).search("Liftoff Berger")).rejects.toThrow("Google Books could not search (503).");
+    expect(calls).toBe(3);
+  });
+
+  it("a chosen code stands for one catalogue picture, its addresses rebuilt from ids; anything else is refused", () => {
+    expect(candidateOfChoice("ol:11033056:OL21893953W:OL32375357M")).toMatchObject({
+      source: "openlibrary",
+      // The same address find() gives the picture, so a picture turned down stays turned down.
+      imageUrl: "https://covers.openlibrary.org/b/id/11033056-L.jpg?default=false",
+      pageUrl: "https://openlibrary.org/works/OL21893953W",
+      edition: "OL32375357M",
+    });
+    expect(candidateOfChoice("ol:11033056:OL21893953W:")).toMatchObject({ source: "openlibrary", edition: undefined });
+    expect(candidateOfChoice("gb:TDyDzQEACAAJ")).toMatchObject({
+      source: "googlebooks",
+      imageUrl: "https://books.google.com/books/content?id=TDyDzQEACAAJ&printsec=frontcover&img=1&zoom=1&source=gbs_api&fife=w400-h600",
+      pageUrl: "https://books.google.com/books?id=TDyDzQEACAAJ",
+    });
+    expect(candidateOfChoice("fake:oil-101-downey:2")).toMatchObject({ source: "fake", imageUrl: "https://covers.example.org/fake/oil-101-downey/2.png" });
+    for (const bad of ["", "ol:11033056", "ol:x:OL1W:", "ol:1:OL1W:OL2M:extra", "gb:https://evil.example/x.png", "gb:../../etc", "gb:abc", "fake:../x:1", "fake:a:4", "https://covers.openlibrary.org/b/id/1-L.jpg"]) {
+      expect(candidateOfChoice(bad), bad).toBeNull();
+    }
+  });
+
+  it("asks every catalogue at once and shows those that answered, saying which could not be asked; a program error is passed on", async () => {
+    const down = { name: "googlebooks", find: async () => [], search: async () => Promise.reject(new CoverSourceError("Google Books could not search (503).")), download: async () => null, isbnOf: async () => null };
+    const both = new CoverSources([new FakeCovers(), down]);
+    const r = await both.searchEach("Liftoff Berger");
+    expect([r.choices.map((c) => c.choice), r.unreachable]).toEqual([["fake:liftoff-berger:1", "fake:liftoff-berger:2", "fake:liftoff-berger:3"], ["Google Books could not search (503)."]]);
+    await expect(new CoverSources([down]).search("Liftoff")).rejects.toThrow("Google Books could not search (503).");
+    const broken = { ...down, search: async () => Promise.reject(new TypeError("a bug")) };
+    await expect(new CoverSources([new FakeCovers(), broken]).searchEach("Liftoff")).rejects.toThrow("a bug");
   });
 });

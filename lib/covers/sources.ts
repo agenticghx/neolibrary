@@ -25,10 +25,27 @@ export type CoverCandidate = {
   edition?: string;
 };
 
+/**
+ * A result of the reader's own search (C3a, "Choose a cover"): a record with a picture, whatever its title and
+ * author (the reader judges by eye), and a small preview of the picture.
+ */
+export type CoverChoice = {
+  /** Which picture, as a short code ("ol:<cover id>:<work>:<edition>", "gb:<volume id>"): see candidateOfChoice. */
+  choice: string;
+  source: CoverSourceName;
+  title: string;
+  authors: string[];
+  year: string | null;
+  /** A medium-sized picture, fetched here (the site shows no pictures from other sites); null when it could not be had. */
+  preview: Uint8Array | null;
+};
+
 export interface CoverSource {
   readonly name: string;
   /** Records that match the title and author, with a cover, best first. */
   find(wanted: { title: string; author: string }): Promise<CoverCandidate[]>;
+  /** Records with a cover for the words the reader typed, as the catalogue ranks them, with previews. */
+  search(words: string): Promise<CoverChoice[]>;
   /** The picture's bytes; null when the catalogue has none after all. */
   download(candidate: CoverCandidate): Promise<Uint8Array | null>;
   /** The ISBN of the edition the picture belongs to, if the catalogue knows it. */
@@ -37,6 +54,33 @@ export interface CoverSource {
 
 /** A catalogue could not be reached or refused (for example too many requests): the title is asked again later. */
 export class CoverSourceError extends Error {}
+
+/** How many results a reader's search shows from each catalogue. */
+const SEARCH_LIMIT = 8;
+
+const OL_CHOICE = /^ol:(\d{1,12}):(OL\d{1,12}W):(OL\d{1,12}M)?$/;
+const GB_CHOICE = /^gb:([A-Za-z0-9_-]{6,20})$/;
+const FAKE_CHOICE = /^fake:([a-z0-9-]{1,60}):([1-3])$/;
+
+const openLibraryImage = (coverId: number | string) => `https://covers.openlibrary.org/b/id/${coverId}-L.jpg?default=false`;
+// The thumbnail's own address (find() gets the same from the search answer), 400 wide: see GoogleBooksCovers.find.
+const googleImage = (id: string) => `https://books.google.com/books/content?id=${id}&printsec=frontcover&img=1&zoom=1&source=gbs_api&fife=w400-h600`;
+const fakeImage = (slug: string, n: number | string) => `https://covers.example.org/fake/${slug}/${n}.png`;
+
+/**
+ * The picture a reader's chosen code stands for, with the catalogue's addresses rebuilt here from ids: the browser
+ * never sends an address for the server to fetch. Null for anything else.
+ */
+export function candidateOfChoice(choice: string): CoverCandidate | null {
+  const base = { title: "", authors: [], isbn: null };
+  const ol = OL_CHOICE.exec(choice);
+  if (ol) return { ...base, source: "openlibrary", imageUrl: openLibraryImage(ol[1]), pageUrl: `https://openlibrary.org/works/${ol[2]}`, edition: ol[3] };
+  const gb = GB_CHOICE.exec(choice);
+  if (gb) return { ...base, source: "googlebooks", imageUrl: googleImage(gb[1]), pageUrl: `https://books.google.com/books?id=${gb[1]}` };
+  const fake = FAKE_CHOICE.exec(choice);
+  if (fake) return { ...base, source: "fake", imageUrl: fakeImage(fake[1], fake[2]), pageUrl: `https://catalogue.example.org/fake/${fake[1]}` };
+  return null;
+}
 
 // Open Library asks applications to say who they are (name and a way to reach them): https://openlibrary.org/developers/api
 const USER_AGENT = "Neolibrary/1.0 (private study library; https://github.com/agenticghx/neolibrary)";
@@ -59,6 +103,19 @@ async function readCapped(res: Response, maxBytes: number): Promise<Uint8Array |
   return data.byteLength > maxBytes ? null : data;
 }
 
+/**
+ * A search result's preview, all of them at once: picture addresses are not the catalogues' rate-limited searches
+ * (Open Library: https://openlibrary.org/dev/docs/api/covers). A preview that cannot be had is null.
+ */
+async function preview(fetcher: typeof fetch, url: string): Promise<Uint8Array | null> {
+  try {
+    const res = await fetcher(url, { headers: { "user-agent": USER_AGENT }, redirect: "follow" });
+    return res.ok ? await readCapped(res, 512 * 1024) : null;
+  } catch {
+    return null;
+  }
+}
+
 type OpenLibraryEdition = { key?: string; cover_i?: number; language?: string[] };
 type OpenLibraryDoc = {
   key?: string;
@@ -66,6 +123,7 @@ type OpenLibraryDoc = {
   author_name?: string[];
   cover_i?: number;
   cover_edition_key?: string;
+  first_publish_year?: number;
   /** With lang=en, the best English edition of the work (its own cover; the work's may be a translation's). */
   editions?: { docs?: OpenLibraryEdition[] };
 };
@@ -96,7 +154,7 @@ export class OpenLibraryCovers implements CoverSource {
     }
   }
 
-  private async search(title: string, surname: string): Promise<OpenLibraryDoc[]> {
+  private async searchTitle(title: string, surname: string): Promise<OpenLibraryDoc[]> {
     const params = new URLSearchParams({
       title,
       fields: "key,title,author_name,cover_i,cover_edition_key,editions,editions.key,editions.cover_i,editions.language",
@@ -114,7 +172,7 @@ export class OpenLibraryCovers implements CoverSource {
     const titles = [wanted.title.trim(), shortTitle(wanted.title)].filter((t, i, all) => t && all.indexOf(t) === i);
     const out: CoverCandidate[] = [];
     for (const title of titles) {
-      for (const d of await this.search(title, surname)) {
+      for (const d of await this.searchTitle(title, surname)) {
         if (!d.title || !isMatch(wanted, { title: d.title, authors: d.author_name ?? [] })) continue;
         // The work's own cover, unless it belongs to a translation (Seeing Like a State's is Turkish): then the best
         // English edition's first. The other one stays as the next choice for "Not this cover".
@@ -128,7 +186,7 @@ export class OpenLibraryCovers implements CoverSource {
               : [work, english]
             : [work ?? english].filter((c) => c !== null);
         for (const cover of covers) {
-          const imageUrl = `https://covers.openlibrary.org/b/id/${cover.id}-L.jpg?default=false`;
+          const imageUrl = openLibraryImage(cover.id);
           if (out.some((c) => c.imageUrl === imageUrl)) continue;
           out.push({
             source: "openlibrary",
@@ -145,6 +203,27 @@ export class OpenLibraryCovers implements CoverSource {
       if (out.length) break;
     }
     return out;
+  }
+
+  async search(words: string): Promise<CoverChoice[]> {
+    const params = new URLSearchParams({ q: words, fields: "key,title,author_name,cover_i,cover_edition_key,first_publish_year", limit: String(SEARCH_LIMIT) });
+    const res = await this.get(`https://openlibrary.org/search.json?${params}`);
+    if (!res.ok) throw new CoverSourceError(`Open Library could not search (${res.status}).`);
+    const docs = ((await res.json()) as { docs?: OpenLibraryDoc[] }).docs ?? [];
+    const work = (d: OpenLibraryDoc) => /^\/works\/(OL\d{1,12}W)$/.exec(d.key ?? "")?.[1];
+    const edition = (d: OpenLibraryDoc) => (/^OL\d{1,12}M$/.test(d.cover_edition_key ?? "") ? d.cover_edition_key : "");
+    return Promise.all(
+      docs
+        .filter((d) => d.title && d.cover_i && Number.isSafeInteger(d.cover_i) && work(d))
+        .map(async (d) => ({
+          choice: `ol:${d.cover_i}:${work(d)}:${edition(d)}`,
+          source: "openlibrary" as const,
+          title: d.title!,
+          authors: d.author_name ?? [],
+          year: d.first_publish_year ? String(d.first_publish_year) : null,
+          preview: await preview(this.fetcher, `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg?default=false`),
+        })),
+    );
   }
 
   async download(c: CoverCandidate): Promise<Uint8Array | null> {
@@ -202,11 +281,14 @@ type GoogleVolume = {
     authors?: string[];
     imageLinks?: { thumbnail?: string; smallThumbnail?: string };
     industryIdentifiers?: { type: string; identifier: string }[];
+    publishedDate?: string;
   };
 };
 
 /** Google Books answers "503 backendFailed" to about half of all requests (measured 2026-10-11); a try again gets through. */
 const GOOGLE_TRIES = 8;
+/** Fewer for a reader's own search: they are waiting, and Open Library's results show meanwhile. */
+const GOOGLE_SEARCH_TRIES = 3;
 
 /**
  * Google Books (needs GOOGLE_BOOKS_API_KEY; without one it answers "too many requests" to most lookups). Searched
@@ -225,7 +307,7 @@ export class GoogleBooksCovers implements CoverSource {
     this.pacer = new Pacer(gapMs);
   }
 
-  private async get(url: string) {
+  private async get(url: string, most = GOOGLE_TRIES) {
     for (let tries = 1; ; tries++) {
       await this.pacer.wait();
       let res: Response;
@@ -234,7 +316,7 @@ export class GoogleBooksCovers implements CoverSource {
       } catch {
         throw new CoverSourceError("Google Books could not be reached.");
       }
-      if (res.status < 500 || tries >= GOOGLE_TRIES) return res;
+      if (res.status < 500 || tries >= most) return res;
       await new Promise((r) => setTimeout(r, this.retryMs));
     }
   }
@@ -267,6 +349,26 @@ export class GoogleBooksCovers implements CoverSource {
       });
     }
     return out;
+  }
+
+  async search(words: string): Promise<CoverChoice[]> {
+    const params = new URLSearchParams({ q: words, maxResults: String(SEARCH_LIMIT), printType: "books", key: this.key });
+    const res = await this.get(`https://www.googleapis.com/books/v1/volumes?${params}`, GOOGLE_SEARCH_TRIES);
+    if (!res.ok) throw new CoverSourceError(`Google Books could not search (${res.status}).`);
+    const items = ((await res.json()) as { items?: GoogleVolume[] }).items ?? [];
+    return Promise.all(
+      items
+        .filter((v) => GB_CHOICE.test(`gb:${v.id}`) && v.volumeInfo?.title && (v.volumeInfo.imageLinks?.thumbnail ?? v.volumeInfo.imageLinks?.smallThumbnail))
+        .map(async (v) => ({
+          choice: `gb:${v.id}`,
+          source: "googlebooks" as const,
+          title: v.volumeInfo!.title!,
+          authors: v.volumeInfo!.authors ?? [],
+          year: /^\d{4}/.exec(v.volumeInfo!.publishedDate ?? "")?.[0] ?? null,
+          // The thumbnail as it is (128 wide): enough to judge by, and quick.
+          preview: await preview(this.fetcher, googleImage(v.id).replace(/&fife=[^&]*$/, "")),
+        })),
+    );
   }
 
   async download(c: CoverCandidate): Promise<Uint8Array | null> {
@@ -309,12 +411,39 @@ export class CoverSources implements CoverSource {
     if (!out.length && unreachable) throw unreachable;
     return out;
   }
+  /**
+   * A reader's search, every catalogue at once (they are waiting): the results of those that answered, and what the
+   * others said. A program error is passed on.
+   */
+  async searchEach(words: string): Promise<{ choices: CoverChoice[]; unreachable: string[] }> {
+    const settled = await Promise.allSettled(this.list.map((s) => s.search(words)));
+    const choices: CoverChoice[] = [];
+    const unreachable: string[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled") choices.push(...r.value);
+      else if (r.reason instanceof CoverSourceError) unreachable.push(r.reason.message);
+      else throw r.reason;
+    }
+    return { choices, unreachable };
+  }
+  async search(words: string) {
+    const r = await this.searchEach(words);
+    if (!r.choices.length && r.unreachable.length) throw new CoverSourceError(r.unreachable[0]);
+    return r.choices;
+  }
   download(c: CoverCandidate) {
     return this.of(c).download(c);
   }
   isbnOf(c: CoverCandidate) {
     return this.of(c).isbnOf(c);
   }
+}
+
+/** A plain coloured book-shaped PNG, its colour from the address. */
+function fakePicture(url: string) {
+  let h = 0;
+  for (const ch of url) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return bookPng(120, 180, [40 + (h % 160), 40 + ((h >> 8) % 160), 40 + ((h >> 16) % 160)]);
 }
 
 /**
@@ -324,6 +453,7 @@ export class CoverSources implements CoverSource {
 export class FakeCovers implements CoverSource {
   readonly name = "fake";
   finds: string[] = [];
+  searches: string[] = [];
   downloads: string[] = [];
 
   async find(wanted: { title: string; author: string }): Promise<CoverCandidate[]> {
@@ -332,7 +462,7 @@ export class FakeCovers implements CoverSource {
     const slug = normalize(wanted.title).replace(/ /g, "-") || "untitled";
     return [1, 2].map((n) => ({
       source: "fake" as const,
-      imageUrl: `https://covers.example.org/fake/${slug}/${n}.png`,
+      imageUrl: fakeImage(slug, n),
       pageUrl: `https://catalogue.example.org/fake/${slug}`,
       title: wanted.title,
       authors: wanted.author ? [wanted.author] : [],
@@ -340,11 +470,24 @@ export class FakeCovers implements CoverSource {
     }));
   }
 
+  /** Three results for any words, none for words with "nothing" in them. */
+  async search(words: string): Promise<CoverChoice[]> {
+    this.searches.push(words);
+    if (/nothing/i.test(words)) return [];
+    const slug = normalize(words).replace(/ /g, "-").slice(0, 60).replace(/-+$/, "") || "untitled";
+    return [1, 2, 3].map((n) => ({
+      choice: `fake:${slug}:${n}`,
+      source: "fake" as const,
+      title: `${words} (${n})`,
+      authors: ["A. Writer"],
+      year: String(2000 + n),
+      preview: fakePicture(fakeImage(slug, n)),
+    }));
+  }
+
   async download(c: CoverCandidate) {
     this.downloads.push(c.imageUrl);
-    let h = 0;
-    for (const ch of c.imageUrl) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return bookPng(120, 180, [40 + (h % 160), 40 + ((h >> 8) % 160), 40 + ((h >> 16) % 160)]);
+    return fakePicture(c.imageUrl);
   }
 
   async isbnOf(c: CoverCandidate) {

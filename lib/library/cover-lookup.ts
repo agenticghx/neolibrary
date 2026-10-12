@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { checkCover } from "@/lib/covers/image";
 import { normalize, surnameOf } from "@/lib/covers/match";
-import { CoverSourceError, type CoverCandidate, type CoverSource } from "@/lib/covers/sources";
+import { candidateOfChoice, CoverSourceError, CoverSources, type CoverCandidate, type CoverChoice, type CoverSource } from "@/lib/covers/sources";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
@@ -13,7 +13,7 @@ import type { Storage } from "@/lib/storage";
  * The picture is checked, stored in the bucket under its own name, and the
  * book records where it came from. A cover inside the book's file always wins
  * (lib/library/import.ts); the reader can turn a found cover down, and it is
- * never offered again.
+ * never offered again, or choose one by hand from their own search (C3a).
  */
 
 export class CoverError extends Error {}
@@ -165,6 +165,89 @@ export async function rejectCover(
   const p = await pick(source, await source.find(book), rejected);
   if (p && (await keep(db, storage, { ...book, coverRejected: rejected }, p, now()))) return "replaced";
   return "cleared";
+}
+
+/** A search result as the Covers page shows it: the preview as a data: address (the site shows no other site's pictures). */
+export type ShownChoice = Omit<CoverChoice, "preview"> & { preview: string };
+
+/**
+ * "Choose a cover" (C3a): the catalogues' records with a picture for the words the reader typed, each with a
+ * preview, and what a catalogue that could not be asked said. A result whose preview is not a cover's size and
+ * shape is left out (it could not be chosen either).
+ */
+export async function searchCovers(source: CoverSource, words: string): Promise<{ choices: ShownChoice[]; unreachable: string[] }> {
+  let found: { choices: CoverChoice[]; unreachable: string[] };
+  if (source instanceof CoverSources) found = await source.searchEach(words);
+  else {
+    try {
+      found = { choices: await source.search(words), unreachable: [] };
+    } catch (e) {
+      if (!(e instanceof CoverSourceError)) throw e;
+      found = { choices: [], unreachable: [e.message] };
+    }
+  }
+  const choices: ShownChoice[] = [];
+  for (const c of found.choices) {
+    const image = c.preview ? checkCover(c.preview) : null;
+    if (!image || "refused" in image) continue;
+    choices.push({ ...c, preview: `data:${image.contentType};base64,${Buffer.from(image.data).toString("base64")}` });
+  }
+  return { choices, unreachable: found.unreachable };
+}
+
+/**
+ * The cover the reader chose from their own search (C3a): stored like a found cover, in place of the found one
+ * (whose picture is then never offered again, as with "Not this cover") or as a title's first. Never in place of
+ * the cover inside the book's file. The browser sends only the result's code; the addresses are rebuilt from it.
+ */
+export async function chooseCover(
+  db: Db,
+  storage: Storage,
+  source: CoverSource,
+  ownerId: string,
+  bookId: string,
+  choice: string,
+  now: () => Date = () => new Date(),
+): Promise<void> {
+  const [book] = /^[0-9a-f-]{36}$/i.test(bookId)
+    ? await db
+        .select()
+        .from(books)
+        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+    : [];
+  if (!book) throw new CoverError("Book not found.");
+  if (book.coverSource === "file") throw new CoverError("This title has the cover inside its book file.");
+  const candidate = candidateOfChoice(choice);
+  if (!candidate || !source.name.split("+").includes(candidate.source)) throw new CoverError("That is not a cover from the catalogues.");
+  if (candidate.imageUrl === book.coverRef) return;
+  const data = await source.download(candidate);
+  if (!data) throw new CoverError("The catalogue has no picture there after all.");
+  const image = checkCover(data);
+  if ("refused" in image) throw new CoverError(`That picture cannot be a cover: ${image.refused}.`);
+  // The ISBN is a bonus: the cover stands without it.
+  const isbn = await source.isbnOf(candidate).catch(() => null);
+  const key = foundCoverKey(book.ownerId, book.id, candidate.imageUrl, image.ext);
+  await storage.put(key, image.data, image.contentType);
+  const rejected = [...book.coverRejected.filter((r) => r !== candidate.imageUrl), ...(book.coverRef ? [book.coverRef] : [])];
+  const done = await db
+    .update(books)
+    .set({
+      coverKey: key,
+      coverSource: candidate.source,
+      coverRef: candidate.imageUrl,
+      coverPage: candidate.pageUrl,
+      coverRejected: rejected,
+      coverCheckedAt: now(),
+      ...(isbn ? { isbn } : {}),
+    })
+    // Not if the book file's own cover arrived meanwhile.
+    .where(and(eq(books.id, book.id), or(isNull(books.coverSource), inArray(books.coverSource, [...FOUND]))))
+    .returning({ id: books.id });
+  if (!done.length) {
+    await storage.delete(key);
+    throw new CoverError("This title has the cover inside its book file.");
+  }
+  if (book.coverKey && book.coverKey !== key) await storage.delete(book.coverKey);
 }
 
 /** How many of a reader's titles have a found cover, and how many still have none (for the page that lists them). */

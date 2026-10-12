@@ -3,12 +3,12 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import { bookPng } from "@/lib/covers/fake-png";
-import { CoverSourceError, FakeCovers, type CoverCandidate, type CoverSource } from "@/lib/covers/sources";
+import { CoverSourceError, CoverSources, FakeCovers, OpenLibraryCovers, type CoverCandidate, type CoverSource } from "@/lib/covers/sources";
 import type { Database } from "@/lib/db/client";
 import { books, users } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
-import { coverCounts, CoverError, findMissingCovers, foundCoverKey, rejectCover, RECHECK_DAYS } from "./cover-lookup";
+import { chooseCover, coverCounts, CoverError, findMissingCovers, foundCoverKey, rejectCover, RECHECK_DAYS, searchCovers } from "./cover-lookup";
 import { startCoverRun } from "./cover-job";
 import { importBook } from "./import";
 
@@ -120,6 +120,7 @@ describe("finding covers for titles", () => {
     const banner: CoverSource = {
       name: "fake",
       find: async () => candidates,
+      search: async () => [],
       download: async (c) => (c.imageUrl.endsWith("1.png") ? bookPng(400, 100, [0, 0, 0]) : bookPng(120, 180, [1, 2, 3])),
       isbnOf: async () => null,
     };
@@ -146,12 +147,94 @@ describe("finding covers for titles", () => {
       find: async () => {
         throw new CoverSourceError("Open Library could not search (503).");
       },
+      search: async () => [],
       download: async () => null,
       isbnOf: async () => null,
     };
     const r = await findMissingCovers(database.db, storage, down, { now });
     expect(r).toMatchObject({ total: 4, done: 2, failed: 3, stopped: true, found: 0 });
     expect((await database.db.select({ c: books.coverCheckedAt }).from(books)).every((b) => b.c === null)).toBe(true);
+  });
+});
+
+describe("choosing a cover by hand (C3a)", () => {
+  it("gives a title without one the cover chosen from a search, stored and credited like a found one", async () => {
+    const oil = await addTitle(ownerId, "Oil 101", "Downey");
+    const fake = new FakeCovers();
+    await findMissingCovers(database.db, storage, fake, { now });
+    expect((await book(oil)).coverKey).toBeNull(); // the fake catalogue has no match for Oil 101
+
+    const { choices, unreachable } = await searchCovers(fake, "Oil 101 Downey");
+    expect([choices.map((c) => c.choice), unreachable]).toEqual([["fake:oil-101-downey:1", "fake:oil-101-downey:2", "fake:oil-101-downey:3"], []]);
+    expect(choices[0].preview).toMatch(/^data:image\/png;base64,/);
+    await chooseCover(database.db, storage, fake, ownerId, oil, "fake:oil-101-downey:2", now);
+    const b = await book(oil);
+    expect(b).toMatchObject({
+      coverKey: foundCoverKey(ownerId, oil, "https://covers.example.org/fake/oil-101-downey/2.png", "png"),
+      coverSource: "fake",
+      coverRef: "https://covers.example.org/fake/oil-101-downey/2.png",
+      coverPage: "https://catalogue.example.org/fake/oil-101-downey",
+      coverRejected: [],
+      coverCheckedAt: NOW,
+    });
+    expect((await storage.get(b.coverKey!))?.contentType).toBe("image/png");
+    expect(await coverCounts(database.db, ownerId)).toEqual({ found: 1, none: 0 });
+  });
+
+  it("replaces a found cover, whose picture is deleted and never offered again; a picture turned down before can be chosen back", async () => {
+    const grid = await addTitle(ownerId, "The Grid", "Bakke");
+    const fake = new FakeCovers();
+    await findMissingCovers(database.db, storage, fake, { now });
+    const found = await book(grid);
+    await chooseCover(database.db, storage, fake, ownerId, grid, "fake:grid-bakke:3", now);
+    const chosen = await book(grid);
+    expect(chosen).toMatchObject({ coverRef: "https://covers.example.org/fake/grid-bakke/3.png", coverRejected: [found.coverRef] });
+    expect(await storage.get(found.coverKey!)).toBeNull();
+    expect(await storage.get(chosen.coverKey!)).not.toBeNull();
+    // Not this cover on the chosen one: the next match, not the one it replaced.
+    expect(await rejectCover(database.db, storage, fake, ownerId, grid, now)).toBe("replaced");
+    expect((await book(grid)).coverRef).toBe("https://covers.example.org/fake/the-grid/2.png");
+    // The first one chosen back by hand leaves the turned-down list.
+    await chooseCover(database.db, storage, fake, ownerId, grid, "fake:the-grid:1", now);
+    expect((await book(grid)).coverRejected).toEqual(["https://covers.example.org/fake/grid-bakke/3.png", "https://covers.example.org/fake/the-grid/2.png"]);
+  });
+
+  it("refuses another reader's book, a cover from the book's file, a code that is not a catalogue's, and a picture not a cover's shape", async () => {
+    const fake = new FakeCovers();
+    const theirs = await addTitle(otherId, "The Grid", "Bakke");
+    await expect(chooseCover(database.db, storage, fake, ownerId, theirs, "fake:the-grid:1")).rejects.toThrow("Book not found.");
+    const withFile = (await importBook(database.db, storage, ownerId, fixture("stevenson-jekyll-and-hyde.epub"))).bookId;
+    await expect(chooseCover(database.db, storage, fake, ownerId, withFile, "fake:the-grid:1")).rejects.toThrow("This title has the cover inside its book file.");
+    const grid = await addTitle(ownerId, "The Grid", "Bakke");
+    for (const bad of ["https://evil.example/x.png", "gb:../../x", "ol:1:OL1W:extra"]) {
+      await expect(chooseCover(database.db, storage, fake, ownerId, grid, bad)).rejects.toThrow("That is not a cover from the catalogues.");
+    }
+    // A code for the test catalogue means nothing to the real ones (nothing is downloaded).
+    const real = new CoverSources([new OpenLibraryCovers((async () => {
+      throw new Error("no download expected");
+    }) as unknown as typeof fetch)]);
+    await expect(chooseCover(database.db, storage, real, ownerId, grid, "fake:the-grid:1")).rejects.toThrow("That is not a cover from the catalogues.");
+    const banner: CoverSource = { ...fake, name: "fake", find: async () => [], search: async () => [], download: async () => bookPng(400, 100, [0, 0, 0]), isbnOf: async () => null };
+    await expect(chooseCover(database.db, storage, banner, ownerId, grid, "fake:the-grid:1")).rejects.toThrow("That picture cannot be a cover: not the shape of a cover (400 × 100).");
+    expect(await book(grid)).toMatchObject({ coverKey: null, coverSource: null });
+    expect(await storage.get(foundCoverKey(ownerId, grid, "https://covers.example.org/fake/the-grid/1.png", "png"))).toBeNull();
+  });
+
+  it("leaves out a result whose preview is not a cover's shape, and says what a catalogue that could not be asked said", async () => {
+    const odd: CoverSource = {
+      name: "fake",
+      find: async () => [],
+      search: async () => [
+        { choice: "fake:wide:1", source: "fake", title: "Wide", authors: [], year: null, preview: bookPng(400, 100, [0, 0, 0]) },
+        { choice: "fake:none:2", source: "fake", title: "None", authors: [], year: null, preview: null },
+        { choice: "fake:tall:3", source: "fake", title: "Tall", authors: [], year: null, preview: bookPng(120, 180, [1, 2, 3]) },
+      ],
+      download: async () => null,
+      isbnOf: async () => null,
+    };
+    expect((await searchCovers(odd, "x")).choices.map((c) => c.title)).toEqual(["Tall"]);
+    const down: CoverSource = { ...odd, search: async () => Promise.reject(new CoverSourceError("Open Library could not search (503).")) };
+    expect(await searchCovers(down, "x")).toEqual({ choices: [], unreachable: ["Open Library could not search (503)."] });
   });
 });
 
