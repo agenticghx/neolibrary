@@ -696,7 +696,24 @@ author, for any title without a cover.
   replaces a cover with the fake catalogue, with screenshots on a phone and
   a computer, light and dark.
 
-Later: a PDF's first page as its cover; choosing a cover by hand.
+- **C3a · Choose a cover by hand** (Samuel: "Keep going", 2026-10-11; after
+  Google Books left 2 titles without one: *Lift Off* is "Liftoff" in the
+  catalogues, *Payments Systems in the U.S.* is listed under its writers).
+  On Covers, "Choose another" beside "Not this cover", and "Choose a cover"
+  on each title without one, open a search of both catalogues by the words
+  the reader types (title and surname to start), with no title or author
+  check: the reader judges by eye. The previews come back inside the answer
+  (the site shows no pictures from other sites), and the browser sends back
+  only a short code for the chosen result, from which the server rebuilds
+  the catalogue's address. The picture turned down for it is never offered
+  again. Done when: unit tests on real catalogue answers for "Liftoff
+  Berger" pass, codes that are not a catalogue's are refused, and a browser
+  test gives Oil 101 (none in the fake catalogue) a cover and replaces
+  another, with the dialog in four looks.
+- **C3b · Upload a picture as a cover** (migration 0026 adds 'upload' to
+  `cover_source`, with its reverse; the export carries it).
+
+Later: a PDF's first page as its cover.
 
 ## How a cloud session works on this repo
 

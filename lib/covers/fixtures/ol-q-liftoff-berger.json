@@ -1,0 +1,31 @@
+{
+ "numFound": 3,
+ "docs": [
+  {
+   "author_name": [
+    "Eric Berger"
+   ],
+   "cover_edition_key": "OL32375357M",
+   "cover_i": 11033056,
+   "first_publish_year": 2021,
+   "key": "/works/OL21893953W",
+   "title": "Liftoff"
+  },
+  {
+   "author_name": [
+    "Slingshot Books"
+   ],
+   "first_publish_year": 2021,
+   "key": "/works/OL28568166W",
+   "title": "Summary of Eric Berger's Liftoff"
+  },
+  {
+   "author_name": [
+    "Acesprint"
+   ],
+   "first_publish_year": 2021,
+   "key": "/works/OL28076831W",
+   "title": "Summary and Analysis of Liftoff"
+  }
+ ]
+}
