@@ -1,0 +1,192 @@
+/* Covers (M22): the found covers in a grid of small cards, the titles without one in a list. */
+
+.main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-9);
+  display: grid;
+  gap: var(--space-5);
+}
+
+.eyebrow {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title {
+  margin-top: calc(-1 * var(--space-4));
+  font-size: var(--text-2xl);
+}
+
+.lede {
+  max-width: 42rem;
+  color: var(--ink-700);
+}
+
+.find {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-lg);
+  background-color: var(--paper-raised);
+}
+
+.summary {
+  color: var(--ink-700);
+}
+
+.findButton {
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-family: var(--font-serif);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.findButton:disabled {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+.findButton:hover:not(:disabled) {
+  background-color: var(--accent-strong);
+}
+
+.status {
+  flex-basis: 100%;
+  min-height: 1.5em;
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.status:empty {
+  display: none;
+}
+
+.section {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: var(--text-lg);
+}
+
+.count {
+  color: var(--ink-500);
+  font-weight: var(--weight-regular);
+}
+
+.note {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--space-6) var(--space-5);
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* The picture at a book's shape; a wide one (a landscape book) is shown whole on the paper. */
+.picture {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--paper-sunken);
+  box-shadow: var(--shadow-raised);
+  object-fit: contain;
+}
+
+.itemTitle {
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
+}
+
+.itemAuthor,
+.itemSource {
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+}
+
+.itemSource a {
+  color: inherit;
+  text-decoration-color: var(--accent);
+}
+
+.reject {
+  justify-self: start;
+  min-height: 2.75rem;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.reject:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.reject:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.list {
+  columns: 2 18rem;
+  column-gap: var(--space-6);
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  padding: var(--space-1) 0;
+  break-inside: avoid;
+}
+
+.listTitle {
+  font-family: var(--font-serif);
+}
+
+.listAuthor {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+@media (width <= 40rem) {
+  .main {
+    padding: var(--space-5) var(--space-4) var(--space-8);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-4);
+  }
+}

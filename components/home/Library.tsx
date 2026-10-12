@@ -102,7 +102,10 @@ export function NotYetGroup({ items }: { items: LibraryItem[] }) {
   return (
     <details className={styles.notYet}>
       <summary className={styles.notYetSummary}>Not available yet ({items.length})</summary>
-      <p className={styles.notYetNote}>Titles waiting on your Paths. Add a book file and the title takes its colour.</p>
+      <p className={styles.notYetNote}>
+        Titles waiting on your Paths. Add a book file and the title takes its colour. Their covers come from public book catalogues:{" "}
+        <Link href="/covers">review covers</Link>.
+      </p>
       <LibraryGrid items={items} testId="not-yet" compact />
     </details>
   );

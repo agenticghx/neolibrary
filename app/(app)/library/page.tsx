@@ -36,9 +36,10 @@ export default async function LibraryPage({
     listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show }),
     listShelf(db, user.id),
   ]);
-  const items = await libraryItems(db, user.id, shelf, await coverSigner());
+  const sign = await coverSigner();
+  const items = await libraryItems(db, user.id, shelf, sign);
   // All and Want to Read (no search, no collection) end with the titles not available yet (D3, D5).
-  const waiting = !sp.q && !active && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id)) : [];
+  const waiting = !sp.q && !active && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id), sign) : [];
   const chipHref = (c?: string) => {
     const p = new URLSearchParams();
     if (show !== "all") p.set("show", show);
