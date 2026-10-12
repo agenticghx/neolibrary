@@ -1,0 +1,232 @@
+{
+ "kind": "books#volumes",
+ "totalItems": 10,
+ "items": [
+  {
+   "id": "NtGqCAAAQBAJ",
+   "volumeInfo": {
+    "title": "The Undersea Network",
+    "authors": [
+     "Nicole Starosielski"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=NtGqCAAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=NtGqCAAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9780822376224"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "0822376229"
+     }
+    ]
+   }
+  },
+  {
+   "id": "Q544EAAAQBAJ",
+   "volumeInfo": {
+    "title": "The Underwater Eye",
+    "subtitle": "How the Movie Camera Opened the Depths and Unleashed New Realms of Fantasy",
+    "authors": [
+     "Margaret Cohen"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=Q544EAAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=Q544EAAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9780691225524"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "0691225524"
+     }
+    ]
+   }
+  },
+  {
+   "id": "3MDrEQAAQBAJ",
+   "volumeInfo": {
+    "title": "Kulturwissenschaftliche Zeitschrift 2025/4",
+    "authors": [
+     "Kulturwissenschaftliche Gesellschaft"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=3MDrEQAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=3MDrEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9783787351442"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "3787351442"
+     }
+    ]
+   }
+  },
+  {
+   "id": "tq4jEQAAQBAJ",
+   "volumeInfo": {
+    "title": "Novel Ecologies",
+    "subtitle": "Nature Remade and the Illusions of Tech",
+    "authors": [
+     "Allison Carruth"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=tq4jEQAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=tq4jEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9780226837741"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "0226837742"
+     }
+    ]
+   }
+  },
+  {
+   "id": "Depu01vzvaUC",
+   "volumeInfo": {
+    "title": "Concrete Island",
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=Depu01vzvaUC&printsec=frontcover&img=1&zoom=5&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=Depu01vzvaUC&printsec=frontcover&img=1&zoom=1&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "OTHER",
+      "identifier": "CORNELL:31924123856753"
+     }
+    ]
+   }
+  },
+  {
+   "id": "jKXuEQAAQBAJ",
+   "volumeInfo": {
+    "title": "Critical Media Perspectives on the 2024 Bangladesh Uprising",
+    "subtitle": "The Gen Z Revolution",
+    "authors": [
+     "Didarul Islam Manik",
+     "Harisur Rahman"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=jKXuEQAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=jKXuEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9798216371533"
+     }
+    ]
+   }
+  },
+  {
+   "id": "XJzsEQAAQBAJ",
+   "volumeInfo": {
+    "title": "Black Feminist Theories",
+    "subtitle": "Transnational Approaches",
+    "authors": [
+     "Bibi Bakare-Yusuf",
+     "Carole Boyce Davies",
+     "Janell Hobson",
+     "Angelique V. Nixon",
+     "Christen A. Smith"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=XJzsEQAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=XJzsEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9781350446038"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "1350446033"
+     }
+    ]
+   }
+  },
+  {
+   "id": "W7QVEgAAQBAJ",
+   "volumeInfo": {
+    "title": "La planète artificielle",
+    "authors": [
+     "Laurent de Sutter"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=W7QVEgAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=W7QVEgAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9782130810216"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "2130810217"
+     }
+    ]
+   }
+  },
+  {
+   "id": "jf3IEQAAQBAJ",
+   "volumeInfo": {
+    "title": "Die Erfindung der Moderne",
+    "subtitle": "Eine Medien- und Technikgeschichte des 19. Jahrhunderts",
+    "authors": [
+     "Susanne Müller"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=jf3IEQAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=jf3IEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "ISBN_13",
+      "identifier": "9783593464855"
+     },
+     {
+      "type": "ISBN_10",
+      "identifier": "3593464853"
+     }
+    ]
+   }
+  },
+  {
+   "id": "i0hOrJRGar0C",
+   "volumeInfo": {
+    "title": "E-relevance",
+    "subtitle": "The Role of Arts and Culture in the Age of Artificial Intelligence",
+    "authors": [
+     "Council of Europe"
+    ],
+    "imageLinks": {
+     "smallThumbnail": "http://books.google.com/books/content?id=i0hOrJRGar0C&printsec=frontcover&img=1&zoom=5&source=gbs_api",
+     "thumbnail": "http://books.google.com/books/content?id=i0hOrJRGar0C&printsec=frontcover&img=1&zoom=1&source=gbs_api"
+    },
+    "industryIdentifiers": [
+     {
+      "type": "OTHER",
+      "identifier": "CORNELL:31924128978065"
+     }
+    ]
+   }
+  }
+ ]
+}

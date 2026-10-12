@@ -156,15 +156,39 @@ describe("Google Books", () => {
     }) as typeof fetch;
     const found = await new GoogleBooksCovers("KEY", fetcher, 0).find({ title: "The Pay Off", author: "Leibbrandt & de Terán" });
     expect(new URL(asked).searchParams.get("key")).toBe("KEY");
-    expect(new URL(asked).searchParams.get("q")).toBe('intitle:"The Pay Off" inauthor:Leibbrandt');
+    // Plain words: on 2026-10-11 Google found no book for any search with intitle: or inauthor:.
+    expect(new URL(asked).searchParams.get("q")).toBe("The Pay Off Leibbrandt");
     expect(found).toEqual([
       expect.objectContaining({
         source: "googlebooks",
-        imageUrl: "https://books.google.com/books/content?id=x1&printsec=frontcover&img=1&zoom=1&source=gbs_api",
+        imageUrl: "https://books.google.com/books/content?id=x1&printsec=frontcover&img=1&zoom=1&source=gbs_api&fife=w400-h600",
         pageUrl: "https://books.google.com/books?id=x1",
         isbn: "9781529364569",
       }),
     ]);
+  });
+
+  it("keeps only the right book from a real answer full of other books (recorded 2026-10-11, trimmed to the fields read)", async () => {
+    const fetcher = (async () => new Response(fixture("gb-search-undersea-network.json"))) as unknown as typeof fetch;
+    const found = await new GoogleBooksCovers("KEY", fetcher, 0).find({ title: "The Undersea Network", author: "Starosielski" });
+    expect(found.map((c) => [c.title, c.authors, c.isbn, c.pageUrl])).toEqual([
+      ["The Undersea Network", ["Nicole Starosielski"], "9780822376224", "https://books.google.com/books?id=NtGqCAAAQBAJ"],
+    ]);
+  });
+
+  it("asks again while Google answers 503 (about half its answers on 2026-10-11), and gives up after eight tries", async () => {
+    let calls = 0;
+    const flaky = (async () => (++calls < 4 ? new Response("", { status: 503 }) : new Response(fixture("gb-search-undersea-network.json")))) as unknown as typeof fetch;
+    const found = await new GoogleBooksCovers("KEY", flaky, 0, 0).find({ title: "The Undersea Network", author: "Starosielski" });
+    expect([calls, found.length]).toEqual([4, 1]);
+    calls = 0;
+    const down = (async () => (calls++, new Response("", { status: 503 }))) as unknown as typeof fetch;
+    await expect(new GoogleBooksCovers("KEY", down, 0, 0).find({ title: "The Undersea Network", author: "Starosielski" })).rejects.toThrow("Google Books could not search (503).");
+    expect(calls).toBe(8);
+    calls = 0;
+    const refused = (async () => (calls++, new Response("", { status: 403 }))) as unknown as typeof fetch;
+    await expect(new GoogleBooksCovers("KEY", refused, 0, 0).find({ title: "The Undersea Network", author: "Starosielski" })).rejects.toThrow(CoverSourceError);
+    expect(calls).toBe(1);
   });
 });
 
@@ -175,6 +199,15 @@ describe("choosing the catalogues", () => {
     expect(getCoverSource({}).name).toBe("openlibrary");
     expect(getCoverSource({ GOOGLE_BOOKS_API_KEY: " k " }).name).toBe("openlibrary+googlebooks");
     expect(new CoverSources([]).name).toBe("");
+  });
+
+  it("keeps one catalogue's matches when another cannot be reached; with no match from any, says it could not ask", async () => {
+    const down = { name: "googlebooks", find: async () => Promise.reject(new CoverSourceError("Google Books could not search (503).")), download: async () => null, isbnOf: async () => null };
+    const both = new CoverSources([new FakeCovers(), down]);
+    expect((await both.find({ title: "The Grid", author: "Bakke" })).length).toBe(2);
+    await expect(both.find({ title: "Oil 101", author: "Downey" })).rejects.toThrow("Google Books could not search (503).");
+    const broken = { ...down, find: async () => Promise.reject(new TypeError("a bug")) };
+    await expect(new CoverSources([new FakeCovers(), broken]).find({ title: "The Grid", author: "Bakke" })).rejects.toThrow("a bug");
   });
 
   it("the fake offers two covers a title, none for Oil 101", async () => {

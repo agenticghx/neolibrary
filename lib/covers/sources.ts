@@ -202,12 +202,17 @@ type GoogleVolume = {
     authors?: string[];
     imageLinks?: { thumbnail?: string; smallThumbnail?: string };
     industryIdentifiers?: { type: string; identifier: string }[];
-    canonicalVolumeLink?: string;
-    infoLink?: string;
   };
 };
 
-/** Google Books (needs GOOGLE_BOOKS_API_KEY; without one it answers "too many requests" to most lookups). */
+/** Google Books answers "503 backendFailed" to about half of all requests (measured 2026-10-11); a try again gets through. */
+const GOOGLE_TRIES = 8;
+
+/**
+ * Google Books (needs GOOGLE_BOOKS_API_KEY; without one it answers "too many requests" to most lookups). Searched
+ * with plain words, title then surname: on 2026-10-11 any search with `intitle:` or `inauthor:` found no book at
+ * all, and a quoted title missed some that plain words found; isMatch keeps only the right title and author.
+ */
 export class GoogleBooksCovers implements CoverSource {
   readonly name = "googlebooks";
   private pacer: Pacer;
@@ -215,22 +220,28 @@ export class GoogleBooksCovers implements CoverSource {
     private key: string,
     private fetcher: typeof fetch = fetch,
     gapMs = 500,
+    private retryMs = 1500,
   ) {
     this.pacer = new Pacer(gapMs);
   }
 
   private async get(url: string) {
-    await this.pacer.wait();
-    try {
-      return await this.fetcher(url, { headers: { "user-agent": USER_AGENT } });
-    } catch {
-      throw new CoverSourceError("Google Books could not be reached.");
+    for (let tries = 1; ; tries++) {
+      await this.pacer.wait();
+      let res: Response;
+      try {
+        res = await this.fetcher(url, { headers: { "user-agent": USER_AGENT } });
+      } catch {
+        throw new CoverSourceError("Google Books could not be reached.");
+      }
+      if (res.status < 500 || tries >= GOOGLE_TRIES) return res;
+      await new Promise((r) => setTimeout(r, this.retryMs));
     }
   }
 
   async find(wanted: { title: string; author: string }): Promise<CoverCandidate[]> {
     const surname = surnameOf(wanted.author);
-    const q = `intitle:"${shortTitle(wanted.title).replace(/"/g, "")}"${surname ? ` inauthor:${surname}` : ""}`;
+    const q = `${shortTitle(wanted.title).replace(/"/g, "")}${surname ? ` ${surname}` : ""}`;
     const params = new URLSearchParams({ q, maxResults: "10", printType: "books", key: this.key });
     const res = await this.get(`https://www.googleapis.com/books/v1/volumes?${params}`);
     if (!res.ok) throw new CoverSourceError(`Google Books could not search (${res.status}).`);
@@ -240,13 +251,16 @@ export class GoogleBooksCovers implements CoverSource {
       const info = v.volumeInfo ?? {};
       const thumb = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail;
       if (!thumb || !info.title || !isMatch(wanted, { title: info.title, authors: info.authors ?? [] })) continue;
-      const imageUrl = thumb.replace(/^http:/, "https:").replace(/&edge=curl/, "");
+      // fife asks for the same picture 400 wide (the thumbnail is 128); zoom=0, 2 or 3 sometimes send a different
+      // picture instead (an inside page, or "image not available").
+      const imageUrl = `${thumb.replace(/^http:/, "https:").replace(/&edge=curl/, "")}&fife=w400-h600`;
       if (out.some((c) => c.imageUrl === imageUrl)) continue;
       const ids = info.industryIdentifiers ?? [];
       out.push({
         source: "googlebooks",
         imageUrl,
-        pageUrl: (info.canonicalVolumeLink ?? info.infoLink ?? `https://books.google.com/books?id=${encodeURIComponent(v.id)}`).replace(/^http:/, "https:"),
+        // The record's page at Google Books (its canonicalVolumeLink is a Google Play store page).
+        pageUrl: `https://books.google.com/books?id=${encodeURIComponent(v.id)}`,
         title: info.title,
         authors: info.authors ?? [],
         isbn: ids.find((i) => i.type === "ISBN_13")?.identifier ?? ids.find((i) => i.type === "ISBN_10")?.identifier ?? null,
@@ -267,7 +281,10 @@ export class GoogleBooksCovers implements CoverSource {
   }
 }
 
-/** Several catalogues in order: all of the first's matches, then the next's. */
+/**
+ * Several catalogues in order: all of the first's matches, then the next's. One that cannot be reached does not
+ * lose the others' matches; with no match from any, its error is passed on, so the title is asked again later.
+ */
 export class CoverSources implements CoverSource {
   readonly name: string;
   constructor(private list: CoverSource[]) {
@@ -280,7 +297,16 @@ export class CoverSources implements CoverSource {
   }
   async find(wanted: { title: string; author: string }) {
     const out: CoverCandidate[] = [];
-    for (const s of this.list) out.push(...(await s.find(wanted)));
+    let unreachable: CoverSourceError | null = null;
+    for (const s of this.list) {
+      try {
+        out.push(...(await s.find(wanted)));
+      } catch (e) {
+        if (!(e instanceof CoverSourceError)) throw e;
+        unreachable ??= e;
+      }
+    }
+    if (!out.length && unreachable) throw unreachable;
     return out;
   }
   download(c: CoverCandidate) {
