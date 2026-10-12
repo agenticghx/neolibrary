@@ -33,11 +33,12 @@ export type LibraryExport = {
     file: { key: string; name: string | null; type: "epub" | "pdf" | null; size: number | null } | null;
     coverKey: string | null;
     /**
-     * Where the cover came from (M22): its book file, or a catalogue found by title and author, with the address of
+     * Where the cover came from (M22): its book file, a catalogue found by title and author, or the reader's own
+     * picture (C3b); for a catalogue's, the address of
      * the picture, the catalogue's page, when the catalogues were last asked and the pictures turned down; and the
      * edition's ISBN. Absent in older exports (a cover there came from its file).
      */
-    coverSource?: "file" | "openlibrary" | "googlebooks" | "fake" | null;
+    coverSource?: "file" | "openlibrary" | "googlebooks" | "fake" | "upload" | null;
     coverRef?: string | null;
     coverPage?: string | null;
     coverCheckedAt?: string | null;
@@ -440,7 +441,7 @@ export async function wipeLibrary(db: Db, ownerId: string) {
 }
 
 /** A stored file's key, if it is a safe key in this reader's own folder (keys are `<folder>/<ownerId>/…`, see import.ts, audio.ts, voice-notes.ts). */
-const COVER_SOURCES: unknown[] = ["file", "openlibrary", "googlebooks", "fake"];
+const COVER_SOURCES: unknown[] = ["file", "openlibrary", "googlebooks", "fake", "upload"];
 
 /** A web address on https, as the catalogues give (lib/covers/sources.ts). */
 function isHttps(url: unknown) {

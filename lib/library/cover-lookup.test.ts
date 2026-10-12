@@ -8,7 +8,7 @@ import type { Database } from "@/lib/db/client";
 import { books, users } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
-import { chooseCover, coverCounts, CoverError, findMissingCovers, foundCoverKey, rejectCover, RECHECK_DAYS, searchCovers } from "./cover-lookup";
+import { chooseCover, coverCounts, CoverError, findMissingCovers, foundCoverKey, rejectCover, RECHECK_DAYS, searchCovers, uploadCover, uploadCoverKey } from "./cover-lookup";
 import { startCoverRun } from "./cover-job";
 import { importBook } from "./import";
 
@@ -235,6 +235,54 @@ describe("choosing a cover by hand (C3a)", () => {
     expect((await searchCovers(odd, "x")).choices.map((c) => c.title)).toEqual(["Tall"]);
     const down: CoverSource = { ...odd, search: async () => Promise.reject(new CoverSourceError("Open Library could not search (503).")) };
     expect(await searchCovers(down, "x")).toEqual({ choices: [], unreachable: ["Open Library could not search (503)."] });
+  });
+});
+
+describe("the reader's own picture as a cover (C3b)", () => {
+  const mine = bookPng(300, 450, [10, 120, 90]);
+
+  it("becomes the cover of a title without one, stored under its own name; a found cover it replaces is never offered again", async () => {
+    const oil = await addTitle(ownerId, "Oil 101", "Downey");
+    await uploadCover(database.db, storage, ownerId, oil, mine, now);
+    const key = uploadCoverKey(ownerId, oil, mine, "png");
+    expect(key).toMatch(new RegExp(`^covers/${ownerId}/${oil}-upload-[0-9a-f]{10}\\.png$`));
+    expect(await book(oil)).toMatchObject({ coverKey: key, coverSource: "upload", coverRef: null, coverPage: null, coverRejected: [], coverCheckedAt: NOW });
+    expect((await storage.get(key))?.contentType).toBe("image/png");
+    expect(await coverCounts(database.db, ownerId)).toEqual({ found: 1, none: 0 });
+
+    const grid = await addTitle(ownerId, "The Grid", "Bakke");
+    const fake = new FakeCovers();
+    await findMissingCovers(database.db, storage, fake, { now });
+    const found = await book(grid);
+    await uploadCover(database.db, storage, ownerId, grid, mine, now);
+    expect(await book(grid)).toMatchObject({ coverSource: "upload", coverRejected: [found.coverRef] });
+    expect(await storage.get(found.coverKey!)).toBeNull();
+    // Choose another from the catalogues replaces the reader's picture too, which is deleted.
+    await chooseCover(database.db, storage, fake, ownerId, grid, "fake:the-grid:2", now);
+    expect(await book(grid)).toMatchObject({ coverSource: "fake", coverRejected: [found.coverRef] });
+    expect(await storage.get(uploadCoverKey(ownerId, grid, mine, "png"))).toBeNull();
+  });
+
+  it("Not this cover on the reader's picture removes it, and the next match takes its place", async () => {
+    const grid = await addTitle(ownerId, "The Grid", "Bakke");
+    const fake = new FakeCovers();
+    await uploadCover(database.db, storage, ownerId, grid, mine, now);
+    expect(await rejectCover(database.db, storage, fake, ownerId, grid, now)).toBe("replaced");
+    expect(await book(grid)).toMatchObject({ coverSource: "fake", coverRef: "https://covers.example.org/fake/the-grid/1.png", coverRejected: [] });
+    expect(await storage.get(uploadCoverKey(ownerId, grid, mine, "png"))).toBeNull();
+  });
+
+  it("refuses another reader's book, a cover from the book's file, and bytes that are not a cover-shaped JPEG, PNG or WebP", async () => {
+    const theirs = await addTitle(otherId, "The Grid", "Bakke");
+    await expect(uploadCover(database.db, storage, ownerId, theirs, mine)).rejects.toThrow("Book not found.");
+    const withFile = (await importBook(database.db, storage, ownerId, fixture("stevenson-jekyll-and-hyde.epub"))).bookId;
+    await expect(uploadCover(database.db, storage, ownerId, withFile, mine)).rejects.toThrow("This title has the cover inside its book file.");
+    const grid = await addTitle(ownerId, "The Grid", "Bakke");
+    await expect(uploadCover(database.db, storage, ownerId, grid, new TextEncoder().encode("<svg onload=alert(1)>"))).rejects.toThrow(
+      "That picture cannot be a cover: not a JPEG, PNG or WebP picture.",
+    );
+    await expect(uploadCover(database.db, storage, ownerId, grid, bookPng(400, 100, [0, 0, 0]))).rejects.toThrow("not the shape of a cover (400 × 100)");
+    expect(await book(grid)).toMatchObject({ coverKey: null, coverSource: null });
   });
 });
 

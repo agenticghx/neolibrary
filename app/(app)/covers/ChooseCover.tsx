@@ -11,8 +11,9 @@ export type Choosing = { id: string; title: string; author: string };
 /**
  * "Choose a cover" (C3a): a modal dialog that searches the catalogues for the words the reader types (the title and
  * the author's surname to start, searched at once) and shows every result with a picture, whatever its title and
- * author: the reader judges by eye. "Use this cover" makes it the title's cover. Escape or Close shuts it, and the
- * keyboard goes back to the button that opened it (or to the page's status line, when that title has moved).
+ * author: the reader judges by eye. "Use this cover" makes it the title's cover; or the reader's own picture
+ * (C3b). Escape or Close shuts it, and the keyboard goes back to the button that opened it (or to the page's status
+ * line, when that title has moved).
  */
 export function ChooseCover({ book, onDone, onClose }: { book: Choosing; onDone: (line: string) => void; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -22,6 +23,7 @@ export function ChooseCover({ book, onDone, onClose }: { book: Choosing; onDone:
   // The first search starts as the dialog opens.
   const [line, setLine] = useState("Searching…");
   const [busy, setBusy] = useState<"search" | "use" | null>("search");
+  const [own, setOwn] = useState<File | null>(null);
 
   function search(q: string) {
     if (!q.trim()) {
@@ -69,6 +71,19 @@ export function ChooseCover({ book, onDone, onClose }: { book: Choosing; onDone:
       return;
     }
     onDone(`“${book.title}”: the cover you chose is shown.`);
+  }
+
+  async function upload(file: File) {
+    setBusy("use");
+    setLine("Using your picture…");
+    const res = await fetch(`/api/covers/${book.id}/upload`, { method: "POST", headers: { "content-type": file.type || "application/octet-stream" }, body: file }).catch(() => null);
+    const body = res ? ((await res.json().catch(() => ({}))) as { error?: string }) : {};
+    if (!res || !res.ok) {
+      setBusy(null);
+      setLine(body.error ?? "Could not use that picture just now. Try again in a moment.");
+      return;
+    }
+    onDone(`“${book.title}”: your picture is its cover.`);
   }
 
   useEffect(() => {
@@ -161,6 +176,24 @@ export function ChooseCover({ book, onDone, onClose }: { book: Choosing; onDone:
           </li>
         ))}
       </ul>
+      <div className={styles.chooserOwn}>
+        <h3 className={styles.chooserOwnTitle}>Or use your own picture</h3>
+        <div className={styles.chooserSearch}>
+          <label htmlFor="choose-file" className={styles.chooserLabel}>
+            A JPEG, PNG or WebP picture of the cover, at most 3 MB
+          </label>
+          <input
+            id="choose-file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className={styles.chooserFile}
+            onChange={(e) => setOwn(e.target.files?.[0] ?? null)}
+          />
+          <button type="button" className={styles.reject} disabled={!own || busy !== null} onClick={() => own && upload(own)}>
+            Use this picture
+          </button>
+        </div>
+      </div>
     </dialog>
   );
 }
