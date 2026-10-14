@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Glass review fixes are local on m23-editorial-ambient-glass (not pushed). Refresh reference screenshots before any pull request. M23 PR 175 is still the work to merge.
+next_action: Live: 699a97f (glass theme and M23 page-ahead, not on main). Samuel tries the look and Listen on The Grid. Refresh reference screenshots before a pull request.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-14
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-14 10:05 (laptop clock). **Live: 699a97f.** The glass theme and the M23 page-ahead listening work are on https://web-production-f27a0e.up.railway.app. No new database migration (still 0026_cover_upload). The commit is not on main, and pull request 175 was not merged. Samuel looks at the shelves and a book page signed in (the page stays solid paper), then Listen on *The Grid* (the next page should start while this one plays; the one-dollar question still applies). Do not start a whole-book narration. Before a pull request, refresh the reference screenshots (`docs/design.md`, "Changing the look on purpose").
 
 Written 2026-10-14 (laptop clock). **The glass review is fixed on the same local branch `m23-editorial-ambient-glass` (still not pushed, no pull request).** Daily review notes and book-wide lines, path notes, path descriptions, search snippets, and the "Read last" sentence sit on solid paper. Sidebar hover and the current page use `--nav-hover` and `--nav-current`, a visible step off the sage rail. The phone tab bar uses that same sage. Frosted cards share the class `glass-card`. The browser screenshot comparison will still fail until the reference images are refreshed on purpose. **M23 pull request 175 is still the work to merge.** The architecture diagram stays untracked.
 
@@ -213,6 +215,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-14 10:05 · Grok · Deployed the glass theme and M23 page-ahead (live 699a97f)
+- **Done:** Deployed local branch m23-editorial-ambient-glass, commit 699a97f, to the production web service. The upload is the frosted shelves (ivory, sage, and blue-gray wash; solid paper for books and notes) plus the M23 work already on that branch: while a PDF page plays in a made voice, the next paragraph is made at once. No new database migration. The live database was already on 0026_cover_upload, so no backup was taken. Deployment 393748c2-4962-47f3-843d-c1cab25953d7 status SUCCESS. Health reports commit 699a97f. Sign-in returns 200 and sends strict-transport-security. Import redirects to sign-in. The migration id is still 0026_cover_upload.
+- **Key paths:** PROGRESS.md (this entry). The running site is https://web-production-f27a0e.up.railway.app. Code: app/tokens.css, app/globals.css, and the M23 player commits under 699a97f.
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=699a97fb71dbe9c6039071e70c509ce7368dbf8c --service web --environment production --skip-deploys; railway up --service web --environment production --ci -m "Editorial ambient glass theme" (Deploy complete, exit 0); railway deployment list --service web --environment production --limit 1 (393748c2 SUCCESS); curl /api/health (commit 699a97f, HTTP 200); curl /sign-in (HTTP 200, strict-transport-security); curl /import (307 to sign-in); ssh psql select id from _migrations order by id desc limit 1 (0026_cover_upload).
+- **Known issues / blockers:** This commit is not on main and pull request 175 was not merged. The live site is ahead of main. The browser screenshot comparison will fail until the reference images are refreshed on purpose. docs/neolibrary-architecture.html and docs/suggestionsForAINative.md stay untracked.
+- **Exact next steps:** Samuel looks at the live site signed in: the shelves, the sidebar, and a book page (the page itself should stay solid paper). On The Grid, Listen should start the next page while this one plays; the one-dollar question still applies. Do not start a whole-book narration. Before a pull request, refresh the reference screenshots (docs/design.md, Changing the look on purpose).
 
 ### 2026-10-14 09:12 · Grok · Review fixes: solid paper for notes, a visible sidebar step
 - **Done:** Addressed the review of the frosted shelves. Daily review notes and book-wide lines, path notes, path descriptions, search snippets, and the path's "Read last" sentence now sit on solid paper. Sidebar hover, the open account row, and the current page use two new colours (--nav-hover and --nav-current) that stand off the sage rail in light, dark, and sepia. The phone tab bar uses the same sage as the sidebar. The repeated frosted-card rules are one class, glass-card, in app/globals.css. Stylelint rejects the CSS composes shortcut, so the class is written in the markup the same way as visually-hidden. The contrast check now blends the translucent panel colour over the page wash. Light and sepia hairlines use the old divider colour. The dark hairline stays a light line, because the divider colour disappears on a dark card.
