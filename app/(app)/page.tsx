@@ -142,7 +142,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
 function SampleOffer() {
   return (
-    <form action={addSampleBooksAction} className={styles.samples}>
+    <form action={addSampleBooksAction} className={`${styles.samples} glass-card`}>
       <p className={styles.samplesText}>
         No books to hand? Start with three free classics: <em>Frankenstein</em>, <em>Jekyll and Hyde</em> and <em>The Time Machine</em>{" "}
         (public-domain editions from Standard Ebooks).

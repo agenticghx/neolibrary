@@ -32,7 +32,7 @@ export default async function PathsPage() {
       {list.length ? (
         <ul className={styles.list}>
           {list.map((p) => (
-            <li key={p.id} className={styles.item}>
+            <li key={p.id} className={`${styles.item} glass-card`}>
               <Link href={`/paths/${p.slug}`} className={styles.itemTitle}>
                 {p.title}
               </Link>

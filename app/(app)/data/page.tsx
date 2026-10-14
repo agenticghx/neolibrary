@@ -41,7 +41,7 @@ export default async function DataPage() {
         Everything in your library can leave with you. The file holds your books&apos; details, your paths and your
         collections; the book files themselves stay where you uploaded them.
       </p>
-      <section className={styles.card} aria-labelledby="export">
+      <section className={`${styles.card} glass-card`} aria-labelledby="export">
         <h2 id="export" className={styles.cardTitle}>
           Take it with you
         </h2>
@@ -50,14 +50,14 @@ export default async function DataPage() {
           Download your library
         </a>
       </section>
-      <section className={styles.card} aria-labelledby="import">
+      <section className={`${styles.card} glass-card`} aria-labelledby="import">
         <h2 id="import" className={styles.cardTitle}>
           Bring it back
         </h2>
         <p className={styles.cardText}>Works into an empty library, so nothing you have is ever overwritten.</p>
         <ImportForm />
       </section>
-      <section className={styles.card} aria-labelledby="agents">
+      <section className={`${styles.card} glass-card`} aria-labelledby="agents">
         <h2 id="agents" className={styles.cardTitle}>
           Let an agent use it
         </h2>
@@ -67,7 +67,7 @@ export default async function DataPage() {
         </Link>
       </section>
       {removedBooks.length ? (
-        <section className={styles.card} aria-labelledby="removed-books">
+        <section className={`${styles.card} glass-card`} aria-labelledby="removed-books">
           <h2 id="removed-books" className={styles.cardTitle}>
             Removed books
           </h2>
@@ -92,7 +92,7 @@ export default async function DataPage() {
         </section>
       ) : null}
       {removed.length ? (
-        <section className={styles.card} aria-labelledby="removed">
+        <section className={`${styles.card} glass-card`} aria-labelledby="removed">
           <h2 id="removed" className={styles.cardTitle}>
             Removed notes
           </h2>

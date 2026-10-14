@@ -67,7 +67,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
   return (
     <dialog
       ref={dialog}
-      className={styles.shortcuts}
+      className={`${styles.shortcuts} glass-card`}
       aria-modal="true"
       aria-labelledby="shortcuts-title"
       // The browser's own close request (Escape, a phone's back gesture): closed through React, so focus goes back.

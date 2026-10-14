@@ -5,7 +5,7 @@ import styles from "./AuthShell.module.css";
 export function AuthShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className={styles.room}>
-      <div className={styles.panel}>
+      <div className={`${styles.panel} glass-card`}>
         <header className={styles.brand}>
           <span className={styles.mark}>
             <Mark size={56} />

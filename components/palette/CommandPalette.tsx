@@ -208,7 +208,7 @@ export function CommandPalette({ admin }: { admin: boolean }) {
       }}
       data-testid="command-palette"
     >
-      <div className={styles.panel}>
+      <div className={`${styles.panel} glass-card`}>
         <h2 id={`${id}-title`} className="visually-hidden">
           Go to
         </h2>

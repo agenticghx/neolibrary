@@ -69,7 +69,7 @@ export default async function LibraryPage({
         </p>
       </header>
       {everything.length === 0 ? (
-        <form action={addSampleBooksAction} className={styles.samples}>
+        <form action={addSampleBooksAction} className={`${styles.samples} glass-card`}>
           <p className={styles.samplesText}>
             No books to hand? Start with three free classics: <em>Frankenstein</em>, <em>Jekyll and Hyde</em> and{" "}
             <em>The Time Machine</em> (public-domain editions from Standard Ebooks).

@@ -305,7 +305,7 @@ function SpeedMenu({ speed, onChange }: { speed: number; onChange: (speed: numbe
         {speedLabel(speed)}
       </button>
       {open ? (
-        <div role="group" aria-label="Choose a speed" className={styles.menu}>
+        <div role="group" aria-label="Choose a speed" className={`${styles.menu} glass-card`}>
           <span className={styles.menuTitle}>Speed</span>
           <div className={styles.speeds}>
             {SPEEDS.map((s) => (

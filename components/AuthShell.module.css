@@ -16,11 +16,6 @@
   display: grid;
   gap: var(--space-6);
   padding: var(--space-6) var(--space-5);
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 .brand {

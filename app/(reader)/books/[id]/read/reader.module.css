@@ -1367,12 +1367,7 @@
   max-height: calc(100dvh - var(--space-7));
   padding: var(--space-5);
   overflow-y: auto;
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
   color: var(--ink-900);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 .shortcuts::backdrop {

@@ -133,12 +133,12 @@
 }
 
 .item:hover {
-  background-color: var(--paper);
+  background-color: var(--nav-hover);
   color: var(--ink-900);
 }
 
 .item[aria-current="page"] {
-  background-color: var(--paper-raised);
+  background-color: var(--nav-current);
   box-shadow: var(--shadow-raised);
   font-weight: var(--weight-semibold);
 }
@@ -202,7 +202,7 @@
 
 .who:hover,
 .who[aria-expanded="true"] {
-  background-color: var(--paper);
+  background-color: var(--nav-hover);
 }
 
 .initialSmall {
@@ -242,11 +242,6 @@
   z-index: var(--z-raised);
   display: grid;
   padding: var(--space-1);
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 /* The menu's parts, in both places: the email in grey, whole rows with an icon, thin lines between groups. */
@@ -323,7 +318,7 @@
     height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
     padding: var(--space-1) var(--space-2) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
     border-top: var(--border-hair) solid var(--glass-edge);
-    background-color: var(--glass);
+    background-color: var(--glass-side);
     backdrop-filter: blur(var(--blur-glass));
   }
 

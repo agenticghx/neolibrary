@@ -8,7 +8,7 @@ import styles from "../admin/invites/page.module.css";
 export function TokenForm() {
   const [state, action, pending] = useActionState<TokenState, FormData>(createTokenAction, { error: null, token: null });
   return (
-    <div className={styles.create}>
+    <div className={`${styles.create} glass-card`}>
       <form action={action} className={forms.form}>
         <label className={forms.label} htmlFor="token-name">
           Which agent is it for? (only you see this)

@@ -26,7 +26,7 @@ export function ContinueCard({ item, chapter, note, at }: { item: LibraryItem; c
   const pct = Math.round(item.progress * 100);
   const titleId = `continue-${item.id}`;
   return (
-    <article className={styles.card} aria-labelledby={titleId} data-testid="continue-card">
+    <article className={`${styles.card} glass-card`} aria-labelledby={titleId} data-testid="continue-card">
       <div className={styles.cardCover}>
         <Cover title={item.title} available={item.available} caption={false} decorative size="mini" imageUrl={item.coverUrl} />
       </div>

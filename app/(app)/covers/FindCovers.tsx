@@ -70,7 +70,7 @@ export function FindCovers({ found, none }: { found: number; none: number }) {
   }
 
   return (
-    <div className={styles.find}>
+    <div className={`${styles.find} glass-card`}>
       <p className={styles.summary}>
         <strong>{found}</strong> found · <strong>{none}</strong> without a cover
       </p>

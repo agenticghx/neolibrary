@@ -33,7 +33,7 @@ export default async function CostsPage() {
           Services
         </h2>
         {report.services.map((s) => (
-          <div key={s.provider} className={own.service} data-testid={`cost-${s.provider}`}>
+          <div key={s.provider} className={`${own.service} glass-card`} data-testid={`cost-${s.provider}`}>
             <p className={own.serviceName}>{s.label}</p>
             <p className={own.amount}>
               <span data-testid={`spent-${s.provider}`}>{usd(s.spentUsd)}</span> of {usd(s.capUsd)}

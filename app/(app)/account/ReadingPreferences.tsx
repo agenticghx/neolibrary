@@ -32,7 +32,7 @@ export function ReadingPreferences({ initial }: { initial: Preferences }) {
   };
 
   return (
-    <section className={styles.card} aria-labelledby="reading">
+    <section className={`${styles.card} glass-card`} aria-labelledby="reading">
       <h2 id="reading" className={styles.cardTitle}>
         Reading preferences
       </h2>

@@ -92,7 +92,7 @@ export function AccountMenu({ name, email, admin, placement }: Props) {
         )}
       </button>
       {sheet ? <div ref={scrim} className={styles.scrim} hidden={!open} onClick={() => setOpen(false)} /> : null}
-      <div id={id} ref={panel} className={sheet ? styles.sheet : styles.popover} hidden={!open}>
+      <div id={id} ref={panel} className={sheet ? styles.sheet : `${styles.popover} glass-card`} hidden={!open}>
         {sheet ? <span className={styles.grab} aria-hidden="true" /> : null}
         <p className={styles.email}>{email}</p>
         {row("/account", "account", "Account")}

@@ -36,7 +36,7 @@ export default async function EditPathPage({ params }: { params: Promise<{ slug:
   const empty = view.pillars.length === 0;
 
   const namePanel = (
-    <section aria-labelledby="name-h" className={styles.panel}>
+    <section aria-labelledby="name-h" className={`${styles.panel} glass-card`}>
       <h2 id="name-h" className={styles.heading}>
         Name
       </h2>
@@ -48,7 +48,7 @@ export default async function EditPathPage({ params }: { params: Promise<{ slug:
     <section
       aria-labelledby={empty ? "add-h" : undefined}
       aria-label={empty ? undefined : "Add a section"}
-      className={styles.panel}
+      className={`${styles.panel} glass-card`}
     >
       {empty ? (
         <h2 id="add-h" className={styles.heading}>
@@ -59,7 +59,7 @@ export default async function EditPathPage({ params }: { params: Promise<{ slug:
     </section>
   );
   const sectionPanels = view.pillars.map((p) => (
-    <section key={p.id} aria-labelledby={`s-${p.id}`} className={styles.panel} data-testid="edit-section">
+    <section key={p.id} aria-labelledby={`s-${p.id}`} className={`${styles.panel} glass-card`} data-testid="edit-section">
       {/* Focusable from script only: where focus goes when a section's last title is removed. */}
       <h2 id={`s-${p.id}`} className={styles.heading} tabIndex={-1}>
         {p.title}

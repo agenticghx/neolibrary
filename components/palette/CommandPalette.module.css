@@ -26,11 +26,6 @@
   max-height: calc(100% - var(--space-9) * 2);
   margin: var(--space-9) auto 0;
   overflow: hidden;
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
   font-family: var(--font-sans);
 }
 
@@ -60,7 +55,7 @@
   padding: 0;
   border: 0;
   outline: none;
-  background-color: transparent;
+  background-color: var(--paper-raised);
   color: var(--ink-900);
   font: inherit;
   font-size: var(--text-md);

@@ -11,7 +11,7 @@ export function StarterPaths({ exclude = [] }: { exclude?: string[] }) {
   return (
     <div className={styles.starters}>
       {offers.map((p) => (
-        <form key={p.slug} action={addPathAction} className={styles.starter}>
+        <form key={p.slug} action={addPathAction} className={`${styles.starter} glass-card`}>
           <input type="hidden" name="slug" value={p.slug} />
           <div className={styles.shelf} aria-hidden="true">
             <Cover title={p.pillars[0].books[0].title} slot="N" available={NOT_YET} caption={false} size="sm" />

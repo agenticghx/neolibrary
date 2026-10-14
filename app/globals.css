@@ -77,6 +77,16 @@ a:hover {
   white-space: nowrap;
 }
 
+/* Frosted dashboard card. The sidebar, the phone tab bar, the reader toolbar,
+   and any plate of book text stay their own rules. */
+.glass-card {
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
+}
+
 /* While the mini-player shows (M14 step 6b): keyboard focus is scrolled clear of it (and of the tabs on a phone),
    never left behind it. Its room is measured by the mini-player itself (MiniPlayer.tsx); this is the first guess. */
 html:has([data-miniplayer]) {

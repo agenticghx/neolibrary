@@ -104,7 +104,7 @@ export function ChooseCover({ book, onDone, onClose }: { book: Choosing; onDone:
   return (
     <dialog
       ref={dialog}
-      className={styles.chooser}
+      className={`${styles.chooser} glass-card`}
       aria-modal="true"
       aria-labelledby="choose-title"
       // The browser's own close request (Escape, a phone's back gesture): closed through React, so focus goes back.

@@ -224,7 +224,7 @@ export function PathView({ path, notes = new Map(), editHref }: { path: PathData
       ))}
 
       {master.map((m) => (
-        <section key={m.id} className={styles.master} aria-labelledby="master-key">
+        <section key={m.id} className={`${styles.master} glass-card`} aria-labelledby="master-key">
           <div>
             <h2 id="master-key" className={styles.masterTitle}>
               Master key

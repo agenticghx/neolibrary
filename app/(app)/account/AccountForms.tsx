@@ -13,7 +13,7 @@ export function AccountForms() {
   const [sessions, endOthers, ending] = useActionState(endOtherSessionsAction, empty);
   return (
     <>
-      <section className={styles.card} aria-labelledby="password">
+      <section className={`${styles.card} glass-card`} aria-labelledby="password">
         <h2 id="password" className={styles.cardTitle}>
           Change password
         </h2>
@@ -50,7 +50,7 @@ export function AccountForms() {
           </button>
         </form>
       </section>
-      <section className={styles.card} aria-labelledby="sessions">
+      <section className={`${styles.card} glass-card`} aria-labelledby="sessions">
         <h2 id="sessions" className={styles.cardTitle}>
           Other sessions
         </h2>

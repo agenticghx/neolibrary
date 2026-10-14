@@ -14,7 +14,7 @@ export function InviteForm() {
   const full = state.link ? window.location.origin + state.link : null;
 
   return (
-    <div className={styles.create}>
+    <div className={`${styles.create} glass-card`}>
       <form action={action} className={forms.form}>
         <label className={forms.label} htmlFor="note">
           Who is it for? (only you see this)

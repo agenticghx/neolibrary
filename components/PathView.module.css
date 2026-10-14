@@ -21,6 +21,9 @@
 
 .description {
   max-width: var(--measure-read);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-700);
   line-height: var(--leading-read);
   white-space: pre-line; /* a description keeps the reader's line breaks */
@@ -275,6 +278,9 @@
 }
 
 .noteText {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-700);
   font-family: var(--font-serif);
   font-style: italic;
@@ -319,11 +325,6 @@
   align-items: center;
   gap: var(--space-6);
   padding: var(--space-6);
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 .masterTitle {
@@ -333,6 +334,9 @@
 .masterLede {
   max-width: 28rem;
   margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-700);
   font-family: var(--font-serif);
   font-size: var(--text-md);
@@ -383,6 +387,9 @@
 }
 
 .noteText {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-700);
   font-family: var(--font-serif);
   font-style: italic;

@@ -86,7 +86,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
 
   if (!card) {
     return (
-      <section className={styles.empty} aria-labelledby="review-empty" data-testid="review-empty">
+      <section className={`${styles.empty} glass-card`} aria-labelledby="review-empty" data-testid="review-empty">
         <h2 id="review-empty" className={styles.emptyTitle}>
           {total === 0 ? "Nothing to review yet." : "Nothing to review today."}
         </h2>
@@ -109,7 +109,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
         {index + 1} of {queue.length}
         {card.isNew ? <span className={styles.badge}>New</span> : null}
       </p>
-      <article ref={cardRef} tabIndex={-1} className={styles.card} aria-label={`Card ${index + 1} of ${queue.length}`} data-testid="review-card">
+      <article ref={cardRef} tabIndex={-1} className={`${styles.card} glass-card`} aria-label={`Card ${index + 1} of ${queue.length}`} data-testid="review-card">
         <p className={styles.source}>
           {card.bookTitle}
           {card.chapter ? <span className={styles.chapter}> · {card.chapter}</span> : null}

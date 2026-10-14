@@ -123,11 +123,6 @@
   align-content: start;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 .streak dt {

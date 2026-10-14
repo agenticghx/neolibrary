@@ -47,11 +47,6 @@
   display: grid;
   gap: var(--space-4);
   padding: var(--space-6);
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 .source {
@@ -79,6 +74,9 @@
 }
 
 .bookWide {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-700);
   font-family: var(--font-serif);
   font-size: var(--text-lg);
@@ -100,6 +98,9 @@
 
 /* The reader's own words: italic serif (design rule 4). */
 .note {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-900);
   font-family: var(--font-serif);
   font-size: var(--text-md);
@@ -213,11 +214,6 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-7) var(--space-6);
-  border: var(--border-hair) solid var(--glass-edge);
-  border-radius: var(--radius-glass);
-  background-color: var(--glass);
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(var(--blur-glass));
   text-align: center;
 }
 

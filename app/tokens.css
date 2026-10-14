@@ -49,7 +49,7 @@
   --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 10px;
-  --radius-glass: 14px; /* frosted panels: rounder than a button, not a large card */
+  --radius-glass: 14px;
   --radius-pill: 999px;
   --border-hair: 1px;
   --blur-glass: 18px;
@@ -115,7 +115,9 @@
   --glass: #faf6eef2; /* paper-raised, about 95% opaque */
   --glass-side: #e7eee8eb; /* sage rail, about 92% */
   --glass-side-solid: #e7eee8; /* same hue, opaque: the nav fade, and the contrast check */
-  --glass-edge: #ffffffb8;
+  --glass-edge: #d6ccba; /* same step as --rule, so the hairline shows on paper and on the sage rail */
+  --nav-hover: #e9e1d1; /* a sidebar row under the pointer: one step off the sage rail */
+  --nav-current: #ead9c3; /* the current page: a stronger step than the row under the pointer */
 
   /* Reading calendar (M21): a day's shade, from a little reading (1) to an hour or more (4); no reading is --paper-sunken */
   --heat-1: #bdd6cb;
@@ -159,7 +161,9 @@
     --glass: #22323af2;
     --glass-side: #152824eb;
     --glass-side-solid: #152824;
-    --glass-edge: #ffffff2e;
+    --glass-edge: #ffffff2e; /* a light hairline; the rule colour disappears on a dark card */
+    --nav-hover: #0b1e1b;
+    --nav-current: #051814;
     --heat-1: #2a4a45; /* reading calendar shades (M21) */
     --heat-2: #3d6b63;
     --heat-3: #5a9488;
@@ -217,7 +221,9 @@
   --glass: #faf6eef2;
   --glass-side: #e7eee8eb;
   --glass-side-solid: #e7eee8;
-  --glass-edge: #ffffffb8;
+  --glass-edge: #d6ccba; /* same step as --rule, so the hairline shows on paper and on the sage rail */
+  --nav-hover: #e9e1d1;
+  --nav-current: #ead9c3;
   --heat-1: #bdd6cb; /* reading calendar shades (M21) */
   --heat-2: #8bb8aa;
   --heat-3: #5a9185;
@@ -260,7 +266,9 @@
   --glass: #f8f2e3f2;
   --glass-side: #efe4cef0;
   --glass-side-solid: #efe4ce;
-  --glass-edge: #ffffffb8;
+  --glass-edge: #d9cba9; /* same step as --rule, so the hairline shows on paper and on the sage rail */
+  --nav-hover: #e2d7c1;
+  --nav-current: #d9ceb8;
   --heat-1: #e3cfa6; /* reading calendar shades (M21) */
   --heat-2: #c9a671;
   --heat-3: #a07848;
@@ -303,38 +311,24 @@
   --glass: #22323af2;
   --glass-side: #152824eb;
   --glass-side-solid: #152824;
-  --glass-edge: #ffffff2e;
+  --glass-edge: #ffffff2e; /* a light hairline; the rule colour disappears on a dark card */
+  --nav-hover: #0b1e1b;
+  --nav-current: #051814;
   --heat-1: #2a4a45; /* reading calendar shades (M21) */
   --heat-2: #3d6b63;
   --heat-3: #5a9488;
   --heat-4: #8bbab0;
 }
 
-/* When the reader asks for less transparency, the panels become solid. The wash stays. */
+/* When the reader asks for less transparency, the panels become solid. The wash stays.
+   var() follows the theme already on the element, including a dark :root. */
 @media (prefers-reduced-transparency: reduce) {
   :root,
-  .theme-paper {
-    --blur-glass: 0px;
-    --glass: #faf6ee;
-    --glass-side: #e7eee8;
-  }
-
-  .theme-sepia {
-    --blur-glass: 0px;
-    --glass: #f8f2e3;
-    --glass-side: #efe4ce;
-  }
-
+  .theme-paper,
+  .theme-sepia,
   .theme-night {
     --blur-glass: 0px;
-    --glass: #22323a;
-    --glass-side: #152824;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
-  :root {
-    --glass: #22323a;
-    --glass-side: #152824;
+    --glass: var(--paper-raised);
+    --glass-side: var(--glass-side-solid);
   }
 }

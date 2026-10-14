@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { contrastRatio, parseColorTokens } from "./contrast";
+import { blendOver, contrastRatio, parseColorTokens } from "./contrast";
 
 // Every text colour must be readable on every surface it is used on, in both
 // themes. 4.5:1 is the WCAG AA minimum for body text; 3:1 for large text and UI.
@@ -57,6 +57,12 @@ const pairs: [fg: string, bg: string, min: number][] = [
   ["accent", "wash-sage", 4.5],
   ["accent", "wash-slate", 4.5],
   ["accent", "glass-side-solid", 4.5],
+  // Sidebar rows. The current page also paints the accent icon on its chip.
+  ["ink-900", "nav-hover", 7],
+  ["ink-900", "nav-current", 7],
+  ["ink-700", "nav-hover", 4.5],
+  ["ink-700", "nav-current", 4.5],
+  ["accent", "nav-current", 4.5],
 ];
 
 describe.each([
@@ -85,6 +91,48 @@ describe.each([
   });
   it.each(steps.slice(1).map((s, i) => [steps[i], s]))("%s and %s differ by 1.1:1 or more", (a, b) => {
     expect(contrastRatio(tokens[a], tokens[b])).toBeGreaterThanOrEqual(1.1);
+  });
+});
+
+describe.each([
+  ["light", light],
+  ["dark", dark],
+  ["sepia", themes.sepia],
+])("%s nav chips stay distinct from the sage rail", (_name, tokens) => {
+  it("hover and the current page are a step apart from the rail", () => {
+    const hover = contrastRatio(tokens["nav-hover"], tokens["glass-side-solid"]);
+    const current = contrastRatio(tokens["nav-current"], tokens["glass-side-solid"]);
+    // The old hover was paper on a sunken rail, about 1.10:1. Paper on the sage rail was 1.01:1.
+    expect(hover).toBeGreaterThanOrEqual(1.09);
+    expect(current).toBeGreaterThan(hover);
+  });
+});
+
+// Frost is paper-raised (or the sage rail) with an alpha. The check blends that alpha over the
+// page and over each wash, which is what a reader actually sees. Dark accent on the opaque
+// glass is 4.43:1, the same as accent on paper-raised, which this file already does not require:
+// links inside a card are ink, underlined in the accent. Requiring accent on glass would fail
+// for that same reason, so it is not added here. Accent on the blended sage rail does clear 4.5:1.
+describe.each([
+  ["light", light],
+  ["dark", dark],
+  ["sepia", themes.sepia],
+])("%s frosted colour blended over the wash", (_name, tokens) => {
+  const backs = ["paper", "wash-ivory", "wash-cream", "wash-sage", "wash-slate"] as const;
+
+  it.each(backs)("ink on glass blended over %s", (back) => {
+    const surface = blendOver(tokens.glass, tokens[back]);
+    expect(contrastRatio(tokens["ink-900"], surface)).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio(tokens["ink-700"], surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens["ink-500"], surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(backs)("ink and accent on the sage rail blended over %s", (back) => {
+    const surface = blendOver(tokens["glass-side"], tokens[back]);
+    expect(contrastRatio(tokens["ink-900"], surface)).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio(tokens["ink-700"], surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens["ink-500"], surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.accent, surface)).toBeGreaterThanOrEqual(4.5);
   });
 });
 
@@ -124,12 +172,22 @@ describe("reading surfaces stay on solid paper", () => {
     expect(rule).not.toContain("backdrop-filter");
   });
 
-  it("a note on the book page and on Home sits on solid paper", () => {
-    const book = readFileSync(new URL("../app/(app)/books/[id]/page.module.css", import.meta.url), "utf8");
-    const home = readFileSync(new URL("../components/home/Home.module.css", import.meta.url), "utf8");
-    for (const rule of [block(book, ".note"), block(book, ".description"), block(home, ".note")]) {
-      expect(rule).toContain("background-color: var(--paper);");
-      expect(rule).not.toContain("backdrop-filter");
+  it("a note, a description, or a passage sits on solid paper", () => {
+    const files: [string, string[]][] = [
+      ["../app/(app)/books/[id]/page.module.css", [".note", ".description"]],
+      ["../components/home/Home.module.css", [".note"]],
+      ["../app/(app)/review/page.module.css", [".note", ".bookWide"]],
+      ["../components/PathView.module.css", [".description", ".noteText", ".masterLede"]],
+      ["../app/(app)/search/page.module.css", [".snippet"]],
+    ];
+    for (const [path, selectors] of files) {
+      const css = readFileSync(new URL(path, import.meta.url), "utf8");
+      for (const selector of selectors) {
+        const rule = block(css, selector);
+        expect(rule, selector).toContain("background-color: var(--paper);");
+        expect(rule, selector).not.toContain("backdrop-filter");
+        expect(rule, selector).not.toMatch(/background-color: var\(--glass/);
+      }
     }
   });
 });

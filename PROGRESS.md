@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Glass theme is local on m23-editorial-ambient-glass (not pushed). Refresh reference screenshots before any pull request. M23 PR 175 is still the work to merge.
+next_action: Glass review fixes are local on m23-editorial-ambient-glass (not pushed). Refresh reference screenshots before any pull request. M23 PR 175 is still the work to merge.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-14
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-14 (laptop clock). **The glass review is fixed on the same local branch `m23-editorial-ambient-glass` (still not pushed, no pull request).** Daily review notes and book-wide lines, path notes, path descriptions, search snippets, and the "Read last" sentence sit on solid paper. Sidebar hover and the current page use `--nav-hover` and `--nav-current`, a visible step off the sage rail. The phone tab bar uses that same sage. Frosted cards share the class `glass-card`. The browser screenshot comparison will still fail until the reference images are refreshed on purpose. **M23 pull request 175 is still the work to merge.** The architecture diagram stays untracked.
 
 Written 2026-10-14 (laptop clock). **The glass theme is on local branch `m23-editorial-ambient-glass` (not pushed, no pull request).** Shelves, the sidebar, dialogs and dashboard cards sit on a soft wash (ivory, cream, pale sage, muted blue-gray) in frosted panels. The book, the reader and notes stay on solid paper. The accent is still the same forest green. No Hark picture was in the repo, so the colours follow that written palette. A local check (Home, sign-in, the design page, Frankenstein, Notes; desktop and phone; light and dark) showed the navigation still works and the reading surfaces are opaque. **The browser screenshot comparison will fail** until the reference images are refreshed on purpose (`docs/design.md`, "Changing the look on purpose"). That failure is the old pictures, not a broken feature. Next if Samuel wants this look: refresh those images and open a pull request from this branch. Otherwise leave the branch. **M23 pull request 175 is still the work to merge and deploy** (no database change). The architecture diagram `docs/neolibrary-architecture.html` is still untracked; ask Samuel before keeping it.
 
@@ -211,6 +213,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-14 09:12 · Grok · Review fixes: solid paper for notes, a visible sidebar step
+- **Done:** Addressed the review of the frosted shelves. Daily review notes and book-wide lines, path notes, path descriptions, search snippets, and the path's "Read last" sentence now sit on solid paper. Sidebar hover, the open account row, and the current page use two new colours (--nav-hover and --nav-current) that stand off the sage rail in light, dark, and sepia. The phone tab bar uses the same sage as the sidebar. The repeated frosted-card rules are one class, glass-card, in app/globals.css. Stylelint rejects the CSS composes shortcut, so the class is written in the markup the same way as visually-hidden. The contrast check now blends the translucent panel colour over the page wash. Light and sepia hairlines use the old divider colour. The dark hairline stays a light line, because the divider colour disappears on a dark card.
+- **Key paths:** app/tokens.css, app/globals.css, docs/design.md, components/shell/Shell.module.css, components/PathView.module.css, app/(app)/review/page.module.css, app/(app)/search/page.module.css, components/palette/CommandPalette.module.css, lib/contrast.ts, lib/tokens.test.ts
+- **Commands that worked:** npx stylelint "**/*.css" (exit 0); npx eslint on the touched TypeScript files (exit 0); npx tsc --noEmit (exit 0); npx vitest run lib/tokens.test.ts (188 passed).
+- **Known issues / blockers:** Not pushed and no pull request. The browser screenshot comparison was not re-run after these fixes; the earlier pictures predate them, and the reference images will fail until refreshed on purpose. Dark accent green on a frosted card is still about 4.43:1, the same as on a raised card, and is not a required check. docs/neolibrary-architecture.html and docs/suggestionsForAINative.md stay untracked.
+- **Exact next steps:** If this look should ship, refresh the reference screenshots (docs/design.md, Changing the look on purpose) and open a pull request from m23-editorial-ambient-glass. Do not treat the pixel mismatch as a broken feature. M23 pull request 175 is still the work to merge and deploy.
 
 ### 2026-10-14 08:45 · Grok · Frosted shelves, solid paper for reading
 - **Done:** The library chrome now uses one set of tokens: a soft wash (ivory, cream, pale sage, muted blue-gray) behind the shelves, and frosted panels (high opacity, a short blur, a thin edge) for the sidebar, dialogs and dashboard cards. The forest-green accent is unchanged. Book text, the reader and notes stay on solid paper, not on glass. No Hark screenshot was in the repo or in Downloads, so the colours follow the written palette. Light and dark, and the sepia reader theme, all carry the same token names. Checked on a local dev server: Home, sign-in, the design page, Frankenstein in the reader, and Notes, on a desktop and a phone, in both colours. Navigation (All or the phone Library tab, then Home) still opens the same pages.

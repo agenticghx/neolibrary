@@ -38,10 +38,13 @@ forest green in `--accent`.
    soft wash (`--wash-ivory`, `--wash-cream`, `--wash-sage`, `--wash-slate`).
    Sidebar, dialogs and dashboard cards are frosted glass: `--glass` (about
    95% opaque), a thin `--glass-edge`, `--shadow-glass`, and a short blur.
-   The sidebar uses `--glass-side`, so it is distinct without being a solid
-   slab. The book, notes and any paragraph you read sit on solid `--paper`
-   or `--paper-raised`. Glass behind those words is a failure. If the device
-   asks for less transparency, the panels become solid and the blur becomes 0.
+   Those cards share one class, `glass-card`, in `app/globals.css`. The sidebar
+   and the phone tab bar use `--glass-side`, so navigation is the same sage
+   rail on both, distinct without being a solid slab. A row under the pointer
+   uses `--nav-hover`; the current page uses `--nav-current`. The book, notes
+   and any paragraph you read sit on solid `--paper` or `--paper-raised`.
+   Glass behind those words is a failure. If the device asks for less
+   transparency, the panels become solid and the blur becomes 0.
 
 ## Type
 
@@ -92,7 +95,10 @@ text `--leading-ui` (1.4). Headings balance their lines (`text-wrap: balance`).
 | `--heat-1` … `--heat-4` | `#bdd6cb` … `#376963` | `#2a4a45` … `#8bbab0` | the reading calendar's shades on Reading stats (M21): 1–14 minutes in a day up to an hour or more; a day with none is `--paper-sunken`. Each step stands further from the page than the last (`lib/tokens.test.ts`) |
 | `--wash-ivory`, `--wash-cream`, `--wash-sage`, `--wash-slate` | `#f7f3ea`, `#f4ead6`, `#e4eee6`, `#e1e6ea` | `#1a272e`, `#1c2926`, `#172a28`, `#182430` | the soft wash behind the shelves. Text on each still passes the same contrast checks as text on paper |
 | `--glass` | `#faf6eef2` | `#22323af2` | frosted panels (paper-raised at about 95% opacity). Not for book text or notes |
-| `--glass-side` | `#e7eee8eb` | `#152824eb` | the sidebar, a little more sage than the page, still in the same wash |
+| `--glass-side` | `#e7eee8eb` | `#152824eb` | the sidebar and the phone tab bar: a little more sage than the page, still in the same wash |
+| `--glass-edge` | `#d6ccba` | `#ffffff2e` | the hairline on a frosted card. Light is the same step as `--rule`. Dark is a light line, because the rule colour disappears on a dark card |
+| `--nav-hover` | `#e9e1d1` | `#0b1e1b` | a sidebar row under the pointer, one step off the sage rail |
+| `--nav-current` | `#ead9c3` | `#051814` | the current page in the sidebar, a stronger step than the row under the pointer |
 
 No pure black or pure white anywhere.
 

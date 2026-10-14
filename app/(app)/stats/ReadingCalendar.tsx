@@ -58,7 +58,7 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
       </h2>
 
       <dl className={own.streaks}>
-        <div className={own.streak}>
+        <div className={`${own.streak} glass-card`}>
           <dt>Current streak</dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-current">
@@ -69,7 +69,7 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
             </span>
           </dd>
         </div>
-        <div className={own.streak}>
+        <div className={`${own.streak} glass-card`}>
           <dt>Longest streak</dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-longest">
@@ -78,7 +78,7 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
             <span className={own.streakSub}>Ever</span>
           </dd>
         </div>
-        <div className={own.streak}>
+        <div className={`${own.streak} glass-card`}>
           <dt>Best day</dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-best">
@@ -96,7 +96,7 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
             </span>
           </dd>
         </div>
-        <div className={own.streak}>
+        <div className={`${own.streak} glass-card`}>
           <dt>Days read</dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-days">
