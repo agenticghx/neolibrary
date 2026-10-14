@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel: send the Hark screenshot; then docs/glass-redo-plan.md Step 1. Live 699a97f is not on main.
+next_action: Samuel: pick A/B/C per part on the glass options page; then glass-redo-plan Step 3 (tokens PR off main).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-14
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-14 (laptop clock). **The glass options page is ready for Samuel:** https://claude.ai/artifact/1mQgLYrHawTL2kk2QjMwmp. The Hark rules (measured from his screenshot) are Step 1 of `docs/glass-redo-plan.md`. He picks one option per part (room, sidebar, cards, type, phone tab bar). Then Step 3: tokens PR on a fresh branch off main. The screenshot stays out of git (it shows his email).
 
 Written 2026-10-14 10:27 (laptop clock). **The glass theme is to be redone; plan in `docs/glass-redo-plan.md`.** Review verdict: Grok's version (live 699a97f) is a careful recolour, not the redesign: the frost cannot be seen (95% opaque panels over a nearly flat wash), spacing and type were not touched, and the sidebar's current page clashes. Keep its reading-surface test, blended contrast check and reduced-transparency rule. PR 175 is merged (the entries below that say otherwise are stale). The branch is now pushed to GitHub as a backup, but 699a97f is still not on main, so a deploy from main removes the look. **Blocked on Samuel:** the Hark screenshot (it was never in the repo), and whether to keep 699a97f live. Then Step 1 of the plan.
 
@@ -217,6 +219,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-14 11:27 · Claude (laptop) · Hark rules measured; glass options page built
+- **Done:** Samuel sent the Hark screenshot. Measured it (PIL, CSS px): room #426c95 to #d6dbdc (about 3:1), panels about 57-70% white with no border or shadow, corners about 22-24 px, rows about 57 px, dividers inset 20 px. Wrote these as 8 rules in docs/glass-redo-plan.md Step 1. Built the options page (Step 2): a design canvas with real covers from Samuel's library, options A/B/C for the room, sidebar (plus rest/hover/current states), cards, type, phone tab bar, dark mode, and two 'mix your own' boards with Tweaks. The screenshot is not in git: it shows Samuel's email and the repo is public.
+- **Key paths:** docs/glass-redo-plan.md (Step 1 rules, Step 2 link); options page https://claude.ai/artifact/1mQgLYrHawTL2kk2QjMwmp (private)
+- **Commands that worked:** python3 -I with PIL to sample the screenshot colours and corner radius; Open Library search.json + covers.openlibrary.org for 12 covers (one Turkish edition dropped); grep of Main.dc.html and Phone.dc.html for Search, Import, Back 15 seconds, Pause, Forward 15 seconds, Account menu (all present)
+- **Known issues / blockers:** Waiting on Samuel: one pick per part on the options page; whether to keep 699a97f live. Hover is shown on its own board, not live on the screens.
+- **Exact next steps:** When Samuel has picked: Step 3 of docs/glass-redo-plan.md, starting with the tokens PR on a fresh branch off main.
 
 ### 2026-10-14 10:27 · Claude (laptop) · Reviewed the glass theme; wrote the redo plan
 - **Done:** Reviewed Grok's glass theme (f50e30e, 699a97f) against the brief. Verdict: a careful recolour, not the redesign asked for. The panels are 95% opaque over a nearly flat wash, so the frost cannot be seen; spacing and type hierarchy were not changed; the sidebar's current page is tan in light and darker than the rail in dark. Kept as good: reading surfaces solid paper with a test, blended contrast checks, the reduced-transparency rule. All 33 uses of the glass-card class match the blocks that lost their own background, so no dialog is see-through. The Hark screenshot was never in the repo and was not found on the laptop. Correction to the 10:05 entry: PR 175 is MERGED (gh pr view 175). Pushed the branch to GitHub as a backup, because the live commit 699a97f was on no remote branch.

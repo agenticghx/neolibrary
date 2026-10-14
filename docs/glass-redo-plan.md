@@ -52,41 +52,71 @@ What it got wrong:
 Either leave 699a97f live until the redo lands, or redeploy `main` now. The
 redo does not depend on this.
 
-## Step 1: the Hark screenshot, turned into rules
+## Step 1: the Hark screenshot, turned into rules (done 2026-10-14)
 
-Done when: the screenshot is saved in `docs/design/prototypes/hark/` (not a
-book, so it may go in git) and `docs/design.md` has 6 to 8 rules a builder can
-be checked against, with numbers, for example:
+The screenshot is Samuel's (Hark's account menu over a blurred sky, light
+mode only). It stays on his laptop and **not in git**: it shows his email
+address, and this repository is public. The numbers below were measured from
+it with Python (PIL), in CSS pixels (the screenshot is 3840 x 2160 at 2x).
 
-- the opacity of a panel (a value such as 70% to 85%, not 95%);
-- the blur radius and where it applies (only on panels that something
-  detailed scrolls under);
-- how strong the wash is (how far its colours move from the paper colour,
-  in both themes);
-- the sidebar: solid or see-through, and how the current page is marked
-  (it should use the green accent family, lifted in both themes);
-- the type steps: page title, section heading, card title, label;
-- the spacing steps between sections and inside cards;
-- corner radius and shadow for cards, dialogs and the sidebar.
+What Hark does, and the rule for Neolibrary:
 
-## Step 2: prototypes, 2 or 3 options per part
+1. **The room has real range.** Hark's background runs from deep blue
+   `#426c95` at the top to pale grey `#d6dbdc` at the bottom: about 3 to 1
+   in lightness. The first attempt's wash ran `#e1e6ea` to `#f7f3ea`, about
+   1.1 to 1, so nothing showed. *Rule:* the room's darkest and lightest
+   areas are at least 1.4 to 1 apart in both themes, still in muted ivory,
+   sage, blue-grey and cream. `lib/tokens.test.ts` can check this.
+2. **Glass shows as a change of tint, not as blur.** Hark's top panel is
+   bluer (`#b8ccdf`) than its bottom panel (`#e3edf4`) because the room
+   behind them differs. Blur only matters where detailed things (covers,
+   text) pass under a panel: the phone tab bar, the player, dialogs.
+   *Rule:* the room's shapes are large enough that one panel visibly
+   changes tint from top to bottom.
+3. **Panels are about 55 to 70% white.** Measured as panel colour against
+   the room just outside it: about 57% at the top, up to 70% lower down.
+   The quieter Sign Out button is about 30%. The first attempt used 95%.
+   *Rule:* panels between 60% and 88% (the options page shows 60, 72, 88).
+4. **No border and no shadow in Hark.** Edges come from the fill alone. The
+   brief asks for thin borders and soft shadows, so the reference and the
+   brief disagree; Samuel picks (options page, part 3).
+5. **Big, soft corners.** Hark's panel corner is about 22 to 24 px, on a
+   panel about 547 px wide. The first attempt used 14 px. *Rule:* 18 to
+   22 px for cards, dialogs and the player; small controls keep their own.
+6. **Grouped lists.** Rows about 57 px tall; thin dividers about 10% darker
+   than the panel, inset 20 px from the panel's edge, not running to it;
+   groups about 13 px apart.
+7. **Text.** Main text near-black (`#1d1d1f`). Secondary text is see-through
+   dark (the email reads `#304761` on a blue panel), so it picks up the
+   room's tint. *Rule:* `--ink-900` stays; secondary and quiet text may be
+   `--ink-900` at about 70% and 60% opacity, if contrast still passes.
+8. **Room to breathe.** One centred column about 547 px wide, with the
+   room visible on both sides. Neolibrary's pages sit beside a sidebar, so
+   the rule is: cap content width so the room shows around the panels.
 
-One static page, real tokens, **real covers** (the browser-test library has
-no books, so the existing screenshots never show the shelf, which is where
-this look lives). Options labelled A/B/C per part, so Samuel picks per part:
+Dark mode is not in the screenshot; every dark value is our own
+extension of these rules.
 
-| Part | What the options vary |
-|---|---|
-| The room (wash) | strength and placement of the gradient, light and dark |
-| Sidebar | solid sage, see-through over the wash, or floating inset panel |
-| Cards and panels | how see-through, border, shadow, radius |
-| Phone tab bar and sheets | frosted over the shelf vs solid |
-| Type and spacing | two hierarchies for Home and a book page |
+## Step 2 (built 2026-10-14): the options page
 
-Before publishing, check every board has its controls (search, account menu,
-Import, mini-player with Back 15 / Pause / Forward 15).
+https://claude.ai/artifact/1mQgLYrHawTL2kk2QjMwmp (private to Samuel). Real
+covers from his library, the app's own colours and fonts. One row per part,
+options A/B/C, everything else held at the middle option:
 
-Done when: Samuel has picked one option per part.
+1. the room (A quiet wash, B soft shapes, C deep sky at Hark's range);
+2. the sidebar and the current-page marker (A solid sage rail with a green
+   tint, B glass rail with a white lifted chip, C floating panel with a
+   filled green chip), plus a board of each one at rest, under the pointer
+   and current, light and dark;
+3. cards (A 88% with hairline and shadow, B 72% with a light edge, C 60%
+   with no edge, as Hark);
+4. type (A today's sizes, B larger editorial titles and more space);
+5. the phone tab bar (A solid, B frosted, C floating pill);
+6. dark mode for each room;
+7. "mix your own" boards with a Tweaks panel to try any combination.
+
+Your notes stay on solid paper inside every card (the italic line in the
+Continue cards). Done when Samuel names one option per part.
 
 ## Step 3: build the picks, in small pull requests
 
@@ -95,7 +125,7 @@ off the old branch: PR 175 is merged, so its commits there would only
 conflict. Reuse from the old branch: `blendOver`, the reading-surface test,
 the reduced-transparency rule.
 
-1. **Tokens.** New values in `app/tokens.css` and `docs/design.md`. Done when
+1. **Tokens.** New values in `app/tokens.css`, and the Step 1 rules for the picked options copied into `docs/design.md` (rule 5 there, replacing the first attempt's text). Done when
    `npm test` passes, including the contrast and solid-paper tests.
 2. **Shared components.** `<Panel>` (frosted) and `<Paper>` (solid, for
    anything you read) in `components/ui/`, replacing the 33 `glass-card`
