@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Live: 699a97f (glass theme and M23 page-ahead, not on main). Samuel tries the look and Listen on The Grid. Refresh reference screenshots before a pull request.
+next_action: Samuel: send the Hark screenshot; then docs/glass-redo-plan.md Step 1. Live 699a97f is not on main.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-14
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-14 10:27 (laptop clock). **The glass theme is to be redone; plan in `docs/glass-redo-plan.md`.** Review verdict: Grok's version (live 699a97f) is a careful recolour, not the redesign: the frost cannot be seen (95% opaque panels over a nearly flat wash), spacing and type were not touched, and the sidebar's current page clashes. Keep its reading-surface test, blended contrast check and reduced-transparency rule. PR 175 is merged (the entries below that say otherwise are stale). The branch is now pushed to GitHub as a backup, but 699a97f is still not on main, so a deploy from main removes the look. **Blocked on Samuel:** the Hark screenshot (it was never in the repo), and whether to keep 699a97f live. Then Step 1 of the plan.
 
 Written 2026-10-14 10:05 (laptop clock). **Live: 699a97f.** The glass theme and the M23 page-ahead listening work are on https://web-production-f27a0e.up.railway.app. No new database migration (still 0026_cover_upload). The commit is not on main, and pull request 175 was not merged. Samuel looks at the shelves and a book page signed in (the page stays solid paper), then Listen on *The Grid* (the next page should start while this one plays; the one-dollar question still applies). Do not start a whole-book narration. Before a pull request, refresh the reference screenshots (`docs/design.md`, "Changing the look on purpose").
 
@@ -215,6 +217,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-14 10:27 · Claude (laptop) · Reviewed the glass theme; wrote the redo plan
+- **Done:** Reviewed Grok's glass theme (f50e30e, 699a97f) against the brief. Verdict: a careful recolour, not the redesign asked for. The panels are 95% opaque over a nearly flat wash, so the frost cannot be seen; spacing and type hierarchy were not changed; the sidebar's current page is tan in light and darker than the rail in dark. Kept as good: reading surfaces solid paper with a test, blended contrast checks, the reduced-transparency rule. All 33 uses of the glass-card class match the blocks that lost their own background, so no dialog is see-through. The Hark screenshot was never in the repo and was not found on the laptop. Correction to the 10:05 entry: PR 175 is MERGED (gh pr view 175). Pushed the branch to GitHub as a backup, because the live commit 699a97f was on no remote branch.
+- **Key paths:** docs/glass-redo-plan.md (new: review findings and the step-by-step redo plan)
+- **Commands that worked:** npx playwright test --project=desktop-light --project=desktop-dark --project=phone-light e2e/visual.spec.ts --output=<scratchpad>/vis (expected vs actual images for every page); curl -s https://web-production-f27a0e.up.railway.app/api/health (commit 699a97f); git push -u origin m23-editorial-ambient-glass; grep -rn glass-card --include='*.tsx' app components | wc -l (33)
+- **Known issues / blockers:** Live runs 699a97f, which is not on main: the next deploy from main removes the glass look. No Hark screenshot, so the redo cannot start Step 1.
+- **Exact next steps:** Samuel sends the Hark screenshot and says whether to keep 699a97f live or redeploy main. Then docs/glass-redo-plan.md Step 1 (rules from the screenshot), Step 2 (2-3 prototype options per part with real covers), Step 3 (small PRs off main).
 
 ### 2026-10-14 10:05 · Grok · Deployed the glass theme and M23 page-ahead (live 699a97f)
 - **Done:** Deployed local branch m23-editorial-ambient-glass, commit 699a97f, to the production web service. The upload is the frosted shelves (ivory, sage, and blue-gray wash; solid paper for books and notes) plus the M23 work already on that branch: while a PDF page plays in a made voice, the next paragraph is made at once. No new database migration. The live database was already on 0026_cover_upload, so no backup was taken. Deployment 393748c2-4962-47f3-843d-c1cab25953d7 status SUCCESS. Health reports commit 699a97f. Sign-in returns 200 and sends strict-transport-security. Import redirects to sign-in. The migration id is still 0026_cover_upload.
