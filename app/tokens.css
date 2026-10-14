@@ -49,8 +49,10 @@
   --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 10px;
+  --radius-glass: 14px; /* frosted panels: rounder than a button, not a large card */
   --radius-pill: 999px;
   --border-hair: 1px;
+  --blur-glass: 18px;
 
   /* Motion: quiet and short. Zeroed when the reader asks for reduced motion. */
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -102,7 +104,18 @@
 
   --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
   --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
+  --shadow-glass: 0 1px 1px #2432390c, 0 16px 40px -20px #24323924;
   --scrim: #24323959; /* the page dimmed behind a sheet (the phone account menu, M18) */
+
+  /* Wash behind the shelves. Book text stays on --paper, never on these. */
+  --wash-ivory: #f7f3ea;
+  --wash-cream: #f4ead6;
+  --wash-sage: #e4eee6;
+  --wash-slate: #e1e6ea;
+  --glass: #faf6eef2; /* paper-raised, about 95% opaque */
+  --glass-side: #e7eee8eb; /* sage rail, about 92% */
+  --glass-side-solid: #e7eee8; /* same hue, opaque: the nav fade, and the contrast check */
+  --glass-edge: #ffffffb8;
 
   /* Reading calendar (M21): a day's shade, from a little reading (1) to an hour or more (4); no reading is --paper-sunken */
   --heat-1: #bdd6cb;
@@ -137,7 +150,16 @@
     --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
     --shadow-cover: 0 1px 1px #0000004d, 0 8px 18px #00000059, 0 20px 34px -14px #00000073;
     --shadow-raised: 0 1px 2px #0000004d, 0 10px 28px -10px #0006;
+    --shadow-glass: 0 1px 2px #0005, 0 18px 44px -18px #00000080;
     --scrim: #00000080; /* the page dimmed behind a sheet (the phone account menu, M18) */
+    --wash-ivory: #1a272e;
+    --wash-cream: #1c2926;
+    --wash-sage: #172a28;
+    --wash-slate: #182430;
+    --glass: #22323af2;
+    --glass-side: #152824eb;
+    --glass-side-solid: #152824;
+    --glass-edge: #ffffff2e;
     --heat-1: #2a4a45; /* reading calendar shades (M21) */
     --heat-2: #3d6b63;
     --heat-3: #5a9488;
@@ -186,7 +208,16 @@
   --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
   --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
   --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
+  --shadow-glass: 0 1px 1px #2432390c, 0 16px 40px -20px #24323924;
   --scrim: #24323959; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --wash-ivory: #f7f3ea;
+  --wash-cream: #f4ead6;
+  --wash-sage: #e4eee6;
+  --wash-slate: #e1e6ea;
+  --glass: #faf6eef2;
+  --glass-side: #e7eee8eb;
+  --glass-side-solid: #e7eee8;
+  --glass-edge: #ffffffb8;
   --heat-1: #bdd6cb; /* reading calendar shades (M21) */
   --heat-2: #8bb8aa;
   --heat-3: #5a9185;
@@ -220,7 +251,16 @@
   --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
   --shadow-cover: 0 1px 1px #24323914, 0 6px 14px #24323924, 0 18px 30px -12px #2432392e;
   --shadow-raised: 0 1px 2px #2432391a, 0 8px 24px -8px #24323929;
+  --shadow-glass: 0 1px 1px #3a2e220f, 0 16px 40px -20px #3a2e2226;
   --scrim: #24323959; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --wash-ivory: #f8f3e6;
+  --wash-cream: #f3e2c4;
+  --wash-sage: #e6ead4;
+  --wash-slate: #e6dfd2;
+  --glass: #f8f2e3f2;
+  --glass-side: #efe4cef0;
+  --glass-side-solid: #efe4ce;
+  --glass-edge: #ffffffb8;
   --heat-1: #e3cfa6; /* reading calendar shades (M21) */
   --heat-2: #c9a671;
   --heat-3: #a07848;
@@ -254,9 +294,47 @@
   --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
   --shadow-cover: 0 1px 1px #0000004d, 0 8px 18px #00000059, 0 20px 34px -14px #00000073;
   --shadow-raised: 0 1px 2px #0000004d, 0 10px 28px -10px #0006;
+  --shadow-glass: 0 1px 2px #0005, 0 18px 44px -18px #00000080;
   --scrim: #00000080; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --wash-ivory: #1a272e;
+  --wash-cream: #1c2926;
+  --wash-sage: #172a28;
+  --wash-slate: #182430;
+  --glass: #22323af2;
+  --glass-side: #152824eb;
+  --glass-side-solid: #152824;
+  --glass-edge: #ffffff2e;
   --heat-1: #2a4a45; /* reading calendar shades (M21) */
   --heat-2: #3d6b63;
   --heat-3: #5a9488;
   --heat-4: #8bbab0;
+}
+
+/* When the reader asks for less transparency, the panels become solid. The wash stays. */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  .theme-paper {
+    --blur-glass: 0px;
+    --glass: #faf6ee;
+    --glass-side: #e7eee8;
+  }
+
+  .theme-sepia {
+    --blur-glass: 0px;
+    --glass: #f8f2e3;
+    --glass-side: #efe4ce;
+  }
+
+  .theme-night {
+    --blur-glass: 0px;
+    --glass: #22323a;
+    --glass-side: #152824;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root {
+    --glass: #22323a;
+    --glass-side: #152824;
+  }
 }

@@ -26,10 +26,11 @@
   max-height: calc(100% - var(--space-9) * 2);
   margin: var(--space-9) auto 0;
   overflow: hidden;
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
   font-family: var(--font-sans);
 }
 

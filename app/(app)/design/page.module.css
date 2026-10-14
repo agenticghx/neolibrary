@@ -66,6 +66,10 @@
 .reading {
   display: grid;
   gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
   font-family: var(--font-serif);
   font-size: var(--text-read);
   line-height: var(--leading-read);
@@ -107,8 +111,10 @@
   display: grid;
   align-content: start;
   gap: var(--space-3);
-  padding-left: var(--space-5);
-  border-left: var(--border-hair) solid var(--rule);
+  padding: var(--space-5);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
 }
 
 .marginChip {
@@ -202,6 +208,15 @@
 .paper { background-color: var(--paper); }
 .paperRaised { background-color: var(--paper-raised); }
 .paperSunken { background-color: var(--paper-sunken); }
+.washIvory { background-color: var(--wash-ivory); }
+.washSage { background-color: var(--wash-sage); }
+.washSlate { background-color: var(--wash-slate); }
+
+.glassSwatch {
+  background-color: var(--glass);
+  backdrop-filter: blur(var(--blur-glass));
+}
+
 .ink900 { background-color: var(--ink-900); }
 .ink700 { background-color: var(--ink-700); }
 .ink500 { background-color: var(--ink-500); }

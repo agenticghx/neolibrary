@@ -11,8 +11,9 @@ they arrive, revisit this file, and Samuel's references win over the prototypes.
 
 ## The idea in one line
 
-A quiet reading room at dusk: literary, tactile, calm. Fine book typography
-and museum signage, not a software dashboard.
+A personal library. Book text is serif on solid paper. The shelves sit in a
+soft wash of ivory, cream, pale sage and muted blue-gray. One accent: the
+forest green in `--accent`.
 
 ## Rules everything follows
 
@@ -32,9 +33,15 @@ and museum signage, not a software dashboard.
    background, a dashed left rule, sans-serif text and a label saying it was
    written by AI. Book text is serif on paper; the reader's own notes are
    italic serif. These three never look alike.
-5. **Restraint.** Few borders (hairlines only), soft shadows on covers and
-   raised cards only, one accent colour. No gradients except the faint glow
-   on the sign-in page, no glassy blur, no emoji, no stock illustrations.
+5. **Restraint.** Few borders (hairlines only), one accent colour, no emoji,
+   no stock illustrations, no bright meshes. The page behind the shelves is a
+   soft wash (`--wash-ivory`, `--wash-cream`, `--wash-sage`, `--wash-slate`).
+   Sidebar, dialogs and dashboard cards are frosted glass: `--glass` (about
+   95% opaque), a thin `--glass-edge`, `--shadow-glass`, and a short blur.
+   The sidebar uses `--glass-side`, so it is distinct without being a solid
+   slab. The book, notes and any paragraph you read sit on solid `--paper`
+   or `--paper-raised`. Glass behind those words is a failure. If the device
+   asks for less transparency, the panels become solid and the blur becomes 0.
 
 ## Type
 
@@ -83,6 +90,9 @@ text `--leading-ui` (1.4). Headings balance their lines (`text-wrap: balance`).
 | `--cover-navy`, `--cover-green` | | | covers of titles you can read or listen to |
 | `--cover-empty` | `#d9d3c7` | `#2b3a41` | a title not available yet (undyed cloth) |
 | `--heat-1` … `--heat-4` | `#bdd6cb` … `#376963` | `#2a4a45` … `#8bbab0` | the reading calendar's shades on Reading stats (M21): 1–14 minutes in a day up to an hour or more; a day with none is `--paper-sunken`. Each step stands further from the page than the last (`lib/tokens.test.ts`) |
+| `--wash-ivory`, `--wash-cream`, `--wash-sage`, `--wash-slate` | `#f7f3ea`, `#f4ead6`, `#e4eee6`, `#e1e6ea` | `#1a272e`, `#1c2926`, `#172a28`, `#182430` | the soft wash behind the shelves. Text on each still passes the same contrast checks as text on paper |
+| `--glass` | `#faf6eef2` | `#22323af2` | frosted panels (paper-raised at about 95% opacity). Not for book text or notes |
+| `--glass-side` | `#e7eee8eb` | `#152824eb` | the sidebar, a little more sage than the page, still in the same wash |
 
 No pure black or pure white anywhere.
 
@@ -91,9 +101,9 @@ No pure black or pure white anywhere.
 - Spacing steps `--space-0` … `--space-9`: 2, 4, 8, 12, 16, 24, 32, 48, 64, 96 px.
   Use bigger steps between sections than inside them.
 - Radii: `--radius-sm` 3px (highlights, cover spine), `--radius-md` 6px
-  (buttons, inputs, cards), `--radius-lg` 10px (large panels).
+  (buttons, inputs), `--radius-lg` 10px, `--radius-glass` 14px (frosted panels).
 - Shadows: `--shadow-cover` (books feel like objects), `--shadow-raised`
-  (popovers). Titles not available yet have no shadow: nothing is there to pick up yet.
+  (small popovers), `--shadow-glass` (frosted panels). Titles not available yet have no shadow: nothing is there to pick up yet.
 
 ## Motion
 

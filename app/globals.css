@@ -14,7 +14,15 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
+
+  /* The room behind the shelves. A book or a note sets its own solid paper on top. */
   background-color: var(--paper);
+  background-image:
+    radial-gradient(ellipse 90% 62% at 0% -8%, var(--wash-sage), transparent 58%),
+    radial-gradient(ellipse 72% 56% at 100% 0%, var(--wash-slate), transparent 52%),
+    radial-gradient(ellipse 80% 48% at 72% 100%, var(--wash-cream), transparent 50%),
+    linear-gradient(180deg, var(--wash-ivory), var(--paper) 42%, var(--wash-cream));
+  background-attachment: fixed;
   color: var(--ink-900);
   font-family: var(--font-sans);
   font-size: var(--text-md);

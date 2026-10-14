@@ -71,6 +71,9 @@
 
 .note {
   max-width: var(--measure-read);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   font-family: var(--font-serif);
   font-size: var(--text-read);
   line-height: var(--leading-read);
@@ -94,6 +97,9 @@
 
 .description {
   max-width: var(--measure-read);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   color: var(--ink-700);
   line-height: var(--leading-read);
 }

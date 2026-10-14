@@ -73,7 +73,7 @@
   padding: var(--space-5);
   border: var(--border-hair) solid var(--rule);
   border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
+  background-color: var(--paper);
   color: var(--ink-700);
   font-size: var(--text-sm);
   line-height: var(--leading-read);
@@ -123,9 +123,11 @@
   align-content: start;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-md);
-  background-color: var(--paper-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .streak dt {

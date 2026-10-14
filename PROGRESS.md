@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for PR 175's four checks after the review-title fix, merge when they are green, then deploy (no database change). Samuel tries Listen on The Grid; covers on /covers are still his.
+next_action: Glass theme is local on m23-editorial-ambient-glass (not pushed). Refresh reference screenshots before any pull request. M23 PR 175 is still the work to merge.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-12
+updated: 2026-10-14
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-14 (laptop clock). **The glass theme is on local branch `m23-editorial-ambient-glass` (not pushed, no pull request).** Shelves, the sidebar, dialogs and dashboard cards sit on a soft wash (ivory, cream, pale sage, muted blue-gray) in frosted panels. The book, the reader and notes stay on solid paper. The accent is still the same forest green. No Hark picture was in the repo, so the colours follow that written palette. A local check (Home, sign-in, the design page, Frankenstein, Notes; desktop and phone; light and dark) showed the navigation still works and the reading surfaces are opaque. **The browser screenshot comparison will fail** until the reference images are refreshed on purpose (`docs/design.md`, "Changing the look on purpose"). That failure is the old pictures, not a broken feature. Next if Samuel wants this look: refresh those images and open a pull request from this branch. Otherwise leave the branch. **M23 pull request 175 is still the work to merge and deploy** (no database change). The architecture diagram `docs/neolibrary-architecture.html` is still untracked; ask Samuel before keeping it.
 
 Written 2026-10-12 (laptop clock). **M23 is on pull request 175 (`m23-pdf-page-ahead`, not deployed).** While a PDF page plays in a made voice, the next paragraph is made at once, one ahead, and its cost counts toward the $1 "Keep reading?" question. An EPUB and an uploaded audiobook are unchanged. No database change. Two older browser tests failed on the way, and both are fixed in the test, not in the player. Night's page-turn check now walks back to pages 1 and 2 (run 38271487444 saw pages 3 and 4). The next run (38273542441) passed that test and the new page-ahead test (2.7 s), then Daily review's accessibility check saw an empty page title while a refresh was still replacing it. That check now waits until the title reads Review. On the laptop the Daily review test passed (2 passed, 11.7 s). Next: the four checks on the new commit, then merge, deploy, and Samuel tries Listen on *The Grid* (the silence at the page turn should be gone; one page he never reaches may still be paid for). Covers on /covers are still his. Open unknowns row 21 (a), (c), (d) and (e) still wait.
 
@@ -209,6 +211,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-14 08:45 · Grok · Frosted shelves, solid paper for reading
+- **Done:** The library chrome now uses one set of tokens: a soft wash (ivory, cream, pale sage, muted blue-gray) behind the shelves, and frosted panels (high opacity, a short blur, a thin edge) for the sidebar, dialogs and dashboard cards. The forest-green accent is unchanged. Book text, the reader and notes stay on solid paper, not on glass. No Hark screenshot was in the repo or in Downloads, so the colours follow the written palette. Light and dark, and the sepia reader theme, all carry the same token names. Checked on a local dev server: Home, sign-in, the design page, Frankenstein in the reader, and Notes, on a desktop and a phone, in both colours. Navigation (All or the phone Library tab, then Home) still opens the same pages.
+- **Key paths:** app/tokens.css, app/globals.css, docs/design.md, components/shell/Shell.module.css, components/AuthShell.module.css, components/home/Home.module.css, components/palette/CommandPalette.module.css, app/(reader)/books/[id]/read/reader.module.css, lib/tokens.test.ts
+- **Commands that worked:** npx stylelint "app/**/*.css" "components/**/*.css" (exit 0); npx eslint lib/tokens.test.ts "app/(app)/design/page.tsx" (exit 0); npx tsc --noEmit (exit 0); npx vitest run lib/tokens.test.ts (140 passed).
+- **Known issues / blockers:** No Hark reference image was found. The browser screenshot comparison was not re-run: those reference images are the old look, so they will fail until refreshed on purpose. This branch is not pushed and has no pull request. docs/neolibrary-architecture.html and docs/suggestionsForAINative.md are still untracked.
+- **Exact next steps:** If this look should ship, refresh the reference screenshots (docs/design.md, Changing the look on purpose) and open a pull request from m23-editorial-ambient-glass. Do not treat the pixel mismatch as a broken feature. M23 pull request 175 is still the work to merge and deploy. Ask Samuel before keeping the architecture diagram.
+
+### 2026-10-12 16:32 · Claude Sonnet 5.5 · Checkpoint: architecture diagram drawn, not yet committed
+- **Done:** Drew Neolibrary architecture as a self-contained HTML/SVG diagram (9 nodes, 3 zones); self-check passed, rendering looked at. No tracked files changed.
+- **Key paths:** docs/handoffs/2026-10-12-1632-architecture-diagram.md; docs/neolibrary-architecture.html (untracked, copied by someone else)
+- **Commands that worked:** python3 scripts/self_check.py <file> (OK); ls db/migrations/*.up.sql | wc -l (26)
+- **Known issues / blockers:** Diagram uses the default diagram-design skin, not the Neolibrary look. Node text drawn from code on branch m23-pdf-page-ahead, not from production.
+- **Exact next steps:** 1. Ask Samuel whether to keep docs/neolibrary-architecture.html and commit it with the next PR. 2. Restyle with app/tokens.css if wanted. 3. Resume M23 PR 175 checks, merge, deploy.
 
 ### 2026-10-12 12:10 · Grok 4.7 (laptop) · M23: Daily review waits for its title before the accessibility check
 - **Done:** The second browser check (run 38273542441) passed the Night spine test and the new page-ahead test (2.7 s). It failed on Daily review: axe reported document-title on html, with an empty title, right after the last rating. That rating calls router.refresh() so the sidebar count updates, and the title can be empty for a moment while the refresh lands. The check now waits until the title reads Review, then runs the same accessibility check. The page-ahead player code is unchanged.

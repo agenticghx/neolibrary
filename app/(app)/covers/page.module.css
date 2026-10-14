@@ -31,9 +31,11 @@
   align-items: center;
   gap: var(--space-3) var(--space-5);
   padding: var(--space-4) var(--space-5);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .summary {
@@ -219,11 +221,12 @@
   max-height: calc(100dvh - var(--space-7));
   padding: var(--space-5);
   overflow-y: auto;
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
   color: var(--ink-900);
-  box-shadow: var(--shadow-raised);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .chooser::backdrop {

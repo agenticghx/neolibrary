@@ -10,6 +10,10 @@ const swatches = [
   ["paper", "Paper"],
   ["paperRaised", "Paper raised"],
   ["paperSunken", "Paper sunken"],
+  ["washIvory", "Ivory"],
+  ["washSage", "Sage"],
+  ["washSlate", "Blue-gray"],
+  ["glassSwatch", "Glass"],
   ["ink900", "Ink"],
   ["ink700", "Ink secondary"],
   ["ink500", "Ink quiet"],
@@ -34,11 +38,11 @@ export default function DesignPage() {
 
       <main className={styles.main}>
         <div className={styles.intro}>
-          <p className={styles.eyebrow}>Design system</p>
-          <h1 className={styles.title}>A quiet reading room</h1>
+          <p className={styles.eyebrow}>Tokens</p>
+          <h1 className={styles.title}>Design system</h1>
           <p className={styles.lede}>
-            Warm paper, deep ink, one oxidised teal. Every value on this page comes from the tokens in{" "}
-            <code>app/tokens.css</code>, described in <code>docs/design.md</code>.
+            Colours, type and surfaces from <code>app/tokens.css</code>, described in <code>docs/design.md</code>.
+            Book text sits on solid paper. Shelves and cards sit on the wash, in forest green and warm ivory.
           </p>
         </div>
 

@@ -42,15 +42,16 @@
   text-transform: uppercase;
 }
 
-/* The card: a raised sheet of paper. */
+/* The card around a passage. The quotation itself stays on its own solid plate. */
 .card {
   display: grid;
   gap: var(--space-4);
   padding: var(--space-6);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .source {
@@ -212,9 +213,11 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-7) var(--space-6);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
   text-align: center;
 }
 

@@ -4,10 +4,6 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100dvh;
-
-  /* The sidebar's panel and edge run the whole height of a long page, behind the pinned sidebar. */
-  background-image:
-    linear-gradient(to right, var(--paper-sunken) calc(var(--sidebar-width) - var(--border-hair)), var(--rule) 0, var(--rule) var(--sidebar-width), transparent 0);
 }
 
 .column {
@@ -31,8 +27,9 @@
   gap: var(--space-5);
   height: 100dvh;
   padding: var(--space-5) var(--space-4) var(--space-4);
-  border-right: var(--border-hair) solid var(--rule);
-  background-color: var(--paper-sunken);
+  border-right: var(--border-hair) solid var(--glass-edge);
+  background-color: var(--glass-side);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .brand {
@@ -98,8 +95,8 @@
   padding: 0 var(--space-2);
   overflow-y: auto;
   background:
-    linear-gradient(var(--paper-sunken) 30%, transparent) center top / 100% var(--space-6) no-repeat local,
-    linear-gradient(transparent, var(--paper-sunken) 70%) center bottom / 100% var(--space-6) no-repeat local,
+    linear-gradient(var(--glass-side-solid) 30%, transparent) center top / 100% var(--space-6) no-repeat local,
+    linear-gradient(transparent, var(--glass-side-solid) 70%) center bottom / 100% var(--space-6) no-repeat local,
     radial-gradient(farthest-side at 50% 0, var(--rule), transparent) center top / 100% var(--space-3) no-repeat scroll,
     radial-gradient(farthest-side at 50% 100%, var(--rule), transparent) center bottom / 100% var(--space-3) no-repeat scroll;
 }
@@ -132,6 +129,7 @@
   color: var(--ink-900);
   font-size: var(--text-md);
   text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .item:hover {
@@ -244,10 +242,11 @@
   z-index: var(--z-raised);
   display: grid;
   padding: var(--space-1);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass);
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 /* The menu's parts, in both places: the email in grey, whole rows with an icon, thin lines between groups. */
@@ -307,7 +306,6 @@
   .shell {
     display: block;
     padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
-    background-image: none;
   }
 
   .sidebar {
@@ -324,8 +322,9 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
     height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
     padding: var(--space-1) var(--space-2) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-    border-top: var(--border-hair) solid var(--rule);
-    background-color: var(--paper-sunken);
+    border-top: var(--border-hair) solid var(--glass-edge);
+    background-color: var(--glass);
+    backdrop-filter: blur(var(--blur-glass));
   }
 
   .tab {
@@ -337,6 +336,11 @@
     color: var(--ink-700);
     font-size: var(--text-xs);
     text-decoration: none;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+
+  .tab:hover {
+    color: var(--ink-900);
   }
 
   .tab[aria-current="page"] {
@@ -401,10 +405,11 @@
   margin: 0 auto;
   padding: var(--space-2) var(--space-3) calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
-  border-top: var(--border-hair) solid var(--rule);
-  border-radius: calc(var(--radius-lg) * 2) calc(var(--radius-lg) * 2) 0 0;
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border-top: var(--border-hair) solid var(--glass-edge);
+  border-radius: var(--radius-glass) var(--radius-glass) 0 0;
+  background-color: var(--glass);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(var(--blur-glass));
   animation: sheet-up var(--dur-base) var(--ease-out);
 }
 
