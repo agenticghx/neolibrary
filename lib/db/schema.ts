@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 // Mirrors db/migrations. The SQL files are the source of truth for the layout;
 // this file gives TypeScript the same shape for queries.
@@ -98,6 +98,8 @@ export const books = pgTable("books", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }),
+  /** M25: set on a text edition (an EPUB made from a scanned PDF's pages): the scan it was made from. Hidden from the library's lists (migration 0027). */
+  editionOf: uuid("edition_of").references((): AnyPgColumn => books.id, { onDelete: "cascade" }),
 });
 
 export const paths = pgTable("paths", {
@@ -347,3 +349,34 @@ export const reviewCards = pgTable(
   },
   (t) => [primaryKey({ columns: [t.ownerId, t.annotationId] })],
 );
+
+/** M25: a job reading a scanned PDF's pages with Claude through the Batch API (migration 0027). */
+/** One batch sent: its number, the pages in it, the fingerprint (sha256) of each page picture sent, and whether its answers are saved. */
+export type TextEditionBatch = { id: string; pages: number[]; hashes: string[]; stored: boolean };
+export type TextEditionProblem = { page: number; kind: "refused" | "errored" | "canceled" | "expired"; message: string };
+export type TextEditionCheck = { page: number; agreement: number | null; flagged: boolean };
+
+export const textEditionJobs = pgTable("text_edition_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  promptHash: text("prompt_hash").notNull(),
+  status: text("status", { enum: ["preparing", "waiting", "finished", "stopped", "failed"] }).notNull(),
+  stopRequested: boolean("stop_requested").notNull().default(false),
+  pageCount: integer("page_count").notNull(),
+  estimateUsd: doublePrecision("estimate_usd").notNull(),
+  batches: jsonb("batches").$type<TextEditionBatch[]>().notNull().default([]),
+  blankPages: jsonb("blank_pages").$type<number[]>().notNull().default([]),
+  problems: jsonb("problems").$type<TextEditionProblem[]>().notNull().default([]),
+  checks: jsonb("checks").$type<TextEditionCheck[]>().notNull().default([]),
+  message: text("message").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+});
