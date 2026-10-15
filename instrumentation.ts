@@ -20,4 +20,9 @@ export async function register() {
   // M22: covers for titles without one, looked up in the background (COVER_LOOKUP=off switches it off).
   const { scheduleCoverLookups } = await import("./lib/library/cover-job");
   scheduleCoverLookups(getDb, getStorage);
+  // M25: scanned books are read from page pictures; say whether this server can draw them.
+  const { pagePicturesProblem } = await import("./lib/library/page-pictures");
+  void pagePicturesProblem().then((problem) =>
+    problem ? console.error(`  Page pictures: cannot draw them here (${problem}).`) : console.log("  Page pictures: ready."),
+  );
 }
