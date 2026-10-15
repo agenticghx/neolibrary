@@ -82,6 +82,10 @@ export async function makePdfBook(file: Blob, pages: "one" | "two" = "one") {
     data: new Uint8Array(await file.arrayBuffer()),
     cMapUrl: "/pdfjs/cmaps/",
     standardFontDataUrl: "/pdfjs/standard_fonts/",
+    // Scanned books: their pictures are JPEG 2000 or JBIG2, which pdf.js decodes only with these
+    // files (they run as WebAssembly, so the security policy allows 'wasm-unsafe-eval').
+    wasmUrl: "/pdfjs/wasm/",
+    iccUrl: "/pdfjs/iccs/",
   });
   const pdf = await task.promise;
 

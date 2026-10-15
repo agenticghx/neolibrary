@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: PR 181 (glass pop-ups + centred carousel): refresh design pictures, merge when green, deploy at Samuel's word.
+next_action: Merge the scanned-PDF fix (branch m24-scanned-pdfs), deploy at Samuel's word, then check The Pay Off draws on the live site.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15 13:10 (laptop clock). **Scanned PDFs: the fix is built and tested on branch `m24-scanned-pdfs`** (not merged, not deployed; live is 1d80455). *The Pay Off* opened as white pages because pdf.js had no decoders for its JPEG 2000 and JBIG2 pictures. Now the decoders are copied and served, pdf.js is told where they are, and the security policy lets them run as WebAssembly. A two-page made-up scan in `fixtures/books/` is checked for ink on each page. Of Samuel's 130 titles, 6 have a file; of the 3 PDFs, only *The Pay Off* is such a scan (94 JPEG 2000 and 47 JBIG2 pictures in its first 3 MB). Next: PR, merge with the merge train, deploy at Samuel's word (no migration), then open *The Pay Off* pages 16 and 17 signed in on the live site and confirm they draw. M23 (#175) and M24 (#177 to #181) are merged and live.
 
 Written 2026-10-15 01:30 (laptop clock). **Live: 032a512. Samuel's glass picks are deployed:** the room (deep sky on the first screen, cream below), a glass sidebar with a hide button at its top left (as in the Claude desktop app; remembered in the nl.sidebar cookie), a frosted phone tab bar, and cards at 88% with a hairline and soft shadow. CI now runs on Blacksmith (#176). **Waiting on Samuel:** where the book carousel goes on Home, options page part 8 (https://claude.ai/artifact/1mQgLYrHawTL2kk2QjMwmp): A hero at the top, B a third library view, C Continue as a carousel. The carousel is built and tested on branch `m24-carousel` (worktree ../Neolibrary-carousel), shown only on /design so far. Then: mount it, PR, merge, deploy. Later: dialogs and the mini-player as glass.
 
@@ -211,6 +213,27 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 13:10 · Claude Opus 5.5 (laptop) · Scanned PDFs show their pages (JPEG 2000 and JBIG2 decoders)
+- **Done:** Built the fix in docs/root-cause-scanned-pdfs.md. pdf.js's decoders (wasm/, without quickjs) and colour profiles (iccs/) are copied into public/pdfjs/; pdf-book.ts passes wasmUrl and iccUrl; proxy.ts adds 'wasm-unsafe-eval' to script-src. Measured on the production build: without that policy word, the pages still showed (pdf.js's slow JavaScript fallback) but the browser refused the WebAssembly decoders; with it, no refusal. New fixture scanned-meditation.pdf (page 1 JPEG 2000, page 2 JBIG2, drawn by Pillow, Descartes' public-domain text) and a reader test that counts ink on each page, checks openjpeg.wasm is served and that WebAssembly is not refused. With the two pdf-book.ts lines removed, the test failed (nothing shown). Counted Samuel's library read-only in the built-in browser (first 3 MB of each file): 130 titles, 6 with a file (3 EPUB, 3 PDF); only The Pay Off needs the decoders (94 JPX, 47 JBIG2). His invited reader's library was not checked (another account).
+- **Key paths:** scripts/copy-pdfjs.mjs; lib/reader/pdf-book.ts; proxy.ts; lib/csp.test.ts; e2e/reader.spec.ts ("a scanned PDF's pages show their pictures"); fixtures/books/scanned-meditation.pdf; scripts/make-scanned-fixture.py; fixtures/README.md; docs/root-cause-scanned-pdfs.md
+- **Commands that worked:** python3 scripts/make-scanned-fixture.py -> 56166 bytes; node probe with pdfjs-dist + @napi-rs/canvas, one process per mode -> 0 dark pixels without wasmUrl, 16,631 and 16,844 with; npm run check -> 834 passed, 2 skipped; npx playwright test --ignore-snapshots -> 353 passed (11.9m)
+- **Known issues / blockers:** Deploy waits for Samuel's word. PyMuPDF's update_stream drops /Filter when compress=False, and save(deflate=True) re-encodes a JBIG2 picture as Flate; the script sets the filter back and saves without deflate. pdf.js in Node caches a failed decoder start for the whole process, so probe each mode in its own process.
+- **Exact next steps:** 1. PR, merge with the merge train. 2. Deploy at Samuel's word. 3. Signed in on the live site, open The Pay Off pages 16 and 17 and check they draw. 4. Delete ../Neolibrary-carousel after this merges.
+
+### 2026-10-15 12:12 · Claude Opus 5.5 (laptop) · Root cause: scanned PDFs (The Pay Off) open blank
+- **Done:** Reproduced in the built-in browser on the live site (signed in): The Pay Off pages 16 and 17 draw white; reader says ready; no console error. Its file (scanned in the browser) is an Internet Archive scan: 388 pages, 776 JPEG 2000 and 388 JBIG2 pictures, 3 fonts. pdf.js decodes those only with its wasm decoders via wasmUrl, which lib/reader/pdf-book.ts never sets and scripts/copy-pdfjs.mjs never copies (live /pdfjs/wasm/openjpeg.wasm -> 307). Proved on a one-page JPEG 2000 test PDF: 0 dark pixels as the app sets it up, 4,167 with wasmUrl. Written up with the fix plan; nothing fixed yet.
+- **Key paths:** docs/root-cause-scanned-pdfs.md (new); docs/handoff.md section 5 (pointer)
+- **Commands that worked:** in-page fetch of the book file + count of /JPXDecode and /JBIG2Decode; node probe with pdfjs-dist legacy + @napi-rs/canvas rendering a pymupdf-made JPEG 2000 page with and without wasmUrl
+- **Known issues / blockers:** Every scanned PDF in Samuel's library (Internet Archive and other scans) likely opens blank on the live site until the fix ships.
+- **Exact next steps:** 1. Build the fix in docs/root-cause-scanned-pdfs.md (copy wasm/, wasmUrl, CSP check, a scanned fixture with an ink test), PR, merge, deploy. 2. Count how many of Samuel's PDFs use JPEG 2000 or JBIG2.
+
+### 2026-10-15 11:16 · Claude Opus 5.5 (laptop) · Live: 1d80455, glass pop-ups and mini-player, centred carousel (PR 181)
+- **Done:** PR 181 merged by the auto-merge Action as 1d80455 (four checks green on b370b6b) and deployed at Samuel's word ('deploy'). Live: pop-ups, menus and the mini-player in the cards' glass, read-aloud text on paper inside it, quiet grey a step darker in floating glass, carousel opening on its middle book. Fixed on the way: main had been red since PR 180 (readalong.spec.ts:2566 focused the carousel's disabled Previous arrow; disabled buttons are now skipped), and own-paths.spec.ts:48 is test.slow() after slow runners (15.2 s, then 25.2 s on main the same day, 31-32 s here; no step over 0.6 s). No migration (0026 still last).
+- **Key paths:** components/player/MiniPlayer.module.css; components/shell/Shell.module.css; components/palette/CommandPalette.module.css; app/(app)/covers/page.module.css; components/home/BookCarousel.tsx; lib/tokens.test.ts; e2e/readalong.spec.ts; e2e/own-paths.spec.ts
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=1d80455930405d0b6348d63d7b102b01c7e0e77e --service web --environment production --skip-deploys; railway up --service web --environment production --ci (from ../neolibrary-deploy detached at 1d80455) -> Deploy complete; curl /api/health -> commit 1d80455; /sign-in 200; / 307
+- **Known issues / blockers:** Samuel has not yet looked at the glass pop-ups signed in. GitHub's runners were about 1.5x slower on 2026-10-15.
+- **Exact next steps:** 1. Samuel opens Cmd+K, the account menu and Listen on a book signed in, and the library carousel (should open centred). 2. Later: a shared <Panel> component for all glass. 3. Delete ../Neolibrary-carousel once this record branch rides in with the next PR.
 
 ### 2026-10-15 09:31 · Claude Opus 5.5 (laptop) · Carousel opens centred (added to PR 181)
 - **Done:** Samuel: the carousel looked right-aligned (first book in the middle, left half empty). It now opens on its middle book, before the first paint, once it has a width. Test updated: a book sits left of the middle on opening.

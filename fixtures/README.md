@@ -11,6 +11,7 @@ public-domain books live here; never a copyrighted book.
 | `shelley-frankenstein.epub` | *Frankenstein*, Mary Shelley | `standardebooks/mary-shelley_frankenstein` | as above |
 | `wells-the-time-machine.epub` | *The Time Machine*, H. G. Wells | `standardebooks/h-g-wells_the-time-machine` | as above |
 | `descartes-meditation-one.pdf` | Meditation I, René Descartes (John Veitch translation, 1901) | made by `scripts/make-fixture-pdf.mjs` | US public domain |
+| `scanned-meditation.pdf` | Two pages built like a scan of Meditation I (same translation): page 1 a JPEG 2000 picture, page 2 a JBIG2 picture, each with its words as invisible text | made by `scripts/make-scanned-fixture.py` (Pillow draws the page; no real scan) | US public domain |
 
 The EPUBs are zipped from each repository's `src/epub` folder by
 `scripts/build-fixture-epubs.py` (the cloud environment cannot reach
@@ -20,3 +21,11 @@ inside each `cover.svg` is shrunk to 350×525 to keep the files small.
 To rebuild: `git clone --depth 1 https://github.com/standardebooks/<repo>`
 for each repo above into one folder, then run
 `python3 scripts/build-fixture-epubs.py fixtures/books` from that folder.
+
+`scanned-meditation.pdf` stands in for a scanned book (the Internet Archive,
+library digitisation, a phone scanner app). pdf.js draws JPEG 2000 and JBIG2
+pictures only with its decoders in `public/pdfjs/wasm/`, so a reader test
+checks that each page shows ink, not only that it opened
+(`docs/root-cause-scanned-pdfs.md`). To rebuild:
+`python3 scripts/make-scanned-fixture.py` (needs PyMuPDF and Pillow with
+OpenJPEG and libtiff).
