@@ -142,3 +142,32 @@ describe.each([
     expect(contrastRatio(tokens["room-1"], tokens["room-base"])).toBeGreaterThanOrEqual(1.4);
   });
 });
+
+// Ground rule (docs/design.md rule 5, M24): book text, notes, passages and search snippets never sit on glass.
+describe("reading surfaces stay on solid paper", () => {
+  const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+  const block = (css: string, selector: string) => {
+    const start = css.search(new RegExp(`(^|\\n)${selector.replace(".", "\\.")} \\{`));
+    expect(start, selector).toBeGreaterThanOrEqual(0);
+    return css.slice(start, css.indexOf("}", start));
+  };
+  const glass = /var\(--(panel|rail|tabbar)\)|backdrop-filter/;
+
+  it("the reader has no glass at all", () => {
+    expect(read("../app/(reader)/books/[id]/read/reader.module.css")).not.toMatch(glass);
+  });
+
+  it.each([
+    ["../components/home/Home.module.css", ".note"],
+    ["../app/(app)/review/page.module.css", ".card"],
+    ["../components/PathView.module.css", ".master"],
+    ["../app/(app)/search/page.module.css", ".snippet"],
+  ])("%s %s is paper, not glass", (path, selector) => {
+    const rule = block(read(path), selector);
+    expect(rule).not.toMatch(glass);
+  });
+
+  it("the note inside a Continue card sits on solid paper", () => {
+    expect(block(read("../components/home/Home.module.css"), ".note")).toContain("background-color: var(--paper);");
+  });
+});
