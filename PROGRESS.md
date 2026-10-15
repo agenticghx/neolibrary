@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: PR 181 (glass pop-ups + centred carousel): refresh design pictures, merge when green, deploy at Samuel's word.
+next_action: Samuel checks the glass pop-ups, mini-player and centred carousel live (1d80455).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -211,6 +211,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 11:16 · Claude Opus 5.5 (laptop) · Live: 1d80455, glass pop-ups and mini-player, centred carousel (PR 181)
+- **Done:** PR 181 merged by the auto-merge Action as 1d80455 (four checks green on b370b6b) and deployed at Samuel's word ('deploy'). Live: pop-ups, menus and the mini-player in the cards' glass, read-aloud text on paper inside it, quiet grey a step darker in floating glass, carousel opening on its middle book. Fixed on the way: main had been red since PR 180 (readalong.spec.ts:2566 focused the carousel's disabled Previous arrow; disabled buttons are now skipped), and own-paths.spec.ts:48 is test.slow() after slow runners (15.2 s, then 25.2 s on main the same day, 31-32 s here; no step over 0.6 s). No migration (0026 still last).
+- **Key paths:** components/player/MiniPlayer.module.css; components/shell/Shell.module.css; components/palette/CommandPalette.module.css; app/(app)/covers/page.module.css; components/home/BookCarousel.tsx; lib/tokens.test.ts; e2e/readalong.spec.ts; e2e/own-paths.spec.ts
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=1d80455930405d0b6348d63d7b102b01c7e0e77e --service web --environment production --skip-deploys; railway up --service web --environment production --ci (from ../neolibrary-deploy detached at 1d80455) -> Deploy complete; curl /api/health -> commit 1d80455; /sign-in 200; / 307
+- **Known issues / blockers:** Samuel has not yet looked at the glass pop-ups signed in. GitHub's runners were about 1.5x slower on 2026-10-15.
+- **Exact next steps:** 1. Samuel opens Cmd+K, the account menu and Listen on a book signed in, and the library carousel (should open centred). 2. Later: a shared <Panel> component for all glass. 3. Delete ../Neolibrary-carousel once this record branch rides in with the next PR.
 
 ### 2026-10-15 09:31 · Claude Opus 5.5 (laptop) · Carousel opens centred (added to PR 181)
 - **Done:** Samuel: the carousel looked right-aligned (first book in the middle, left half empty). It now opens on its middle book, before the first paint, once it has a width. Test updated: a book sits left of the middle on opening.
