@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { contrastRatio, parseColorTokens } from "./contrast";
+import { blendOver, contrastRatio, parseColorTokens } from "./contrast";
 
 // Every text colour must be readable on every surface it is used on, in both
 // themes. 4.5:1 is the WCAG AA minimum for body text; 3:1 for large text and UI.
@@ -83,5 +83,57 @@ describe("explicit reader themes", () => {
 
   it("Sepia defines every colour the other themes do", () => {
     expect(Object.keys(themes.sepia).sort()).toEqual(Object.keys(themed(light)).sort());
+  });
+});
+
+// The room and its glass (M24; docs/glass-redo-plan.md, Step 1 rules). The room is one screen tall:
+// only page headers sit on its dark band, so the band needs main ink only; everything below the
+// band must carry every text colour. Glass colours carry an alpha: never pass one to contrastRatio
+// directly (hexToRgb ignores alpha); blend it over what is behind it first, as the screen does.
+describe.each([
+  ["light", light],
+  ["dark", dark],
+  ["sepia", themes.sepia],
+])("%s room and glass", (_name, tokens) => {
+  const band = ["room-1", "room-2"];
+  const body = ["room-3", "room-base"];
+  const shapes = ["room-sage", "room-glow"];
+  const behind = [...band, ...body];
+  // Everything below the band, including the soft shapes painted over it.
+  const below = [...body.map((b) => tokens[b]), ...shapes.flatMap((s) => body.map((b) => blendOver(tokens[s], tokens[b])))];
+
+  it.each(behind)("main ink is readable on %s", (stop) => {
+    expect(contrastRatio(tokens["ink-900"], tokens[stop])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(["ink-700", "ink-500", "accent"])("%s is readable everywhere below the band", (fg) => {
+    for (const surface of below) expect(contrastRatio(tokens[fg], surface), surface).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(behind)("a card over %s reads like paper", (stop) => {
+    const card = blendOver(tokens.panel, tokens[stop]);
+    expect(contrastRatio(tokens["ink-900"], card)).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio(tokens["ink-700"], card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens["ink-500"], card)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(behind)("the sidebar's glass over %s keeps its labels readable", (stop) => {
+    const rail = blendOver(tokens.rail, tokens[stop]);
+    const current = blendOver(tokens["nav-current"], rail);
+    expect(contrastRatio(tokens["ink-900"], rail)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens["ink-700"], rail)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens["ink-900"], current)).toBeGreaterThanOrEqual(4.5);
+    // Icons are graphics: 3:1.
+    expect(contrastRatio(tokens.accent, current)).toBeGreaterThanOrEqual(3);
+  });
+
+  // Covers of every shade pass under the phone tab bar; check its two extremes.
+  it.each(["#000000", "#ffffff"])("tab labels stay readable over %s", (under) => {
+    const bar = blendOver(tokens.tabbar, under);
+    expect(contrastRatio(tokens["ink-900"], bar)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("the room has real range: its darkest and lightest areas are 1.4:1 apart or more", () => {
+    expect(contrastRatio(tokens["room-1"], tokens["room-base"])).toBeGreaterThanOrEqual(1.4);
   });
 });

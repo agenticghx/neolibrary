@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for PR 175's four checks after the review-title fix, merge when they are green, then deploy (no database change). Samuel tries Listen on The Grid; covers on /covers are still his.
+next_action: M24 glass build: tokens PR, then shell (glass rail + hide toggle), cards, carousel (Samuel picks placement, options page part 8).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-12
 shared_copy: none
@@ -209,6 +209,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-14 22:40 · Claude Opus 5.5 (laptop) · M24 step 1: the room and glass colours (tokens only)
+- **Done:** Samuel picked the glass options (2026-10-14): room C (deep sky), sidebar B (glass rail) plus a hide-sidebar button like the Claude desktop app, cards A (88%, hairline, shadow), type A (today's sizes), phone tab bar B (frosted), dark mode = room B's dark shapes. He also wants a book carousel like Hark's. This PR adds only the colour tokens and their tests; nothing on screen changes yet. Measured: on Room C's top band, ink-500 is 2.28:1 and the accent 2.43:1, so the room is one screen tall and only page headers sit on its dark band. Tab bar raised from the board's 62% to 82%: at 62% labels fell under 4.5:1 over a dark or pale cover. The new tests failed on four near-miss colours (4.495, 4.499, 4.34, 4.23) before the values were tuned.
+- **Key paths:** app/tokens.css; lib/contrast.ts (blendOver, from the first attempt); lib/tokens.test.ts; docs/design.md rule 5
+- **Commands that worked:** npx vitest run lib/tokens.test.ts -> 126 passed; npx stylelint app/tokens.css -> clean; npx tsc --noEmit -> clean
+- **Known issues / blockers:** CI moved to Blacksmith runners in PR 176 (opened by the Blacksmith app); not merged when this was written.
+- **Exact next steps:** 1. Merge this PR when the four checks are green. 2. Shell PR (m24-glass-shell): room on the shell, glass rail, hide-sidebar toggle, frosted tab bar, header actions as chips. 3. Cards PR (<Panel>/<Paper>). 4. Carousel after Samuel picks a placement on the options page (part 8).
 
 ### 2026-10-12 12:10 · Grok 4.7 (laptop) · M23: Daily review waits for its title before the accessibility check
 - **Done:** The second browser check (run 38273542441) passed the Night spine test and the new page-ahead test (2.7 s). It failed on Daily review: axe reported document-title on html, with an empty title, right after the last rating. That rating calls router.refresh() so the sidebar count updates, and the title can be empty for a moment while the refresh lands. The check now waits until the title reads Review, then runs the same accessibility check. The page-ahead player code is unchanged.

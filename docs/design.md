@@ -32,9 +32,29 @@ and museum signage, not a software dashboard.
    background, a dashed left rule, sans-serif text and a label saying it was
    written by AI. Book text is serif on paper; the reader's own notes are
    italic serif. These three never look alike.
-5. **Restraint.** Few borders (hairlines only), soft shadows on covers and
-   raised cards only, one accent colour. No gradients except the faint glow
-   on the sign-in page, no glassy blur, no emoji, no stock illustrations.
+5. **The room and its glass** (M24, Samuel's picks of 2026-10-14; the
+   reasoning is in `docs/glass-redo-plan.md`). Behind every app page is a
+   "room": a soft wash, deep blue-grey sky at the top of the first screen
+   fading to cream (dark mode: deep blue and sage shapes on near-black). It
+   is one screen tall (`--room-height`) and scrolls away with the page;
+   below it every page sits on `--room-base`. "Glass" means a see-through
+   panel that lets a blurred version of what is behind it show through:
+   - the sidebar is glass at 42% (`--rail`), the current page a lifted
+     paper chip (`--nav-current`, `--shadow-chip`);
+   - cards are 88% paper with a hairline and a soft shadow (`--panel`,
+     `--panel-edge`, `--shadow-panel`, `--radius-panel` 14px);
+   - the phone tab bar is glass at 82% (`--tabbar`), so its labels stay
+     readable over any cover passing under it.
+   **Rules the tests enforce** (`lib/tokens.test.ts`): only page headers sit
+   on the room's dark band (`--room-1`, `--room-2`), so text there is
+   `--ink-900`; grey text and green links belong below the band, on cards
+   or on paper. Every text colour passes 4.5:1 below the band. Glass is
+   checked after blending it over each part of the room (`blendOver` in
+   `lib/contrast.ts`), never as a bare colour. When the device asks for less
+   transparency, glass turns solid. **Book text, notes, passages and search
+   snippets never sit on glass**: they stay on solid paper.
+   Still: hairlines only, one accent colour, no emoji, no stock
+   illustrations.
 
 ## Type
 
@@ -83,6 +103,8 @@ text `--leading-ui` (1.4). Headings balance their lines (`text-wrap: balance`).
 | `--cover-navy`, `--cover-green` | | | covers of titles you can read or listen to |
 | `--cover-empty` | `#d9d3c7` | `#2b3a41` | a title not available yet (undyed cloth) |
 | `--heat-1` … `--heat-4` | `#bdd6cb` … `#376963` | `#2a4a45` … `#8bbab0` | the reading calendar's shades on Reading stats (M21): 1–14 minutes in a day up to an hour or more; a day with none is `--paper-sunken`. Each step stands further from the page than the last (`lib/tokens.test.ts`) |
+| `--room-1` … `--room-base` | `#8ea5b3` … `#efe7d5` | `#2f4a55` … `#172228` | the room behind app pages (M24); `--room-1`/`--room-2` are the dark band, headers only |
+| `--panel`, `--rail`, `--tabbar` | paper at 88%, 42%, 82% | the dark paper at the same | cards, the sidebar, the phone tab bar (M24) |
 
 No pure black or pure white anywhere.
 

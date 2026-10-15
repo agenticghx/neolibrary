@@ -65,6 +65,10 @@
   /* App shell (M14): the sidebar on desktop, the tab bar on a phone. */
   --sidebar-width: 16rem;
   --tabbar-height: 4.5rem;
+  --room-height: 100dvh;      /* the room covers the first screen (M24) */
+  --radius-panel: 14px;       /* cards (Samuel's pick A) */
+  --blur-glass: 24px;         /* cards, dialogs, the tab bar */
+  --blur-rail: 30px;          /* the sidebar */
 
   /* Light theme colours: warm paper, deep ink, oxidised teal */
   --paper: #f3ede1;          /* page background */
@@ -109,6 +113,31 @@
   --heat-2: #8bb8aa;
   --heat-3: #5a9185;
   --heat-4: #376963;
+
+  /*
+   * The room and its glass (M24, Samuel's picks of 2026-10-14: room C, sidebar B, cards A, tab bar B,
+   * dark room B; docs/glass-redo-plan.md). The room is one screen tall at the top of each page and
+   * scrolls away with it; below it every page sits on --room-base. Only page headers sit on the dark
+   * band (--room-1, --room-2), so text there is --ink-900. Glass colours carry an alpha and are only
+   * checked after blending over the room (lib/tokens.test.ts).
+   */
+  --room-1: #8ea5b3;         /* the deep sky at the top: headers only */
+  --room-2: #b3c3c8;
+  --room-3: #e2e3da;         /* where the shelf starts: every text colour passes from here down */
+  --room-base: #efe7d5;      /* below the first screen */
+  --room-sage: #dee6d899;    /* a soft sage shape near the shelf */
+  --room-glow: #faf6eecc;    /* a pale glow to the right */
+  --panel: #faf6eee0;        /* cards: paper-raised at 88% */
+  --panel-edge: #2432391f;   /* their hairline */
+  --rail: #faf6ee6b;         /* the sidebar's glass, 42% */
+  --rail-edge: #faf6ee99;
+  --nav-hover: #faf6ee73;    /* a sidebar row under the pointer */
+  --nav-current: #faf6eecc;  /* the current page: a lifted paper chip */
+  --tabbar: #faf6eed1;       /* the phone tab bar, 82%: labels stay readable over any cover */
+  --tabbar-edge: #faf6eea6;
+  --shadow-panel: 0 1px 2px #2432390f, 0 14px 36px -14px #24323938;
+  --shadow-chip: 0 1px 2px #2432391f, 0 4px 10px -4px #2432391f;
+  --room: radial-gradient(40% 45% at 22% 62%, var(--room-sage), transparent 70%), radial-gradient(45% 40% at 72% 38%, var(--room-glow), transparent 70%), linear-gradient(168deg, var(--room-1) 0%, var(--room-2) 25%, var(--room-3) 50%, var(--room-base) 75%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -142,6 +171,25 @@
     --heat-2: #3d6b63;
     --heat-3: #5a9488;
     --heat-4: #8bbab0;
+
+    /* The room (M24): dark room B, its shapes moved so the bright ones sit behind headers and the sidebar. */
+    --room-1: #2f4a55;
+    --room-2: #263d35;
+    --room-3: #322c20;
+    --room-base: #172228;
+    --room-sage: #1f312a59;
+    --room-glow: #22343b33;
+    --panel: #22323ae0;
+    --panel-edge: #e7ddc914;
+    --rail: #101a1f73;
+    --rail-edge: #e7ddc912;
+    --nav-hover: #e7ddc90f;
+    --nav-current: #e7ddc91a;
+    --tabbar: #22323ad1;
+    --tabbar-edge: #e7ddc914;
+    --shadow-panel: 0 1px 2px #0000004d, 0 16px 40px -16px #0000008c;
+    --shadow-chip: 0 0 0 #0000;
+    --room: radial-gradient(55% 45% at 0% 0%, var(--room-1), transparent 70%), radial-gradient(28% 40% at 0% 100%, var(--room-2), transparent 70%), radial-gradient(40% 45% at 100% 100%, var(--room-3), transparent 70%), radial-gradient(40% 45% at 22% 62%, var(--room-sage), transparent 70%), radial-gradient(40% 40% at 70% 30%, var(--room-glow), transparent 70%), var(--room-base);
   }
 }
 
@@ -150,6 +198,17 @@
     --dur-fast: 0ms;
     --dur-base: 0ms;
     --dur-slow: 0ms;
+  }
+}
+
+/* When the device asks for less transparency, the glass turns solid (M24). */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --panel: var(--paper-raised);
+    --rail: var(--paper-sunken);
+    --tabbar: var(--paper-raised);
+    --blur-glass: 0px;
+    --blur-rail: 0px;
   }
 }
 
@@ -191,6 +250,22 @@
   --heat-2: #8bb8aa;
   --heat-3: #5a9185;
   --heat-4: #376963;
+  --room-1: #8ea5b3;
+  --room-2: #b3c3c8;
+  --room-3: #e2e3da;
+  --room-base: #efe7d5;
+  --room-sage: #dee6d899;
+  --room-glow: #faf6eecc;
+  --panel: #faf6eee0;
+  --panel-edge: #2432391f;
+  --rail: #faf6ee6b;
+  --rail-edge: #faf6ee99;
+  --nav-hover: #faf6ee73;
+  --nav-current: #faf6eecc;
+  --tabbar: #faf6eed1;
+  --tabbar-edge: #faf6eea6;
+  --shadow-panel: 0 1px 2px #2432390f, 0 14px 36px -14px #24323938;
+  --shadow-chip: 0 1px 2px #2432391f, 0 4px 10px -4px #2432391f;
 }
 
 /* Sepia: warm, low-glare light */
@@ -225,6 +300,22 @@
   --heat-2: #c9a671;
   --heat-3: #a07848;
   --heat-4: #73502c;
+  --room-1: #a9a58f; /* the room (M24), warmed for sepia */
+  --room-2: #c9c0a6;
+  --room-3: #ebe2cd;
+  --room-base: #f3ead6;
+  --room-sage: #e1e2cc99;
+  --room-glow: #f8f2e3cc;
+  --panel: #f8f2e3e0;
+  --panel-edge: #3a2e221f;
+  --rail: #f8f2e36b;
+  --rail-edge: #f8f2e399;
+  --nav-hover: #f8f2e373;
+  --nav-current: #f8f2e3cc;
+  --tabbar: #f8f2e3d1;
+  --tabbar-edge: #f8f2e3a6;
+  --shadow-panel: 0 1px 2px #2432390f, 0 14px 36px -14px #24323938;
+  --shadow-chip: 0 1px 2px #2432391f, 0 4px 10px -4px #2432391f;
 }
 
 /* Night: the dark theme */
@@ -259,4 +350,20 @@
   --heat-2: #3d6b63;
   --heat-3: #5a9488;
   --heat-4: #8bbab0;
+  --room-1: #2f4a55;
+  --room-2: #263d35;
+  --room-3: #322c20;
+  --room-base: #172228;
+  --room-sage: #1f312a59;
+  --room-glow: #22343b33;
+  --panel: #22323ae0;
+  --panel-edge: #e7ddc914;
+  --rail: #101a1f73;
+  --rail-edge: #e7ddc912;
+  --nav-hover: #e7ddc90f;
+  --nav-current: #e7ddc91a;
+  --tabbar: #22323ad1;
+  --tabbar-edge: #e7ddc914;
+  --shadow-panel: 0 1px 2px #0000004d, 0 16px 40px -16px #0000008c;
+  --shadow-chip: 0 0 0 #0000;
 }
