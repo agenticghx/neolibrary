@@ -516,3 +516,15 @@
     padding-left: 0;
   }
 }
+
+/* Plain links on app pages (M24): main ink with a green underline, as links inside cards already were.
+   Green text measures under 4.5:1 on the room's sky; main ink passes everywhere on it. */
+.content :where(a:not([class])) {
+  color: var(--ink-900);
+  text-decoration-color: var(--accent);
+}
+
+.content :where(a:not([class])):hover {
+  color: var(--ink-900);
+  text-decoration-thickness: calc(var(--border-hair) * 2);
+}

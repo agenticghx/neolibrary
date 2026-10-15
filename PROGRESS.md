@@ -210,6 +210,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-15 00:10 · Claude Opus 5.5 (laptop) · M24 step 2, round 2: sky fades sooner; plain links are ink
+- **Done:** CI round 1 on PR 178 (run 38671788820): 60 failed, every one a screenshot comparison; 135 did not run (they wait on the screenshots). Looking at CI's renderings before committing them showed, on a phone, grey text ("Nothing yet" on Reading stats) and green links (Import in Home's intro) still on the blue part of the sky. The sky now fades to cream within the top third of the first screen (stops 0/15/35/70%), and plain links on app pages are main ink with a green underline, as links in cards already were. New test: secondary ink passes on --room-2.
+- **Key paths:** app/tokens.css; components/shell/Shell.module.css; lib/tokens.test.ts
+- **Commands that worked:** attempt-log.sh 38671788820 -> 60 x toHaveScreenshot, nothing else; npx vitest run lib/tokens.test.ts -> 129 passed; playwright phone/desktop light + phone dark (Home, Stats, accessibility) -> 52 passed, 6 screenshots differ (expected)
+- **Known issues / blockers:** Reference images still to refresh from the next CI round (not committed from round 1, because the look changed after it).
+- **Exact next steps:** 1. CI round 2: look at the renderings, commit them, push. 2. Merge 178. 3. Rebase m24-glass-cards (PR not opened yet) onto main and open it.
+
 ### 2026-10-14 23:30 · Claude Opus 5.5 (laptop) · M24 step 2: the room, the glass sidebar with a hide button, the frosted tab bar
 - **Done:** PR 177 (tokens) merged as dc7392d. Every app page now sits on the room (deep sky at the top of the first screen, cream below; dark: deep blue at the top, faint amber lower right). The sidebar is glass (42%) with the current page as a lifted paper chip. A button at its top left hides it and shows it again, as in the Claude desktop app; the choice is kept in a cookie (nl.sidebar) that the layout reads, so the page never flashes. The phone tab bar is frosted (82%) with main-ink labels. Page eyebrows and ledes (11 page stylesheets) are main ink, because they sit on the room's dark band. The sidebar's old scroll-edge shading was solid paper and showed as patches on glass, so it is gone. Bug found and fixed on the way: the layout imported the cookie name from a "use client" file, which on the server is not the string, so the hidden choice was ignored after a reload.
 - **Key paths:** components/shell/Shell.module.css; components/shell/SidebarToggle.tsx; components/shell/sidebar-cookie.ts; app/(app)/layout.tsx; app/tokens.css (dark room fix); e2e/shell.spec.ts (new test); 11 page .module.css files (.eyebrow, .lede)
