@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M25 S4, the job (migration 0027, batches, the page check); S2 and S3 PRs after PR 183.
+next_action: Merge M25 S2 (PR 184), then S3 and S4 one at a time; then S5, the EPUB text edition.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15 17:30 (laptop clock). **M25 S4 (the job) is built on branch `m25-text-edition-job`**, stacked: PR 184 (S2) is open; `m25-page-pictures` (S3) and this branch wait for it, to be merged one at a time. S4 adds **migration 0027** (with its reverse step): take a production backup before the deploy that applies it, and check `_migrations` after. Next: S5, the EPUB text edition.
 
 Written 2026-10-15 16:40 (laptop clock). **M25 S3 (page pictures on the server) is built on branch `m25-page-pictures`** (on top of S2's `m25-batch-adapter`, on top of PR 183). After the next deploy, the server's log should say "Page pictures: ready." (proof the canvas package loads on Railway). Next: S4, the job.
 
@@ -227,6 +229,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 17:30 · Claude Opus 5.5 (laptop) · M25 S4: the text-edition job
+- **Done:** Migration 0027 (text_edition_jobs: status, batch numbers with each page picture's fingerprint, blank pages, problems, page checks; books gain edition_of, so a text edition (S5) is a book of its own linked to its scan) with its reverse step. lib/library/text-edition.ts: summary (pages, the most it costs at a generous $0.0110 a page (largest picture plus a long answer, at the batch price), the limits with what is spent and held), start (confirm, owner's PDF, one job per book, refuses over a limit with 402), preparing in the background (draws each page, skips blank pages and pages read before, sends batches of at most 150 MB of pictures), pollTextEditions (resumes a preparation cut short, saves each answer as a generations row of kind transcribe at the batch price, lists refused, cut-off, cancelled and expired pages; a billed refusal is kind transcribe-failed, counted but never served), Stop (cancels, nothing more charged), and a check every minute from instrumentation.ts. While a job goes on, its estimate less what its pages cost is held against the caps (heldByJobs, spendingWithJobs in lib/ai/generate.ts, used by checkCaps and reserveSpend). lib/library/page-check.ts compares each page read with the scan's hidden text (running head and page number left out); calibrated on the five test pages: good pages 0.985 to 1, each with one sentence reworded 0.91 to 0.92, the contents page 0.89, the sideways table 0.01, so the line is 0.95. prompts/transcribe-page.md is the tested prompt, byte for byte. Route app/api/books/[id]/text-edition (GET, POST confirm, DELETE), owner only.
+- **Key paths:** db/migrations/0027_text_editions.{up,down}.sql; lib/db/schema.ts; lib/library/text-edition.ts (+ .test.ts); lib/library/page-check.ts (+ .test.ts); lib/ai/generate.ts; prompts/transcribe-page.md; app/api/books/[id]/text-edition/route.ts (+ .test.ts); instrumentation.ts
+- **Commands that worked:** npx vitest run lib/library/text-edition.test.ts -> 12 passed (caught a real fault on the way: blank pages did not count as done, so a book read through could be started again); route tests 4 passed; page-check 6 passed; npm run check -> 870 passed, 2 skipped (the migration test runs 0027 up, down, up)
+- **Known issues / blockers:** No Postgres on the laptop: CI's Real Postgres job is the check for 0027 on Postgres. The check cannot see a reworded sentence on a page whose hidden text is poor. Not wired to any page yet (S7).
+- **Exact next steps:** 1. Merge S2, S3, S4 one at a time (merge-train). 2. S5 on branch m25-text-epub.
 
 ### 2026-10-15 16:40 · Claude Opus 5.5 (laptop) · M25 S3: page pictures on the server
 - **Done:** lib/library/page-pictures.ts draws a PDF page as a PNG with pdf.js (decoders and colour profiles from node_modules) on @napi-rs/canvas (now a direct dependency, pinned to 1.0.10, kept out of the Next.js bundle), at 300 dpi or smaller as Claude's limits require (2,576 px long edge, 4,784 picture tokens of 28 x 28 px), and measures the share of dark ink. A start-up line says whether this server can draw them ("Page pictures: ready."). Measured on all 388 pages of The Pay Off on the laptop (66 s): pictures about 1,359 x 2,258 px, 953 KB on average, 370 MB in all (so batches go by size, under Anthropic's 256 MB); 27 pages had at most 0.034% dark ink and the lightest page with words (a part title) 0.67%, so blank means under 0.1%. Looked at four by eye: three blank pages with faint show-through, one part title.

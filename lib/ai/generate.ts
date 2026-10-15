@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { audioTracks, generations } from "@/lib/db/schema";
+import { audioTracks, generations, textEditionJobs } from "@/lib/db/schema";
 import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel } from "./model";
 import { sha256 } from "./prompts";
 
@@ -87,8 +87,11 @@ export const toGeneration = (r: Row): Generation => ({
   },
 });
 
-const cacheKeyOf = (req: GenerationRequest) =>
-  sha256(JSON.stringify([req.kind, Object.entries(req.options).sort(), req.promptHash, sha256(req.input)]));
+/** The key a stored answer is found by: its kind, options, prompt fingerprint and the fingerprint of its input. */
+export const generationCacheKey = (kind: string, options: Record<string, string>, promptHash: string, inputHash: string) =>
+  sha256(JSON.stringify([kind, Object.entries(options).sort(), promptHash, inputHash]));
+
+const cacheKeyOf = (req: GenerationRequest) => generationCacheKey(req.kind, req.options, req.promptHash, sha256(req.input));
 
 /** The estimated cost of a request, in US dollars: generous, so the cap errs on the safe side. */
 export function estimateCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "input" | "maxTokens">) {
@@ -124,6 +127,37 @@ export async function spending(db: Db, provider: string, bookId: string | null, 
 }
 
 type Spent = { month: number; book: number };
+
+/**
+ * What text-edition jobs going on (M25) still hold against the caps: each
+ * job's estimate, less what its pages have cost so far. A batch is paid for
+ * as Anthropic answers it, hours later; the hold keeps other requests from
+ * spending the same money meanwhile. It goes when the job ends.
+ */
+export async function heldByJobs(db: Db, provider: string, bookId: string | null): Promise<Spent> {
+  const jobs = await db
+    .select({ bookId: textEditionJobs.bookId, estimate: textEditionJobs.estimateUsd, createdAt: textEditionJobs.createdAt })
+    .from(textEditionJobs)
+    .where(and(eq(textEditionJobs.provider, provider), inArray(textEditionJobs.status, ["preparing", "waiting"])));
+  const held = { month: 0, book: 0 };
+  for (const job of jobs) {
+    const [r] = await db
+      .select({ usd: sql<number>`coalesce(sum(${generations.costUsd}), 0)::float8` })
+      .from(generations)
+      .where(and(eq(generations.bookId, job.bookId), eq(generations.provider, provider), gte(generations.createdAt, job.createdAt), sql`${generations.kind} like 'transcribe%'`));
+    const left = Math.max(0, job.estimate - Number(r?.usd ?? 0));
+    held.month += left;
+    if (bookId && job.bookId === bookId) held.book += left;
+  }
+  return held;
+}
+
+/** What has been spent, plus what jobs going on still hold: what a new request must fit beside. */
+export async function spendingWithJobs(db: Db, provider: string, bookId: string | null, now = new Date()): Promise<Spent> {
+  const spent = await spending(db, provider, bookId, now);
+  const held = await heldByJobs(db, provider, bookId);
+  return { month: spent.month + held.month, book: spent.book + held.book };
+}
 type ReadSpend = (db: Db, provider: string, bookId: string | null, now: Date) => Promise<Spent>;
 
 function capEnv(label: string) {
@@ -147,7 +181,7 @@ export function assertRoom(spent: Spent, held: Spent, estimate: number, caps: Ca
 
 /** Throws if spending `estimate` more would pass a cap. */
 export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
-  assertRoom(await spending(db, provider, bookId, now), { month: 0, book: 0 }, estimate, caps, label, bookId);
+  assertRoom(await spendingWithJobs(db, provider, bookId, now), { month: 0, book: 0 }, estimate, caps, label, bookId);
 }
 
 // Reserves live in this process. The lock only covers the check and the
@@ -196,7 +230,7 @@ export async function reserveSpend(
   caps: Caps,
   now: Date,
   label: string,
-  read: ReadSpend = spending,
+  read: ReadSpend = spendingWithJobs,
 ): Promise<() => Promise<void>> {
   await lockSpend(provider, async () => {
     const spent = await read(db, provider, bookId, now);

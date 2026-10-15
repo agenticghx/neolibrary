@@ -20,6 +20,9 @@ export async function register() {
   // M22: covers for titles without one, looked up in the background (COVER_LOOKUP=off switches it off).
   const { scheduleCoverLookups } = await import("./lib/library/cover-job");
   scheduleCoverLookups(getDb, getStorage);
+  // M25: text editions of scanned books; batches sent before a restart are picked up again.
+  const { scheduleTextEditionPolls } = await import("./lib/library/text-edition");
+  scheduleTextEditionPolls(getDb, getStorage);
   // M25: scanned books are read from page pictures; say whether this server can draw them.
   const { pagePicturesProblem } = await import("./lib/library/page-pictures");
   void pagePicturesProblem().then((problem) =>
