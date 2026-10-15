@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel picks the carousel placement (glass options page, part 8: A, B or C); then the carousel PR from m24-carousel.
+next_action: PR 180 (carousel in the library): refresh reference screenshots from CI, merge when green, deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -211,6 +211,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 08:08 · Claude Opus 5.5 (laptop) · M24: the library's grid becomes the book carousel (PR 180)
+- **Done:** Samuel picked carousel placement B, with the grid view turned into the carousel and spines kept (2026-10-15). On Home and /library the View switch is now Carousel | Spines; carousel is the default; a saved 'grid' opens as the carousel. The carousel's middle-book card shows title, author, availability and progress, like the old grid card. BookCarousel's test id moved to its list, and a ResizeObserver re-measures when the view is shown. Also: row 9 on the options page shows Samuel's alternative combination (room B, sidebar A, cards B) next to the live one; he kept what is live.
+- **Key paths:** components/home/LibraryViews.tsx; components/home/BookCarousel.tsx and .module.css; app/(app)/page.tsx; app/(app)/library/page.tsx; e2e/home.spec.ts
+- **Commands that worked:** npx tsc --noEmit (clean); eslint + stylelint (clean); npx vitest run -> 809 passed, 2 skipped; gh pr create -> https://github.com/agenticghx/neolibrary/pull/180
+- **Known issues / blockers:** Browser tests not run locally (the home project needs the whole chain); CI round 1 will fail on the Home and Library reference screenshots by design.
+- **Exact next steps:** 1. When CI on PR 180 reports, refresh the screenshots with the merge-train skill (refresh-screenshots.sh <run-id>), look at them, commit, push. 2. Merge when the four checks are green. 3. Deploy only at Samuel's word; then delete the ../Neolibrary-carousel worktree.
 
 ### 2026-10-15 01:30 · Claude Opus 5.5 (laptop) · M24: shell and cards merged; live 032a512; CI on Blacksmith
 - **Done:** #176 (Blacksmith runners, opened by the Blacksmith app after Samuel's migration) merged as 66726c9 after all four checks passed on Blacksmith (browser job 12m58s). #178 (room, glass sidebar, hide button, frosted tab bar) merged as cc44088 on round 3 (round 1 and 2: only the 60 screenshot comparisons; the round-2 renderings from run 38672650033 were looked at and committed; round 3 run 38673315699: 272 passed, the hide-sidebar test 623 ms, browser job 9m2s). #179 (cards at 88%) merged as 032a512, green on the first round: the screenshot tests ran but the 88% cards over cream differ from solid paper by less than Playwright's default per-pixel tolerance (no build cache in CI; noted on the PR). Deployed 032a512 (no database change since 0026, so no backup), replacing the first glass attempt (699a97f) on the live site. The carousel branch is rebased onto main; it waits on Samuel's placement pick.
