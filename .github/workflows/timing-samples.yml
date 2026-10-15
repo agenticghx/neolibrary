@@ -43,7 +43,7 @@ permissions:
 jobs:
   plan:
     name: Commits and machines
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
@@ -68,7 +68,7 @@ jobs:
   sample:
     name: ${{ matrix.ref }} · machine ${{ matrix.machine }}
     needs: plan
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -119,7 +119,7 @@ jobs:
     name: Summary
     needs: sample
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

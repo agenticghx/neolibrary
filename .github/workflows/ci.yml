@@ -28,7 +28,7 @@ jobs:
     name: Lint, types, unit tests
     # The night run is the browser job only. Lint already ran on the push to main.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -49,7 +49,7 @@ jobs:
     # the library production uses, so production-only database bugs fail here.
     name: Real Postgres (migrations, data layer)
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     services:
       postgres:
         # The official Postgres image from Amazon's public mirror of Docker Hub's library: Docker Hub
@@ -80,7 +80,7 @@ jobs:
   hygiene:
     name: PR hygiene (PROGRESS.md Log entry)
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v5
         with:
@@ -91,7 +91,7 @@ jobs:
     # This name is a required check. Renaming it leaves branch protection
     # waiting for a check that no longer exists.
     name: Browser tests (screenshots + accessibility)
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write        # push screenshots to the ci-screenshots branch
       pull-requests: write   # post the screenshot grid comment
