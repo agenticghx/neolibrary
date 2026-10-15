@@ -1,9 +1,33 @@
 import type { Metadata } from "next";
 import { Cover } from "@/components/Cover";
+import { BookCarousel } from "@/components/home/BookCarousel";
+import type { LibraryItem } from "@/lib/library/home";
 import { NOT_YET } from "@/lib/library/availability";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Design system" };
+
+// The carousel's sample books (public-domain titles, typographic covers).
+const sampleBooks: LibraryItem[] = [
+  ["Meditations", true, true],
+  ["Discourse on Method", true, false],
+  ["Frankenstein", true, true],
+  ["The Time Machine", true, false],
+  ["Walden", false, true],
+  ["The Principles", false, false],
+  ["Middlemarch", true, false],
+].map(([title, read, listen], i) => ({
+  id: `sample-${i}`,
+  title: title as string,
+  author: "",
+  coverUrl: null,
+  progress: 0,
+  pageCount: null,
+  fileSize: null,
+  available: { read: read as boolean, listen: listen as boolean },
+  notes: false,
+  audiobook: false,
+}));
 
 // Each swatch's class name matches its token in app/tokens.css.
 const swatches = [
@@ -88,6 +112,14 @@ export default function DesignPage() {
             <Cover title="Discourse on Method" slot="E" tone="green" available={{ read: true, listen: false }} />
             <Cover title="The Principles" slot="E" available={NOT_YET} />
           </div>
+        </section>
+
+        <section className={styles.section} aria-labelledby="carousel">
+          <h2 id="carousel" className={styles.sectionTitle}>
+            Carousel
+          </h2>
+          <p className={styles.sectionNote}>Moves only when swiped, dragged or stepped with the arrows, then settles with a book in the middle.</p>
+          <BookCarousel items={sampleBooks} label="Sample books" demo />
         </section>
 
         <section className={styles.section} aria-labelledby="type">

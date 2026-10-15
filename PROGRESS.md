@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M24 shell PR (glass sidebar + hide button) through CI; then cards; carousel waits on Samuel's pick (options page part 8).
+next_action: PR 180 (carousel in the library): refresh reference screenshots from CI, merge when green, deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-12
+updated: 2026-10-15
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15 01:30 (laptop clock). **Live: 032a512. Samuel's glass picks are deployed:** the room (deep sky on the first screen, cream below), a glass sidebar with a hide button at its top left (as in the Claude desktop app; remembered in the nl.sidebar cookie), a frosted phone tab bar, and cards at 88% with a hairline and soft shadow. CI now runs on Blacksmith (#176). **Waiting on Samuel:** where the book carousel goes on Home, options page part 8 (https://claude.ai/artifact/1mQgLYrHawTL2kk2QjMwmp): A hero at the top, B a third library view, C Continue as a carousel. The carousel is built and tested on branch `m24-carousel` (worktree ../Neolibrary-carousel), shown only on /design so far. Then: mount it, PR, merge, deploy. Later: dialogs and the mini-player as glass.
 
 Written 2026-10-12 (laptop clock). **M23 is on pull request 175 (`m23-pdf-page-ahead`, not deployed).** While a PDF page plays in a made voice, the next paragraph is made at once, one ahead, and its cost counts toward the $1 "Keep reading?" question. An EPUB and an uploaded audiobook are unchanged. No database change. Two older browser tests failed on the way, and both are fixed in the test, not in the player. Night's page-turn check now walks back to pages 1 and 2 (run 38271487444 saw pages 3 and 4). The next run (38273542441) passed that test and the new page-ahead test (2.7 s), then Daily review's accessibility check saw an empty page title while a refresh was still replacing it. That check now waits until the title reads Review. On the laptop the Daily review test passed (2 passed, 11.7 s). Next: the four checks on the new commit, then merge, deploy, and Samuel tries Listen on *The Grid* (the silence at the page turn should be gone; one page he never reaches may still be paid for). Covers on /covers are still his. Open unknowns row 21 (a), (c), (d) and (e) still wait.
 
@@ -209,6 +211,27 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 08:08 · Claude Opus 5.5 (laptop) · M24: the library's grid becomes the book carousel (PR 180)
+- **Done:** Samuel picked carousel placement B, with the grid view turned into the carousel and spines kept (2026-10-15). On Home and /library the View switch is now Carousel | Spines; carousel is the default; a saved 'grid' opens as the carousel. The carousel's middle-book card shows title, author, availability and progress, like the old grid card. BookCarousel's test id moved to its list, and a ResizeObserver re-measures when the view is shown. Also: row 9 on the options page shows Samuel's alternative combination (room B, sidebar A, cards B) next to the live one; he kept what is live.
+- **Key paths:** components/home/LibraryViews.tsx; components/home/BookCarousel.tsx and .module.css; app/(app)/page.tsx; app/(app)/library/page.tsx; e2e/home.spec.ts
+- **Commands that worked:** npx tsc --noEmit (clean); eslint + stylelint (clean); npx vitest run -> 809 passed, 2 skipped; gh pr create -> https://github.com/agenticghx/neolibrary/pull/180
+- **Known issues / blockers:** Browser tests not run locally (the home project needs the whole chain); CI round 1 will fail on the Home and Library reference screenshots by design.
+- **Exact next steps:** 1. When CI on PR 180 reports, refresh the screenshots with the merge-train skill (refresh-screenshots.sh <run-id>), look at them, commit, push. 2. Merge when the four checks are green. 3. Deploy only at Samuel's word; then delete the ../Neolibrary-carousel worktree.
+
+### 2026-10-15 01:30 · Claude Opus 5.5 (laptop) · M24: shell and cards merged; live 032a512; CI on Blacksmith
+- **Done:** #176 (Blacksmith runners, opened by the Blacksmith app after Samuel's migration) merged as 66726c9 after all four checks passed on Blacksmith (browser job 12m58s). #178 (room, glass sidebar, hide button, frosted tab bar) merged as cc44088 on round 3 (round 1 and 2: only the 60 screenshot comparisons; the round-2 renderings from run 38672650033 were looked at and committed; round 3 run 38673315699: 272 passed, the hide-sidebar test 623 ms, browser job 9m2s). #179 (cards at 88%) merged as 032a512, green on the first round: the screenshot tests ran but the 88% cards over cream differ from solid paper by less than Playwright's default per-pixel tolerance (no build cache in CI; noted on the PR). Deployed 032a512 (no database change since 0026, so no backup), replacing the first glass attempt (699a97f) on the live site. The carousel branch is rebased onto main; it waits on Samuel's placement pick.
+- **Key paths:** PROGRESS.md; components/home/BookCarousel.tsx (branch m24-carousel, worktree ../Neolibrary-carousel)
+- **Commands that worked:** gh pr merge <n> --squash --match-head-commit <sha> (the auto-merge Action got there first for 177, 178, 179); git worktree add --detach ../nl-deploy origin/main; railway variable set NEOLIBRARY_COMMIT=032a512 --service web --environment production --skip-deploys; railway up --service web --environment production --ci (over 10 minutes this time); /api/health -> {"status":"ok","commit":"032a512"}; /sign-in 200; /import 307; / 307; live CSS has --room-1:#8ea5b3 and --tabbar:#faf6eed1
+- **Known issues / blockers:** Samuel has not looked at the live glass signed in yet. Lesson: a constant imported from a "use client" file is not the value in a server component (the hide-sidebar cookie name), so shared constants live in a plain file. Dialogs and the mini-player are not glass yet.
+- **Exact next steps:** 1. Samuel picks the carousel placement (options page part 8: A hero, B third library view, C Continue as a carousel). 2. Mount it, add a Home test, PR from m24-carousel, refresh screenshots, merge, deploy. 3. Later: dialogs and mini-player as glass.
+
+### 2026-10-15 00:40 · Claude Opus 5.5 (laptop) · M24: the book carousel, built and shown on the design page
+- **Done:** Samuel asked for a book carousel like Hark's (screen recording, 2026-10-14, kept on his laptop, not in git). Measured from the recording (horizontal shift per 0.1 s): the strip sits still until flicked or dragged, glides, slows, and settles on a card (bursts like -75 -200 -145 -100 -61 0, long runs of 0 between); nothing moves on its own. Built components/home/BookCarousel.tsx: a scroll-snap strip of covers; a mouse can drag it (a drag never opens a book); Previous/Next buttons on desktop; Tab onto a cover brings it to the middle; the middle book shows a glass pill with its title and availability; the others tilt up to 14 degrees and shrink up to 10%. Hark's small spring-back is left out (docs/design.md: nothing bounces). For now it is shown only on /design with sample books; where it goes on Home waits on Samuel (options page part 8: A hero, B third library view, C Continue as a carousel).
+- **Key paths:** components/home/BookCarousel.tsx; components/home/BookCarousel.module.css; app/tokens.css (--carousel-card, --carousel-card-phone, --carousel-depth); app/(app)/design/page.tsx; e2e/shell.spec.ts ("book carousel")
+- **Commands that worked:** git worktree at ../Neolibrary-carousel (node_modules cloned with cp -cR; Turbopack refuses a symlinked node_modules); npm run build; setup then shell --no-deps --grep "book carousel" -> 2 passed (2.5s)
+- **Known issues / blockers:** Before the width fix the carousel measured 1096 px wide on a 390 px phone; the new phone test checks it. The /design reference screenshots will change.
+- **Exact next steps:** 1. Samuel picks A, B or C. 2. Mount it there (Home), add a Home browser test, refresh screenshots, open the PR after the shell and cards PRs merge.
 
 ### 2026-10-14 23:55 · Claude Opus 5.5 (laptop) · M24 step 3: cards are glass at 88% (pick A)
 - **Done:** 14 page cards (Account, Your data, costs, invites, Covers search, the library's and Home's three-classics offer, Paths list items and editor, Daily review's empty state, both Reading stats boxes, starter paths, Home's Continue cards) are now 88% paper with a hairline, a soft shadow and 14 px corners, blurred over the room. Boxes holding book passages or notes stay solid paper (Daily review's card, a Path's master panel, search snippets, the note inside a Continue card), and the reader has no glass at all; a new test enforces it and fails when glass is added to the Continue note (checked by breaking it on purpose). Dialogs and the mini-player are not changed yet. Done as CSS on each card, not yet as a shared <Panel> component.

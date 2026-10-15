@@ -1,0 +1,150 @@
+/* The book carousel (M24; components/home/BookCarousel.tsx): a strip that moves only when swiped, dragged
+   or stepped, and settles with one book in the middle. The middle book's pill is a glass card. */
+
+/* Never wider than its column: the strip scrolls inside it (a phone page must not scroll sideways). */
+.carousel {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  contain: inline-size;
+}
+
+.strip {
+  display: flex;
+  gap: var(--space-5);
+  margin: 0;
+  padding: var(--space-4) calc(50% - var(--carousel-card) / 2) var(--space-6);
+  overflow-x: auto;
+  list-style: none;
+  cursor: grab;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  perspective: var(--carousel-depth);
+}
+
+.strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* While a mouse drags it, the strip follows the pointer; it settles on a book when let go. */
+.strip[data-dragging] {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+
+.card {
+  flex: none;
+  width: var(--carousel-card);
+  transform: rotateY(var(--tilt, 0deg)) scale(var(--shrink, 1));
+  transform-origin: center 40%;
+  scroll-snap-align: center;
+}
+
+.link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  color: var(--ink-900);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--ink-900);
+}
+
+/* Shown under the middle book only; the others keep their name for screen readers. */
+.pill {
+  display: grid;
+  justify-self: center;
+  justify-items: center;
+  gap: var(--space-0);
+  width: max-content;
+  max-width: calc(var(--carousel-card) * 1.6);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+  opacity: 0;
+  backdrop-filter: blur(var(--blur-glass));
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.card[data-current] .pill {
+  opacity: 1;
+}
+
+.itemTitle {
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+.author {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+/* What you can do with it, then how far you are, one to a line (a dot between them was left at the
+   start of the second line when a phone's narrow pill wrapped them). */
+.meta {
+  display: grid;
+  justify-items: center;
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.arrow {
+  position: absolute;
+  top: calc(var(--carousel-card) * 0.75 + var(--space-4));
+  z-index: var(--z-raised);
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-pill);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
+  color: var(--ink-900);
+  translate: 0 -50%;
+  cursor: pointer;
+  backdrop-filter: blur(var(--blur-glass));
+}
+
+.arrow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.prev {
+  left: var(--space-2);
+}
+
+.next {
+  right: var(--space-2);
+}
+
+.prev .arrowIcon {
+  rotate: 90deg;
+}
+
+.next .arrowIcon {
+  rotate: -90deg;
+}
+
+/* A phone swipes; the arrows would cover the neighbouring books. */
+@media (width <= 48rem) {
+  .carousel {
+    --carousel-card: var(--carousel-card-phone);
+  }
+
+  .arrow {
+    display: none;
+  }
+}

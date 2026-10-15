@@ -159,12 +159,12 @@ for (const [name, viewport] of [
   ["desktop", { width: 1280, height: 800 }],
   ["phone", { width: 390, height: 844 }],
 ] as const) {
-  test(`the View switch shows grid or spines and is remembered (${name})`, async ({ page }) => {
+  test(`the View switch shows the carousel or spines and is remembered (${name})`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
     const grid = page.getByTestId("shelf");
     const spines = page.getByTestId("spines");
-    const gridButton = page.getByRole("button", { name: "Grid", exact: true });
+    const gridButton = page.getByRole("button", { name: "Carousel", exact: true });
     const spinesButton = page.getByRole("button", { name: "Spines", exact: true });
     await expect(gridButton).toHaveAttribute("aria-pressed", "true");
     await expect(grid).toBeVisible();
@@ -203,7 +203,7 @@ test("/library has the same View switch", async ({ page }) => {
   await page.getByRole("button", { name: "Spines", exact: true }).click();
   await expect(page.getByTestId("spines")).toBeVisible();
   await expect(page.getByTestId("shelf")).toBeHidden();
-  await page.getByRole("button", { name: "Grid", exact: true }).click();
+  await page.getByRole("button", { name: "Carousel", exact: true }).click();
   await expect(page.getByTestId("shelf")).toBeVisible();
   // The whole library ends with the titles not available yet, as on Home.
   await expect(page.getByText(/^Not available yet \(\d+\)$/)).toBeVisible();
@@ -271,7 +271,7 @@ test("Home is accessible, fits a phone, and looks right in light and dark", asyn
       const more = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(more.violations.map((v) => `${name} ${scheme} spines ${v.id}: ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       await page.screenshot({ path: `screenshots/home-spines-${name}-${scheme}.png`, fullPage: true });
-      await page.getByRole("button", { name: "Grid", exact: true }).click();
+      await page.getByRole("button", { name: "Carousel", exact: true }).click();
     }
   }
 });

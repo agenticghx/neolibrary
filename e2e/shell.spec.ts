@@ -523,3 +523,53 @@ test.describe("command palette", () => {
     }
   });
 });
+
+// M24 (Samuel, 2026-10-14: "a carousel for the books like how it is in Hark"), shown on the design page
+// with sample books. It moves only when asked, and settles with one book in the middle, named in its pill.
+test.describe("book carousel", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("the arrows, a drag and Tab each settle a book in the middle; a drag opens nothing", async ({ page }) => {
+    await page.goto("/design");
+    const carousel = page.getByRole("region", { name: "Sample books" });
+    const middle = carousel.locator("li[aria-current]");
+    await carousel.scrollIntoViewIfNeeded();
+    await expect(middle).toContainText("Meditations");
+    await expect(carousel.getByRole("button", { name: "Previous book" })).toBeDisabled();
+    // The page's script may load after the first click; click again until the strip moves.
+    await expect(async () => {
+      await carousel.getByRole("button", { name: "Next book" }).click();
+      await expect(middle).toContainText("Discourse on Method", { timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    // The middle book's pill shows; a neighbour's does not.
+    await expect(middle.getByText("Read only")).toBeVisible();
+    // Nothing moves on its own.
+    await page.waitForTimeout(1_000);
+    await expect(middle).toContainText("Discourse on Method");
+
+    // A mouse drag to the left moves the strip on and opens no book.
+    const box = (await carousel.locator("ul").boundingBox())!;
+    const y = box.y + box.height / 3;
+    await page.mouse.move(box.x + box.width / 2 + 150, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 250, y, { steps: 12 });
+    await page.mouse.up();
+    await expect(middle).not.toContainText("Discourse on Method");
+    await expect(page).toHaveURL(/\/design(#carousel)?$/);
+
+    // Tab onto a cover brings it to the middle.
+    await carousel.getByRole("link", { name: /Middlemarch/ }).focus();
+    await expect(middle).toContainText("Middlemarch");
+    await expect(carousel.getByRole("button", { name: "Next book" })).toBeDisabled();
+  });
+
+  test("on a phone, the strip scrolls inside the page, never the page sideways", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/design");
+    const carousel = page.getByRole("region", { name: "Sample books" });
+    await carousel.scrollIntoViewIfNeeded();
+    expect((await carousel.boundingBox())!.width).toBeLessThanOrEqual(390);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+});
+

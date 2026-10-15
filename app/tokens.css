@@ -65,6 +65,9 @@
   /* App shell (M14): the sidebar on desktop, the tab bar on a phone. */
   --sidebar-width: 16rem;
   --tabbar-height: 4.5rem;
+  --carousel-card: 11rem;      /* a cover in the book carousel (M24) */
+  --carousel-card-phone: 8.5rem;
+  --carousel-depth: 75rem;     /* how deep the carousel's curve looks */
   --room-height: 100dvh;      /* the room covers the first screen (M24) */
   --radius-panel: 14px;       /* cards (Samuel's pick A) */
   --blur-glass: 24px;         /* cards, dialogs, the tab bar */
