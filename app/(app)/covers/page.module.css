@@ -221,11 +221,12 @@
   max-height: calc(100dvh - var(--space-7));
   padding: var(--space-5);
   overflow-y: auto;
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
   color: var(--ink-900);
-  box-shadow: var(--shadow-raised);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .chooser::backdrop {

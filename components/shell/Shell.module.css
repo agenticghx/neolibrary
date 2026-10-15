@@ -265,10 +265,11 @@
   z-index: var(--z-raised);
   display: grid;
   padding: var(--space-1);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 /* The menu's parts, in both places: the email in grey, whole rows with an icon, thin lines between groups. */
@@ -424,11 +425,12 @@
   margin: 0 auto;
   padding: var(--space-2) var(--space-3) calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
-  border-top: var(--border-hair) solid var(--rule);
-  border-radius: calc(var(--radius-lg) * 2) calc(var(--radius-lg) * 2) 0 0;
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border-top: var(--border-hair) solid var(--panel-edge);
+  border-radius: calc(var(--radius-panel) * 1.5) calc(var(--radius-panel) * 1.5) 0 0;
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
   animation: sheet-up var(--dur-base) var(--ease-out);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 /* Rows sized for a thumb. */

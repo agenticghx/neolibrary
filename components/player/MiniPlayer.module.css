@@ -3,7 +3,7 @@
   display: contents;
 }
 
-/* The mini-player (M14 step 6b; the design's "PicksPlayer"): a raised bar held at the foot of the
+/* The mini-player (M14 step 6b; the design's "PicksPlayer"; glass since M24): a bar held at the foot of the
    app's column while a book is read aloud. It keeps its own place at the end of the column, so a
    page scrolled to its end shows its last line above the bar, never under it. */
 .bar {
@@ -15,18 +15,22 @@
   gap: var(--space-2);
   margin: 0 var(--space-5) var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
   color: var(--ink-900);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 /* At most three lines: the sentence starts a little before the word (MiniPlayer.tsx), so the word stays in sight. */
 .sentence {
-  max-height: calc(var(--text-read) * var(--leading-read) * 3);
+  max-height: calc(var(--text-read) * var(--leading-read) * 3 + var(--space-1) * 2); /* three lines plus the paper's padding */
   margin: 0;
+  padding: var(--space-1) var(--space-2);
   overflow: hidden;
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
   font-family: var(--font-serif);
   font-size: var(--text-read);
   line-height: var(--leading-read);
@@ -201,10 +205,11 @@
   gap: var(--space-2);
   width: 220px;
   padding: var(--space-2);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .menuTitle {
@@ -290,10 +295,11 @@
   gap: var(--space-2);
   width: min(400px, calc(100% - 2 * var(--space-4)));
   padding: var(--space-3);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .thinkLabel {
@@ -304,9 +310,11 @@
 
 /* The sentence the note goes to, as a quotation (it may have quotation marks of its own): four lines at most. */
 .thinkQuote {
-  max-height: calc(var(--text-sm) * var(--leading-read) * 4);
+  max-height: calc(var(--text-sm) * var(--leading-read) * 4 + var(--space-1) * 2);
   margin: 0;
-  padding-left: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background-color: var(--paper);
   overflow: hidden;
   border-left: 2px solid var(--accent);
   color: var(--ink-900);
@@ -392,7 +400,7 @@
   }
 
   .sentence {
-    max-height: calc(var(--text-sm) * var(--leading-read) * 3);
+    max-height: calc(var(--text-sm) * var(--leading-read) * 3 + var(--space-1) * 2);
     font-size: var(--text-sm);
   }
 

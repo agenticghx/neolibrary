@@ -162,6 +162,8 @@ describe("reading surfaces stay on solid paper", () => {
     ["../app/(app)/review/page.module.css", ".card"],
     ["../components/PathView.module.css", ".master"],
     ["../app/(app)/search/page.module.css", ".snippet"],
+    ["../components/player/MiniPlayer.module.css", ".sentence"],
+    ["../components/player/MiniPlayer.module.css", ".thinkQuote"],
   ])("%s %s is paper, not glass", (path, selector) => {
     const rule = block(read(path), selector);
     expect(rule).not.toMatch(glass);
@@ -169,5 +171,12 @@ describe("reading surfaces stay on solid paper", () => {
 
   it("the note inside a Continue card sits on solid paper", () => {
     expect(block(read("../components/home/Home.module.css"), ".note")).toContain("background-color: var(--paper);");
+  });
+
+  // The mini-player is glass (M24), so the sentence it reads aloud, and the one a voice note quotes, need their own paper.
+  it.each([".sentence", ".thinkQuote"])("the mini-player's %s sits on solid paper inside the glass bar", (selector) => {
+    const css = read("../components/player/MiniPlayer.module.css");
+    expect(block(css, ".bar")).toContain("background-color: var(--panel);");
+    expect(block(css, selector)).toContain("background-color: var(--paper);");
   });
 });
