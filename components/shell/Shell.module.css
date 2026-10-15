@@ -258,6 +258,9 @@
 
 /* Over the bottom of the list, just above the line that tops the foot. */
 .popover {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   position: absolute;
   right: calc(var(--space-1) * -1);
   bottom: calc(100% + var(--space-2));
@@ -413,6 +416,9 @@
 }
 
 .sheet {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   position: fixed;
   right: 0;
   bottom: 0;

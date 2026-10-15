@@ -144,6 +144,35 @@ describe.each([
 });
 
 // Ground rule (docs/design.md rule 5, M24): book text, notes, passages and search snippets never sit on glass.
+// Pop-up windows, menus and the mini-player are glass too (M24), but they float over anything: a white cover,
+// a dark one, a green button. Their quiet grey is --ink-700 there (CI run 38745060800: --ink-500 in the dark
+// command palette fell to 4.1:1 over the green Import button), and it must hold over pure white and pure black.
+describe.each([
+  ["light", light],
+  ["dark", dark],
+])("%s floating glass", (_name, tokens) => {
+  it.each(["#ffffff", "#000000", "accent"])("ink-700 and ink-900 stay readable over %s", (under) => {
+    const surface = blendOver(tokens.panel, under === "accent" ? tokens.accent : under);
+    expect(contrastRatio(tokens["ink-700"], surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens["ink-900"], surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each([
+    ["../components/palette/CommandPalette.module.css", ".panel"],
+    ["../app/(app)/covers/page.module.css", ".chooser"],
+    ["../components/shell/Shell.module.css", ".popover"],
+    ["../components/shell/Shell.module.css", ".sheet"],
+    ["../components/player/MiniPlayer.module.css", ".bar"],
+    ["../components/player/MiniPlayer.module.css", ".menu"],
+    ["../components/player/MiniPlayer.module.css", ".thinkPanel"],
+  ])("%s %s turns its quiet grey a step darker", (path, selector) => {
+    const css = readFileSync(new URL(path, import.meta.url), "utf8");
+    const start = css.search(new RegExp(`(^|\\n)${selector.replace(".", "\\.")} \\{`));
+    expect(start, selector).toBeGreaterThanOrEqual(0);
+    expect(css.slice(start, css.indexOf("}", start))).toContain("--ink-500: var(--ink-700);");
+  });
+});
+
 describe("reading surfaces stay on solid paper", () => {
   const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
   const block = (css: string, selector: string) => {

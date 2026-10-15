@@ -7,6 +7,9 @@
    app's column while a book is read aloud. It keeps its own place at the end of the column, so a
    page scrolled to its end shows its last line above the bar, never under it. */
 .bar {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   position: sticky;
   bottom: var(--space-3);
   z-index: var(--z-overlay);
@@ -196,6 +199,9 @@
 
 /* Above the Think aloud panel when both are open: the last one opened is on top. */
 .menu {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   position: absolute;
   z-index: var(--z-raised);
   right: 0;
@@ -288,6 +294,9 @@
 }
 
 .thinkPanel {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   position: absolute;
   right: var(--space-4);
   bottom: calc(100% + var(--space-2));

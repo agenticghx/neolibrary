@@ -217,6 +217,9 @@
 
 /* "Choose a cover" (C3a): a modal dialog with a search of the catalogues and the results as small cards. */
 .chooser {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   width: min(46rem, calc(100vw - var(--space-6)));
   max-height: calc(100dvh - var(--space-7));
   padding: var(--space-5);
