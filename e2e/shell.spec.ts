@@ -534,18 +534,22 @@ test.describe("book carousel", () => {
     const carousel = page.getByRole("region", { name: "Sample books" });
     const middle = carousel.locator("li[aria-current]");
     await carousel.scrollIntoViewIfNeeded();
-    await expect(middle).toContainText("Meditations");
-    await expect(carousel.getByRole("button", { name: "Previous book" })).toBeDisabled();
+    // It opens on its middle book (the 4th of 7), with books on both sides, not on its first.
+    await expect(middle).toContainText("The Time Machine");
+    const strip = (await carousel.locator("ul").boundingBox())!;
+    const first = (await carousel.getByRole("link", { name: /^Meditations/ }).boundingBox())!;
+    expect(first.x + first.width).toBeLessThan(strip.x + strip.width / 2); // a book sits left of the middle
+    await expect(carousel.getByRole("button", { name: "Previous book" })).toBeEnabled();
     // The page's script may load after the first click; click again until the strip moves.
     await expect(async () => {
       await carousel.getByRole("button", { name: "Next book" }).click();
-      await expect(middle).toContainText("Discourse on Method", { timeout: 1_000 });
+      await expect(middle).toContainText("Walden", { timeout: 1_000 });
     }).toPass({ timeout: 10_000 });
     // The middle book's pill shows; a neighbour's does not.
-    await expect(middle.getByText("Read only")).toBeVisible();
+    await expect(middle.getByText("Listen only")).toBeVisible();
     // Nothing moves on its own.
     await page.waitForTimeout(1_000);
-    await expect(middle).toContainText("Discourse on Method");
+    await expect(middle).toContainText("Walden");
 
     // A mouse drag to the left moves the strip on and opens no book.
     const box = (await carousel.locator("ul").boundingBox())!;
@@ -554,7 +558,7 @@ test.describe("book carousel", () => {
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2 - 250, y, { steps: 12 });
     await page.mouse.up();
-    await expect(middle).not.toContainText("Discourse on Method");
+    await expect(middle).not.toContainText("Walden");
     await expect(page).toHaveURL(/\/design(#carousel)?$/);
 
     // Tab onto a cover brings it to the middle.

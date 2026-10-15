@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Cover } from "@/components/Cover";
 import { Icon } from "@/components/shell/icons";
 import { availabilityLabel } from "@/lib/library/availability";
@@ -23,11 +23,20 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
   const strip = useRef<HTMLUListElement>(null);
   const [current, setCurrent] = useState(0);
   const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+  // The strip opens on its middle book, with books on both sides (Samuel 2026-10-15: the first book in the middle
+  // left the left half empty and the strip looked right-aligned). Done once, as soon as the strip has a width:
+  // a strip in a hidden view has none until the View switch shows it.
+  const centred = useRef(false);
 
   // Each cover's distance from the middle, -1 (a card's width or more to the left) to 1, drawn as tilt and size.
   const measure = useCallback(() => {
     const ul = strip.current;
     if (!ul) return;
+    if (!centred.current && ul.clientWidth > 0) {
+      centred.current = true;
+      const mid = ul.children[Math.floor((ul.children.length - 1) / 2)] as HTMLElement | undefined;
+      if (mid) ul.scrollLeft = mid.offsetLeft + mid.offsetWidth / 2 - ul.clientWidth / 2;
+    }
     const middle = ul.scrollLeft + ul.clientWidth / 2;
     let nearest = 0;
     let best = Infinity;
@@ -45,7 +54,8 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
     setCurrent(nearest);
   }, []);
 
-  useEffect(() => {
+  // Before the first paint, so the strip never shows itself on its first book and then jumps.
+  useLayoutEffect(() => {
     const ul = strip.current;
     if (!ul) return;
     let frame = 0;
