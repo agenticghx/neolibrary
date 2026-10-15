@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel checks the glass pop-ups, mini-player and centred carousel live (1d80455).
+next_action: Fix scanned PDFs (wasmUrl + decoders + a scanned fixture), per docs/root-cause-scanned-pdfs.md.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -211,6 +211,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 12:12 · Claude Opus 5.5 (laptop) · Root cause: scanned PDFs (The Pay Off) open blank
+- **Done:** Reproduced in the built-in browser on the live site (signed in): The Pay Off pages 16 and 17 draw white; reader says ready; no console error. Its file (scanned in the browser) is an Internet Archive scan: 388 pages, 776 JPEG 2000 and 388 JBIG2 pictures, 3 fonts. pdf.js decodes those only with its wasm decoders via wasmUrl, which lib/reader/pdf-book.ts never sets and scripts/copy-pdfjs.mjs never copies (live /pdfjs/wasm/openjpeg.wasm -> 307). Proved on a one-page JPEG 2000 test PDF: 0 dark pixels as the app sets it up, 4,167 with wasmUrl. Written up with the fix plan; nothing fixed yet.
+- **Key paths:** docs/root-cause-scanned-pdfs.md (new); docs/handoff.md section 5 (pointer)
+- **Commands that worked:** in-page fetch of the book file + count of /JPXDecode and /JBIG2Decode; node probe with pdfjs-dist legacy + @napi-rs/canvas rendering a pymupdf-made JPEG 2000 page with and without wasmUrl
+- **Known issues / blockers:** Every scanned PDF in Samuel's library (Internet Archive and other scans) likely opens blank on the live site until the fix ships.
+- **Exact next steps:** 1. Build the fix in docs/root-cause-scanned-pdfs.md (copy wasm/, wasmUrl, CSP check, a scanned fixture with an ink test), PR, merge, deploy. 2. Count how many of Samuel's PDFs use JPEG 2000 or JBIG2.
 
 ### 2026-10-15 11:16 · Claude Opus 5.5 (laptop) · Live: 1d80455, glass pop-ups and mini-player, centred carousel (PR 181)
 - **Done:** PR 181 merged by the auto-merge Action as 1d80455 (four checks green on b370b6b) and deployed at Samuel's word ('deploy'). Live: pop-ups, menus and the mini-player in the cards' glass, read-aloud text on paper inside it, quiet grey a step darker in floating glass, carousel opening on its middle book. Fixed on the way: main had been red since PR 180 (readalong.spec.ts:2566 focused the carousel's disabled Previous arrow; disabled buttons are now skipped), and own-paths.spec.ts:48 is test.slow() after slow runners (15.2 s, then 25.2 s on main the same day, 31-32 s here; no step over 0.6 s). No migration (0026 still last).
