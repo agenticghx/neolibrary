@@ -422,6 +422,57 @@ test("Scan | Text: a scanned book's text edition opens at the same page, and lea
   await expect(edition.getByText("Scan")).toHaveAttribute("aria-current", "page");
 });
 
+// M25 S7: the text edition panel on a scanned book's page, for the library's owner: what it is and costs, nothing
+// until "I understand…" is ticked, then progress and the outcome, the pages to check, and the edition to read.
+test("a scanned book's page makes its text edition, says what it costs first, and lists the pages to check", async ({ page }) => {
+  test.slow();
+  const { PDFDocument } = await import("pdf-lib");
+  const doc = await PDFDocument.load(readFileSync("fixtures/books/scanned-meditation.pdf"));
+  doc.setTitle("A Second Scanned Meditation");
+  const upload = await page.request.post("/api/books", {
+    multipart: { files: { name: "second-scan.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) } },
+  });
+  const scanId = (await upload.json()).results[0].bookId as string;
+  await page.goto(`/books/${scanId}`);
+  const panel = page.getByRole("region", { name: "Text edition" });
+  await expect(panel.getByTestId("text-edition-summary")).toContainText("Claude reads every page of this scan (2 pages)");
+  const make = panel.getByRole("button", { name: "Make a text edition" });
+  await expect(make).toBeDisabled();
+
+  const looks = async (name: string) => {
+    mkdirSync("screenshots", { recursive: true });
+    for (const [size, width, height] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+      for (const scheme of ["light", "dark"] as const) {
+        await page.setViewportSize({ width, height });
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.waitForTimeout(300); // the colours ease from one theme to the other
+        const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+        expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((x) => x.target).join(", ")}`), `${name} ${size} ${scheme}`).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${name} ${size} ${scheme}: sideways scroll`).toBeLessThanOrEqual(0);
+        await panel.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `screenshots/${name}-${size}-${scheme}.png`, fullPage: true });
+      }
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.emulateMedia({ colorScheme: "light" });
+  };
+  await looks("text-edition-before");
+
+  await panel.getByRole("checkbox", { name: /I understand this reads 2 pages with Claude/ }).check();
+  await make.click();
+  // The fake reads each page as "Fake transcription of page-N.", which disagrees with the scan's own text: both pages
+  // are listed to check.
+  await expect(panel.getByTestId("text-edition-status")).toHaveText("2 pages read, 0 blank, 0 not read, 2 to check.", { timeout: 30_000 });
+  await expect(panel.getByRole("link", { name: "Page 1" })).toHaveAttribute("href", `/books/${scanId}/read?at=${encodeURIComponent("epubcfi(/6/2)")}`);
+  await expect(panel.getByRole("link", { name: "Page 2" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Make a text edition" })).toHaveCount(0); // every page is read
+  await looks("text-edition-after");
+
+  await panel.getByRole("link", { name: "Read the text edition" }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.getByRole("group", { name: "Edition" }).getByText("Text")).toHaveAttribute("aria-current", "page");
+});
+
 // M20 Q8: a large book on a slow connection. The reader says how much of the file has arrived, and it waits as long
 // as pieces keep coming (before, it gave up 30 s after it began opening, download included). The connection is slowed
 // with Chromium's DevTools; the service worker is kept out of this page so the slowing applies to the download itself.

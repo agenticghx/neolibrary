@@ -8,6 +8,10 @@ import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { KIND_WORDS } from "@/lib/library/path-words";
 import { getBook } from "@/lib/library/paths";
+import { getBatchModel } from "@/lib/ai";
+import { mayMakeTextEditions, textEditionSummary } from "@/lib/library/text-edition";
+import { getStorage } from "@/lib/storage";
+import { TextEdition } from "./TextEdition";
 import { isReadingList } from "@/lib/library/seed";
 import { NotesExport, NotesImport } from "@/components/NotesExport";
 import { listAnnotations } from "@/lib/library/annotations";
@@ -40,6 +44,11 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   // M13: uploaded read-along audiobooks, only for a book whose file is here.
   const audiobooks = hasFile && book.fileType ? await listImports(await getDb(), user.id, book.id) : [];
   const count = (k: string) => marks.filter((a) => a.kind === k).length;
+  // M25: a scanned PDF's text edition, for the library's owner. Left out when it cannot be looked up (no AI key).
+  const textEdition =
+    hasFile && book.fileType === "pdf" && mayMakeTextEditions(user)
+      ? await textEditionSummary({ db: await getDb(), storage: await getStorage(), model: getBatchModel() }, user.id, book.id).catch(() => null)
+      : null;
   // The cover's N or E letter comes from a reading list only (your own Paths say the words instead).
   const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
 
@@ -166,6 +175,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               </ul>
             </section>
           ) : null}
+          {textEdition ? <TextEdition bookId={book.id} initial={textEdition} /> : null}
           {hasFile && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} /> : null}
           <p className={styles.status}>
             <span className={styles.available}>{availabilityLabel(available)}</span>
