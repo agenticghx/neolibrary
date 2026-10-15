@@ -210,6 +210,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-14 23:55 · Claude Opus 5.5 (laptop) · M24 step 3: cards are glass at 88% (pick A)
+- **Done:** 14 page cards (Account, Your data, costs, invites, Covers search, the library's and Home's three-classics offer, Paths list items and editor, Daily review's empty state, both Reading stats boxes, starter paths, Home's Continue cards) are now 88% paper with a hairline, a soft shadow and 14 px corners, blurred over the room. Boxes holding book passages or notes stay solid paper (Daily review's card, a Path's master panel, search snippets, the note inside a Continue card), and the reader has no glass at all; a new test enforces it and fails when glass is added to the Continue note (checked by breaking it on purpose). Dialogs and the mini-player are not changed yet. Done as CSS on each card, not yet as a shared <Panel> component.
+- **Key paths:** 12 .module.css files under app/(app) and components; lib/tokens.test.ts ("reading surfaces stay on solid paper")
+- **Commands that worked:** npx vitest run lib/tokens.test.ts -> 132 passed (and 1 failed with glass added to .note, restored); playwright four looks -> 69 accessibility passed, 68 screenshots differ (expected); stylelint clean
+- **Known issues / blockers:** Stacked on PR 178 (shell); rebase after 178 merges. Reference screenshots need the CI refresh.
+- **Exact next steps:** 1. Merge 178, rebase this, refresh screenshots, merge. 2. Carousel once Samuel picks A/B/C (options page part 8). 3. Later: dialogs and mini-player as glass; a shared <Panel>.
 ### 2026-10-15 00:10 · Claude Opus 5.5 (laptop) · M24 step 2, round 2: sky fades sooner; plain links are ink
 - **Done:** CI round 1 on PR 178 (run 38671788820): 60 failed, every one a screenshot comparison; 135 did not run (they wait on the screenshots). Looking at CI's renderings before committing them showed, on a phone, grey text ("Nothing yet" on Reading stats) and green links (Import in Home's intro) still on the blue part of the sky. The sky now fades to cream within the top third of the first screen (stops 0/15/35/70%), and plain links on app pages are main ink with a green underline, as links in cards already were. New test: secondary ink passes on --room-2.
 - **Key paths:** app/tokens.css; components/shell/Shell.module.css; lib/tokens.test.ts
