@@ -106,6 +106,11 @@ describe.each([
     expect(contrastRatio(tokens["ink-900"], tokens[stop])).toBeGreaterThanOrEqual(4.5);
   });
 
+  // The band's lighter half (from 15% of the first screen) holds intro text that wraps down from the header.
+  it("secondary ink is readable from the band's lighter half down", () => {
+    expect(contrastRatio(tokens["ink-700"], tokens["room-2"])).toBeGreaterThanOrEqual(4.5);
+  });
+
   it.each(["ink-700", "ink-500", "accent"])("%s is readable everywhere below the band", (fg) => {
     for (const surface of below) expect(contrastRatio(tokens[fg], surface), surface).toBeGreaterThanOrEqual(4.5);
   });

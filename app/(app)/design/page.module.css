@@ -16,7 +16,7 @@
 .chapterLabel,
 .marginLabel,
 .machineLabel {
-  color: var(--ink-500);
+  color: var(--ink-900); /* on the room's dark band: main ink only (M24) */
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-caps);
@@ -28,7 +28,7 @@
 }
 
 .lede {
-  color: var(--ink-700);
+  color: var(--ink-900); /* on the room's dark band: main ink only (M24) */
   font-size: var(--text-md);
   line-height: var(--leading-read);
 }

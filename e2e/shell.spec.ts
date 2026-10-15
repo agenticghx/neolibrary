@@ -165,6 +165,37 @@ test.describe("desktop sidebar", () => {
     await expect(page.locator("#content")).not.toHaveAttribute("tabindex");
   });
 
+  // M24 (Samuel, 2026-10-14: "a hide sidebar toggle like in the Claude desktop app"): one button at the top
+  // left hides the sidebar and shows it again, and the choice is remembered on this device across pages.
+  test("the sidebar hides and comes back with the button at its top, and stays as left", async ({ page }) => {
+    await page.goto("/");
+    const hide = page.getByRole("button", { name: "Hide sidebar" });
+    await expect(hide).toHaveAttribute("aria-expanded", "true");
+    await expect(aside(page)).toBeVisible();
+    // A click that lands before the page's script has loaded does nothing; click again until it takes.
+    await expect(async () => {
+      await hide.click();
+      await expect(aside(page)).toBeHidden({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    const show = page.getByRole("button", { name: "Show sidebar" });
+    await expect(show).toHaveAttribute("aria-expanded", "false");
+    // The page's title is not under the button.
+    const button = (await show.boundingBox())!;
+    const title = (await page.getByRole("heading", { level: 1 }).boundingBox())!;
+    expect(title.x).toBeGreaterThanOrEqual(button.x + button.width);
+    // Remembered: another page opens with the sidebar still hidden, with no flash of it.
+    await page.goto("/paths");
+    await expect(aside(page)).toBeHidden();
+    await expect(async () => {
+      await page.getByRole("button", { name: "Show sidebar" }).click();
+      await expect(aside(page)).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await expect(sidebar(page).getByRole("link", { name: "Home" })).toBeVisible();
+    await page.reload();
+    await expect(aside(page)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hide sidebar" })).toBeVisible();
+  });
+
   test("a new collection appears in the sidebar at once, and leaves with it", async ({ page }) => {
     await page.goto("/");
     await sidebar(page).getByRole("link", { name: "New collection", exact: true }).click();

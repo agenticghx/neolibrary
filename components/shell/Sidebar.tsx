@@ -53,7 +53,7 @@ async function ReviewItem() {
 /** Desktop navigation (M14, "Home on desktop A"): Home and Review (M21), the library's filters and Import, Paths, Collections, and the account. */
 export function Sidebar({ user, paths, collections }: Props) {
   return (
-    <aside className={styles.sidebar} aria-label="Sidebar">
+    <aside id="sidebar" className={styles.sidebar} aria-label="Sidebar">
       <Link href="/" className={styles.brand}>
         <Mark size={28} />
         <span className={styles.wordmark}>Neolibrary</span>
