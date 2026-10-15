@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-15 19:40 (laptop clock). **S3 merged (#185). Samuel picked C1 for the switch.** The text edition is now a book of its own (migration 0027 reworked before any merge: books.edition_of instead of text-file columns). Branches: `m25-text-edition-job` (S4) then `m25-text-epub` (S5), to merge one at a time; migration 0027 needs a production backup before its deploy. Next: S6, the footer switch.
+Written 2026-10-15, before 18:38 (time not read from the clock). **S3 merged (#185). Samuel picked C1 for the switch.** The text edition is now a book of its own (migration 0027 reworked before any merge: books.edition_of instead of text-file columns). Branches: `m25-text-edition-job` (S4) then `m25-text-epub` (S5), to merge one at a time; migration 0027 needs a production backup before its deploy. Next: S6, the footer switch.
 
 Written 2026-10-15 18:30 (laptop clock). **M25 S5 (the EPUB text edition) is built on branch `m25-text-epub`**, stacked on S4 (`m25-text-edition-job`, migration 0027) and S3 (PR 185). Merge them one at a time. Next: S6, Scan | Text in the reader; show Samuel 2 or 3 options for where the switch sits first.
 
@@ -237,7 +237,7 @@ Never blocks the loop. Newest first.
 
 ## Log
 
-### 2026-10-15 19:40 · Claude Opus 5.5 (laptop) · M25: the text edition becomes its own hidden book; Samuel picked C1
+### 2026-10-15 (before 18:38) · Claude Opus 5.5 (laptop) · M25: the text edition becomes its own hidden book; Samuel picked C1
 - **Done:** Samuel answered Open unknowns row 25 with C1. Before any of it merged, reshaped S4 and S5 on a second opinion: every reader feature (paragraphs, Listen, notes, rewrites, search, the place reached) keys on one book's sections, so the edition is now a book of its own. Migration 0027 adds books.edition_of (unique, cascades with the scan) instead of the text-file columns; makeTextEdition creates or updates that book (same id when made again), stores the EPUB at books/<owner>/<edition>.epub with the scan's cover, and builds its sections. Editions are left out of the shelf, Home's Continue, library search (searched inside themselves), the covers page and job, the Path editor and title matching, the import page, removed books, Cmd+K and the importer's duplicate check. A scan and its edition share one per-book AI limit (spending and heldByJobs count the group). The export carries editionOf, puts scans before editions on import, and refuses an edition whose scan is not in the file.
 - **Key paths:** db/migrations/0027_text_editions.{up,down}.sql; lib/db/schema.ts; lib/library/text-edition.ts; lib/ai/generate.ts; lib/library/{shelf,home,search,import,paths,cover-lookup,remove-book,export}.ts; lib/palette/data.ts; app/(app)/{covers,import,paths/[slug]/edit}/page.tsx; docs/scan-to-text-plan.md
 - **Commands that worked:** npx vitest run lib/library/text-edition.test.ts -> 16 passed (hidden from the shelf and library search, found inside itself, the scan's file added again finds the scan, spending on the edition counts toward the scan, made again keeps its id); npm run check -> 888 passed, 2 skipped
