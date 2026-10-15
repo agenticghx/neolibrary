@@ -47,20 +47,29 @@ is easy to make. Here that means at least one scanned PDF (JPEG 2000 and
 JBIG2 pictures) among the fixtures, and a check that its first page draws
 ink, not only that the reader says "ready". A white page counts as a failure.
 
-## The fix (not built yet)
+## The fix (built 2026-10-15, branch `m24-scanned-pdfs`)
 
-1. `scripts/copy-pdfjs.mjs`: copy `node_modules/pdfjs-dist/wasm/` to
-   `public/pdfjs/wasm/` (and list them for "Download for offline").
-2. `lib/reader/pdf-book.ts`: pass `wasmUrl: "/pdfjs/wasm/"` to
-   `getDocument`.
-3. Check the security policy (`proxy.ts`): WebAssembly needs
-   `'wasm-unsafe-eval'` in `script-src`. Without it pdf.js falls back to the
-   slower JavaScript decoders, which load from the same folder; either works,
-   so test which one runs.
-4. `/pdfjs/` must be reachable without the sign-in redirect, as the worker
-   already is.
-5. A fixture: a small, public-domain scanned PDF with a JPEG 2000 and a
-   JBIG2 page, and a browser test that page 1 draws dark pixels on its
-   canvas.
-6. The server side (`lib/library/pdf-sections.ts`) also opens PDFs with
-   pdf.js; check whether it reads pictures (it reads text, so probably not).
+1. `scripts/copy-pdfjs.mjs` copies `node_modules/pdfjs-dist/wasm/` (without
+   `quickjs-eval`, which runs a PDF's own JavaScript and is never used) and
+   `iccs/` (colour profiles) into `public/pdfjs/`. `files.json` lists them, so
+   "Download for offline" keeps them too (about 1 MB more per device).
+2. `lib/reader/pdf-book.ts` passes `wasmUrl: "/pdfjs/wasm/"` and
+   `iccUrl: "/pdfjs/iccs/"` to `getDocument`.
+3. The security policy (`proxy.ts`) adds `'wasm-unsafe-eval'` to
+   `script-src`. Measured: without it the pages did show (pdf.js fell back to
+   its JavaScript decoders, loaded from the same folder) but the browser
+   refused the WebAssembly ones, which are much faster on a 388-page scan.
+   `'wasm-unsafe-eval'` allows compiling WebAssembly only; running a string as
+   code stays forbidden. Pinned in `lib/csp.test.ts`.
+4. No change needed: `/pdfjs/` sits behind the sign-in cookie, and the
+   worker's requests carry it, as the character maps' already do (the live
+   307 was a request without the cookie).
+5. `fixtures/books/scanned-meditation.pdf` (made by
+   `scripts/make-scanned-fixture.py`): page 1 a JPEG 2000 picture, page 2 a
+   JBIG2 one. `e2e/reader.spec.ts`, "a scanned PDF's pages show their
+   pictures", counts dark pixels on each page's canvas, checks the decoder is
+   served, and fails if the browser refuses WebAssembly. With pdf.js alone in
+   Node: 0 dark pixels on both pages without `wasmUrl`, 16,631 and 16,844
+   with it.
+6. No change: `lib/library/pdf-sections.ts` reads only text
+   (`getTextContent`) and never draws a page, so it never decodes pictures.

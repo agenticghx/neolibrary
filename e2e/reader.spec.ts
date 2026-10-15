@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import * as CFI from "foliate-js/epubcfi.js";
 import { readableEpub } from "../lib/library/test-epub";
@@ -320,6 +321,43 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   await hit.click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
+});
+
+// A scanned book (2026-10-15): each page is a picture, usually JPEG 2000 or JBIG2, and pdf.js decodes those only with
+// its WebAssembly decoders (docs/root-cause-scanned-pdfs.md). Without them the reader said "ready" and drew white pages.
+// The fixture's page 1 is a JPEG 2000 picture and page 2 a JBIG2 one; each must show ink, not only open.
+test("a scanned PDF's pages show their pictures (JPEG 2000 and JBIG2)", async ({ page }) => {
+  const upload = await page.request.post("/api/books", {
+    multipart: { files: { name: "scanned-meditation.pdf", mimeType: "application/pdf", buffer: readFileSync("fixtures/books/scanned-meditation.pdf") } },
+  });
+  const added = (await upload.json()).results[0];
+  expect(["added", "duplicate"]).toContain(added.status);
+  const refused: string[] = []; // pdf.js warns, and falls back to slow JavaScript decoders, when WebAssembly is refused
+  page.on("console", (m) => {
+    if (/WebAssembly/.test(m.text())) refused.push(m.text());
+  });
+  const decoder = page.waitForResponse((r) => new URL(r.url()).pathname === "/pdfjs/wasm/openjpeg.wasm");
+  await page.goto(`/books/${added.bookId}/read`);
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // Dark, opaque pixels on a page's picture: the canvas inside its #canvas box, transparent where nothing is drawn.
+  // A page is found by its document's data-page (from 0); foliate's PDF view keeps no page index.
+  const ink = (pageIndex: number) =>
+    page.evaluate((i) => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer?: { getContents(): { doc: Document }[] } };
+      const pageDoc = view?.renderer?.getContents().find(({ doc }) => doc?.documentElement.dataset.page === String(i))?.doc;
+      const canvas = pageDoc?.querySelector<HTMLCanvasElement>("#canvas canvas");
+      if (!canvas?.width) return 0;
+      const px = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+      let dark = 0;
+      for (let p = 0; p < px.length; p += 4) if (px[p + 3] > 128 && px[p] < 100) dark++;
+      return dark;
+    }, pageIndex);
+  await expect.poll(() => ink(0), { message: "page 1 (JPEG 2000) shows ink", timeout: 10_000 }).toBeGreaterThan(2000);
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  await expect.poll(() => ink(1), { message: "page 2 (JBIG2) shows ink", timeout: 10_000 }).toBeGreaterThan(2000);
+  expect((await decoder).status(), "the JPEG 2000 decoder is served").toBe(200);
+  expect(refused, "the decoders run as WebAssembly").toEqual([]);
 });
 
 // M20 Q8: a large book on a slow connection. The reader says how much of the file has arrived, and it waits as long

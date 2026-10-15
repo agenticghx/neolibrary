@@ -34,6 +34,13 @@ describe("content security policy", () => {
     expect(csp).toContain("script-src 'self' 'nonce-n0nce' 'strict-dynamic'");
   });
 
+  it("lets WebAssembly run (scanned PDFs' picture decoders) but never a string as code in production", () => {
+    const script = contentSecurityPolicy("n0nce", false)
+      .split("; ")
+      .find((d) => d.startsWith("script-src "));
+    expect(script).toBe("script-src 'self' 'nonce-n0nce' 'strict-dynamic' 'wasm-unsafe-eval'");
+  });
+
   it("allows a scaled Wikimedia thumbnail, and no other picture host", () => {
     // Commons puts a scaled thumbnail on thumb.wikimedia.org (measured
     // 2026-10-09, a search for NREL). The original, and a file small enough

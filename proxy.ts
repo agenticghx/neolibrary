@@ -24,7 +24,10 @@ const PUBLIC = [/^\/sign-in$/, /^\/setup$/, /^\/invite\/[^/]+$/, /^\/api\/health
 export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV === "development") {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
+    // 'wasm-unsafe-eval' lets pdf.js run its picture decoders (JPEG 2000 and JBIG2, in scanned books) and colour
+    // profiles as WebAssembly; without it they fall back to much slower JavaScript. It allows compiling
+    // WebAssembly only, never running a string as code ('unsafe-eval' does that, and only in development).
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' blob:",
     // A scaled Commons thumbnail is served from thumb.wikimedia.org. A file
     // that needs no scaling stays on upload.wikimedia.org. Omit the first
