@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries the library carousel on the live site (d45e5ef). Next build: glass dialogs and mini-player.
+next_action: PR for glass pop-ups and mini-player: CI, merge when green, deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -211,6 +211,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 09:29 · Claude Opus 5.5 (laptop) · M24: pop-up windows and the mini-player in glass
+- **Done:** At Samuel's request: the command palette, Choose a cover dialog, account menu popover and phone sheet, speed menu, Think aloud panel and the mini-player now use the cards' glass (--panel 88%, --panel-edge, --shadow-panel, --radius-panel, blur). The read-aloud sentence and the voice-note quote sit on solid paper inside the glass bar; new tests check both. The reader's shortcuts dialog stays paper (existing test: the reader has no glass at all). docs/design.md rule 5 updated.
+- **Key paths:** components/player/MiniPlayer.module.css; components/shell/Shell.module.css; components/palette/CommandPalette.module.css; app/(app)/covers/page.module.css; lib/tokens.test.ts; docs/design.md
+- **Commands that worked:** npx stylelint (clean); npx vitest run lib/tokens.test.ts -> 139 passed
+- **Known issues / blockers:** Browser tests and any changed reference pictures come from CI on the PR.
+- **Exact next steps:** 1. CI on the PR; refresh any reference pictures (merge-train refresh-screenshots.sh), look at them, push. 2. Merge when green. 3. Deploy at Samuel's word.
 
 ### 2026-10-15 09:04 · Claude Opus 5.5 (laptop) · Live: d45e5ef, the library carousel (PR 180)
 - **Done:** PR 180 merged by the auto-merge Action as d45e5ef after round 3 (four checks green: browser tests 12m7s, lint/types/unit, PR hygiene, Postgres). Two earlier rounds failed only on the design page's reference pictures (the carousel sample, then the card's stacked lines); both looked at and committed. Deployed at Samuel's word ('merge and deploy'). No migration (still 0026_cover_upload), so no backup.
