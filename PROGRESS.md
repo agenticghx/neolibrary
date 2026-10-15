@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M25 S2, a batch adapter for Claude (docs/scan-to-text-plan.md).
+next_action: M25 S3, page pictures on the server (docs/scan-to-text-plan.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15 16:20 (laptop clock). **M25 S2 (the batch adapter) is built on branch `m25-batch-adapter`** (on top of `m25-scan-plan`, PR 183). Next: S3, page pictures on the server (`@napi-rs/canvas` as a direct dependency, a start-up log line showing it loads on Railway).
 
 Written 2026-10-15 16:00 (laptop clock). **M25 (scanned books become flowing books) is planned:** `docs/scan-to-text-plan.md`, steps S1 to S8. S1 (the plan) is on branch `m25-scan-plan`, which also carries the ff2551d deploy record and the scan-to-text test entry. Next: S2, a batch adapter for Claude (interface, Claude version, fake, unit tests with a stand-in fetch). Defaults for Open unknowns rows 23 and 24 apply.
 
@@ -223,6 +225,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 16:20 · Claude Opus 5.5 (laptop) · M25 S2: a batch adapter for Claude
+- **Done:** lib/ai/batch.ts: the TextBatchModel interface (submit, status, results, cancel), TRANSCRIBE_MODEL = claude-sonnet-5-5, batchCostUsd (half the PRICES rate), and FakeBatchModel for tests. lib/ai/claude-batch.ts: ClaudeBatchModel over client.messages.batches (each page an image block before the text, our own custom_id, no server-side fallback, thinking and effort left to the model's defaults as in the test; a refusal, a cut-off answer, a failed, a cancelled and an expired request each mapped). getBatchModel in lib/ai/index.ts (fake in tests, else the key).
+- **Key paths:** lib/ai/batch.ts; lib/ai/claude-batch.ts; lib/ai/claude-batch.test.ts; lib/ai/index.ts
+- **Commands that worked:** npx vitest run lib/ai/claude-batch.test.ts -> 8 passed; npm run check -> 842 passed, 2 skipped
+- **Known issues / blockers:** none. The real API has not been called (no key on the laptop; tests use a stand-in fetch).
+- **Exact next steps:** 1. PR for S2 after PR 183 merges. 2. S3 on branch m25-page-pictures.
 
 ### 2026-10-15 16:00 · Claude Opus 5.5 (laptop) · M25 S1: the plan for scanned books as flowing books
 - **Done:** Samuel chose option (a) in Open unknowns row 22. Wrote docs/scan-to-text-plan.md: the goal, the 5-page test results, how it works (owner confirms; pages drawn on the server; Claude Sonnet 5.5 through the Batch API in batches of about 100 pages, batch numbers kept in a table; each page a generations row; every page compared with the scan's own hidden text; pages joined into an EPUB with page markers; Scan | Text in the reader), decisions and defaults, and steps S1 to S8 with "Done when". Added M25 to docs/plan.md, the decision, and Open unknowns rows 23 (notes per edition, owner only) and 24 (Listen on the scan keeps the old text). Checked on the way: Batch API limits (100,000 requests or 256 MB per batch; results within 24 hours; cancelled or expired requests not charged; Sonnet 5.5 $1 in and $5 out per million tokens); the live spending page shows $0.00 of Claude this month and nothing on The Pay Off.

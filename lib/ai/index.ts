@@ -1,4 +1,6 @@
+import { FakeBatchModel, type TextBatchModel } from "./batch";
 import { ClaudeModel } from "./claude";
+import { ClaudeBatchModel } from "./claude-batch";
 import { FakeModel } from "./fake";
 import { AiNotConfigured, type TextModel } from "./model";
 
@@ -7,7 +9,7 @@ import { AiNotConfigured, type TextModel } from "./model";
  * the fake; otherwise a real key is required. With no key the app says so
  * instead of inventing output.
  */
-const g = globalThis as unknown as { __neolibraryFakeModel?: FakeModel };
+const g = globalThis as unknown as { __neolibraryFakeModel?: FakeModel; __neolibraryFakeBatchModel?: FakeBatchModel };
 
 export function aiIsFake(env: Record<string, string | undefined> = process.env) {
   return env.AI_FAKE === "1" || Boolean(env.VITEST);
@@ -18,4 +20,12 @@ export function getTextModel(env: Record<string, string | undefined> = process.e
   const key = env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new AiNotConfigured("AI is not set up yet: the owner needs to add ANTHROPIC_API_KEY.");
   return new ClaudeModel(key);
+}
+
+/** The batch model (M25): the fake in tests, else Claude Sonnet 5.5 through the Batch API. */
+export function getBatchModel(env: Record<string, string | undefined> = process.env): TextBatchModel {
+  if (aiIsFake(env)) return (g.__neolibraryFakeBatchModel ??= new FakeBatchModel());
+  const key = env.ANTHROPIC_API_KEY?.trim();
+  if (!key) throw new AiNotConfigured("AI is not set up yet: the owner needs to add ANTHROPIC_API_KEY.");
+  return new ClaudeBatchModel(key);
 }
