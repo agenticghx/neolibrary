@@ -90,19 +90,13 @@
   font-size: var(--text-sm);
 }
 
-/* What you can do with it, then how far you are: "Read and listen · 42% read". */
+/* What you can do with it, then how far you are, one to a line (a dot between them was left at the
+   start of the second line when a phone's narrow pill wrapped them). */
 .meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0 var(--space-2);
+  display: grid;
+  justify-items: center;
   color: var(--ink-700);
   font-size: var(--text-sm);
-}
-
-.meta > span + span::before {
-  margin-right: var(--space-2);
-  content: "·";
 }
 
 .arrow {
