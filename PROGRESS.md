@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M25 S2 (PR 184), then S3 and S4 one at a time; then S5, the EPUB text edition.
+next_action: Merge M25 S3 (PR 185), S4 and S5 one at a time; then S6 (Scan | Text in the reader: show Samuel 2-3 options first).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15 18:30 (laptop clock). **M25 S5 (the EPUB text edition) is built on branch `m25-text-epub`**, stacked on S4 (`m25-text-edition-job`, migration 0027) and S3 (PR 185). Merge them one at a time. Next: S6, Scan | Text in the reader; show Samuel 2 or 3 options for where the switch sits first.
 
 Written 2026-10-15 17:30 (laptop clock). **M25 S4 (the job) is built on branch `m25-text-edition-job`**, stacked: PR 184 (S2) is open; `m25-page-pictures` (S3) and this branch wait for it, to be merged one at a time. S4 adds **migration 0027** (with its reverse step): take a production backup before the deploy that applies it, and check `_migrations` after. Next: S5, the EPUB text edition.
 
@@ -229,6 +231,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 18:30 · Claude Opus 5.5 (laptop) · M25 S5: the EPUB text edition
+- **Done:** lib/library/text-epub.ts joins the pages read into an EPUB 3: a paragraph that ends a page without closing punctuation goes on into the next page (a word broken across the break joined), a page marker (epub:type pagebreak, numbered by the scan's page) at every page and a page list in the navigation, a chapter at each level-1 heading, footnotes at the end of their chapter linked both ways (a note printed on the page after its reference finds it), tables, figures, simple lists, a "not read" line for a page not read, only a marker for a blank page, nothing passed through as HTML, and an About page naming the model, date and the pages to check (ground rule 5). The mimetype is stored first and uncompressed. makeTextEdition (lib/library/text-edition.ts) builds it from the newest reading of each page when a job ends and stores it at books/<owner>/<book>.text.epub, linked by books.text_file_key; the library export carries the link and refuses one outside the reader's folder (ground rule 7).
+- **Key paths:** lib/library/text-epub.ts (+ .test.ts); lib/library/text-edition.ts; lib/library/export.ts; lib/library/export.test.ts
+- **Commands that worked:** npx vitest run lib/library/text-epub.test.ts -> 13 passed (every file well-formed XML; the app's own importer reads the joined paragraph across pages 3 to 5); text-edition.test.ts -> 12 passed; export.test.ts -> 12 passed (and with the import of the link removed on purpose, the round trip fails, as it should); npm run check -> 884 passed, 2 skipped
+- **Known issues / blockers:** importBook treats an EPUB with the same title as a book already in the library as that book, so the edition must never go through importBook (it does not: it is stored beside the scan). Not shown in the reader yet (S6).
+- **Exact next steps:** 1. Merge S3, S4, S5 one at a time. 2. S6: show Samuel 2 or 3 options for the Scan | Text switch.
 
 ### 2026-10-15 17:30 · Claude Opus 5.5 (laptop) · M25 S4: the text-edition job
 - **Done:** Migration 0027 (text_edition_jobs: status, batch numbers with each page picture's fingerprint, blank pages, problems, page checks; books gain edition_of, so a text edition (S5) is a book of its own linked to its scan) with its reverse step. lib/library/text-edition.ts: summary (pages, the most it costs at a generous $0.0110 a page (largest picture plus a long answer, at the batch price), the limits with what is spent and held), start (confirm, owner's PDF, one job per book, refuses over a limit with 402), preparing in the background (draws each page, skips blank pages and pages read before, sends batches of at most 150 MB of pictures), pollTextEditions (resumes a preparation cut short, saves each answer as a generations row of kind transcribe at the batch price, lists refused, cut-off, cancelled and expired pages; a billed refusal is kind transcribe-failed, counted but never served), Stop (cancels, nothing more charged), and a check every minute from instrumentation.ts. While a job goes on, its estimate less what its pages cost is held against the caps (heldByJobs, spendingWithJobs in lib/ai/generate.ts, used by checkCaps and reserveSpend). lib/library/page-check.ts compares each page read with the scan's hidden text (running head and page number left out); calibrated on the five test pages: good pages 0.985 to 1, each with one sentence reworded 0.91 to 0.92, the contents page 0.89, the sideways table 0.01, so the line is 0.95. prompts/transcribe-page.md is the tested prompt, byte for byte. Route app/api/books/[id]/text-edition (GET, POST confirm, DELETE), owner only.

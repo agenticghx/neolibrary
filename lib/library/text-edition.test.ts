@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { strFromU8, unzipSync } from "fflate";
 import { and, eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -7,7 +8,7 @@ import { resetSpendHoldsForTests, spending, spendingWithJobs } from "@/lib/ai/ge
 import { readPrompt } from "@/lib/ai/prompts";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
-import { generations, textEditionJobs } from "@/lib/db/schema";
+import { books, generations, textEditionJobs } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
@@ -118,6 +119,17 @@ describe("a run", () => {
       { page: 1, agreement: 1, flagged: false },
       { page: 2, agreement: expect.any(Number), flagged: true },
     ]);
+    // The text edition is made, stored beside the scan, and is an EPUB the app reads.
+    const [book] = await database.db.select().from(books).where(eq(books.id, bookId));
+    expect(book).toMatchObject({ textFileKey: `books/${ownerId}/${bookId}.text.epub`, textFileSize: expect.any(Number), textMadeAt: expect.any(Date) });
+    const edition = await storage.get(book.textFileKey!);
+    expect(edition?.contentType).toBe("application/epub+zip");
+    const files = unzipSync(edition!.data);
+    expect(strFromU8(files["OEBPS/about.xhtml"])).toContain("read from the scanned pages of the PDF by fake on");
+    expect(strFromU8(files["OEBPS/about.xhtml"])).toContain('<a href="c2.xhtml#page-2">2</a>'); // the page to check
+    expect(strFromU8(files["OEBPS/c1.xhtml"])).toContain("Several years have now elapsed since I first became aware");
+    expect(strFromU8(files["OEBPS/nav.xhtml"])).toContain('#page-3">3<'); // the blank page keeps its place
+
     const s = await textEditionSummary(deps(model), ownerId, bookId);
     expect(s.done).toBe(3); // two read, one blank
     expect(s.job).toMatchObject({ status: "finished", sent: 2, read: 2, toCheck: [{ page: 2 }] });
@@ -191,6 +203,8 @@ describe("Stop", () => {
     expect(job.message).toMatch(/^Stopped, as you asked\. 0 pages read/);
     expect(await pagesRead(bookId)).toEqual([]);
     expect((await spending(database.db, "anthropic", bookId)).book).toBe(0);
+    // Nothing was read, so no text edition is made.
+    expect((await database.db.select().from(books).where(eq(books.id, bookId)))[0].textFileKey).toBeNull();
   });
 });
 
