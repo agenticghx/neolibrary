@@ -1,9 +1,12 @@
 import { CommandPalette } from "@/components/palette/CommandPalette";
 import { MiniPlayerSlot } from "@/components/player/MiniPlayerSlot";
 import { Sidebar } from "@/components/shell/Sidebar";
+import { SIDEBAR_COOKIE } from "@/components/shell/sidebar-cookie";
+import { SidebarToggle } from "@/components/shell/SidebarToggle";
 import { SkipLink } from "@/components/shell/SkipLink";
 import { TabBar } from "@/components/shell/TabBar";
 import styles from "@/components/shell/Shell.module.css";
+import { cookies } from "next/headers";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { listPathsWithProgress } from "@/lib/library/paths";
@@ -17,9 +20,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const db = await getDb();
   const [paths, collections] = await Promise.all([listPathsWithProgress(db, user.id), listCollections(db, user.id)]);
+  // Hidden with the button at the sidebar's top (M24); remembered on this device.
+  const sidebarHidden = (await cookies()).get(SIDEBAR_COOKIE)?.value === "hidden";
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-shell data-sidebar={sidebarHidden ? "hidden" : "shown"}>
       <SkipLink />
+      <SidebarToggle initiallyHidden={sidebarHidden} />
       <Sidebar user={user} paths={paths} collections={collections} />
       <div className={styles.column}>
         <div id="content" className={styles.content}>

@@ -29,6 +29,8 @@ const PATHS = {
   chevron: "M7 10l5 5 5-5",
   // Daily review (M21): two cards, one behind the other.
   review: "M4 8h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM7 5h12a1 1 0 0 1 1 1v10M7 13h5M7 16h3",
+  // Hide or show the sidebar (M24, as in the Claude desktop app): a window with its left panel marked.
+  sidebar: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM9.5 4v16",
 } as const;
 
 /** Solid shapes (the mini-player's Play and Pause), filled with the current text colour. */

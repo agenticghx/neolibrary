@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M24 glass build: tokens PR, then shell (glass rail + hide toggle), cards, carousel (Samuel picks placement, options page part 8).
+next_action: M24 shell PR (glass sidebar + hide button) through CI; then cards; carousel waits on Samuel's pick (options page part 8).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-12
 shared_copy: none
@@ -210,6 +210,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-14 23:30 · Claude Opus 5.5 (laptop) · M24 step 2: the room, the glass sidebar with a hide button, the frosted tab bar
+- **Done:** PR 177 (tokens) merged as dc7392d. Every app page now sits on the room (deep sky at the top of the first screen, cream below; dark: deep blue at the top, faint amber lower right). The sidebar is glass (42%) with the current page as a lifted paper chip. A button at its top left hides it and shows it again, as in the Claude desktop app; the choice is kept in a cookie (nl.sidebar) that the layout reads, so the page never flashes. The phone tab bar is frosted (82%) with main-ink labels. Page eyebrows and ledes (11 page stylesheets) are main ink, because they sit on the room's dark band. The sidebar's old scroll-edge shading was solid paper and showed as patches on glass, so it is gone. Bug found and fixed on the way: the layout imported the cookie name from a "use client" file, which on the server is not the string, so the hidden choice was ignored after a reload.
+- **Key paths:** components/shell/Shell.module.css; components/shell/SidebarToggle.tsx; components/shell/sidebar-cookie.ts; app/(app)/layout.tsx; app/tokens.css (dark room fix); e2e/shell.spec.ts (new test); 11 page .module.css files (.eyebrow, .lede)
+- **Commands that worked:** npx playwright test (desktop/phone x light/dark, accessibility only) -> 69 passed; setup then shell --no-deps on a server started by hand -> "the sidebar hides and comes back..." passed, skip-link and account-menu tests passed; npx tsc --noEmit, eslint, stylelint -> clean
+- **Known issues / blockers:** Every reference screenshot changes (expected: the look changed). Two phone shell tests could not run locally without the uploads project's books (selectOption waits for the sort menu); the full CI chain runs them. axe cannot judge text on a gradient, so lib/tokens.test.ts is the guard for text on the room.
+- **Exact next steps:** 1. CI round 1 fails on reference images: look at CI's renderings, commit them (merge-train skill). 2. Merge when the four checks are green. 3. Cards PR: <Panel>/<Paper> at 88% with hairline and shadow, plus the solid-paper test from the first attempt. 4. Carousel once Samuel picks A/B/C on the options page (part 8).
 ### 2026-10-15 · [code]smith (cloud) · CI: run workflows on Blacksmith runners (PR 176)
 - **Done:** The GitHub Actions workflows now run on Blacksmith runners (faster machines, same steps). Only the `runs-on:` lines change; no app code, tests or database change.
 - **Key paths:** .github/workflows/, PROGRESS.md

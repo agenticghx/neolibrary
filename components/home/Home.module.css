@@ -39,7 +39,7 @@
 
 .lede {
   max-width: var(--measure-read);
-  color: var(--ink-700);
+  color: var(--ink-900); /* on the room's dark band: main ink only (M24) */
   font-family: var(--font-serif);
   font-size: var(--text-read);
   line-height: var(--leading-read);

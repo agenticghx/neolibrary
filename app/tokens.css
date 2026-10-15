@@ -189,7 +189,7 @@
     --tabbar-edge: #e7ddc914;
     --shadow-panel: 0 1px 2px #0000004d, 0 16px 40px -16px #0000008c;
     --shadow-chip: 0 0 0 #0000;
-    --room: radial-gradient(55% 45% at 0% 0%, var(--room-1), transparent 70%), radial-gradient(28% 40% at 0% 100%, var(--room-2), transparent 70%), radial-gradient(40% 45% at 100% 100%, var(--room-3), transparent 70%), radial-gradient(40% 45% at 22% 62%, var(--room-sage), transparent 70%), radial-gradient(40% 40% at 70% 30%, var(--room-glow), transparent 70%), var(--room-base);
+    --room: radial-gradient(70% 55% at 30% 0%, var(--room-1), transparent 70%), radial-gradient(28% 40% at 0% 100%, var(--room-2), transparent 70%), radial-gradient(40% 45% at 100% 100%, var(--room-3), transparent 70%), radial-gradient(40% 45% at 22% 62%, var(--room-sage), transparent 70%), radial-gradient(40% 40% at 70% 30%, var(--room-glow), transparent 70%);
   }
 }
 
