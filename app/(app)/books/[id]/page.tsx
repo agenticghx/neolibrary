@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AttachFile } from "@/components/AttachFile";
 import { Cover } from "@/components/Cover";
 import { requireUser } from "@/lib/auth/session";
@@ -29,6 +29,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const user = await requireUser();
   const found = await getBook(await getDb(), user.id, (await params).id);
   if (!found) notFound();
+  // M25: a text edition has no page of its own; its scan's page is the book's page.
+  if (found.book.editionOf) redirect(`/books/${found.book.editionOf}`);
   const { book, available, places } = found;
   // Most of this page needs the book file (its chapters, collections, questions, audiobooks).
   const hasFile = available.read;

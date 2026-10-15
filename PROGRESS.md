@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M25 S4 then S5 (one at a time); then S6, the footer Scan | Text switch (Samuel picked C1).
+next_action: Merge M25 S4 (#186), S5, S6 one at a time; then S7 (the book page: start, progress, Stop, pages to check).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15, before 18:38 (time not read from the clock). **M25 S6 (Scan | Text, Samuel's C1) is built on branch `m25-scan-text-switch`**, stacked: S4 is PR 186 (`m25-text-edition-job`), then S5 (`m25-text-epub`), then this. Merge one at a time; 0027 needs a backup before its deploy. Next: S7, the book page.
 
 Written 2026-10-15, before 18:38 (time not read from the clock). **S3 merged (#185). Samuel picked C1 for the switch.** The text edition is now a book of its own (migration 0027 reworked before any merge: books.edition_of instead of text-file columns). Branches: `m25-text-edition-job` (S4) then `m25-text-epub` (S5), to merge one at a time; migration 0027 needs a production backup before its deploy. Next: S6, the footer switch.
 
@@ -236,6 +238,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 (before 18:38) · Claude Opus 5.5 (laptop) · M25 S6: Scan | Text in the reader's footer (C1)
+- **Done:** For a scanned PDF with a text edition, and in that edition, the reader's footer shows Scan | Text beside Listen (the one being read filled in); in the text edition, "Scan page N" (on a phone "p. N") leads to the same page of the scan. The scan opens the edition at the scan page's marker (?page=N, found in the EPUB's page list); the edition opens the scan at the page of the last marker passed (foliate's pageItem). The read page works out both books' ids; an edition's book page sends you to its scan's page. Test server checks batches every 500 ms (TEXT_EDITION_POLL_MS).
+- **Key paths:** app/(reader)/books/[id]/read/{page.tsx,Reader.tsx,reader.module.css}; app/(app)/books/[id]/page.tsx; e2e/reader.spec.ts ("Scan | Text: ..."); playwright.config.ts
+- **Commands that worked:** npm run build, next start with the e2e settings, npx playwright test --project=setup, then --project=reader --no-deps --grep "Scan \| Text" -> 1 passed (3.8 s), screenshots/scan-text-{desktop,phone}-{light,dark}.png looked at (both match the C1 drawing); npm run check -> 888 passed, 2 skipped
+- **Known issues / blockers:** The accessibility check first failed in dark only because it ran while the colours were still easing between themes (measured after: cream on slate, well above the minimum); the test now waits 300 ms, as the other four-look tests do.
+- **Exact next steps:** 1. Merge S4, S5, S6 in turn (screenshot references may change). 2. S7 on branch m25-text-edition-page.
 
 ### 2026-10-15 (before 18:38) · Claude Opus 5.5 (laptop) · M25: the text edition becomes its own hidden book; Samuel picked C1
 - **Done:** Samuel answered Open unknowns row 25 with C1. Before any of it merged, reshaped S4 and S5 on a second opinion: every reader feature (paragraphs, Listen, notes, rewrites, search, the place reached) keys on one book's sections, so the edition is now a book of its own. Migration 0027 adds books.edition_of (unique, cascades with the scan) instead of the text-file columns; makeTextEdition creates or updates that book (same id when made again), stores the EPUB at books/<owner>/<edition>.epub with the scan's cover, and builds its sections. Editions are left out of the shelf, Home's Continue, library search (searched inside themselves), the covers page and job, the Path editor and title matching, the import page, removed books, Cmd+K and the importer's duplicate check. A scan and its edition share one per-book AI limit (spending and heldByJobs count the group). The export carries editionOf, puts scans before editions on import, and refuses an edition whose scan is not in the file.

@@ -45,7 +45,7 @@ type FoliateView = HTMLElement & {
   prev(): Promise<void>;
   next(): Promise<void>;
   close(): void;
-  book: { toc?: TocItem[]; dir?: string; rendition?: { spread?: string }; sections?: unknown[] };
+  book: { toc?: TocItem[]; dir?: string; rendition?: { spread?: string }; sections?: unknown[]; pageList?: { label: string; href: string }[] };
   /** `index`: in a PDF, the page shown, or being opened once a turn has begun. */
   renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[]; readonly index?: number };
   getCFI(index: number, range: Range): string;
@@ -53,7 +53,7 @@ type FoliateView = HTMLElement & {
   addAnnotation(a: { value: string }): Promise<unknown>;
   deleteAnnotation(a: { value: string }): Promise<unknown>;
 };
-type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string; href?: string }; range?: Range };
+type Relocate = { cfi: string; fraction: number; tocItem?: { label?: string; href?: string }; pageItem?: { label?: string }; range?: Range };
 type DrawFn = (rects: unknown, opts?: unknown) => SVGElement;
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -248,6 +248,10 @@ export function Reader(props: {
   startListening?: boolean;
   /** The view the book opens in (M17), from the reader's account: the book alone, the rewrite beside it, or the rewrite alone. */
   rewrittenView?: RewrittenMode;
+  /** M25: a scanned PDF and its text edition (two books): which one this is, so the footer offers Scan | Text. */
+  edition?: { scanId: string; textId: string; current: "scan" | "text" };
+  /** M25: open the text edition at the marker of this page of the scan. */
+  openPage?: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -327,6 +331,9 @@ export function Reader(props: {
     trackerRef.current = tracker;
   });
   const whereCfi = useRef<string | null>(props.initialCfi);
+  /** M25: the page of the scan being read (in the text edition, the last page marker passed), for Scan | Text. */
+  const [scanPage, setScanPage] = useState<number | null>(null);
+  const editionNow = props.edition?.current;
   /** Read aloud asked for the next page and it has not arrived yet. */
   const turning = useRef(false);
   /** Where the word lit by read aloud is (its CFI): going on after a pause returns to its page. */
@@ -563,6 +570,10 @@ export function Reader(props: {
           }
           const cfi = d.cfi;
           mark("nl:relocate", { cfi });
+          if (editionNow) {
+            const page = editionNow === "scan" ? pdfPage(cfi) + 1 : Number(d.pageItem?.label);
+            setScanPage(Number.isInteger(page) && page > 0 ? page : null);
+          }
           setWhere({ cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
           // A PDF's pages on screen (two side by side bring both); an EPUB's visible range.
           const pageCfi = (n: number) => `epubcfi(/6/${(n + 1) * 2})`;
@@ -656,7 +667,10 @@ export function Reader(props: {
         });
         setToc(v.book.toc ?? []);
         setPageCount(props.fileType === "pdf" ? (v.book.sections?.length ?? 0) : 0);
-        await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi });
+        await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi && !props.openPage });
+        // M25: from the scan's page n to the same page in the text edition (its page marker, in the page list).
+        const opening = props.openPage ? v.book.pageList?.find((item) => item.label === String(props.openPage)) : undefined;
+        if (opening) await v.goTo(opening.href);
         clearTimeout(giveUp);
         setStatus("ready");
       } catch (err) {
@@ -670,7 +684,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, flush, onKey, lookForLinks, refocus]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, lookForLinks, refocus]);
 
   // Re-style when settings or the colour scheme change. A PDF's spread is read only when its renderer opens, so a new page choice reopens on the same page.
   useEffect(() => {
@@ -1608,6 +1622,7 @@ export function Reader(props: {
           <span className={styles.progressFill} data-progress={Math.round(where.fraction * 50) * 2} />
         </span>
         <span className={styles.footRight}>
+          {props.edition ? <EditionSwitch edition={props.edition} scanPage={scanPage} /> : null}
           <button
             type="button"
             className={styles.listenButton}
@@ -1741,5 +1756,48 @@ function TocList({ items, onPick, current }: { items: TocItem[]; onPick: (href: 
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Scan | Text (M25, Samuel's C1): a scanned PDF and its text edition, side by side in the footer. Each opens at the
+ * page being read: the scan at that page, the text edition at that page's marker. In the text edition, a link names
+ * the scan's page, to check a word against the printed page.
+ */
+function EditionSwitch({ edition, scanPage }: { edition: { scanId: string; textId: string; current: "scan" | "text" }; scanPage: number | null }) {
+  const scanHref = `/books/${edition.scanId}/read${scanPage ? `?at=${encodeURIComponent(`epubcfi(/6/${scanPage * 2})`)}` : ""}`;
+  const textHref = `/books/${edition.textId}/read${scanPage ? `?page=${scanPage}` : ""}`;
+  return (
+    <>
+      <span className={styles.edition} role="group" aria-label="Edition">
+        {edition.current === "scan" ? (
+          <span className={styles.editionOn} aria-current="page">
+            Scan
+          </span>
+        ) : (
+          <a className={styles.editionOff} href={scanHref}>
+            Scan
+          </a>
+        )}
+        {edition.current === "text" ? (
+          <span className={styles.editionOn} aria-current="page">
+            Text
+          </span>
+        ) : (
+          <a className={styles.editionOff} href={textHref} title="The same book as flowing text, read from the scan by Claude">
+            Text
+          </a>
+        )}
+      </span>
+      {edition.current === "text" && scanPage ? (
+        <a className={styles.scanPage} href={scanHref} aria-label={`Scan page ${scanPage}`}>
+          <span className={styles.scanPageWord}>Scan page </span>
+          <span className={styles.scanPageShort} aria-hidden="true">
+            p.{" "}
+          </span>
+          {scanPage}
+        </a>
+      ) : null}
+    </>
   );
 }

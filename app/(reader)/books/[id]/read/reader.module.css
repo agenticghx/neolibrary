@@ -304,6 +304,47 @@
   cursor: default;
 }
 
+/* M25, Samuel's C1: Scan | Text beside Listen for a scanned book and its text edition; in the text edition, a link to the scan's page. */
+.edition {
+  display: inline-flex;
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.editionOn,
+.editionOff {
+  padding: var(--space-0) var(--space-2);
+  font-weight: 600;
+}
+
+.editionOn {
+  background-color: var(--accent-strong);
+  color: var(--paper-raised);
+}
+
+.editionOff {
+  color: var(--ink-900);
+  text-decoration: none;
+}
+
+.editionOff:hover {
+  background-color: var(--paper-sunken);
+}
+
+.scanPage {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 0.2em;
+  white-space: nowrap;
+}
+
+.scanPageShort {
+  display: none;
+}
+
 /* Where the app's read-aloud player draws the bar (components/player): no box of its own, so the bar sits in the reader's grid as before. */
 .listenSlot {
   display: contents;
@@ -1348,6 +1389,14 @@
   .foot {
     grid-template-columns: 1fr auto;
     padding: var(--space-2) var(--space-3);
+  }
+
+  .scanPageWord {
+    display: none;
+  }
+
+  .scanPageShort {
+    display: inline;
   }
 
   .progress {

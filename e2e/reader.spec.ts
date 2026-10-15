@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import * as CFI from "foliate-js/epubcfi.js";
 import { readableEpub } from "../lib/library/test-epub";
@@ -358,6 +358,68 @@ test("a scanned PDF's pages show their pictures (JPEG 2000 and JBIG2)", async ({
   await expect.poll(() => ink(1), { message: "page 2 (JBIG2) shows ink", timeout: 10_000 }).toBeGreaterThan(2000);
   expect((await decoder).status(), "the JPEG 2000 decoder is served").toBe(200);
   expect(refused, "the decoders run as WebAssembly").toEqual([]);
+});
+
+// M25 S6 (Samuel's C1): a scanned book and its text edition. Scan | Text sits in the footer beside Listen; each opens
+// at the page being read; in the text edition, "Scan page N" leads back to the printed page. The edition is made by
+// the fake batch model (no key, no network), which reads each page as "Fake transcription of page-N.".
+test("Scan | Text: a scanned book's text edition opens at the same page, and leads back to the scan", async ({ page }) => {
+  test.slow();
+  const upload = await page.request.post("/api/books", {
+    multipart: { files: { name: "scanned-meditation.pdf", mimeType: "application/pdf", buffer: readFileSync("fixtures/books/scanned-meditation.pdf") } },
+  });
+  const scanId = (await upload.json()).results[0].bookId as string;
+  const summary = await (await page.request.get(`/api/books/${scanId}/text-edition`)).json();
+  if (summary.job?.status !== "finished") {
+    const start = await page.request.post(`/api/books/${scanId}/text-edition`, { data: { confirm: true } });
+    expect([200, 202]).toContain(start.status());
+  }
+  await expect
+    .poll(async () => (await (await page.request.get(`/api/books/${scanId}/text-edition`)).json()).job?.status, { timeout: 30_000 })
+    .toBe("finished");
+
+  await page.goto(`/books/${scanId}/read`);
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const edition = page.getByRole("group", { name: "Edition" });
+  await expect(edition.getByText("Scan")).toHaveAttribute("aria-current", "page");
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+
+  // To the text edition, at the scan's page 2.
+  await edition.getByRole("link", { name: "Text" }).click();
+  await expect(page).toHaveURL(/\/read\?page=2$/);
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(edition.getByText("Text")).toHaveAttribute("aria-current", "page");
+  const back = page.getByRole("link", { name: "Scan page 2" });
+  await expect(back).toBeVisible();
+  // It is an EPUB in the reader: the text size changes (and is put back for the tests after this one).
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Larger text" }).click();
+  await expect(page.getByTestId("text-size")).toHaveText("110%");
+  await page.getByRole("button", { name: "Smaller text" }).click();
+  await page.keyboard.press("Escape");
+
+  mkdirSync("screenshots", { recursive: true });
+  for (const [size, width, height] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300); // the colours ease from one theme to the other
+      await expect(back).toBeVisible();
+      const axe = await new AxeBuilder({ page }).include("footer").withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((x) => x.target).join(", ")}`), `${size} ${scheme}`).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${size} ${scheme}: sideways scroll`).toBeLessThanOrEqual(0);
+      await page.screenshot({ path: `screenshots/scan-text-${size}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Back to the printed page: the scan opens at page 2.
+  await back.click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  await expect(edition.getByText("Scan")).toHaveAttribute("aria-current", "page");
 });
 
 // M20 Q8: a large book on a slow connection. The reader says how much of the file has arrived, and it waits as long
