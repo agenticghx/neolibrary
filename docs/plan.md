@@ -732,6 +732,15 @@ starts to play. One ahead. The cost counts toward the $1 "Keep reading?"
 question. An EPUB and an uploaded audiobook are unchanged. The rules and
 the "Done when" are Part B of `docs/pdf-narration-plan.md`.
 
+### M25 · Scanned books become flowing books (Samuel, 2026-10-15)
+
+A scanned PDF can also be read as a flowing book (an EPUB "text edition"
+beside the scan): Claude Sonnet 5.5 reads each page picture through the
+Batch API (about $3 for a 388-page book, inside the $5 per-book limit),
+every page is checked against the scan's own hidden text, and the reader
+offers Scan | Text. Plan, steps S1 to S8 and their "Done when":
+`docs/scan-to-text-plan.md`.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
