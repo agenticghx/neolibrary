@@ -2624,7 +2624,8 @@ test("M14 (6b): the mini-player sits at the foot of the page, above the tabs on 
         await page.evaluate(() => window.scrollTo(0, 0));
         const focused = await page.evaluate(() => {
           const bar = () => document.querySelector("[data-miniplayer]")!.getBoundingClientRect();
-          const under = [...document.querySelectorAll<HTMLElement>("#content a[href], #content button")].find((e) => {
+          // A disabled button cannot take focus (the carousel's Previous arrow on its first book), so it is never "left behind".
+          const under = [...document.querySelectorAll<HTMLElement>("#content a[href], #content button:not(:disabled)")].find((e) => {
             const r = e.getBoundingClientRect();
             return r.height > 0 && r.bottom > bar().top + 1 && r.top < window.innerHeight;
           });

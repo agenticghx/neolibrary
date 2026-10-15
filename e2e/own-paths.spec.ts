@@ -46,6 +46,10 @@ async function fourLooks(page: Page, name: string, ready: () => Promise<void>) {
 }
 
 test("make a Path of sections and titles, reorder them, and add a book file to a title waiting for it", async ({ page, browser }) => {
+  // A long walk (four looks, two extra tabs, an upload). 15.2 s on main's CI run 38741376381 on 2026-10-15,
+  // 25.2 s on the same commit's re-run two hours later, 31-32 s on PR 181: slow runners, not a stuck step
+  // (its trace shows no step over 0.6 s). Three times the usual limit; no check is changed.
+  test.slow();
   await page.goto("/paths/new");
   await page.getByLabel("Name").fill("Philosophy of science");
   await page.getByLabel("What it is for (optional)").fill("How science changes its mind.\nAnd why it takes so long.");
