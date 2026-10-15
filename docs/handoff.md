@@ -199,6 +199,12 @@ network returns):
 ## 5. Lessons learnt and gotchas
 
 **Production vs tests**
+- **Scanned PDFs need pdf.js's picture decoders** (2026-10-15). *The Pay Off*,
+  an Internet Archive scan, opened as blank white pages: its pictures are
+  JPEG 2000 and JBIG2, and pdf.js decodes those only when `wasmUrl` points at
+  its `wasm/` files, which the app never set or served. No fixture was a
+  scan, so no test saw it. Root cause, evidence and the fix:
+  `docs/root-cause-scanned-pdfs.md`.
 - **PGlite is not production.** Production uses postgres.js. It refuses a raw
   `BEGIN … COMMIT` on a pool (`UNSAFE_TRANSACTION`), which made every live page
   a 500 (fixed in #29). Run `npm run test:postgres` for anything touching
