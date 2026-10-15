@@ -210,6 +210,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-15 · [code]smith (cloud) · CI: run workflows on Blacksmith runners (PR 176)
+- **Done:** The GitHub Actions workflows now run on Blacksmith runners (faster machines, same steps). Only the `runs-on:` lines change; no app code, tests or database change.
+- **Key paths:** .github/workflows/, PROGRESS.md
+- **Commands that worked:** none locally; CI on PR 176 is the check.
+- **Known issues / blockers:** None. Merge only when the four checks are green.
+- **Exact next steps:** Unchanged: see Exact next steps.
+
 ### 2026-10-14 22:40 · Claude Opus 5.5 (laptop) · M24 step 1: the room and glass colours (tokens only)
 - **Done:** Samuel picked the glass options (2026-10-14): room C (deep sky), sidebar B (glass rail) plus a hide-sidebar button like the Claude desktop app, cards A (88%, hairline, shadow), type A (today's sizes), phone tab bar B (frosted), dark mode = room B's dark shapes. He also wants a book carousel like Hark's. This PR adds only the colour tokens and their tests; nothing on screen changes yet. Measured: on Room C's top band, ink-500 is 2.28:1 and the accent 2.43:1, so the room is one screen tall and only page headers sit on its dark band. Tab bar raised from the board's 62% to 82%: at 62% labels fell under 4.5:1 over a dark or pale cover. The new tests failed on four near-miss colours (4.495, 4.499, 4.34, 4.23) before the values were tuned.
 - **Key paths:** app/tokens.css; lib/contrast.ts (blendOver, from the first attempt); lib/tokens.test.ts; docs/design.md rule 5
