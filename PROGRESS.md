@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: PR 180 (carousel in the library): refresh reference screenshots from CI, merge when green, deploy at Samuel's word.
+next_action: PR 181 (glass pop-ups + centred carousel): refresh design pictures, merge when green, deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -211,6 +211,27 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 09:31 · Claude Opus 5.5 (laptop) · Carousel opens centred (added to PR 181)
+- **Done:** Samuel: the carousel looked right-aligned (first book in the middle, left half empty). It now opens on its middle book, before the first paint, once it has a width. Test updated: a book sits left of the middle on opening.
+- **Key paths:** components/home/BookCarousel.tsx; e2e/shell.spec.ts
+- **Commands that worked:** npm run build; next start -p 3100 with the e2e env; npx playwright test --project=setup; npx playwright test --project=shell --no-deps --grep 'book carousel' -> 2 passed
+- **Known issues / blockers:** The design page's reference pictures change again; CI's first round fails on them by design.
+- **Exact next steps:** 1. Refresh the design-page pictures from CI, look, push. 2. Merge when green. 3. Deploy at Samuel's word.
+
+### 2026-10-15 09:29 · Claude Opus 5.5 (laptop) · M24: pop-up windows and the mini-player in glass
+- **Done:** At Samuel's request: the command palette, Choose a cover dialog, account menu popover and phone sheet, speed menu, Think aloud panel and the mini-player now use the cards' glass (--panel 88%, --panel-edge, --shadow-panel, --radius-panel, blur). The read-aloud sentence and the voice-note quote sit on solid paper inside the glass bar; new tests check both. The reader's shortcuts dialog stays paper (existing test: the reader has no glass at all). docs/design.md rule 5 updated.
+- **Key paths:** components/player/MiniPlayer.module.css; components/shell/Shell.module.css; components/palette/CommandPalette.module.css; app/(app)/covers/page.module.css; lib/tokens.test.ts; docs/design.md
+- **Commands that worked:** npx stylelint (clean); npx vitest run lib/tokens.test.ts -> 139 passed
+- **Known issues / blockers:** Browser tests and any changed reference pictures come from CI on the PR.
+- **Exact next steps:** 1. CI on the PR; refresh any reference pictures (merge-train refresh-screenshots.sh), look at them, push. 2. Merge when green. 3. Deploy at Samuel's word.
+
+### 2026-10-15 09:04 · Claude Opus 5.5 (laptop) · Live: d45e5ef, the library carousel (PR 180)
+- **Done:** PR 180 merged by the auto-merge Action as d45e5ef after round 3 (four checks green: browser tests 12m7s, lint/types/unit, PR hygiene, Postgres). Two earlier rounds failed only on the design page's reference pictures (the carousel sample, then the card's stacked lines); both looked at and committed. Deployed at Samuel's word ('merge and deploy'). No migration (still 0026_cover_upload), so no backup.
+- **Key paths:** components/home/LibraryViews.tsx; components/home/BookCarousel.tsx; e2e/__screenshots__/design-*.png
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=d45e5ef6479b10dac4fecfde46ffdb0b97b5dd1c --service web --environment production --skip-deploys; railway up --service web --environment production --ci (from ../neolibrary-deploy detached at d45e5ef) -> Deploy complete; curl /api/health -> commit d45e5ef; /sign-in 200; / 307
+- **Known issues / blockers:** Samuel has not yet looked at the carousel signed in with his real library. Home's reference pictures run on an empty library, so no stored picture shows the carousel with books.
+- **Exact next steps:** 1. Samuel opens Home signed in: the library shows the carousel; Spines still one click away. 2. Later: dialogs and the mini-player as glass; a shared <Panel> component. 3. Delete the ../Neolibrary-carousel worktree once this record branch rides in with the next PR.
 
 ### 2026-10-15 08:08 · Claude Opus 5.5 (laptop) · M24: the library's grid becomes the book carousel (PR 180)
 - **Done:** Samuel picked carousel placement B, with the grid view turned into the carousel and spines kept (2026-10-15). On Home and /library the View switch is now Carousel | Spines; carousel is the default; a saved 'grid' opens as the carousel. The carousel's middle-book card shows title, author, availability and progress, like the old grid card. BookCarousel's test id moved to its list, and a ResizeObserver re-measures when the view is shown. Also: row 9 on the options page shows Samuel's alternative combination (room B, sidebar A, cards B) next to the live one; he kept what is live.

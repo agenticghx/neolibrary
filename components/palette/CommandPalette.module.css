@@ -19,6 +19,9 @@
 }
 
 .panel {
+  /* Floating glass can sit over anything, even a white cover, so its quiet grey is a step darker (lib/tokens.test.ts). */
+  --ink-500: var(--ink-700);
+
   display: flex;
   flex-direction: column;
   width: calc(100% - var(--space-4) * 2);
@@ -26,11 +29,12 @@
   max-height: calc(100% - var(--space-9) * 2);
   margin: var(--space-9) auto 0;
   overflow: hidden;
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-lg);
-  background-color: var(--paper-raised);
-  box-shadow: var(--shadow-raised);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  box-shadow: var(--shadow-panel);
   font-family: var(--font-sans);
+  backdrop-filter: blur(var(--blur-glass));
 }
 
 .dialog[open] .panel {

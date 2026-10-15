@@ -45,6 +45,12 @@ and museum signage, not a software dashboard.
      `--panel-edge`, `--shadow-panel`, `--radius-panel` 14px);
    - the phone tab bar is glass at 82% (`--tabbar`), so its labels stay
      readable over any cover passing under it.
+   - pop-up windows and menus (the command palette, Choose a cover, the
+     account menu and its phone sheet, the speed menu) and the mini-player
+     use the cards' glass. The sentence the mini-player reads aloud, and the
+     one a voice note quotes, sit on their own solid paper inside it. The
+     reader page has no glass at all, so its keyboard-shortcuts window stays
+     paper.
    **Rules the tests enforce** (`lib/tokens.test.ts`): only page headers sit
    on the room's dark band (`--room-1`, `--room-2`), so text there is
    `--ink-900`; grey text and green links belong below the band, on cards
