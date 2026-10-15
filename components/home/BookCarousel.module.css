@@ -77,7 +77,7 @@
   opacity: 1;
 }
 
-.title {
+.itemTitle {
   font-family: var(--font-serif);
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
@@ -85,9 +85,24 @@
   text-wrap: balance;
 }
 
-.available {
+.author {
   color: var(--ink-700);
   font-size: var(--text-sm);
+}
+
+/* What you can do with it, then how far you are: "Read and listen · 42% read". */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 var(--space-2);
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.meta > span + span::before {
+  margin-right: var(--space-2);
+  content: "·";
 }
 
 .arrow {

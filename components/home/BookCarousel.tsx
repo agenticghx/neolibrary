@@ -7,6 +7,7 @@ import { Icon } from "@/components/shell/icons";
 import { availabilityLabel } from "@/lib/library/availability";
 import type { LibraryItem } from "@/lib/library/home";
 import styles from "./BookCarousel.module.css";
+import { marksText, progressLabel } from "./Library";
 
 /** How far a cover may tilt (degrees) and shrink at the strip's edges: the inside of a curved wall. */
 const TILT = 14;
@@ -54,11 +55,13 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
     };
     measure();
     ul.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    // A new width (the window, or the strip shown again by the View switch) moves the middle.
+    const resized = new ResizeObserver(onScroll);
+    resized.observe(ul);
     return () => {
       cancelAnimationFrame(frame);
       ul.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      resized.disconnect();
     };
   }, [measure, items.length]);
 
@@ -101,13 +104,14 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
   };
 
   return (
-    <section className={styles.carousel} aria-roledescription="carousel" aria-label={label} data-testid={testId}>
+    <section className={styles.carousel} aria-roledescription="carousel" aria-label={label}>
       <button type="button" className={[styles.arrow, styles.prev].join(" ")} aria-label="Previous book" disabled={current === 0} onClick={() => go(current - 1)}>
         <Icon name="chevron" className={styles.arrowIcon} />
       </button>
       <ul
         ref={strip}
         className={styles.strip}
+        data-testid={testId}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -128,8 +132,13 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
             >
               <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} />
               <span className={styles.pill}>
-                <span className={styles.title}>{b.title}</span>
-                <span className={styles.available}>{availabilityLabel(b.available)}</span>
+                <span className={styles.itemTitle}>{b.title}</span>
+                {b.author ? <span className={styles.author}>{b.author}</span> : null}
+                <span className={styles.meta}>
+                  <span>{availabilityLabel(b.available)}</span>
+                  {b.available.read || b.available.listen ? <span>{progressLabel(b.progress)}</span> : null}
+                </span>
+                {marksText(b) ? <span className="visually-hidden">{`, ${marksText(b)}`}</span> : null}
               </span>
             </Link>
           </li>

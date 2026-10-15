@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContinueCard } from "@/components/home/ContinueCard";
-import { LibraryGrid, LibrarySpines, NotYetGroup } from "@/components/home/Library";
+import { BookCarousel } from "@/components/home/BookCarousel";
+import { LibrarySpines, NotYetGroup } from "@/components/home/Library";
 import { LibraryViews } from "@/components/home/LibraryViews";
 import { SortMenu } from "@/components/home/SortMenu";
 import styles from "@/components/home/Home.module.css";
@@ -117,7 +118,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <SortMenu />
                   </div>
                 }
-                grid={<LibraryGrid items={items} />}
+                carousel={<BookCarousel items={items} label="Your library" testId="shelf" />}
                 spines={<LibrarySpines items={items} />}
               />
             ) : (

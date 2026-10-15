@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { LibraryGrid, LibrarySpines, NotYetGroup } from "@/components/home/Library";
+import { BookCarousel } from "@/components/home/BookCarousel";
+import { LibrarySpines, NotYetGroup } from "@/components/home/Library";
 import { LibraryViews } from "@/components/home/LibraryViews";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -134,7 +135,7 @@ export default async function LibraryPage({
           {items.length ? (
             <LibraryViews
               header={<p className={styles.count}>{items.length === 1 ? "1 title" : `${items.length} titles`}</p>}
-              grid={<LibraryGrid items={items} />}
+              carousel={<BookCarousel items={items} label="Your library" testId="shelf" />}
               spines={<LibrarySpines items={items} />}
             />
           ) : (
