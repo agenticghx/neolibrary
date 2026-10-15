@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: PR for glass pop-ups and mini-player: CI, merge when green, deploy at Samuel's word.
+next_action: PR 181 (glass pop-ups + centred carousel): refresh design pictures, merge when green, deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -211,6 +211,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 09:31 · Claude Opus 5.5 (laptop) · Carousel opens centred (added to PR 181)
+- **Done:** Samuel: the carousel looked right-aligned (first book in the middle, left half empty). It now opens on its middle book, before the first paint, once it has a width. Test updated: a book sits left of the middle on opening.
+- **Key paths:** components/home/BookCarousel.tsx; e2e/shell.spec.ts
+- **Commands that worked:** npm run build; next start -p 3100 with the e2e env; npx playwright test --project=setup; npx playwright test --project=shell --no-deps --grep 'book carousel' -> 2 passed
+- **Known issues / blockers:** The design page's reference pictures change again; CI's first round fails on them by design.
+- **Exact next steps:** 1. Refresh the design-page pictures from CI, look, push. 2. Merge when green. 3. Deploy at Samuel's word.
 
 ### 2026-10-15 09:29 · Claude Opus 5.5 (laptop) · M24: pop-up windows and the mini-player in glass
 - **Done:** At Samuel's request: the command palette, Choose a cover dialog, account menu popover and phone sheet, speed menu, Think aloud panel and the mini-player now use the cards' glass (--panel 88%, --panel-edge, --shadow-panel, --radius-panel, blur). The read-aloud sentence and the voice-note quote sit on solid paper inside the glass bar; new tests check both. The reader's shortcuts dialog stays paper (existing test: the reader has no glass at all). docs/design.md rule 5 updated.
