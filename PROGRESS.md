@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the scanned-PDF fix (branch m24-scanned-pdfs), deploy at Samuel's word, then check The Pay Off draws on the live site.
+next_action: Samuel picks the next work (Open unknowns row 21 a, c, d, e, or ideas in docs/suggestionsForAINative.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-15
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-15 14:20 (laptop clock). **Live: ff2551d. Scanned PDFs draw** (#182, deployed at Samuel's word "yes deploy it once it merges"). *The Pay Off* opens on page 19 (where Samuel left off) with the scanned page shown: 52,093 dark pixels on its canvas, checked by eye. Opening it again: the picture appears 2.8 s after the page starts loading. Of Samuel's PDFs, only *The Pay Off* is such a scan. Nothing else is in flight. Samuel-only: Open unknowns row 21 (a), (c), (d), (e); rows 12 and 13 (defaults apply); a PDF's first page as its cover; ideas in docs/suggestionsForAINative.md; a look at the glass pop-ups signed in. Claude can do without him: a request limit on /api/agent/*; one shared glass Panel component. This entry sits on local branch `m24-scanned-deploy-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-15 13:10 (laptop clock). **Scanned PDFs: the fix is built and tested on branch `m24-scanned-pdfs`** (not merged, not deployed; live is 1d80455). *The Pay Off* opened as white pages because pdf.js had no decoders for its JPEG 2000 and JBIG2 pictures. Now the decoders are copied and served, pdf.js is told where they are, and the security policy lets them run as WebAssembly. A two-page made-up scan in `fixtures/books/` is checked for ink on each page. Of Samuel's 130 titles, 6 have a file; of the 3 PDFs, only *The Pay Off* is such a scan (94 JPEG 2000 and 47 JBIG2 pictures in its first 3 MB). Next: PR, merge with the merge train, deploy at Samuel's word (no migration), then open *The Pay Off* pages 16 and 17 signed in on the live site and confirm they draw. M23 (#175) and M24 (#177 to #181) are merged and live.
 
@@ -213,6 +215,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-15 14:20 · Claude Opus 5.5 (laptop) · Live: ff2551d, scanned PDFs draw (PR 182)
+- **Done:** PR 182 merged by the auto-merge Action as ff2551d (four checks green) and deployed at Samuel's word. No migration (0026 still last), so no backup. Live: /api/health commit ff2551d; script-src carries 'wasm-unsafe-eval'; signed in, /pdfjs/wasm/openjpeg.wasm 200 application/wasm 251,131 bytes and files.json lists the wasm files. The Pay Off opened on page 19 (its saved place; no page chosen, so the reading position did not move) and the page drew: 52,093 dark pixels, checked by eye. First open after the deploy: still blank at 6 s (14 MB book and the decoders downloading); reopened: picture 2.8 s after navigation start, 0.4 s after ready.
+- **Key paths:** none changed (deploy record)
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=ff2551d3bdbe7635ced8f724dd434f43a131afbb --service web --environment production --skip-deploys; railway up --service web --environment production --ci (from ../neolibrary-deploy detached at ff2551d) -> Deploy complete; curl /api/health -> commit ff2551d; /sign-in 200; / 307
+- **Known issues / blockers:** The first open of a large scanned book shows an empty page for several seconds while it downloads; the reader's progress message covers the download, not the decoding. Samuel's invited reader's PDFs were not counted (another account).
+- **Exact next steps:** 1. Samuel picks the next work (see Exact next steps). 2. Commit this entry with the next real PR. 3. Delete ../Neolibrary-carousel when no branch there is needed.
 
 ### 2026-10-15 13:10 · Claude Opus 5.5 (laptop) · Scanned PDFs show their pages (JPEG 2000 and JBIG2 decoders)
 - **Done:** Built the fix in docs/root-cause-scanned-pdfs.md. pdf.js's decoders (wasm/, without quickjs) and colour profiles (iccs/) are copied into public/pdfjs/; pdf-book.ts passes wasmUrl and iccUrl; proxy.ts adds 'wasm-unsafe-eval' to script-src. Measured on the production build: without that policy word, the pages still showed (pdf.js's slow JavaScript fallback) but the browser refused the WebAssembly decoders; with it, no refusal. New fixture scanned-meditation.pdf (page 1 JPEG 2000, page 2 JBIG2, drawn by Pillow, Descartes' public-domain text) and a reader test that counts ink on each page, checks openjpeg.wasm is served and that WebAssembly is not refused. With the two pdf-book.ts lines removed, the test failed (nothing shown). Counted Samuel's library read-only in the built-in browser (first 3 MB of each file): 130 titles, 6 with a file (3 EPUB, 3 PDF); only The Pay Off needs the decoders (94 JPX, 47 JBIG2). His invited reader's library was not checked (another account).
