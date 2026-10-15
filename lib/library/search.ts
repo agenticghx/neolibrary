@@ -51,7 +51,8 @@ export async function searchLibrary(db: Db, ownerId: string, query: string, limi
     JOIN query ON s.search @@ query.q
     LEFT JOIN sections ch ON ch.book_id = s.book_id AND ch.kind = 'chapter' AND ch.chapter_index = s.chapter_index
     WHERE b.owner_id = ${ownerId} AND b.deleted_at IS NULL AND s.kind <> 'chapter'
-      ${bookId ? sql`AND b.id = ${bookId}` : sql``}
+      -- Across the library, a text edition (M25) is left out: it repeats its scan's words. Inside it, it is searched.
+      ${bookId ? sql`AND b.id = ${bookId}` : sql`AND b.edition_of IS NULL`}
     ORDER BY ${bookId ? sql`s.position` : sql`ts_rank(s.search, query.q) DESC, b.title, s.position`}
     LIMIT ${limit}
   `);

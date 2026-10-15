@@ -117,15 +117,14 @@ describe("library export (ground rule 7)", () => {
     await rateCard(database.db, ownerId, note.id, "again", new Date("2026-10-11T09:01:00Z"));
     const reviewNow = new Date("2026-10-11T10:00:00Z");
     const queueBefore = await reviewQueue(database.db, ownerId, reviewNow);
-    // M25: a text edition beside the book's file (made from a scanned PDF; here only the link to it matters).
-    const textEdition = { key: `books/${ownerId}/${bookId}.text.epub`, size: 4321, madeAt: "2026-10-15T18:00:00.000Z" };
-    await database.db
-      .update(books)
-      .set({ textFileKey: textEdition.key, textFileSize: textEdition.size, textMadeAt: new Date(textEdition.madeAt) })
-      .where(eq(books.id, bookId));
+    // M25: a text edition, a book of its own linked to its scan (here only the link matters).
+    const [edition] = await database.db
+      .insert(books)
+      .values({ ownerId, title: "The Time Machine", author: "H. G. Wells", fileKey: `books/${ownerId}/edition.epub`, fileName: "edition.epub", fileType: "epub", fileSize: 4321, editionOf: bookId })
+      .returning({ id: books.id });
 
     const before = await exportLibrary(database.db, ownerId);
-    expect(before.books.find((b) => b.id === bookId)?.textFile).toEqual(textEdition);
+    expect(before.books.find((b) => b.id === edition.id)?.editionOf).toBe(bookId);
     expect(before.books.length).toBeGreaterThan(100);
     expect(before.paths[0].pillars.length).toBe(hiddenMachinery.pillars.length);
     expect(before.books.find((b) => b.id === bookId)).toMatchObject({ position: "epubcfi(/6/8!/4/2/1:0)", progress: 0.25 });
@@ -399,10 +398,12 @@ describe("a library file may only point inside the importing reader's library", 
     }
   });
 
-  it("refuses a text edition stored outside the reader's own folder (M25), and writes nothing", async () => {
-    const elsewhere = { ...book(), textFile: { key: `books/${otherId}/${bookId}.text.epub`, size: 1, madeAt: now } };
-    await expect(importLibrary(database.db, ownerId, libraryFile({ books: [elsewhere] }))).rejects.toThrow('The text edition of "Meditations" is not stored in your library.');
-    await nothingImported();
+  it("refuses a text edition whose scan is not in the file (M25), and writes nothing", async () => {
+    for (const editionOf of [crypto.randomUUID(), bookId]) {
+      const edition = { ...book(), editionOf };
+      await expect(importLibrary(database.db, ownerId, libraryFile({ books: [edition] }))).rejects.toThrow('The text edition of "Meditations" names a scan that is not in this file.');
+      await nothingImported();
+    }
   });
 
   it("refuses covers, recordings, pictures and audio stored outside the reader's own folders", async () => {

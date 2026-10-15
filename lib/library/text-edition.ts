@@ -30,6 +30,8 @@ import type { Db } from "@/lib/db/client";
 import { books, generations, sections, textEditionJobs, type TextEditionBatch, type TextEditionCheck, type TextEditionProblem } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { checkPage } from "./page-check";
+import { readBook } from "./ebook";
+import { buildSections } from "./sections-store";
 import { buildTextEdition, type EditionPage } from "./text-epub";
 import { BLANK_INK, openPdfForPictures, pictureTokens, MAX_PICTURE_TOKENS } from "./page-pictures";
 
@@ -444,26 +446,45 @@ async function storeBatch(deps: TextEditionDeps, job: JobRow, batch: TextEdition
   }));
 }
 
-/** Where a book's text edition is stored: beside its file, in the owner's own folder. */
-export const textEditionKey = (ownerId: string, bookId: string) => `books/${ownerId}/${bookId}.text.epub`;
+/** The text edition of a scan, if one has been made: a book of its own, linked by `edition_of`. */
+export async function editionOf(db: Db, ownerId: string, scanId: string) {
+  const [edition] = await db
+    .select({ id: books.id, fileKey: books.fileKey })
+    .from(books)
+    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, scanId)));
+  return edition ?? null;
+}
 
 /**
- * Makes (or makes again) the book's text edition from every page read so far:
+ * Makes (or makes again) a scan's text edition from every page read so far:
  * the newest reading of each page, blank pages left out, pages not read marked
- * as such. Stores it beside the scan and links it to the book. Returns its size
- * in bytes, or null when no page has been read.
+ * as such. The edition is a book of its own (an EPUB linked to the scan by
+ * `edition_of`, hidden from the library's lists), so its paragraphs, Listen,
+ * notes, rewrites, search and place work as in any EPUB; made again, it keeps
+ * its id, so its notes and place stay. Returns its id, or null when no page
+ * has been read.
  */
-export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storage" | "now">, ownerId: string, bookId: string) {
+export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storage" | "now">, ownerId: string, scanId: string) {
   const { db } = deps;
-  const [book] = await db
-    .select({ id: books.id, title: books.title, author: books.author, language: books.language, pageCount: books.pageCount })
+  const [scan] = await db
+    .select({
+      id: books.id,
+      title: books.title,
+      author: books.author,
+      language: books.language,
+      publisher: books.publisher,
+      description: books.description,
+      pageCount: books.pageCount,
+      coverKey: books.coverKey,
+      coverSource: books.coverSource,
+    })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
-  if (!book) throw new TextEditionError("Book not found", 404);
+    .where(and(eq(books.id, scanId), eq(books.ownerId, ownerId)));
+  if (!scan) throw new TextEditionError("Book not found", 404);
   const rows = await db
     .select({ sectionId: generations.sectionId, output: generations.output, model: generations.model })
     .from(generations)
-    .where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, TRANSCRIBE_KIND)))
+    .where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, scanId), eq(generations.kind, TRANSCRIBE_KIND)))
     .orderBy(asc(generations.createdAt), asc(generations.id));
   const newest = new Map<number, { output: string; model: string }>();
   for (const r of rows) newest.set(pageOf(r.sectionId), r); // later rows replace earlier ones
@@ -471,12 +492,12 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
   const jobs = await db
     .select({ checks: textEditionJobs.checks, pageCount: textEditionJobs.pageCount })
     .from(textEditionJobs)
-    .where(and(eq(textEditionJobs.ownerId, ownerId), eq(textEditionJobs.bookId, bookId)))
+    .where(and(eq(textEditionJobs.ownerId, ownerId), eq(textEditionJobs.bookId, scanId)))
     .orderBy(asc(textEditionJobs.createdAt));
   const flagged = new Map<number, boolean>();
   for (const j of jobs) for (const c of j.checks) flagged.set(c.page, c.flagged);
-  const blank = await blankPagesOf(db, ownerId, bookId);
-  const pageCount = Math.max(book.pageCount ?? 0, ...jobs.map((j) => j.pageCount), ...newest.keys());
+  const blank = await blankPagesOf(db, ownerId, scanId);
+  const pageCount = Math.max(scan.pageCount ?? 0, ...jobs.map((j) => j.pageCount), ...newest.keys());
   const pages: EditionPage[] = Array.from({ length: pageCount }, (_, i) => {
     const page = i + 1;
     const r = newest.get(page);
@@ -484,19 +505,41 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
   });
   const madeAt = deps.now?.() ?? new Date();
   const models = [...new Set([...newest.values()].map((r) => r.model))].join(" and ");
+  const existing = await editionOf(db, ownerId, scanId);
+  const id = existing?.id ?? crypto.randomUUID();
   const epub = buildTextEdition(pages, {
-    bookId,
-    title: book.title,
-    author: book.author,
-    language: book.language,
+    bookId: id,
+    title: scan.title,
+    author: scan.author,
+    language: scan.language,
     model: models,
     madeAt,
     toCheck: [...flagged].filter(([, f]) => f).map(([p]) => p).sort((a, b) => a - b),
   });
-  const key = textEditionKey(ownerId, bookId);
-  await deps.storage.put(key, epub, "application/epub+zip");
-  await db.update(books).set({ textFileKey: key, textFileSize: epub.length, textMadeAt: madeAt }).where(eq(books.id, bookId));
-  return epub.length;
+  const fileName = `${scan.title} (text edition).epub`.slice(0, 255);
+  const info = await readBook(epub, fileName);
+  const fileKey = `books/${ownerId}/${id}.epub`;
+  await deps.storage.put(fileKey, epub, "application/epub+zip");
+  const values = {
+    title: scan.title,
+    author: scan.author,
+    fileKey,
+    fileName,
+    fileType: "epub" as const,
+    fileSize: epub.byteLength,
+    // The scan's cover, shared (the edition is never shown on its own in the library).
+    coverKey: scan.coverKey,
+    coverSource: scan.coverSource,
+    language: scan.language,
+    publisher: scan.publisher,
+    description: scan.description,
+    toc: info.toc,
+    updatedAt: madeAt,
+  };
+  if (existing) await db.update(books).set(values).where(eq(books.id, id));
+  else await db.insert(books).values({ id, ownerId, editionOf: scanId, createdAt: madeAt, ...values });
+  await buildSections(db, id, epub, info.toc, "epub");
+  return id;
 }
 
 /** Ends a job whose batches are all sent and saved, and makes the text edition from what was read. */

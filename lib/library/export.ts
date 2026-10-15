@@ -31,8 +31,8 @@ export type LibraryExport = {
     note: string;
     unverified: boolean;
     file: { key: string; name: string | null; type: "epub" | "pdf" | null; size: number | null } | null;
-    /** M25: the text edition made from a scanned PDF (an EPUB beside the scan). Absent in older exports. */
-    textFile?: { key: string; size: number | null; madeAt: string | null } | null;
+    /** M25: on a text edition (an EPUB made from a scanned PDF), the id of its scan, a book in the same file. Absent in older exports. */
+    editionOf?: string | null;
     coverKey: string | null;
     /**
      * Where the cover came from (M22): its book file, a catalogue found by title and author, or the reader's own
@@ -268,7 +268,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         note: b.note,
         unverified: b.unverified,
         file: b.fileKey ? { key: b.fileKey, name: b.fileName, type: b.fileType, size: b.fileSize } : null,
-        textFile: b.textFileKey ? { key: b.textFileKey, size: b.textFileSize, madeAt: iso(b.textMadeAt) } : null,
+        editionOf: b.editionOf,
         coverKey: b.coverKey,
         coverSource: b.coverSource,
         coverRef: b.coverRef,
@@ -481,7 +481,7 @@ function checkImport(x: LibraryExport, ownerId: string) {
   const bookIds = new Set(x.books.map((b) => b.id));
   for (const b of x.books) {
     if (b.file && !ownKey(b.file.key, "books", ownerId)) refuse(`The file of "${b.title}" is not stored in your library.`);
-    if (b.textFile && !ownKey(b.textFile.key, "books", ownerId)) refuse(`The text edition of "${b.title}" is not stored in your library.`);
+    if (b.editionOf != null && (b.editionOf === b.id || !bookIds.has(b.editionOf))) refuse(`The text edition of "${b.title}" names a scan that is not in this file.`);
     if (b.coverKey != null && !ownKey(b.coverKey, "covers", ownerId)) refuse(`The cover of "${b.title}" is not stored in your library.`);
     if (b.coverSource != null && !COVER_SOURCES.includes(b.coverSource)) refuse(`The cover of "${b.title}" names a source Neolibrary does not know.`);
     // The catalogue page becomes a link on the Covers page: only a web address, never javascript: or a file.
@@ -568,7 +568,8 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     // Only values the app knows; a file from before M17 has no view, and the reader's own stays.
     if (isStyle(x.settings?.aiStyle)) await tx.update(users).set({ aiStyle: x.settings.aiStyle }).where(eq(users.id, ownerId));
     if (isView(x.settings?.rewrittenView)) await tx.update(users).set({ rewrittenView: x.settings.rewrittenView }).where(eq(users.id, ownerId));
-    for (const b of x.books) {
+    // A text edition (M25) points at its scan, so scans go in first.
+    for (const b of [...x.books].sort((a, c) => Number(Boolean(a.editionOf)) - Number(Boolean(c.editionOf)))) {
       await tx.insert(books).values({
         id: b.id,
         ownerId,
@@ -580,9 +581,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         fileName: b.file?.name ?? null,
         fileType: b.file?.type ?? null,
         fileSize: b.file?.size ?? null,
-        textFileKey: b.textFile?.key ?? null,
-        textFileSize: b.textFile?.size ?? null,
-        textMadeAt: typeof b.textFile?.madeAt === "string" ? date(b.textFile.madeAt) : null,
+        editionOf: b.editionOf ?? null,
         coverKey: b.coverKey,
         // An export from before M22 has no cover source: its covers came from their files.
         coverSource: b.coverSource ?? (b.coverKey ? "file" : null),

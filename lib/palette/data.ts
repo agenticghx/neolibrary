@@ -24,7 +24,7 @@ export async function paletteData(db: Db, ownerId: string): Promise<PaletteData>
     db
       .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey, lastOpenedAt: books.lastOpenedAt })
       .from(books)
-      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)))
       .orderBy(asc(sql`lower(${books.title})`)),
     listPaths(db, ownerId),
     // The latest version of each annotation (nothing is overwritten, ground rule 9), not removed, on a book

@@ -89,8 +89,18 @@ that page today. It is the only such page of 388.
      link back to its scan;
    - machine-written text looks different (ground rule 5): a line at the
      start says it was read from the scan by Claude Sonnet 5.5 on a date.
-7. **The reader offers Scan | Text** for a book with a text edition. Text
-   opens the EPUB in the normal reader, with everything an EPUB has.
+7. **The text edition is a book of its own**, linked to its scan
+   (`books.edition_of`) and hidden from the library's lists (shelf, Home,
+   search across the library, Covers, Cmd+K, Paths, the importer's
+   duplicate check). Every feature that works on a book (its paragraphs,
+   Listen, notes, rewrites, search inside it, the place reached) then works
+   on it as on any EPUB, with nothing built twice. Made again, it keeps its
+   id, so its notes and place stay. AI use on it counts against its scan's
+   per-book limit: one book, one limit.
+8. **The reader offers Scan | Text in its footer, beside Listen**, and in the
+   text edition a "Scan page 23" link that opens the scan at the page being
+   read (Samuel, 2026-10-15: "1 - C, 2 - 1"). Switching goes between the two
+   books, from a scan page to the same page's marker in the edition and back.
 
 ## Decisions taken, and defaults that apply until Samuel says otherwise
 
@@ -100,6 +110,12 @@ that page today. It is the only such page of 388.
 - **Notes stay with their edition** (default). A note made on the scan does
   not appear in the text edition, and the other way round. Notes already
   carry the quoted text, so moving them across editions is a later step.
+- **The edition is its own hidden book** (Claude, 2026-10-15; Samuel can
+  overrule): every reader feature keys on one book's paragraphs, so a second
+  book row makes them all work, where a second file on the scan's row would
+  have mixed the two editions' places and notes.
+- **Reading in the edition does not move the scan's progress bar** yet
+  (default): each edition keeps its own place.
 - **Owner only** (default), like whole-book narration.
 - **Listen on the scan still reads the Archive's hidden text** (default):
   page 51 stays wrong there until a later step lets the transcription
@@ -142,11 +158,11 @@ that page today. It is the only such page of 388.
   back (ground rule 7). Done when: unit tests on the joining rules (a
   paragraph across a page break, footnotes, a table, a heading mid-page)
   pass, and the scanned fixture's edition opens in the reader.
-- **S6 · Scan | Text in the reader.** Shown to Samuel first as 2 or 3
-  options (where the switch sits, how a page links back to its scan).
-  Done when: a browser test opens the text edition, changes the font size,
-  goes to a page by number and back to the same page of the scan, with
-  screenshots on phone and desktop, light and dark.
+- **S6 · Scan | Text in the reader** (Samuel's pick: C1, the switch in the
+  footer beside Listen, and a "Scan page N" link in the edition's footer).
+  Done when: a browser test opens the text edition from the scan's page,
+  changes the font size, follows "Scan page N" back to the same page of the
+  scan, with screenshots on phone and desktop, light and dark.
 - **S7 · The book page.** "Make a flowing text edition": estimate,
   remaining limit, the confirm box, progress (pages read of N), Stop,
   "Check these pages", owner only. Done when: a browser test with the fake

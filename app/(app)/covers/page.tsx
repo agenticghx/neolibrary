@@ -22,7 +22,7 @@ export default async function CoversPage() {
   const rows = await db
     .select({ id: books.id, title: books.title, author: books.author, coverKey: books.coverKey, coverSource: books.coverSource, coverPage: books.coverPage })
     .from(books)
-    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt)))
+    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt), isNull(books.editionOf)))
     .orderBy(asc(sql`lower(${books.title})`));
   const sign = await coverSigner();
   const found = rows

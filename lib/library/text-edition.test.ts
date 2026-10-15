@@ -12,8 +12,12 @@ import { books, generations, textEditionJobs } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
+import { searchLibrary } from "./search";
+import { listShelf } from "./shelf";
+import { getSections } from "./sections-store";
 import {
   forgetTextEditionsForTests,
+  makeTextEdition,
   pageEstimateUsd,
   pollTextEditions,
   startTextEdition,
@@ -119,11 +123,13 @@ describe("a run", () => {
       { page: 1, agreement: 1, flagged: false },
       { page: 2, agreement: expect.any(Number), flagged: true },
     ]);
-    // The text edition is made, stored beside the scan, and is an EPUB the app reads.
-    const [book] = await database.db.select().from(books).where(eq(books.id, bookId));
-    expect(book).toMatchObject({ textFileKey: `books/${ownerId}/${bookId}.text.epub`, textFileSize: expect.any(Number), textMadeAt: expect.any(Date) });
-    const edition = await storage.get(book.textFileKey!);
+    // The text edition is made: a book of its own, an EPUB linked to the scan, with its paragraphs built like any EPUB's.
+    const [book] = await database.db.select().from(books).where(eq(books.editionOf, bookId));
+    expect(book).toMatchObject({ ownerId, title: "A Scanned Meditation", fileType: "epub", fileKey: `books/${ownerId}/${book.id}.epub`, fileSize: expect.any(Number) });
+    const edition = await storage.get(book.fileKey!);
     expect(edition?.contentType).toBe("application/epub+zip");
+    const paragraphs = (await getSections(database.db, ownerId, book.id)).filter((x) => x.kind === "paragraph").map((x) => x.text);
+    expect(paragraphs).toContain("Several years have now elapsed since I first became aware that I had accepted, even from my youth, many false opinions for true.");
     const files = unzipSync(edition!.data);
     expect(strFromU8(files["OEBPS/about.xhtml"])).toContain("read from the scanned pages of the PDF by fake on");
     expect(strFromU8(files["OEBPS/about.xhtml"])).toContain('<a href="c2.xhtml#page-2">2</a>'); // the page to check
@@ -133,6 +139,16 @@ describe("a run", () => {
     const s = await textEditionSummary(deps(model), ownerId, bookId);
     expect(s.done).toBe(3); // two read, one blank
     expect(s.job).toMatchObject({ status: "finished", sent: 2, read: 2, toCheck: [{ page: 2 }] });
+  });
+
+  it("makes the edition again in place: the same book, so its notes and place stay", async () => {
+    const bookId = await scannedBook();
+    const model = new FakeBatchModel({ answer });
+    await (await startTextEdition(deps(model), ownerId, bookId, true)).done;
+    await pollTextEditions(deps(model));
+    const [first] = await database.db.select().from(books).where(eq(books.editionOf, bookId));
+    expect(await makeTextEdition(deps(model), ownerId, bookId)).toBe(first.id);
+    expect(await database.db.select({ id: books.id }).from(books).where(eq(books.editionOf, bookId))).toEqual([{ id: first.id }]);
   });
 
   it("splits the pages into batches by size", async () => {
@@ -204,7 +220,7 @@ describe("Stop", () => {
     expect(await pagesRead(bookId)).toEqual([]);
     expect((await spending(database.db, "anthropic", bookId)).book).toBe(0);
     // Nothing was read, so no text edition is made.
-    expect((await database.db.select().from(books).where(eq(books.id, bookId)))[0].textFileKey).toBeNull();
+    expect(await database.db.select().from(books).where(eq(books.editionOf, bookId))).toEqual([]);
   });
 });
 
@@ -234,5 +250,40 @@ describe("the limits while a job goes on", () => {
     expect(await pagesRead(bookId)).toEqual(["page-1"]);
     expect((await spending(database.db, "anthropic", bookId)).book).toBeCloseTo(batchCostUsd("fake", 4000, 700) + batchCostUsd("fake", 4000, 10), 9);
     expect((await textEditionSummary(deps(model), ownerId, bookId)).done).toBe(2); // page 1 read, page 3 blank; page 2 still to read
+  });
+});
+
+describe("the text edition in the library", () => {
+  it("is hidden from the shelf and from search across the library, but searched inside itself", async () => {
+    const bookId = await scannedBook();
+    const model = new FakeBatchModel({ answer });
+    await (await startTextEdition(deps(model), ownerId, bookId, true)).done;
+    await pollTextEditions(deps(model));
+    const [edition] = await database.db.select().from(books).where(eq(books.editionOf, bookId));
+    expect((await listShelf(database.db, ownerId, {})).map((b) => b.id)).toEqual([bookId]);
+    // "disagree throughout" is only in the edition (Claude's reading of page 2), so across the library nothing is found.
+    expect(await searchLibrary(database.db, ownerId, "disagree throughout")).toEqual([]);
+    expect((await searchLibrary(database.db, ownerId, "disagree throughout", 60, edition.id)).map((h) => h.bookId)).toEqual([edition.id]);
+  });
+
+  it("is never taken for its scan: adding the scan's file again finds the scan", async () => {
+    const bookId = await scannedBook();
+    const model = new FakeBatchModel({ answer });
+    await (await startTextEdition(deps(model), ownerId, bookId, true)).done;
+    await pollTextEditions(deps(model));
+    const again = await importBook(database.db, storage, ownerId, { name: "again.pdf", bytes: new Uint8Array(readFileSync(new URL("../../fixtures/books/scanned-meditation.pdf", import.meta.url))) });
+    expect(again).toMatchObject({ status: "duplicate", bookId });
+  });
+
+  it("shares its scan's AI limit: spending on the edition counts toward the scan", async () => {
+    const bookId = await scannedBook();
+    const model = new FakeBatchModel({ answer });
+    await (await startTextEdition(deps(model), ownerId, bookId, true)).done;
+    await pollTextEditions(deps(model));
+    const [edition] = await database.db.select().from(books).where(eq(books.editionOf, bookId));
+    const pages = (await spending(database.db, "anthropic", bookId)).book;
+    await database.db.insert(generations).values({ ownerId, bookId: edition.id, kind: "rewrite", cacheKey: "k", provider: "anthropic", model: "fake", promptName: "rewrite", promptHash: "h", inputHash: "i", costUsd: 0.5, output: "o" });
+    expect((await spending(database.db, "anthropic", bookId)).book).toBeCloseTo(pages + 0.5, 9);
+    expect((await spending(database.db, "anthropic", edition.id)).book).toBeCloseTo(pages + 0.5, 9);
   });
 });

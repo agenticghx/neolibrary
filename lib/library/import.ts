@@ -48,7 +48,7 @@ export async function importBook(
     const mine = await db
       .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey })
       .from(books)
-      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
     // Typed titles (M14 step 5) can make two waiting titles with one short title and two authors: the author decides.
     const same = mine.filter((b) => sameBook(info.title, info.author, b));
     const withFile = same.find((b) => b.fileKey);
@@ -57,7 +57,7 @@ export async function importBook(
     const removed = await db
       .select({ id: books.id, title: books.title, author: books.author })
       .from(books)
-      .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey)));
+      .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)));
     const back = removed.find((b) => sameBook(info.title, info.author, b));
     if (back) {
       await db.update(books).set({ deletedAt: null }).where(eq(books.id, back.id));

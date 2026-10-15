@@ -41,7 +41,7 @@ export async function listShelf(
   opts: { sort?: Sort; q?: string; collectionId?: string | null; show?: Show } = {},
 ) {
   const q = opts.q?.trim().slice(0, 100);
-  const filters = [eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey)];
+  const filters = [eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)];
   if (q) {
     const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     filters.push(or(ilike(books.title, like), ilike(books.author, like))!);
