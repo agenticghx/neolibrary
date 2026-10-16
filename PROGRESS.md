@@ -19,6 +19,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
+Written 2026-10-16 19:49 (laptop clock, from `date`). **S6 merged (#188, 9610d14); not deployed: live is still c4af035.** S7 (`m25-text-edition-page`) is rebased onto main with the S5 and S6 commits dropped and goes up as its own pull request. After it merges: deploy main (no migration since c4af035, so no backup), at Samuel's word "deploy" (2026-10-15 23:18 entry), and check /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
+
 Written 2026-10-16 19:10 (laptop clock, from `date`). **S5 is merged (#187, 71c09ed) but not deployed: live is still c4af035.** S6 (`m25-scan-text-switch`) is rebased onto main with the already-merged S5 commits dropped, and goes up as its own pull request; the c4af035 deploy record and the laptop's uncommitted checkpoint entries ride in with it (the custom address is not named here: the repository is public). Then S7 (`m25-text-edition-page`) the same way, then a deploy (no migration) and a look at /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
 
 Written 2026-10-15 23:18 (laptop clock, from `date`). **Live: c4af035** (M25 S3 and S4, with migration 0027 applied; backup taken and restore-checked first), at Samuel's word ("deploy"). The site also answers at its new custom address (a subdomain of Samuel's own domain; DNS in Vercel, certificate issued by Railway). S5 (#187) failed once on the Home four-looks test timing out (31.6 s of 30 s; 259 others passed); its failed job is re-running. Then S6 and S7, one at a time, and a second deploy (no migration).
@@ -243,6 +245,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-16 19:49 · Claude Opus 5.5 (laptop) · M25 S6 merged (#188); text editions left out of three tests' expected lists
+- **Done:** S6 rebased onto main with the merged S5 commits dropped (code identical to 2882c5b: `git diff 2882c5b HEAD -- . ':!PROGRESS.md'` empty), PR #188, merged by the merge train as 9610d14 after three CI rounds. Round 1 (run 38980097951) failed Home's filter test and round 2 (run 38981045347) the Path editor test, both for one reason: S6's reader test is the first to make a text edition, and these tests work out their expected book lists from the library export, which carries the hidden edition; the pages rightly hide it. The expected lists now leave out editions (as they leave out removed books), in home.spec.ts, own-paths.spec.ts and narration.spec.ts (the last would have failed next), so each test now also fails if an edition ever shows. Round 3 (run 38981984167): four checks green. Screenshots scan-text-{desktop,phone}-{light,dark}.png looked at (from ci-screenshots/pr-188/e2624a8…). Also brought in: the c4af035 deploy record (from unpushed 5d6a998) and three checkpoint entries that sat uncommitted on the laptop's main, with the custom address left out (public repo).
+- **Key paths:** e2e/home.spec.ts; e2e/own-paths.spec.ts; e2e/narration.spec.ts; .claude/skills/merge-train/scripts/train.sh
+- **Commands that worked:** git rebase --onto origin/main 5bb3f1c m25-scan-text-switch -> 1 commit replayed, no conflict; zsh .claude/skills/merge-train/scripts/train.sh 188 m25-scan-text-switch -> MERGED #188: 9610d14; attempt-log.sh <run> -> the failing test and its first error (needs mkdir -p $TMPDIR/neolibrary-train first when TRAIN_LOGS pointed elsewhere)
+- **Known issues / blockers:** The four S6 screenshots show "Opening pages" in the footer's left corner (the reader's status while it counts an EPUB's pages); not investigated. ../Neolibrary-carousel was switched to a detached HEAD (at 5d6a998) to free the S7 branch.
+- **Exact next steps:** 1. Merge S7. 2. Deploy main (no migration), check /api/health. 3. S8 is Samuel's.
 
 ### 2026-10-16 00:09 · Claude Opus 5.5 · Checkpoint: c4af035 live (M25 S3+S4, migration 0027); custom address live; S5 #187 re-running one timed-out Home test
 - **Done:** Backed up and restore-checked prod; deployed c4af035 (0027 applied, Page pictures ready); custom subdomain via Railway + Vercel DNS (domain at GoDaddy, not Squarespace); S6/S7 rebased and pushed; deploy record on S7 branch
