@@ -51,7 +51,7 @@ export async function listRemovedBooks(db: Db, ownerId: string) {
   const rows = await db
     .select({ id: books.id, title: books.title, author: books.author, removedAt: books.deletedAt })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey)))
+    .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)))
     .orderBy(desc(books.deletedAt));
   return rows.map((r) => ({ ...r, removedAt: r.removedAt!.toISOString() }));
 }

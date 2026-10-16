@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { audioTracks, generations, textEditionJobs } from "@/lib/db/schema";
+import { audioTracks, books, generations, textEditionJobs } from "@/lib/db/schema";
 import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel } from "./model";
 import { sha256 } from "./prompts";
 
@@ -104,10 +104,23 @@ export const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(
 const monthStart = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
 /**
- * Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever.
+ * A book and its text edition (M25) share one per-book limit: the scan and
+ * every edition made from it. For any other book, the book alone.
+ */
+async function bookGroup(db: Db, bookId: string) {
+  const [row] = await db.select({ editionOf: books.editionOf }).from(books).where(eq(books.id, bookId));
+  const scanId = row?.editionOf ?? bookId;
+  const editions = await db.select({ id: books.id }).from(books).where(eq(books.editionOf, scanId));
+  return [scanId, ...editions.map((e) => e.id)];
+}
+
+/**
+ * Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever
+ * (a scan and its text edition counted together).
  * Rows brought back from a library file are left out: that money was not spent here.
  */
 export async function spending(db: Db, provider: string, bookId: string | null, now = new Date()) {
+  const group = bookId ? await bookGroup(db, bookId) : [];
   const sum = async (table: typeof generations | typeof audioTracks, book: boolean) => {
     const r = await db
       .select({ usd: sql<number>`coalesce(sum(${table.costUsd}), 0)::float8` })
@@ -116,7 +129,7 @@ export async function spending(db: Db, provider: string, bookId: string | null, 
         and(
           eq(table.provider, provider),
           eq(table.imported, false),
-          book && bookId ? eq(table.bookId, bookId) : gte(table.createdAt, monthStart(now)),
+          book && bookId ? inArray(table.bookId, group) : gte(table.createdAt, monthStart(now)),
         ),
       );
     return Number(r[0]?.usd ?? 0);
@@ -135,6 +148,7 @@ type Spent = { month: number; book: number };
  * spending the same money meanwhile. It goes when the job ends.
  */
 export async function heldByJobs(db: Db, provider: string, bookId: string | null): Promise<Spent> {
+  const group = bookId ? await bookGroup(db, bookId) : [];
   const jobs = await db
     .select({ bookId: textEditionJobs.bookId, estimate: textEditionJobs.estimateUsd, createdAt: textEditionJobs.createdAt })
     .from(textEditionJobs)
@@ -147,7 +161,7 @@ export async function heldByJobs(db: Db, provider: string, bookId: string | null
       .where(and(eq(generations.bookId, job.bookId), eq(generations.provider, provider), gte(generations.createdAt, job.createdAt), sql`${generations.kind} like 'transcribe%'`));
     const left = Math.max(0, job.estimate - Number(r?.usd ?? 0));
     held.month += left;
-    if (bookId && job.bookId === bookId) held.book += left;
+    if (group.includes(job.bookId)) held.book += left;
   }
   return held;
 }

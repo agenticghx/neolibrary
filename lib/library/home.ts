@@ -23,6 +23,7 @@ export async function continueBooks(db: Db, ownerId: string, limit = 2) {
         isNotNull(books.fileKey),
         isNotNull(books.lastOpenedAt),
         lt(books.progress, 1),
+        isNull(books.editionOf),
       ),
     )
     .orderBy(desc(books.lastOpenedAt))

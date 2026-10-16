@@ -30,7 +30,7 @@ export default async function EditPathPage({ params }: { params: Promise<{ slug:
     await db
       .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey })
       .from(books)
-      .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt)))
+      .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt), isNull(books.editionOf)))
       .orderBy(asc(sql`lower(${books.title})`))
   ).map(({ fileKey, ...b }) => ({ ...b, hasFile: fileKey !== null }));
   const empty = view.pillars.length === 0;

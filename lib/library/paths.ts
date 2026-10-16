@@ -40,7 +40,7 @@ export async function seedPath(db: Db, ownerId: string, seed: SeedPath): Promise
     const known = await tx
       .select({ id: books.id, title: books.title, author: books.author })
       .from(books)
-      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
 
     const [path] = await tx
       .insert(paths)
@@ -554,7 +554,7 @@ export async function addTitle(
     const mine = await db
       .select(fields)
       .from(books)
-      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+      .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
     const same = mine.filter((b) => sameBook(title, author, b));
     const match = pickBook(same, title);
     if (!match && same.length > 1) {

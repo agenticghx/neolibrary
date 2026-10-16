@@ -117,8 +117,14 @@ describe("library export (ground rule 7)", () => {
     await rateCard(database.db, ownerId, note.id, "again", new Date("2026-10-11T09:01:00Z"));
     const reviewNow = new Date("2026-10-11T10:00:00Z");
     const queueBefore = await reviewQueue(database.db, ownerId, reviewNow);
+    // M25: a text edition, a book of its own linked to its scan (here only the link matters).
+    const [edition] = await database.db
+      .insert(books)
+      .values({ ownerId, title: "The Time Machine", author: "H. G. Wells", fileKey: `books/${ownerId}/edition.epub`, fileName: "edition.epub", fileType: "epub", fileSize: 4321, editionOf: bookId })
+      .returning({ id: books.id });
 
     const before = await exportLibrary(database.db, ownerId);
+    expect(before.books.find((b) => b.id === edition.id)?.editionOf).toBe(bookId);
     expect(before.books.length).toBeGreaterThan(100);
     expect(before.paths[0].pillars.length).toBe(hiddenMachinery.pillars.length);
     expect(before.books.find((b) => b.id === bookId)).toMatchObject({ position: "epubcfi(/6/8!/4/2/1:0)", progress: 0.25 });
@@ -388,6 +394,14 @@ describe("a library file may only point inside the importing reader's library", 
   it("refuses a book file stored outside the reader's own folder, and writes nothing", async () => {
     for (const key of [`books/${otherId}/x.epub`, `books/${crypto.randomUUID()}/x.epub`, `books/${ownerId}/../${otherId}/x.epub`, `covers/${ownerId}/x.epub`]) {
       await expect(importLibrary(database.db, ownerId, libraryFile({ books: [book(key)] }))).rejects.toThrow('The file of "Meditations" is not stored in your library.');
+      await nothingImported();
+    }
+  });
+
+  it("refuses a text edition whose scan is not in the file (M25), and writes nothing", async () => {
+    for (const editionOf of [crypto.randomUUID(), bookId]) {
+      const edition = { ...book(), editionOf };
+      await expect(importLibrary(database.db, ownerId, libraryFile({ books: [edition] }))).rejects.toThrow('The text edition of "Meditations" names a scan that is not in this file.');
       await nothingImported();
     }
   });

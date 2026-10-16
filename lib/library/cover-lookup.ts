@@ -98,6 +98,7 @@ export async function findMissingCovers(
       and(
         isNull(books.coverKey),
         isNull(books.deletedAt),
+        isNull(books.editionOf),
         opts.ownerId ? eq(books.ownerId, opts.ownerId) : undefined,
         opts.force ? undefined : or(isNull(books.coverCheckedAt), lt(books.coverCheckedAt, stale)),
       ),
@@ -313,6 +314,6 @@ export async function coverCounts(db: Db, ownerId: string) {
       none: sql<number>`count(*) filter (where ${books.coverKey} is null)`.mapWith(Number),
     })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
   return row ?? { found: 0, none: 0 };
 }

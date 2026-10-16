@@ -32,7 +32,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
   const withFile = await db
     .select({ id: books.id, title: books.title, author: books.author, fileType: books.fileType })
     .from(books)
-    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt), isNotNull(books.fileKey)))
+    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)))
     .orderBy(asc(sql`lower(${books.title})`));
   const chosen = withFile.find((b) => b.id === book) ?? null;
   const imports = chosen ? await listImports(db, user.id, chosen.id) : [];
