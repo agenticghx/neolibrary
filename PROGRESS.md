@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M25 S6 (Scan | Text), then S7 (the book page panel), one at a time; deploy (no migration) and check /api/health; then S8, Samuel makes The Pay Off's text edition.
+next_action: Merge M25 S7 (the book page panel); deploy main (no migration) and check /api/health; then S8, Samuel makes The Pay Off's text edition.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-16
 shared_copy: none
@@ -19,9 +19,12 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
+Written 2026-10-16 19:49 (laptop clock, from `date`). **S6 merged (#188, 9610d14); not deployed: live is still c4af035.** S7 (`m25-text-edition-page`) is rebased onto main with the S5 and S6 commits dropped and goes up as its own pull request. After it merges: deploy main (no migration since c4af035, so no backup), at Samuel's word "deploy" (2026-10-15 23:18 entry), and check /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
+
 Written 2026-10-16 19:10 (laptop clock, from `date`). **S5 is merged (#187, 71c09ed) but not deployed: live is still c4af035.** S6 (`m25-scan-text-switch`) is rebased onto main with the already-merged S5 commits dropped, and goes up as its own pull request; the c4af035 deploy record and the laptop's uncommitted checkpoint entries ride in with it (the custom address is not named here: the repository is public). Then S7 (`m25-text-edition-page`) the same way, then a deploy (no migration) and a look at /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
 
 Written 2026-10-15 23:18 (laptop clock, from `date`). **Live: c4af035** (M25 S3 and S4, with migration 0027 applied; backup taken and restore-checked first), at Samuel's word ("deploy"). The site also answers at its new custom address (a subdomain of Samuel's own domain; DNS in Vercel, certificate issued by Railway). S5 (#187) failed once on the Home four-looks test timing out (31.6 s of 30 s; 259 others passed); its failed job is re-running. Then S6 and S7, one at a time, and a second deploy (no migration).
+Written 2026-10-15, before 18:38 (time not read from the clock). **M25 S7 (the book page panel) is built on branch `m25-text-edition-page`**, stacked on S6, S5 and S4 (PR 186). Everything M25 needs is now built; it waits on merging one at a time, then a deploy (migration 0027: backup first) at Samuel's word, then S8: Samuel opens The Pay Off's page, ticks the box and presses Make a text edition (about $2.80).
 
 Written 2026-10-15, before 18:38 (time not read from the clock). **M25 S6 (Scan | Text, Samuel's C1) is built on branch `m25-scan-text-switch`**, stacked: S4 is PR 186 (`m25-text-edition-job`), then S5 (`m25-text-epub`), then this. Merge one at a time; 0027 needs a backup before its deploy. Next: S7, the book page.
 
@@ -243,6 +246,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-16 19:49 · Claude Opus 5.5 (laptop) · M25 S6 merged (#188); text editions left out of three tests' expected lists
+- **Done:** S6 rebased onto main with the merged S5 commits dropped (code identical to 2882c5b: `git diff 2882c5b HEAD -- . ':!PROGRESS.md'` empty), PR #188, merged by the merge train as 9610d14 after three CI rounds. Round 1 (run 38980097951) failed Home's filter test and round 2 (run 38981045347) the Path editor test, both for one reason: S6's reader test is the first to make a text edition, and these tests work out their expected book lists from the library export, which carries the hidden edition; the pages rightly hide it. The expected lists now leave out editions (as they leave out removed books), in home.spec.ts, own-paths.spec.ts and narration.spec.ts (the last would have failed next), so each test now also fails if an edition ever shows. Round 3 (run 38981984167): four checks green. Screenshots scan-text-{desktop,phone}-{light,dark}.png looked at (from ci-screenshots/pr-188/e2624a8…). Also brought in: the c4af035 deploy record (from unpushed 5d6a998) and three checkpoint entries that sat uncommitted on the laptop's main, with the custom address left out (public repo).
+- **Key paths:** e2e/home.spec.ts; e2e/own-paths.spec.ts; e2e/narration.spec.ts; .claude/skills/merge-train/scripts/train.sh
+- **Commands that worked:** git rebase --onto origin/main 5bb3f1c m25-scan-text-switch -> 1 commit replayed, no conflict; zsh .claude/skills/merge-train/scripts/train.sh 188 m25-scan-text-switch -> MERGED #188: 9610d14; attempt-log.sh <run> -> the failing test and its first error (needs mkdir -p $TMPDIR/neolibrary-train first when TRAIN_LOGS pointed elsewhere)
+- **Known issues / blockers:** The four S6 screenshots show "Opening pages" in the footer's left corner (the reader's status while it counts an EPUB's pages); not investigated. ../Neolibrary-carousel was switched to a detached HEAD (at 5d6a998) to free the S7 branch.
+- **Exact next steps:** 1. Merge S7. 2. Deploy main (no migration), check /api/health. 3. S8 is Samuel's.
+
 ### 2026-10-16 00:09 · Claude Opus 5.5 · Checkpoint: c4af035 live (M25 S3+S4, migration 0027); custom address live; S5 #187 re-running one timed-out Home test
 - **Done:** Backed up and restore-checked prod; deployed c4af035 (0027 applied, Page pictures ready); custom subdomain via Railway + Vercel DNS (domain at GoDaddy, not Squarespace); S6/S7 rebased and pushed; deploy record on S7 branch
 - **Key paths:** docs/handoffs/2026-10-16-0008-m25-deployed-s5-rerun.md; ~/Backups/neolibrary/prod-before-0027-20261016T0313Z.sql; ../Neolibrary-carousel
@@ -263,6 +273,12 @@ Never blocks the loop. Newest first.
 - **Commands that worked:** npm run check -> 888 passed; playwright --project=reader --no-deps --grep 'text edition|Scan \| Text' -> 2 passed
 - **Known issues / blockers:** Deploy of migration 0027 needs Samuel's word and a backup; branch Log entries carry made-up times (16:00-21:10) to correct
 - **Exact next steps:** 1. Merge #186 when green. 2. Rebase, push and merge S5, S6, S7 one at a time. 3. Deploy at Samuel's word with a backup. 4. S8: Samuel makes The Pay Off's text edition.
+### 2026-10-15 (before 18:38) · Claude Opus 5.5 (laptop) · M25 S7: the text edition panel on a scanned book's page
+- **Done:** app/(app)/books/[id]/TextEdition.tsx, on a PDF's page for the library's owner: before, what the text edition is, pages, the most it costs, the book's and the month's AI limits with what is spent, and "Make a text edition" disabled until "I understand this reads N pages with Claude and costs about $X at most" is ticked (over a limit: why, and no button); while it runs, pages read of pages sent (asked every 3 s), Stop; after, the outcome line, "Read the text edition", Pages to check (each to that page of the scan) and Pages not read. The summary now names the edition's id.
+- **Key paths:** app/(app)/books/[id]/{TextEdition.tsx,TextEdition.module.css,page.tsx}; lib/library/text-edition.ts; e2e/reader.spec.ts ("a scanned book's page makes its text edition...")
+- **Commands that worked:** npm run build, next start with the e2e settings, playwright --project=setup, then --project=reader --no-deps --grep "text edition|Scan \| Text" -> 2 passed (14.6 s); screenshots text-edition-{before,after}-{desktop,phone}-{light,dark}.png looked at; npm run check -> 888 passed, 2 skipped (stylelint wanted the checkbox sized with tokens like the narration panel's, and the disabled rule before the hover one)
+- **Known issues / blockers:** none new. Deploying 0027 needs Samuel's word and a backup first.
+- **Exact next steps:** 1. Merge S4, S5, S6, S7 in turn. 2. Ask Samuel to deploy. 3. S8 on The Pay Off.
 
 ### 2026-10-15 (before 18:38) · Claude Opus 5.5 (laptop) · M25 S6: Scan | Text in the reader's footer (C1)
 - **Done:** For a scanned PDF with a text edition, and in that edition, the reader's footer shows Scan | Text beside Listen (the one being read filled in); in the text edition, "Scan page N" (on a phone "p. N") leads to the same page of the scan. The scan opens the edition at the scan page's marker (?page=N, found in the EPUB's page list); the edition opens the scan at the page of the last marker passed (foliate's pageItem). The read page works out both books' ids; an edition's book page sends you to its scan's page. Test server checks batches every 500 ms (TEXT_EDITION_POLL_MS).

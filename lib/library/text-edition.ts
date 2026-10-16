@@ -107,6 +107,8 @@ export type TextEditionSummary = {
   /** Null when the estimate fits beside the limits; else why it does not. */
   overLimit: string | null;
   job: TextEditionJobView | null;
+  /** The text edition made so far (a book of its own), to open in the reader. */
+  editionId: string | null;
 };
 
 /** The owner's book, if it is a PDF with its file. */
@@ -243,7 +245,8 @@ export async function textEditionSummary(deps: TextEditionDeps, ownerId: string,
     else if (spent.month + estimateUsd > caps.perMonthUsd)
       overLimit = `Reading the ${pageCount - done} pages left costs up to ${usd(estimateUsd)}, more than this month's AI limit allows (${usd(caps.perMonthUsd)}, with ${usd(spent.month)} spent). It resets on the 1st, or the owner can raise AI_CAP_PER_MONTH_USD.`;
   }
-  return { bookId, title: book.title, pageCount, done, estimateUsd, caps, spent, overLimit, job: job ? await view(db, job) : null };
+  const edition = await editionOf(db, ownerId, bookId);
+  return { bookId, title: book.title, pageCount, done, estimateUsd, caps, spent, overLimit, job: job ? await view(db, job) : null, editionId: edition?.id ?? null };
 }
 
 // Each job's row is changed by one thing at a time in this server: preparing appends batches while the poll marks them stored.
