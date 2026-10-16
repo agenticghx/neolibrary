@@ -212,11 +212,12 @@ test("/library has the same View switch", async ({ page }) => {
 // M14 step 4 "Done when": every filter shows exactly its titles (D5), worked out here from the
 // library's own export, so the test holds whatever the earlier projects added.
 test("each library filter shows exactly its titles, with the right count", async ({ page }) => {
-  type B = { id: string; title: string; file: { type: "epub" | "pdf" | null } | null; progress: number; lastOpenedAt: string | null; deletedAt?: string | null };
+  type B = { id: string; title: string; file: { type: "epub" | "pdf" | null } | null; progress: number; lastOpenedAt: string | null; deletedAt?: string | null; editionOf?: string | null };
   type Imp = { bookId: string; status: string };
   const data = (await (await page.request.get("/api/export")).json()) as { books: B[]; readalongImports?: Imp[] };
-  // A book removed from the library (M19) is in the file, marked removed, and on no shelf.
-  const shelved = data.books.filter((b) => !b.deletedAt);
+  // A book removed from the library (M19) is in the file, marked removed, and on no shelf. So is a scan's text edition
+  // (M25 S5): it is in the file, linked to its scan, and opened only from the scan (the reader's Scan | Text test makes one).
+  const shelved = data.books.filter((b) => !b.deletedAt && !b.editionOf);
   const withFile = shelved.filter((b) => b.file);
   const titleOnly = shelved.filter((b) => !b.file);
   const audio = new Set((data.readalongImports ?? []).filter((i) => i.status === "ready").map((i) => i.bookId));
