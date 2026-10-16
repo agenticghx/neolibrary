@@ -125,9 +125,10 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   const fromLibrary = section(page, "Fiction about science").getByRole("form", { name: "Add a book from your library to Fiction about science" });
   // Your own books come first, apart from the titles still waiting for a file: exactly the library's books with
   // a file (Samuel, #90: among a reading list's titles, Frankenstein was easy to miss).
-  // (A book removed from the library, M19, is in the file marked removed, and offered nowhere.)
-  const exported = ((await (await page.request.get("/api/export")).json()).books as { title: string; author: string; file: unknown; deletedAt?: string | null }[]).filter(
-    (b) => !b.deletedAt,
+  // (A book removed from the library, M19, is in the file marked removed, and offered nowhere. Nor is a scan's text
+  // edition, M25 S5: the reader's Scan | Text test makes one, and it is reached only from its scan.)
+  const exported = ((await (await page.request.get("/api/export")).json()).books as { title: string; author: string; file: unknown; deletedAt?: string | null; editionOf?: string | null }[]).filter(
+    (b) => !b.deletedAt && !b.editionOf,
   );
   const optionText = (b: { title: string; author: string }) => (b.author ? `${b.title}, by ${b.author}` : b.title);
   const byTitle = (a: string, b: string) => a.toLowerCase().localeCompare(b.toLowerCase());
