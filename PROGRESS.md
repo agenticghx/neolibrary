@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M25 S4 (#186), S5, S6 one at a time; then S7 (the book page: start, progress, Stop, pages to check).
+next_action: Merge M25 S6 (Scan | Text), then S7 (the book page panel), one at a time; deploy (no migration) and check /api/health; then S8, Samuel makes The Pay Off's text edition.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-15
+updated: 2026-10-16
 shared_copy: none
 ---
 
@@ -18,6 +18,10 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-16 19:10 (laptop clock, from `date`). **S5 is merged (#187, 71c09ed) but not deployed: live is still c4af035.** S6 (`m25-scan-text-switch`) is rebased onto main with the already-merged S5 commits dropped, and goes up as its own pull request; the c4af035 deploy record and the laptop's uncommitted checkpoint entries ride in with it (the custom address is not named here: the repository is public). Then S7 (`m25-text-edition-page`) the same way, then a deploy (no migration) and a look at /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
+
+Written 2026-10-15 23:18 (laptop clock, from `date`). **Live: c4af035** (M25 S3 and S4, with migration 0027 applied; backup taken and restore-checked first), at Samuel's word ("deploy"). The site also answers at its new custom address (a subdomain of Samuel's own domain; DNS in Vercel, certificate issued by Railway). S5 (#187) failed once on the Home four-looks test timing out (31.6 s of 30 s; 259 others passed); its failed job is re-running. Then S6 and S7, one at a time, and a second deploy (no migration).
 
 Written 2026-10-15, before 18:38 (time not read from the clock). **M25 S6 (Scan | Text, Samuel's C1) is built on branch `m25-scan-text-switch`**, stacked: S4 is PR 186 (`m25-text-edition-job`), then S5 (`m25-text-epub`), then this. Merge one at a time; 0027 needs a backup before its deploy. Next: S7, the book page.
 
@@ -239,6 +243,27 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-16 00:09 · Claude Opus 5.5 · Checkpoint: c4af035 live (M25 S3+S4, migration 0027); custom address live; S5 #187 re-running one timed-out Home test
+- **Done:** Backed up and restore-checked prod; deployed c4af035 (0027 applied, Page pictures ready); custom subdomain via Railway + Vercel DNS (domain at GoDaddy, not Squarespace); S6/S7 rebased and pushed; deploy record on S7 branch
+- **Key paths:** docs/handoffs/2026-10-16-0008-m25-deployed-s5-rerun.md; ~/Backups/neolibrary/prod-before-0027-20261016T0313Z.sql; ../Neolibrary-carousel
+- **Commands that worked:** pg_dump over SSH -> 7,363,673 bytes; node check.mjs -> restore exit=0; railway up -> Deploy complete; psql -> 27|0027_text_editions; railway domain status -> Verified, certificate valid
+- **Known issues / blockers:** S5 browser tests failed once (Home test 31.6 s of 30 s); re-run pending
+- **Exact next steps:** 1. Check #187, merge if green, else investigate the Home test. 2. S6 then S7 PRs. 3. Deploy (no migration). 4. S8 with Samuel.
+
+### 2026-10-15 23:18 · Claude Opus 5.5 (laptop) · Deployed c4af035 (M25 S3, S4, migration 0027); custom address live
+- **Done:** At Samuel's word ("deploy"). Backup first: pg_dump inside the live Postgres to ~/Backups/neolibrary/prod-before-0027-20261016T0313Z.sql (7,363,673 bytes, 20 tables, last migration 0026), restored into a throwaway local Postgres (embedded-postgres 18.4.0-beta.17 + Homebrew libpq psql 18.6): restore exit 0, 20 tables, 26 migrations, 2 users, 256 books, 1,221 generations. Deployed main c4af035 from ../neolibrary-deploy. Live: /api/health commit c4af035; _migrations 27, last 0027_text_editions; text_edition_jobs 0 rows; no edition books; log "Page pictures: ready." (the canvas package loads on Railway). Also at Samuel's request: a custom subdomain on Railway, its CNAME and verification TXT added in Vercel (where the domain's DNS lives; it is registered at GoDaddy, not Squarespace as first thought); Railway verified it and issued the certificate; the new address answers /api/health with c4af035.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0027-20261016T0313Z.sql; restore check script in this session's scratchpad (restorecheck/check.mjs: embedded-postgres + psql)
+- **Commands that worked:** ssh <postgres ssh user>@ssh.railway.com 'pg_dump --no-owner -U "$PGUSER" -d "$PGDATABASE"' < /dev/null > prod-before-0027-….sql -> exit 0; node check.mjs <backup> -> restore exit=0; railway variable set NEOLIBRARY_COMMIT=c4af035… --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; psql over SSH: select count(*), max(id) from _migrations -> 27|0027_text_editions; railway domain <name> --service web; Vercel create_record (team scope) CNAME and TXT; railway domain status -> Verified: yes, CERTIFICATE_STATUS_TYPE_VALID
+- **Known issues / blockers:** S5 to S7 not merged yet, so nothing new is visible. The restore-check script lives in a session scratchpad; it is ~20 lines and is in this entry's description to rebuild.
+- **Exact next steps:** 1. Merge #187 if the re-run passes; else investigate the Home test's timing. 2. S6, S7 PRs in turn. 3. Deploy (no migration). 4. S8.
+
+### 2026-10-15 18:39 · Claude Opus 5.5 · Checkpoint: M25 built (S1-S3 merged, S4 PR 186 open, S5-S7 on local branches in ../Neolibrary-carousel); deploy approval pending
+- **Done:** Scanned-PDF fix live (ff2551d); OCR bake-off; M25 S1-S3 merged (#183-#185); S4 open as #186; S5 edition as its own hidden book, S6 Scan | Text footer (C1), S7 book page panel committed locally; 888 unit tests and 2 browser tests pass
+- **Key paths:** docs/handoffs/2026-10-15-1838-m25-built-merging.md; ../Neolibrary-carousel (branches m25-text-edition-job, m25-text-epub, m25-scan-text-switch, m25-text-edition-page); docs/scan-to-text-plan.md
+- **Commands that worked:** npm run check -> 888 passed; playwright --project=reader --no-deps --grep 'text edition|Scan \| Text' -> 2 passed
+- **Known issues / blockers:** Deploy of migration 0027 needs Samuel's word and a backup; branch Log entries carry made-up times (16:00-21:10) to correct
+- **Exact next steps:** 1. Merge #186 when green. 2. Rebase, push and merge S5, S6, S7 one at a time. 3. Deploy at Samuel's word with a backup. 4. S8: Samuel makes The Pay Off's text edition.
+
 ### 2026-10-15 (before 18:38) · Claude Opus 5.5 (laptop) · M25 S6: Scan | Text in the reader's footer (C1)
 - **Done:** For a scanned PDF with a text edition, and in that edition, the reader's footer shows Scan | Text beside Listen (the one being read filled in); in the text edition, "Scan page N" (on a phone "p. N") leads to the same page of the scan. The scan opens the edition at the scan page's marker (?page=N, found in the EPUB's page list); the edition opens the scan at the page of the last marker passed (foliate's pageItem). The read page works out both books' ids; an edition's book page sends you to its scan's page. Test server checks batches every 500 ms (TEXT_EDITION_POLL_MS).
 - **Key paths:** app/(reader)/books/[id]/read/{page.tsx,Reader.tsx,reader.module.css}; app/(app)/books/[id]/page.tsx; e2e/reader.spec.ts ("Scan | Text: ..."); playwright.config.ts
@@ -364,6 +389,13 @@ Never blocks the loop. Newest first.
 - **Commands that worked:** git worktree at ../Neolibrary-carousel (node_modules cloned with cp -cR; Turbopack refuses a symlinked node_modules); npm run build; setup then shell --no-deps --grep "book carousel" -> 2 passed (2.5s)
 - **Known issues / blockers:** Before the width fix the carousel measured 1096 px wide on a 390 px phone; the new phone test checks it. The /design reference screenshots will change.
 - **Exact next steps:** 1. Samuel picks A, B or C. 2. Mount it there (Home), add a Home browser test, refresh screenshots, open the PR after the shell and cards PRs merge.
+
+### 2026-10-15 00:15 · Claude Opus 5.5 · Checkpoint: glass redesign live (032a512); carousel built on m24-carousel, waiting on Samuel's placement pick
+- **Done:** PRs 176 (Blacksmith), 177 (tokens), 178 (shell + hide toggle), 179 (cards) merged; 032a512 deployed and checked via /api/health; carousel built and tested on branch m24-carousel, no PR yet
+- **Key paths:** docs/handoffs/2026-10-15-0015-glass-live-carousel-pending.md; app/tokens.css; components/shell/; components/home/BookCarousel.tsx (m24-carousel)
+- **Commands that worked:** curl /api/health -> commit 032a512; npx vitest run lib/tokens.test.ts -> 135 passed; railway up --service web --environment production --ci
+- **Known issues / blockers:** Carousel placement waits on Samuel; live glass not yet checked by Samuel signed in
+- **Exact next steps:** 1. Samuel picks carousel placement A/B/C (options page part 8). 2. Mount on Home in ../Neolibrary-carousel, PR, refresh screenshots, merge, deploy. 3. Dialogs and mini-player as glass.
 
 ### 2026-10-14 23:55 · Claude Opus 5.5 (laptop) · M24 step 3: cards are glass at 88% (pick A)
 - **Done:** 14 page cards (Account, Your data, costs, invites, Covers search, the library's and Home's three-classics offer, Paths list items and editor, Daily review's empty state, both Reading stats boxes, starter paths, Home's Continue cards) are now 88% paper with a hairline, a soft shadow and 14 px corners, blurred over the room. Boxes holding book passages or notes stay solid paper (Daily review's card, a Path's master panel, search snippets, the note inside a Continue card), and the reader has no glass at all; a new test enforces it and fails when glass is added to the Continue note (checked by breaking it on purpose). Dialogs and the mini-player are not changed yet. Done as CSS on each card, not yet as a shared <Panel> component.
