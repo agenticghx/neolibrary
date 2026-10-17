@@ -124,7 +124,41 @@ const FINISHED = /[.!?:;)\]"'’”…*]$/;
 export type EditionChapter = { title: string; html: string; pages: number[] };
 
 /** The pages joined into chapters, with their footnotes at the end of each. */
-export function assembleEdition(pages: EditionPage[]): EditionChapter[] {
+/** A heading's words, for telling whether two headings say the same. */
+const sameWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** A heading's pattern, numbers aside: "Chapter 16" and "Chapter 15" share one. */
+const shapeOf = (heading: string) => sameWords(heading).replace(/\d+/g, "0");
+
+/**
+ * Each page is read on its own, so a heading can come back a level too high:
+ * The Pay Off's Sources list each chapter's sources under "## Chapter N", but
+ * page 358 gave "# Chapter 16", which would have started a chapter in the
+ * middle of the Sources. A level-1 heading shaped like a level-2 heading on the
+ * page read before or after it is made level 2.
+ */
+function evenHeadings(pages: EditionPage[]): EditionPage[] {
+  const read = pages.filter((p): p is Extract<EditionPage, { kind: "read" }> => p.kind === "read");
+  const subheads = (p: (typeof read)[number] | undefined) =>
+    new Set((p?.markdown.match(/^## .+$/gm) ?? []).map((h) => shapeOf(h.slice(3))));
+  return pages.map((p) => {
+    if (p.kind !== "read") return p;
+    const i = read.indexOf(p);
+    const near = new Set([...subheads(read[i - 1]), ...subheads(read[i + 1])]);
+    if (!near.size) return p;
+    return { ...p, markdown: p.markdown.replace(/^# (.+)$/gm, (line, text: string) => (near.has(shapeOf(text)) ? `## ${text}` : line)) };
+  });
+}
+
+/**
+ * The pages joined into chapters: each level-1 heading starts one, except
+ * - a heading straight after another on the same page, nothing between: one title over
+ *   two lines ("PART I" then "MOVING MONEY"), so one chapter, "PART I: MOVING MONEY";
+ * - the book's own title again (`bookTitle`): the half title and the title page
+ *   after the cover stay in the chapter they are in (The Pay Off, 2026-10-17,
+ *   had three chapters called "THE PAY OFF").
+ */
+export function assembleEdition(pages: EditionPage[], bookTitle = ""): EditionChapter[] {
   const notes: Note[] = [];
   const items: Item[] = [];
   const lastParagraph = () => {
@@ -135,7 +169,7 @@ export function assembleEdition(pages: EditionPage[]): EditionChapter[] {
     }
     return null;
   };
-  const sorted = [...pages].sort((a, b) => a.page - b.page);
+  const sorted = evenHeadings([...pages].sort((a, b) => a.page - b.page));
   const ownerOf = footnoteOwners(sorted.flatMap((p) => (p.kind === "read" ? [p] : [])));
   for (const p of sorted) {
     if (p.kind !== "read") {
@@ -182,10 +216,17 @@ export function assembleEdition(pages: EditionPage[]): EditionChapter[] {
     return `<p>${body}</p>`;
   };
   let current: Building | null = null;
+  const title = sameWords(bookTitle);
+  let after: Item | null = null;
   for (const it of items) {
-    if (it.type === "heading" && it.level === 1) current = open(it.text);
+    if (it.type === "heading" && it.level === 1) {
+      const again = title && sameWords(it.text) === title && building.some((c) => sameWords(c.title) === title);
+      if (current && after?.type === "heading" && after.level === 1) current.title = `${current.title}: ${it.text}`;
+      else if (!again) current = open(it.text);
+    }
     current ??= open("Opening pages");
     current.parts.push(html(it, current));
+    after = it;
   }
   // A page whose first item is a chapter heading: its marker belongs at the start of that chapter, not the end of the
   // last (only that one: a blank page before it stays where it was).
@@ -227,7 +268,7 @@ const xhtml = (title: string, body: string, lang: string) =>
 /** The whole text edition as an EPUB 3 file. */
 export function buildTextEdition(pages: EditionPage[], meta: EditionMeta): Uint8Array {
   const lang = meta.language || "en";
-  const chapters = assembleEdition(pages);
+  const chapters = assembleEdition(pages, meta.title);
   const day = meta.madeAt.toISOString().slice(0, 10);
   const read = pages.filter((p) => p.kind === "read").length;
   const check = meta.toCheck.length
