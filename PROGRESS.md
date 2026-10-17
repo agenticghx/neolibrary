@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-16 20:07 (laptop clock, from `date`). **Live: 7303e93** (M25 S5, S6, S7; no migration since c4af035, so no backup), deployed at Samuel's word ("Yes, deploy 7303e93 to production now", 2026-10-16, in the side session). /api/health on the Railway address and the custom address both say 7303e93; /sign-in 200 with strict-transport-security; log "Page pictures: ready.". Main's CI run on 7303e93 (38984261032) was still running at the deploy: read it (WebKit runs only there). Next: S8, Samuel's to start. This entry sits on local branch `m25-s7-merged-record` (not pushed): commit it with the next real pull request.
+Written 2026-10-16 20:07 (laptop clock, from `date`). **Live: 7303e93** (M25 S5, S6, S7; no migration since c4af035, so no backup), deployed at Samuel's word ("Yes, deploy 7303e93 to production now", 2026-10-16, in the side session). /api/health on the Railway address and the custom address both say 7303e93; /sign-in 200 with strict-transport-security; log "Page pictures: ready.". Main's CI run on 7303e93 (38984261032) was still running at the deploy: read it (WebKit runs only there). Next: S8, Samuel's to start. Written further at 2026-10-16 20:16: **M26 (Reading for understanding) is planned** in `docs/plan.md`: R1 Explain it back, R2 links across books by meaning, R3 a focus session with a question; Samuel says when, and which first. This deploy record goes in with the M26 plan's pull request.
 
 Written 2026-10-16 19:49 (laptop clock, from `date`). **S6 merged (#188, 9610d14); not deployed: live is still c4af035.** S7 (`m25-text-edition-page`) is rebased onto main with the S5 and S6 commits dropped and goes up as its own pull request. After it merges: deploy main (no migration since c4af035, so no backup), at Samuel's word "deploy" (2026-10-15 23:18 entry), and check /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
 
@@ -247,6 +247,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-16 20:16 · Claude Opus 5.5 (laptop) · M26 planned: reading for understanding (three steps Samuel picked)
+- **Done:** Added M26 to docs/plan.md at Samuel's request ("add #1, 2, 3 to plans doc"): R1 Explain it back (say or type three sentences at a section's end; Claude quotes what was missed), R2 links across your own books by meaning (builds on M6's word-stem cross-book links, which exist in lib/library/crosslinks.ts and the reader's links panel; R2 matches by idea and shows them in the margin), R3 a focus session with a question (timer, page only, the answer becomes a note, a Daily review card and a reading-stats sitting). Each has a "Done when". One rule for all three: the reader writes first, Claude responds second. Not started.
+- **Key paths:** docs/plan.md (### M26)
+- **Commands that worked:** grep -n -i "cross-book" docs/*.md; sed -n 1,40p lib/library/crosslinks.ts (to check what M6 built)
+- **Known issues / blockers:** R2's matching method and whether it costs money per page are Samuel's to decide (Open unknowns, when R2 starts).
+- **Exact next steps:** 1. Samuel: S8 on The Pay Off. 2. Samuel picks when M26 starts and which step first (suggested: R1).
 
 ### 2026-10-16 20:07 · Claude Opus 5.5 (laptop) · Deployed 7303e93 (M25 S5, S6, S7; no migration)
 - **Done:** At Samuel's word ("Yes, deploy 7303e93 to production now (no migration), then check /api/health on both addresses."), after the first attempt was refused by the session's permission check. No migration or schema file changed since c4af035, so no backup. Deployed from ../neolibrary-deploy detached at origin/main 7303e93. Live: /api/health on both addresses -> commit 7303e93; /sign-in 200 with strict-transport-security max-age=31536000; log "Page pictures: ready.".
