@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M26 R1 (Explain it back) with the merge train; deploy at Samuel's word.
+next_action: Samuel tries Explain it back on a real chapter (Study, fourth tab) and records a verdict.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-16
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-16 22:02 (laptop clock, from `date`). **Live: 57eebe4** (M26 R1, Explain it back; no migration since 7303e93, so no backup), deployed at Samuel's word ("Yes, deploy 57eebe4 to production now"). /api/health on both addresses says 57eebe4. Next: Samuel tries Explain it back on a chapter of a real book (Study, fourth tab) and records a verdict; S8 on *The Pay Off* is his to start; R2 and R3 wait for his word. This entry sits on local branch `m26-r1-deploy-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-16 21:42 (laptop clock, from `date`). **M26 R1 (Explain it back) is built on branch `m26-r1-explain-back`** and goes up as a pull request; not deployed (live is 7303e93; deploying waits for Samuel's word). It is the fourth Study tab: write (or say) about three sentences on what a chapter argued; the summary is saved as your note first; then AI quotes the lines it missed or got wrong, each opening its place. No database change. Next: merge it with the merge train; then Samuel tries it on a chapter of a real book and records a verdict (R1's "Done when"); S8 on *The Pay Off* is still his to start.
 
@@ -249,6 +251,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-16 22:02 · Claude Opus 5.5 (laptop) · Deployed 57eebe4 (M26 R1, Explain it back; no migration)
+- **Done:** PR #191 merged as 57eebe4 (four checks green on run 38992015356, first round; CI screenshots looked at). Deployed at Samuel's word from ../neolibrary-deploy detached at 57eebe4; no migration or schema file changed since 7303e93, so no backup. Live: /api/health on both addresses -> commit 57eebe4; /sign-in 200 with HSTS; /api/books/<id>/explain-back without sign-in -> 401 (the new route is there); log 'Page pictures: ready.'
+- **Key paths:** ../neolibrary-deploy (detached at 57eebe4)
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=57eebe45… --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl https://<railway address>/api/health -> {"status":"ok","service":"neolibrary","commit":"57eebe4"}; same on the custom address
+- **Known issues / blockers:** None. Main's CI run on 57eebe4 (38992612005, Safari's engine included) passed.
+- **Exact next steps:** 1. Samuel tries Explain it back on a real chapter and records a verdict. 2. S8 on The Pay Off (Samuel). 3. R2 or R3 at Samuel's word.
 
 ### 2026-10-16 21:42 · Claude Opus 5.5 (laptop) · M26 R1: Explain it back, the fourth Study tab
 - **Done:** Explain it back: in Study, a fourth tab. The reader types (or says: Say it instead records a voice note and its transcript fills the box) about three sentences on what the chapter (or PDF page) argued; Check my summary saves it as the reader's note first, then AI (prompts/explain-back.md, structured output) returns at most five items, Missed or Not quite, each a quote checked word for word against the chapter's paragraphs and a link to its place; a quote not found is never shown as the book's words (the passage's start, marked, instead). Same summary again: re-served free, no second note. If a cap or a missing key stops the call, the note is still saved. The note is a Daily review card. Study's four tabs now sit two by two (in one row they pushed the panel sideways, cutting its left edge; seen in the first screenshots and now checked by the test). No database change.
