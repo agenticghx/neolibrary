@@ -1,0 +1,106 @@
+/* Explain it back (M26 R1). The panel itself, the machine-written box and the labels come from reader.module.css. */
+
+.part {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* The reader's summary: their own words, so the italic serif their notes use. */
+.summary {
+  min-height: var(--space-8);
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  font-style: italic;
+  line-height: var(--leading-ui);
+  resize: vertical;
+}
+
+.attempt {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.wrote {
+  color: var(--ink-700);
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  font-style: italic;
+  line-height: var(--leading-ui);
+}
+
+.items {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* Missed or Not quite: a small label, in words (never colour alone). */
+.kind {
+  justify-self: start;
+  color: var(--machine-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+/* The book's own words: book serif, a link to their place. */
+.line {
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--ink-900);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quote {
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+  text-decoration: underline;
+  text-decoration-color: var(--machine-rule);
+  text-underline-offset: var(--space-0);
+}
+
+.line:hover .quote {
+  color: var(--accent);
+  text-decoration-color: currentcolor;
+}
+
+.marker {
+  font-family: var(--font-sans);
+  font-style: italic;
+}
+
+.why {
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
+.earlier {
+  margin-top: var(--space-3);
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+}
+
+.earlier > summary {
+  cursor: pointer;
+}

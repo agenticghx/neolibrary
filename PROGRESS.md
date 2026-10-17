@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: S8 is Samuel's: on The Pay Off's page, tick the box and press Make a text edition (about $2.80); then check the flagged pages.
+next_action: Merge M26 R1 (Explain it back) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-16
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-16 21:42 (laptop clock, from `date`). **M26 R1 (Explain it back) is built on branch `m26-r1-explain-back`** and goes up as a pull request; not deployed (live is 7303e93; deploying waits for Samuel's word). It is the fourth Study tab: write (or say) about three sentences on what a chapter argued; the summary is saved as your note first; then AI quotes the lines it missed or got wrong, each opening its place. No database change. Next: merge it with the merge train; then Samuel tries it on a chapter of a real book and records a verdict (R1's "Done when"); S8 on *The Pay Off* is still his to start.
 
 Written 2026-10-16 20:07 (laptop clock, from `date`). **Live: 7303e93** (M25 S5, S6, S7; no migration since c4af035, so no backup), deployed at Samuel's word ("Yes, deploy 7303e93 to production now", 2026-10-16, in the side session). /api/health on the Railway address and the custom address both say 7303e93; /sign-in 200 with strict-transport-security; log "Page pictures: ready.". Main's CI run on 7303e93 (38984261032) was still running at the deploy: read it (WebKit runs only there). Next: S8, Samuel's to start. Written further at 2026-10-16 20:16: **M26 (Reading for understanding) is planned** in `docs/plan.md`: R1 Explain it back, R2 links across books by meaning, R3 a focus session with a question; Samuel says when, and which first. This deploy record goes in with the M26 plan's pull request.
 
@@ -247,6 +249,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-16 21:42 · Claude Opus 5.5 (laptop) · M26 R1: Explain it back, the fourth Study tab
+- **Done:** Explain it back: in Study, a fourth tab. The reader types (or says: Say it instead records a voice note and its transcript fills the box) about three sentences on what the chapter (or PDF page) argued; Check my summary saves it as the reader's note first, then AI (prompts/explain-back.md, structured output) returns at most five items, Missed or Not quite, each a quote checked word for word against the chapter's paragraphs and a link to its place; a quote not found is never shown as the book's words (the passage's start, marked, instead). Same summary again: re-served free, no second note. If a cap or a missing key stops the call, the note is still saved. The note is a Daily review card. Study's four tabs now sit two by two (in one row they pushed the panel sideways, cutting its left edge; seen in the first screenshots and now checked by the test). No database change.
+- **Key paths:** lib/library/explain-back.ts; prompts/explain-back.md; app/api/books/[id]/explain-back/route.ts; app/(reader)/books/[id]/read/{ExplainPanel.tsx,ExplainPanel.module.css,StudyTabs.tsx,StudyTabs.module.css,Reader.tsx}; lib/ai/fake.ts; lib/library/explain-back.test.ts; e2e/ai.spec.ts; e2e/notes.spec.ts
+- **Commands that worked:** npx vitest run lib/library/explain-back.test.ts -> 9 passed; npm run check -> 897 passed, 2 skipped; local next start + playwright --project=ai --no-deps (after setup and uploads) -> 16 passed; --project=notes --grep 'Explain it back by voice' -> 1 passed; npm ci first (the worktree had borrowed the main checkout's older node_modules: 15 PDF and font tests failed until then)
+- **Known issues / blockers:** Locally, shell (1 test) and notes' Think aloud test fail when earlier projects are skipped with --no-deps (they need flows' and audio's data); CI runs the whole chain. A PDF part is one page, not a page range, for now.
+- **Exact next steps:** 1. Merge with the merge train. 2. Deploy at Samuel's word. 3. Samuel tries it on a real chapter and records a verdict. 4. S8 is Samuel's.
+
+### 2026-10-16 21:12 · Claude Opus 5.5 · Checkpoint: M25 S5-S7 merged and live (7303e93); M26 planned (#190)
+- **Done:** S6 #188 (9610d14) and S7 #189 (7303e93) merged; 7303e93 deployed at Samuel's word, /api/health on both addresses says 7303e93; main CI on 7303e93 green; M26 (Explain it back, links by meaning, focus session) in docs/plan.md via #190 (e6bd254)
+- **Key paths:** docs/handoffs/2026-10-16-2111-m25-live-m26-planned.md; docs/plan.md; app/(app)/books/[id]/TextEdition.tsx; ../neolibrary-deploy
+- **Commands that worked:** merge-train train.sh <pr> <branch>; railway up --service web --environment production --ci; curl /api/health -> 7303e93
+- **Known issues / blockers:** laptop main checkout has a stale uncommitted PROGRESS.md naming the custom domain (discard, do not commit)
+- **Exact next steps:** 1. Samuel runs S8 on The Pay Off (about $2.80). 2. Samuel picks when M26 starts and which step (suggested R1). 3. Discard the stale PROGRESS.md on the laptop's main checkout.
 
 ### 2026-10-16 20:16 · Claude Opus 5.5 (laptop) · M26 planned: reading for understanding (three steps Samuel picked)
 - **Done:** Added M26 to docs/plan.md at Samuel's request ("add #1, 2, 3 to plans doc"): R1 Explain it back (say or type three sentences at a section's end; Claude quotes what was missed), R2 links across your own books by meaning (builds on M6's word-stem cross-book links, which exist in lib/library/crosslinks.ts and the reader's links panel; R2 matches by idea and shows them in the margin), R3 a focus session with a question (timer, page only, the answer becomes a note, a Daily review card and a reading-stats sitting). Each has a "Done when". One rule for all three: the reader writes first, Claude responds second. Not started.
