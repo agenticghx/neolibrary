@@ -8,13 +8,21 @@
  */
 
 /**
- * Below this share of matching words, a page is listed for a look. Measured on
- * five pages of The Pay Off (2026-10-15): ordinary pages agreed 0.98 to 1 once
- * the running head and page number were left out, so one reworded sentence
- * (about 5% of a page's words) falls below it; the contents page and a
- * sideways table fall well below.
+ * Below this share of Claude's words found in the scan's hidden text, a page
+ * is listed for a look. Words are matched letter by letter (see `confirmed`),
+ * so the hidden text's own faults (words run together, line-end hyphens left
+ * in, a stray letter) do not count against a page.
  */
-export const AGREEMENT_FLOOR = 0.95;
+export const AGREEMENT_FLOOR = 0.9;
+/**
+ * A run of this many words in a row in Claude's reading that the hidden text
+ * does not have: words reworded or made up. And of this many in the hidden
+ * text that Claude left out. Measured on The Pay Off's 360 pages (2026-10-17):
+ * six words reworded in a paragraph were caught on 275 of 275 pages, eight
+ * words dropped on 252 of 275; ordinary pages had runs of at most 3 and 5.
+ */
+export const ADDED_RUN = 4;
+export const DROPPED_RUN = 6;
 /** With fewer words than this in the hidden text there is nothing to compare against. */
 export const MIN_WORDS = 20;
 
@@ -26,13 +34,27 @@ const PLAIN: Record<string, string> = { "\u2018": "'", "\u2019": "'", "\u201c": 
  * number, in figures or roman numerals), which a flowing text leaves out.
  */
 export function withoutFurniture(hiddenText: string) {
+  const lines = withoutFolio(hiddenText);
+  if (lines.length > 1 && lines[0].split(/\s+/).length <= 10 && !/[.!?:'"\u2019\u201d]$/.test(lines[0])) lines.shift();
+  return lines.join("\n");
+}
+
+/** The hidden text's lines without a page number at the top or bottom. */
+function withoutFolio(hiddenText: string) {
   const lines = hiddenText.split("\n").map((l) => l.trim()).filter(Boolean);
   const folio = /^([0-9]{1,4}|[ivxlcdm]{1,7})$/i;
   while (lines.length && folio.test(lines[lines.length - 1])) lines.pop();
   while (lines.length && folio.test(lines[0])) lines.shift();
-  if (lines.length > 1 && lines[0].split(/\s+/).length <= 10 && !/[.!?:'"\u2019\u201d]$/.test(lines[0])) lines.shift();
-  return lines.join("\n");
+  return lines;
 }
+
+/**
+ * An answer that is not the page: Claude saying it will not copy it, or
+ * offering a summary. It happened once in The Pay Off's 360 pages (page 213,
+ * 2026-10-17: "I can't transcribe this page word for word ... Here is a
+ * summary instead.").
+ */
+export const DECLINED = /^\s*(I can['\u2019]?t|I cannot|I['\u2019]m (not able|unable)|I am (not able|unable)|Sorry|I won['\u2019]?t)\b|here is a summary/i;
 
 /** The words of a text, tidied the same way for both readings (the 5-page test's scorer, tools/score.py). */
 export function pageWords(text: string): string[] {
@@ -59,16 +81,79 @@ export function wordEdits(a: string[], b: string[]): number {
   return prev[b.length];
 }
 
+const letters = (w: string) => w.toLowerCase().replace(/[^a-z0-9]/g, "");
+
 /**
- * How far the two readings agree, from 0 to 1 (1: the same words), or null
- * when the hidden text is too short to compare. A page is flagged when they
- * agree less than AGREEMENT_FLOOR, or when Claude found words on a page whose
- * hidden text has almost none (a picture, or a page the scan's OCR missed).
+ * For each word of `words`, whether it is found in `other`: both are lined up
+ * letter by letter (the fewest changes turning one string of letters into the
+ * other, spaces and punctuation left out), and a word counts as found when its
+ * letters line up with the same letters there (one may differ in a word of six
+ * or more). Lining up letters, not words, lets "Tounderstandhowto" in the
+ * hidden text confirm "To understand how to", and "vil- lage" confirm "village".
+ */
+export function confirmed(words: string[], other: string[]): boolean[] {
+  const ws = words.map(letters);
+  const a = ws.join("");
+  const b = other.map(letters).join("");
+  const owner: number[] = [];
+  ws.forEach((w, i) => {
+    for (let k = 0; k < w.length; k++) owner.push(i);
+  });
+  const n = a.length;
+  const m = b.length;
+  const width = m + 1;
+  const d = n < 65535 && m < 65535 ? new Uint16Array((n + 1) * width) : new Uint32Array((n + 1) * width);
+  for (let j = 0; j <= m; j++) d[j] = j;
+  for (let i = 1; i <= n; i++) {
+    const row = i * width;
+    const up = row - width;
+    d[row] = i;
+    for (let j = 1; j <= m; j++) d[row + j] = Math.min(d[up + j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1), d[up + j] + 1, d[row + j - 1] + 1);
+  }
+  const same = new Array<number>(ws.length).fill(0);
+  for (let i = n, j = m; i > 0 && j > 0; ) {
+    const here = d[i * width + j];
+    if (a[i - 1] === b[j - 1] && here === d[(i - 1) * width + j - 1]) {
+      same[owner[i - 1]]++;
+      i--;
+      j--;
+    } else if (here === d[(i - 1) * width + j - 1] + 1) {
+      i--;
+      j--;
+    } else if (here === d[(i - 1) * width + j] + 1) i--;
+    else j--;
+  }
+  return ws.map((w, i) => same[i] >= w.length - (w.length >= 6 ? 1 : 0));
+}
+
+/** The longest run of words in a row not found. */
+const longestRun = (found: boolean[]) => found.reduce((acc, f) => ({ run: f ? 0 : acc.run + 1, best: Math.max(acc.best, f ? 0 : acc.run + 1) }), { run: 0, best: 0 }).best;
+
+/**
+ * How far Claude's reading of a page agrees with the scan's hidden text: the
+ * share of Claude's words found there, from 0 to 1, or null when the hidden
+ * text is too short to compare. A page is flagged for a look when:
+ * - Claude declined and wrote something else (`DECLINED`);
+ * - fewer than AGREEMENT_FLOOR of its words are found (the contents page, a
+ *   sideways table the scan's OCR read as gibberish);
+ * - ADDED_RUN words in a row are not found: reworded or made up;
+ * - DROPPED_RUN words in a row of the hidden text are missing from Claude's
+ *   reading: left out (or a figure's labels, which a reading gives as a caption);
+ * - Claude found words on a page whose hidden text has almost none.
+ * The hidden text's first line, when short, is left out of the left-out check
+ * (a running head Claude rightly leaves out), but not of the others (a
+ * chapter's title).
  */
 export function checkPage(transcription: string, hiddenText: string) {
   const ours = pageWords(transcription);
-  const theirs = pageWords(withoutFurniture(hiddenText));
-  if (theirs.length < MIN_WORDS) return { agreement: null, flagged: ours.length >= MIN_WORDS };
-  const agreement = Math.max(0, 1 - wordEdits(ours, theirs) / Math.max(ours.length, theirs.length));
-  return { agreement: Math.round(agreement * 1000) / 1000, flagged: agreement < AGREEMENT_FLOOR };
+  const lines = withoutFolio(hiddenText);
+  const theirs = pageWords(lines.join("\n"));
+  const declined = DECLINED.test(transcription.slice(0, 200));
+  if (pageWords(withoutFurniture(hiddenText)).length < MIN_WORDS) return { agreement: null, flagged: declined || ours.length >= MIN_WORDS };
+  const found = confirmed(ours, theirs);
+  const agreement = Math.round((found.filter(Boolean).length / Math.max(1, found.length)) * 1000) / 1000;
+  const head = lines.length > 1 && lines[0].split(/\s+/).length <= 15 ? 1 : 0; // a running head, never a paragraph
+  const kept = confirmed(pageWords(lines.slice(head).join("\n")), ours);
+  const flagged = declined || agreement < AGREEMENT_FLOOR || longestRun(found) >= ADDED_RUN || longestRun(kept) >= DROPPED_RUN;
+  return { agreement, flagged };
 }

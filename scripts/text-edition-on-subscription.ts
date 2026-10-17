@@ -26,6 +26,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { batchCostUsd, TRANSCRIBE_MODEL } from "@/lib/ai/batch";
 import { readPrompt, sha256 } from "@/lib/ai/prompts";
+import { DECLINED } from "@/lib/library/page-check";
 import { BLANK_INK, MAX_PICTURE_TOKENS, openPdfForPictures, pictureTokens } from "@/lib/library/page-pictures";
 import { PROMPT_NAME, type ReadElsewherePage } from "@/lib/library/text-edition";
 
@@ -70,6 +71,8 @@ function readPage(model: string, base64: string, instructions: string): Promise<
       const u = result.usage ?? {};
       const text = String(result.result ?? "").trim();
       if (!text) return reject(new Error("claude -p gave no text."));
+      // Once in The Pay Off's 360 pages (page 213, 2026-10-17) Claude declined and wrote a summary instead: never keep that as the page.
+      if (DECLINED.test(text.slice(0, 200))) return reject(new Error(`Claude declined: ${text.slice(0, 120)}`));
       if (result.stop_reason === "max_tokens") return reject(new Error("The answer was cut off before it finished."));
       resolve({
         text,
@@ -144,7 +147,10 @@ async function read(pdf: string, folder: string) {
   }
   await Promise.all(going);
   await doc.close();
-  const manifest: Manifest = { pdfSha256: createHash("sha256").update(bytes).digest("hex"), pageCount: doc.pageCount, blankPages: blank, model, promptHash };
+  // Blank pages outside the pages asked for this time are kept from the last run.
+  const before = existsSync(join(folder, "manifest.json")) ? (JSON.parse(readFileSync(join(folder, "manifest.json"), "utf8")) as Manifest).blankPages : [];
+  const blankPages = [...new Set([...before.filter((p) => p < from || p > to), ...blank])].sort((a, b) => a - b);
+  const manifest: Manifest = { pdfSha256: createHash("sha256").update(bytes).digest("hex"), pageCount: doc.pageCount, blankPages, model, promptHash };
   writeFileSync(join(folder, "manifest.json"), JSON.stringify(manifest, null, 1));
   console.log(`Done: ${read} pages read now, ${blank.length} blank, ${failed.length} not read${failed.length ? ` (${failed.map((f) => f.page).join(", ")})` : ""}. At the Batch API's price these pages would have cost $${apiUsd.toFixed(2)}; on the subscription, $0.`);
 }
