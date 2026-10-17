@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy text-by-default and the table fix; then the scan-to-text skill and prompt audit.
+next_action: Merge and deploy the scan-to-text skill PR; check, preview and send The Pay Off's v2 reading.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -268,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 14:20 · Claude Opus 5.5 (laptop) · Scan-to-text skill, prompt audit and evaluation; live 7c343d4 (text by default, wide tables)
+- **Done:** Deployed #197 as 7c343d4 (no migration since ccb4c38; from the clean checkout; /api/health 7c343d4, /sign-in 200): text editions open by default, wide tables stay in the column. Wrote .claude/skills/scan-to-text (SKILL.md, references/prompt.md) and the script commands check, pictures, reread, preview (over-text check at 358 and 700 px: page 51's table found before the fix, nothing after), and scripts/eval-transcribe-prompt.ts. Ran the claude-api prompt-audit on the instructions, both request paths and the skill (docs/audits/2026-10-17-scan-to-text-prompt-audit.md): owner-and-purpose context, a heading rule, effort high set on both paths, a carried-over-note rule. Evaluated on The Pay Off: headings 28 of 28 (was 26 of 28), carried notes 4 of 4 (was 0 of 4), words wrong 0 of 2,280 throughout, no refusals (page 213 read 10 times per version). A fresh Claude session tested the skill (no sending): quality bar met where checkable; its six findings are fixed (builder: no join across blank pages, sentences carried past tables and figures; check reasons; pictures --from; sampling). Reread of all 388 pages with the final instructions under way into ~/Documents/neolibrary-text-edition/payoff-v2.
+- **Key paths:** .claude/skills/scan-to-text/; scripts/text-edition-on-subscription.ts; scripts/eval-transcribe-prompt.ts; prompts/transcribe-page.md; lib/library/{text-epub,page-check}.ts; lib/ai/claude-batch.ts; docs/audits/2026-10-17-scan-to-text-prompt-audit.md; ~/Documents/neolibrary-text-edition/payoff-eval/ (not in git)
+- **Commands that worked:** npx tsx scripts/eval-transcribe-prompt.ts <pdf> <out> <spec.json> <A.md> <B.md> --repeats 2 -> table above; ... check / preview on payoff -> 12 flagged with reasons, markers 388 in order, nothing wider than the column; npx vitest run -> 918 passed, 2 skipped; tsc and eslint clean
+- **Known issues / blockers:** The new instructions change the prompt fingerprint: the site takes pages read with them only after this deploys. Library barcode stamps on The Pay Off's scan (pp. 3 and back cover): whether the file is Samuel's to keep is his call. Not looked at signed in.
+- **Exact next steps:** 1. Merge this pull request; deploy (no migration). 2. When the v2 reread ends: check and preview it, compare with v1, look at flagged, sampled and mid-sentence pages, then send v2 (the edition keeps its id). 3. Samuel opens The Pay Off signed in.
 
 ### 2026-10-17 13:49 · Claude Opus 5.5 (laptop) · Text editions open by default; wide tables stay in their column, with an over-text check
 - **Done:** Samuel asked for text by default and for a way to catch text over text (his screenshot: The Pay Off p. 51's 9-column table over the text). Reader page: a scan with a text edition redirects to the edition (its own place, or ?page=<scan page> the first time); ?view=scan or ?at= opens the scan; the Scan link carries view=scan. savePosition on an edition also sets the scan's progress and lastOpenedAt (Home Continue follows). Tables: bookCss and the edition's CSS make a table display:block, max-width 100%, overflow-x auto. Over-text check in e2e/agents.spec.ts (9-column table at 390 and 1280 px): fails without the fix ('the table is 773 px wide in a 280 px column'), passes with it; screenshots wide-table-{phone,desktop}.png looked at.
