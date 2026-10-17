@@ -18,8 +18,9 @@ export const AGREEMENT_FLOOR = 0.9;
  * A run of this many words in a row in Claude's reading that the hidden text
  * does not have: words reworded or made up. And of this many in the hidden
  * text that Claude left out. Measured on The Pay Off's 360 pages (2026-10-17):
- * six words reworded in a paragraph were caught on 275 of 275 pages, eight
- * words dropped on 252 of 275; ordinary pages had runs of at most 3 and 5.
+ * on the 330 pages it passed, six words reworded in a paragraph were caught on
+ * all 330, eight words dropped on 306, a sentence dropped on 186 of 203; three
+ * words reworded on only 6.
  */
 export const ADDED_RUN = 4;
 export const DROPPED_RUN = 6;
@@ -145,15 +146,34 @@ const longestRun = (found: boolean[]) => found.reduce((acc, f) => ({ run: f ? 0 
  * chapter's title).
  */
 export function checkPage(transcription: string, hiddenText: string) {
+  const { agreement, flagged } = assessPage(transcription, hiddenText);
+  return { agreement, flagged };
+}
+
+/** As `checkPage`, with why a page is flagged, in words (for the person looking at it), or null when it is not. */
+export function assessPage(transcription: string, hiddenText: string): { agreement: number | null; flagged: boolean; why: string | null } {
   const ours = pageWords(transcription);
   const lines = withoutFolio(hiddenText);
   const theirs = pageWords(lines.join("\n"));
   const declined = DECLINED.test(transcription.slice(0, 200));
-  if (pageWords(withoutFurniture(hiddenText)).length < MIN_WORDS) return { agreement: null, flagged: declined || ours.length >= MIN_WORDS };
+  if (pageWords(withoutFurniture(hiddenText)).length < MIN_WORDS) {
+    const flagged = declined || ours.length >= MIN_WORDS;
+    return { agreement: null, flagged, why: declined ? "Claude declined" : flagged ? "the scan has almost no hidden text to compare with" : null };
+  }
   const found = confirmed(ours, theirs);
   const agreement = Math.round((found.filter(Boolean).length / Math.max(1, found.length)) * 1000) / 1000;
   const head = lines.length > 1 && lines[0].split(/\s+/).length <= 15 ? 1 : 0; // a running head, never a paragraph
   const kept = confirmed(pageWords(lines.slice(head).join("\n")), ours);
-  const flagged = declined || agreement < AGREEMENT_FLOOR || longestRun(found) >= ADDED_RUN || longestRun(kept) >= DROPPED_RUN;
-  return { agreement, flagged };
+  const added = longestRun(found);
+  const dropped = longestRun(kept);
+  const why = declined
+    ? "Claude declined"
+    : agreement < AGREEMENT_FLOOR
+      ? `only ${Math.round(agreement * 100)}% of the words read are in the scan's hidden text`
+      : added >= ADDED_RUN
+        ? `${added} words in a row read that the hidden text does not have`
+        : dropped >= DROPPED_RUN
+          ? `${dropped} words in a row of the hidden text missing from the reading`
+          : null;
+  return { agreement, flagged: why !== null, why };
 }

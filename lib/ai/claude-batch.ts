@@ -5,8 +5,8 @@ import { AiError } from "./model";
 /**
  * The real Message Batches API. Unlike ClaudeModel it sends no server-side
  * fallback (that is for live requests): a page Claude declines comes back as
- * "refused" and can be sent again. Thinking and effort are the model's own
- * defaults, as in the 5-page test (docs/scan-to-text-plan.md).
+ * "refused" and can be sent again. Thinking is the model's own (adaptive); effort is
+ * set to high, Sonnet 5.5's default, as in the 5-page test (docs/scan-to-text-plan.md).
  */
 export class ClaudeBatchModel implements TextBatchModel {
   readonly provider = "anthropic";
@@ -39,6 +39,9 @@ export class ClaudeBatchModel implements TextBatchModel {
           params: {
             model: this.model,
             max_tokens: r.maxTokens,
+            // Set, not left to the default, so a page reads alike here and through claude -p on the laptop
+            // (scripts/text-edition-on-subscription.ts, EFFORT).
+            output_config: { effort: "high" as const },
             messages: [
               {
                 role: "user" as const,

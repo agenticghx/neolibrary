@@ -67,6 +67,7 @@ describe("ClaudeBatchModel", () => {
         params: {
           model: TRANSCRIBE_MODEL,
           max_tokens: 8000,
+          output_config: { effort: "high" }, // set, so the server and claude -p on the laptop read alike
           messages: [
             {
               role: "user",
