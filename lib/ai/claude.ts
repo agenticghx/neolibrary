@@ -6,7 +6,8 @@ export const CLAUDE_MODEL = "claude-opus-5-5";
 /**
  * The real Claude API. If Claude declines a request for safety reasons, the
  * API's server-side fallback ("default") retries it on another model inside
- * the same call; the result records which model answered.
+ * the same call; the result records which model answered. Haiku has no such
+ * fallback, so its refusals reach the reader as refusals.
  */
 export class ClaudeModel implements TextModel {
   readonly provider = "anthropic";
@@ -26,8 +27,8 @@ export class ClaudeModel implements TextModel {
       response = await this.client.beta.messages.create({
         model: this.model,
         max_tokens: req.maxTokens,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+        // Haiku 5.5 has no server-side fallback: a declined request stays declined.
+        ...(this.model.startsWith("claude-haiku-") ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }),
         thinking: { type: "adaptive", display: "omitted" },
         output_config: req.schema ? { effort: req.effort, format: { type: "json_schema", schema: req.schema } } : { effort: req.effort },
         system: req.system,
