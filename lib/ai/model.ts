@@ -78,13 +78,17 @@ export function costUsd(model: string, inputTokens: number, outputTokens: number
 
 /**
  * The AI features, each with its own model (2026-10-17, Samuel: "Haiku for
- * routine jobs"). Routine work (rewrites, Need to know, Test yourself) goes
- * to Claude Haiku 5.5, about 40 times cheaper than Opus; judging what a
- * reader wrote or asked stays on Opus. Each can be changed on the server
- * with AI_MODEL_<FEATURE>, e.g. AI_MODEL_REWRITE=claude-sonnet-5-5.
+ * routine jobs"). Chosen from a side-by-side run on five of Samuel's books
+ * (scripts/compare-models.ts): Need to know and Test yourself go to Claude
+ * Haiku 5.5, about 30 times cheaper than Opus and as accurate there. Rewrites
+ * stand in for the book's text, and Haiku once dropped a quarter of a
+ * paragraph, so they go to Sonnet 5.5 (half Opus's price; Opus follows strict
+ * STE a little more closely). Judging what a reader wrote or asked stays on
+ * Opus. Each can be changed on the server with AI_MODEL_<FEATURE>, e.g.
+ * AI_MODEL_REWRITE=claude-opus-5-5.
  */
 export const FEATURE_MODELS = {
-  rewrite: "claude-haiku-5-5",
+  rewrite: "claude-sonnet-5-5",
   prerequisites: "claude-haiku-5-5",
   questions: "claude-haiku-5-5",
   ask: "claude-opus-5-5",
