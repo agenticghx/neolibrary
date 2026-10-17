@@ -3,8 +3,10 @@ import { strFromU8, unzipSync } from "fflate";
 import { and, eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getBatchModel } from "@/lib/ai";
 import { batchCostUsd, FakeBatchModel, type BatchRequest } from "@/lib/ai/batch";
 import { resetSpendHoldsForTests, spending, spendingWithJobs } from "@/lib/ai/generate";
+import { AiNotConfigured } from "@/lib/ai/model";
 import { readPrompt } from "@/lib/ai/prompts";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
@@ -23,6 +25,7 @@ import {
   startTextEdition,
   stopTextEdition,
   TextEditionError,
+  textEditionForPage,
   textEditionSummary,
   type TextEditionDeps,
 } from "./text-edition";
@@ -69,6 +72,16 @@ afterEach(async () => {
 });
 
 describe("before anything is sent", () => {
+  it("leaves the book page's panel out when no AI key is set, instead of failing the page (live, 2026-10-17)", async () => {
+    const bookId = await scannedBook();
+    const noKey = () => getBatchModel({}); // no ANTHROPIC_API_KEY and no AI_FAKE: as on the live site
+    expect(noKey).toThrow(AiNotConfigured);
+    await expect(textEditionForPage({ db: database.db, storage, model: noKey, caps: CAPS }, ownerId, bookId)).resolves.toBeNull();
+    // With a model, the page gets the same summary as before.
+    const s = await textEditionForPage({ db: database.db, storage, model: () => new FakeBatchModel({ answer }), caps: CAPS }, ownerId, bookId);
+    expect(s).toMatchObject({ pageCount: 3, done: 0, job: null });
+  });
+
   it("says how many pages there are and what reading them costs at most, within the limits", async () => {
     const bookId = await scannedBook();
     const s = await textEditionSummary(deps(), ownerId, bookId);

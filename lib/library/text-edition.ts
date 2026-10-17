@@ -226,6 +226,25 @@ async function view(db: Db, job: JobRow): Promise<TextEditionJobView> {
   };
 }
 
+/**
+ * The book page's text-edition panel (S7): the summary, or null when it cannot be looked up, as when no Anthropic key
+ * is set, so the panel is left out and the rest of the page shows. The model is asked for inside: asked for outside,
+ * a missing key threw before anything could catch it, and every PDF's page answered 500 for the owner on the live
+ * site (2026-10-17, which has no Anthropic key).
+ */
+export async function textEditionForPage(
+  deps: Omit<TextEditionDeps, "model"> & { model: () => TextBatchModel },
+  ownerId: string,
+  bookId: string,
+): Promise<TextEditionSummary | null> {
+  try {
+    return await textEditionSummary({ ...deps, model: deps.model() }, ownerId, bookId);
+  } catch (e) {
+    console.error("Text edition: the book page's panel is left out:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 /** What reading the book involves, before anything is sent: pages, cost, the limits, and the latest job. */
 export async function textEditionSummary(deps: TextEditionDeps, ownerId: string, bookId: string): Promise<TextEditionSummary> {
   const { db } = deps;
