@@ -16,6 +16,7 @@
  *   npx tsx scripts/text-edition-on-subscription.ts pictures <scan.pdf> <out folder> <pages, e.g. 51 160-165>
  *   npx tsx scripts/text-edition-on-subscription.ts reread <scan.pdf> <folder> <pages>
  *   npx tsx scripts/text-edition-on-subscription.ts preview <folder> <out.epub> [--title T] [--author A]
+ *   npx tsx scripts/text-edition-on-subscription.ts compare <folder> <second folder>
  *   npx tsx scripts/text-edition-on-subscription.ts send <folder> <site> <book id>
  *
  * The whole workflow, with what to look at between steps: .claude/skills/scan-to-text/SKILL.md.
@@ -33,7 +34,7 @@ import { join } from "node:path";
 import { batchCostUsd, TRANSCRIBE_MODEL } from "@/lib/ai/batch";
 import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import { strFromU8, unzipSync } from "fflate";
-import { assessPage, DECLINED } from "@/lib/library/page-check";
+import { assessPage, DECLINED, pageWords, wordEdits } from "@/lib/library/page-check";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { buildTextEdition, evenHeadings, type EditionPage } from "@/lib/library/text-epub";
 import { BLANK_INK, MAX_PICTURE_TOKENS, openPdfForPictures, pictureTokens } from "@/lib/library/page-pictures";
@@ -357,6 +358,66 @@ async function preview(folder: string, out: string) {
   if (problems.length) process.exitCode = 2;
 }
 
+/**
+ * Two readings of the same book side by side (a second `read` into another folder): the pages whose words differ,
+ * with the words. Pages read alike twice are very likely right; each page that differs is looked at, or read a third
+ * time as a tiebreak (`reread`). On The Pay Off, 354 of 360 pages agreed; the 6 others were hyphens at a line end
+ * guessed both ways and a library sticker read as text.
+ */
+async function compare(first: string, second: string) {
+  const load = (folder: string) => new Map(loadPages(folder).map((p) => [p.page, p.markdown]));
+  const a = load(first);
+  const b = load(second);
+  const words = (md: string) => pageWords(md.replace(/\[\^\d+\]:?/g, " "));
+  let alike = 0;
+  const differ: string[] = [];
+  for (const [page, md] of a) {
+    const other = b.get(page);
+    if (other === undefined) {
+      differ.push(`p. ${page}: read only in the first`);
+      continue;
+    }
+    const wa = words(md);
+    const wb = words(other);
+    if (!wordEdits(wa, wb)) {
+      alike++;
+      continue;
+    }
+    // The words that differ, in order: the fewest changes (a table of edit counts, walked back), grouped into runs.
+    const n = wa.length;
+    const m = wb.length;
+    const d = Array.from({ length: n + 1 }, (_, i) => Array.from({ length: m + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+    for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) d[i][j] = Math.min(d[i - 1][j - 1] + (wa[i - 1] === wb[j - 1] ? 0 : 1), d[i - 1][j] + 1, d[i][j - 1] + 1);
+    const steps: { from: string; to: string }[] = [];
+    for (let i = n, j = m; i > 0 || j > 0; ) {
+      if (i > 0 && j > 0 && wa[i - 1] === wb[j - 1] && d[i][j] === d[i - 1][j - 1]) {
+        steps.push({ from: "=", to: "=" });
+        i--;
+        j--;
+      } else if (i > 0 && j > 0 && d[i][j] === d[i - 1][j - 1] + 1) steps.push({ from: wa[--i], to: wb[--j] });
+      else if (i > 0 && d[i][j] === d[i - 1][j] + 1) steps.push({ from: wa[--i], to: "" });
+      else steps.push({ from: "", to: wb[--j] });
+    }
+    const changes: string[] = [];
+    let run: { from: string[]; to: string[] } | null = null;
+    for (const st of steps.reverse()) {
+      if (st.from === "=" && st.to === "=") {
+        if (run) changes.push(`[${run.from.join(" ")}] -> [${run.to.join(" ")}]`);
+        run = null;
+        continue;
+      }
+      run ??= { from: [], to: [] };
+      if (st.from) run.from.push(st.from);
+      if (st.to) run.to.push(st.to);
+    }
+    if (run) changes.push(`[${run.from.join(" ")}] -> [${run.to.join(" ")}]`);
+    differ.push(`p. ${page}: ${changes.slice(0, 6).join("; ").slice(0, 300)}`);
+  }
+  for (const page of b.keys()) if (!a.has(page)) differ.push(`p. ${page}: read only in the second`);
+  console.log(`${alike} of ${a.size} pages read word for word alike. Differ (${differ.length}):`);
+  for (const d of differ) console.log(`  ${d}`);
+}
+
 const pageList = (args: string[]) => args.flatMap((a) => (/^\d+-\d+$/.test(a) ? Array.from({ length: Number(a.split("-")[1]) - Number(a.split("-")[0]) + 1 }, (_, i) => Number(a.split("-")[0]) + i) : /^\d+$/.test(a) ? [Number(a)] : []));
 
 async function main() {
@@ -366,9 +427,10 @@ async function main() {
   if (command === "pictures" && a && b && c) return pictures(a, b, pageList([c, ...rest]));
   if (command === "reread" && a && b && c) return reread(a, b, pageList([c, ...rest]));
   if (command === "preview" && a && b) return preview(a, b);
+  if (command === "compare" && a && b) return compare(a, b);
   if (command === "send" && a && b && c) return send(a, b, c);
   throw new Error(
-    "Usage: text-edition-on-subscription.ts read <scan.pdf> <folder> | check <scan.pdf> <folder> | pictures <scan.pdf> <out> <pages> | reread <scan.pdf> <folder> <pages> | preview <folder> <out.epub> [--title T --author A] | send <folder> <site> <book id>",
+    "Usage: text-edition-on-subscription.ts read <scan.pdf> <folder> | check <scan.pdf> <folder> | pictures <scan.pdf> <out> <pages> | reread <scan.pdf> <folder> <pages> | preview <folder> <out.epub> [--title T --author A] | compare <folder> <second folder> | send <folder> <site> <book id>",
   );
 }
 
