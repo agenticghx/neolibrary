@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel adds an Anthropic key on the laptop (keyadd ANTHROPIC_API_KEY); then run scripts/check-prompt-cache.ts (proves the prompt cache, under one cent) and scripts/compare-models.ts.
+next_action: Samuel puts ANTHROPIC_API_KEY on Railway web (AI features say not set up until then); then try a rewrite and check the cache hit.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-17 08:12 (laptop clock, from `date`). **Live: 3bec05e** (#193 a model per feature and shared answers, #194 prompt caching; no migration since dc8aac9, so no backup), deployed at Samuel's word ("deploy"). /api/health on both addresses says 3bec05e; /sign-in 200; log "Page pictures: ready.". **Every Claude feature on the live site still says AI is not set up: Railway `web` has no ANTHROPIC_API_KEY** (checked by name). Samuel's step: add it (from his Keychain, piped with `railway variable set ... --stdin`, never printed). Then: one rewrite on a real book, and check in the `generations` table that a second identical-style rewrite shows a cheaper cost (cache read). This entry sits on local branch `m26-deploy-3bec05e-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-17 07:32 (laptop clock, from `date`). **Prompt caching for Claude calls (branch `m26-ai-prompt-cache`).** The system prompt (the long fixed instructions sent with every call) is now marked for Anthropic's prompt cache: the first call in any 5 minutes pays 1.25 times the input price for it, later calls pay a twentieth (Opus 5.5, Sonnet 5.5) or a tenth (Haiku 5.5). Stored costs use those prices; the spending-cap estimate before a call assumes the dearest case (a cache write). Only prompts of 512 tokens or more are cached: STE and Plain rewrites, and Need to know / Test yourself / Explain it back when the reader picks STE explanations; the others are too short and are sent as before at no extra cost. **Not proven live:** no Anthropic key on the laptop. When one exists: `ANTHROPIC_API_KEY=... npx tsx scripts/check-prompt-cache.ts` (Haiku, two identical STE rewrites, well under one cent); the second line must show "read from cache" above 0.
 
@@ -257,6 +259,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 08:12 · Claude Opus 5.5 (laptop) · Deployed 3bec05e (#193 model per feature, #194 prompt caching; no migration)
+- **Done:** At Samuel's word "deploy": no migration since live dc8aac9, so no backup; railway up; set NEOLIBRARY_COMMIT (missed on the first upload, so health said dc8aac9) with --skip-deploys and uploaded again; deployment 693fcd29 SUCCESS.
+- **Key paths:** lib/health.ts (commit from RAILWAY_GIT_COMMIT_SHA or NEOLIBRARY_COMMIT); lib/ai/model.ts FEATURE_MODELS
+- **Commands that worked:** git diff --name-only dc8aac9 HEAD -- db/migrations -> none; gh run view 39029616790 -> 3bec05e success; railway variable set NEOLIBRARY_COMMIT=3bec05e... --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl /api/health (both addresses) -> 3bec05e; /sign-in 200
+- **Known issues / blockers:** No ANTHROPIC_API_KEY on Railway web (names checked, none with ANTHROPIC or AI_), so Claude features are off live. The first upload (f8afffa4) ran without NEOLIBRARY_COMMIT set: always set it first, with --skip-deploys.
+- **Exact next steps:** 1. Samuel adds ANTHROPIC_API_KEY to Railway web. 2. A rewrite on a real book, then check its cost and a cache read. 3. Commit this entry with the next real pull request.
 
 ### 2026-10-17 07:32 · Claude Opus 5.5 (laptop) · Prompt caching for Claude calls (system prompt cached; cached prices in costs and caps)
 - **Done:** lib/ai/claude.ts sends the system prompt as one text block with cache_control {type: "ephemeral"} (5-minute cache) and returns the cache breakdown (written, read) beside the total input tokens. lib/ai/model.ts: PRICES gains cacheWrite and cacheRead per model, from Anthropic's price page (fetched 2026-10-17): Opus 5.5 $5 / $0.20, Sonnet 5.5 $2.50 / $0.10, Haiku 5.5 $0.125 / $0.01 (long prompts $0.625 / $0.05), Opus 5 and 4.8 $6.25 / $0.50, unknown models $12.50 / $1. Reads on Opus 5.5 and Sonnet 5.5 are a twentieth of input, not a tenth. costUsd takes the breakdown (without it, as before). lib/ai/generate.ts: stored cost uses the cached prices; estimateCost prices the system prompt as a cache write (the dearest case), so the cap still errs on the safe side. FEATURE_MODELS unchanged. scripts/check-prompt-cache.ts: two identical STE rewrites through ClaudeModel, printing the cache figures. Minimum cached length (Anthropic's caching page, 2026-10-17): 512 tokens on Opus 5.5, Sonnet 5.5, Haiku 5.5 and Opus 5; 1,024 on Opus 4.8. System prompts by characters/4: STE rewrite about 4,650, Plain rewrite about 1,470 (cached); level rewrites, Ask, Need to know, Test yourself, Explain it back about 200 to 340 (not cached, no extra cost), except with the STE explanation style (about 4,400, cached).
