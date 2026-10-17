@@ -200,6 +200,14 @@ NEOLIBRARY_AGENT_TOKEN=... npx tsx scripts/text-edition-on-subscription.ts send 
   server.
 - The server's own way (the book page's button, by batch) still works once
   `ANTHROPIC_API_KEY` is on the server.
+- **The page check was changed after the first whole book** (2026-10-17).
+  Word by word, it flagged 129 of *The Pay Off*'s 360 pages, nearly all for
+  faults in the scan's hidden text (words run together, "vil- lage"). It now
+  lines the readings up letter by letter, both ways
+  (`lib/library/page-check.ts`), and flags 12: the contents, the sideways
+  table, figures, tables, the index and one false alarm. It also flags a
+  page where Claude declined and wrote a summary, which happened once (page
+  213; read again, it was right).
 
 ## Later, not in M25
 
