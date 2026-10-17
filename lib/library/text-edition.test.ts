@@ -7,7 +7,7 @@ import { getBatchModel } from "@/lib/ai";
 import { batchCostUsd, FakeBatchModel, type BatchRequest } from "@/lib/ai/batch";
 import { resetSpendHoldsForTests, spending, spendingWithJobs } from "@/lib/ai/generate";
 import { AiNotConfigured } from "@/lib/ai/model";
-import { readPrompt } from "@/lib/ai/prompts";
+import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { books, generations, textEditionJobs } from "@/lib/db/schema";
@@ -22,6 +22,8 @@ import {
   makeTextEdition,
   pageEstimateUsd,
   pollTextEditions,
+  savePagesReadElsewhere,
+  SUBSCRIPTION_PROVIDER,
   startTextEdition,
   stopTextEdition,
   TextEditionError,
@@ -298,5 +300,83 @@ describe("the text edition in the library", () => {
     await database.db.insert(generations).values({ ownerId, bookId: edition.id, kind: "rewrite", cacheKey: "k", provider: "anthropic", model: "fake", promptName: "rewrite", promptHash: "h", inputHash: "i", costUsd: 0.5, output: "o" });
     expect((await spending(database.db, "anthropic", bookId)).book).toBeCloseTo(pages + 0.5, 9);
     expect((await spending(database.db, "anthropic", edition.id)).book).toBeCloseTo(pages + 0.5, 9);
+  });
+});
+
+describe("pages read on the owner's Claude subscription (scripts/text-edition-on-subscription.ts)", () => {
+  const page = async (n: number, over: Record<string, unknown> = {}) => ({
+    page: n,
+    markdown: READ[`page-${n}`],
+    model: "claude-sonnet-5-5",
+    promptHash: sha256(await readPrompt("transcribe-page")),
+    inputHash: sha256(`picture ${n}`),
+    inputTokens: 4321,
+    outputTokens: 600,
+    ...over,
+  });
+
+  it("saves the pages in parts, then checks them and makes the text edition, at no cost to the AI limits", async () => {
+    const bookId = await scannedBook();
+    const save = (input: Record<string, unknown>) => savePagesReadElsewhere(deps(), ownerId, bookId, input);
+    expect(await save({ pages: [await page(1)], finish: false })).toMatchObject({ saved: 1, editionId: null });
+    expect(await database.db.select().from(books).where(eq(books.editionOf, bookId))).toEqual([]); // not before the last part
+    const done = await save({ pages: [await page(2)], blankPages: [3], finish: true });
+    expect(done).toMatchObject({ saved: 1, read: 2, blankPages: [3], toCheck: [{ page: 2, flagged: true }], editionId: expect.any(String) });
+
+    const rows = await database.db.select().from(generations).where(eq(generations.bookId, bookId));
+    expect(rows.map((r) => [r.sectionId, r.kind, r.provider, r.model, r.costUsd, r.inputTokens])).toEqual([
+      ["page-1", "transcribe", SUBSCRIPTION_PROVIDER, "claude-sonnet-5-5", 0, 4321],
+      ["page-2", "transcribe", SUBSCRIPTION_PROVIDER, "claude-sonnet-5-5", 0, 4321],
+    ]);
+    expect((await spending(database.db, "anthropic", bookId)).book).toBe(0);
+    const job = await jobRow(bookId);
+    expect(job).toMatchObject({ provider: SUBSCRIPTION_PROVIDER, status: "finished", blankPages: [3], estimateUsd: 0 });
+    expect(job.message).toBe("Read on the owner's Claude subscription: 2 pages read, 1 blank, 1 to check.");
+
+    // The edition, as a batch job makes it: its paragraphs, the page to check, the blank page's marker, who read it.
+    const paragraphs = (await getSections(database.db, ownerId, done.editionId!)).filter((x) => x.kind === "paragraph").map((x) => x.text);
+    expect(paragraphs).toContain("Several years have now elapsed since I first became aware that I had accepted, even from my youth, many false opinions for true.");
+    const [edition] = await database.db.select().from(books).where(eq(books.editionOf, bookId));
+    const files = unzipSync((await storage.get(edition.fileKey!))!.data);
+    expect(strFromU8(files["OEBPS/about.xhtml"])).toContain("by claude-sonnet-5-5 on");
+    expect(strFromU8(files["OEBPS/about.xhtml"])).toContain('<a href="c2.xhtml#page-2">2</a>');
+    expect(strFromU8(files["OEBPS/nav.xhtml"])).toContain('#page-3">3<');
+
+    // The server (whose batch model is Sonnet 5.5, as these pages' reader) never reads them again through the API.
+    const model = Object.defineProperty(new FakeBatchModel({ answer }), "model", { value: "claude-sonnet-5-5" });
+    expect((await textEditionSummary(deps(model), ownerId, bookId)).done).toBe(3);
+    await expect(startTextEdition(deps(model), ownerId, bookId, true)).rejects.toThrow("Every page of this book has been read already.");
+  });
+
+  it("sent again, adds nothing; read again with other words, the newer reading is used", async () => {
+    const bookId = await scannedBook();
+    const save = (input: Record<string, unknown>) => savePagesReadElsewhere(deps(), ownerId, bookId, input);
+    await save({ pages: [await page(1), await page(2)], finish: true });
+    expect(await save({ pages: [await page(1), await page(2)], finish: false })).toMatchObject({ saved: 0 });
+    expect(await pagesRead(bookId)).toEqual(["page-1", "page-2"]);
+    const first = (await database.db.select().from(books).where(eq(books.editionOf, bookId)))[0].id;
+    const again = await save({ pages: [await page(2, { markdown: "# Page two\n\nRead again, with these words instead." })], finish: true });
+    expect(again.editionId).toBe(first); // the same edition, so its notes and place stay
+    expect(await pagesRead(bookId)).toEqual(["page-1", "page-2", "page-2"]);
+    const paragraphs = (await getSections(database.db, ownerId, first)).filter((x) => x.kind === "paragraph").map((x) => x.text);
+    expect(paragraphs).toContain("Read again, with these words instead.");
+  });
+
+  it("refuses pages read with other instructions, bad page numbers, another reader's book, and while a batch job goes on", async () => {
+    const bookId = await scannedBook();
+    const save = (input: Record<string, unknown>, owner = ownerId, book = bookId) => savePagesReadElsewhere(deps(), owner, book, input);
+    await expect(save({ pages: [await page(1, { promptHash: sha256("other instructions") })] })).rejects.toThrow("read with other instructions");
+    await expect(save({ pages: [await page(9)] })).rejects.toThrow("between 1 and 3");
+    // A blank page the book does not have, or a page count for a different file, is refused before anything is saved.
+    await expect(save({ pages: [await page(1)], blankPages: [4] })).rejects.toThrow("between 1 and 3");
+    await expect(save({ pages: [await page(1)], pageCount: 388 })).rejects.toThrow("3 pages, not 388");
+    await expect(save({ pages: [await page(1, { model: "gpt-5" })] })).rejects.toThrow("must be a Claude model");
+    await expect(save({ pages: [], finish: true })).rejects.toThrow("No page of this book has been read yet");
+    await expect(save({ pages: [await page(1)] }, crypto.randomUUID())).rejects.toMatchObject({ status: 404 });
+    expect(await pagesRead(bookId)).toEqual([]);
+
+    const model = new FakeBatchModel({ answer });
+    await (await startTextEdition(deps(model), ownerId, bookId, true)).done;
+    await expect(save({ pages: [await page(1)] })).rejects.toMatchObject({ status: 409 });
   });
 });
