@@ -37,21 +37,46 @@ export class AiNotConfigured extends AiError {}
 /** The model declined to answer. */
 export class AiRefused extends AiError {}
 
-/** US dollars per million tokens, from Anthropic's price list (checked 2026-10-04). */
+/** US dollars per million tokens, from Anthropic's price list (checked 2026-10-04; Haiku 5.5 added 2026-10-17). */
 export const PRICES: Record<string, { input: number; output: number }> = {
   "claude-opus-5-5": { input: 4, output: 20 },
   "claude-opus-5": { input: 5, output: 25 },
   "claude-opus-4-8": { input: 5, output: 25 },
   "claude-sonnet-5-5": { input: 2, output: 10 },
+  // Up to 100,000 tokens of prompt; a longer prompt is priced five times higher (below).
+  "claude-haiku-5-5": { input: 0.1, output: 0.5 },
   fake: { input: 4, output: 20 },
 };
 // A model missing from the list is charged at the highest price we know, so
 // the spending cap errs on the safe side.
 const UNKNOWN = { input: 10, output: 50 };
+const HAIKU_LONG = { input: 0.5, output: 2.5 };
 
 export function costUsd(model: string, inputTokens: number, outputTokens: number) {
-  const p = PRICES[model] ?? UNKNOWN;
+  const p = model === "claude-haiku-5-5" && inputTokens > 100_000 ? HAIKU_LONG : (PRICES[model] ?? UNKNOWN);
   return (inputTokens * p.input + outputTokens * p.output) / 1_000_000;
+}
+
+/**
+ * The AI features, each with its own model (2026-10-17, Samuel: "Haiku for
+ * routine jobs"). Routine work (rewrites, Need to know, Test yourself) goes
+ * to Claude Haiku 5.5, about 40 times cheaper than Opus; judging what a
+ * reader wrote or asked stays on Opus. Each can be changed on the server
+ * with AI_MODEL_<FEATURE>, e.g. AI_MODEL_REWRITE=claude-sonnet-5-5.
+ */
+export const FEATURE_MODELS = {
+  rewrite: "claude-haiku-5-5",
+  prerequisites: "claude-haiku-5-5",
+  questions: "claude-haiku-5-5",
+  ask: "claude-opus-5-5",
+  "explain-back": "claude-opus-5-5",
+} as const;
+export type AiFeature = keyof typeof FEATURE_MODELS;
+
+/** The model for a feature: its AI_MODEL_<FEATURE> setting if it names a model we have a price for, else the default above. */
+export function modelFor(feature: AiFeature, env: Record<string, string | undefined> = process.env): string {
+  const set = env[`AI_MODEL_${feature.toUpperCase().replace(/-/g, "_")}`]?.trim();
+  return set && set !== "fake" && PRICES[set] ? set : FEATURE_MODELS[feature];
 }
 
 /** A rough token count: about four characters per token for English. */

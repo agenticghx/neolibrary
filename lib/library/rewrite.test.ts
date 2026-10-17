@@ -121,11 +121,10 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
     ]);
   });
 
-  it("rewrites are private: another reader's identical request is its own call", async () => {
+  it("another reader with the same text gets their own copy of a stored rewrite, at no cost and without a call", async () => {
     const model = new FakeModel();
     const p = paragraphs[2];
     const a = await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: p.id, level: "biologist" });
-    // Same text and level but another reader: rewrites are private (ground rule 6), so this is a new call.
     const other = await otherReader();
     const otherBook = (
       await importBook(database.db, new MemoryStorage(), other, {
@@ -133,9 +132,70 @@ describe("rewrite a paragraph (M6, ground rule 5)", () => {
         bytes: new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url))),
       })
     ).bookId;
-    await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: p.id, level: "biologist" });
-    expect(model.calls).toHaveLength(2);
+    const b = await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: p.id, level: "biologist" });
+    expect(model.calls).toHaveLength(1);
+    expect(b.reused).toBe(true);
+    expect(b.generation.id).not.toBe(a.generation.id);
+    expect(b.generation).toMatchObject({ bookId: otherBook, sectionId: p.id, output: a.generation.output });
+    expect(b.generation.provenance).toMatchObject({
+      model: a.generation.provenance.model,
+      promptHash: a.generation.provenance.promptHash,
+      inputHash: a.generation.provenance.inputHash,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+    });
+    // Each reader's list holds only their own rows (ground rule 6), and the copy costs the second reader nothing.
     expect((await listRewrites(database.db, ownerId, bookId, p.id)).map((g) => g.id)).toEqual([a.generation.id]);
+    expect((await listRewrites(database.db, other, otherBook, p.id)).map((g) => g.id)).toEqual([b.generation.id]);
+    expect((await spending(database.db, "anthropic", otherBook)).book).toBe(0);
+    // Asking again on purpose is a new, paid call; a different level is too.
+    await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: p.id, level: "biologist", fresh: true });
+    await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: p.id, level: "plain" });
+    expect(model.calls).toHaveLength(3);
+  });
+
+  it("never shares what carries a reader's own words (Ask, Explain it back)", async () => {
+    const model = new FakeModel();
+    const other = await otherReader();
+    const req = (owner: string, kind: string) => ({
+      ownerId: owner,
+      bookId: null,
+      sectionId: null,
+      kind,
+      options: { question: "Who is Hyde?" },
+      promptName: "ask",
+      promptHash: sha256("ask prompt"),
+      input: "Question: Who is Hyde?",
+      system: "Answer.",
+      prompt: "Task: answer\n<passage>Who is Hyde?</passage>",
+      maxTokens: 1000,
+      effort: "low" as const,
+    });
+    for (const kind of ["ask", "explain-back"]) {
+      await generate(database.db, model, req(ownerId, kind));
+      const b = await generate(database.db, model, req(other, kind));
+      expect(b.reused).toBe(false);
+    }
+    expect(model.calls).toHaveLength(4);
+  });
+
+  it("shares nothing when the other reader's text differs", async () => {
+    const model = new FakeModel();
+    const p = paragraphs[2];
+    await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: p.id, level: "plain" });
+    const other = await otherReader();
+    // A different book file: none of its paragraphs match the first reader's text.
+    const otherBook = (
+      await importBook(database.db, new MemoryStorage(), other, {
+        name: "other.epub",
+        bytes: new Uint8Array(readFileSync(new URL(`../../fixtures/books/wells-the-time-machine.epub`, import.meta.url))),
+      })
+    ).bookId;
+    const q = (await getSections(database.db, other, otherBook)).find((s) => s.kind === "paragraph" && s.text.length > 200)!;
+    const b = await rewriteParagraph(database.db, model, other, { bookId: otherBook, sectionId: q.id, level: "plain" });
+    expect(b.reused).toBe(false);
+    expect(model.calls).toHaveLength(2);
   });
 
   it("finds the paragraph at a place in the book (a selection's CFI)", async () => {

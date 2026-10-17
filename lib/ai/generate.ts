@@ -274,6 +274,56 @@ export async function findStored(db: Db, ownerId: string, req: GenerationRequest
   return row ? toGeneration(row) : null;
 }
 
+/**
+ * Kinds whose answer depends only on the book's text and the options, never
+ * on what the reader wrote or asked (2026-10-17, Samuel: "share saved results
+ * between readers of the same book"). Ask and Explain it back carry the
+ * reader's own words, so they stay with that reader.
+ */
+export const SHARED_KINDS = ["rewrite", "prerequisites", "questions"];
+
+/**
+ * Another reader's stored answer to exactly this request, copied into this
+ * reader's own list at no cost. The key includes a fingerprint of the input
+ * text, so a reader only ever receives an answer made from text their own
+ * copy of the book holds: nothing crosses from a book they do not have
+ * (ground rule 6). The copy keeps the original's model, prompt and input
+ * fingerprints (ground rule 5); its tokens and cost are 0, since nothing was
+ * paid for it.
+ */
+export async function copyShared(db: Db, req: GenerationRequest, now: Date) {
+  if (!SHARED_KINDS.includes(req.kind)) return null;
+  const [found] = await db
+    .select()
+    .from(generations)
+    .where(and(eq(generations.cacheKey, cacheKeyOf(req)), eq(generations.kind, req.kind)))
+    .orderBy(desc(generations.createdAt))
+    .limit(1);
+  if (!found) return null;
+  const [row] = await db
+    .insert(generations)
+    .values({
+      ownerId: req.ownerId,
+      bookId: req.bookId,
+      sectionId: req.sectionId,
+      kind: req.kind,
+      options: req.options,
+      cacheKey: found.cacheKey,
+      provider: found.provider,
+      model: found.model,
+      promptName: found.promptName,
+      promptHash: found.promptHash,
+      inputHash: found.inputHash,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      output: found.output,
+      createdAt: now,
+    })
+    .returning();
+  return toGeneration(row);
+}
+
 // Two identical requests at the same moment share one call.
 const inflight = new Map<string, Promise<Generation>>();
 
@@ -286,6 +336,8 @@ export async function generate(
   if (!opts.fresh) {
     const stored = await findStored(db, req.ownerId, req);
     if (stored) return { generation: stored, reused: true };
+    const shared = await copyShared(db, req, opts.now?.() ?? new Date());
+    if (shared) return { generation: shared, reused: true };
   }
   const key = `${req.ownerId}|${cacheKeyOf(req)}|${opts.fresh ? Math.random() : ""}`;
   const running = inflight.get(key);

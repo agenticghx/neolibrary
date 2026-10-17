@@ -34,7 +34,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const versions = await listNeedToKnow(db, user.id, bookId, chapter.id);
     let estimate: number | null = null;
     try {
-      estimate = await estimateNeedToKnow(db, getTextModel(), user.id, bookId, chapter);
+      estimate = await estimateNeedToKnow(db, getTextModel("prerequisites"), user.id, bookId, chapter);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; fresh?: unknown };
   if (typeof body.chapterId !== "string") return Response.json({ error: "Choose a chapter." }, { status: 400 });
   try {
-    const out = await needToKnow(await getDb(), getTextModel(), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true });
+    const out = await needToKnow(await getDb(), getTextModel("prerequisites"), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);

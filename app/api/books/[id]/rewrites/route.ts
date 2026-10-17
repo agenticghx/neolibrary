@@ -48,7 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const versions = await listRewrites(db, user.id, bookId, paragraph.id);
     let estimates: Record<string, number> | null = null;
     try {
-      const model = getTextModel();
+      const model = getTextModel("rewrite");
       estimates = {};
       for (const level of Object.keys(LEVELS)) {
         if (isLevel(level)) estimates[level] = await estimateRewrite(db, model, user.id, bookId, paragraph.id, level);
@@ -79,7 +79,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const strictness = body.strictness === undefined ? "standard" : strictnessFrom(body.strictness);
   if (!strictness) return Response.json({ error: "STE strictness is Light, Standard, Strict or a percentage." }, { status: 400 });
   try {
-    const out = await rewriteParagraph(await getDb(), getTextModel(), user.id, {
+    const out = await rewriteParagraph(await getDb(), getTextModel("rewrite"), user.id, {
       bookId,
       sectionId: body.sectionId,
       level: body.level,

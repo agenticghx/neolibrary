@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!isCfi(from) || !isCfi(to)) return Response.json({ error: "Give the place on screen (from and to)." }, { status: 400 });
   let model: TextModel | null = null;
   try {
-    model = getTextModel();
+    model = getTextModel("rewrite");
   } catch (e) {
     if (!(e instanceof AiNotConfigured)) throw e;
   }
@@ -59,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { sectionId?: unknown; fresh?: unknown };
   if (typeof body.sectionId !== "string") return Response.json({ error: "Choose a paragraph." }, { status: 400 });
   try {
-    const out = await rewriteInStyle(await getDb(), getTextModel(), user.id, { bookId, sectionId: body.sectionId, fresh: body.fresh === true });
+    const out = await rewriteInStyle(await getDb(), getTextModel("rewrite"), user.id, { bookId, sectionId: body.sectionId, fresh: body.fresh === true });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return aiErrorResponse(e);

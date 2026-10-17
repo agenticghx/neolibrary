@@ -30,7 +30,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     await assertOwnBook(db, user.id, bookId);
     let estimate: number | null = null;
     try {
-      estimate = await estimateAsk(db, getTextModel(), bookId);
+      estimate = await estimateAsk(db, getTextModel("ask"), bookId);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -48,7 +48,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!isId(bookId)) return Response.json({ error: "Book not found." }, { status: 404 });
   const body = (await req.json().catch(() => ({}))) as { question?: unknown };
   try {
-    const out = await askBook(await getDb(), getTextModel(), user.id, { bookId, question: body.question });
+    const out = await askBook(await getDb(), getTextModel("ask"), user.id, { bookId, question: body.question });
     return Response.json(out, { status: out.found && !out.reused ? 201 : 200 });
   } catch (e) {
     return errorResponse(e);

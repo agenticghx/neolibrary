@@ -37,7 +37,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { effective: style } = await getStyles(db, user.id, bookId);
     let estimate: number | null = null;
     try {
-      estimate = await estimateQuestionBank(db, getTextModel(), user.id, bookId, chapter);
+      estimate = await estimateQuestionBank(db, getTextModel("questions"), user.id, bookId, chapter);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -56,7 +56,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; fresh?: unknown };
   if (typeof body.chapterId !== "string") return Response.json({ error: "Choose a chapter." }, { status: 400 });
   try {
-    const out = await questionBank(await getDb(), getTextModel(), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true });
+    const out = await questionBank(await getDb(), getTextModel("questions"), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);

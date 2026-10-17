@@ -143,6 +143,9 @@ under Decisions; Samuel can overrule any one in a line.
 6. Sharing a book file with other people can be copyright infringement even if
    you own it. Default: each person sees only books they uploaded; the owner
    can share a shelf deliberately. AI rewrites of a book stay private.
+   A reader whose own copy holds the same text may be given a stored
+   rewrite, Need to know or Test yourself as their own copy, without a new
+   call (Samuel, 2026-10-17); Ask and Explain it back are never shared.
 7. **No lock-in, tested.** Every new kind of data ships with an exporter, and
    a test does export → wipe → import and checks the data comes back
    identical. *(Fable)*

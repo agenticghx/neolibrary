@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ClaudeModel } from "./claude";
 import { getTextModel } from "./index";
-import { AiError, AiNotConfigured, AiRefused, costUsd } from "./model";
+import { AiError, AiNotConfigured, AiRefused, costUsd, modelFor, type AiFeature } from "./model";
 import { FakeModel } from "./fake";
 
 // No real key and no network: a stand-in for the API answers instead (ground rule 3).
@@ -84,13 +84,47 @@ describe("costs and choosing a model", () => {
     expect(costUsd("claude-opus-5-5", 1_000_000, 1_000_000)).toBe(24);
     expect(costUsd("claude-opus-5-5", 1200, 300)).toBeCloseTo(0.0108);
     expect(costUsd("some-new-model", 1_000_000, 0)).toBe(10);
+    // Haiku 5.5: $0.10 and $0.50, five times that once the prompt passes 100,000 tokens.
+    expect(costUsd("claude-haiku-5-5", 1_000_000, 1_000_000)).toBeCloseTo(3);
+    expect(costUsd("claude-haiku-5-5", 100_000, 1000)).toBeCloseTo(0.0105);
+    expect(costUsd("claude-haiku-5-5", 100_001, 1000)).toBeCloseTo(0.0525, 4);
   });
 
   it("uses the fake in tests or with AI_FAKE=1, Claude with a key, and refuses to pretend without one", () => {
-    expect(getTextModel()).toBeInstanceOf(FakeModel);
-    expect(getTextModel({ AI_FAKE: "1" })).toBeInstanceOf(FakeModel);
-    expect(getTextModel({ ANTHROPIC_API_KEY: KEY })).toBeInstanceOf(ClaudeModel);
-    expect(() => getTextModel({})).toThrow(AiNotConfigured);
-    expect(() => getTextModel({ ANTHROPIC_API_KEY: "  " })).toThrow("ANTHROPIC_API_KEY");
+    expect(getTextModel("rewrite")).toBeInstanceOf(FakeModel);
+    expect(getTextModel("rewrite", { AI_FAKE: "1" })).toBeInstanceOf(FakeModel);
+    expect(getTextModel("rewrite", { ANTHROPIC_API_KEY: KEY })).toBeInstanceOf(ClaudeModel);
+    expect(() => getTextModel("rewrite", {})).toThrow(AiNotConfigured);
+    expect(() => getTextModel("rewrite", { ANTHROPIC_API_KEY: "  " })).toThrow("ANTHROPIC_API_KEY");
+  });
+
+  it("gives routine features Haiku and judging features Opus, each changeable by a setting", () => {
+    const model = (feature: AiFeature, env: Record<string, string> = {}) => getTextModel(feature, { ANTHROPIC_API_KEY: KEY, ...env }).model;
+    expect(model("rewrite")).toBe("claude-haiku-5-5");
+    expect(model("prerequisites")).toBe("claude-haiku-5-5");
+    expect(model("questions")).toBe("claude-haiku-5-5");
+    expect(model("ask")).toBe("claude-opus-5-5");
+    expect(model("explain-back")).toBe("claude-opus-5-5");
+    expect(model("rewrite", { AI_MODEL_REWRITE: "claude-sonnet-5-5" })).toBe("claude-sonnet-5-5");
+    expect(model("explain-back", { AI_MODEL_EXPLAIN_BACK: "claude-haiku-5-5" })).toBe("claude-haiku-5-5");
+    // A misspelt or unpriced model is ignored, so the spending cap always knows the price.
+    expect(model("ask", { AI_MODEL_ASK: "claude-opus-9" })).toBe("claude-opus-5-5");
+    expect(modelFor("questions", { AI_MODEL_QUESTIONS: " claude-opus-5-5 " })).toBe("claude-opus-5-5");
+  });
+
+  it("sends Haiku no server-side fallback, which it does not have", async () => {
+    const api = fakeApi(message({ model: "claude-haiku-5-5" }));
+    const out = await new ClaudeModel(KEY, "claude-haiku-5-5", { fetch: api.fetch }).generate(req);
+    expect(out.model).toBe("claude-haiku-5-5");
+    const sent = api.requests[0];
+    expect(sent.headers.get("anthropic-beta")).toBeNull();
+    expect(sent.body).toEqual({
+      model: "claude-haiku-5-5",
+      max_tokens: 4000,
+      thinking: { type: "adaptive", display: "omitted" },
+      output_config: { effort: "low" },
+      system: "Rewrite.",
+      messages: [{ role: "user", content: "<passage>Text.</passage>" }],
+    });
   });
 });

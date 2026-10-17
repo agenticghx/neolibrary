@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the PDF book-page fix, then deploy at Samuel's word.
+next_action: Samuel adds ANTHROPIC_API_KEY on the laptop (keyadd); then run scripts/compare-models.ts, set defaults from it, merge #193.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-16
+updated: 2026-10-17
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-17 06:59 (laptop clock, from `date`). **Pull request 193 (`m26-ai-model-per-feature`, not merged): a model per AI feature and stored answers shared between readers.** Rewrites, Need to know and Test yourself go to Claude Haiku 5.5 (about 40 times cheaper than Opus); Ask and Explain it back stay on Opus 5.5; `AI_MODEL_<FEATURE>` on Railway changes any of them. A second reader with exactly the same text gets a stored rewrite, Need to know or Test yourself as their own free copy; Ask and Explain it back are never shared. No migration. Unit tests 902 passed. **Waiting on Samuel:** there is no Anthropic key on the laptop (`keyls` lists none) nor on Railway; he runs `keyadd ANTHROPIC_API_KEY` in Terminal. Then: `npx tsx scripts/compare-models.ts ~/Backups/neolibrary/prod-before-0027-20261016T0313Z.sql ~/Documents/neolibrary-model-test` (paid, stops itself before $0.90, Samuel approved under $1), show him the report, change defaults in `lib/ai/model.ts` FEATURE_MODELS if Haiku falls short, paste the result in #193, merge with the merge train. The PDF page fix (#192) is merged and not deployed.
 
 Written 2026-10-16 22:24 (laptop clock, from `date`). **Bug on the live site: every PDF's book page failed (500) for the owner** since S7 (7303e93): the text-edition panel asked for the AI model while the page was drawn, and the live site has no Anthropic key (only ElevenLabs), so it threw before the page's own catch. Fixed on branch `m25-pdf-page-no-key` (the panel is left out when the key is missing; the rest of the page shows); to merge, then deploy at Samuel's word. Separately, Samuel's call: with no ANTHROPIC_API_KEY on Railway, every Claude feature (Need to know, Test yourself, Ask, Explain it back, rewrites, text editions) says AI is not set up on the live site.
 
@@ -253,6 +255,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 06:59 · Claude Opus 5.5 (laptop) · A model per AI feature (Haiku for routine work); stored answers shared between readers (#193)
+- **Done:** FEATURE_MODELS and modelFor in lib/ai/model.ts (Haiku 5.5 for rewrite, prerequisites, questions; Opus 5.5 for ask, explain-back; AI_MODEL_<FEATURE> overrides); getTextModel(feature); no server-side fallback sent to Haiku; Haiku price with its long-prompt rate; copyShared in lib/ai/generate.ts (same cache key, kinds rewrite/prerequisites/questions, copy at $0); docs/plan.md rule 6 note; scripts/compare-models.ts (paid side-by-side on a backup, in-memory PGlite, budget guard). Dropped the laptop's stale uncommitted checkpoint entries (origin/main's ledger kept; the diff saved in the session scratchpad).
+- **Key paths:** lib/ai/model.ts; lib/ai/index.ts; lib/ai/claude.ts; lib/ai/generate.ts; lib/library/rewrite.test.ts; lib/ai/claude.test.ts; scripts/compare-models.ts; app/api/books/[id]/*/route.ts
+- **Commands that worked:** npx vitest run --exclude '.claude/**' --exclude 'node_modules/**' -> 902 passed, 2 skipped; npx tsc --noEmit -p . -> clean; ANTHROPIC_API_KEY=not-a-real-key npx tsx scripts/compare-models.ts <backup> <dir> --budget 0 -> picked 5 chapters (The Pay Off, Meditations, Frankenstein, The Grid, Jekyll), spent $0
+- **Known issues / blockers:** No ANTHROPIC_API_KEY on the laptop or Railway (Samuel: keyadd). Plain `npx vitest run` also runs a stale copy in .claude/worktrees/sweet-taussig-ef6685 (one failure there, from the root code it imports); exclude .claude. Cost estimates shown before a request do not know a shared copy is free (they overstate, safe side). Lookup across readers has no index on cache_key alone (small table; add one if it grows).
+- **Exact next steps:** 1. Samuel runs keyadd ANTHROPIC_API_KEY. 2. Run the comparison, show the report. 3. Adjust FEATURE_MODELS if needed. 4. Paste the evidence in #193, merge. 5. Deploy (with #192) at Samuel's word; the key on Railway is his call.
 
 ### 2026-10-16 22:24 · Claude Opus 5.5 (laptop) · Fix: a PDF's book page failed (500) on the live site without an Anthropic key
 - **Done:** Samuel: 'pdf in library can[not] open'. Railway's request log: GET /books/863a76a8… 500 five times (00:20 to 01:16 UTC, 2026-10-17); the error log at 01:16:25: 'AI is not set up yet: the owner needs to add ANTHROPIC_API_KEY.' Cause: app/(app)/books/[id]/page.tsx called getBatchModel() as an argument, so it threw before textEditionSummary(...).catch(() => null) could catch it; the live site has no ANTHROPIC_API_KEY (variable names checked, values never read: only ELEVENLABS_API_KEY). CI never saw it: tests run with AI_FAKE=1. Fix: textEditionForPage (lib/library/text-edition.ts) asks for the model inside its try and returns null, so the panel is left out and the page shows. The reader page itself was fine (GET /books/6dfc…/read 200 with its .pdf 200 at 00:12).
