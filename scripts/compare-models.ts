@@ -14,13 +14,20 @@
  *
  * Usage (from the repository root, ANTHROPIC_API_KEY set):
  *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--budget 0.9] [--books 5]
+ * Or on the reader's Claude subscription instead of the API (no key; the
+ * costs shown are what the API would have charged, and --budget is ignored):
+ *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> --cli
+ * `claude -p` adds about 1,400 tokens of its own to each prompt, and replies
+ * with JSON through a tool, so its token counts run a little above the API's.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { ClaudeModel } from "@/lib/ai/claude";
 import type { Caps, Generation } from "@/lib/ai/generate";
-import type { TextModel } from "@/lib/ai/model";
+import { AiError, type TextModel, type TextRequest, type TextResult } from "@/lib/ai/model";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import type { Db } from "@/lib/db/client";
@@ -50,15 +57,62 @@ function copyBlock(dump: string, table: string) {
   return { columns: m[1], data: m[2] };
 }
 
-type Job = { book: string; chapter: string; feature: string; original: string; results: Result[] };
+/**
+ * A model reached through `claude -p` on the reader's subscription: the same
+ * system prompt, prompt, effort and JSON schema, no tools, run in an empty
+ * folder so no project instructions are read.
+ */
+class ClaudeCliModel implements TextModel {
+  readonly provider = "anthropic";
+  private static dir = mkdtempSync(join(tmpdir(), "compare-models-"));
+  constructor(readonly model: string) {}
+
+  generate(req: TextRequest): Promise<TextResult> {
+    const args = ["-p", "--model", this.model, "--system-prompt", req.system, "--tools", "", "--effort", req.effort];
+    args.push("--no-session-persistence", "--strict-mcp-config", "--setting-sources", "", "--output-format", "json");
+    if (req.schema) args.push("--json-schema", JSON.stringify(req.schema));
+    const env = { ...process.env };
+    delete env.ANTHROPIC_API_KEY;
+    return new Promise((resolve, reject) => {
+      const child = spawn("claude", args, { cwd: ClaudeCliModel.dir, env, stdio: ["pipe", "pipe", "pipe"] });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (d) => (stdout += d));
+      child.stderr.on("data", (d) => (stderr += d));
+      child.on("error", reject);
+      child.on("close", (code) => {
+        try {
+          const r = JSON.parse(stdout);
+          if (code !== 0 || r.is_error) throw new AiError(`claude -p failed (${code}): ${String(r.result ?? stderr).slice(0, 300)}`);
+          const u = r.usage ?? {};
+          const text = r.structured_output !== undefined ? JSON.stringify(r.structured_output) : String(r.result ?? "").trim();
+          if (!text) throw new AiError("claude -p returned no text.");
+          resolve({
+            text,
+            model: Object.keys(r.modelUsage ?? {})[0] ?? this.model,
+            inputTokens: (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0),
+            outputTokens: u.output_tokens ?? 0,
+          });
+        } catch (e) {
+          reject(e instanceof AiError ? e : new AiError(`claude -p (${code}): ${(stderr || stdout).slice(0, 300)}`));
+        }
+      });
+      child.stdin.end(req.prompt);
+    });
+  }
+}
+
+type Job = { order: number; book: string; chapter: string; feature: string; original: string; results: Result[] };
 type Result = { model: string; answeredBy?: string; output?: string; error?: string; inputTokens: number; outputTokens: number; costUsd: number; seconds: number };
 
 async function main() {
   const [backup, out] = process.argv.slice(2);
+  const cli = process.argv.includes("--cli");
   const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!backup || !out) throw new Error("Usage: npx tsx scripts/compare-models.ts <backup.sql> <output folder>");
-  if (!key) throw new Error("Set ANTHROPIC_API_KEY.");
-  const budget = Number(arg("budget", "0.9"));
+  if (!backup || !out) throw new Error("Usage: npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--cli]");
+  if (!key && !cli) throw new Error("Set ANTHROPIC_API_KEY, or pass --cli to use the Claude subscription.");
+  const budget = cli ? Infinity : Number(arg("budget", "0.9"));
+  const makeModel = (name: string): TextModel => (cli ? new ClaudeCliModel(name) : new ClaudeModel(key!, name));
   const want = Number(arg("books", "5"));
 
   // An in-memory database with today's tables, then the backup's rows for the three tables used.
@@ -107,36 +161,43 @@ async function main() {
   }
   console.log(`Picked ${picked.length} chapters from ${shelf.length} books (EPUB and PDF).`);
 
+  // One job: estimate, then each model (at once on the subscription; one after another on the API, for the budget).
   const run = async (job: Job, estimate: (m: TextModel) => Promise<number>, call: (m: TextModel) => Promise<{ generation: Generation }>) => {
-    const models = MODELS.map((name) => new ClaudeModel(key, name));
+    const models = MODELS.map(makeModel);
     const est = (await Promise.all(models.map(estimate))).reduce((a, b) => a + b, 0);
     if (spent + est > budget) {
       console.log(`Skipped ${job.feature} on ${job.book}: estimate $${est.toFixed(3)} would pass the $${budget} budget ($${spent.toFixed(3)} spent).`);
       return;
     }
-    for (const m of models) {
+    const one = async (m: TextModel): Promise<Result> => {
       const started = Date.now();
       try {
         const { generation: g } = await call(m);
         const p = g.provenance;
         spent += p.costUsd;
-        job.results.push({ model: m.model, answeredBy: p.model, output: g.output, inputTokens: p.inputTokens, outputTokens: p.outputTokens, costUsd: p.costUsd, seconds: (Date.now() - started) / 1000 });
+        return { model: m.model, answeredBy: p.model, output: g.output, inputTokens: p.inputTokens, outputTokens: p.outputTokens, costUsd: p.costUsd, seconds: (Date.now() - started) / 1000 };
       } catch (e) {
-        job.results.push({ model: m.model, error: String((e as Error).message), inputTokens: 0, outputTokens: 0, costUsd: 0, seconds: (Date.now() - started) / 1000 });
+        return { model: m.model, error: String((e as Error).message), inputTokens: 0, outputTokens: 0, costUsd: 0, seconds: (Date.now() - started) / 1000 };
       }
-    }
+    };
+    if (cli) job.results.push(...(await Promise.all(models.map(one))));
+    else for (const m of models) job.results.push(await one(m));
     jobs.push(job);
     console.log(`${job.feature} on ${job.book}: ${job.results.map((r) => `${r.model} $${r.costUsd.toFixed(4)} ${r.seconds.toFixed(1)} s${r.error ? ` ERROR ${r.error}` : ""}`).join("; ")}. Spent $${spent.toFixed(3)}.`);
   };
 
+  const tasks: (() => Promise<void>)[] = [];
   for (const p of picked) {
     const w = rewriteFor((await getStyles(db, reader.id, p.book.id)).effective);
     const level = w.level;
     const strictness = w.level === "ste" ? w.strictness : "standard";
-    await run(
-      { book: p.book.title, chapter: p.chapter.label, feature: `Rewrite (${level}${level === "ste" ? `, ${strictness}` : ""})`, original: p.paragraph.text, results: [] },
-      (m) => estimateRewrite(db, m, reader.id, p.book.id, p.paragraph.id, level, strictness),
-      (m) => rewriteParagraph(db, m, reader.id, { bookId: p.book.id, sectionId: p.paragraph.id, level, strictness, fresh: true }, { caps: NO_CAPS }),
+    const order = tasks.length;
+    tasks.push(() =>
+      run(
+        { order, book: p.book.title, chapter: p.chapter.label, feature: `Rewrite (${level}${level === "ste" ? `, ${strictness}` : ""})`, original: p.paragraph.text, results: [] },
+        (m) => estimateRewrite(db, m, reader.id, p.book.id, p.paragraph.id, level, strictness),
+        (m) => rewriteParagraph(db, m, reader.id, { bookId: p.book.id, sectionId: p.paragraph.id, level, strictness, fresh: true }, { caps: NO_CAPS }),
+      ),
     );
   }
   // Alternating, so both features are tried before the budget runs out.
@@ -145,17 +206,26 @@ async function main() {
       ["Test yourself", estimateQuestionBank, questionBank],
       ["Need to know", estimateNeedToKnow, needToKnow],
     ] as const) {
-      await run(
-        { book: p.book.title, chapter: p.chapter.label, feature, original: `${p.text.length.toLocaleString()} characters of chapter text`, results: [] },
-        (m) => estimate(db, m, reader.id, p.book.id, p.chapter),
-        (m) => call(db, m, reader.id, { bookId: p.book.id, chapterId: p.chapter.id, fresh: true }, { caps: NO_CAPS }),
+      const order = tasks.length;
+      tasks.push(() =>
+        run(
+          { order, book: p.book.title, chapter: p.chapter.label, feature, original: `${p.text.length.toLocaleString()} characters of chapter text`, results: [] },
+          (m) => estimate(db, m, reader.id, p.book.id, p.chapter),
+          (m) => call(db, m, reader.id, { bookId: p.book.id, chapterId: p.chapter.id, fresh: true }, { caps: NO_CAPS }),
+        ),
       );
     }
   }
+  // Four jobs at a time on the subscription; one at a time on the API, so the budget check sees every cost.
+  const queue = [...tasks];
+  await Promise.all(Array.from({ length: cli ? 4 : 1 }, async () => {
+    for (let t = queue.shift(); t; t = queue.shift()) await t();
+  }));
+  jobs.sort((a, b) => a.order - b.order);
 
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, "results.json"), JSON.stringify({ spentUsd: spent, budgetUsd: budget, jobs }, null, 2));
-  writeFileSync(join(out, "report.html"), report(jobs, spent));
+  writeFileSync(join(out, "report.html"), report(jobs, spent, cli));
   console.log(`Spent $${spent.toFixed(4)} of $${budget}. Report: ${join(out, "report.html")}`);
   process.exit(0);
 }
@@ -174,7 +244,7 @@ function show(output: string) {
   }
 }
 
-function report(jobs: Job[], spent: number) {
+function report(jobs: Job[], spent: number, cli: boolean) {
   const totals = MODELS.map((m) => {
     const rs = jobs.flatMap((j) => j.results.filter((r) => r.model === m));
     return `<td>${m}</td><td>$${rs.reduce((a, r) => a + r.costUsd, 0).toFixed(4)}</td><td>${rs.filter((r) => r.error).length}</td>`;
@@ -203,7 +273,7 @@ h1{font-size:1.6rem}h2{font-size:1.15rem;margin-top:2rem}h3{font:600 .95rem syst
 .meta,summary,td,th{font:.85rem system-ui;color:var(--muted)}.orig{color:var(--muted)}.err{color:var(--err)}
 table{border-collapse:collapse}td,th{padding:4px 12px;border-bottom:1px solid var(--line);text-align:left}
 </style></head><body><h1>Opus 5.5 and Haiku 5.5, side by side</h1>
-<p>The same jobs from your library, each run once on each model with the app's own prompts. Total spent: $${spent.toFixed(4)}.</p>
+<p>The same jobs from your library, each run once on each model with the app's own prompts. ${cli ? `Run on your Claude subscription through <code>claude -p</code>; the dollars are what the API would have charged (list price): $${spent.toFixed(4)} in all.` : `Total spent: $${spent.toFixed(4)}.`}</p>
 <table><tr><th>Model</th><th>Cost</th><th>Errors</th></tr>${totals.map((t) => `<tr>${t}</tr>`).join("")}</table>
 ${rows}</body></html>`;
 }
