@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M26 R1 (Explain it back) with the merge train; deploy at Samuel's word.
+next_action: Merge the PDF book-page fix, then deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-16
 shared_copy: none
@@ -18,6 +18,10 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-16 22:24 (laptop clock, from `date`). **Bug on the live site: every PDF's book page failed (500) for the owner** since S7 (7303e93): the text-edition panel asked for the AI model while the page was drawn, and the live site has no Anthropic key (only ElevenLabs), so it threw before the page's own catch. Fixed on branch `m25-pdf-page-no-key` (the panel is left out when the key is missing; the rest of the page shows); to merge, then deploy at Samuel's word. Separately, Samuel's call: with no ANTHROPIC_API_KEY on Railway, every Claude feature (Need to know, Test yourself, Ask, Explain it back, rewrites, text editions) says AI is not set up on the live site.
+
+Written 2026-10-16 22:02 (laptop clock, from `date`). **Live: 57eebe4** (M26 R1, Explain it back; no migration since 7303e93, so no backup), deployed at Samuel's word ("Yes, deploy 57eebe4 to production now"). /api/health on both addresses says 57eebe4. Next: Samuel tries Explain it back on a chapter of a real book (Study, fourth tab) and records a verdict; S8 on *The Pay Off* is his to start; R2 and R3 wait for his word. This entry sits on local branch `m26-r1-deploy-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-16 21:42 (laptop clock, from `date`). **M26 R1 (Explain it back) is built on branch `m26-r1-explain-back`** and goes up as a pull request; not deployed (live is 7303e93; deploying waits for Samuel's word). It is the fourth Study tab: write (or say) about three sentences on what a chapter argued; the summary is saved as your note first; then AI quotes the lines it missed or got wrong, each opening its place. No database change. Next: merge it with the merge train; then Samuel tries it on a chapter of a real book and records a verdict (R1's "Done when"); S8 on *The Pay Off* is still his to start.
 
@@ -249,6 +253,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-16 22:24 · Claude Opus 5.5 (laptop) · Fix: a PDF's book page failed (500) on the live site without an Anthropic key
+- **Done:** Samuel: 'pdf in library can[not] open'. Railway's request log: GET /books/863a76a8… 500 five times (00:20 to 01:16 UTC, 2026-10-17); the error log at 01:16:25: 'AI is not set up yet: the owner needs to add ANTHROPIC_API_KEY.' Cause: app/(app)/books/[id]/page.tsx called getBatchModel() as an argument, so it threw before textEditionSummary(...).catch(() => null) could catch it; the live site has no ANTHROPIC_API_KEY (variable names checked, values never read: only ELEVENLABS_API_KEY). CI never saw it: tests run with AI_FAKE=1. Fix: textEditionForPage (lib/library/text-edition.ts) asks for the model inside its try and returns null, so the panel is left out and the page shows. The reader page itself was fine (GET /books/6dfc…/read 200 with its .pdf 200 at 00:12).
+- **Key paths:** lib/library/text-edition.ts (textEditionForPage); app/(app)/books/[id]/page.tsx; lib/library/text-edition.test.ts
+- **Commands that worked:** mcp railway get-logs types=[http] since 2026-10-17T00:00Z -> the 500s; types=[deploy] -> the error; npx vitest run lib/library/text-edition.test.ts -> 17 passed, and the new test fails with the model asked for outside the try (checked by changing it back for one run); local next start with AI_FAKE and ANTHROPIC_API_KEY unset, scanned-meditation.pdf uploaded: book page 200, reader 200, log 'panel is left out'; npm run check -> 898 passed, 2 skipped
+- **Known issues / blockers:** With no ANTHROPIC_API_KEY on Railway, every Claude feature says AI is not set up on the live site; adding the key (keyadd, then railway variable) is Samuel's call. Not deployed yet.
+- **Exact next steps:** 1. Merge with the merge train. 2. Deploy at Samuel's word, then open a PDF's book page signed in. 3. Samuel decides on the Anthropic key.
+
+### 2026-10-16 22:02 · Claude Opus 5.5 (laptop) · Deployed 57eebe4 (M26 R1, Explain it back; no migration)
+- **Done:** PR #191 merged as 57eebe4 (four checks green on run 38992015356, first round; CI screenshots looked at). Deployed at Samuel's word from ../neolibrary-deploy detached at 57eebe4; no migration or schema file changed since 7303e93, so no backup. Live: /api/health on both addresses -> commit 57eebe4; /sign-in 200 with HSTS; /api/books/<id>/explain-back without sign-in -> 401 (the new route is there); log 'Page pictures: ready.'
+- **Key paths:** ../neolibrary-deploy (detached at 57eebe4)
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=57eebe45… --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl https://<railway address>/api/health -> {"status":"ok","service":"neolibrary","commit":"57eebe4"}; same on the custom address
+- **Known issues / blockers:** None. Main's CI run on 57eebe4 (38992612005, Safari's engine included) passed.
+- **Exact next steps:** 1. Samuel tries Explain it back on a real chapter and records a verdict. 2. S8 on The Pay Off (Samuel). 3. R2 or R3 at Samuel's word.
 
 ### 2026-10-16 21:42 · Claude Opus 5.5 (laptop) · M26 R1: Explain it back, the fourth Study tab
 - **Done:** Explain it back: in Study, a fourth tab. The reader types (or says: Say it instead records a voice note and its transcript fills the box) about three sentences on what the chapter (or PDF page) argued; Check my summary saves it as the reader's note first, then AI (prompts/explain-back.md, structured output) returns at most five items, Missed or Not quite, each a quote checked word for word against the chapter's paragraphs and a link to its place; a quote not found is never shown as the book's words (the passage's start, marked, instead). Same summary again: re-served free, no second note. If a cap or a missing key stops the call, the note is still saved. The note is a Daily review card. Study's four tabs now sit two by two (in one row they pushed the panel sideways, cutting its left edge; seen in the first screenshots and now checked by the test). No database change.
