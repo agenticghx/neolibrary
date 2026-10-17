@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy the scan-to-text skill PR; check, preview and send The Pay Off's v2 reading.
+next_action: Samuel opens The Pay Off signed in (it opens as text) and gives a verdict.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -268,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 14:37 · Claude Opus 5.5 (laptop) · Live 0444e78 (scan-to-text skill, audited instructions); The Pay Off's edition rebuilt from a second reading
+- **Done:** #198 merged as 0444e78 and deployed (no migration since 7c343d4; clean checkout; /api/health 0444e78, /sign-in 200). Read all of The Pay Off again with the final instructions into ~/Documents/neolibrary-text-edition/payoff-v2: 360 read, 28 blank, 0 failed, .90 at the Batch price, /bin/zsh spent. check: 0 neither, none declined, chapters 1 to 30, no heading moved by the builder (p. 358 now right), preview: markers in order, nothing wider than the column, mid-sentence only p. 175 (a printed block quote). Compared with the first reading: 354 of 360 pages alike; pages 176, 342, 387 read a third time as a tiebreak (176 interbank as the book spells it; 387 without the library sticker's text; 342 keeps 'anti-trust', a line-end hyphen two readings of three put in). Looked at p. 161 (sampled) against the scan: word for word right. Sent: edition 9ee604bd kept its id; 360 read, 28 blank, 12 pages to check (same as the local check). Added compare to the script and the read-twice step to the skill.
+- **Key paths:** scripts/text-edition-on-subscription.ts (compare); .claude/skills/scan-to-text/SKILL.md; ~/Documents/neolibrary-text-edition/payoff-v2/ (not in git)
+- **Commands that worked:** railway up from ../neolibrary-deploy at 0444e78 -> Deploy complete; text-edition-on-subscription.ts read/check/preview/compare/reread/send on payoff-v2 -> as above
+- **Known issues / blockers:** Not looked at signed in on the live site (Claude cannot sign in). Library stamps on The Pay Off's scan (p. 3 barcode, p. 387 date stamp 17-May-2022, back cover): whether the file is Samuel's to keep is his call; the date stamp is in the text of p. 387.
+- **Exact next steps:** 1. Merge this pull request (no deploy needed: script and skill only). 2. Samuel opens The Pay Off signed in: it opens as text; checks the contents, page 51's table, and a chapter on the phone. 3. Samuel decides about the library-stamped scan.
 
 ### 2026-10-17 14:20 · Claude Opus 5.5 (laptop) · Scan-to-text skill, prompt audit and evaluation; live 7c343d4 (text by default, wide tables)
 - **Done:** Deployed #197 as 7c343d4 (no migration since ccb4c38; from the clean checkout; /api/health 7c343d4, /sign-in 200): text editions open by default, wide tables stay in the column. Wrote .claude/skills/scan-to-text (SKILL.md, references/prompt.md) and the script commands check, pictures, reread, preview (over-text check at 358 and 700 px: page 51's table found before the fix, nothing after), and scripts/eval-transcribe-prompt.ts. Ran the claude-api prompt-audit on the instructions, both request paths and the skill (docs/audits/2026-10-17-scan-to-text-prompt-audit.md): owner-and-purpose context, a heading rule, effort high set on both paths, a carried-over-note rule. Evaluated on The Pay Off: headings 28 of 28 (was 26 of 28), carried notes 4 of 4 (was 0 of 4), words wrong 0 of 2,280 throughout, no refusals (page 213 read 10 times per version). A fresh Claude session tested the skill (no sending): quality bar met where checkable; its six findings are fixed (builder: no join across blank pages, sentences carried past tables and figures; check reasons; pictures --from; sampling). Reread of all 388 pages with the final instructions under way into ~/Documents/neolibrary-text-edition/payoff-v2.
