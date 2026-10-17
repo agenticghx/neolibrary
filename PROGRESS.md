@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the text-edition headings pull request, deploy, and send The Pay Off's pages again.
+next_action: Samuel opens The Pay Off signed in, presses Text, and gives a verdict on the text edition.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -268,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 13:23 · Claude Opus 5.5 (laptop) · Live: ccb4c38 (#196, text edition chapters); The Pay Off's edition rebuilt
+- **Done:** #196 merged by the merge train as ccb4c38 (CI run 39052579766 green). No migration since 2c349511 (git diff on db/migrations empty), so no backup. Deployed from the clean checkout ../neolibrary-deploy (detached at ccb4c38, 0 untracked files) with NEOLIBRARY_COMMIT=ccb4c38; /api/health says ccb4c38; /sign-in 200. Pages sent again: 3 parts; edition 9ee604bd kept its id (notes and place stay); 360 read, 28 blank, same 12 pages to check; the new readings of pages 23 and 45 replace the old (newest reading wins).
+- **Key paths:** lib/library/text-epub.ts; scripts/text-edition-on-subscription.ts
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=ccb4c38 --service web --environment production --skip-deploys; railway up --service web --environment production --ci (from ../neolibrary-deploy) -> Deploy complete; send ... 863a76a8-4ba1-4f71-af03-c082fe443105 -> edition 9ee604bd
+- **Known issues / blockers:** Not looked at signed in on the live site (Claude cannot sign in). This entry sits on local branch m25-deploy-ccb4c38-record (not pushed).
+- **Exact next steps:** 1. Samuel opens The Pay Off signed in, presses Text in the reader footer, checks the contents list (parts with names, chapters 1 to 30) and reads a chapter on the phone; looks at page 51's table. 2. Commit this entry with the next real pull request.
 
 ### 2026-10-17 13:09 · Claude Opus 5.5 (laptop) · Text editions: chapter titles and heading levels fixed; The Pay Off pages 23 and 45 read again
 - **Done:** Samuel said go ahead (fix the cosmetic faults and resend). lib/library/text-epub.ts: a level-1 heading straight after another on the same page joins its title (PART I: MOVING MONEY); the book's title printed again (half title, title page) starts no chapter; a level-1 heading shaped like a level-2 heading on the page before or after becomes level 2 (page 358 'Chapter 16' in the Sources). Pages 23 (chapter 1 had lost its '1.', checked against the scan) and 45 (PART II's name came back as level 2) read again on the subscription; both right now; the first readings are kept in ~/Documents/neolibrary-text-edition/payoff-replaced/. Checked: the Sources have no 'Chapter 6' heading in print (scan's hidden text agrees), so none is missing. Preview EPUB rebuilt: its contents list matches the printed book (title, Contents, Authors' note, Introduction, 7 parts with names, chapters 1 to 30, Epilogue, Acknowledgements, Sources, Index, About the authors).
