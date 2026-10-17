@@ -220,7 +220,12 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
   const promptHash = sha(readFileSync("prompts/transcribe-page.md", "utf8"));
   const read = (n: number, markdown: string, over: object = {}) => ({ page: n, markdown, model: "claude-sonnet-5-5", promptHash, inputHash: sha(`picture ${n}`), inputTokens: 4321, outputTokens: 600, ...over });
   const page1 = "# MEDITATION I.\n\nSeveral years have now elapsed since I first became aware that I had accepted, even from my youth, many false opinions for true.";
-  const page2 = "And I was thereby convinced that I must once for all seriously undertake to rid myself of all the opinions I had adopted.";
+  // Page 2 carries a table wider than the reading column, like The Pay Off's page 51 (9 columns), which spilled over
+  // the text beside it (2026-10-17).
+  const wide = ["Means", "Anonymous?", "Can be traced?", "Ubiquity of acceptance", "Immediacy of value transfer", "Irreversible?", "Constant value?", "Transaction cost", "Physical convenience"];
+  const table = [`| ${wide.join(" | ")} |`, `|${wide.map(() => "---").join("|")}|`, ...["Bank transfer", "Gold", "Diamonds", "Cash"].map((r) => `| ${[r, ...wide.slice(1).map((w) => `${w.split(" ")[0]} value`)].join(" | ")} |`)].join("\n");
+  const more = Array.from({ length: 14 }, (_, i) => `Paragraph ${i + 1} after the table: the meditation goes on, for I would build anew from the foundation, if I wished to establish something firm and lasting in the sciences.`).join("\n\n");
+  const page2 = `And I was thereby convinced that I must once for all seriously undertake to rid myself of all the opinions I had adopted.\n\n${table}\n\n${more}`;
   const url = `/api/agent/books/${scanId}/text-edition`;
 
   // Without a token: 401; with the owner's token but other instructions: refused, nothing saved.
@@ -241,10 +246,10 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
   expect(made).toMatchObject({ read: 2, blankPages: [3], editionId: expect.any(String) });
   await agent.dispose();
 
-  // The scan now has a text edition: Text in the reader's footer opens it at its first page, which says who read it.
+  // The scan now has a text edition, and its address opens it (text by default) at its first page, which says who read it.
   await page.goto(`/books/${scanId}/read`);
+  await expect(page).toHaveURL(new RegExp(`/books/${made.editionId}/read`));
   const edition = page.getByRole("group", { name: "Edition" });
-  await edition.getByRole("link", { name: "Text" }).click();
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(edition.getByText("Text")).toHaveAttribute("aria-current", "page");
   await expect
@@ -255,4 +260,30 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
       }),
     )
     .toContain("read from the scanned pages of the PDF by claude-sonnet-5-5");
+
+  // No text over text: the wide table stays inside the reading column (it scrolls sideways) and covers no line of
+  // the paragraphs around it, on a phone and on a desktop.
+  for (const [w, h] of [[390, 844], [1280, 800]] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto(`/books/${made.editionId}/read?page=2`);
+    await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const view = document.querySelector("foliate-view") as unknown as { renderer?: { getContents(): { doc: Document }[] } };
+          const doc = (view?.renderer?.getContents() ?? []).map((c) => c.doc).find((d) => d?.querySelector("table"));
+          const t = doc?.querySelector("table")?.getBoundingClientRect();
+          if (!doc || !t) return "no table";
+          const lines = [...doc.querySelectorAll("p")].flatMap((p) => [...p.getClientRects()]).filter((l) => l.width > 0);
+          const column = Math.max(...lines.map((l) => l.width));
+          if (t.width > column + 2) return `the table is ${Math.round(t.width)} px wide in a ${Math.round(column)} px column`;
+          const over = lines.filter((l) => l.left < t.right - 1 && l.right > t.left + 1 && l.top < t.bottom - 1 && l.bottom > t.top + 1);
+          return over.length ? `${over.length} lines of text under the table` : "clear";
+        }),
+      )
+      .toBe("clear");
+    await mkdir("screenshots", { recursive: true });
+    await page.screenshot({ path: `screenshots/wide-table-${w < 768 ? "phone" : "desktop"}.png` });
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
 });

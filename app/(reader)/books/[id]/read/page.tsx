@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { and, eq } from "drizzle-orm";
+import { books } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { getBook } from "@/lib/library/paths";
@@ -18,7 +20,7 @@ export default async function ReadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ at?: string; listen?: string; page?: string }>;
+  searchParams: Promise<{ at?: string; listen?: string; page?: string; view?: string }>;
 }) {
   const user = await requireUser();
   const db = await getDb();
@@ -35,6 +37,17 @@ export default async function ReadPage({
   const edition = text
     ? { scanId: book.editionOf ?? book.id, textId: text.id, current: book.editionOf ? ("text" as const) : ("scan" as const) }
     : undefined;
+  // Text by default (Samuel, 2026-10-17): a scan with a text edition opens the edition, at the edition's own place,
+  // or, first time, at the page reached in the scan. The scan opens only when asked for: Scan in the footer
+  // (?view=scan) or a place in it (?at=, e.g. a search result).
+  if (edition?.current === "scan" && sp.view !== "scan" && !isCfi(at)) {
+    const [own] = await db.select({ position: books.position }).from(books).where(and(eq(books.id, edition.textId), eq(books.ownerId, user.id)));
+    const scanPage = Number(/^epubcfi\(\/6\/(\d+)/.exec(book.position ?? "")?.[1]) / 2;
+    const q = new URLSearchParams();
+    if (!own?.position && Number.isInteger(scanPage) && scanPage > 0) q.set("page", String(scanPage));
+    if (sp.listen === "1") q.set("listen", "1");
+    redirect(`/books/${edition.textId}/read${q.size ? `?${q}` : ""}`);
+  }
   const page = Number(sp.page);
   const openPage = edition?.current === "text" && Number.isInteger(page) && page > 0 ? page : undefined;
   const { rewrittenView } = await getPreferences(db, user.id);

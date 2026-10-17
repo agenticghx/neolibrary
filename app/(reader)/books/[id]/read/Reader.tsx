@@ -1780,7 +1780,8 @@ function TocList({ items, onPick, current }: { items: TocItem[]; onPick: (href: 
  * the scan's page, to check a word against the printed page.
  */
 function EditionSwitch({ edition, scanPage }: { edition: { scanId: string; textId: string; current: "scan" | "text" }; scanPage: number | null }) {
-  const scanHref = `/books/${edition.scanId}/read${scanPage ? `?at=${encodeURIComponent(`epubcfi(/6/${scanPage * 2})`)}` : ""}`;
+  // view=scan: the scan itself, asked for (a scan with a text edition otherwise opens the edition).
+  const scanHref = `/books/${edition.scanId}/read?view=scan${scanPage ? `&at=${encodeURIComponent(`epubcfi(/6/${scanPage * 2})`)}` : ""}`;
   const textHref = `/books/${edition.textId}/read${scanPage ? `?page=${scanPage}` : ""}`;
   return (
     <>
