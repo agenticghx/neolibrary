@@ -40,6 +40,15 @@ describe("reading position", () => {
     expect(await savePosition(database.db, ownerId, "not-a-uuid", { cfi: "epubcfi(/6/2!/4)", fraction: 0.1 })).toBe(false);
   });
 
+  it("in a text edition, moves its scan's progress and last-opened time too, but not the scan's place (M25)", async () => {
+    const scanId = (await database.db.insert(books).values({ ownerId, title: "S", fileKey: "books/x/s.pdf", fileType: "pdf", position: "epubcfi(/6/38)", progress: 0.05 }).returning())[0].id;
+    const editionId = (await database.db.insert(books).values({ ownerId, title: "S", fileKey: "books/x/s.epub", fileType: "epub", editionOf: scanId }).returning())[0].id;
+    const t = new Date("2026-10-17T12:00:00Z");
+    expect(await savePosition(database.db, ownerId, editionId, { cfi: "epubcfi(/6/12!/4/2/1:0)", fraction: 0.4 }, t)).toBe(true);
+    expect((await getBook(database.db, ownerId, scanId))!.book).toMatchObject({ position: "epubcfi(/6/38)", progress: 0.4, lastOpenedAt: t });
+    expect((await getBook(database.db, ownerId, bookId))!.book.progress).toBe(0); // other books untouched
+  });
+
   // M14 step 6b: listening away from the reader, the position follows the voice, paragraph by paragraph.
   it("saves the position at a paragraph: its CFI, and the share of the book's text before it, kept below 1", async () => {
     const rows = await database.db

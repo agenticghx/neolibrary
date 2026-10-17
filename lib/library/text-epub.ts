@@ -254,7 +254,7 @@ export function assembleEdition(pages: EditionPage[], bookTitle = ""): EditionCh
 
 const CSS = `body { font-family: serif; line-height: 1.5; }
 p { margin: 0 0 0.8em; }
-table { border-collapse: collapse; margin: 1em 0; font-size: 0.9em; }
+table { border-collapse: collapse; margin: 1em 0; font-size: 0.85em; display: block; width: max-content; max-width: 100%; overflow-x: auto; }
 th, td { border: 1px solid #999; padding: 0.2em 0.4em; vertical-align: top; text-align: left; }
 .about { font-family: sans-serif; }
 .about p.made { font-style: italic; }

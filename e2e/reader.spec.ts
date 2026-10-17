@@ -337,7 +337,7 @@ test("a scanned PDF's pages show their pictures (JPEG 2000 and JBIG2)", async ({
     if (/WebAssembly/.test(m.text())) refused.push(m.text());
   });
   const decoder = page.waitForResponse((r) => new URL(r.url()).pathname === "/pdfjs/wasm/openjpeg.wasm");
-  await page.goto(`/books/${added.bookId}/read`);
+  await page.goto(`/books/${added.bookId}/read?view=scan`); // the scan itself (once it has a text edition, that opens by default)
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   // Dark, opaque pixels on a page's picture: the canvas inside its #canvas box, transparent where nothing is drawn.
   // A page is found by its document's data-page (from 0); foliate's PDF view keeps no page index.
@@ -378,9 +378,17 @@ test("Scan | Text: a scanned book's text edition opens at the same page, and lea
     .poll(async () => (await (await page.request.get(`/api/books/${scanId}/text-edition`)).json()).job?.status, { timeout: 30_000 })
     .toBe("finished");
 
+  // Text by default (Samuel, 2026-10-17): the scan's own address opens its text edition.
   await page.goto(`/books/${scanId}/read`);
+  await expect(page).toHaveURL(/\/books\/[0-9a-f-]{36}\/read/);
+  expect(page.url()).not.toContain(scanId);
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   const edition = page.getByRole("group", { name: "Edition" });
+  await expect(edition.getByText("Text")).toHaveAttribute("aria-current", "page");
+
+  // The scan, asked for.
+  await page.goto(`/books/${scanId}/read?view=scan`);
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(edition.getByText("Scan")).toHaveAttribute("aria-current", "page");
   await page.getByRole("button", { name: "Next page" }).click();
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);

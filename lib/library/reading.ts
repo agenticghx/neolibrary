@@ -25,7 +25,11 @@ export async function savePosition(
     .update(books)
     .set({ position: input.cfi, progress: Math.round(fraction * 1000) / 1000, lastOpenedAt: now })
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey)))
-    .returning({ id: books.id });
+    .returning({ id: books.id, editionOf: books.editionOf });
+  // A text edition (M25) is read in place of its scan, which is the book Home and the shelf show: its progress and
+  // last-opened time follow (its place stays its own: a CFI in one is not a place in the other).
+  const scanId = rows[0]?.editionOf;
+  if (scanId) await db.update(books).set({ progress: Math.round(fraction * 1000) / 1000, lastOpenedAt: now }).where(and(eq(books.id, scanId), eq(books.ownerId, ownerId)));
   return rows.length === 1;
 }
 

@@ -85,6 +85,9 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
     ${focusCss(colors)}
     img, svg { max-width: 100%; height: auto; }
+    /* A table wider than the column (The Pay Off's 9-column table, 2026-10-17) spilled over the text beside it: it now
+       stays within the column and scrolls sideways. */
+    table { display: block; width: max-content; max-width: 100%; overflow-x: auto; }
     pre { white-space: pre-wrap !important; }
     aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
   `;
