@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M25 S7 (the book page panel); deploy main (no migration) and check /api/health; then S8, Samuel makes The Pay Off's text edition.
+next_action: S8 is Samuel's: on The Pay Off's page, tick the box and press Make a text edition (about $2.80); then check the flagged pages.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-16
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-16 20:07 (laptop clock, from `date`). **Live: 7303e93** (M25 S5, S6, S7; no migration since c4af035, so no backup), deployed at Samuel's word ("Yes, deploy 7303e93 to production now", 2026-10-16, in the side session). /api/health on the Railway address and the custom address both say 7303e93; /sign-in 200 with strict-transport-security; log "Page pictures: ready.". Main's CI run on 7303e93 (38984261032) was still running at the deploy: read it (WebKit runs only there). Next: S8, Samuel's to start. Written further at 2026-10-16 20:16: **M26 (Reading for understanding) is planned** in `docs/plan.md`: R1 Explain it back, R2 links across books by meaning, R3 a focus session with a question; Samuel says when, and which first. This deploy record goes in with the M26 plan's pull request.
 
 Written 2026-10-16 19:49 (laptop clock, from `date`). **S6 merged (#188, 9610d14); not deployed: live is still c4af035.** S7 (`m25-text-edition-page`) is rebased onto main with the S5 and S6 commits dropped and goes up as its own pull request. After it merges: deploy main (no migration since c4af035, so no backup), at Samuel's word "deploy" (2026-10-15 23:18 entry), and check /api/health. S8, the paid run on *The Pay Off*, is Samuel's to start.
 
@@ -245,6 +247,27 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-16 20:16 · Claude Opus 5.5 (laptop) · M26 planned: reading for understanding (three steps Samuel picked)
+- **Done:** Added M26 to docs/plan.md at Samuel's request ("add #1, 2, 3 to plans doc"): R1 Explain it back (say or type three sentences at a section's end; Claude quotes what was missed), R2 links across your own books by meaning (builds on M6's word-stem cross-book links, which exist in lib/library/crosslinks.ts and the reader's links panel; R2 matches by idea and shows them in the margin), R3 a focus session with a question (timer, page only, the answer becomes a note, a Daily review card and a reading-stats sitting). Each has a "Done when". One rule for all three: the reader writes first, Claude responds second. Not started.
+- **Key paths:** docs/plan.md (### M26)
+- **Commands that worked:** grep -n -i "cross-book" docs/*.md; sed -n 1,40p lib/library/crosslinks.ts (to check what M6 built)
+- **Known issues / blockers:** R2's matching method and whether it costs money per page are Samuel's to decide (Open unknowns, when R2 starts).
+- **Exact next steps:** 1. Samuel: S8 on The Pay Off. 2. Samuel picks when M26 starts and which step first (suggested: R1).
+
+### 2026-10-16 20:07 · Claude Opus 5.5 (laptop) · Deployed 7303e93 (M25 S5, S6, S7; no migration)
+- **Done:** At Samuel's word ("Yes, deploy 7303e93 to production now (no migration), then check /api/health on both addresses."), after the first attempt was refused by the session's permission check. No migration or schema file changed since c4af035, so no backup. Deployed from ../neolibrary-deploy detached at origin/main 7303e93. Live: /api/health on both addresses -> commit 7303e93; /sign-in 200 with strict-transport-security max-age=31536000; log "Page pictures: ready.".
+- **Key paths:** ../neolibrary-deploy (detached at 7303e93)
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=7303e935… --service web --environment production --skip-deploys -> Set variables; railway up --service web --environment production --ci -> Deploy complete (exit 0); curl https://<railway address>/api/health -> {"status":"ok","service":"neolibrary","commit":"7303e93"}; same on the custom address
+- **Known issues / blockers:** Main's CI run 38984261032 on 7303e93 was in progress at the deploy; not yet read. No book has a text edition in production yet (S8).
+- **Exact next steps:** 1. Read main's CI run on 7303e93. 2. S8: Samuel makes The Pay Off's text edition.
+
+### 2026-10-16 20:01 · Claude Opus 5.5 (laptop) · M25 S7 merged (#189); first deploy attempt refused by the permission check
+- **Done:** S7 rebased onto main with the S5 and S6 commits dropped (`git diff 236464f HEAD -- . ':!PROGRESS.md'` shows only #188's three test fixes, from main); the only conflict was PROGRESS.md, resolved keeping both sides. PR #189 merged by the merge train as 7303e93 on its first CI round (run 38983448858: four checks green). Its eight screenshots text-edition-{before,after}-{desktop,phone}-{light,dark}.png are on ci-screenshots/pr-189/2a7f278…; four looked at: the panel reads right (cost line, greyed button until the box is ticked; after: outcome line, Read the text edition, Page 1 and Page 2). The deploy of 7303e93 was refused by the session's permission check before anything ran (the deploy checkout is still at c4af035; live /api/health says c4af035).
+- **Key paths:** app/(app)/books/[id]/TextEdition.tsx; e2e/reader.spec.ts; ../neolibrary-deploy (detached at c4af035)
+- **Commands that worked:** git rebase --onto origin/main 2882c5b m25-text-edition-page -> PROGRESS.md conflict only; zsh .claude/skills/merge-train/scripts/train.sh 189 m25-text-edition-page -> MERGED #189: 7303e93; curl https://<railway address>/api/health -> {"status":"ok","service":"neolibrary","commit":"c4af035"}
+- **Known issues / blockers:** Deploy not done (see Exact next steps for the commands). Full-page screenshots draw the fixed sidebar and phone tab bar part-way down the page (a capture effect, not the page). The S6 screenshots show "Opening pages" in the reader footer's left corner; not investigated.
+- **Exact next steps:** 1. Deploy 7303e93 (no migration) and check /api/health on both addresses. 2. S8, Samuel's to start.
 
 ### 2026-10-16 19:49 · Claude Opus 5.5 (laptop) · M25 S6 merged (#188); text editions left out of three tests' expected lists
 - **Done:** S6 rebased onto main with the merged S5 commits dropped (code identical to 2882c5b: `git diff 2882c5b HEAD -- . ':!PROGRESS.md'` empty), PR #188, merged by the merge train as 9610d14 after three CI rounds. Round 1 (run 38980097951) failed Home's filter test and round 2 (run 38981045347) the Path editor test, both for one reason: S6's reader test is the first to make a text edition, and these tests work out their expected book lists from the library export, which carries the hidden edition; the pages rightly hide it. The expected lists now leave out editions (as they leave out removed books), in home.spec.ts, own-paths.spec.ts and narration.spec.ts (the last would have failed next), so each test now also fails if an edition ever shows. Round 3 (run 38981984167): four checks green. Screenshots scan-text-{desktop,phone}-{light,dark}.png looked at (from ci-screenshots/pr-188/e2624a8…). Also brought in: the c4af035 deploy record (from unpushed 5d6a998) and three checkpoint entries that sat uncommitted on the laptop's main, with the custom address left out (public repo).

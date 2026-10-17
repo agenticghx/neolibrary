@@ -741,6 +741,57 @@ every page is checked against the scan's own hidden text, and the reader
 offers Scan | Text. Plan, steps S1 to S8 and their "Done when":
 `docs/scan-to-text-plan.md`.
 
+### M26 · Reading for understanding (Samuel picked these three, 2026-10-16)
+
+Written for Samuel and for the session that builds it. Not started: Samuel
+says when, and which step first (Claude's suggestion: R1). These came from
+a list of ideas Samuel liked; he chose the top three.
+
+**One rule for all three: the reader writes first, Claude responds
+second.** If Claude summarises before you have thought, reading gets
+easier and you learn less. So no step here shows Claude's view of a passage
+until the reader has put down their own.
+
+- **R1 · Explain it back.** At the end of a section (an EPUB chapter, or a
+  PDF page range), the reader says or types about three sentences on what
+  it argued. Speaking uses the voice notes' speech-to-text (M8). Claude then
+  compares the summary with the text and quotes the lines the summary
+  missed or got wrong, each with a link to its place in the book. Why:
+  putting an idea in your own words fixes it in memory far better than
+  rereading a summary. The summary is saved as a note on the section (it is
+  the reader's, so ground rule 9 applies); Claude's answer is AI output
+  with provenance (rule 5), paid once, under the caps (rule 8), with a fake
+  in tests (rule 3).
+  Done when: with the fake Claude, a browser test writes a summary at the
+  end of a chapter of a public-domain book, gets back quoted lines that
+  each open the right place, reloads, and both the summary and the answer
+  are still there; Claude's answer cannot be seen before a summary exists.
+  Samuel tries it on one chapter of a real book and records a verdict.
+- **R2 · Links across your own books, by meaning.** Cross-book links exist
+  since M6 (`lib/library/crosslinks.ts`, in the reader's links panel), but
+  they match on shared word stems, so Kuhn on "paradigms" and a Feyerabend
+  note on "anything goes" never meet. This step makes them match by idea,
+  and shows them in the margin beside the passage, not only in a panel.
+  How to match by meaning, and what it may cost per page, is the first
+  question to settle (a cheap first filter, then Claude to judge a few
+  candidates, is one way); Samuel decides if it costs money per page.
+  Done when: a test library with two books, where a highlight in one shares
+  an idea but no key words with a page of the other, shows the link in the
+  margin; the word-stem matches still show; a link opens the other book at
+  the highlight. Samuel checks it on his own Kuhn and Feyerabend notes.
+- **R3 · A focus session with a question.** Before starting, the reader
+  writes the question they are reading to answer, and sets a timer (50
+  minutes by default). Everything but the page is hidden (M21's Focus is
+  the starting point). When the time is up, the app asks "Did you
+  answer it?" and saves the answer as a note. That note becomes a Daily
+  review card (M21), and the session is one of the reading-stats sittings
+  (M10), with its question.
+  Done when: a browser test starts a session with a question and a short
+  timer, sees only the page while it runs, answers at the end, and then
+  finds the answer as a note, as a card in Daily review, and as a sitting
+  with the question on the Reading stats page; the session survives a
+  reload part-way through. Screenshots: phone and desktop, light and dark.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
