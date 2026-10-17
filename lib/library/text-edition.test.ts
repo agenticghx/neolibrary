@@ -367,6 +367,9 @@ describe("pages read on the owner's Claude subscription (scripts/text-edition-on
     const save = (input: Record<string, unknown>, owner = ownerId, book = bookId) => savePagesReadElsewhere(deps(), owner, book, input);
     await expect(save({ pages: [await page(1, { promptHash: sha256("other instructions") })] })).rejects.toThrow("read with other instructions");
     await expect(save({ pages: [await page(9)] })).rejects.toThrow("between 1 and 3");
+    // A blank page the book does not have, or a page count for a different file, is refused before anything is saved.
+    await expect(save({ pages: [await page(1)], blankPages: [4] })).rejects.toThrow("between 1 and 3");
+    await expect(save({ pages: [await page(1)], pageCount: 388 })).rejects.toThrow("3 pages, not 388");
     await expect(save({ pages: [await page(1, { model: "gpt-5" })] })).rejects.toThrow("must be a Claude model");
     await expect(save({ pages: [], finish: true })).rejects.toThrow("No page of this book has been read yet");
     await expect(save({ pages: [await page(1)] }, crypto.randomUUID())).rejects.toMatchObject({ status: 404 });

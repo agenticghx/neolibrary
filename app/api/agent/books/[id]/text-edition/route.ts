@@ -13,7 +13,9 @@ const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 /**
  * Pages of a scanned PDF read on the owner's own Claude subscription
  * (scripts/text-edition-on-subscription.ts), sent with the owner's API token:
- * `{ pages: [...], blankPages: [...], finish: true|false }`. The last part
+ * `{ pages: [...], blankPages: [...], pageCount, finish: true|false }`.
+ * `pageCount` must be this book's, and every blank page must be one of
+ * its pages. The last part
  * (`finish: true`) checks the pages against the scan and makes the text
  * edition, as a batch job does when it ends (M25). Library owner only.
  */

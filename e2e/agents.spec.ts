@@ -197,13 +197,24 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
   await page.getByLabel("Which agent is it for?").fill("Text edition on my laptop");
   await page.getByRole("button", { name: "Make a token" }).click();
   const token = await page.getByTestId("new-token").inputValue();
-  // A scan of its own (a third, blank page), so the batch-made edition of the reader tests is not this one.
+  // The 2-page scan is already on the shelf when the reader tests have run,
+  // and this test adds it when they have not. A second file with the same
+  // title is that book, not a new one (lib/library/import.ts). CI run
+  // 39033952163 sent a blank page 3 to the 2-page book, and the server
+  // dropped it. The file under test has its own title and a blank third page.
+  const original = await page.request.post("/api/books", {
+    multipart: { files: { name: "scanned-meditation.pdf", mimeType: "application/pdf", buffer: readFileSync("fixtures/books/scanned-meditation.pdf") } },
+  });
+  expect(["added", "duplicate"]).toContain((await original.json()).results[0].status);
   const doc = await PDFDocument.load(readFileSync("fixtures/books/scanned-meditation.pdf"));
+  doc.setTitle("A Subscription Scanned Meditation");
   doc.addPage([612, 792]);
   const upload = await page.request.post("/api/books", {
     multipart: { files: { name: "scanned-meditation-sent.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) } },
   });
-  const scanId = (await upload.json()).results[0].bookId as string;
+  const uploaded = await upload.json();
+  expect(uploaded.results[0].status).toBe("added");
+  const scanId = uploaded.results[0].bookId as string;
 
   const sha = (s: string) => createHash("sha256").update(s).digest("hex");
   const promptHash = sha(readFileSync("prompts/transcribe-page.md", "utf8"));

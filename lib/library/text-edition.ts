@@ -593,12 +593,15 @@ const MAX_PAGE_CHARS = 100_000;
  * Sent in parts; the last (`finish: true`) checks every page read against the
  * scan's hidden text, records a finished job with the blank pages and the
  * checks, and makes the text edition. Refused while a batch job goes on.
+ * A `pageCount` that is not this book's, or a blank page outside
+ * 1..pageCount, is refused: dropping it would make an edition that skips
+ * a page and say nothing (CI run 39033952163).
  */
 export async function savePagesReadElsewhere(
   deps: Pick<TextEditionDeps, "db" | "storage" | "now">,
   ownerId: string,
   bookId: string,
-  input: { pages?: unknown; blankPages?: unknown; finish?: unknown },
+  input: { pages?: unknown; blankPages?: unknown; pageCount?: unknown; finish?: unknown },
 ) {
   const { db } = deps;
   const book = await pdfOf(db, ownerId, bookId);
@@ -609,6 +612,14 @@ export async function savePagesReadElsewhere(
   const pages = Array.isArray(input.pages) ? input.pages : [];
   if (pages.length > MAX_PAGES_A_PART) throw new TextEditionError(`Send at most ${MAX_PAGES_A_PART} pages at a time.`, 413);
   const isPage = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= pageCount;
+  // The laptop script sends the page count it counted. A mismatch means the
+  // blank list is for a different file than the one on the shelf.
+  if (input.pageCount !== undefined && input.pageCount !== pageCount) {
+    throw new TextEditionError(Number.isInteger(input.pageCount) ? `This book has ${pageCount} pages, not ${input.pageCount}.` : "pageCount must be the number of pages in this book.");
+  }
+  if (input.blankPages !== undefined && !Array.isArray(input.blankPages)) throw new TextEditionError("blankPages must be a list of page numbers.");
+  const blankListed = Array.isArray(input.blankPages) ? input.blankPages : [];
+  if (blankListed.some((n) => !isPage(n))) throw new TextEditionError(`A blank page must be a page number between 1 and ${pageCount}.`);
   const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
   const valid = pages.map((raw, i): ReadElsewherePage => {
     const p = (raw ?? {}) as Partial<ReadElsewherePage>;
@@ -664,7 +675,7 @@ export async function savePagesReadElsewhere(
   if (!newest.size) throw new TextEditionError("No page of this book has been read yet: send the pages first.");
   const checks: TextEditionCheck[] = [];
   for (const [page, r] of [...newest].sort(([a], [b]) => a - b)) checks.push({ page, ...checkPage(r.output, await hiddenTextOf(db, bookId, page)) });
-  const blank = (Array.isArray(input.blankPages) ? input.blankPages : []).filter(isPage).filter((p) => !newest.has(p));
+  const blank = blankListed.filter(isPage).filter((p) => !newest.has(p));
   const blankPages = [...new Set(blank)].sort((a, b) => a - b);
   const toCheck = checks.filter((c) => c.flagged);
   const models = [...new Set([...newest.values()].map((r) => r.model))].join(" and ");
