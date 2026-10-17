@@ -76,3 +76,33 @@ Their fingerprint changes. The live server refuses pages read with other instruc
 1. Deploy the new instructions before sending pages read with them.
 2. The pages of *The Pay Off* already on the site stay as they are (they were read with the old instructions and checked).
 3. Pages read again later use the new instructions.
+
+## Second round: a note carried over to the next page
+
+A first-time user tested the skill (below) and found paragraphs that open mid-sentence. Looked at against the scan, two were notes carried over from the page before: the foot of page 150 ends footnote text begun on page 149, and the same happens on page 287. Claude had written them as ordinary paragraphs, which broke the main text around them; the instructions had no rule for them.
+
+The new rule asks for a carried-over note as `[^0]: text`, and the builder ends the previous note with it. The same 19 pages were read twice with each version, those two pages included:
+
+| | Audited | Audited + carried-note rule |
+|---|---|---|
+| Readings | 38 | 38 |
+| Failed or declined | 0 | 0 |
+| Flagged by the page check | 4 | 4 |
+| Words wrong against the checked text | 0 of 2,280 | 0 of 2,280 |
+| Headings as expected | 27 of 28 | 28 of 28 |
+| Carried-over notes written as `[^0]` | 0 of 4 | **4 of 4** |
+
+The rule is kept.
+
+## The skill, tested by a first-time user
+
+A fresh Claude session was given only the skill and Samuel's request: "check The Pay Off's text edition is ready to send". It was not allowed to send or read again. It met every item of the quality bar it could check here. It found six faults the lists did not cover; each is now fixed or covered:
+
+- **Page markers out of order, and the cover's last line run into page 3:** a paragraph carried on across a blank page. Fixed in the builder; a paragraph never carries on across a blank page.
+- **Sentences cut by a table** (pp. 165–166, 211–212), by a figure at the top of a page (p. 72), by a whole page of table (pp. 51–52), or ending on ";" (p. 48). Fixed in the builder: a page that opens mid-sentence carries on the last unfinished paragraph, past tables, figures and their title and source lines.
+- **What is left after that.** `preview` now lists paragraphs that open mid-sentence. On *The Pay Off*, that was two carried-over notes (fixed above) and a printed block quote, which is right.
+- **The check's numbers unexplained, and no reason recorded.** `check` now says why each page is flagged.
+- **No way to see a page's text beside its picture.** Fixed: `pictures --from`.
+- **Others.** No rule for sampling unflagged pages; the `[?]` marks left unmentioned; the token not loading in step 1; the preview's About page without the pages to check; stale figures in `page-check.ts`. All fixed.
+
+It also noticed a library's barcode stamp on the scan's title and back pages. Whether the file is Samuel's to keep is his call; the skill now says to tell him when a scan shows such a sign.

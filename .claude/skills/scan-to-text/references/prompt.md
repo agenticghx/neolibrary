@@ -41,7 +41,7 @@ So a change to the instructions is a change to every book read after it, and it 
 - **Line-end hyphens; one paragraph per printed paragraph**: so pages join into a flowing text.
 - **Drop cap**: a layout fact; Apple's OCR lost two lines beside one.
 - **Headings rule** (# for part and chapter titles with their printed number; ## inside, including chapter labels in notes and sources): pages are read one at a time, and the level was guessed differently on different pages (p. 23, 45, 358).
-- **Footnotes as `[^n]`**: the builder links them both ways.
+- **Footnotes as `[^n]`**: the builder links them both ways. **A note carried over from the page before as `[^0]`**: the builder ends that note with it. Without this rule, Claude wrote such text as an ordinary paragraph at the foot of the page, and it broke the main text (p. 150 and 287); with it, 4 of 4 readings were right.
 - **Running head and page number left out**: the builder adds its own page markers.
 - **Tables as Markdown; figures as a caption**: a figure's words are kept only as its caption, so pages with figures are flagged by the check.
 - **"Output only the Markdown"**: a preamble would become text on the page.

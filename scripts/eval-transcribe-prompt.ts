@@ -21,7 +21,7 @@ import { openPdfForPictures } from "@/lib/library/page-pictures";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { readPage } from "./text-edition-on-subscription";
 
-type Spec = { pages: number[]; truth?: string; headings?: Record<string, { h1?: string[]; h2?: string[] }> };
+type Spec = { pages: number[]; truth?: string; headings?: Record<string, { h1?: string[]; h2?: string[] }>; contains?: Record<string, string[]> };
 type Run = {
   prompt: string;
   page: number;
@@ -33,6 +33,8 @@ type Run = {
   truthWords: number | null;
   headingsRight: boolean | null;
   headings: string[];
+  /** Whether the reading has every piece of text the spec says it must (e.g. "[^0]:" for a carried-over note). */
+  containsRight: boolean | null;
   error?: string;
   markdown?: string;
 };
@@ -73,7 +75,7 @@ async function main() {
   const worker = async () => {
     while (next < tasks.length) {
       const t = tasks[next++];
-      const base: Omit<Run, "declined" | "flagged" | "agreement" | "wordsWrong" | "truthWords" | "headingsRight" | "headings"> = { prompt: t.prompt, page: t.page, repeat: t.repeat };
+      const base: Omit<Run, "declined" | "flagged" | "agreement" | "wordsWrong" | "truthWords" | "headingsRight" | "headings" | "containsRight"> = { prompt: t.prompt, page: t.page, repeat: t.repeat };
       try {
         const r = await readPage(arg("model", TRANSCRIBE_MODEL), pictures.get(t.page)!, readFileSync(t.prompt, "utf8"));
         const check = checkPage(r.text, hidden(t.page));
@@ -90,10 +92,11 @@ async function main() {
           truthWords: key === null ? null : pageWords(key).length,
           headingsRight: want ? (want.h1 === undefined || same(h1, want.h1)) && (want.h2 === undefined || same(h2, want.h2)) : null,
           headings: [...h1.map((h) => `# ${h}`), ...h2.map((h) => `## ${h}`)],
+          containsRight: spec.contains?.[String(t.page)] ? spec.contains[String(t.page)].every((x) => r.text.includes(x)) : null,
           markdown: r.text,
         });
       } catch (e) {
-        runs.push({ ...base, declined: false, flagged: true, agreement: null, wordsWrong: null, truthWords: null, headingsRight: false, headings: [], error: e instanceof Error ? e.message : String(e) });
+        runs.push({ ...base, declined: false, flagged: true, agreement: null, wordsWrong: null, truthWords: null, headingsRight: false, headings: [], containsRight: false, error: e instanceof Error ? e.message : String(e) });
       }
       process.stdout.write(".");
     }
@@ -114,6 +117,8 @@ async function main() {
     console.log(`  words wrong against the checked text: ${wrong} of ${words} (${keyed.length} readings)`);
     console.log(`  headings as expected: ${headed.filter((r) => r.headingsRight).length} of ${headed.length}`);
     for (const r of headed.filter((x) => !x.headingsRight)) console.log(`    p. ${r.page} (try ${r.repeat + 1}): ${r.error ?? (r.headings.join(" | ") || "no headings")}`);
+    const holds = mine.filter((r) => r.containsRight !== null);
+    if (holds.length) console.log(`  text it must contain: ${holds.filter((r) => r.containsRight).length} of ${holds.length}${holds.some((r) => !r.containsRight) ? ` (missing on p. ${holds.filter((r) => !r.containsRight).map((r) => r.page).join(", ")})` : ""}`);
   }
 }
 

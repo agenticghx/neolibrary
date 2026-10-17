@@ -33,9 +33,9 @@ import { join } from "node:path";
 import { batchCostUsd, TRANSCRIBE_MODEL } from "@/lib/ai/batch";
 import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import { strFromU8, unzipSync } from "fflate";
-import { checkPage, DECLINED } from "@/lib/library/page-check";
+import { assessPage, DECLINED } from "@/lib/library/page-check";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
-import { buildTextEdition, type EditionPage } from "@/lib/library/text-epub";
+import { buildTextEdition, evenHeadings, type EditionPage } from "@/lib/library/text-epub";
 import { BLANK_INK, MAX_PICTURE_TOKENS, openPdfForPictures, pictureTokens } from "@/lib/library/page-pictures";
 import { PROMPT_NAME, type ReadElsewherePage } from "@/lib/library/text-edition";
 
@@ -183,7 +183,7 @@ async function send(folder: string, site: string, bookId: string) {
     .filter((p) => p.promptHash === current)
     .map(({ page, markdown, model, promptHash, inputHash, inputTokens, outputTokens }): ReadElsewherePage => ({ page, markdown, model, promptHash, inputHash, inputTokens, outputTokens }));
   if (pages.length < all) console.log(`${all - pages.length} pages were read with earlier instructions: not sent (the site keeps what it has of them).`);
-  if (!pages.length) throw new Error("No page here was read with the current instructions (prompts/transcribe-page.md).");
+  if (!pages.length) console.log("No page here was read with the current instructions: the site makes the edition again from the pages it has.");
   const parts: ReadElsewherePage[][] = [[]];
   let size = 0;
   for (const p of pages) {
@@ -225,7 +225,7 @@ async function check(pdf: string, folder: string) {
   const hidden = (page: number) => sections.filter((s) => s.kind === "paragraph" && s.chapterIndex === page - 1).map((s) => s.text).join("\n");
   const manifest = loadManifest(folder);
   const pages = loadPages(folder);
-  const results = pages.map((p) => ({ page: p.page, declined: DECLINED.test(p.markdown.slice(0, 200)), ...checkPage(p.markdown, hidden(p.page)) }));
+  const results = pages.map((p) => ({ page: p.page, ...assessPage(p.markdown, hidden(p.page)) }));
   const flagged = results.filter((r) => r.flagged);
   const read = new Set(pages.map((p) => p.page));
   const missing = Array.from({ length: manifest.pageCount }, (_, i) => i + 1).filter((p) => !read.has(p) && !manifest.blankPages.includes(p));
@@ -233,22 +233,42 @@ async function check(pdf: string, folder: string) {
   const numbers = headings.flatMap((h) => (/^# (\d+)\./.exec(h.heading) ? [Number(/^# (\d+)\./.exec(h.heading)![1])] : []));
   const gaps = numbers.length ? Array.from({ length: Math.max(...numbers) }, (_, i) => i + 1).filter((n) => !numbers.includes(n)) : [];
   const twice = numbers.filter((n, i) => numbers.indexOf(n) !== i);
-  writeFileSync(join(folder, "check.json"), JSON.stringify({ flagged, missing, headings, gaps, twice }, null, 1));
+  // Headings the EPUB builder will move to level 2 (shaped like their neighbours' subheadings): fine, but worth seeing.
+  const evened = evenHeadings(pages.map((p) => ({ page: p.page, kind: "read" as const, markdown: p.markdown })));
+  const moved = pages.flatMap((p, i) => {
+    const after = evened[i].kind === "read" ? (evened[i] as { markdown: string }).markdown : "";
+    return after === p.markdown ? [] : (p.markdown.match(/^# .+$/gm) ?? []).filter((h) => after.includes(`#${h}`)).map((h) => ({ page: p.page, heading: h.slice(2) }));
+  });
+  const unreadable = pages.map((p) => ({ page: p.page, count: (p.markdown.match(/\[\?\]/g) ?? []).length })).filter((u) => u.count);
+  // Unflagged pages to look at by eye (the check misses a few words reworded): five at random, one a chapter opening.
+  const quiet = results.filter((r) => !r.flagged).map((r) => r.page);
+  const openings = quiet.filter((p) => /^# /m.test(pages.find((x) => x.page === p)!.markdown));
+  const pick = (from: number[]) => from[Math.floor(Math.random() * from.length)];
+  const sample = [...new Set([pick(openings), ...Array.from({ length: 8 }, () => pick(quiet))])].filter(Boolean).slice(0, 5).sort((a, b) => a - b);
+  writeFileSync(join(folder, "check.json"), JSON.stringify({ flagged, missing, headings, gaps, twice, moved, unreadable, sample }, null, 1));
   console.log(`${pages.length} pages read, ${manifest.blankPages.length} blank, ${missing.length} neither${missing.length ? ` (${missing.join(", ")})` : ""}.`);
-  console.log(`Declined: ${results.filter((r) => r.declined).map((r) => r.page).join(", ") || "none"}.`);
-  console.log(`To look at (${flagged.length}): ${flagged.map((r) => `${r.page} (${r.agreement ?? "no hidden text"})`).join(", ") || "none"}.`);
+  console.log(`Declined: ${results.filter((r) => r.why === "Claude declined").map((r) => r.page).join(", ") || "none"}.`);
+  console.log(`To look at (${flagged.length}; the number is the share of the words read that the scan's hidden text also has):`);
+  for (const r of flagged) console.log(`  p. ${r.page} (${r.agreement ?? "-"}): ${r.why}`);
   console.log(`Chapter numbers: ${numbers.length ? `${Math.min(...numbers)} to ${Math.max(...numbers)}` : "none"}; missing ${gaps.join(", ") || "none"}; twice ${twice.join(", ") || "none"}.`);
-  console.log("Level-1 headings:");
-  for (const h of headings.filter((x) => x.heading.startsWith("# "))) console.log(`  p. ${h.page}: ${h.heading.slice(2)}`);
+  console.log(`Headings the builder makes level 2: ${moved.map((m) => `p. ${m.page} "${m.heading}"`).join(", ") || "none"}.`);
+  console.log(`Words marked unreadable [?]: ${unreadable.map((u) => `p. ${u.page} (${u.count})`).join(", ") || "none"}.`);
+  console.log(`Unflagged pages to look at too: ${sample.join(", ")}.`);
+  console.log(`Level-1 headings (the chapters; see them all in the preview's contents): ${headings.filter((x) => x.heading.startsWith("# ")).length}. Written to ${join(folder, "check.json")}.`);
 }
 
 /** Saves pages as pictures, to compare a reading with the printed page by eye. */
 async function pictures(pdf: string, out: string, pages: number[]) {
   mkdirSync(out, { recursive: true });
   const doc = await openPdfForPictures(new Uint8Array(readFileSync(pdf)));
-  for (const p of pages) writeFileSync(join(out, `page-${p}.png`), (await doc.picture(p)).png);
+  const from = arg("from", "");
+  for (const p of pages) {
+    writeFileSync(join(out, `page-${p}.png`), (await doc.picture(p)).png);
+    // With --from <folder>, each page's reading beside its picture, to compare the two.
+    if (from && existsSync(pageFile(from, p))) writeFileSync(join(out, `page-${p}.md`), (JSON.parse(readFileSync(pageFile(from, p), "utf8")) as PageFile).markdown);
+  }
   await doc.close();
-  console.log(`Saved ${pages.map((p) => join(out, `page-${p}.png`)).join(", ")}`);
+  console.log(`Saved ${pages.map((p) => join(out, `page-${p}.png`)).join(", ")}${from ? " (and page-N.md beside each)" : ""}`);
 }
 
 /** Reads pages again: their earlier readings are kept in <folder>-replaced, never deleted. */
@@ -280,12 +300,28 @@ async function preview(folder: string, out: string) {
   });
   const title = arg("title", "Text edition");
   const model = [...new Set([...read.values()].map((p) => p.model))].join(" and ");
-  const epub = buildTextEdition(pages, { bookId: "preview", title, author: arg("author", ""), language: "en", model, madeAt: new Date(), toCheck: [] });
+  // The pages to check, from the last `check`, as the server lists its own on the About page.
+  const checked = existsSync(join(folder, "check.json")) ? (JSON.parse(readFileSync(join(folder, "check.json"), "utf8")) as { flagged: { page: number }[] }).flagged.map((f) => f.page) : [];
+  const epub = buildTextEdition(pages, { bookId: "preview", title, author: arg("author", ""), language: "en", model, madeAt: new Date(), toCheck: checked });
   writeFileSync(out, epub);
   const files = unzipSync(epub);
   const nav = strFromU8(files["OEBPS/nav.xhtml"]).split('epub:type="page-list"')[0];
   console.log(`${out}: ${(epub.byteLength / 1024).toFixed(0)} KB. Contents:`);
   for (const m of nav.matchAll(/<a href="(c\d+)\.xhtml[^"]*">([^<]*)<\/a>/g)) console.log(`  ${m[2]}`);
+
+  // Paragraphs that open mid-sentence (a lowercase first word), outside an index: a sentence the builder could not
+  // carry on (a boxed text running beside the main one, a page read in the wrong order). Each is worth a look.
+  const midSentence: number[] = [];
+  for (const name of Object.keys(files).filter((f) => /^OEBPS\/c\d+\.xhtml$/.test(f))) {
+    const html = strFromU8(files[name]);
+    if (/<title>Index/i.test(html)) continue;
+    let page = 0;
+    for (const m of html.matchAll(/id="page-(\d+)"|<p>([a-z])/g)) {
+      if (m[1]) page = Number(m[1]);
+      else midSentence.push(page);
+    }
+  }
+  console.log(`Paragraphs that open mid-sentence (look at the page and the one before): ${midSentence.length ? midSentence.map((p) => `p. ${p}`).join(", ") : "none"}.`);
 
   const css = strFromU8(files["OEBPS/style.css"]);
   const { chromium } = await import("@playwright/test");

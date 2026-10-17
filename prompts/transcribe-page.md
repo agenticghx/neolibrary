@@ -7,7 +7,7 @@ Rules:
 - A large decorative first letter (drop cap) belongs to the first word: write the whole word.
 - Headings, so that pages read apart still fit together: # for the title of a part or a chapter, with its number as printed; a part's label and its name printed on separate lines are two # headings. ## for a heading inside a chapter or section, including the chapter labels in a list of notes or sources.
 - Italics as *text*; bold as **text**.
-- Footnotes: keep the marker in the text as [^n] and put each note at the end as "[^n]: text".
+- Footnotes: keep the marker in the text as [^n] and put each note at the end as "[^n]: text". Note text carried over from the previous page (at the foot of the page, with no number of its own) goes at the end as "[^0]: text".
 - Leave out the running head at the top of the page and the page number.
 - Tables as Markdown tables; a picture or chart as [Figure: its caption].
 

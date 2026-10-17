@@ -105,7 +105,9 @@ function pageItems(page: number, markdown: string, notes: Note[], ownerOf: (page
     const note = /^\[\^(\d+)\]:\s*([\s\S]*)$/.exec(block);
     const heading = /^(#{1,6})\s+(.+)$/.exec(block);
     const figure = /^\[Figure:\s*([\s\S]*)\]$/.exec(block);
-    if (note) notes.push({ page: ownerOf(page, note[1]), n: note[1], text: note[2].replace(/\s*\n\s*/g, " ") });
+    // [^0]: a note carried over from the page before (no number of its own on this page): it ends the last note.
+    if (note && note[1] === "0" && notes.length) notes[notes.length - 1].text += ` ${note[2].replace(/\s*\n\s*/g, " ")}`;
+    else if (note) notes.push({ page: ownerOf(page, note[1]), n: note[1], text: note[2].replace(/\s*\n\s*/g, " ") });
     else if (heading && lines.length === 1) items.push({ type: "heading", level: heading[1].length, text: heading[2].replace(/\s*#+$/, ""), page });
     else if (lines.length >= 2 && lines[0].startsWith("|") && /^\|?\s*:?-{2,}/.test(lines[1])) items.push({ type: "html", html: tableHtml(lines, page) });
     else if (figure) items.push({ type: "html", html: `<p class="figure">[Figure: ${inline(figure[1], page)}]</p>` });
@@ -120,6 +122,8 @@ function pageItems(page: number, markdown: string, notes: Note[], ownerOf: (page
 
 /** A paragraph that ends this way is finished; one that does not goes on into the next page. */
 const FINISHED = /[.!?:;)\]"'’”…*]$/;
+/** The end of a sentence (not ";" or ":"), for a page that opens mid-sentence. */
+const SENTENCE_END = /[.!?…]["'’”)\]*]*$/;
 
 export type EditionChapter = { title: string; html: string; pages: number[] };
 
@@ -137,7 +141,7 @@ const shapeOf = (heading: string) => sameWords(heading).replace(/\d+/g, "0");
  * middle of the Sources. A level-1 heading shaped like a level-2 heading on the
  * page read before or after it is made level 2.
  */
-function evenHeadings(pages: EditionPage[]): EditionPage[] {
+export function evenHeadings(pages: EditionPage[]): EditionPage[] {
   const read = pages.filter((p): p is Extract<EditionPage, { kind: "read" }> => p.kind === "read");
   const subheads = (p: (typeof read)[number] | undefined) =>
     new Set((p?.markdown.match(/^## .+$/gm) ?? []).map((h) => shapeOf(h.slice(3))));
@@ -161,15 +165,52 @@ function evenHeadings(pages: EditionPage[]): EditionPage[] {
 export function assembleEdition(pages: EditionPage[], bookTitle = ""): EditionChapter[] {
   const notes: Note[] = [];
   const items: Item[] = [];
+  // The paragraph a page's first lines may carry on. Never across a blank or unread page (its marker would end up
+  // after the next page's text: The Pay Off's cover ran into page 3); past a table or figure, as in print, where a
+  // sentence cut by a table set at the foot of a page goes on overleaf (The Pay Off pp. 165-166).
   const lastParagraph = () => {
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
-      if (it.type === "mark") continue;
+      if (it.type === "mark") return null;
+      if (it.type === "html" && /^<(table|p class="figure")/.test(it.html)) continue;
       return it.type === "p" ? it : null;
     }
     return null;
   };
   const sorted = evenHeadings([...pages].sort((a, b) => a.page - b.page));
+  // A page whose first ordinary paragraph opens mid-sentence (a lowercase first word) goes on from the last paragraph
+  // before it that ends mid-sentence (on ";" or ":" too), past what a printed page sets around a sentence: tables,
+  // figures, and their title and source lines (short paragraphs), even a whole page of them. The markers of pages
+  // passed over move to the join, so they stay in order. The Pay Off: pp. 47-48 (";"), 51-52 (a page of table),
+  // 72 (a figure at the top), 165-166 and 211-212 (a table with its title and source lines).
+  const isInsert = (it: Item) =>
+    (it.type === "html" && /^<(table|p class="figure")/.test(it.html)) ||
+    (it.type === "p" && it.parts.length === 1 && !/^[a-z]/.test(it.parts[0].text) && it.parts[0].text.split(/\s+/).length <= 25 && SENTENCE_END.test(it.parts[0].text));
+  const carriesOn = (these: Item[], page: number) => {
+    const k = these.findIndex((it) => !isInsert(it));
+    const first = these[k];
+    if (k < 0 || first.type !== "p" || !/^[a-z]/.test(first.parts[0].text)) return false;
+    const passed: number[] = [];
+    let target: Extract<Item, { type: "p" }> | null = null;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (it.type === "mark") passed.push(i);
+      else if (isInsert(it)) continue;
+      else {
+        if (it.type === "p" && !SENTENCE_END.test(it.parts[it.parts.length - 1].text)) target = it;
+        break;
+      }
+    }
+    if (!target) return false;
+    for (const i of passed.reverse()) target.parts.push({ text: "", page: (items[i] as { page: number }).page, joined: true });
+    for (const i of [...passed].sort((a, b) => b - a)) items.splice(i, 1);
+    const before = [...target.parts].reverse().find((x) => x.text)!;
+    const broken = /[A-Za-z]-$/.test(before.text);
+    if (broken) before.text = before.text.slice(0, -1);
+    target.parts.push({ text: first.parts[0].text, page, joined: broken });
+    items.push(...these.slice(0, k), ...these.slice(k + 1));
+    return true;
+  };
   const ownerOf = footnoteOwners(sorted.flatMap((p) => (p.kind === "read" ? [p] : [])));
   for (const p of sorted) {
     if (p.kind !== "read") {
@@ -178,18 +219,19 @@ export function assembleEdition(pages: EditionPage[], bookTitle = ""): EditionCh
       continue;
     }
     const these = pageItems(p.page, p.markdown, notes, ownerOf);
-    const prev = lastParagraph();
     const first = these[0];
+    const prev = lastParagraph();
     const prevText = prev?.parts[prev.parts.length - 1].text ?? "";
-    if (prev && first?.type === "p" && !FINISHED.test(prevText)) {
-      // The paragraph goes on across the page break: the marker sits inside it.
+    if (prev && first?.type === "p" && !FINISHED.test(prevText) && !isInsert(first)) {
+      // The paragraph goes on across the page break: the marker sits inside it. (Not into a table's title line.)
       const broken = /[A-Za-z]-$/.test(prevText) && /^[a-z]/.test(first.parts[0].text);
       if (broken) prev.parts[prev.parts.length - 1].text = prevText.slice(0, -1);
       prev.parts.push({ text: first.parts[0].text, page: p.page, joined: broken });
       items.push(...these.slice(1));
-    } else {
-      items.push({ type: "mark", page: p.page }, ...these);
+      continue;
     }
+    if (carriesOn(these, p.page)) continue;
+    items.push({ type: "mark", page: p.page }, ...these);
   }
 
   type Building = { title: string; parts: string[]; pages: Set<number> };

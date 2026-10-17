@@ -65,6 +65,49 @@ describe("joining the pages", () => {
     expect(sources[0].html).toContain("<h2>Chapter 3</h2>");
   });
 
+  it("never carries a paragraph across a blank page, so the page markers stay in order (The Pay Off's cover)", () => {
+    const [c] = assembleEdition([read(1, "IRIS WICK"), { page: 2, kind: "blank" }, read(3, "'A quiet triumph.'")]);
+    expect(c.html).toMatch(/<p>IRIS WICK<\/p>\s*<span[^>]*id="page-2"[^>]*><\/span>\s*<span[^>]*id="page-3"[^>]*><\/span>\s*<p>'A quiet triumph.'<\/p>/);
+  });
+
+  it("carries a sentence cut by a table at the foot of a page on overleaf, before the table, as in print (The Pay Off pp. 165-166)", () => {
+    const [c] = assembleEdition([
+      read(1, "The log shows how busy the harbour was, and these alone represent a thousand boats per\n\n| Hour | Boats |\n|---|---|\n| 8 pm | 3 |"),
+      read(2, "year, most of them small.\n\nThe next paragraph."),
+    ]);
+    expect(c.html).toMatch(/a thousand boats per <span[^>]*id="page-2"[^>]*><\/span>year, most of them small\.<\/p>\s*<table>/);
+    expect(c.html).not.toContain("<p>year,");
+    // With the table's title and source lines around it, as The Pay Off prints them.
+    const [d] = assembleEdition([
+      read(1, "These alone represent a thousand boats per\n\nTable 2. Boats by hour.\n\n| Hour | Boats |\n|---|---|\n| 8 pm | 3 |\n\nSource: the harbour log."),
+      read(2, "year, most of them small."),
+    ]);
+    expect(d.html).toMatch(/a thousand boats per <span[^>]*id="page-2"[^>]*><\/span>year, most of them small\.<\/p>\s*<p>Table 2\. Boats by hour\.<\/p>/);
+  });
+
+  it("carries on a page that opens mid-sentence past a page ending on ';', a figure on top, or a whole page of table, markers in order", () => {
+    const [c] = assembleEdition([
+      read(1, "Most cash in circulation doesn't actually circulate;"),
+      read(2, "it sits in drawers. The lamp room holds the"),
+      read(3, "Table 1. Boats by hour.\n\n| Hour | Boats |\n|---|---|\n| 8 pm | 3 |\n\nAdapted from the harbour log (2016)."),
+      read(4, "[Figure: Figure 2. The lamp.]\n\nspare wicks and the log. Night falls."),
+    ]);
+    expect(c.html).toContain("circulate; <span");
+    expect(c.html).toMatch(/holds the<span[^>]*id="page-3"[^>]*><\/span> <span[^>]*id="page-4"[^>]*><\/span>spare wicks and the log\. Night falls\.<\/p>/);
+    const order = [...c.html.matchAll(/id="page-(\d+)"/g)].map((m) => Number(m[1]));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(c.html.indexOf("<table>")).toBeGreaterThan(c.html.indexOf("Night falls."));
+  });
+
+  it("ends a footnote carried over to the next page ([^0]) with its last words, and keeps them out of the text", () => {
+    const [c] = assembleEdition([
+      read(1, "The gang broke in.[^4] The keeper slept.\n\n[^4]: Hackers have also broken"),
+      read(2, "The tide turned.\n\n[^0]: directly into the lamp room using a stolen key."),
+    ]);
+    expect(c.html).toContain("Hackers have also broken directly into the lamp room using a stolen key.");
+    expect(c.html).not.toContain("<p>directly");
+  });
+
   it("carries a paragraph across a page break, with the page marker inside it", () => {
     expect(chapters[1].html).toContain(
       'winds the clock that turns the <span epub:type="pagebreak" role="doc-pagebreak" id="page-4" aria-label="4"></span>lens, then writes in the log.',
