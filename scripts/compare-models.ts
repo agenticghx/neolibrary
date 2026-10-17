@@ -13,7 +13,7 @@
  * text: keep it out of git (ground rule 1).
  *
  * Usage (from the repository root, ANTHROPIC_API_KEY set):
- *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--budget 0.9] [--books 5]
+ *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--budget 0.9] [--books 5] [--models a,b,c]
  * Or on the reader's Claude subscription instead of the API (no key; the
  * costs shown are what the API would have charged, and --budget is ignored):
  *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> --cli
@@ -40,15 +40,15 @@ import { estimateNeedToKnow, needToKnow } from "@/lib/library/prerequisites";
 import { estimateQuestionBank, questionBank } from "@/lib/library/questions";
 import { estimateRewrite, rewriteParagraph } from "@/lib/library/rewrite";
 
-const MODELS = ["claude-opus-5-5", "claude-haiku-5-5"];
-const TABLES = ["users", "books", "sections"];
-// Our own budget guard is the real limit; the app's caps would count the copy's past spending.
-const NO_CAPS: Caps = { perBookUsd: 1e6, perMonthUsd: 1e6 };
-
 const arg = (name: string, d: string) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : d;
 };
+// Which models, in report order: --models claude-opus-5-5,claude-sonnet-5-5,claude-haiku-5-5
+const MODELS = arg("models", "claude-opus-5-5,claude-haiku-5-5").split(",");
+const TABLES = ["users", "books", "sections"];
+// Our own budget guard is the real limit; the app's caps would count the copy's past spending.
+const NO_CAPS: Caps = { perBookUsd: 1e6, perMonthUsd: 1e6 };
 
 /** The data of one table's COPY block in a plain-SQL dump, and its column list. */
 function copyBlock(dump: string, table: string) {
@@ -268,11 +268,11 @@ ${r.error ? `<p class="err">${esc(r.error)}</p>` : show(r.output ?? "")}</div>`,
 @media (prefers-color-scheme:dark){:root{--bg:#1b1a18;--fg:#eee;--muted:#aaa;--card:#252421;--line:#3a3833;--err:#f88}}
 body{background:var(--bg);color:var(--fg);font:16px/1.55 Georgia,serif;margin:0 auto;max-width:1200px;padding:16px}
 h1{font-size:1.6rem}h2{font-size:1.15rem;margin-top:2rem}h3{font:600 .95rem system-ui;margin:0 0 .2rem}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media (max-width:720px){.cols{grid-template-columns:1fr}}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
 .cols>div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 .meta,summary,td,th{font:.85rem system-ui;color:var(--muted)}.orig{color:var(--muted)}.err{color:var(--err)}
 table{border-collapse:collapse}td,th{padding:4px 12px;border-bottom:1px solid var(--line);text-align:left}
-</style></head><body><h1>Opus 5.5 and Haiku 5.5, side by side</h1>
+</style></head><body><h1>${MODELS.map((m) => m.replace("claude-", "")).join(", ")}: side by side</h1>
 <p>The same jobs from your library, each run once on each model with the app's own prompts. ${cli ? `Run on your Claude subscription through <code>claude -p</code>; the dollars are what the API would have charged (list price): $${spent.toFixed(4)} in all.` : `Total spent: $${spent.toFixed(4)}.`}</p>
 <table><tr><th>Model</th><th>Cost</th><th>Errors</th></tr>${totals.map((t) => `<tr>${t}</tr>`).join("")}</table>
 ${rows}</body></html>`;
