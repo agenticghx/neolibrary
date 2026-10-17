@@ -98,14 +98,14 @@ describe("costs and choosing a model", () => {
     expect(() => getTextModel("rewrite", { ANTHROPIC_API_KEY: "  " })).toThrow("ANTHROPIC_API_KEY");
   });
 
-  it("gives routine features Haiku and judging features Opus, each changeable by a setting", () => {
+  it("gives Test yourself and Need to know Haiku, rewrites Sonnet, judging features Opus, each changeable by a setting", () => {
     const model = (feature: AiFeature, env: Record<string, string> = {}) => getTextModel(feature, { ANTHROPIC_API_KEY: KEY, ...env }).model;
-    expect(model("rewrite")).toBe("claude-haiku-5-5");
+    expect(model("rewrite")).toBe("claude-sonnet-5-5");
     expect(model("prerequisites")).toBe("claude-haiku-5-5");
     expect(model("questions")).toBe("claude-haiku-5-5");
     expect(model("ask")).toBe("claude-opus-5-5");
     expect(model("explain-back")).toBe("claude-opus-5-5");
-    expect(model("rewrite", { AI_MODEL_REWRITE: "claude-sonnet-5-5" })).toBe("claude-sonnet-5-5");
+    expect(model("rewrite", { AI_MODEL_REWRITE: "claude-opus-5-5" })).toBe("claude-opus-5-5");
     expect(model("explain-back", { AI_MODEL_EXPLAIN_BACK: "claude-haiku-5-5" })).toBe("claude-haiku-5-5");
     // A misspelt or unpriced model is ignored, so the spending cap always knows the price.
     expect(model("ask", { AI_MODEL_ASK: "claude-opus-9" })).toBe("claude-opus-5-5");
