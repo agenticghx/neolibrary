@@ -2234,3 +2234,12 @@ tests that pin it, in a small PR.
 **Result.** The hypothesis held. The same logs measured Part B: 32 s and 38 s to make each new page.
 **Lesson.** When a live bug does not reproduce locally, the difference is often time: a five-minute link cannot fail in a test that pauses for two seconds. The live logs found it in one query.
 **Next experiment.** After the deploy, Samuel pauses a made page for more than five minutes and presses Play.
+
+### Iteration 86 · 2026-10-16 20:01 (laptop clock) · M25 S6 and S7 through the merge train · success
+
+**Hypothesis.** S6 and S7, rebased onto main with the squash-merged S5 commits dropped, pass CI as built: their code is byte-identical to the tested branches.
+**Action.** Rebased each with `--onto` from the old base, opened #188 and #189, ran the merge train.
+**Evaluation.** #188 failed twice (runs 38980097951, 38981045347): Home's filter test, then the Path editor test, each expected *A Scanned Meditation* twice and saw it once. #189 passed on its first round.
+**Result.** The code was fine; three tests were not. S6's reader test was the first to make a text edition, and those tests built their expected book lists from `/api/export`, which carries the hidden edition. Fixed in the tests (leave out `editionOf`), merged as 9610d14 and 7303e93.
+**Lesson.** A new kind of hidden row breaks every test that derives "what the page should list" from the export. When a step adds such a row, `grep -n "api/export" e2e/` and fix every list-deriving test in one round, not one per CI run.
+**Next experiment.** Deploy 7303e93 and check `/api/health`.
