@@ -93,10 +93,15 @@ export const generationCacheKey = (kind: string, options: Record<string, string>
 
 const cacheKeyOf = (req: GenerationRequest) => generationCacheKey(req.kind, req.options, req.promptHash, sha256(req.input));
 
-/** The estimated cost of a request, in US dollars: generous, so the cap errs on the safe side. */
+/**
+ * The estimated cost of a request, in US dollars: generous, so the cap errs on
+ * the safe side. It assumes the prompt cache misses and the system prompt is
+ * written to it, the dearest case (1.25 times the input price).
+ */
 export function estimateCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "input" | "maxTokens">) {
   const output = Math.min(req.maxTokens, estimateTokens(req.input) * 2 + 1000);
-  return costUsd(PRICES[model.model] ? model.model : "unknown", estimateTokens(req.system + req.prompt), output);
+  const system = estimateTokens(req.system);
+  return costUsd(PRICES[model.model] ? model.model : "unknown", system + estimateTokens(req.prompt), output, { write: system, read: 0 });
 }
 
 export const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(2)}`;
@@ -370,7 +375,7 @@ export async function generate(
           inputHash: sha256(req.input),
           inputTokens: result.inputTokens,
           outputTokens: result.outputTokens,
-          costUsd: costUsd(result.model, result.inputTokens, result.outputTokens),
+          costUsd: costUsd(result.model, result.inputTokens, result.outputTokens, result.cache),
           output: result.text,
           createdAt: now,
         })

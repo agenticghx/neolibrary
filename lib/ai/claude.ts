@@ -31,7 +31,11 @@ export class ClaudeModel implements TextModel {
         ...(this.model.startsWith("claude-haiku-") ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const }),
         thinking: { type: "adaptive", display: "omitted" },
         output_config: req.schema ? { effort: req.effort, format: { type: "json_schema", schema: req.schema } } : { effort: req.effort },
-        system: req.system,
+        // The system prompt (the long fixed instructions) goes into Anthropic's
+        // prompt cache for 5 minutes: the next call with the same instructions
+        // reads it back at a fraction of the price. One shorter than the
+        // model's minimum (512 tokens) is simply not cached, at no extra cost.
+        system: [{ type: "text", text: req.system, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: req.prompt }],
       });
     } catch (e) {
@@ -49,11 +53,14 @@ export class ClaudeModel implements TextModel {
       .join("")
       .trim();
     if (!text) throw new AiError("Claude returned no text.");
+    const write = response.usage.cache_creation_input_tokens ?? 0;
+    const read = response.usage.cache_read_input_tokens ?? 0;
     return {
       text,
       model: response.model,
-      inputTokens: response.usage.input_tokens + (response.usage.cache_creation_input_tokens ?? 0) + (response.usage.cache_read_input_tokens ?? 0),
+      inputTokens: response.usage.input_tokens + write + read,
       outputTokens: response.usage.output_tokens,
+      cache: { write, read },
     };
   }
 }

@@ -3,6 +3,7 @@ import { ClaudeModel } from "./claude";
 import { getTextModel } from "./index";
 import { AiError, AiNotConfigured, AiRefused, costUsd, modelFor, type AiFeature } from "./model";
 import { FakeModel } from "./fake";
+import { estimateCost } from "./generate";
 
 // No real key and no network: a stand-in for the API answers instead (ground rule 3).
 const KEY = "not-a-real-key";
@@ -31,10 +32,10 @@ const message = (over: Record<string, unknown> = {}) => ({
 const req = { system: "Rewrite.", prompt: "<passage>Text.</passage>", maxTokens: 4000, effort: "low" as const };
 
 describe("ClaudeModel", () => {
-  it("sends the current model with adaptive thinking, the effort level and server-side fallbacks", async () => {
+  it("sends the current model with adaptive thinking, the effort level, server-side fallbacks and a cached system prompt", async () => {
     const api = fakeApi(message());
     const out = await new ClaudeModel(KEY, undefined, { fetch: api.fetch }).generate(req);
-    expect(out).toEqual({ text: "A plainer paragraph.", model: "claude-opus-5-5", inputTokens: 1200, outputTokens: 300 });
+    expect(out).toEqual({ text: "A plainer paragraph.", model: "claude-opus-5-5", inputTokens: 1200, outputTokens: 300, cache: { write: 0, read: 0 } });
     const sent = api.requests[0];
     expect(sent.url).toMatch(/\/v1\/messages\?beta=true$/);
     expect(sent.headers.get("anthropic-beta")).toBe("server-side-fallback-2026-07-01");
@@ -45,9 +46,19 @@ describe("ClaudeModel", () => {
       fallbacks: "default",
       thinking: { type: "adaptive", display: "omitted" },
       output_config: { effort: "low" },
-      system: "Rewrite.",
+      system: [{ type: "text", text: "Rewrite.", cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: "<passage>Text.</passage>" }],
     });
+  });
+
+  it("counts tokens written to and read from the prompt cache as input, and reports them apart", async () => {
+    const usage = { input_tokens: 900, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 6000 };
+    const api = fakeApi(message({ usage }));
+    const out = await new ClaudeModel(KEY, undefined, { fetch: api.fetch }).generate(req);
+    expect(out.inputTokens).toBe(6900);
+    expect(out.cache).toEqual({ write: 0, read: 6000 });
+    const first = fakeApi(message({ usage: { ...usage, cache_creation_input_tokens: 6000, cache_read_input_tokens: 0 } }));
+    expect((await new ClaudeModel(KEY, undefined, { fetch: first.fetch }).generate(req)).cache).toEqual({ write: 6000, read: 0 });
   });
 
   it("asks for structured output (JSON matching a schema) when given one", async () => {
@@ -90,6 +101,32 @@ describe("costs and choosing a model", () => {
     expect(costUsd("claude-haiku-5-5", 100_001, 1000)).toBeCloseTo(0.0525, 4);
   });
 
+  it("prices prompt-cache writes at 1.25 times the input price and reads at the model's cache price", () => {
+    // Opus 5.5: input $4, a cache write $5, a cache read $0.20 (a twentieth).
+    expect(costUsd("claude-opus-5-5", 1_000_000, 0, { write: 1_000_000, read: 0 })).toBeCloseTo(5);
+    expect(costUsd("claude-opus-5-5", 1_000_000, 0, { write: 0, read: 1_000_000 })).toBeCloseTo(0.2);
+    // Sonnet 5.5 reads are also a twentieth ($0.10); Haiku 5.5 and Opus 5 a tenth.
+    expect(costUsd("claude-sonnet-5-5", 1_000_000, 0, { write: 0, read: 1_000_000 })).toBeCloseTo(0.1);
+    expect(costUsd("claude-haiku-5-5", 100_000, 0, { write: 0, read: 100_000 })).toBeCloseTo(0.001);
+    expect(costUsd("claude-haiku-5-5", 100_000, 0, { write: 100_000, read: 0 })).toBeCloseTo(0.0125);
+    expect(costUsd("claude-opus-5", 1_000_000, 0, { write: 0, read: 1_000_000 })).toBeCloseTo(0.5);
+    // The rest of the input is at the full price; no cache figures means no cache.
+    expect(costUsd("claude-opus-5-5", 7900, 0, { write: 0, read: 6000 })).toBeCloseTo((1900 * 4 + 6000 * 0.2) / 1e6);
+    expect(costUsd("claude-opus-5-5", 7900, 300)).toBe(costUsd("claude-opus-5-5", 7900, 300, { write: 0, read: 0 }));
+    // Haiku's long-prompt prices start past 100,000 tokens of prompt, cached ones included.
+    expect(costUsd("claude-haiku-5-5", 120_000, 0, { write: 0, read: 100_000 })).toBeCloseTo((20_000 * 0.5 + 100_000 * 0.05) / 1e6);
+    // An unknown model is priced high: reads at $1, writes at $12.50.
+    expect(costUsd("some-new-model", 1_000_000, 0, { write: 1_000_000, read: 0 })).toBe(12.5);
+  });
+
+  it("estimates before a call as if the prompt cache missed and the system prompt was written to it", () => {
+    const model = new ClaudeModel(KEY, "claude-opus-5-5");
+    const system = "x".repeat(24_000); // 6,000 tokens by the four-characters rule
+    const est = estimateCost(model, { system, prompt: "y".repeat(4000), input: "y".repeat(4000), maxTokens: 4000 });
+    expect(est).toBeCloseTo((6000 * 5 + 1000 * 4 + 3000 * 20) / 1e6);
+    expect(est).toBeGreaterThan(costUsd("claude-opus-5-5", 7000, 3000));
+  });
+
   it("uses the fake in tests or with AI_FAKE=1, Claude with a key, and refuses to pretend without one", () => {
     expect(getTextModel("rewrite")).toBeInstanceOf(FakeModel);
     expect(getTextModel("rewrite", { AI_FAKE: "1" })).toBeInstanceOf(FakeModel);
@@ -123,7 +160,7 @@ describe("costs and choosing a model", () => {
       max_tokens: 4000,
       thinking: { type: "adaptive", display: "omitted" },
       output_config: { effort: "low" },
-      system: "Rewrite.",
+      system: [{ type: "text", text: "Rewrite.", cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: "<passage>Text.</passage>" }],
     });
   });
