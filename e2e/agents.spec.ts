@@ -1,8 +1,11 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { PDFDocument } from "pdf-lib";
 import { ADMIN, ADMIN_STATE } from "./pages";
 
 // M11 (a): a personal API token made in the UI lets a client with no cookies
@@ -184,4 +187,61 @@ test("an MCP client with a token uses the four tools, and its note shows up in t
   await page.getByRole("button", { name: /^Notes/ }).click();
   const item = page.getByTestId("notes").getByRole("listitem").filter({ hasText: "The Time Traveller begins his explanation here." });
   await expect(item.getByTestId("note-agent")).toHaveText("Added by agent · MCP agent");
+});
+
+// M25 on the owner's Claude subscription (2026-10-17): pages of a scan read on the laptop with `claude -p`
+// (scripts/text-edition-on-subscription.ts) are sent with the owner's token; the last part makes the text edition.
+test("pages read on the subscription, sent with a token, make the scan's text edition", async ({ page, playwright }) => {
+  test.slow();
+  await page.goto("/agents");
+  await page.getByLabel("Which agent is it for?").fill("Text edition on my laptop");
+  await page.getByRole("button", { name: "Make a token" }).click();
+  const token = await page.getByTestId("new-token").inputValue();
+  // A scan of its own (a third, blank page), so the batch-made edition of the reader tests is not this one.
+  const doc = await PDFDocument.load(readFileSync("fixtures/books/scanned-meditation.pdf"));
+  doc.addPage([612, 792]);
+  const upload = await page.request.post("/api/books", {
+    multipart: { files: { name: "scanned-meditation-sent.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) } },
+  });
+  const scanId = (await upload.json()).results[0].bookId as string;
+
+  const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+  const promptHash = sha(readFileSync("prompts/transcribe-page.md", "utf8"));
+  const read = (n: number, markdown: string, over: object = {}) => ({ page: n, markdown, model: "claude-sonnet-5-5", promptHash, inputHash: sha(`picture ${n}`), inputTokens: 4321, outputTokens: 600, ...over });
+  const page1 = "# MEDITATION I.\n\nSeveral years have now elapsed since I first became aware that I had accepted, even from my youth, many false opinions for true.";
+  const page2 = "And I was thereby convinced that I must once for all seriously undertake to rid myself of all the opinions I had adopted.";
+  const url = `/api/agent/books/${scanId}/text-edition`;
+
+  // Without a token: 401; with the owner's token but other instructions: refused, nothing saved.
+  const anonymous = await agentClient(playwright);
+  expect((await anonymous.post(url, { data: { pages: [read(1, page1)] } })).status()).toBe(401);
+  await anonymous.dispose();
+  const agent = await agentClient(playwright, token);
+  const other = await agent.post(url, { data: { pages: [read(1, page1, { promptHash: sha("other instructions") })] } });
+  expect(other.status()).toBe(400);
+  expect((await other.json()).error).toContain("other instructions");
+
+  const first = await agent.post(url, { data: { pages: [read(1, page1)], finish: false } });
+  expect(first.status()).toBe(200);
+  expect(await first.json()).toMatchObject({ saved: expect.any(Number), editionId: null }); // 1, or 0 on a retry: sent again, nothing new
+  const last = await agent.post(url, { data: { pages: [read(2, page2)], blankPages: [3], finish: true } });
+  expect(last.status()).toBe(200);
+  const made = await last.json();
+  expect(made).toMatchObject({ read: 2, blankPages: [3], editionId: expect.any(String) });
+  await agent.dispose();
+
+  // The scan now has a text edition: Text in the reader's footer opens it at its first page, which says who read it.
+  await page.goto(`/books/${scanId}/read`);
+  const edition = page.getByRole("group", { name: "Edition" });
+  await edition.getByRole("link", { name: "Text" }).click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(edition.getByText("Text")).toHaveAttribute("aria-current", "page");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector("foliate-view") as unknown as { renderer?: { getContents(): { doc: Document }[] } };
+        return (view?.renderer?.getContents() ?? []).map(({ doc }) => doc?.body?.textContent ?? "").join(" ");
+      }),
+    )
+    .toContain("read from the scanned pages of the PDF by claude-sonnet-5-5");
 });

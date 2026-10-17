@@ -62,6 +62,19 @@ export class TextEditionError extends Error {
  */
 export const pageEstimateUsd = (model: string) => batchCostUsd(model, MAX_PICTURE_TOKENS + 400, 1000);
 
+/** A page read somewhere other than this server (on the owner's Claude subscription, by scripts/text-edition-on-subscription.ts). */
+export type ReadElsewherePage = {
+  page: number;
+  markdown: string;
+  /** The model that read it, as Claude reported it. */
+  model: string;
+  /** Fingerprints of the instructions and of the page picture sent, as `prepare` makes them. */
+  promptHash: string;
+  inputHash: string;
+  inputTokens: number;
+  outputTokens: number;
+};
+
 export const pageSectionId = (page: number) => `page-${page}`;
 const pageOf = (sectionId: string | null) => Number(/^page-(\d+)$/.exec(sectionId ?? "")?.[1] ?? NaN);
 
@@ -562,6 +575,116 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
   else await db.insert(books).values({ id, ownerId, editionOf: scanId, createdAt: madeAt, ...values });
   await buildSections(db, id, epub, info.toc, "epub");
   return id;
+}
+
+/** How pages read elsewhere are marked: `provider` on their rows and job, so the generations table tells them from pages read through the API. */
+export const SUBSCRIPTION_PROVIDER = "claude-subscription";
+const MAX_PAGES_A_PART = 400;
+const MAX_PAGE_CHARS = 100_000;
+
+/**
+ * Saves pages of the owner's scan read somewhere other than this server: on
+ * the owner's own Claude subscription, by scripts/text-edition-on-subscription.ts
+ * (Samuel, 2026-10-17: "pls run it against my subscription"), with the same
+ * instructions as `prepare` (the same prompt fingerprint is required) and the
+ * page pictures drawn by the same code. Each page becomes a `transcribe` row
+ * like a page read by batch (provider `claude-subscription`, cost $0: nothing
+ * was spent from the app's AI limits), so it is never read again by the server.
+ * Sent in parts; the last (`finish: true`) checks every page read against the
+ * scan's hidden text, records a finished job with the blank pages and the
+ * checks, and makes the text edition. Refused while a batch job goes on.
+ */
+export async function savePagesReadElsewhere(
+  deps: Pick<TextEditionDeps, "db" | "storage" | "now">,
+  ownerId: string,
+  bookId: string,
+  input: { pages?: unknown; blankPages?: unknown; finish?: unknown },
+) {
+  const { db } = deps;
+  const book = await pdfOf(db, ownerId, bookId);
+  const pageCount = await pageCountOf(db, book);
+  const going = await latestJob(db, ownerId, bookId);
+  if (going && (ACTIVE as readonly string[]).includes(going.status)) throw new TextEditionError("This book's pages are being read by batch now: stop that first.", 409);
+  const { hash: promptHash } = await prompt();
+  const pages = Array.isArray(input.pages) ? input.pages : [];
+  if (pages.length > MAX_PAGES_A_PART) throw new TextEditionError(`Send at most ${MAX_PAGES_A_PART} pages at a time.`, 413);
+  const isPage = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= pageCount;
+  const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
+  const valid = pages.map((raw, i): ReadElsewherePage => {
+    const p = (raw ?? {}) as Partial<ReadElsewherePage>;
+    const bad = (why: string) => new TextEditionError(`Page ${i + 1} sent: ${why}`);
+    if (!isPage(p.page)) throw bad(`the page number must be between 1 and ${pageCount}.`);
+    if (typeof p.markdown !== "string" || !p.markdown.trim() || p.markdown.length > MAX_PAGE_CHARS) throw bad("the text is missing or too long.");
+    if (typeof p.model !== "string" || !/^claude-[a-z0-9-]+$/.test(p.model)) throw bad("the model must be a Claude model.");
+    if (p.promptHash !== promptHash) throw bad("it was read with other instructions than prompts/transcribe-page.md on this server.");
+    if (typeof p.inputHash !== "string" || !/^[0-9a-f]{64}$/.test(p.inputHash)) throw bad("the page picture's fingerprint is missing.");
+    if (!isCount(p.inputTokens) || !isCount(p.outputTokens)) throw bad("the token counts are missing.");
+    return { page: p.page, markdown: p.markdown, model: p.model, promptHash, inputHash: p.inputHash, inputTokens: p.inputTokens!, outputTokens: p.outputTokens! };
+  });
+  const now = deps.now?.() ?? new Date();
+  let saved = 0;
+  for (const p of valid) {
+    const options = { model: p.model, via: "subscription" };
+    const cacheKey = generationCacheKey(TRANSCRIBE_KIND, options, promptHash, p.inputHash);
+    const [already] = await db
+      .select({ id: generations.id, output: generations.output })
+      .from(generations)
+      .where(and(eq(generations.ownerId, ownerId), eq(generations.cacheKey, cacheKey), eq(generations.bookId, bookId)));
+    if (already?.output === p.markdown) continue; // sent again: nothing new
+    await db.insert(generations).values({
+      ownerId,
+      bookId,
+      sectionId: pageSectionId(p.page),
+      kind: TRANSCRIBE_KIND,
+      options,
+      cacheKey: already ? generationCacheKey(TRANSCRIBE_KIND, options, promptHash, `${p.inputHash}:${now.toISOString()}`) : cacheKey,
+      provider: SUBSCRIPTION_PROVIDER,
+      model: p.model,
+      promptName: PROMPT_NAME,
+      promptHash,
+      inputHash: p.inputHash,
+      inputTokens: p.inputTokens,
+      outputTokens: p.outputTokens,
+      costUsd: 0,
+      output: p.markdown,
+      createdAt: now,
+    });
+    saved++;
+  }
+  if (input.finish !== true) return { saved, editionId: null, read: 0, blankPages: [] as number[], toCheck: [] as TextEditionCheck[] };
+
+  // The last part: check every page read (the newest reading of each) against the scan's hidden text, and make the edition.
+  const rows = await db
+    .select({ sectionId: generations.sectionId, output: generations.output, model: generations.model })
+    .from(generations)
+    .where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, TRANSCRIBE_KIND)))
+    .orderBy(asc(generations.createdAt), asc(generations.id));
+  const newest = new Map<number, { output: string; model: string }>();
+  for (const r of rows) newest.set(pageOf(r.sectionId), r);
+  if (!newest.size) throw new TextEditionError("No page of this book has been read yet: send the pages first.");
+  const checks: TextEditionCheck[] = [];
+  for (const [page, r] of [...newest].sort(([a], [b]) => a - b)) checks.push({ page, ...checkPage(r.output, await hiddenTextOf(db, bookId, page)) });
+  const blank = (Array.isArray(input.blankPages) ? input.blankPages : []).filter(isPage).filter((p) => !newest.has(p));
+  const blankPages = [...new Set(blank)].sort((a, b) => a - b);
+  const toCheck = checks.filter((c) => c.flagged);
+  const models = [...new Set([...newest.values()].map((r) => r.model))].join(" and ");
+  await db.insert(textEditionJobs).values({
+    ownerId,
+    bookId,
+    provider: SUBSCRIPTION_PROVIDER,
+    model: models,
+    promptHash,
+    status: "finished",
+    pageCount,
+    estimateUsd: 0,
+    blankPages,
+    checks,
+    message: `Read on the owner's Claude subscription: ${newest.size} page${newest.size === 1 ? "" : "s"} read, ${blankPages.length} blank, ${toCheck.length} to check.`,
+    createdAt: now,
+    endedAt: now,
+  });
+  const editionId = await makeTextEdition(deps, ownerId, bookId);
+  return { saved, editionId, read: newest.size, blankPages, toCheck };
 }
 
 /** Ends a job whose batches are all sent and saved, and makes the text edition from what was read. */

@@ -172,6 +172,35 @@ that page today. It is the only such page of 388.
   flagged, look at them, and read a chapter in the text edition on the
   phone.
 
+## Reading on the owner's Claude subscription (added 2026-10-17)
+
+Samuel's API budget is small and his Claude subscription has room ("pls run
+it against my subscription (claude -p)"). So a scan can also be read on the
+laptop, at no cost to the API, and sent to the live site:
+
+```bash
+npx tsx scripts/text-edition-on-subscription.ts read <scan.pdf> <folder outside git>
+NEOLIBRARY_AGENT_TOKEN=... npx tsx scripts/text-edition-on-subscription.ts send <folder> <site address> <book id>
+```
+
+- **`read`** draws each page with the server's own code
+  (`lib/library/page-pictures.ts`), skips blank pages the same way, and sends
+  each picture with `prompts/transcribe-page.md` (byte for byte) to Claude
+  Sonnet 5.5 through `claude -p` (no tools, no system prompt of Claude Code's
+  own, so the model sees what the Batch API would send). One file per page;
+  run it again and it reads only the pages missing.
+- **`send`** posts the pages, in parts, to
+  `POST /api/agent/books/<id>/text-edition` with an API token of the
+  library's owner (made at /agents). Each page becomes a `transcribe` row
+  like a batch page, marked `provider: claude-subscription` and costing $0
+  against the AI limits (nothing was spent from them). The last part checks
+  every page against the scan's hidden text, records a finished job (blank
+  pages, pages to check) and makes the text edition, exactly as a batch job
+  does when it ends. Pages already read this way are never read again by the
+  server.
+- The server's own way (the book page's button, by batch) still works once
+  `ANTHROPIC_API_KEY` is on the server.
+
 ## Later, not in M25
 
 - Let the transcription replace a scanned PDF's hidden text for Listen,
