@@ -32,6 +32,39 @@ describe("joining the pages", () => {
     expect(chapters.map((c) => c.pages)).toEqual([[1, 2], [3, 4, 5, 6], [7]]);
   });
 
+  it("makes one chapter of a title over two lines, and none of the book's title printed again (The Pay Off)", () => {
+    const front = assembleEdition(
+      [
+        read(1, "'Admirably lucid'\n\n# THE LIGHTHOUSE & ITS KEEPER\n\nIRIS WICK"),
+        read(2, "'A quiet triumph.'"),
+        read(3, "# The Lighthouse & Its Keeper"), // the half title
+        read(4, "# THE LIGHTHOUSE & ITS KEEPER\n\n## A keeper's year\n\nHarbour Press"), // the title page
+        read(5, "# PART I\n\n# NIGHT"),
+        read(6, "# 1. Dusk\n\nThe keeper climbs the stair."),
+        read(7, "# Notes\n\nOn dusk."),
+        read(8, "# PART II\n\n# DAY"),
+        read(9, "# Notes\n\nOn dawn."), // the same name again, but not the book's title: a chapter of its own
+      ],
+      META.title,
+    );
+    expect(front.map((c) => c.title)).toEqual(["Opening pages", "THE LIGHTHOUSE & ITS KEEPER", "PART I: NIGHT", "1. Dusk", "Notes", "PART II: DAY", "Notes"]);
+    expect(front.map((c) => c.pages)).toEqual([[1], [2, 3, 4], [5], [6], [7], [8], [9]]); // page 1 opens with the quote, before the title
+    expect(front[1].html).toContain("<h1>The Lighthouse &amp; Its Keeper</h1>"); // still shown where it was printed
+    expect(front[2].html).toMatch(/<h1>PART I<\/h1>\s*<h1>NIGHT<\/h1>/);
+  });
+
+  it("keeps a heading at its neighbours' level when one page gives it a level too high (The Pay Off's Sources)", () => {
+    const sources = assembleEdition([
+      read(1, "# Sources\n\n## Chapter 1\n\nOn lamps, see the keepers' handbook."),
+      read(2, "## Chapter 2\n\nOn tides, see the almanac."),
+      read(3, "# Chapter 3\n\nOn boats, see the harbour log."),
+      read(4, "## Chapter 4\n\nOn fog, see the weather book."),
+      read(5, "# Index\n\n## A\n\nalmanac, 2"),
+    ]);
+    expect(sources.map((c) => c.title)).toEqual(["Sources", "Index"]);
+    expect(sources[0].html).toContain("<h2>Chapter 3</h2>");
+  });
+
   it("carries a paragraph across a page break, with the page marker inside it", () => {
     expect(chapters[1].html).toContain(
       'winds the clock that turns the <span epub:type="pagebreak" role="doc-pagebreak" id="page-4" aria-label="4"></span>lens, then writes in the log.',
