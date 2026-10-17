@@ -752,7 +752,9 @@ second.** If Claude summarises before you have thought, reading gets
 easier and you learn less. So no step here shows Claude's view of a passage
 until the reader has put down their own.
 
-- **R1 · Explain it back.** At the end of a section (an EPUB chapter, or a
+- **R1 · Explain it back.** *Built 2026-10-16 (branch `m26-r1-explain-back`):
+  the fourth Study tab; a "part" is an EPUB chapter, or one PDF page for now.*
+  At the end of a section (an EPUB chapter, or a
   PDF page range), the reader says or types about three sentences on what
   it argued. Speaking uses the voice notes' speech-to-text (M8). Claude then
   compares the summary with the text and quotes the lines the summary

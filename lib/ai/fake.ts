@@ -23,6 +23,7 @@ export class FakeModel implements TextModel {
 function fakeAnswer(req: TextRequest) {
   const task = /^Task: (.+)$/m.exec(req.prompt)?.[1] ?? "answer";
   if (task === "Ask this book") return fakeAsk(req.prompt);
+  if (task === "Explain it back") return JSON.stringify(fakeExplainBack(req.prompt));
   const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   if (req.schema) return JSON.stringify(/question/i.test(task) ? fakeQuestions(text) : fakeConcepts(text));
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
@@ -40,6 +41,24 @@ function fakeAsk(prompt: string) {
   if (!first) return "The passages found in this book do not answer this. (The test AI was given no passages.)";
   const words = first.replace(/\s+/g, " ").split(" ").slice(0, 12).join(" ");
   return `The test AI's answer, from the passages: the book says “${words}…” [1]`;
+}
+
+/**
+ * Explain it back (M26 R1): one "missed" item quoting passage 1's first words exactly, and, when there is a second
+ * passage, one "misread" item quoting its first words. Real quotes, so the app's quote check passes.
+ */
+function fakeExplainBack(prompt: string) {
+  const first = (n: number) => {
+    const text = new RegExp(`<passage n="${n}"[^>]*>\\s*([\\s\\S]*?)\\s*</passage>`).exec(prompt)?.[1];
+    // Its first twelve words, copied as they are (a sentence would stop at "Mr.").
+    return text ? text.split(/\s+/).slice(0, 12).join(" ") : null;
+  };
+  const items: { kind: string; passage: number; quote: string; why: string }[] = [];
+  const one = first(1);
+  if (one) items.push({ kind: "missed", passage: 1, quote: one, why: "The test AI says your summary leaves out how this part opens." });
+  const two = first(2);
+  if (two) items.push({ kind: "misread", passage: 2, quote: two, why: "The test AI says the text puts this differently from your summary." });
+  return { items };
 }
 
 /** Prerequisites: the first few capitalised words of the text, as made-up concepts. */

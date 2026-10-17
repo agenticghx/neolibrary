@@ -261,3 +261,30 @@ test("M14 (6c): Think aloud in the mini-player pauses the reading, and the voice
     })
     .toBe(true);
 });
+
+// M26 R1: Explain it back by voice. The recording is saved as a voice note on the chapter (nothing said is lost), and
+// what the fake transcriber heard fills the summary box, for the reader to check before pressing Check.
+test("Explain it back by voice: the recording is kept as a voice note, and its words fill the summary", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Explain it back" }).click();
+  const explain = page.getByRole("region", { name: "Explain it back" });
+  await explain.getByRole("button", { name: "Say it instead" }).click();
+  const rec = explain.getByRole("group", { name: "Voice note" });
+  await rec.getByRole("button", { name: "Record" }).click();
+  await page.waitForTimeout(1500); // a moment of the fake microphone's tone
+  await rec.getByRole("button", { name: "Stop" }).click();
+  await rec.getByRole("button", { name: "Save voice note" }).click();
+  await expect(explain.getByRole("status")).toContainText("Your recording is saved as a voice note");
+  const box = explain.getByLabel("In your own words: what did this part argue?");
+  await expect(box).toHaveValue(/^Test transcript of a voice note \(\d+ bytes of audio\)\.$/);
+  await expect(explain.getByRole("button", { name: /^Check my summary/ })).toBeEnabled();
+
+  // The voice note is on the chapter's first paragraph (Search for Mr. Hyde), with what was said.
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const voice = page.getByTestId("notes").locator("li").filter({ hasText: "Voice note" }).filter({ hasText: "Mr. Utterson came home to his bachelor house" });
+  await expect(voice).toHaveCount(1);
+  await expect(voice).toContainText("Test transcript of a voice note");
+});

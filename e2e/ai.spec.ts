@@ -253,7 +253,7 @@ test("Study opens on Need to know, with Test yourself one tab away; Rewrite offe
   await expect(page.getByRole("button", { name: "What do I need to know?" })).toHaveCount(0); // the "?" is gone
   await page.getByRole("button", { name: "Study" }).click();
   const tabs = page.getByRole("tablist", { name: "Study" });
-  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask"]);
+  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask", "Explain it back"]);
   await expect(tabs.getByRole("tab", { name: "Need to know" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("region", { name: "What do I need to know?" })).toBeVisible();
   await tabs.getByRole("tab", { name: "Test yourself" }).click();
@@ -778,4 +778,106 @@ test("Ask this book: a question answered from the book's paragraphs, with a [1] 
   await expect(askPanel).toHaveCount(0);
   await expect.poll(landed).toContain("rugged countenance");
   await page.setViewportSize({ width: 1280, height: 800 });
+});
+
+// M26 R1 "Done when": Explain it back. The reader writes a summary of a chapter first; only then does the test AI
+// point to lines it missed, each quoted from the book and opening its place. The summary is the reader's own note,
+// and both it and the answer are kept after a reload. No answer exists, or is offered, before a summary.
+test("Explain it back: a summary first, then the lines it missed, each opening its place; kept after a reload", async ({ page }) => {
+  test.slow();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAtPhrase(page, "London was startled by a crime of singular ferocity");
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Story of the Door" }).click();
+  await expect(page.locator("footer")).toContainText("Story of the Door");
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Explain it back" }).click();
+  const explain = page.getByRole("region", { name: "Explain it back" });
+  const attempts = page.getByTestId("explain-attempt");
+  await expect(explain).toContainText("Story of the Door");
+
+  // Nothing from the AI before a summary: no answer, and the button waits for enough words.
+  const button = explain.getByRole("button", { name: /^Check my summary \((about \$0\.\d\d|under \$0\.01)\)$/ });
+  await expect(button).toBeDisabled();
+  await expect(attempts).toHaveCount(0);
+  await explain.getByLabel("In your own words: what did this part argue?").fill("A stern lawyer walks.");
+  await expect(button).toBeDisabled();
+  await expect(explain).toContainText("A few more words: at least 8.");
+
+  const summary = "Utterson, a stern but tolerant lawyer, walks with Enfield, who tells of a man trampling a child and paying with a cheque signed by someone respectable.";
+  await explain.getByLabel("In your own words: what did this part argue?").fill(summary);
+  await button.click();
+  const attempt = attempts.first();
+  await expect(attempt).toContainText(`“${summary}”`);
+  await expect(attempt).toContainText("What your summary missed · written by the test AI");
+  await expect(attempt).toContainText("Missed");
+  await expect(attempt).toContainText("Not quite");
+  await expect(attempt).toContainText("“Mr. Utterson the lawyer was a man of a rugged countenance that");
+  await expect(attempt).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
+  await expect(explain.getByLabel("In your own words: what did this part argue?")).toHaveValue(""); // ready for another try
+
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect(attempt).toBeVisible();
+      await page.waitForTimeout(300);
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${name} ${scheme}: sideways scroll`).toBeLessThanOrEqual(0);
+      // The panel itself never scrolls sideways (four tabs in one row once pushed its left edge out of sight).
+      expect(await explain.evaluate((el) => el.scrollWidth - el.clientWidth), `${name} ${scheme}: the panel scrolls sideways`).toBeLessThanOrEqual(0);
+      await attempt.getByRole("button", { name: /go to this place/ }).first().scrollIntoViewIfNeeded(); // the answer in view
+      await page.screenshot({ path: `screenshots/explain-back-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Each quoted line opens its place in the book: the first paragraph, then the second.
+  const landed = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { lastLocation: { range: Range } | null } | null;
+      return view?.lastLocation?.range.toString() ?? "";
+    });
+  const lines = attempt.getByRole("button", { name: /go to this place/ });
+  await expect(lines).toHaveCount(2);
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Search for Mr. Hyde" }).click();
+  await expect(page.locator("footer")).toContainText("Search for Mr. Hyde");
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Explain it back" }).click();
+  await expect(attempts).toHaveCount(0); // another chapter: its own summaries, none yet
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Story of the Door" }).click();
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Explain it back" }).click();
+  await lines.nth(1).click();
+  await expect.poll(landed).not.toBe("");
+  await expect(page.locator("footer")).toContainText("Story of the Door");
+  await lines.first().click();
+  await expect.poll(landed).toContain("rugged countenance");
+
+  // The summary is the reader's own note on the chapter.
+  await page.getByRole("button", { name: "Notes" }).click();
+  await expect(page.getByTestId("notes")).toContainText(summary);
+
+  // Kept after a reload; the same summary again is answered from storage, free, and adds no second note.
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // The reader reopens at the place it saved last, which may be another chapter: go back to this one.
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Story of the Door" }).click();
+  await expect(page.locator("footer")).toContainText("Story of the Door");
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Explain it back" }).click();
+  await expect(attempts.first()).toContainText(`“${summary}”`);
+  await expect(attempts.first()).toContainText("“Mr. Utterson the lawyer was a man of a rugged countenance that");
+  await explain.getByLabel("In your own words: what did this part argue?").fill(summary);
+  await button.click();
+  await expect(attempts.first()).toContainText("checked before, so this time free");
+  await expect(attempts).toHaveCount(1);
+  const { annotations } = (await (await page.request.get(`/api/books/${bookIdOf(page)}/annotations`)).json()) as { annotations: { body: string }[] };
+  expect(annotations.filter((a) => a.body === summary)).toHaveLength(1);
 });

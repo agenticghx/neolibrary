@@ -2243,3 +2243,12 @@ tests that pin it, in a small PR.
 **Result.** The code was fine; three tests were not. S6's reader test was the first to make a text edition, and those tests built their expected book lists from `/api/export`, which carries the hidden edition. Fixed in the tests (leave out `editionOf`), merged as 9610d14 and 7303e93.
 **Lesson.** A new kind of hidden row breaks every test that derives "what the page should list" from the export. When a step adds such a row, `grep -n "api/export" e2e/` and fix every list-deriving test in one round, not one per CI run.
 **Next experiment.** Deploy 7303e93 and check `/api/health`.
+
+### Iteration 87 · 2026-10-16 21:42 (laptop clock) · M26 R1, Explain it back · success
+
+**Hypothesis.** Explain it back can be built from Ask's pieces (stored answers, caps, numbered passages, a fake) and Test yourself's chapter lookup, with one new rule: the reader's summary is saved before Claude is asked.
+**Action.** A library module, a prompt with structured output, a route, a fourth Study tab; unit tests with the fake model; a browser test in the ai project and a voice test in the notes project (which has Chromium's fake microphone).
+**Evaluation.** Unit: 9 passed. Browser (local, the ai project after setup and uploads): 16 passed. The first screenshots showed the panel's left edge cut off: four tabs on one row were wider than the panel, and selecting the last one scrolled the whole panel sideways. The page-level "no sideways scroll" check passed all the same, because the panel, not the page, scrolled.
+**Result.** Tabs two by two; the test now also checks the panel's own scroll width. The note did not show in Notes until a reload (the reader reads notes once), so the panel now tells the reader to read them again.
+**Lesson.** A "no sideways scroll" check on the page misses a scrolling panel; check the element that holds the new content. And look at the screenshots before trusting a green run.
+**Next experiment.** Samuel writes a summary of a real chapter and judges whether what it points to is fair.
