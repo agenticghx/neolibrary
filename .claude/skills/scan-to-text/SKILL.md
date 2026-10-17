@@ -37,6 +37,16 @@ The server could read pages itself through the Batch API, but it has no Anthropi
    ```
    - Pages with almost no ink are skipped as blank. An answer in which Claude declines and offers a summary is a failed try; it happened once in 360 pages.
    - Stopped part-way, the same command reads only the pages still missing.
+   **For the best result, read the book a second time** into another folder (`$F-2`), then compare the two readings:
+   ```bash
+   npx tsx $S compare $F $F-2
+   ```
+   Pages read word for word alike twice are very likely right. Look at each page that differs, or read it a third time as a tiebreak (`reread` in the second folder). The differences on *The Pay Off*, 360 pages:
+   - 354 pages agreed;
+   - hyphens at a line end were guessed both ways: keep the book's usual spelling (count both spellings across the page files), and leave it where the book uses both;
+   - a library sticker was read as text: read the page again.
+
+   Send the folder you settle on.
 3. **Check, then look.**
    ```bash
    npx tsx $S check <pdf> $F
@@ -78,6 +88,7 @@ The server could read pages itself through the Batch API, but it has no Anthropi
 ## Done when (the quality bar)
 
 - Every page is read or blank: `check` says "0 neither" and "Declined: none".
+- The book was read twice, and every page the two readings disagree on was looked at or settled by a third reading.
 - Chapter numbers have no gap or double, unless the printed book has one; check its picture.
 - Every flagged page, and the five sampled unflagged pages, have been looked at against their pictures, and each is either right or read again.
 - Every paragraph `preview` lists as opening mid-sentence has been looked at, and is right as printed or read again.
@@ -107,7 +118,7 @@ The check also cannot see:
 
 ## Files
 
-- `scripts/text-edition-on-subscription.ts`: `read`, `check`, `pictures`, `reread`, `preview`, `send`.
+- `scripts/text-edition-on-subscription.ts`: `read`, `check`, `pictures`, `reread`, `preview`, `compare`, `send`.
 - `prompts/transcribe-page.md`: the reading instructions. Changing them changes every page's fingerprint; read `references/prompt.md` first.
 - `scripts/eval-transcribe-prompt.ts`: compares versions of the instructions on chosen pages (words wrong against a checked text, refusals, flags, headings, text a page must contain).
 - `lib/library/page-check.ts`: the check. `lib/library/text-epub.ts`: pages to chapters to EPUB. `lib/library/text-edition.ts`: `savePagesReadElsewhere`, the server side of `send`.
