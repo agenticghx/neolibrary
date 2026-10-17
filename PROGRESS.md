@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel opens The Pay Off signed in, presses Text, and gives a verdict on the text edition.
+next_action: Merge and deploy text-by-default and the table fix; then the scan-to-text skill and prompt audit.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -268,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 13:49 · Claude Opus 5.5 (laptop) · Text editions open by default; wide tables stay in their column, with an over-text check
+- **Done:** Samuel asked for text by default and for a way to catch text over text (his screenshot: The Pay Off p. 51's 9-column table over the text). Reader page: a scan with a text edition redirects to the edition (its own place, or ?page=<scan page> the first time); ?view=scan or ?at= opens the scan; the Scan link carries view=scan. savePosition on an edition also sets the scan's progress and lastOpenedAt (Home Continue follows). Tables: bookCss and the edition's CSS make a table display:block, max-width 100%, overflow-x auto. Over-text check in e2e/agents.spec.ts (9-column table at 390 and 1280 px): fails without the fix ('the table is 773 px wide in a 280 px column'), passes with it; screenshots wide-table-{phone,desktop}.png looked at.
+- **Key paths:** app/(reader)/books/[id]/read/{page.tsx,Reader.tsx,settings.ts}; lib/library/reading.ts; lib/library/text-epub.ts; e2e/agents.spec.ts; e2e/reader.spec.ts
+- **Commands that worked:** e2e: build, next start with the e2e settings, playwright --project=setup, then --project=agents --project=reader --no-deps --grep 'subscription|Scan \| Text|scanned PDF|scanned book' -> 4 passed; npx vitest run -> 914 passed, 2 skipped; tsc and eslint lib app scripts e2e clean
+- **Known issues / blockers:** A wide table scrolls sideways with no visible hint that it does. Not deployed when written.
+- **Exact next steps:** 1. PR, merge with the merge train, deploy. 2. Samuel opens The Pay Off: it opens as text; page 51's table stays in its column. 3. The scan-to-text skill and the prompt audit (next pull request).
 
 ### 2026-10-17 13:23 · Claude Opus 5.5 (laptop) · Live: ccb4c38 (#196, text edition chapters); The Pay Off's edition rebuilt
 - **Done:** #196 merged by the merge train as ccb4c38 (CI run 39052579766 green). No migration since 2c349511 (git diff on db/migrations empty), so no backup. Deployed from the clean checkout ../neolibrary-deploy (detached at ccb4c38, 0 untracked files) with NEOLIBRARY_COMMIT=ccb4c38; /api/health says ccb4c38; /sign-in 200. Pages sent again: 3 parts; edition 9ee604bd kept its id (notes and place stay); 360 read, 28 blank, same 12 pages to check; the new readings of pages 23 and 45 replace the old (newest reading wins).
