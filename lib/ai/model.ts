@@ -19,9 +19,14 @@ export type TextResult = {
   text: string;
   /** The model that actually wrote the text (a fallback model can step in). */
   model: string;
+  /** All input tokens, cached or not. */
   inputTokens: number;
   outputTokens: number;
+  /** How many of the input tokens were written to Anthropic's prompt cache, and how many were read from it. */
+  cache?: CacheTokens;
 };
+
+export type CacheTokens = { write: number; read: number };
 
 export interface TextModel {
   /** The provider, for spending caps ("anthropic"). */
@@ -37,24 +42,38 @@ export class AiNotConfigured extends AiError {}
 /** The model declined to answer. */
 export class AiRefused extends AiError {}
 
-/** US dollars per million tokens, from Anthropic's price list (checked 2026-10-04; Haiku 5.5 added 2026-10-17). */
-export const PRICES: Record<string, { input: number; output: number }> = {
-  "claude-opus-5-5": { input: 4, output: 20 },
-  "claude-opus-5": { input: 5, output: 25 },
-  "claude-opus-4-8": { input: 5, output: 25 },
-  "claude-sonnet-5-5": { input: 2, output: 10 },
+/**
+ * US dollars per million tokens, from Anthropic's price list (checked
+ * 2026-10-17). Prompt caching: the long fixed instructions (the system
+ * prompt) are written to Anthropic's cache once (`cacheWrite`, 1.25 times
+ * the input price, kept 5 minutes) and then read back (`cacheRead`): a
+ * twentieth of the input price on Opus 5.5 and Sonnet 5.5, a tenth on the
+ * others.
+ */
+export const PRICES: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }> = {
+  "claude-opus-5-5": { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2 },
+  "claude-opus-5": { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.5 },
+  "claude-opus-4-8": { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.1 },
   // Up to 100,000 tokens of prompt; a longer prompt is priced five times higher (below).
-  "claude-haiku-5-5": { input: 0.1, output: 0.5 },
-  fake: { input: 4, output: 20 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01 },
+  fake: { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2 },
 };
 // A model missing from the list is charged at the highest price we know, so
 // the spending cap errs on the safe side.
-const UNKNOWN = { input: 10, output: 50 };
-const HAIKU_LONG = { input: 0.5, output: 2.5 };
+const UNKNOWN = { input: 10, output: 50, cacheWrite: 12.5, cacheRead: 1 };
+const HAIKU_LONG = { input: 0.5, output: 2.5, cacheWrite: 0.625, cacheRead: 0.05 };
 
-export function costUsd(model: string, inputTokens: number, outputTokens: number) {
+/**
+ * The cost of a call. `inputTokens` counts all input; `cache` says how much
+ * of it was written to or read from the prompt cache, priced at those rates
+ * (the rest at the full input price). Haiku's prompt length counts cached
+ * tokens too, as Anthropic counts it.
+ */
+export function costUsd(model: string, inputTokens: number, outputTokens: number, cache: CacheTokens = { write: 0, read: 0 }) {
   const p = model === "claude-haiku-5-5" && inputTokens > 100_000 ? HAIKU_LONG : (PRICES[model] ?? UNKNOWN);
-  return (inputTokens * p.input + outputTokens * p.output) / 1_000_000;
+  const uncached = Math.max(0, inputTokens - cache.write - cache.read);
+  return (uncached * p.input + cache.write * p.cacheWrite + cache.read * p.cacheRead + outputTokens * p.output) / 1_000_000;
 }
 
 /**

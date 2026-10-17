@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel adds ANTHROPIC_API_KEY on the laptop (keyadd); then run scripts/compare-models.ts, set defaults from it, merge #193.
+next_action: Samuel adds an Anthropic key on the laptop (keyadd ANTHROPIC_API_KEY); then run scripts/check-prompt-cache.ts (proves the prompt cache, under one cent) and scripts/compare-models.ts.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-17 07:32 (laptop clock, from `date`). **Prompt caching for Claude calls (branch `m26-ai-prompt-cache`).** The system prompt (the long fixed instructions sent with every call) is now marked for Anthropic's prompt cache: the first call in any 5 minutes pays 1.25 times the input price for it, later calls pay a twentieth (Opus 5.5, Sonnet 5.5) or a tenth (Haiku 5.5). Stored costs use those prices; the spending-cap estimate before a call assumes the dearest case (a cache write). Only prompts of 512 tokens or more are cached: STE and Plain rewrites, and Need to know / Test yourself / Explain it back when the reader picks STE explanations; the others are too short and are sent as before at no extra cost. **Not proven live:** no Anthropic key on the laptop. When one exists: `ANTHROPIC_API_KEY=... npx tsx scripts/check-prompt-cache.ts` (Haiku, two identical STE rewrites, well under one cent); the second line must show "read from cache" above 0.
 
 Written 2026-10-17 06:59 (laptop clock, from `date`). **Pull request 193 (`m26-ai-model-per-feature`, not merged): a model per AI feature and stored answers shared between readers.** Rewrites, Need to know and Test yourself go to Claude Haiku 5.5 (about 40 times cheaper than Opus); Ask and Explain it back stay on Opus 5.5; `AI_MODEL_<FEATURE>` on Railway changes any of them. A second reader with exactly the same text gets a stored rewrite, Need to know or Test yourself as their own free copy; Ask and Explain it back are never shared. No migration. Unit tests 902 passed. **Waiting on Samuel:** there is no Anthropic key on the laptop (`keyls` lists none) nor on Railway; he runs `keyadd ANTHROPIC_API_KEY` in Terminal. Then: `npx tsx scripts/compare-models.ts ~/Backups/neolibrary/prod-before-0027-20261016T0313Z.sql ~/Documents/neolibrary-model-test` (paid, stops itself before $0.90, Samuel approved under $1), show him the report, change defaults in `lib/ai/model.ts` FEATURE_MODELS if Haiku falls short, paste the result in #193, merge with the merge train. The PDF page fix (#192) is merged and not deployed.
 
@@ -255,6 +257,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 07:32 · Claude Opus 5.5 (laptop) · Prompt caching for Claude calls (system prompt cached; cached prices in costs and caps)
+- **Done:** lib/ai/claude.ts sends the system prompt as one text block with cache_control {type: "ephemeral"} (5-minute cache) and returns the cache breakdown (written, read) beside the total input tokens. lib/ai/model.ts: PRICES gains cacheWrite and cacheRead per model, from Anthropic's price page (fetched 2026-10-17): Opus 5.5 $5 / $0.20, Sonnet 5.5 $2.50 / $0.10, Haiku 5.5 $0.125 / $0.01 (long prompts $0.625 / $0.05), Opus 5 and 4.8 $6.25 / $0.50, unknown models $12.50 / $1. Reads on Opus 5.5 and Sonnet 5.5 are a twentieth of input, not a tenth. costUsd takes the breakdown (without it, as before). lib/ai/generate.ts: stored cost uses the cached prices; estimateCost prices the system prompt as a cache write (the dearest case), so the cap still errs on the safe side. FEATURE_MODELS unchanged. scripts/check-prompt-cache.ts: two identical STE rewrites through ClaudeModel, printing the cache figures. Minimum cached length (Anthropic's caching page, 2026-10-17): 512 tokens on Opus 5.5, Sonnet 5.5, Haiku 5.5 and Opus 5; 1,024 on Opus 4.8. System prompts by characters/4: STE rewrite about 4,650, Plain rewrite about 1,470 (cached); level rewrites, Ask, Need to know, Test yourself, Explain it back about 200 to 340 (not cached, no extra cost), except with the STE explanation style (about 4,400, cached).
+- **Key paths:** lib/ai/claude.ts; lib/ai/model.ts; lib/ai/generate.ts; lib/ai/claude.test.ts; scripts/check-prompt-cache.ts
+- **Commands that worked:** npx vitest run --exclude '.claude/**' --exclude 'node_modules/**' -> 112 files passed, 1 skipped; 905 tests passed, 2 skipped; npx tsc --noEmit -p . -> clean; npx eslint lib/ai scripts/check-prompt-cache.ts -> clean; ANTHROPIC_API_KEY=not-a-real-key npx tsx scripts/check-prompt-cache.ts -> 'The Anthropic API key was refused.' (the request is built and reaches Anthropic; $0)
+- **Known issues / blockers:** Not checked live: no Anthropic key on the laptop (keyls lists none; no Keychain item ANTHROPIC_KEY_SCRIPTS; no ant CLI). Text editions (lib/ai/claude-batch.ts) are not cached: their system prompt is under 512 tokens; their cost arithmetic is unchanged.
+- **Exact next steps:** 1. Merge with the merge train. 2. When a key exists, run scripts/check-prompt-cache.ts and paste its two lines into the PR. 3. Deploy at Samuel's word (with #192 and #193).
 
 ### 2026-10-17 06:59 · Claude Opus 5.5 (laptop) · A model per AI feature (Haiku for routine work); stored answers shared between readers (#193)
 - **Done:** FEATURE_MODELS and modelFor in lib/ai/model.ts (Haiku 5.5 for rewrite, prerequisites, questions; Opus 5.5 for ask, explain-back; AI_MODEL_<FEATURE> overrides); getTextModel(feature); no server-side fallback sent to Haiku; Haiku price with its long-prompt rate; copyShared in lib/ai/generate.ts (same cache key, kinds rewrite/prerequisites/questions, copy at $0); docs/plan.md rule 6 note; scripts/compare-models.ts (paid side-by-side on a backup, in-memory PGlite, budget guard). Dropped the laptop's stale uncommitted checkpoint entries (origin/main's ledger kept; the diff saved in the session scratchpad).
