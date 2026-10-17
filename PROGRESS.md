@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: The owner token is in the Keychain as NEOLIBRARY_AGENT_TOKEN. Sending the 360 pages of The Pay Off waits for Samuel's word. Do not call claude -p until the subscription limit resets. The Anthropic key on Railway is still his.
+next_action: Samuel opens The Pay Off signed in, presses Text in the footer and gives a verdict on the text edition.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -268,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 12:50 · Claude Opus 5.5 (laptop) · The Pay Off's text edition is live: 360 pages sent with the owner token
+- **Done:** Reviewed Grok's work on #195 (test title collision fix; refuses a pageCount or blank page the book does not have): sound. Checked its claims: /api/health on the Railway address says 2c34951; main CI run 39046707942 success; The Pay Off (863a76a8) has page_count 388 in prod-before-0027 backup, as the manifest. Re-ran the page check on merged code: 12 of 360 flagged. Samuel made an owner token (keyadd NEOLIBRARY_AGENT_TOKEN); /api/agent/me answers as Samuel. Sent the pages: 3 parts (131, 120, 109); the live site made text edition 9ee604bd-d6e8-4f33-acd5-adc9638f9aa3: 360 read, 28 blank, pages to check 1, 11, 12, 51, 71, 72, 110, 165, 181, 212, 245, 383 (same as on the laptop). No claude -p call and no API spending.
+- **Key paths:** scripts/text-edition-on-subscription.ts; ~/Documents/neolibrary-text-edition/payoff/ (book text, not in git)
+- **Commands that worked:** npx tsx scripts/text-edition-on-subscription.ts send ~/Documents/neolibrary-text-edition/payoff <Railway address> 863a76a8-4ba1-4f71-af03-c082fe443105 -> edition made; curl /api/agent/books/9ee604bd-.../notes with the token -> 200
+- **Known issues / blockers:** Not looked at in the reader on the live site: the built-in browser is not signed in and Claude cannot sign in. The agent API cannot search inside one book (editions are left out of library search by design). Cosmetic: three THE PAY OFF title pages, part titles as two chapters, chapter 1 heading lacks 1.
+- **Exact next steps:** 1. Samuel opens The Pay Off signed in, presses Text in the reader footer, reads a chapter on the phone, and looks at a few flagged pages (51: the table). 2. If he wants, fix the cosmetic title and part headings in lib/library/text-epub.ts and resend (the send is free and keeps the edition's id, notes and place). 3. The other session's 225 rewrite runs.
 
 ### 2026-10-17 12:43 · Grok · Owner API token made and stored in the Keychain
 - **Done:** Samuel asked for the owner token. One admin account exists (Samuel) and there were no API tokens. A new token named "Laptop text edition" was stored: the database has only its hash and the public prefix nl_BsgwL, and the secret is in the Mac Keychain as NEOLIBRARY_AGENT_TOKEN (also listed in the Keychain name file, so a new terminal loads it). It expires 2027-01-15. GET /api/agent/me with that token returned HTTP 200 and acts as Samuel. The 360 pages were not sent.
