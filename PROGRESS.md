@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel opens The Pay Off signed in, presses Text in the footer and gives a verdict on the text edition.
+next_action: Merge the text-edition headings pull request, deploy, and send The Pay Off's pages again.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -268,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 13:09 · Claude Opus 5.5 (laptop) · Text editions: chapter titles and heading levels fixed; The Pay Off pages 23 and 45 read again
+- **Done:** Samuel said go ahead (fix the cosmetic faults and resend). lib/library/text-epub.ts: a level-1 heading straight after another on the same page joins its title (PART I: MOVING MONEY); the book's title printed again (half title, title page) starts no chapter; a level-1 heading shaped like a level-2 heading on the page before or after becomes level 2 (page 358 'Chapter 16' in the Sources). Pages 23 (chapter 1 had lost its '1.', checked against the scan) and 45 (PART II's name came back as level 2) read again on the subscription; both right now; the first readings are kept in ~/Documents/neolibrary-text-edition/payoff-replaced/. Checked: the Sources have no 'Chapter 6' heading in print (scan's hidden text agrees), so none is missing. Preview EPUB rebuilt: its contents list matches the printed book (title, Contents, Authors' note, Introduction, 7 parts with names, chapters 1 to 30, Epilogue, Acknowledgements, Sources, Index, About the authors).
+- **Key paths:** lib/library/text-epub.ts; lib/library/text-epub.test.ts; ~/Documents/neolibrary-text-edition/the-pay-off-text-edition.epub (preview, not in git)
+- **Commands that worked:** npx vitest run --exclude '.claude/**' --exclude 'node_modules/**' -> 912 passed, 2 skipped; npx tsc --noEmit -p . and npx eslint lib app scripts e2e -> clean; text-edition-on-subscription.ts read ... --pages 23-23 and 45-45 -> 1 page each
+- **Known issues / blockers:** The live edition (9ee604bd) still has the old chapters until this merges, deploys and the pages are sent again. Not looked at signed in on the live site.
+- **Exact next steps:** 1. Merge this pull request with the merge train. 2. Deploy from a clean checkout (no migration). 3. Send the pages again (same command; the edition keeps its id). 4. Samuel opens The Pay Off signed in, presses Text, and gives a verdict.
 
 ### 2026-10-17 12:50 · Claude Opus 5.5 (laptop) · The Pay Off's text edition is live: 360 pages sent with the owner token
 - **Done:** Reviewed Grok's work on #195 (test title collision fix; refuses a pageCount or blank page the book does not have): sound. Checked its claims: /api/health on the Railway address says 2c34951; main CI run 39046707942 success; The Pay Off (863a76a8) has page_count 388 in prod-before-0027 backup, as the manifest. Re-ran the page check on merged code: 12 of 360 flagged. Samuel made an owner token (keyadd NEOLIBRARY_AGENT_TOKEN); /api/agent/me answers as Samuel. Sent the pages: 3 parts (131, 120, 109); the live site made text edition 9ee604bd-d6e8-4f33-acd5-adc9638f9aa3: 360 read, 28 blank, pages to check 1, 11, 12, 51, 71, 72, 110, 165, 181, 212, 245, 383 (same as on the laptop). No claude -p call and no API spending.
