@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel makes an owner token at /agents (keyadd NEOLIBRARY_AGENT_TOKEN); then the 360 pages of The Pay Off can be sent. Do not call claude -p until the subscription limit resets. The Anthropic key on Railway is still his.
+next_action: The owner token is in the Keychain as NEOLIBRARY_AGENT_TOKEN. Sending the 360 pages of The Pay Off waits for Samuel's word. Do not call claude -p until the subscription limit resets. The Anthropic key on Railway is still his.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-17
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-17 12:43 (laptop clock, from `date`). **The owner token exists.** Name on /agents: "Laptop text edition" (prefix `nl_BsgwL`, expires 2027-01-15). The secret is in the Mac Keychain as `NEOLIBRARY_AGENT_TOKEN`; a new terminal loads it. GET /api/agent/me returned HTTP 200 and acts as Samuel. The 360 pages were not sent. Next, at Samuel's word: `NEOLIBRARY_AGENT_TOKEN=$NEOLIBRARY_AGENT_TOKEN npx tsx scripts/text-edition-on-subscription.ts send ~/Documents/neolibrary-text-edition/payoff <live address> <The Pay Off's book id>`. Do not call `claude -p` until the subscription limit has reset. This entry sits on local branch `m25-deploy-2c349511-record` (not pushed).
 
 Written 2026-10-17 12:07 (laptop clock, from `date`). **Live: 2c349511** (#195, the subscription text edition and the page check; no migration since 3bec05e, so no backup), deployed at Samuel's word ("yes deploy"). Serving deployment 35c78465 is a clean checkout of that commit. The first upload this hour (18aa8591) included two untracked local notes and is REMOVED. /api/health on both addresses says 2c34951; /sign-in 200; log "Page pictures: ready." The 360 pages were not sent. Next: Samuel makes a token at /agents (`keyadd NEOLIBRARY_AGENT_TOKEN`), then `NEOLIBRARY_AGENT_TOKEN=$NEOLIBRARY_AGENT_TOKEN npx tsx scripts/text-edition-on-subscription.ts send ~/Documents/neolibrary-text-edition/payoff <live address> <The Pay Off's book id>`. Do not call `claude -p` until the subscription limit has reset. This entry sits on local branch `m25-deploy-2c349511-record` (not pushed): commit it with the next real pull request.
 
@@ -266,6 +268,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-17 12:43 · Grok · Owner API token made and stored in the Keychain
+- **Done:** Samuel asked for the owner token. One admin account exists (Samuel) and there were no API tokens. A new token named "Laptop text edition" was stored: the database has only its hash and the public prefix nl_BsgwL, and the secret is in the Mac Keychain as NEOLIBRARY_AGENT_TOKEN (also listed in the Keychain name file, so a new terminal loads it). It expires 2027-01-15. GET /api/agent/me with that token returned HTTP 200 and acts as Samuel. The 360 pages were not sent.
+- **Key paths:** lib/auth/tokens.ts; app/api/agent/me/route.ts; ~/.config/shell/secret-names (the name only)
+- **Commands that worked:** railway ssh --service Postgres: one admin, zero tokens before; one live row after (name Laptop text edition, prefix nl_BsgwL, expires 2027-01-15). GET /api/agent/me -> HTTP 200, acts as Samuel. security find-generic-password for NEOLIBRARY_AGENT_TOKEN exits 0 (value not printed).
+- **Known issues / blockers:** The token works for 90 days, then it stops, the same as any token made at /agents. Claude features on the live site still say AI is not set up: Railway web has no ANTHROPIC_API_KEY. Do not call claude -p until the subscription limit has reset. The 360 pages of The Pay Off are still only on the laptop.
+- **Exact next steps:** Sending the pages waits for Samuel's word. The command is NEOLIBRARY_AGENT_TOKEN=$NEOLIBRARY_AGENT_TOKEN npx tsx scripts/text-edition-on-subscription.ts send ~/Documents/neolibrary-text-edition/payoff <live address> <The Pay Off book id>. Do not call claude -p. The Anthropic key on Railway is still his. This entry stays on local branch m25-deploy-2c349511-record (not pushed) and rides in with the next real pull request.
 
 ### 2026-10-17 12:07 · Grok · Live: 2c349511, the subscription text edition, from a clean checkout
 - **Done:** Samuel said "yes deploy". Main 2c349511 (pull request 195: pages read on the subscription, sent with an owner token, and a page check that refuses a blank page the book does not have) is live. No database migration between 3bec05e and 2c349511 (git diff --name-only on db/migrations was empty), so no backup. The serving deployment is 35c78465 (SUCCESS, created 2026-10-17T15:58:31Z, message "Clean tree of 2c349511, no untracked notes"), uploaded from a detached checkout of that commit where the untracked notes were absent. An earlier upload the same hour, 18aa8591, was made from the working folder and included two untracked local notes; Railway has REMOVED it. /api/health on both addresses returns {"status":"ok","service":"neolibrary","commit":"2c34951"} with HTTP 200 and strict-transport-security. /sign-in is HTTP 200 on both. The new deployment log says "Page pictures: ready." The 360 pages of The Pay Off were not sent. claude -p was not called.
