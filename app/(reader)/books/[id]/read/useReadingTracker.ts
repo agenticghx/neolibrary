@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import type { FocusReport } from "@/lib/library/reading-stats";
 
 /** No input or page turn for this long means the reader has stopped reading. */
 export const IDLE_MS = 2 * 60 * 1000;
@@ -22,8 +23,11 @@ type ChapterTally = { label: string; position: number; activeMs: number; pages: 
  * words on each page seen, counted once per sitting. Time and words are also
  * split by the chapter on screen (for per-chapter speed). Running totals go to
  * the server every 30 seconds and when the page is hidden or closed.
+ *
+ * `focus` (M26 R3): the focus session the sitting is part of, if any, sent with each report so the sitting keeps
+ * its question; a change (the session starts, or its answer is saved) is sent at once.
  */
-export function useReadingTracker(bookId: string, listening: boolean) {
+export function useReadingTracker(bookId: string, listening: boolean, focus: FocusReport | null = null) {
   const state = useRef({
     id: "",
     startedAt: "",
@@ -43,6 +47,7 @@ export function useReadingTracker(bookId: string, listening: boolean) {
   useEffect(() => {
     listeningRef.current = listening;
   }, [listening]);
+  const focusRef = useRef(focus);
 
   const flush = useCallback(
     (keepalive = false) => {
@@ -57,7 +62,15 @@ export function useReadingTracker(bookId: string, listening: boolean) {
         activeSeconds: Math.floor(c.activeMs / 1000),
         words: sum(c.pages),
       }));
-      const body = JSON.stringify({ sessionId: s.id, startedAt: s.startedAt, activeSeconds: Math.floor(s.activeMs / 1000), words, pages: s.pages.size, chapters });
+      const body = JSON.stringify({
+        sessionId: s.id,
+        startedAt: s.startedAt,
+        activeSeconds: Math.floor(s.activeMs / 1000),
+        words,
+        pages: s.pages.size,
+        chapters,
+        focus: focusRef.current ?? undefined,
+      });
       // A save on leaving (keepalive) always goes: the timed save of these same totals may be the
       // request the leaving itself cut off, and the server keeps one row per sitting.
       if (body === s.sent && !keepalive) return;
@@ -112,6 +125,14 @@ export function useReadingTracker(bookId: string, listening: boolean) {
       flush(true);
     };
   }, [flush]);
+
+  // The focus session changed (started, ended with its answer saved): the server hears at once.
+  const focusKey = focus ? `${focus.id} ${focus.question} ${focus.answerAnnotationId ?? ""}` : "";
+  useEffect(() => {
+    focusRef.current = focus;
+    if (focus) flush();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the key stands for the session's fields
+  }, [focusKey, flush]);
 
   /** A page was shown: it counts as activity, and its words count once per sitting. */
   const onPage = useCallback((key: string, text: string, chapter?: PageChapter) => {

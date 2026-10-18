@@ -111,6 +111,8 @@ export default defineConfig({
     { name: "review", testMatch: /\/review\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     // 18. Covers (M22): a reader of its own finds covers (the fake catalogue), turns one down; a branch off stats too.
     { name: "covers", testMatch: /\/covers\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
+    // 19. A focus session with a question (M26 R3): a reader of its own, with the browser's clock controlled; a branch off stats.
+    { name: "focus", testMatch: /\/focus\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     ],
     parseBrowserSlices(process.env.CI_BROWSER_SLICES),
     // Pull requests skip Safari's engine (CI_SKIP_WEBKIT=1, set by ci.yml); main and the night run keep it.

@@ -4,10 +4,26 @@ import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
+import { createAnnotation, deleteAnnotation, updateAnnotation } from "./annotations";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
 import { removeBook } from "./remove-book";
-import { chapterStatsByBook, cleanChapters, countsForSpeed, recordReading, readingCalendar, suggestionsFrom, statsByBook, statsByPathSlot, statsByWeek, weekStart, wordsPerMinute } from "./reading-stats";
+import {
+  chapterStatsByBook,
+  cleanChapters,
+  cleanFocus,
+  countsForSpeed,
+  focusSessions,
+  linkFocusAnswer,
+  recordReading,
+  readingCalendar,
+  suggestionsFrom,
+  statsByBook,
+  statsByPathSlot,
+  statsByWeek,
+  weekStart,
+  wordsPerMinute,
+} from "./reading-stats";
 
 let database: Database;
 let ownerId: string;
@@ -201,5 +217,71 @@ describe("reading statistics (M10)", () => {
     expect(last[6]).toEqual({ date: "2026-10-11", seconds: 1500, step: 2, today: true });
     expect(cal).toMatchObject({ current: 2, longest: 2, best: { date: "2026-01-05", seconds: 7200 }, daysRead: 2 });
     expect((await readingCalendar(database.db, "00000000-0000-4000-8000-000000000000", now)).daysRead).toBe(0);
+  });
+});
+
+const f1 = "ffffffff-0000-4000-8000-000000000001";
+const f2 = "ffffffff-0000-4000-8000-000000000002";
+
+describe("a focus session with a question (M26 R3)", () => {
+  it("checks the reader's report of the session: a proper id, a one-line question, a note id or nothing", () => {
+    expect(cleanFocus(undefined)).toBeNull();
+    expect(cleanFocus({ id: "nope", question: "Q" })).toBeNull();
+    expect(cleanFocus({ id: f1.toUpperCase(), question: "  Why\n go  forward? ", answerAnnotationId: "x" })).toEqual({ id: f1, question: "Why go forward?", answerAnnotationId: null });
+    expect(cleanFocus({ id: f1, question: 5, answerAnnotationId: s1 })).toEqual({ id: f1, question: "", answerAnnotationId: s1 });
+  });
+
+  it("a sitting keeps its session and question; a reload makes a second sitting of the same session; the answer links them", async () => {
+    const at = "2026-10-18T09:00:00Z";
+    const focus = { id: f1, question: "Why does the Time Traveller go forward, not back?" };
+    await recordReading(database.db, ownerId, { sessionId: s1, bookId: tm, startedAt: at, activeSeconds: 60, words: 230, pages: 1, focus });
+    // A later report of the same sitting without the session (the session ended) keeps it.
+    await recordReading(database.db, ownerId, { sessionId: s1, bookId: tm, startedAt: at, activeSeconds: 120, words: 460, pages: 2 });
+    // After a reload, a new sitting in the same session.
+    await recordReading(database.db, ownerId, { sessionId: s2, bookId: tm, startedAt: "2026-10-18T09:03:00Z", activeSeconds: 60, words: 200, pages: 1, focus });
+    let [session] = await focusSessions(database.db, ownerId);
+    expect(session).toEqual({
+      focusId: f1,
+      bookId: tm,
+      title: "The Time Machine",
+      startedAt: "2026-10-18T09:00:00.000Z",
+      activeSeconds: 180,
+      words: 660,
+      question: focus.question,
+      answer: null,
+    });
+
+    // The answer, saved as a note on the book, links every sitting of the session.
+    const note = await createAnnotation(database.db, ownerId, { kind: "note", bookId: tm, body: "Question: Why?\n\nAnswer: Because the future is unknown." });
+    expect(await linkFocusAnswer(database.db, ownerId, f1, note.id)).toBe(2);
+    [session] = await focusSessions(database.db, ownerId);
+    expect(session.answer).toBe("Question: Why?\n\nAnswer: Because the future is unknown.");
+    // The note's latest words are the answer shown (notes are never overwritten: a new version is added).
+    await updateAnnotation(database.db, ownerId, note.id, { body: "Question: Why?\n\nAnswer: Because the past is written." });
+    expect((await focusSessions(database.db, ownerId))[0].answer).toBe("Question: Why?\n\nAnswer: Because the past is written.");
+    // A removed note is no answer.
+    await deleteAnnotation(database.db, ownerId, note.id);
+    expect((await focusSessions(database.db, ownerId))[0].answer).toBeNull();
+
+    // Sessions come newest first; a sitting without a session is not one.
+    await recordReading(database.db, ownerId, { sessionId: "aaaaaaaa-0000-4000-8000-000000000003", bookId: jekyll, startedAt: "2026-10-19T09:00:00Z", activeSeconds: 60, words: 100, pages: 1 });
+    await recordReading(database.db, ownerId, {
+      sessionId: "aaaaaaaa-0000-4000-8000-000000000004",
+      bookId: jekyll,
+      startedAt: "2026-10-20T09:00:00Z",
+      activeSeconds: 90,
+      words: 150,
+      pages: 1,
+      focus: { id: f2, question: "What is Hyde to Jekyll?" },
+    });
+    expect((await focusSessions(database.db, ownerId)).map((x) => [x.focusId, x.title, x.activeSeconds])).toEqual([
+      [f2, "The Strange Case of Dr. Jekyll and Mr. Hyde", 90],
+      [f1, "The Time Machine", 180],
+    ]);
+
+    // Bad ids are refused; another reader's session is not touched.
+    await expect(linkFocusAnswer(database.db, ownerId, "nope", note.id)).rejects.toThrow("Bad focus session.");
+    await expect(linkFocusAnswer(database.db, ownerId, f1, "nope")).rejects.toThrow("Bad note.");
+    expect(await linkFocusAnswer(database.db, "00000000-0000-4000-8000-000000000099", f1, note.id)).toBe(0);
   });
 });

@@ -178,6 +178,10 @@ export type LibraryExport = {
     words: number;
     pages: number;
     chapters?: ChapterReading[];
+    /** M26 R3: the focus session the sitting was part of, its question, and the note holding the answer. */
+    focusId?: string | null;
+    question?: string;
+    answerAnnotationId?: string | null;
   }[];
   /** Daily review's schedule for each highlight or note rated so far (added in M21). */
   reviewCards?: {
@@ -408,6 +412,9 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       words: r.words,
       pages: r.pages,
       chapters: r.chapters,
+      focusId: r.focusId,
+      question: r.question,
+      answerAnnotationId: r.answerAnnotationId,
     })),
     reviewCards: reviewRows
       .filter((r) => exportedNotes.has(r.annotationId))
@@ -681,9 +688,17 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       await tx.insert(audioTracks).values({ ...t, ownerId, createdAt: new Date(t.createdAt), imported: true });
     }
     for (const r of x.readingSessions ?? []) {
-      await tx
-        .insert(readingSessions)
-        .values({ ...r, ownerId, startedAt: new Date(r.startedAt), endedAt: new Date(r.endedAt), chapters: r.chapters ?? [] });
+      await tx.insert(readingSessions).values({
+        ...r,
+        ownerId,
+        startedAt: new Date(r.startedAt),
+        endedAt: new Date(r.endedAt),
+        chapters: r.chapters ?? [],
+        focusId: r.focusId ?? null,
+        question: r.question ?? "",
+        // Only a link to a note the file brings (the note may have been left out, or belong to someone else).
+        answerAnnotationId: r.answerAnnotationId && noteIds.includes(r.answerAnnotationId) ? r.answerAnnotationId : null,
+      });
     }
     for (const r of x.reviewCards ?? []) {
       await tx.insert(reviewCards).values({

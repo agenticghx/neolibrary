@@ -4,7 +4,7 @@ import { recordReading, StatsError } from "@/lib/library/reading-stats";
 
 export const dynamic = "force-dynamic";
 
-/** The reader's running totals for a sitting: { sessionId, startedAt, activeSeconds, words, pages, chapters }. */
+/** The reader's running totals for a sitting: { sessionId, startedAt, activeSeconds, words, pages, chapters, focus? }. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
@@ -18,6 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       words: body.words,
       pages: body.pages,
       chapters: body.chapters,
+      focus: body.focus,
     });
     return new Response(null, { status: 204 });
   } catch (e) {

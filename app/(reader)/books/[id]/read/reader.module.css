@@ -1408,6 +1408,11 @@
   }
 }
 
+/* A focus session (M26 R3): only the page. The strip (FocusSession.tsx) stands in the top bar's place; the foot goes. */
+.reader[data-focus-session] .foot {
+  display: none;
+}
+
 /* Keyboard shortcuts (M21): a modal dialog over the reader, from "?" or the link in Reading settings. */
 .shortcuts {
   width: min(30rem, calc(100vw - var(--space-6)));

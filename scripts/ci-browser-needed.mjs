@@ -77,6 +77,8 @@ const PROJECT_SLICE = {
   review: "behavior",
   // M22: a branch off `stats` too.
   covers: "behavior",
+  // M26 R3: the focus session with a question; a branch off `stats` too.
+  focus: "behavior",
 };
 
 const NARRATION_FILES = new Set([

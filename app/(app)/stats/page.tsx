@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import {
   CHAPTERS_NEEDED,
   chapterStatsByBook,
+  focusSessions,
   readingCalendar,
   statsByBook,
   statsByPathSlot,
@@ -25,6 +26,9 @@ const time = (seconds: number) => {
 };
 
 const words = (n: number) => n.toLocaleString("en-GB");
+
+/** "18 Oct 2026" for a focus session's start (UTC, as the weeks are). */
+const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 /** "28 Sep" for the week starting 2026-09-28 (weeks are counted in UTC). */
 const weekLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -61,11 +65,12 @@ export default async function StatsPage() {
   const user = await requireUser();
   const db = await getDb();
   const books = await statsByBook(db, user.id);
-  const [weeks, { pillars, kinds }, chapterBooks, calendar] = await Promise.all([
+  const [weeks, { pillars, kinds }, chapterBooks, calendar, focus] = await Promise.all([
     statsByWeek(db, user.id),
     statsByPathSlot(db, user.id, books),
     chapterStatsByBook(db, user.id),
     readingCalendar(db, user.id),
+    focusSessions(db, user.id),
   ]);
   const suggestions = suggestionsFrom(chapterBooks);
   const measured = chapterBooks.filter((b) => b.chapters.length >= CHAPTERS_NEEDED).length;
@@ -190,6 +195,31 @@ export default async function StatsPage() {
               </table>
             </section>
           ) : null}
+
+          <section aria-labelledby="focus-sessions" className={styles.list}>
+            <h2 id="focus-sessions" className={styles.listTitle}>
+              Focus sessions
+            </h2>
+            <p className={own.note}>
+              A sitting you began with a question and a timer (the clock button in the reader). Your answer is a note on the
+              book, and comes back in Daily review.
+            </p>
+            {focus.length === 0 ? (
+              <p className={styles.empty}>None yet. In the reader, press the clock, write the question you are reading to answer, and start the timer.</p>
+            ) : (
+              <ol className={own.focusList} data-testid="stats-focus">
+                {focus.map((f) => (
+                  <li key={f.focusId} className={own.focusItem}>
+                    <p className={own.focusMeta}>
+                      <Link href={`/books/${f.bookId}`}>{f.title}</Link> · {dayLabel(f.startedAt)} · {time(f.activeSeconds)}
+                    </p>
+                    <p className={own.focusQuestion}>{f.question}</p>
+                    {f.answer ? <p className={own.focusAnswer}>{f.answer}</p> : <p className={own.focusNone}>No answer saved.</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
 
           <section aria-labelledby="by-book" className={styles.list}>
             <h2 id="by-book" className={styles.listTitle}>

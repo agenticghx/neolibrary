@@ -292,3 +292,53 @@
     block-size: 0.625rem;
   }
 }
+
+/* Focus sessions (M26 R3): the question in the reader's own italic, the answer under it. */
+.focusList {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.focusItem {
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: var(--border-hair) solid var(--rule);
+}
+
+.focusMeta {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}
+
+.focusMeta a {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.focusQuestion {
+  margin: 0;
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  font-style: italic;
+  line-height: var(--leading-ui);
+}
+
+.focusAnswer {
+  margin: 0;
+  color: var(--ink-700);
+  line-height: var(--leading-read);
+  white-space: pre-line;
+}
+
+.focusNone {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}

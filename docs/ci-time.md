@@ -18,6 +18,7 @@ The projects share one database, so they run in a line. Each number is the gap f
 | readalong-safari (the same file in WebKit) | 236 | readalong |
 | narration (fake voice) | 57 | narration |
 | review (Daily review, M21; a branch off stats, beside home) | not timed yet | behavior |
+| focus (a focus session with a question, M26 R3; a branch off stats too) | not timed yet | behavior |
 
 The audiobook file is serial (`test.describe.configure({ mode: "serial" })` in `e2e/readalong.spec.ts`). Extra cores do not run it alongside itself. WebKit is the highlight test in `e2e/safari.spec.ts` plus that second pass of the audiobook file.
 

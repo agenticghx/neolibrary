@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { usePlayer } from "@/components/player/PlayerProvider";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
@@ -16,6 +16,8 @@ import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ExplainPanel } from "./ExplainPanel";
 import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
+import { EndFocusDialog, FocusStrip, StartFocusDialog } from "./FocusSession";
+import { clearSession as clearFocusSession, type FocusSession, isOver as focusIsOver, loadSession as loadFocusSession, saveSession as saveFocusSession, startSession as startFocusSession } from "@/lib/reader/focus-session";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
@@ -326,7 +328,25 @@ export function Reader(props: {
     url.searchParams.delete("listen");
     window.history.replaceState(window.history.state, "", url);
   }, [props.startListening]);
-  const tracker = useReadingTracker(props.bookId, listening);
+  // A focus session with a question (M26 R3): kept on this device, so a reload part-way through picks it up.
+  const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
+  const [focusStart, setFocusStart] = useState(false);
+  const [focusEnding, setFocusEnding] = useState(false);
+  // The session just ended with its answer saved: the sitting still reports it once more, now with the note's id.
+  const [focusDone, setFocusDone] = useState<{ id: string; question: string; answerAnnotationId: string } | null>(null);
+  // The time is up: ask "Did you answer it?" (checked once a second, so page.clock drives it in tests).
+  useEffect(() => {
+    if (!focusSession || focusEnding) return;
+    const timer = setInterval(() => {
+      if (focusIsOver(focusSession)) setFocusEnding(true);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [focusSession, focusEnding]);
+  const focusReport = useMemo(
+    () => (focusSession ? { id: focusSession.id, question: focusSession.question, answerAnnotationId: null } : focusDone),
+    [focusSession, focusDone],
+  );
+  const tracker = useReadingTracker(props.bookId, listening, focusReport);
   const trackerRef = useRef(tracker);
   useEffect(() => {
     trackerRef.current = tracker;
@@ -492,6 +512,12 @@ export function Reader(props: {
       try {
         const initial = loadSettings();
         focusRef.current = props.fileType === "pdf" ? "off" : initial.focus;
+        // A focus session (M26 R3) left running on this device picks up where it was, with the time that is left.
+        const savedFocus = loadFocusSession(props.bookId);
+        if (savedFocus) {
+          setFocusSession(savedFocus);
+          if (focusIsOver(savedFocus)) setFocusEnding(true);
+        }
         await import("foliate-js/view.js");
         const blob = await downloadBook(props.fileUrl, {
           stallMs: OPEN_TIMEOUT_MS,
@@ -1069,6 +1095,38 @@ export function Reader(props: {
     await reload();
   };
 
+  const beginFocus = (question: string, minutes: number) => {
+    const session = startFocusSession({ bookId: props.bookId, question, minutes });
+    saveFocusSession(session);
+    setFocusDone(null);
+    setFocusEnding(false);
+    setFocusSession(session);
+    setFocusStart(false);
+    setPanel("none");
+  };
+
+  /** The session is over, with or without an answer. */
+  const finishFocus = () => {
+    clearFocusSession();
+    setFocusEnding(false);
+    setFocusSession(null);
+  };
+
+  /** The answer is saved as a note on the book (the reader's own, never overwritten), and the sittings point at it. */
+  const answerFocus = async (answer: string) => {
+    if (!focusSession) return;
+    const { note } = await api(`/api/books/${props.bookId}/focus`, "POST", {
+      focusId: focusSession.id,
+      noteId: focusSession.noteId,
+      question: focusSession.question,
+      answer,
+    });
+    // One last report with the note's id, after the session goes.
+    setFocusDone({ id: focusSession.id, question: focusSession.question, answerAnnotationId: note.id });
+    finishFocus();
+    await reload();
+  };
+
   const bookmarkHere = where.cfi
     ? notes.find(
         (a) =>
@@ -1284,7 +1342,11 @@ export function Reader(props: {
       data-testid="reader"
       data-cfi={where.cfi ?? ""}
       data-status={status}
+      data-focus-session={focusSession ? "" : undefined}
     >
+      {focusSession ? (
+        <FocusStrip session={focusSession} onEnd={() => setFocusEnding(true)} />
+      ) : (
       <header className={styles.bar}>
         {/* Left, as in Kindle: leave the book, and the table of contents. */}
         <div className={styles.lead}>
@@ -1323,6 +1385,20 @@ export function Reader(props: {
           >
             <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true">
               <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {/* A focus session with a question (M26 R3): a question, a timer, and only the page. */}
+          <button
+            type="button"
+            className={styles.tool}
+            aria-label="Focus session"
+            title="Focus session: write the question you are reading to answer, set a timer, and see only the page"
+            aria-haspopup="dialog"
+            onClick={() => setFocusStart(true)}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M8 6v3l2 1.5M6 1.5h4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           {/* Study (M19 P5): "What do I need to know?" and Test yourself, as tabs. The word on a computer; an open book on a
@@ -1380,6 +1456,7 @@ export function Reader(props: {
           </button>
         </div>
       </header>
+      )}
 
       <div ref={stage} className={stageClass}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
@@ -1685,6 +1762,8 @@ export function Reader(props: {
       ) : null}
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
+      <StartFocusDialog open={focusStart} onStart={beginFocus} onCancel={() => setFocusStart(false)} />
+      <EndFocusDialog key={focusSession?.id ?? ""} session={focusSession} open={Boolean(focusSession) && focusEnding} onSave={answerFocus} onSkip={finishFocus} />
     </div>
   );
 }

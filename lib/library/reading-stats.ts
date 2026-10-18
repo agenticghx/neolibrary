@@ -13,10 +13,26 @@ export class StatsError extends Error {}
 const MAX_SECONDS = 12 * 60 * 60;
 const MAX_WORDS = 500_000;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A focus session's question is short: one line the reader is reading to answer. */
+export const MAX_QUESTION = 500;
+
+/** The focus session (M26 R3) a sitting is part of, as the reader reports it. Unknown or malformed fields are dropped. */
+export type FocusReport = { id: string; question: string; answerAnnotationId: string | null };
+
+export function cleanFocus(raw: unknown): FocusReport | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== "string" || !UUID.test(r.id)) return null;
+  const question = typeof r.question === "string" ? r.question.replace(/\s+/g, " ").trim().slice(0, MAX_QUESTION) : "";
+  const answer = typeof r.answerAnnotationId === "string" && UUID.test(r.answerAnnotationId) ? r.answerAnnotationId.toLowerCase() : null;
+  return { id: r.id.toLowerCase(), question, answerAnnotationId: answer };
+}
+
 export async function recordReading(
   db: Db,
   ownerId: string,
-  input: { sessionId: unknown; bookId: string; startedAt: unknown; activeSeconds: unknown; words: unknown; pages: unknown; chapters?: unknown },
+  input: { sessionId: unknown; bookId: string; startedAt: unknown; activeSeconds: unknown; words: unknown; pages: unknown; chapters?: unknown; focus?: unknown },
   now = new Date(),
 ) {
   if (typeof input.sessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.sessionId)) throw new StatsError("Bad session.");
@@ -31,10 +47,25 @@ export async function recordReading(
   const chapters = cleanChapters(input.chapters, activeSeconds, words);
   const started = new Date(String(input.startedAt));
   const startedAt = Number.isNaN(started.getTime()) || started > now ? now : started;
-  // Upsert: the sitting's totals only grow; a session belongs to its first owner and book.
+  const focus = cleanFocus(input.focus);
+  // Upsert: the sitting's totals only grow; a session belongs to its first owner and book. A focus session, once
+  // reported, stays with the sitting (a report after it ended carries none).
   await db
     .insert(readingSessions)
-    .values({ id: input.sessionId, ownerId, bookId: input.bookId, startedAt, endedAt: now, activeSeconds, words, pages, chapters })
+    .values({
+      id: input.sessionId,
+      ownerId,
+      bookId: input.bookId,
+      startedAt,
+      endedAt: now,
+      activeSeconds,
+      words,
+      pages,
+      chapters,
+      focusId: focus?.id ?? null,
+      question: focus?.question ?? "",
+      answerAnnotationId: focus?.answerAnnotationId ?? null,
+    })
     .onConflictDoUpdate({
       target: readingSessions.id,
       set: {
@@ -44,9 +75,78 @@ export async function recordReading(
         pages: sql`greatest(${readingSessions.pages}, ${pages})`,
         // The chapter split of the newest report, unless it is a late one (less time than stored).
         chapters: sql`case when ${activeSeconds} >= ${readingSessions.activeSeconds} then ${JSON.stringify(chapters)}::jsonb else ${readingSessions.chapters} end`,
+        focusId: sql`coalesce(${readingSessions.focusId}, ${focus?.id ?? null}::uuid)`,
+        question: sql`case when ${readingSessions.question} <> '' then ${readingSessions.question} else ${focus?.question ?? ""} end`,
+        answerAnnotationId: sql`coalesce(${readingSessions.answerAnnotationId}, ${focus?.answerAnnotationId ?? null}::uuid)`,
       },
       setWhere: and(eq(readingSessions.ownerId, ownerId), eq(readingSessions.bookId, input.bookId)),
     });
+}
+
+/**
+ * The answer to a focus session's question was saved as a note: every sitting of that session (there is one per
+ * page load, so a reload part-way through makes two) now points at it. Returns how many sittings did.
+ */
+export async function linkFocusAnswer(db: Db, ownerId: string, focusId: unknown, annotationId: unknown) {
+  if (typeof focusId !== "string" || !UUID.test(focusId)) throw new StatsError("Bad focus session.");
+  if (typeof annotationId !== "string" || !UUID.test(annotationId)) throw new StatsError("Bad note.");
+  const rows = await db
+    .update(readingSessions)
+    .set({ answerAnnotationId: annotationId.toLowerCase() })
+    .where(and(eq(readingSessions.ownerId, ownerId), eq(readingSessions.focusId, focusId.toLowerCase())))
+    .returning({ id: readingSessions.id });
+  return rows.length;
+}
+
+/** One focus session (M26 R3) on the Reading stats page: its sittings added up, its question, and the answer saved. */
+export type FocusSessionStats = {
+  focusId: string;
+  bookId: string;
+  title: string;
+  startedAt: string;
+  activeSeconds: number;
+  words: number;
+  question: string;
+  /** The reader's answer (the note's text), or null when none was saved. */
+  answer: string | null;
+};
+
+/**
+ * The reader's focus sessions, newest first. A session is its sittings grouped by focus id; its answer is the
+ * latest version of the note the sittings point at, unless that note was removed.
+ */
+export async function focusSessions(db: Db, ownerId: string, limit = 50): Promise<FocusSessionStats[]> {
+  const rows = await db.execute(sql`
+    WITH grouped AS (
+      SELECT s.focus_id, s.book_id, min(s.started_at) AS started_at, sum(s.active_seconds)::int AS active_seconds,
+             sum(s.words)::int AS words, max(s.question) AS question, max(s.answer_annotation_id::text)::uuid AS answer_id
+      FROM reading_sessions s
+      WHERE s.owner_id = ${ownerId} AND s.focus_id IS NOT NULL
+      GROUP BY s.focus_id, s.book_id
+    )
+    SELECT g.focus_id AS "focusId", g.book_id AS "bookId", b.title, g.started_at AS "startedAt", g.active_seconds AS "activeSeconds",
+           g.words, g.question, n.body AS answer
+    FROM grouped g
+    JOIN books b ON b.id = g.book_id AND b.deleted_at IS NULL
+    LEFT JOIN LATERAL (
+      SELECT case when a.deleted then null else a.body end AS body FROM annotations a
+      WHERE a.owner_id = ${ownerId} AND a.annotation_id = g.answer_id
+      ORDER BY a.version DESC LIMIT 1
+    ) n ON true
+    ORDER BY g.started_at DESC
+    LIMIT ${limit}
+  `);
+  const list = (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows) as Record<string, unknown>[];
+  return list.map((r) => ({
+    focusId: r.focusId as string,
+    bookId: r.bookId as string,
+    title: r.title as string,
+    startedAt: new Date(r.startedAt as string).toISOString(),
+    activeSeconds: Number(r.activeSeconds),
+    words: Number(r.words),
+    question: (r.question as string) ?? "",
+    answer: (r.answer as string | null) ?? null,
+  }));
 }
 
 const MAX_CHAPTERS = 500;

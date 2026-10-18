@@ -325,6 +325,10 @@ export const readingSessions = pgTable("reading_sessions", {
   words: integer("words").notNull().default(0),
   pages: integer("pages").notNull().default(0),
   chapters: jsonb("chapters").$type<ChapterReading[]>().notNull().default([]),
+  /** M26 R3: the focus session this sitting was part of, its question, and the note holding the answer. */
+  focusId: uuid("focus_id"),
+  question: text("question").notNull().default(""),
+  answerAnnotationId: uuid("answer_annotation_id"),
 });
 
 /** Time and words of one sitting inside one chapter (M10 (c)). */
