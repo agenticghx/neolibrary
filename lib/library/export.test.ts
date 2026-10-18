@@ -100,6 +100,8 @@ describe("library export (ground rule 7)", () => {
       words: 1250,
       pages: 4,
       chapters: [{ key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 300, words: 1250 }],
+      // M26 R3: a sitting inside a focus session, whose answer is the note "Second".
+      focus: { id: "66666666-7777-4888-8999-000000000000", question: "What does the Time Traveller find?", answerAnnotationId: note.id },
     });
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
@@ -164,6 +166,9 @@ describe("library export (ground rule 7)", () => {
         words: 1250,
         pages: 4,
         chapters: [{ key: "c1.xhtml", label: "Chapter 1", position: 0.1, activeSeconds: 300, words: 1250 }],
+        focusId: "66666666-7777-4888-8999-000000000000",
+        question: "What does the Time Traveller find?",
+        answerAnnotationId: note.id,
       }),
     ]);
     expect(before.settings).toEqual({ aiStyle: "ste-standard", rewrittenView: "rewritten" });

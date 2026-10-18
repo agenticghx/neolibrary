@@ -784,7 +784,10 @@ until the reader has put down their own.
   an idea but no key words with a page of the other, shows the link in the
   margin; the word-stem matches still show; a link opens the other book at
   the highlight. Samuel checks it on his own Kuhn and Feyerabend notes.
-- **R3 · A focus session with a question.** Before starting, the reader
+- **R3 · A focus session with a question.** *Built 2026-10-18 (branch
+  `m26-r3-focus-session`): the clock button in the reader's top bar;
+  migration 0028 adds the question to a sitting.*
+  Before starting, the reader
   writes the question they are reading to answer, and sets a timer (50
   minutes by default). Everything but the page is hidden (M21's Focus is
   the starting point). When the time is up, the app asks "Did you

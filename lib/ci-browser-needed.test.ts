@@ -286,7 +286,8 @@ describe("playwright.config.ts", () => {
     expect(flows?.dependencies).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
     expect(config.projects?.find((project) => project.name === "review")?.dependencies).toEqual(["stats"]);
     expect(config.projects?.find((project) => project.name === "covers")?.dependencies).toEqual(["stats"]);
-    expect(config.projects?.at(-1)?.name).toBe("covers");
+    expect(config.projects?.find((project) => project.name === "focus")?.dependencies).toEqual(["stats"]);
+    expect(config.projects?.at(-1)?.name).toBe("focus");
     expect(config.projects?.map((project) => project.name)).toContain("safari");
   });
 });
