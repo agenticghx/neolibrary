@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the Reading stats tidy-up when green; Samuel tries a real focus session.
+next_action: Samuel tries a real focus session; then build M26 R4a (focus session on the server), docs/focus-lock-plan.md.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-18
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-18 22:20 (laptop clock, from `date`). **M26 R4 and R5 are planned** in `docs/focus-lock-plan.md` (Samuel: "plan whole-book focus as the next step after that"): R4a the running focus session on the server, so every page on every device sends you back to the focused book (migration 0029, backup first); R4b End now becomes a 10-minute wait or a 40-word answer, and Reading stats shows how each session ended; R5 whole-book focus (one book for days or until its last page). Defaults in Open unknowns row 26. Next: 1. Samuel tries a real focus session (R3 verdict). 2. Build R4a on branch `m26-r4a-focus-server`, at Samuel's word.
 
 Written 2026-10-17 12:43 (laptop clock, from `date`). **The owner token exists.** Name on /agents: "Laptop text edition" (prefix `nl_BsgwL`, expires 2027-01-15). The secret is in the Mac Keychain as `NEOLIBRARY_AGENT_TOKEN`; a new terminal loads it. GET /api/agent/me returned HTTP 200 and acts as Samuel. The 360 pages were not sent. Next, at Samuel's word: `NEOLIBRARY_AGENT_TOKEN=$NEOLIBRARY_AGENT_TOKEN npx tsx scripts/text-edition-on-subscription.ts send ~/Documents/neolibrary-text-edition/payoff <live address> <The Pay Off's book id>`. Do not call `claude -p` until the subscription limit has reset. This entry sits on local branch `m25-deploy-2c349511-record` (not pushed).
 
@@ -230,6 +232,7 @@ Never blocks the loop. Newest first.
 | 23 | M25 text editions: (1) **notes stay with their edition** (a note on the scan does not show in the text edition, nor the other way round; both carry the quoted text, so moving them across is a later step); (2) **owner only**, like whole-book narration. Change either? | Samuel | 2026-10-29 | open (defaults apply) |
 | 24 | M25: **Listen on the scan keeps reading the Archive's hidden text**, so *The Pay Off* page 51 (a sideways table read as gibberish by the Archive's OCR) still reads nonsense there, and so do 27 blank pages whose faint show-through from the other side the Archive's OCR read as letters (measured 2026-10-15: page 32 reads like 'asf ae ait 7 oar'); in the text edition Listen reads the new text and blank pages are skipped. Letting the new text replace the scan's hidden text is listed as later. Do it inside M25 instead? | Samuel | 2026-10-29 | open (default applies) |
 | 25 | **M25 S6: where the Scan \| Text switch sits, and how a text page leads back to the printed page.** Options page (private, with drawings on a computer and a phone, made-up text): https://claude.ai/artifact/F5ybx5amXD3Tbd4YDs9gNt. Question 1: (A) top bar on a computer, inside Aa on a phone; (B) inside Aa only; (C) in the footer beside Listen. Question 2: (1) a "Scan page 23" link in the footer; (2) small page numbers in the margin where each printed page begins. Claude recommends C1. Default until you say: nothing visible built. | Samuel | 2026-10-22 | **answered 2026-10-15: C1** ("1 - C , 2 - 1 as you recommended"). Built as M25 S6. |
+| 26 | **M26 R4/R5 defaults for a focus you cannot walk away from** (`docs/focus-lock-plan.md`). Ways out: a wait (10 minutes for a sitting, 24 hours for a whole book) or a written answer (40 words, 150 for a book); a trusted person releasing you comes later. Whole-book focus lasts at most 30 days. Change any? | Samuel | 2026-10-25 | open (defaults apply) |
 
 ## Decisions
 
@@ -268,6 +271,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-18 22:20 · Claude Opus 5.5 (laptop) · M26 R4 (a focus you cannot walk away from) and R5 (whole-book focus) planned
+- **Done:** Samuel asked how to make a focus session impossible to end early, and whether focus could cover a whole book; then said to plan it. Checked origin/main first: the running session lives only in the browser (localStorage); migration 0028 adds focus_id, question and answer_annotation_id to finished sittings only; FocusStrip has a one-click End now; the site sends no email (so a trusted person can only see a request when they sign in). Wrote `docs/focus-lock-plan.md` (R4a server session and redirect, R4b ways out, R5 whole-book focus, each with Done when) and added R4 and R5 to M26 in `docs/plan.md`. Nothing built.
+- **Key paths:** docs/focus-lock-plan.md; docs/plan.md (M26); lib/reader/focus-session.ts; app/(reader)/books/[id]/read/FocusSession.tsx; app/(app)/layout.tsx
+- **Commands that worked:** git show origin/main:db/migrations/0028_focus_sessions.up.sql; grep -rln -i "resend\|nodemailer\|sendMail" lib app (no email sender)
+- **Known issues / blockers:** none. Defaults in Open unknowns row 26.
+- **Exact next steps:** Samuel tries a real focus session; then R4a on branch m26-r4a-focus-server at his word.
 
 ### 2026-10-18 20:27 · Claude Opus 5.5 (laptop) · Live b103b0fb (#200, M26 R3) deployed with a backup; checked signed in on the live site; Reading stats no longer repeats the question
 - **Done:** Deploy (at Samuel's word): main's CI run 39176268796 on b103b0fb green after one re-run of the known WebKit stall (readalong.spec.ts:729). Backup ~/Backups/neolibrary/prod-before-0028-20261018T2340Z.sql (20,549,554 bytes) restored into a throwaway embedded-postgres: exit 0, 0 errors, 21 tables, 27 migrations (last 0027), 2 users, 257 books, 19 annotations, 151 reading_sessions. railway up from ../neolibrary-deploy detached at b103b0fb. Live: /api/health b103b0f; /sign-in 200; POST /api/books/<id>/focus signed out 401; _migrations 28, last 0028_focus_sessions; three new columns present; 153 reading_sessions. Live check, signed in (Samuel signed in himself in a visible Playwright Chromium window; this terminal session has no built-in browser): on The Time Machine, a 1-minute session with a TEST question: strip replaced the top bar, foot hidden, clock 1:00, 'Time's up. Did you answer it?' with the question, answer saved; it showed in Notes, in today's Daily review queue (1 of 2) and on /stats under Focus sessions. Then the test note was removed with the reader's Remove (gone from Notes and the review queue); the 1-minute sitting stays on /stats. Found: /stats showed the question twice (the saved note repeats it). Fixed here: answerFromNote shows only the answer part (a note rewritten in another shape shows whole). Left as is: the session's date is a UTC day, as the rest of /stats (weeks and calendar say UTC). docs/ci-flakes.md: the two flake sightings (readalong.spec.ts:1652 twice on #200; readalong.spec.ts:729 on main).
