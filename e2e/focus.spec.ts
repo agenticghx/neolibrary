@@ -216,6 +216,11 @@ test("a focus session you cannot walk away from: every page and every browser go
   await expect(reader.getByTestId("focus-strip")).toContainText(QUESTION);
   const startedAt = Date.now();
   const session = (await (await reader.request.get("/api/focus")).json()).session;
+  // The checks below must finish inside the session's two minutes; say so plainly if a slow machine runs out.
+  const stillRunning = async (step: string) => {
+    const running = (await (await reader.request.get("/api/focus")).json()).session?.running;
+    expect(running, `the session ended before ${step} (${Math.round((Date.now() - startedAt) / 1000)} s after it started)`).toBe(true);
+  };
   expect(session).toMatchObject({ bookId: tm, question: QUESTION, minutes: 2, running: true });
 
   // A second session cannot start while this one runs (the database keeps one per reader).
@@ -259,6 +264,7 @@ test("a focus session you cannot walk away from: every page and every browser go
     await expect(reader.getByTestId("account-focus")).toBeVisible();
   });
 
+  await stillRunning("the second browser");
   // A second browser, the same reader: signing in lands on the focused book. Signing out there (from Account,
   // where a phone finds it) and back in: the session is still running.
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 390, height: 844 } });
@@ -278,6 +284,7 @@ test("a focus session you cannot walk away from: every page and every browser go
   await phone.getByTestId("account-focus").getByRole("button", { name: "Sign out" }).click();
   await expect(phone).toHaveURL(/\/sign-in$/);
   await signIn();
+  await stillRunning("the wait");
 
   // Once the time is up (by the server's clock), every page opens normally, in both browsers.
   await expect
