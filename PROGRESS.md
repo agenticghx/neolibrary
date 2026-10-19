@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M26 R4a (focus session on the server, migration 0029) with the merge train; deploy only at Samuel's word, after a production backup.
+next_action: Merge #204 (M27 Q1) then #205 (M27 Q2) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-18
+updated: 2026-10-19
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-19 12:18 (laptop clock). **M27 Q1 (#204) and Q2 (#205, stacked on #204) are open.** Merge them with the merge train in that order; deploy only at Samuel's word (no migration). Then Samuel tries both on the live site: select text and tap outside it; read on the phone, then come back to the laptop tab.
 
 Written 2026-10-18 23:20 (laptop clock, from `date`). **M26 R4a is built** on branch `m26-r4a-focus-server` (the running focus session lives on the server; every page and every signed-in browser goes to the focused book until the time is up; other books' files answer 423 Locked). It adds **migration 0029** (with its reverse step). Next: 1. Merge with the merge train once the four checks are green. 2. Deploy only at Samuel's word, after a production backup restore-checked (0029 creates a table). 3. Samuel tries it on the live site (start a session on the laptop, open the site on his phone): his verdict comes before R4b. 4. Then R4b (the ways out: a 10-minute wait or a 40-word answer), `docs/focus-lock-plan.md`.
 
@@ -273,6 +275,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 12:18 · Claude Opus 5.5 (laptop) · M27 Q1: the selected-text bar gets out of the way (#204)
+- **Done:** Samuel's requests 2 and 3 (2026-10-19, with two screenshots). The bar that opens on selected text now closes on a tap or click outside it (on the page or outside the book) and on Escape, as × does. It stays while a note, voice note or drawing is open in it. Pressing Listen closes it, and text selected while the Read aloud bar shows puts it above that bar (computer and phone). It does not close when the book's own selection goes away, because Safari clears that when any outside button is pressed. M27 (Q1, Q2) added to `docs/plan.md`.
+- **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx` (dismissSelection, the outside-click and lift effect, Escape in onKey, Listen's onClick); `SelectionBar.tsx` (ref, onBusy); `reader.module.css` (`--above-listen`, also in the phone rule); `ShortcutsDialog.tsx` (Esc's text); `e2e/annotations.spec.ts` (new test); `e2e/reader.spec.ts` (Esc's text).
+- **Commands that worked:** `PORT=3187 npx playwright test --project=annotations --ignore-snapshots`: 212 passed (references are Linux renderings, so local screenshot comparison is off). The same test in WebKit with a throwaway config: passed. `npx vitest run`: 937 passed. `npm run lint`: clean. Screenshots looked at: `screenshots/m27-q1/selecting-while-listening-{desktop,phone}-{light,dark}.png` (git ignores them).
+- **Known issues / blockers:** Worktree `.claude/worktrees/m27-resume` needs its own `npm ci`: Turbopack refuses a symlinked node_modules.
+- **Exact next steps:** Merge #204 with the merge train, then #205 (Q2, stacked on it). Deploy only at Samuel's word.
 
 ### 2026-10-18 23:20 · Claude Opus 5.5 (laptop) · M26 R4a: the running focus session lives on the server
 - **Done:** Built step R4a of `docs/focus-lock-plan.md` (written for Samuel). Before, a running focus session was kept only in the browser that started it, so the phone showed the whole library and any other page was one click away. Now: a new database table, `focus_sessions` (migration 0029, a script that changes the database layout, with a reverse step), holds the session; the database itself refuses a second open session for the same reader (a "unique index": a rule that two rows may not share a value). While a session runs, every page under the signed-in app (Home, Library, Search, Paths, Review, Stats, any other book) sends you to the focused book, on every device; Account still opens and, while a session runs, shows it with Back to the book and Sign out (on a phone the account menu is on Home, which now redirects). Signing out does not end the session. The routes that serve another book's file or audio answer 423 Locked (an HTTP code meaning "this is locked"). The reader takes the session from the server and keeps its own copy for a moment offline. Export and import carry the new table (export, wipe, import gives the same file). Once the time is up, every page opens normally; R3's End now still works (R4b replaces it).

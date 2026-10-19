@@ -1608,7 +1608,7 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
   await expect(dialog.locator("dd")).toHaveText([
     "Next page",
     "Previous page",
-    "Close the open panel, or this list",
+    "Close the selected-text bar, the open panel, or this list",
     "Show this list",
     "In Study, move between Need to know and Test yourself",
   ]);

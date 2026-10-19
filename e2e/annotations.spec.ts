@@ -277,3 +277,86 @@ test("a removed note comes back: Undo in Notes, or Bring back on Your data", asy
   await item.getByRole("button", { name: "Remove" }).click();
   await expect(notesButton).toHaveText(before ? `Notes (${before})` : "Notes");
 });
+
+// M27 Q1 (Samuel, 2026-10-19): the selected-text bar closes on a click outside it, on Escape and on Listen, as × does,
+// but not with a note half-written in it; while the Read aloud bar shows, it sits above it, not over it.
+test("the selected-text bar gets out of the way: a click outside, Escape, Listen", async ({ page }) => {
+  await openAtRuggedCountenance(page);
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const notesBefore = await notesButton.textContent();
+
+  // A click on the page, inside the book's frame.
+  await selectPhrase(page, "backward in sentiment");
+  await expect(bar).toBeVisible();
+  const point = await page.evaluate((text) => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    for (const { doc } of view.renderer.getContents()) {
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const i = n.nodeValue!.indexOf(text);
+        if (i < 0) continue;
+        const r = doc.createRange();
+        r.setStart(n, i);
+        r.setEnd(n, i + 4);
+        const box = r.getBoundingClientRect();
+        const frame = (doc.defaultView!.frameElement as HTMLElement).getBoundingClientRect();
+        return { x: frame.left + box.left + box.width / 2, y: frame.top + box.top + box.height / 2 };
+      }
+    }
+    return null;
+  }, "lean, long, dusty");
+  expect(point).not.toBeNull();
+  await page.mouse.click(point!.x, point!.y);
+  await expect(bar).toBeHidden();
+
+  // A click outside the book (the chapter's name in the foot), then Escape.
+  await selectPhrase(page, "backward in sentiment");
+  await expect(bar).toBeVisible();
+  await page.locator("footer").getByText("Story of the Door").click();
+  await expect(bar).toBeHidden();
+  await selectPhrase(page, "backward in sentiment");
+  await expect(bar).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(bar).toBeHidden();
+
+  // A half-written note is not thrown away by a click outside; × still closes the bar.
+  await selectPhrase(page, "backward in sentiment");
+  await bar.getByRole("button", { name: "Add note" }).click();
+  await bar.getByLabel("Your note").fill("Half a thought");
+  await page.locator("footer").getByText("Story of the Door").click();
+  await expect(bar.getByLabel("Your note")).toHaveValue("Half a thought");
+  await bar.getByRole("button", { name: "Back" }).click();
+  await bar.getByRole("button", { name: "Close" }).click();
+  await expect(bar).toBeHidden();
+  await expect(notesButton).toHaveText(notesBefore!);
+
+  // Listen closes it; text selected while listening puts it above the Read aloud bar.
+  await selectPhrase(page, "backward in sentiment");
+  await expect(bar).toBeVisible();
+  const listen = page.locator("footer").getByRole("button", { name: "Listen" });
+  await listen.click();
+  const readAloud = page.getByRole("region", { name: "Read aloud" });
+  await expect(readAloud).toBeVisible();
+  await expect(bar).toBeHidden();
+  await selectPhrase(page, "backward in sentiment");
+  await expect(bar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [b, r] = [await bar.boundingBox(), await readAloud.boundingBox()];
+      return b && r ? Math.round(b.y + b.height - r.y) : null;
+    })
+    .toBeLessThanOrEqual(0);
+  // On a phone too: there the bar has a place of its own.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(async () => {
+      const [b, r] = [await bar.boundingBox(), await readAloud.boundingBox()];
+      return b && r ? Math.round(b.y + b.height - r.y) : null;
+    })
+    .toBeLessThanOrEqual(0);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await listen.click();
+  await expect(readAloud).toBeHidden();
+  await expect(bar).toBeHidden();
+});

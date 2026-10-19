@@ -387,6 +387,25 @@ export function Reader(props: {
   const notesRef = useRef<Annotation[]>([]);
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const selectionDoc = useRef<Document | null>(null);
+  // The selected-text bar (M27 Q1) closes on a tap or click outside it, or on Escape, as its × does; not while a
+  // note, voice note or drawing is open in it (SelectionBar's onBusy). Not when the book's own selection goes away:
+  // Safari clears a frame's selection when a button outside the frame is pressed, and the bar must stay for it.
+  const selectionBar = useRef<HTMLDivElement>(null);
+  const selectionOpen = useRef(false);
+  const selectionBusy = useRef(false);
+  useEffect(() => {
+    selectionOpen.current = !!selection;
+  }, [selection]);
+  const dismissSelection = useCallback(() => {
+    if (!selectionOpen.current || selectionBusy.current) return false;
+    selectionOpen.current = false;
+    selectionDoc.current?.getSelection()?.removeAllRanges();
+    setSelection(null);
+    return true;
+  }, []);
+  const onSelectionBusy = useCallback((busy: boolean) => {
+    selectionBusy.current = busy;
+  }, []);
   const [activeId, setActiveId] = useState<string | null>(null);
   const visibleText = useRef("");
   const [where, setWhere] = useState<{ cfi: string | null; fraction: number; chapter: string }>({
@@ -461,8 +480,11 @@ export function Reader(props: {
     if (target?.tagName === "BUTTON" && e.key !== "Escape") return;
     if (e.key === "ArrowRight" || e.key === "PageDown") turnRef.current("next");
     else if (e.key === "ArrowLeft" || e.key === "PageUp") turnRef.current("prev");
-    else if (e.key === "Escape") setPanel("none");
-  }, []);
+    else if (e.key === "Escape") {
+      // The selected-text bar first (M27 Q1), then the panel.
+      if (!dismissSelection()) setPanel("none");
+    }
+  }, [dismissSelection]);
 
   /**
    * Puts Focus (M21) where it belongs on the pages shown: the paragraph read aloud (paragraph focus); else what is
@@ -668,7 +690,11 @@ export function Reader(props: {
           });
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
-          doc.addEventListener("pointerdown", () => trackerRef.current.onActivity());
+          doc.addEventListener("pointerdown", () => {
+            trackerRef.current.onActivity();
+            // A tap or click on the page closes the selected-text bar (M27 Q1); a new selection opens it again.
+            dismissSelection();
+          });
           if (props.fileType !== "pdf") {
             // Focus (M21): the line or paragraph under the mouse as it moves (once a frame), or where a finger taps.
             setFocusMode(doc, focusRef.current);
@@ -744,7 +770,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, lookForLinks, refocus]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, lookForLinks, refocus, dismissSelection]);
 
   // Re-style when settings or the colour scheme change. A PDF's spread is read only when its renderer opens, so a new page choice reopens on the same page.
   useEffect(() => {
@@ -1314,6 +1340,34 @@ export function Reader(props: {
   });
   const { attach, stop } = player;
   const showsBar = listening && !!where.cfi;
+  // A tap or click outside the selected-text bar closes it (M27 Q1); taps inside the book are caught in its frames.
+  // While the Read aloud bar shows (a note open in the selected-text bar, or text selected while listening), the
+  // selected-text bar sits above it instead of over it.
+  const selecting = !!selection;
+  useEffect(() => {
+    if (!selecting) return;
+    const outside = (e: PointerEvent) => {
+      if (!selectionBar.current?.contains(e.target as Node)) dismissSelection();
+    };
+    document.addEventListener("pointerdown", outside, true);
+    const bar = selectionBar.current;
+    const lift = () => {
+      // The player draws the Read aloud bar into its slot a moment after the slot appears.
+      const top = showsBar ? listenSlot.current?.firstElementChild?.getBoundingClientRect().top : undefined;
+      if (top === undefined) bar?.style.removeProperty("--above-listen");
+      else bar?.style.setProperty("--above-listen", `${Math.max(0, window.innerHeight - top)}px`);
+    };
+    lift();
+    // The Read aloud bar is a row of the reader's grid: it appearing, or wrapping on a phone, resizes the book's box.
+    const sizes = new ResizeObserver(lift);
+    if (host.current) sizes.observe(host.current);
+    window.addEventListener("resize", lift);
+    return () => {
+      document.removeEventListener("pointerdown", outside, true);
+      sizes.disconnect();
+      window.removeEventListener("resize", lift);
+    };
+  }, [selecting, showsBar, dismissSelection]);
   // Only once the book is open: before that the page can neither turn nor light a word (coming back
   // to a book still read aloud, the bar would show while the book opens, and its calls would fail).
   // (Opened or failed: a book that could not open still shows the bar, so × can stop its audio.)
@@ -1757,7 +1811,12 @@ export function Reader(props: {
             aria-pressed={listening}
             disabled={!where.cfi}
             title="Read aloud"
-            onClick={() => (listening ? stopListening() : setListening(true))}
+            onClick={() => {
+              // The Read aloud bar opens where the selected-text bar sits (M27 Q1): one at a time.
+              if (!listening) dismissSelection();
+              if (listening) stopListening();
+              else setListening(true);
+            }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
               <path d="M2 5h2.5L8 2v10L4.5 9H2z" fill="currentColor" />
@@ -1773,6 +1832,7 @@ export function Reader(props: {
 
       {selection ? (
         <SelectionBar
+          ref={selectionBar}
           bookId={props.bookId}
           selection={selection}
           title={props.title}
@@ -1794,6 +1854,7 @@ export function Reader(props: {
             setPanel("rewrite");
           }}
           onClose={clearSelection}
+          onBusy={onSelectionBusy}
         />
       ) : null}
 

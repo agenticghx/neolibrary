@@ -810,6 +810,28 @@ until the reader has put down their own.
   its end asks the book's question. Built on R4. Steps and "Done when":
   `docs/focus-lock-plan.md`.
 
+### M27 · Reader requests (Samuel, 2026-10-19)
+
+Written for Samuel and for the session that builds it.
+
+- **Q1 · The selected-text bar gets out of the way.** The bar that opens
+  when you select text (highlight, note, copy) closes when you tap or click
+  anywhere outside it, or press Escape, as × does; not while a note, voice
+  note, drawing or sticker choice is open in it, so nothing half-made is
+  lost. Pressing Listen closes it too: it sat on top of the Read aloud bar
+  (Samuel's screenshots, 2026-10-19). Done when: a browser test closes the
+  bar by a click on the page, by a click outside the book, by Escape and by
+  Listen, and a half-written note survives a click outside.
+- **Q2 · Pick up where you left off elsewhere** (like Kindle's
+  Whispersync). Coming back to an open book (switching back to the tab or
+  window), if your place was moved by another device or by listening away
+  from this page, a strip offers "Go there". This tab's own saves never
+  trigger it. No migration: it compares the saved place with the places
+  this tab saved itself, so it cannot yet say which device moved it.
+  Done when: a browser test moves the saved place behind the reader's back,
+  brings the window back to the front, sees the offer, and Go there opens
+  that place; no offer appears after the tab's own page turns.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
