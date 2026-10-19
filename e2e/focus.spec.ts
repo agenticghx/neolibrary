@@ -173,7 +173,7 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
     await ready();
     await expect(reader.getByTestId("focus-strip")).toBeVisible();
   });
-  // M26 R4b: it ends early only by the wait (shortened to 20 seconds for the tests); then the question at the end.
+  // M26 R4b: it ends early only by the wait (shortened to 30 seconds for the tests); then the question at the end.
   await view.getByTestId("focus-strip").getByRole("button", { name: "Leave early…" }).click();
   await reader.getByTestId("focus-leave").getByRole("button", { name: /^Start the .* wait$/ }).click();
   await expect(reader.getByTestId("focus-wait")).toContainText("Leaving in");
@@ -195,7 +195,7 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
 });
 
 // M26 R4b "Done when": the ways out of a session before its time is up. (1) A 30-word answer cannot leave and a
-// 40-word answer can, and the note is saved; nor can one request to the server end it. (2) The wait (20 seconds
+// 40-word answer can, and the note is saved; nor can one request to the server end it. (2) The wait (30 seconds
 // here, FOCUS_WAIT_MS; 10 minutes on the live site) survives a reload, Keep reading cancels it, and at zero the
 // answer dialog opens. (3) Reading stats shows "Answered early" and "Left after a wait". The waits are real time
 // (the server's clock), so there is no page.clock here.
@@ -288,7 +288,7 @@ test("leaving a focus session early: an answer of 40 words, or the wait", async 
     await view.getByTestId("focus-strip").getByRole("button", { name: "Leave early…" }).click();
     await reader.getByTestId("focus-leave").getByRole("button", { name: /^Start the .* wait$/ }).click();
     await expect(reader.getByTestId("focus-leave")).toBeHidden();
-    await expect(reader.getByTestId("focus-wait")).toHaveText(/^Leaving in 0:[0-2]\d$/);
+    await expect(reader.getByTestId("focus-wait")).toHaveText(/^Leaving in 0:[0-3]\d$/);
   };
   await startWait();
   const before = await waitSeconds();

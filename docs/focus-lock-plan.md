@@ -115,7 +115,7 @@ it. Options 3 and 4 are written down for later.
   the server again each time its tab comes back to the front, so a wait
   started or a session ended on another device shows up. If this device's
   clock runs ahead and the server refuses the end, the strip comes back with
-  the server's time. `FOCUS_WAIT_MS` (20 seconds in the browser tests) changes
+  the server's time. `FOCUS_WAIT_MS` (30 seconds in the browser tests) changes
   the wait's length; unset, it is 10 minutes.
 
 ## R5 · Whole-book focus

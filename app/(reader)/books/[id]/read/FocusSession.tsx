@@ -242,6 +242,8 @@ export function FocusStrip({ session, onLeave, onStay }: { session: FocusSession
               setBusy(true);
               try {
                 await onStay();
+              } catch {
+                // Offline: the wait goes on, here and on the server; the strip stays as it is.
               } finally {
                 setBusy(false);
               }
