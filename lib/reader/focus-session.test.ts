@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanMinutes, clearSession, describeRemaining, focusNoteBody, formatRemaining, isOver, loadSession, remainingMs, saveSession, startSession } from "./focus-session";
+import { answerFromNote, cleanMinutes, clearSession, describeRemaining, focusNoteBody, formatRemaining, isOver, loadSession, remainingMs, saveSession, startSession } from "./focus-session";
 
 const ids = () => {
   let n = 0;
@@ -50,6 +50,12 @@ describe("a focus session with a question (M26 R3)", () => {
   it("the note repeats the question, so it stands on its own", () => {
     expect(focusNoteBody("Why forward?", " Because the future is where the story is. ")).toBe("Question: Why forward?\n\nAnswer: Because the future is where the story is.");
     expect(focusNoteBody("", "Just this")).toBe("Just this");
+  });
+
+  it("Reading stats shows only the answer under the question; a note rewritten in another shape is shown whole", () => {
+    expect(answerFromNote(focusNoteBody("Why forward?", "Because.\n\nAnd more."))).toBe("Because.\n\nAnd more.");
+    expect(answerFromNote("My own words now, no labels.")).toBe("My own words now, no labels.");
+    expect(answerFromNote("Question: Why?\nAnswer: one newline only")).toBe("Question: Why?\nAnswer: one newline only");
   });
 
   it("survives a reload: saved on the device, loaded back for the same book only, ignored when malformed", () => {
