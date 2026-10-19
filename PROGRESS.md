@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries M26 R4b on the live site (deployed 2026-10-19 as 31b815b, per the session that built it); merge the docs-only PR on m26-webkit-account-crash (the WebKit test crash is Playwright's WebKit, not Safari).
+next_action: Samuel tries M26 R4b on the live site (deployed 2026-10-19 as 31b815b, per the session that built it); merge #209 (Playwright 1.64.1, the WebKit crash gone), then read main's WebKit CI results.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-19
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-19 16:57 (laptop clock). **Playwright is upgraded to 1.64.1** (PR #209, branch `m26-playwright-upgrade`): its WebKit no longer crashes after pushState, reload, next page (`docs/ci-flakes.md`, resolved). Next: merge #209 when the four checks are green; then read main's CI run for the WebKit projects (`safari`, `readalong-safari`), which pull requests skip.
 
 Written 2026-10-19 16:11 (laptop clock). **The WebKit "Page crashed" in the focus test is not a Safari bug** (side session, branch `m26-webkit-account-crash`, docs only): Playwright 1.56.1's own WebKit crashes after pushState, reload, next page; Safari 27 on the Mac and the iOS 27 simulator do not. Details and a check script: `docs/ci-flakes.md`. No app change; nothing for Samuel to do. Merge the PR with the merge train.
 
@@ -279,6 +281,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 16:57 · Claude Opus 5.5 (laptop, side session) · Playwright 1.56.1 → 1.64.1: its WebKit no longer crashes
+- **Done:** Upgraded Playwright (the tool that drives browsers in the end-to-end tests; it downloads its own browsers) from 1.56.1 to 1.64.1 on branch `m26-playwright-upgrade`, PR #209. The WebKit crash of 2026-10-19 16:11 is gone: the check script in `docs/ci-flakes.md` printed `webkit PAGE CRASHED` before and `webkit /b.html: next page loaded: no crash | entries 3, current 2` after (WebKit 27.2, `webkit-2370`); the focus test "walk away" in WebKit passed (`2 passed (2.4m)`). That section of `docs/ci-flakes.md` is marked resolved. Since Playwright 1.57, offline mode reaches service workers by default and the old opt-in variable `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS` is gone; a probe showed a worker's fetch fails offline by default and succeeds with `PLAYWRIGHT_DISABLE_SERVICE_WORKER_NETWORK=1`, so `playwright.config.ts` now deletes that variable. Merge-train's Linux image tag is `v1.64.1-noble`.
+- **Key paths:** package.json, package-lock.json, playwright.config.ts, docs/ci-flakes.md, docs/handoff.md, .claude/skills/merge-train/references/gotchas.md; PROGRESS.md Open unknowns row 2.
+- **Commands that worked:** `npm install --save-exact @playwright/test@1.64.1 playwright-core@1.64.1`; `npx playwright install chromium webkit`; `node <scratch>/webkit-history-crash.mjs` (before and after); a throwaway config (setup + WebKit copy of `focus`), `PORT=3177 npx playwright test -c <it> --project=setup --project=focus-webkit --ignore-snapshots -g "walk away|create the owner"` → 2 passed.
+- **Known issues / blockers:** Pull requests skip WebKit in CI, so Linux WebKit 27.2 is first tested by main's run after the merge: read its `safari` and `readalong-safari` results. Cloud sessions whose preinstalled Chromium is older must run `npx playwright install chromium` first. New Chromium build: reference screenshots may need refreshing from CI.
+- **Exact next steps:** Merge #209 when the four checks are green (refresh reference screenshots from CI if they fail). Then read main's CI run for WebKit. Nothing for Samuel.
 
 ### 2026-10-19 16:11 · Claude Opus 5.5 (laptop, side session) · The WebKit "Page crashed" in the focus test is Playwright's WebKit, not Safari
 - **Done:** Investigated why `e2e/focus.spec.ts` "a focus session you cannot walk away from…" crashes in WebKit (Safari's engine) at `reader.goto("/account")` (line 412). It is a bug in the copy of WebKit that Playwright 1.56.1 downloads, not in Neolibrary and not in Safari: no app change. Three steps in one tab crash it: an in-page address change (`history.pushState`, which every Next.js link does), a reload, then loading another page. A two-page HTML test with no Neolibrary code crashes Playwright's WebKit the same way, and does not crash without the `pushState`; the same test passes in Safari 27.0 on this Mac and in Safari on the iOS 27.0 iPhone simulator, and in Chromium. No focus session, Account page, window resize or dark mode is needed. Written up, with the check script and the evidence, in `docs/ci-flakes.md` ("Not flakes: a crash inside Playwright's own copy of WebKit").
