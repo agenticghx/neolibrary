@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M26 R4b (the ways out of a focus session) with the merge train; deploy at Samuel's word (no migration).
+next_action: Samuel tries M26 R4b on the live site (deployed 2026-10-19 as 31b815b, per the session that built it); merge the docs-only PR on m26-webkit-account-crash (the WebKit test crash is Playwright's WebKit, not Safari).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-19
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-19 16:11 (laptop clock). **The WebKit "Page crashed" in the focus test is not a Safari bug** (side session, branch `m26-webkit-account-crash`, docs only): Playwright 1.56.1's own WebKit crashes after pushState, reload, next page; Safari 27 on the Mac and the iOS 27 simulator do not. Details and a check script: `docs/ci-flakes.md`. No app change; nothing for Samuel to do. Merge the PR with the merge train.
 
 Written 2026-10-19 14:46 (laptop clock). **M26 R4b is built** on branch `m26-r4b-ways-out` (Samuel: "let's implement this, verify and deploy"): Leave early… replaces End now; the ways out are an answer of 40 words or a 10-minute wait kept on the server; Reading stats says how each session ended. No migration. Next: PR, merge with the merge train when the four checks are green, deploy (Samuel asked for it in the same message), then Samuel tries it on the live site.
 
@@ -277,6 +279,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 16:11 · Claude Opus 5.5 (laptop, side session) · The WebKit "Page crashed" in the focus test is Playwright's WebKit, not Safari
+- **Done:** Investigated why `e2e/focus.spec.ts` "a focus session you cannot walk away from…" crashes in WebKit (Safari's engine) at `reader.goto("/account")` (line 412). It is a bug in the copy of WebKit that Playwright 1.56.1 downloads, not in Neolibrary and not in Safari: no app change. Three steps in one tab crash it: an in-page address change (`history.pushState`, which every Next.js link does), a reload, then loading another page. A two-page HTML test with no Neolibrary code crashes Playwright's WebKit the same way, and does not crash without the `pushState`; the same test passes in Safari 27.0 on this Mac and in Safari on the iOS 27.0 iPhone simulator, and in Chromium. No focus session, Account page, window resize or dark mode is needed. Written up, with the check script and the evidence, in `docs/ci-flakes.md` ("Not flakes: a crash inside Playwright's own copy of WebKit").
+- **Key paths:** docs/ci-flakes.md; e2e/focus.spec.ts:412; crash reports ~/Library/Logs/DiagnosticReports/com.apple.WebKit.WebContent.Development-2026-10-19-*.ips (top frame `WebCore::Navigation::initializeForNewWindow`; not in git).
+- **Commands that worked:** a throwaway config (setup + a WebKit focus project, not committed), `PORT=3177 npx playwright test -c <it> --project=setup --project=focus-webkit --ignore-snapshots -g "walk away|create the owner"` -> `Error: page.goto: Page crashed … navigating to "http://127.0.0.1:3177/account"` at focus.spec.ts:412 on main 31b815b; a probe printing `navigation.entries()`: after `pushState`, WebKit 1 -> 1, Chromium 1 -> 2, and after the reload WebKit's `currentEntry` is null; the docs' script `node webkit-history-crash.mjs` -> `webkit PAGE CRASHED`, Chromium `/b.html: next page loaded: no crash | entries 3, current 2`; `open -a Safari http://127.0.0.1:3199/a.html` and `xcrun simctl openurl <iPhone 18 Pro, iOS 27.0> …` -> both logged entries 2, current 1 after the reload and "b.html loaded: no crash".
+- **Known issues / blockers:** CI never runs the focus project in WebKit, so CI is not affected. A future WebKit test that reloads after a soft navigation and then calls `page.goto` in the same tab will crash the same way until Playwright is upgraded (1.64.1 is out; 1.56.1 is pinned). Samuel's iPhone was not tested itself; the simulator runs iOS 27.0.
+- **Exact next steps:** None needed for the app. Optional: upgrade Playwright in its own PR and run the check in docs/ci-flakes.md; if WebKit no longer crashes, mark the section resolved.
 
 ### 2026-10-19 14:46 · Claude Opus 5.5 (laptop) · M26 R4b: the ways out of a focus session
 - **Done:** Built step R4b of `docs/focus-lock-plan.md` (written for Samuel), at Samuel's word, before he gave a verdict on R4a. Before, End now ended a focus session with one click. Now **Leave early…** opens a dialog with two ways out: write your answer (the Save button stays off until it has 40 words; it then ends the session and saves the answer as a note), or start a 10-minute wait (the strip shows "Leaving in 9:12 · Keep reading", and Keep reading cancels it; when it reaches zero, "Did you answer it?" opens). The server decides every ending, so one request cannot skip a way out: ending without an answer is refused (HTTP 409, "conflict") until the time is up or the wait has run out, and a short answer is refused before the note is saved. The wait's end is stored on the server, so a reload or another device keeps it. Reading stats says how each session ended ("On time", "Answered early", "Left after a wait", "Ended early" for older ones). The start dialog has "Lock this phone to the page too": steps for Guided Access (iPhone) and app pinning (Android); it changes no setting. No migration: R4a's table already had the wait column.
