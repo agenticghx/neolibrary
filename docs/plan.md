@@ -800,7 +800,8 @@ until the reader has put down their own.
   with the question on the Reading stats page; the session survives a
   reload part-way through. Screenshots: phone and desktop, light and dark.
 - **R4 · A focus session you cannot walk away from** (Samuel, 2026-10-18).
-  The running session moves to the server, so every page on every device
+  *R4a built and live 2026-10-18 (#203); R4b built 2026-10-19 (branch
+  `m26-r4b-ways-out`, no migration).* The running session moves to the server, so every page on every device
   sends you back to the focused book; End now becomes a 10-minute wait or a
   written answer of 40 words; Reading stats shows how each session ended.
   Two pull requests (R4a, R4b), one database migration. Steps, defaults and

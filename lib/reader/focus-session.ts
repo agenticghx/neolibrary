@@ -11,6 +11,9 @@
 export const DEFAULT_MINUTES = 50;
 export const MIN_MINUTES = 1;
 export const MAX_MINUTES = 180;
+/** The ways out before the time is up (M26 R4b): an answer of at least this many words, or the wait. */
+export const EARLY_ANSWER_WORDS = 40;
+export const DEFAULT_WAIT_MINUTES = 10;
 
 export type FocusSession = {
   /** Shared by every sitting read during the session (the reading tracker reports it). */
@@ -23,6 +26,8 @@ export type FocusSession = {
   endsAt: number;
   /** The note that will hold the answer: chosen before saving, so a retry saves nothing twice. */
   noteId: string;
+  /** M26 R4b: when the wait to leave early ends (this device's clock), or null when no wait was asked for. */
+  waitEndsAt?: number | null;
 };
 
 const KEY = "neolibrary.focus.v1";
@@ -56,6 +61,8 @@ export type ServerFocus = {
   minutes: number;
   noteId: string;
   remainingMs: number;
+  /** M26 R4b: the milliseconds left in the wait to leave early, by the server's clock; null when none was asked for. */
+  waitRemainingMs?: number | null;
 };
 
 /**
@@ -64,15 +71,48 @@ export type ServerFocus = {
  * session keeps its own end, so a reload does not shift it by the moments the page took to load.
  */
 export function fromServer(s: ServerFocus, local: FocusSession | null, now = Date.now()): FocusSession {
-  if (local && local.id === s.id && local.bookId === s.bookId) return { ...local, question: s.question, noteId: s.noteId };
+  const serverWait = s.waitRemainingMs == null ? null : now + Math.max(0, s.waitRemainingMs);
+  if (local && local.id === s.id && local.bookId === s.bookId) {
+    // The same wait already on this device keeps its end too; a wait started or cancelled elsewhere is taken as it is.
+    const waitEndsAt = serverWait === null ? null : local.waitEndsAt ?? serverWait;
+    return { ...local, question: s.question, noteId: s.noteId, waitEndsAt };
+  }
   const endsAt = now + Math.max(0, s.remainingMs);
-  return { id: s.id, bookId: s.bookId, question: s.question, minutes: s.minutes, startedAt: endsAt - s.minutes * 60_000, endsAt, noteId: s.noteId };
+  return {
+    id: s.id,
+    bookId: s.bookId,
+    question: s.question,
+    minutes: s.minutes,
+    startedAt: endsAt - s.minutes * 60_000,
+    endsAt,
+    noteId: s.noteId,
+    waitEndsAt: serverWait,
+  };
 }
 
 /** Milliseconds left, never below zero. */
 export const remainingMs = (s: FocusSession, now = Date.now()) => Math.max(0, s.endsAt - now);
 
-export const isOver = (s: FocusSession, now = Date.now()) => remainingMs(s, now) === 0;
+/** Milliseconds left in the wait to leave early, or null when no wait was asked for. */
+export const waitRemainingMs = (s: FocusSession, now = Date.now()) => (s.waitEndsAt == null ? null : Math.max(0, s.waitEndsAt - now));
+
+/** The time is up, or the wait to leave early has run out: either way the reader may go. */
+export const isOver = (s: FocusSession, now = Date.now()) => remainingMs(s, now) === 0 || waitRemainingMs(s, now) === 0;
+
+/** The words in an answer, as the 40-word rule counts them: runs of letters or digits ("don't" and "1890s" are one each). */
+export function countWords(text: string) {
+  return text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+}
+
+/**
+ * Why an answer may not end the session yet, or null when it may: before the time is up and before any wait has
+ * run out, it needs EARLY_ANSWER_WORDS words. Words are counted, not judged (judging would cost money on every exit).
+ */
+export function earlyAnswerProblem(answer: string, mayLeave: boolean) {
+  if (mayLeave) return null;
+  const n = countWords(answer);
+  return n >= EARLY_ANSWER_WORDS ? null : `To leave before the time is up, write at least ${EARLY_ANSWER_WORDS} words (this has ${n}).`;
+}
 
 /** "50:00", "9:05", "0:07": minutes and seconds, as a kitchen timer shows them. */
 export function formatRemaining(ms: number) {
@@ -103,6 +143,24 @@ export function focusNoteBody(question: string, answer: string) {
 export function answerFromNote(body: string) {
   const m = /^Question: [^\n]*\n\nAnswer: ([\s\S]*)$/.exec(body);
   return m ? m[1].trim() : body;
+}
+
+/** How a session ended, as Reading stats says it (M26 R4b); null says nothing (from before R4a, or still open). */
+export function endedLabel(how: string | null) {
+  switch (how) {
+    case "time":
+      return "On time";
+    case "answered":
+      return "Answered early";
+    case "waited":
+      return "Left after a wait";
+    case "early":
+      return "Ended early";
+    case "released":
+      return "Released";
+    default:
+      return null;
+  }
 }
 
 /** The session saved on this device for this book, if its shape is right (storage can hold anything). */

@@ -109,11 +109,14 @@ export type FocusSessionStats = {
   question: string;
   /** The reader's answer (the note's text), or null when none was saved. */
   answer: string | null;
+  /** How it ended (M26 R4b): on time, answered early, after a wait; null for a session from before R4a, or still open. */
+  endedHow: "time" | "answered" | "early" | "waited" | "released" | null;
 };
 
 /**
  * The reader's focus sessions, newest first. A session is its sittings grouped by focus id; its answer is the
- * latest version of the note the sittings point at, unless that note was removed.
+ * latest version of the note the sittings point at, unless that note was removed; how it ended comes from the
+ * server's own record of the session (M26 R4a), which sessions from before R4a do not have.
  */
 export async function focusSessions(db: Db, ownerId: string, limit = 50): Promise<FocusSessionStats[]> {
   const rows = await db.execute(sql`
@@ -125,9 +128,10 @@ export async function focusSessions(db: Db, ownerId: string, limit = 50): Promis
       GROUP BY s.focus_id, s.book_id
     )
     SELECT g.focus_id AS "focusId", g.book_id AS "bookId", b.title, g.started_at AS "startedAt", g.active_seconds AS "activeSeconds",
-           g.words, g.question, n.body AS answer
+           g.words, g.question, n.body AS answer, f.ended_how AS "endedHow"
     FROM grouped g
     JOIN books b ON b.id = g.book_id AND b.deleted_at IS NULL
+    LEFT JOIN focus_sessions f ON f.id = g.focus_id AND f.owner_id = ${ownerId}
     LEFT JOIN LATERAL (
       SELECT case when a.deleted then null else a.body end AS body FROM annotations a
       WHERE a.owner_id = ${ownerId} AND a.annotation_id = g.answer_id
@@ -146,6 +150,7 @@ export async function focusSessions(db: Db, ownerId: string, limit = 50): Promis
     words: Number(r.words),
     question: (r.question as string) ?? "",
     answer: (r.answer as string | null) ?? null,
+    endedHow: (r.endedHow as FocusSessionStats["endedHow"]) ?? null,
   }));
 }
 
