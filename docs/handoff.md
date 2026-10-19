@@ -281,9 +281,10 @@ network returns):
 - The PR screenshot grid shows any `screenshots/<name>-<desktop|phone>-<light|dark>.png`.
 
 - **Offline tests:** `context.setOffline(true)` does not reach service
-  workers on its own, so a worker's fetches still get through and an
-  "offline" test passes while proving nothing. `playwright.config.ts` sets
-  `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` so it does, but even then
+  workers in Playwright 1.56.1 and older, so a worker's fetches got through and an
+  "offline" test passed while proving nothing. Since 1.57 (this repository has
+  1.64.1 since 2026-10-19) it does by default; `playwright.config.ts` makes sure
+  `PLAYWRIGHT_DISABLE_SERVICE_WORKER_NETWORK` is not set. Even so,
   the worker's network came back after a page navigation. So
   `e2e/offline.spec.ts` also aborts every request with
   `context.route("**/*", …)`, which that setting makes apply to the worker's
