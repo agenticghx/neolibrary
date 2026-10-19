@@ -254,6 +254,8 @@ export function Reader(props: {
   fileUrl: string;
   fileType: "epub" | "pdf";
   initialCfi: string | null;
+  /** The place saved when the page was made (M27 Q2): opened elsewhere (?at=, ?page=), it is not a place to offer. */
+  savedCfi?: string | null;
   initialFraction: number;
   /** Open with the Read aloud bar showing (Home's "Listen from here"); the reader still presses Play (Safari needs the click). */
   startListening?: boolean;
@@ -427,10 +429,11 @@ export function Reader(props: {
     shortcutsOpen.current = shortcuts;
   }, [shortcuts]);
   const pending = useRef<Relocate | null>(null);
-  // M27 Q2 (like Kindle's Whispersync): the places this tab saved itself, and the one it opened at. A saved place
+  // M27 Q2 (like Kindle's Whispersync): the places this tab saved itself, the one it opened at and the one saved
+  // when it opened (a search result or a shared link opens elsewhere, and the page has not been saved yet). A saved place
   // that is none of them was put there by another device, or by listening away from this page: coming back to the
   // tab, the reader is offered it.
-  const ownPlaces = useRef(new Set<string>(props.initialCfi ? [props.initialCfi] : []));
+  const ownPlaces = useRef(new Set<string>([props.initialCfi, props.savedCfi].filter((c): c is string => !!c)));
   const [elsewhere, setElsewhere] = useState<{ cfi: string; fraction: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
