@@ -2,11 +2,13 @@ import { defineConfig, type Project } from "@playwright/test";
 import { ADMIN_STATE, SETUP_CODE, TEST_MAX_RANGE } from "./e2e/pages";
 import { applyBrowserSlices, parseBrowserSlices } from "./scripts/ci-browser-needed.mjs";
 
-// Without this, Playwright's offline mode (context.setOffline) does not reach
-// service workers: a worker's own fetches still get through, so an "offline"
-// test would pass while proving nothing (checked 2026-10-04 with Playwright
-// 1.56.1). With it, they fail like a real network outage.
-process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= "1";
+// Playwright's offline mode (context.setOffline) must reach service workers, or
+// a worker's own fetches still get through and an "offline" test passes while
+// proving nothing. Up to 1.56.1 that needed PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1;
+// since 1.57 it is on by default in Chromium and this variable turns it off
+// (checked 2026-10-19 with 1.64.1: a worker's fetch fails offline, and succeeds
+// with the variable set). So make sure it is never set.
+delete process.env.PLAYWRIGHT_DISABLE_SERVICE_WORKER_NETWORK;
 
 const port = Number(process.env.PORT ?? 3100);
 const phone = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };

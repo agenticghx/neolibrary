@@ -31,7 +31,13 @@ number when its cause is removed; drop its pattern from `flaky-tests.txt` once i
 | `e2e/readalong.spec.ts:267` "a two-part upload is announced once, can be cancelled…" | WebKit | `page.goto: Navigation to "/library?new=collection" is interrupted by another navigation to "/books/…"` | 37627959389 attempts 2 and 3 (#108), 37629382754 attempts 2 and 3 (#103), then 37652722201 attempt 2 (#110, *with* #109's wait): five, after passing on #98, #99 and #100 | removing an audiobook sets its message, then `router.refresh()` (`AudiobookUpload.tsx`, `settle`); the test left the page before the refresh landed. #109: the test waits for the network to go idle first; not enough on a slow renderer (the refreshed page commits, and the router rewrites the address, after the quiet half-second). #110: `gotoPastRefresh`, a `page.goto` retried once on exactly "interrupted by another navigation" |
 | `e2e/readalong.spec.ts:1990` "the part before never comes: after the wait's limit, Back lands 15 s back…" | WebKit | `page.waitForRequest: Timeout 10000ms exceeded` in `asksBefore`: Back pressed, no request for the part before; with #110's diagnostic: `The player: {"currentTime":36.53,"paused":false,"seeking":false,"readyState":4}` | 37638918531 attempts 2 and 4 (#104), 37643052389 attempt 1 (#110): three; passed on #103's run and on the laptop | the test's own margin: it pressed Back 15 s from 14.5 s into paragraph 69, which must land *before* 69 to ask for the part before (0.5 s of slack); on a slow runner the press came later and the skip stayed inside 69. #110: the test starts 10 s into the paragraph (5 s of slack) and the error carries the player's state |
 
-## Not flakes: a crash inside Playwright's own copy of WebKit
+## Not flakes: a crash inside Playwright's own copy of WebKit (resolved 2026-10-19 by Playwright 1.64.1)
+
+**Resolved.** Playwright 1.64.1 (WebKit 27.2, folder `webkit-2370`) no longer crashes: the check below now prints
+`webkit /b.html: next page loaded: no crash | entries 3, current 2`, the same as Chromium, where 1.56.1 printed
+`webkit PAGE CRASHED`. The focus test's "walk away" in WebKit (setup + a WebKit copy of the `focus` project) passed
+(`2 passed (2.4m)`). Nothing below applies to the current WebKit; it stays as the record, and the check is worth
+running again after a Playwright upgrade or a Safari update.
 
 Found 2026-10-19 while checking M26 R4b; this section is written for Claude sessions that run a test in WebKit (Safari's
 engine) and see `Page crashed`. Playwright downloads its own build of each browser; "Playwright's WebKit" below means
@@ -70,9 +76,9 @@ old current position; the list left behind above would fail it.
 | Playwright's Chromium | entries 2, current 1 | entries 2, current 1 | loaded |
 
 Playwright's WebKit is a snapshot of WebKit's development version (its framework says 623+) that calls itself Safari
-26.0; the Safari tested here is 27.0, and this repository pins Playwright 1.56.1 while 1.64.1 is out. So the WebKit in
-the tests is the older one, and the fault is most likely one WebKit has since fixed. Run the check below again when
-Playwright is upgraded (if the crash is gone, nothing here applies any more) and after a Safari update.
+26.0; the Safari tested here is 27.0, and this repository pinned Playwright 1.56.1 (until 2026-10-19) while 1.64.1 was out. So the WebKit in
+the tests is the older one, and the fault is most likely one WebKit has since fixed. Confirmed 2026-10-19: Playwright 1.64.1's
+WebKit 27.2 does not crash (see Resolved, above).
 
 **What to do when you meet it.** Do not change the app for it. Do not re-run: it fails every time. In a WebKit test,
 avoid a reload followed by `page.goto` in the same tab after a soft navigation (open a new page for the next step,
@@ -81,13 +87,13 @@ night run), whose tests have not hit this pattern so far. No upstream report was
 microsoft/playwright`, "webkit page crashed" and "pushState webkit", 2026-10-19).
 
 **The check.** Save this as `webkit-history-crash.mjs` outside the repository and run it from the repository root
-(it uses Playwright from `node_modules`). Today it prints `webkit PAGE CRASHED`, then Chromium's `/b.html: next page
-loaded: no crash | entries 3, current 2`. For Safari, run `node webkit-history-crash.mjs serve` and open
+(it uses Playwright from `node_modules`). With Playwright 1.56.1 it printed `webkit PAGE CRASHED`; with 1.64.1 both
+WebKit and Chromium print `/b.html: next page loaded: no crash | entries 3, current 2`. For Safari, run `node webkit-history-crash.mjs serve` and open
 `http://127.0.0.1:3199/a.html` (an iPhone simulator: `xcrun simctl openurl booted http://127.0.0.1:3199/a.html`); the
 page should end on `/b.html: next page loaded: no crash`.
 
 ```js
-// pushState, reload, then another page: crashes Playwright 1.56.1's WebKit, not Safari 27.
+// pushState, reload, then another page: crashed Playwright 1.56.1's WebKit; not 1.64.1's, nor Safari 27.
 // Run from the repository root: node webkit-history-crash.mjs (Playwright's WebKit and Chromium),
 // or node webkit-history-crash.mjs serve, then open http://127.0.0.1:3199/a.html in Safari.
 import { createServer } from "node:http";
