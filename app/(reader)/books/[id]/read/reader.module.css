@@ -715,8 +715,8 @@
   font-weight: var(--weight-medium);
 }
 
-/* Selection bar: appears above the foot while text is selected */
-/* --above-listen: set while the Read aloud bar shows (Reader.tsx), so this bar sits above it, never over it. */
+/* Selection bar: appears above the foot while text is selected. --above-listen is set while the Read aloud bar
+   shows (Reader.tsx), so this bar sits above it, never over it. */
 .selectionBar {
   position: fixed;
   left: 50%;
