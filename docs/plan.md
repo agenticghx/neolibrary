@@ -799,6 +799,16 @@ until the reader has put down their own.
   finds the answer as a note, as a card in Daily review, and as a sitting
   with the question on the Reading stats page; the session survives a
   reload part-way through. Screenshots: phone and desktop, light and dark.
+- **R4 · A focus session you cannot walk away from** (Samuel, 2026-10-18).
+  The running session moves to the server, so every page on every device
+  sends you back to the focused book; End now becomes a 10-minute wait or a
+  written answer of 40 words; Reading stats shows how each session ended.
+  Two pull requests (R4a, R4b), one database migration. Steps, defaults and
+  "Done when": `docs/focus-lock-plan.md`.
+- **R5 · Whole-book focus** (Samuel, 2026-10-18). One book for days or
+  until its last page: the shelf, search and Daily review show only it, and
+  its end asks the book's question. Built on R4. Steps and "Done when":
+  `docs/focus-lock-plan.md`.
 
 ## How a cloud session works on this repo
 
