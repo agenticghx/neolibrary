@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #204 (M27 Q1) then #205 (M27 Q2) with the merge train; deploy at Samuel's word.
+next_action: Merge the M27 Q2 fix (book opened from a search result); deploy main at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-19
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-19 12:18 (laptop clock). **M27 Q1 (#204) and Q2 (#205, stacked on #204) are open.** Merge them with the merge train in that order; deploy only at Samuel's word (no migration). Then Samuel tries both on the live site: select text and tap outside it; read on the phone, then come back to the laptop tab.
+Written 2026-10-19 13:22 (laptop clock). **M27 Q1 (#204, 9eb3627) and Q2 (#205, 899d00e) are merged, not deployed.** A small follow-up fixes Q2 for a book opened from a search result; merge it with the merge train. Deploy only at Samuel's word (no migration). Then Samuel tries both on the live site: select text and tap outside it; read on the phone, then bring the laptop's open tab to the front.
 
 Written 2026-10-18 23:20 (laptop clock, from `date`). **M26 R4a is built** on branch `m26-r4a-focus-server` (the running focus session lives on the server; every page and every signed-in browser goes to the focused book until the time is up; other books' files answer 423 Locked). It adds **migration 0029** (with its reverse step). Next: 1. Merge with the merge train once the four checks are green. 2. Deploy only at Samuel's word, after a production backup restore-checked (0029 creates a table). 3. Samuel tries it on the live site (start a session on the laptop, open the site on his phone): his verdict comes before R4b. 4. Then R4b (the ways out: a 10-minute wait or a 40-word answer), `docs/focus-lock-plan.md`.
 
@@ -275,6 +275,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 13:22 · Claude Opus 5.5 (laptop) · M27: #204 and #205 merged; Q2 fix for a book opened from a search result
+- **Done:** Merged with the merge train: #204 (M27 Q1, the selected-text bar) as 9eb3627, CI run 39284387894; #205 (M27 Q2, the place left off elsewhere) as 899d00e, CI run 39287732961. No flakes met. Main's CI on 9eb3627 (39287488034, with WebKit) passed; on 899d00e (39291658622) it was still running at this entry. Found after the merge: a book opened from a search result or a shared link (?at=) could offer the place saved before it opened, as if another device had moved it. The browser test reproduces this when the fix is undone. Fix: the reader also counts the place saved when the page was made as its own (`savedCfi`). Not deployed: the live site is still 4adc159.
+- **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx` (savedCfi in ownPlaces), `app/(reader)/books/[id]/read/page.tsx`, `e2e/annotations.spec.ts` (opened at a search result with the reader's own save held back: no offer; Stay here now uses a third place).
+- **Commands that worked:** `PORT=3187 npx playwright test --project=annotations --ignore-snapshots`: 213 passed; with the fix undone, the new check fails ("Expected: hidden, Received: visible"). `npx vitest run`: 938 passed.
+- **Known issues / blockers:** None known.
+- **Exact next steps:** Merge this PR with the merge train. Deploy main at Samuel's word (no migration since 0029, so no backup). Check `/api/health` on both addresses, `/sign-in` 200, the log line "Page pictures: ready.". Then Samuel tries it on the live site.
 
 ### 2026-10-19 12:18 · Claude Opus 5.5 (laptop) · M27 Q2: an open book offers the place left off elsewhere (#205)
 - **Done:** Samuel's request 1 ("like Audible or Kindle", 2026-10-19). When a tab or window holding an open book comes back to the front, the reader asks the server for the saved place. If it is not one this tab saved or opened at, a strip says "You left off at N% on another device, or while listening" with Go there and Stay here. New `GET /api/books/<id>/position` (owner only, no-store). No migration, so it cannot name the device.

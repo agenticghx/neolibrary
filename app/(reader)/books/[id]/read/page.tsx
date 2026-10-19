@@ -67,6 +67,7 @@ export default async function ReadPage({
       fileUrl={fileUrl}
       fileType={book.fileType!}
       initialCfi={isCfi(at) ? at : openPage ? null : book.position}
+      savedCfi={book.position}
       edition={edition}
       openPage={openPage}
       initialFraction={book.progress}

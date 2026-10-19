@@ -370,18 +370,43 @@ test("an open book offers the place left off elsewhere", async ({ page }) => {
     "http://x",
   ).searchParams.get("at")!;
   expect(far).toMatch(/^epubcfi\(/);
-  await openAtRuggedCountenance(page);
-  const id = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  // A third place, for Stay here: a passage about Lanyon, the first the search finds.
+  await page.goto(`/search?q=${encodeURIComponent("Lanyon")}`);
+  const mid = new URL(
+    (await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "Lanyon" }).first().getAttribute("href"))!,
+    "http://x",
+  ).searchParams.get("at")!;
+  expect(mid).toMatch(/^epubcfi\(/);
+  expect(mid).not.toBe(far);
+  await page.goto(`/search?q=${encodeURIComponent('"to a large fortune"')}`);
+  const fortune = await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "fortune" }).first().getAttribute("href");
+  const id = /\/books\/([0-9a-f-]{36})\/read/.exec(fortune!)![1];
   const saved = async () => (await (await page.request.get(`/api/books/${id}/position`)).json()) as { cfi: string; fraction: number };
-  // The reader saves the page it opened at.
-  await expect.poll(async () => (await saved()).fraction).toBeLessThan(0.2);
-  const before = await saved();
   const strip = page.getByRole("status").filter({ hasText: "You left off at" });
   const comeBack = async () => {
     const asked = page.waitForResponse((r) => r.url().endsWith(`/api/books/${id}/position`) && r.request().method() === "GET");
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await asked;
   };
+
+  // Opened at a search result while the place saved is elsewhere: the place saved before this page opened is the
+  // reader's own, not one to offer. The reader's own save is held back, so the server keeps the old place.
+  const start = await saved();
+  expect((await page.request.put(`/api/books/${id}/position`, { data: { cfi: far, fraction: 0.9 } })).status()).toBe(204);
+  const holdSaves = (r: import("@playwright/test").Route) => (r.request().method() === "PUT" ? r.abort() : r.continue());
+  await page.route(`**/api/books/${id}/position`, holdSaves);
+  await openAtRuggedCountenance(page);
+  await page.waitForTimeout(800); // past the reader's 600 ms save delay
+  await comeBack();
+  expect((await saved()).cfi).toBe(far);
+  await expect(strip).toBeHidden();
+  await page.unroute(`**/api/books/${id}/position`, holdSaves);
+  expect((await page.request.put(`/api/books/${id}/position`, { data: start })).status()).toBe(204);
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // The reader saves the page it opened at.
+  await expect.poll(async () => (await saved()).fraction).toBeLessThan(0.2);
+  const before = await saved();
 
   // Its own place: nothing to offer.
   await comeBack();
@@ -402,7 +427,7 @@ test("an open book offers the place left off elsewhere", async ({ page }) => {
   await expect(strip).toBeHidden();
 
   // Stay here keeps the page and asks no more about that place.
-  expect((await page.request.put(`/api/books/${id}/position`, { data: before })).status()).toBe(204);
+  expect((await page.request.put(`/api/books/${id}/position`, { data: { cfi: mid, fraction: 0.5 } })).status()).toBe(204);
   await comeBack();
   await expect(strip).toBeVisible();
   const here = await page.locator("footer").textContent();
