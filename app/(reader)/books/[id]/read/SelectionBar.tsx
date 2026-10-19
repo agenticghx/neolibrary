@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type Ref } from "react";
 import type { Color } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
 import { VoiceRecorder } from "@/components/notes/VoiceRecorder";
@@ -18,8 +18,13 @@ const COLORS: { value: Color; label: string }[] = [
   { value: "sky", label: "Sky" },
 ];
 
-/** Appears while text is selected in the book: highlight, add a note, rewrite the paragraph, copy or share. */
+/**
+ * Appears while text is selected in the book: highlight, add a note, rewrite the paragraph, copy or share.
+ * The reader closes it on a tap outside it or Escape (M27 Q1), except while `onBusy` says a note, voice note or
+ * drawing is open in it: what is half-made there is not thrown away.
+ */
 export function SelectionBar({
+  ref,
   bookId,
   selection,
   title,
@@ -32,7 +37,9 @@ export function SelectionBar({
   onDrawing,
   onImages,
   onClose,
+  onBusy,
 }: {
+  ref?: Ref<HTMLDivElement>;
   bookId: string;
   selection: PendingSelection;
   title: string;
@@ -45,6 +52,7 @@ export function SelectionBar({
   onDrawing: (strokes: number[][]) => Promise<void>;
   onImages: () => void;
   onClose: () => void;
+  onBusy?: (busy: boolean) => void;
 }) {
   const [noting, setNoting] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -52,10 +60,14 @@ export function SelectionBar({
   const [drawing, setDrawing] = useState(false);
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
+  const busy = noting || recording || drawing;
+  useEffect(() => {
+    onBusy?.(busy);
+  }, [busy, onBusy]);
   const preview = selection.exact.length > 90 ? `${selection.exact.slice(0, 90)}…` : selection.exact;
 
   return (
-    <div className={styles.selectionBar} role="toolbar" aria-label="Selected text">
+    <div ref={ref} className={styles.selectionBar} role="toolbar" aria-label="Selected text">
       <p className={styles.selectionQuote}>“{preview}”</p>
       {drawing ? (
         <DrawingPad onSave={onDrawing} onBack={() => setDrawing(false)} />

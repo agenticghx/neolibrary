@@ -11,7 +11,7 @@ import styles from "./reader.module.css";
 export const SHORTCUTS: { keys: string[]; what: string }[] = [
   { keys: ["Right arrow", "Page Down"], what: "Next page" },
   { keys: ["Left arrow", "Page Up"], what: "Previous page" },
-  { keys: ["Esc"], what: "Close the open panel, or this list" },
+  { keys: ["Esc"], what: "Close the selected-text bar, the open panel, or this list" },
   { keys: ["?"], what: "Show this list" },
   { keys: ["Left arrow", "Right arrow"], what: "In Study, move between Need to know and Test yourself" },
 ];
