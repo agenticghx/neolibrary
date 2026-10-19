@@ -13,6 +13,7 @@ import {
   suggestionsFrom,
   type GroupStats,
 } from "@/lib/library/reading-stats";
+import { answerFromNote } from "@/lib/reader/focus-session";
 import styles from "../admin/invites/page.module.css";
 import own from "./page.module.css";
 import { ReadingCalendar } from "./ReadingCalendar";
@@ -214,7 +215,7 @@ export default async function StatsPage() {
                       <Link href={`/books/${f.bookId}`}>{f.title}</Link> · {dayLabel(f.startedAt)} · {time(f.activeSeconds)}
                     </p>
                     <p className={own.focusQuestion}>{f.question}</p>
-                    {f.answer ? <p className={own.focusAnswer}>{f.answer}</p> : <p className={own.focusNone}>No answer saved.</p>}
+                    {f.answer ? <p className={own.focusAnswer}>{answerFromNote(f.answer)}</p> : <p className={own.focusNone}>No answer saved.</p>}
                   </li>
                 ))}
               </ol>

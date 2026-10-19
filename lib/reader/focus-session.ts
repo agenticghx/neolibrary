@@ -73,6 +73,15 @@ export function focusNoteBody(question: string, answer: string) {
   return q ? `Question: ${q}\n\nAnswer: ${a}` : a;
 }
 
+/**
+ * The answer part of a focus note, to show under its question on Reading stats (the note repeats the question, so
+ * it reads on its own in Notes and Daily review). A note the reader has since rewritten in another shape is shown whole.
+ */
+export function answerFromNote(body: string) {
+  const m = /^Question: [^\n]*\n\nAnswer: ([\s\S]*)$/.exec(body);
+  return m ? m[1].trim() : body;
+}
+
 /** The session saved on this device for this book, if its shape is right (storage can hold anything). */
 export function loadSession(bookId: string, storage: Pick<Storage, "getItem"> | null = safeStorage()): FocusSession | null {
   try {

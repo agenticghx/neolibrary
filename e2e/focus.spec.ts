@@ -152,6 +152,8 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
   const list = reader.getByTestId("stats-focus");
   await expect(list).toContainText(QUESTION);
   await expect(list).toContainText(ANSWER);
+  // The question once, as the heading of the session; the answer under it without the note's own "Question:" line.
+  await expect(list).not.toContainText("Question:");
   await expect(list).toContainText("The Time Machine");
   await expect(list).toContainText("18 Oct 2026");
 
