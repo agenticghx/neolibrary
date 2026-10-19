@@ -9,6 +9,7 @@ import { MemoryStorage } from "@/lib/storage";
 import { readFileSync } from "node:fs";
 import { createAnnotation, deleteAnnotation, listAnnotations, restoreAnnotation, updateAnnotation } from "./annotations";
 import { costReport } from "./costs";
+import { endFocus, startFocus } from "./focus-lock";
 import { exportLibrary, importLibrary, wipeLibrary, type LibraryExport } from "./export";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
@@ -103,6 +104,10 @@ describe("library export (ground rule 7)", () => {
       // M26 R3: a sitting inside a focus session, whose answer is the note "Second".
       focus: { id: "66666666-7777-4888-8999-000000000000", question: "What does the Time Traveller find?", answerAnnotationId: note.id },
     });
+    // M26 R4a: focus sessions on the server, one ended early with its answer, one still open.
+    const answered = await startFocus(database.db, ownerId, { bookId, question: "What does the Time Traveller find?", minutes: 30 }, new Date("2026-10-01T10:00:00Z"));
+    await endFocus(database.db, ownerId, answered.id, { answered: true }, new Date("2026-10-01T10:10:00Z"));
+    await startFocus(database.db, ownerId, { bookId, question: "Who are the Morlocks?", minutes: 20 }, new Date("2026-10-02T10:00:00Z"));
     await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-standard" });
     await setStyle(database.db, ownerId, bookId, { scope: "book", style: "ste-strict" });
     await setPreferences(database.db, ownerId, { rewrittenView: "rewritten" });
@@ -171,6 +176,10 @@ describe("library export (ground rule 7)", () => {
         answerAnnotationId: note.id,
       }),
     ]);
+    expect(before.focusSessions).toEqual([
+      expect.objectContaining({ id: answered.id, bookId, kind: "sitting", minutes: 30, endedAt: "2026-10-01T10:10:00.000Z", endedHow: "answered" }),
+      expect.objectContaining({ question: "Who are the Morlocks?", endsAt: "2026-10-02T10:20:00.000Z", endedAt: null, endedHow: null }),
+    ]);
     expect(before.settings).toEqual({ aiStyle: "ste-standard", rewrittenView: "rewritten" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
     expect(before.generations).toEqual([
@@ -204,6 +213,7 @@ describe("library export (ground rule 7)", () => {
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
     expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions, empty.reviewCards]).toEqual([[], [], [], [], [], [], [], [], [], []]);
+    expect(empty.focusSessions).toEqual([]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));

@@ -6,9 +6,12 @@ import { SidebarToggle } from "@/components/shell/SidebarToggle";
 import { SkipLink } from "@/components/shell/SkipLink";
 import { TabBar } from "@/components/shell/TabBar";
 import styles from "@/components/shell/Shell.module.css";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { FocusGuard } from "@/components/shell/FocusGuard";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { focusRedirect, runningFocus } from "@/lib/library/focus-lock";
 import { listPathsWithProgress } from "@/lib/library/paths";
 import { listCollections } from "@/lib/library/shelf";
 
@@ -19,6 +22,10 @@ import { listCollections } from "@/lib/library/shelf";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const db = await getDb();
+  // M26 R4a: while a focus session runs, every page here but Account sends the reader to the focused book. This
+  // runs when a page is loaded; FocusGuard does the same when a link inside the app is followed.
+  const to = focusRedirect(await runningFocus(db, user.id), (await headers()).get("x-pathname") ?? "/");
+  if (to) redirect(to);
   const [paths, collections] = await Promise.all([listPathsWithProgress(db, user.id), listCollections(db, user.id)]);
   // Hidden with the button at the sidebar's top (M24); remembered on this device.
   const sidebarHidden = (await cookies()).get(SIDEBAR_COOKIE)?.value === "hidden";
@@ -37,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <TabBar />
       {/* Cmd+K or Ctrl+K: jump to a book, a Path, a page or a note (M21). */}
       <CommandPalette admin={user.role === "admin"} />
+      <FocusGuard />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
 import { trackAudioKey } from "@/lib/library/audio";
+import { lockedOut } from "@/lib/library/focus-lock";
 import { serveStoredFile } from "@/lib/serve-file";
 import { getStorage } from "@/lib/storage";
 
@@ -25,5 +27,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id, track } = await params;
   const key = trackAudioKey(user.id, id, track);
   if (!key) return Response.json({ error: "Not found" }, { status: 404 });
+  // M26 R4a: not while a focus session runs on another book (423 Locked).
+  const locked = await lockedOut(await getDb(), user.id, id);
+  if (locked) return locked;
   return serveStoredFile(req, await getStorage(), key);
 }

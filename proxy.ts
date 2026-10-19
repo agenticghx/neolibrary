@@ -18,6 +18,10 @@ import { agentUnauthorised } from "@/lib/auth/agent-401";
 //    Railway already redirects http, but that first request would go out
 //    unencrypted. Sent only on https (Railway says so in x-forwarded-proto);
 //    browsers ignore it on http, and the local test servers are http.
+// 4. The page's path, for the layouts (x-pathname): while a focus session
+//    runs, every page but the focused book and Account sends the reader to the
+//    book (M26 R4a), and a layout is not told its path any other way. Set
+//    here, so a header the browser sends with that name is replaced.
 export const HSTS = "max-age=31536000";
 const PUBLIC = [/^\/sign-in$/, /^\/setup$/, /^\/invite\/[^/]+$/, /^\/api\/health$/, /^\/sw\.js$/, /^\/manifest\.webmanifest$/];
 
@@ -51,6 +55,7 @@ function withPolicy(req: NextRequest) {
   const headers = new Headers(req.headers);
   headers.set("x-nonce", nonce);
   headers.set("content-security-policy", csp);
+  headers.set("x-pathname", req.nextUrl.pathname);
   const res = NextResponse.next({ request: { headers } });
   res.headers.set("content-security-policy", csp);
   res.headers.set("x-content-type-options", "nosniff");

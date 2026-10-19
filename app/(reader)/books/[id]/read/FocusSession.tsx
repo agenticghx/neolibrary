@@ -106,10 +106,20 @@ function Modal({
 }
 
 /** Before the session: the question to answer and how long to read for. */
-export function StartFocusDialog({ open, onStart, onCancel }: { open: boolean; onStart: (question: string, minutes: number) => void; onCancel: () => void }) {
+export function StartFocusDialog({
+  open,
+  onStart,
+  onCancel,
+}: {
+  open: boolean;
+  /** Starts it on the server; a refusal (another session running, no network) is thrown and shown here. */
+  onStart: (question: string, minutes: number) => Promise<void>;
+  onCancel: () => void;
+}) {
   const [question, setQuestion] = useState("");
   const [minutes, setMinutes] = useState(String(DEFAULT_MINUTES));
   const [problem, setProblem] = useState("");
+  const [busy, setBusy] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
   const cancel = () => {
     setProblem("");
@@ -119,15 +129,22 @@ export function StartFocusDialog({ open, onStart, onCancel }: { open: boolean; o
     <Modal open={open} label="Start a focus session" first={box} onCancel={cancel} testId="focus-start">
       <form
         className={own.form}
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           const q = cleanQuestion(question);
           const m = cleanMinutes(minutes);
           if (!q) return setProblem("Write the question you are reading to answer.");
           if (!m) return setProblem(`Set between ${MIN_MINUTES} and ${MAX_MINUTES} minutes.`);
           setProblem("");
-          onStart(q, m);
-          setQuestion("");
+          setBusy(true);
+          try {
+            await onStart(q, m);
+            setQuestion("");
+          } catch (err) {
+            setProblem(err instanceof Error && err.message ? err.message : "The session could not start. Try again.");
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <h2 className={styles.panelTitle}>Focus session</h2>
@@ -168,7 +185,7 @@ export function StartFocusDialog({ open, onStart, onCancel }: { open: boolean; o
           <button type="button" className={styles.tool} onClick={cancel}>
             Cancel
           </button>
-          <button type="submit" className={styles.primaryTool}>
+          <button type="submit" className={styles.primaryTool} disabled={busy}>
             Start
           </button>
         </div>

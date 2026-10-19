@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, type ChapterReading } from "@/lib/db/schema";
+import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, focusSessions, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, type ChapterReading } from "@/lib/db/schema";
 import { assertSafeKey } from "@/lib/storage";
 import { isStyle, isView } from "./levels";
 import { cleanPicture } from "./pinned";
@@ -183,6 +183,20 @@ export type LibraryExport = {
     question?: string;
     answerAnnotationId?: string | null;
   }[];
+  /** Focus sessions kept on the server: the question, the times, and how each ended (added in M26 R4a). */
+  focusSessions?: {
+    id: string;
+    bookId: string;
+    kind: "sitting" | "book";
+    question: string;
+    minutes: number;
+    noteId: string;
+    startedAt: string;
+    endsAt: string;
+    waitEndsAt: string | null;
+    endedAt: string | null;
+    endedHow: (typeof focusSessions.$inferSelect)["endedHow"];
+  }[];
   /** Daily review's schedule for each highlight or note rated so far (added in M21). */
   reviewCards?: {
     annotationId: string;
@@ -251,6 +265,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .from(readingSessions)
     .where(eq(readingSessions.ownerId, ownerId))
     .orderBy(asc(readingSessions.startedAt), asc(readingSessions.id));
+  const focusRows = await db.select().from(focusSessions).where(eq(focusSessions.ownerId, ownerId)).orderBy(asc(focusSessions.startedAt), asc(focusSessions.id));
   const reviewRows = await db.select().from(reviewCards).where(eq(reviewCards.ownerId, ownerId)).orderBy(asc(reviewCards.firstReviewedAt), asc(reviewCards.annotationId));
   // Only schedules of notes the file brings (a schedule has no database link to its note).
   const exportedNotes = new Set(annotationRows.map((a) => a.annotationId));
@@ -416,6 +431,19 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       question: r.question,
       answerAnnotationId: r.answerAnnotationId,
     })),
+    focusSessions: focusRows.map((r) => ({
+      id: r.id,
+      bookId: r.bookId,
+      kind: r.kind,
+      question: r.question,
+      minutes: r.minutes,
+      noteId: r.noteId,
+      startedAt: r.startedAt.toISOString(),
+      endsAt: r.endsAt.toISOString(),
+      waitEndsAt: r.waitEndsAt?.toISOString() ?? null,
+      endedAt: r.endedAt?.toISOString() ?? null,
+      endedHow: r.endedHow,
+    })),
     reviewCards: reviewRows
       .filter((r) => exportedNotes.has(r.annotationId))
       .map((r) => ({
@@ -443,6 +471,7 @@ export async function wipeLibrary(db: Db, ownerId: string) {
     await tx.delete(audioTracks).where(eq(audioTracks.ownerId, ownerId));
     await tx.delete(readalongImports).where(eq(readalongImports.ownerId, ownerId));
     await tx.delete(readingSessions).where(eq(readingSessions.ownerId, ownerId));
+    await tx.delete(focusSessions).where(eq(focusSessions.ownerId, ownerId));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
@@ -537,6 +566,8 @@ function checkImport(x: LibraryExport, ownerId: string) {
     if (!isCost(t.costUsd)) refuse("A read-aloud track's cost is not an amount of money.");
   }
   for (const r of x.readingSessions ?? []) if (!bookIds.has(r.bookId)) refuse("A reading session is for a book that is not in this file.");
+  for (const f of x.focusSessions ?? []) if (!bookIds.has(f.bookId)) refuse("A focus session is for a book that is not in this file.");
+  if ((x.focusSessions ?? []).filter((f) => !f.endedAt).length > 1) refuse("More than one focus session in this file is still open.");
   const noteIds = new Set((x.annotations ?? []).map((a) => a.annotationId));
   const isDate = (d: unknown) => typeof d === "string" && !Number.isNaN(Date.parse(d));
   const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
@@ -698,6 +729,16 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         question: r.question ?? "",
         // Only a link to a note the file brings (the note may have been left out, or belong to someone else).
         answerAnnotationId: r.answerAnnotationId && noteIds.includes(r.answerAnnotationId) ? r.answerAnnotationId : null,
+      });
+    }
+    for (const f of x.focusSessions ?? []) {
+      await tx.insert(focusSessions).values({
+        ...f,
+        ownerId,
+        startedAt: new Date(f.startedAt),
+        endsAt: new Date(f.endsAt),
+        waitEndsAt: date(f.waitEndsAt),
+        endedAt: date(f.endedAt),
       });
     }
     for (const r of x.reviewCards ?? []) {

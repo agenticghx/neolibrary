@@ -48,6 +48,13 @@
   color: var(--ink-700);
 }
 
+/* On a raised panel, links use the main ink with an accent underline (accent text is too faint in dark mode). */
+.cardLink {
+  color: var(--ink-900);
+  text-decoration-color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+
 /* Reading preferences (M17): two switches, styled as the reader's. */
 .choice {
   display: grid;

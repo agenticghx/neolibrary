@@ -41,7 +41,7 @@ async function fourLooks(page: Page, name: string, ready: () => Promise<void>) {
 }
 
 /** The owner invites a new reader, who joins; returns the reader's page (signed in, on Home). */
-async function newReader(page: Page, browser: Browser) {
+async function newReader(page: Page, browser: Browser, email = `focus-${Date.now()}@example.com`) {
   await page.goto("/admin/invites");
   await page.getByLabel(/Who is it for/).fill("Fola, focus sessions");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
@@ -50,13 +50,14 @@ async function newReader(page: Page, browser: Browser) {
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Fola Focus");
-  await reader.getByLabel("Email address").fill(`focus-${Date.now()}@example.com`);
-  await reader.getByLabel("Password").fill("one question at a time");
+  await reader.getByLabel("Email address").fill(email);
+  await reader.getByLabel("Password").fill(PASSWORD);
   await reader.getByRole("button", { name: "Join the library" }).click();
   await expect(reader.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
   return reader;
 }
 
+const PASSWORD = "one question at a time";
 const QUESTION = "Why does the Time Traveller go forward, and not back?";
 const ANSWER = "Because the future is the one place no one has written about yet.";
 
@@ -183,4 +184,114 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
   await reader.goto("/stats");
   await expect(reader.getByTestId("stats-focus").getByRole("listitem")).toHaveCount(2);
   await expect(reader.getByTestId("stats-focus")).toContainText("No answer saved.");
+});
+
+// M26 R4a "Done when": the running session lives on the server. A 2-minute session; Library, Search and another
+// book land back on the focused book, and so does a link followed inside the app; a second browser signed in as
+// the same reader lands there too, and signing out there does not end the session; a reload keeps the time left;
+// another book's file is refused (423 Locked); once the time is up every page opens normally. The server's clock
+// cannot be wound forward from a test, so this one waits the real two minutes (no page.clock here).
+test("a focus session you cannot walk away from: every page and every browser goes to the focused book until the time is up", async ({ page, browser }) => {
+  test.setTimeout(240_000);
+  const email = `focus-lock-${Date.now()}@example.com`;
+  const reader = await newReader(page, browser, email);
+  const upload = async (file: string) => {
+    const res = await reader.request.post("/api/books", {
+      multipart: { files: { name: file, mimeType: "application/epub+zip", buffer: readFileSync(`fixtures/books/${file}`) } },
+    });
+    return (await res.json()).results[0].bookId as string;
+  };
+  const tm = await upload("wells-the-time-machine.epub");
+  const jekyll = await upload("stevenson-jekyll-and-hyde.epub");
+  const focused = new RegExp(`/books/${tm}/read$`);
+
+  await reader.goto(`/books/${tm}/read`);
+  const view = reader.getByTestId("reader");
+  await expect(view).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await view.getByRole("button", { name: "Focus session" }).click();
+  const start = reader.getByTestId("focus-start");
+  await start.getByLabel("What are you reading to answer?").fill(QUESTION);
+  await start.getByLabel("Minutes").fill("2");
+  await start.getByRole("button", { name: "Start" }).click();
+  await expect(reader.getByTestId("focus-strip")).toContainText(QUESTION);
+  const startedAt = Date.now();
+  const session = (await (await reader.request.get("/api/focus")).json()).session;
+  expect(session).toMatchObject({ bookId: tm, question: QUESTION, minutes: 2, running: true });
+
+  // A second session cannot start while this one runs (the database keeps one per reader).
+  const second = await reader.request.post("/api/focus", { data: { bookId: jekyll, question: "Another?", minutes: 5 } });
+  expect(second.status()).toBe(409);
+
+  // Library, Search and another book: each lands back on the focused book, with the strip.
+  for (const path of ["/library", "/search?q=time", `/books/${jekyll}/read`, "/", "/stats"]) {
+    await reader.goto(path);
+    await expect(reader, path).toHaveURL(focused);
+    await expect(reader.getByTestId("focus-strip")).toContainText(QUESTION);
+  }
+  // Account opens (Sign out is there); a link followed inside the app goes back to the book.
+  await reader.goto("/account");
+  await expect(reader).toHaveURL(/\/account$/);
+  await expect(reader.getByTestId("account-focus")).toContainText("The Time Machine");
+  await reader.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Review", exact: true }).click();
+  await expect(reader).toHaveURL(focused);
+  await expect(reader.getByTestId("focus-strip")).toBeVisible();
+
+  // Another book's file is refused (423 Locked); the focused book's is not.
+  expect((await reader.request.get(`/api/books/${jekyll}/file-link`)).status()).toBe(423);
+  expect((await reader.request.get(`/api/books/${tm}/file-link`)).status()).toBe(200);
+
+  // A reload keeps the time left.
+  const seconds = async () => {
+    const [m, sec] = (await reader.getByTestId("focus-clock").innerText()).split(":").map(Number);
+    return m * 60 + sec;
+  };
+  await expect(reader.getByTestId("focus-clock")).toHaveText(/^[01]:\d\d$/);
+  const before = await seconds();
+  await reader.reload();
+  await expect(reader.getByTestId("focus-strip")).toContainText(QUESTION);
+  const after = await seconds();
+  expect(after).toBeLessThanOrEqual(before);
+  expect(after).toBeGreaterThan(before - 15);
+
+  // The look of Account while a session runs.
+  await reader.goto("/account");
+  await fourLooks(reader, "focus-account", async () => {
+    await expect(reader.getByTestId("account-focus")).toBeVisible();
+  });
+
+  // A second browser, the same reader: signing in lands on the focused book. Signing out there (from Account,
+  // where a phone finds it) and back in: the session is still running.
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 390, height: 844 } });
+  const phone = await ctx.newPage();
+  const signIn = async () => {
+    await phone.goto("/sign-in");
+    await phone.getByLabel("Email address").fill(email);
+    await phone.getByLabel("Password").fill(PASSWORD);
+    await phone.getByRole("button", { name: "Sign in" }).click();
+    await expect(phone).toHaveURL(focused);
+    await expect(phone.getByTestId("focus-strip")).toContainText(QUESTION);
+  };
+  await signIn();
+  await phone.goto("/library");
+  await expect(phone).toHaveURL(focused);
+  await phone.goto("/account");
+  await phone.getByTestId("account-focus").getByRole("button", { name: "Sign out" }).click();
+  await expect(phone).toHaveURL(/\/sign-in$/);
+  await signIn();
+
+  // Once the time is up (by the server's clock), every page opens normally, in both browsers.
+  await expect
+    .poll(async () => (await (await reader.request.get("/api/focus")).json()).session?.running, { timeout: 150_000 - (Date.now() - startedAt), intervals: [2_000] })
+    .toBe(false);
+  for (const p of [reader, phone]) {
+    await p.goto("/library");
+    await expect(p).toHaveURL(/\/library$/);
+    await p.goto("/search?q=time");
+    await expect(p).toHaveURL(/\/search\?q=time$/);
+    await p.goto(`/books/${jekyll}/read`);
+    await expect(p).toHaveURL(new RegExp(`/books/${jekyll}/read$`));
+    await expect(p.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  }
+  expect((await reader.request.get(`/api/books/${jekyll}/file-link`)).status()).toBe(200);
+  await ctx.close();
 });

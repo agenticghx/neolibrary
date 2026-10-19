@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerFromNote, cleanMinutes, clearSession, describeRemaining, focusNoteBody, formatRemaining, isOver, loadSession, remainingMs, saveSession, startSession } from "./focus-session";
+import { answerFromNote, cleanMinutes, clearSession, describeRemaining, focusNoteBody, formatRemaining, fromServer, isOver, loadSession, remainingMs, saveSession, startSession } from "./focus-session";
 
 const ids = () => {
   let n = 0;
@@ -76,5 +76,21 @@ describe("a focus session with a question (M26 R3)", () => {
     expect(loadSession("b1", null)).toBeNull();
     saveSession(s, null);
     clearSession(null);
+  });
+});
+
+describe("the session from the server (M26 R4a)", () => {
+  const server = { id: "s1", bookId: "b1", question: "Why?", minutes: 2, noteId: "n1", remainingMs: 90_000 };
+
+  it("ends at this device's now plus the time the server says is left, whatever this device's clock says", () => {
+    const s = fromServer(server, null, 1_000_000);
+    expect(s).toMatchObject({ id: "s1", bookId: "b1", noteId: "n1", endsAt: 1_090_000, startedAt: 970_000 });
+    expect(formatRemaining(remainingMs(s, 1_000_000))).toBe("1:30");
+  });
+
+  it("a copy of the same session on this device keeps its own end (a reload does not move it); another session's copy is ignored", () => {
+    const local = { id: "s1", bookId: "b1", question: "Why?", minutes: 2, startedAt: 0, endsAt: 60_000, noteId: "n1" };
+    expect(fromServer(server, local, 1_000_000).endsAt).toBe(60_000);
+    expect(fromServer(server, { ...local, id: "s0" }, 1_000_000).endsAt).toBe(1_090_000);
   });
 });

@@ -331,6 +331,31 @@ export const readingSessions = pgTable("reading_sessions", {
   answerAnnotationId: uuid("answer_annotation_id"),
 });
 
+/**
+ * M26 R4a: a focus session, kept on the server so every page on every device knows it is running (see
+ * db/migrations/0029_focus_sessions_live.up.sql). The database allows one row per reader with ended_at empty.
+ */
+export const focusSessions = pgTable("focus_sessions", {
+  id: uuid("id").primaryKey(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  kind: text("kind").$type<"sitting" | "book">().notNull().default("sitting"),
+  question: text("question").notNull(),
+  minutes: integer("minutes").notNull(),
+  /** The note that will hold the answer, chosen at the start, so a retried save makes one note. */
+  noteId: uuid("note_id").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  /** R4b: when a wait to leave early ends. */
+  waitEndsAt: timestamp("wait_ends_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  endedHow: text("ended_how").$type<"time" | "answered" | "early" | "waited" | "released">(),
+});
+
 /** Time and words of one sitting inside one chapter (M10 (c)). */
 export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };
 
