@@ -17,7 +17,15 @@ import { ExplainPanel } from "./ExplainPanel";
 import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
 import { EndFocusDialog, FocusStrip, StartFocusDialog } from "./FocusSession";
-import { clearSession as clearFocusSession, type FocusSession, isOver as focusIsOver, loadSession as loadFocusSession, saveSession as saveFocusSession, startSession as startFocusSession } from "@/lib/reader/focus-session";
+import {
+  clearSession as clearFocusSession,
+  type FocusSession,
+  fromServer as focusFromServer,
+  isOver as focusIsOver,
+  loadSession as loadFocusSession,
+  saveSession as saveFocusSession,
+  type ServerFocus,
+} from "@/lib/reader/focus-session";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
@@ -328,7 +336,8 @@ export function Reader(props: {
     url.searchParams.delete("listen");
     window.history.replaceState(window.history.state, "", url);
   }, [props.startListening]);
-  // A focus session with a question (M26 R3): kept on this device, so a reload part-way through picks it up.
+  // A focus session with a question (M26 R3). Since R4a it lives on the server; this device keeps a copy, so a
+  // reload part-way through, or a moment offline, picks it up with the time that is left.
   const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
   const [focusStart, setFocusStart] = useState(false);
   const [focusEnding, setFocusEnding] = useState(false);
@@ -500,6 +509,36 @@ export function Reader(props: {
     }
   }, []);
 
+  // A focus session on this book picks up where it was, with the time that is left (M26 R4a): the server says
+  // whether one is open (it may have been started or ended on another device); offline, this device's copy stands.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const local = loadFocusSession(props.bookId);
+      let session = local;
+      try {
+        const res = await fetch("/api/focus", { cache: "no-store" });
+        if (res.ok) {
+          const open = ((await res.json()) as { session: ServerFocus | null }).session;
+          session = open && open.bookId === props.bookId ? focusFromServer(open, local) : null;
+        }
+      } catch {
+        // Offline: the copy on this device runs the timer.
+      }
+      if (cancelled) return;
+      if (session) {
+        saveFocusSession(session);
+        setFocusSession(session);
+        if (focusIsOver(session)) setFocusEnding(true);
+      } else if (local) {
+        clearFocusSession();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.bookId]);
+
   // Open the book once. Settings live on this device (localStorage).
   useEffect(() => {
     if (view.current) return;
@@ -512,12 +551,6 @@ export function Reader(props: {
       try {
         const initial = loadSettings();
         focusRef.current = props.fileType === "pdf" ? "off" : initial.focus;
-        // A focus session (M26 R3) left running on this device picks up where it was, with the time that is left.
-        const savedFocus = loadFocusSession(props.bookId);
-        if (savedFocus) {
-          setFocusSession(savedFocus);
-          if (focusIsOver(savedFocus)) setFocusEnding(true);
-        }
         await import("foliate-js/view.js");
         const blob = await downloadBook(props.fileUrl, {
           stallMs: OPEN_TIMEOUT_MS,
@@ -1095,8 +1128,10 @@ export function Reader(props: {
     await reload();
   };
 
-  const beginFocus = (question: string, minutes: number) => {
-    const session = startFocusSession({ bookId: props.bookId, question, minutes });
+  /** Starts the session on the server (one at a time: it refuses a second); throws its reason for the dialog. */
+  const beginFocus = async (question: string, minutes: number) => {
+    const { session: started } = (await api("/api/focus", "POST", { bookId: props.bookId, question, minutes })) as { session: ServerFocus };
+    const session = focusFromServer(started, null);
     saveFocusSession(session);
     setFocusDone(null);
     setFocusEnding(false);
@@ -1105,8 +1140,9 @@ export function Reader(props: {
     setPanel("none");
   };
 
-  /** The session is over, with or without an answer. */
-  const finishFocus = () => {
+  /** The session is over, with or without an answer. Without one, the server is told here (saving an answer ends it there). */
+  const finishFocus = (answered = false) => {
+    if (focusSession && !answered) void api("/api/focus/end", "POST", { id: focusSession.id }).catch(() => undefined);
     clearFocusSession();
     setFocusEnding(false);
     setFocusSession(null);
@@ -1123,7 +1159,7 @@ export function Reader(props: {
     });
     // One last report with the note's id, after the session goes.
     setFocusDone({ id: focusSession.id, question: focusSession.question, answerAnnotationId: note.id });
-    finishFocus();
+    finishFocus(true);
     await reload();
   };
 
@@ -1763,7 +1799,7 @@ export function Reader(props: {
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
       <StartFocusDialog open={focusStart} onStart={beginFocus} onCancel={() => setFocusStart(false)} />
-      <EndFocusDialog key={focusSession?.id ?? ""} session={focusSession} open={Boolean(focusSession) && focusEnding} onSave={answerFocus} onSkip={finishFocus} />
+      <EndFocusDialog key={focusSession?.id ?? ""} session={focusSession} open={Boolean(focusSession) && focusEnding} onSave={answerFocus} onSkip={() => finishFocus()} />
     </div>
   );
 }

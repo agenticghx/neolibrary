@@ -63,6 +63,17 @@ it. Options 3 and 4 are written down for later.
   still work, and signing out does not end the session.
 - The sittings and the answer note work as they do now (R3), keyed by the
   server's session id.
+- **As built (2026-10-18, branch `m26-r4a-focus-server`):** the table also
+  keeps the minutes and the answer note's id (chosen at the start, so a retried
+  save makes one note). A fifth way a session ends, `early`, records R4a's
+  one-click End now (R4b removes it). Each route that serves a book's file
+  (`/api/files`, the file link, both audio routes) answers 423; covers and
+  pictures are not locked. The redirect is checked in `app/(app)/layout.tsx`
+  and in the reader's page (not its layout: a layout is not run again when the
+  command palette opens another book), and a small `FocusGuard` asks again
+  when a link inside the app is followed. While a session runs, Account shows
+  it with a link back and a Sign out button, because on a phone the account
+  menu is on Home. Ask-to-end and cancel-a-wait are R4b's routes.
 - **Done when:** a browser test starts a 2-minute session; visiting Library,
   Search and another book lands back on the focused book; a second browser
   signed in as the same reader lands there too; a reload keeps the time left;

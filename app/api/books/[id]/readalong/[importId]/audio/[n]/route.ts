@@ -1,5 +1,6 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { lockedOut } from "@/lib/library/focus-lock";
 import { importAudio } from "@/lib/readalong/importer";
 import { isId } from "@/lib/readalong/http";
 import { serveStoredFile } from "@/lib/serve-file";
@@ -25,7 +26,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const { id: bookId, importId, n } = await params;
   if (!isId(bookId) || !isId(importId) || !/^\d{1,4}$/.test(n)) return Response.json({ error: "Not found" }, { status: 404 });
-  const audio = await importAudio(await getDb(), user.id, bookId, importId, Number(n));
+  const db = await getDb();
+  // M26 R4a: not while a focus session runs on another book (423 Locked).
+  const locked = await lockedOut(db, user.id, bookId);
+  if (locked) return locked;
+  const audio = await importAudio(db, user.id, bookId, importId, Number(n));
   if (!audio) return Response.json({ error: "Not found" }, { status: 404 });
   return serveStoredFile(req, await getStorage(), audio.key);
 }

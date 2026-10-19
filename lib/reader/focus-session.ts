@@ -1,8 +1,10 @@
 /**
  * A focus session with a question (M26 R3). Before starting, the reader writes the question they are reading to
  * answer and sets a timer; while it runs, the reader shows only the page; when the time is up, the app asks
- * "Did you answer it?" and saves the answer as a note. The session is kept on this device (localStorage) with
- * its end as a moment in time, so a reload part-way through picks it up with the time that is left.
+ * "Did you answer it?" and saves the answer as a note. Since M26 R4a the session lives on the server (one at a
+ * time per reader, lib/library/focus-lock.ts), so every page on every device knows it runs; this device keeps a
+ * copy (localStorage) with its end as a moment on this device's clock, so a reload part-way through, or a moment
+ * offline, picks it up with the time that is left.
  *
  * Pure logic lives here, so it can be unit-tested; FocusSession.tsx draws it.
  */
@@ -44,6 +46,27 @@ export function startSession(
   if (!question) throw new Error("Write the question you are reading to answer.");
   if (!minutes) throw new Error(`Set between ${MIN_MINUTES} and ${MAX_MINUTES} minutes.`);
   return { id: ids(), bookId: input.bookId, question, minutes, startedAt: now, endsAt: now + minutes * 60_000, noteId: ids() };
+}
+
+/** What the server says about a session (GET /api/focus): its times, and the milliseconds left by its own clock. */
+export type ServerFocus = {
+  id: string;
+  bookId: string;
+  question: string;
+  minutes: number;
+  noteId: string;
+  remainingMs: number;
+};
+
+/**
+ * The session as this device runs it, from the server's word. Its end is now plus the time the server says is
+ * left, so a device whose clock is set wrong still counts down right. A copy already on this device for the same
+ * session keeps its own end, so a reload does not shift it by the moments the page took to load.
+ */
+export function fromServer(s: ServerFocus, local: FocusSession | null, now = Date.now()): FocusSession {
+  if (local && local.id === s.id && local.bookId === s.bookId) return { ...local, question: s.question, noteId: s.noteId };
+  const endsAt = now + Math.max(0, s.remainingMs);
+  return { id: s.id, bookId: s.bookId, question: s.question, minutes: s.minutes, startedAt: endsAt - s.minutes * 60_000, endsAt, noteId: s.noteId };
 }
 
 /** Milliseconds left, never below zero. */
