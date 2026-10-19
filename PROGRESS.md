@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M27 Q2 fix (book opened from a search result); deploy main at Samuel's word.
+next_action: Samuel tries M27 Q1 and Q2 on the live site (67e7ef4).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-19
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-19 13:22 (laptop clock). **M27 Q1 (#204, 9eb3627) and Q2 (#205, 899d00e) are merged, not deployed.** A small follow-up fixes Q2 for a book opened from a search result; merge it with the merge train. Deploy only at Samuel's word (no migration). Then Samuel tries both on the live site: select text and tap outside it; read on the phone, then bring the laptop's open tab to the front.
+Written 2026-10-19 14:08 (laptop clock). **Live: 67e7ef4** (M27 Q1 #204, Q2 #205, Q2 fix #206; no migration, so no backup), deployed at Samuel's word. Next: Samuel tries both on the live site: select text and tap outside it; read on the phone, then bring the laptop's open book to the front. This entry sits on local branch `m27-deploy-67e7ef4-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-18 23:20 (laptop clock, from `date`). **M26 R4a is built** on branch `m26-r4a-focus-server` (the running focus session lives on the server; every page and every signed-in browser goes to the focused book until the time is up; other books' files answer 423 Locked). It adds **migration 0029** (with its reverse step). Next: 1. Merge with the merge train once the four checks are green. 2. Deploy only at Samuel's word, after a production backup restore-checked (0029 creates a table). 3. Samuel tries it on the live site (start a session on the laptop, open the site on his phone): his verdict comes before R4b. 4. Then R4b (the ways out: a 10-minute wait or a 40-word answer), `docs/focus-lock-plan.md`.
 
@@ -275,6 +275,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 14:08 · Claude Opus 5.5 (laptop) · Live: 67e7ef4 (M27 Q1 and Q2: the selected-text bar gets out of the way; the place left off elsewhere)
+- **Done:** #206 merged by the merge train as 67e7ef4 (CI run 39293596220). Main's CI on 67e7ef4 (39297588324, with WebKit) passed, as it did on 9eb3627 and 899d00e. Deployed at Samuel's word ("Yes, deploy main to production once #206 has merged and main's CI is green."). No migration or schema change since the live 4adc159 (`git diff --name-only 4adc159 67e7ef4 -- db/ lib/db/schema.ts` empty), so no backup. Uploaded from ../neolibrary-deploy detached at 67e7ef4, 0 stray files. Live: /api/health on both addresses says 67e7ef4; /sign-in 200 on both; GET /api/books/<id>/position signed out 401 (the new route is there); log "Page pictures: ready.".
+- **Key paths:** ../neolibrary-deploy (detached at 67e7ef4).
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=67e7ef4e… --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl /api/health (both addresses) -> commit 67e7ef4.
+- **Known issues / blockers:** Not yet tried by hand on the live site. The offer cannot say which device moved the place (that needs a migration).
+- **Exact next steps:** Samuel tries both on the live site: select text, then tap outside it, press Escape or press Listen; read a few pages on the phone, then bring the laptop's open book to the front and look for "You left off at N%". This entry sits on local branch `m27-deploy-67e7ef4-record` (not pushed): commit it with the next real pull request.
 
 ### 2026-10-19 13:22 · Claude Opus 5.5 (laptop) · M27: #204 and #205 merged; Q2 fix for a book opened from a search result
 - **Done:** Merged with the merge train: #204 (M27 Q1, the selected-text bar) as 9eb3627, CI run 39284387894; #205 (M27 Q2, the place left off elsewhere) as 899d00e, CI run 39287732961. No flakes met. Main's CI on 9eb3627 (39287488034, with WebKit) passed; on 899d00e (39291658622) it was still running at this entry. Found after the merge: a book opened from a search result or a shared link (?at=) could offer the place saved before it opened, as if another device had moved it. The browser test reproduces this when the fix is undone. Fix: the reader also counts the place saved when the page was made as its own (`savedCfi`). Not deployed: the live site is still 4adc159.
