@@ -33,6 +33,19 @@ export async function savePosition(
   return rows.length === 1;
 }
 
+/**
+ * The saved place and progress of the owner's book (M27 Q2), for a reader already open elsewhere to see that
+ * another device, or listening away from it, has moved it. Null if the book is not the owner's.
+ */
+export async function readPosition(db: Db, ownerId: string, bookId: string): Promise<{ cfi: string | null; fraction: number } | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(bookId)) return null;
+  const [row] = await db
+    .select({ cfi: books.position, fraction: books.progress })
+    .from(books)
+    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  return row ?? null;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A section's id as the importers make it: "s-" and a hash (EPUB), or "p-page-3-2" (PDF). */
 const SECTION_ID = /^[a-z][a-z0-9-]{1,99}$/i;

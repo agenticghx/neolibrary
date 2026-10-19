@@ -427,6 +427,11 @@ export function Reader(props: {
     shortcutsOpen.current = shortcuts;
   }, [shortcuts]);
   const pending = useRef<Relocate | null>(null);
+  // M27 Q2 (like Kindle's Whispersync): the places this tab saved itself, and the one it opened at. A saved place
+  // that is none of them was put there by another device, or by listening away from this page: coming back to the
+  // tab, the reader is offered it.
+  const ownPlaces = useRef(new Set<string>(props.initialCfi ? [props.initialCfi] : []));
+  const [elsewhere, setElsewhere] = useState<{ cfi: string; fraction: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flush = useCallback(
@@ -434,6 +439,7 @@ export function Reader(props: {
       const loc = pending.current;
       if (!loc) return;
       pending.current = null;
+      ownPlaces.current.add(loc.cfi);
       void fetch(`/api/books/${props.bookId}/position`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -443,6 +449,34 @@ export function Reader(props: {
     },
     [props.bookId],
   );
+
+  // Coming back to this tab or window (M27 Q2): has the place moved elsewhere?
+  useEffect(() => {
+    let asking = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible" || asking) return;
+      asking = true;
+      try {
+        const r = await fetch(`/api/books/${props.bookId}/position`, { cache: "no-store" });
+        if (!r.ok) return;
+        const at = (await r.json()) as { cfi: string | null; fraction: number };
+        if (at.cfi && !ownPlaces.current.has(at.cfi) && at.cfi !== whereCfi.current) setElsewhere({ cfi: at.cfi, fraction: at.fraction });
+      } catch {
+        // Offline: nothing to offer.
+      } finally {
+        asking = false;
+      }
+    };
+    const onVisible = () => void check();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+    };
+  }, [props.bookId]);
 
   // Highlights in other books that share this page's ideas (cross-book links).
   const lookForLinks = useCallback(
@@ -1565,6 +1599,32 @@ export function Reader(props: {
           <p className={styles.notice} role="status">
             Opening the book…{downloaded ? ` ${downloaded} downloaded` : ""}
           </p>
+        ) : null}
+        {elsewhere && status === "ready" ? (
+          <div className={styles.elsewhere} role="status">
+            <p>You left off at {Math.round(elsewhere.fraction * 100)}% on another device, or while listening.</p>
+            <button
+              type="button"
+              className={styles.primaryTool}
+              onClick={() => {
+                ownPlaces.current.add(elsewhere.cfi);
+                void view.current?.goTo(elsewhere.cfi);
+                setElsewhere(null);
+              }}
+            >
+              Go there
+            </button>
+            <button
+              type="button"
+              className={styles.tool}
+              onClick={() => {
+                ownPlaces.current.add(elsewhere.cfi);
+                setElsewhere(null);
+              }}
+            >
+              Stay here
+            </button>
+          </div>
         ) : null}
         {status === "error" ? (
           <p className={styles.notice} role="alert">

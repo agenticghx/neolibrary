@@ -276,6 +276,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-19 12:18 · Claude Opus 5.5 (laptop) · M27 Q2: an open book offers the place left off elsewhere (#205)
+- **Done:** Samuel's request 1 ("like Audible or Kindle", 2026-10-19). When a tab or window holding an open book comes back to the front, the reader asks the server for the saved place. If it is not one this tab saved or opened at, a strip says "You left off at N% on another device, or while listening" with Go there and Stay here. New `GET /api/books/<id>/position` (owner only, no-store). No migration, so it cannot name the device.
+- **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx` (ownPlaces, the visibility/focus/pageshow check, the strip); `reader.module.css` (`.elsewhere`); `app/api/books/[id]/position/route.ts` (GET); `lib/library/reading.ts` (readPosition) and its test; `e2e/annotations.spec.ts` (new test).
+- **Commands that worked:** `PORT=3187 npx playwright test --project=annotations --ignore-snapshots`: 213 passed. Both new tests in WebKit with a throwaway config: passed. `npx vitest run`: 938 passed. Screenshots looked at: `screenshots/m27-q2/left-off-elsewhere-{desktop,phone}-{light,dark}.png`.
+- **Known issues / blockers:** Stacked on #204: merge that first. Naming the device ("on your phone") would need a migration; not built.
+- **Exact next steps:** Merge #204, then #205, with the merge train. Deploy at Samuel's word. Samuel tries it: read a few pages on the phone, then bring the laptop's open tab to the front.
+
 ### 2026-10-19 12:18 · Claude Opus 5.5 (laptop) · M27 Q1: the selected-text bar gets out of the way (#204)
 - **Done:** Samuel's requests 2 and 3 (2026-10-19, with two screenshots). The bar that opens on selected text now closes on a tap or click outside it (on the page or outside the book) and on Escape, as × does. It stays while a note, voice note or drawing is open in it. Pressing Listen closes it, and text selected while the Read aloud bar shows puts it above that bar (computer and phone). It does not close when the book's own selection goes away, because Safari clears that when any outside button is pressed. M27 (Q1, Q2) added to `docs/plan.md`.
 - **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx` (dismissSelection, the outside-click and lift effect, Escape in onKey, Listen's onClick); `SelectionBar.tsx` (ref, onBusy); `reader.module.css` (`--above-listen`, also in the phone rule); `ShortcutsDialog.tsx` (Esc's text); `e2e/annotations.spec.ts` (new test); `e2e/reader.spec.ts` (Esc's text).

@@ -4,7 +4,7 @@ import type { Database } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { getBook } from "./paths";
-import { isCfi, savePosition, savePositionAt } from "./reading";
+import { isCfi, readPosition, savePosition, savePositionAt } from "./reading";
 
 let database: Database;
 let ownerId: string;
@@ -38,6 +38,18 @@ describe("reading position", () => {
     expect(await savePosition(database.db, other.id, bookId, { cfi: "epubcfi(/6/2!/4)", fraction: 0.1 })).toBe(false);
     expect(await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/2!/4)", fraction: 2 })).toBe(false);
     expect(await savePosition(database.db, ownerId, "not-a-uuid", { cfi: "epubcfi(/6/2!/4)", fraction: 0.1 })).toBe(false);
+  });
+
+  // M27 Q2: an open reader asks where the place is now, to offer the one another device saved.
+  it("reads the saved place back for the owner only", async () => {
+    expect(await readPosition(database.db, ownerId, bookId)).toEqual({ cfi: null, fraction: 0 });
+    await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/8!/4/2/1:0)", fraction: 0.25 });
+    expect(await readPosition(database.db, ownerId, bookId)).toEqual({ cfi: "epubcfi(/6/8!/4/2/1:0)", fraction: 0.25 });
+    const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
+    const { token } = await createInvite(database.db, admin);
+    const other = await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" });
+    expect(await readPosition(database.db, other.id, bookId)).toBeNull();
+    expect(await readPosition(database.db, ownerId, "not-a-uuid")).toBeNull();
   });
 
   it("in a text edition, moves its scan's progress and last-opened time too, but not the scan's place (M25)", async () => {

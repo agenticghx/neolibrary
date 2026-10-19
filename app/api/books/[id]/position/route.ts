@@ -1,8 +1,16 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { savePosition, savePositionAt } from "@/lib/library/reading";
+import { readPosition, savePosition, savePositionAt } from "@/lib/library/reading";
 
 export const dynamic = "force-dynamic";
+
+/** Where the reader's place is saved now: { cfi, fraction } (M27 Q2: an open reader checks it on coming back). */
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await currentUser();
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  const place = await readPosition(await getDb(), user.id, (await params).id);
+  return place ? Response.json(place, { headers: { "cache-control": "no-store" } }) : Response.json({ error: "Not found" }, { status: 404 });
+}
 
 /** Saves where the reader is: { cfi, fraction }; or, listening away from the reader, at a paragraph: { sectionId }. */
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
