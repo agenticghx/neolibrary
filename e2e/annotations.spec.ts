@@ -360,3 +360,57 @@ test("the selected-text bar gets out of the way: a click outside, Escape, Listen
   await expect(readAloud).toBeHidden();
   await expect(bar).toBeHidden();
 });
+
+// M27 Q2 (Samuel, 2026-10-19, "like Audible or Kindle"): coming back to an open book whose place another device (or
+// listening away from the reader) has moved, the reader offers to go there; its own page turns never do.
+test("an open book offers the place left off elsewhere", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"to a large fortune"')}`);
+  const far = new URL(
+    (await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "fortune" }).first().getAttribute("href"))!,
+    "http://x",
+  ).searchParams.get("at")!;
+  expect(far).toMatch(/^epubcfi\(/);
+  await openAtRuggedCountenance(page);
+  const id = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  const saved = async () => (await (await page.request.get(`/api/books/${id}/position`)).json()) as { cfi: string; fraction: number };
+  // The reader saves the page it opened at.
+  await expect.poll(async () => (await saved()).fraction).toBeLessThan(0.2);
+  const before = await saved();
+  const strip = page.getByRole("status").filter({ hasText: "You left off at" });
+  const comeBack = async () => {
+    const asked = page.waitForResponse((r) => r.url().endsWith(`/api/books/${id}/position`) && r.request().method() === "GET");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await asked;
+  };
+
+  // Its own place: nothing to offer.
+  await comeBack();
+  await expect(strip).toBeHidden();
+
+  // Another device moves the place near the end.
+  expect((await page.request.put(`/api/books/${id}/position`, { data: { cfi: far, fraction: 0.9 } })).status()).toBe(204);
+  await comeBack();
+  await expect(strip).toContainText("You left off at 90% on another device, or while listening.");
+  await strip.getByRole("button", { name: "Go there" }).click();
+  await expect(strip).toBeHidden();
+  await expect(page.locator("footer")).toContainText("Full Statement");
+
+  // Turning pages here saves this tab's own places: still nothing to offer.
+  await page.getByRole("button", { name: "Previous page" }).click();
+  await expect.poll(async () => (await saved()).cfi).not.toBe(far);
+  await comeBack();
+  await expect(strip).toBeHidden();
+
+  // Stay here keeps the page and asks no more about that place.
+  expect((await page.request.put(`/api/books/${id}/position`, { data: before })).status()).toBe(204);
+  await comeBack();
+  await expect(strip).toBeVisible();
+  const here = await page.locator("footer").textContent();
+  await strip.getByRole("button", { name: "Stay here" }).click();
+  await expect(strip).toBeHidden();
+  await expect(page.locator("footer")).toHaveText(here!);
+  await comeBack();
+  await expect(strip).toBeHidden();
+  // Leave the book where the later tests expect it.
+  await page.request.put(`/api/books/${id}/position`, { data: before });
+});
