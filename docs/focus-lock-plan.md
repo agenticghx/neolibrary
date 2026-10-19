@@ -98,6 +98,25 @@ it. Options 3 and 4 are written down for later.
   seconds in tests) survives a reload, Keep reading cancels it, and at zero
   the answer dialog opens; (3) Reading stats shows "answered" and "after a
   wait". Screenshots: phone and desktop, light and dark.
+- **As built (2026-10-19, branch `m26-r4b-ways-out`; Samuel asked for it
+  before giving a verdict on R4a):** no migration (R4a's table already had
+  `wait_ends_at`). The server decides every ending, so no single request can
+  skip a way out: `/api/focus/end` without an answer is refused (409) until
+  the time is up or the wait has run out, and an answer saved before then
+  needs 40 words (checked before the note is saved; words are runs of letters
+  or digits, so "don't" and "1890s" count once). New routes: `POST
+  /api/focus/wait` starts the wait (asking again keeps the first one) and
+  `DELETE /api/focus/wait` is Keep reading. Once the wait runs out the session
+  stops locking other pages, as when the time is up, and ends as `waited`;
+  an answer saved after the wait also ends it as `waited` (that was the way
+  out). A wait that ran out with no device open is closed as `waited` when
+  the next session starts. Reading stats says "On time", "Answered early",
+  "Left after a wait", or "Ended early" (R3/R4a sessions). The reader asks
+  the server again each time its tab comes back to the front, so a wait
+  started or a session ended on another device shows up. If this device's
+  clock runs ahead and the server refuses the end, the strip comes back with
+  the server's time. `FOCUS_WAIT_MS` (20 seconds in the browser tests) changes
+  the wait's length; unset, it is 10 minutes.
 
 ## R5 · Whole-book focus
 

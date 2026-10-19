@@ -4,23 +4,28 @@ import { useEffect, useRef, useState } from "react";
 import {
   cleanMinutes,
   cleanQuestion,
+  countWords,
   DEFAULT_MINUTES,
   describeRemaining,
+  EARLY_ANSWER_WORDS,
   type FocusSession,
   formatRemaining,
   isOver,
   MAX_MINUTES,
   MIN_MINUTES,
   remainingMs,
+  waitRemainingMs,
 } from "@/lib/reader/focus-session";
 import own from "./FocusSession.module.css";
 import styles from "./reader.module.css";
 
 /**
- * A focus session with a question (M26 R3). Three pieces, drawn by Reader.tsx:
+ * A focus session with a question (M26 R3). Four pieces, drawn by Reader.tsx:
  * - StartFocusDialog: the question and the timer, before anything is hidden;
- * - FocusStrip: in the top bar's place while the session runs: the question, the time left, and End now;
- * - EndFocusDialog: "Did you answer it?" when the time is up (or End now): the answer, saved as a note on the book.
+ * - FocusStrip: in the top bar's place while the session runs: the question, the time left, and Leave early…
+ *   (M26 R4b); while a wait to leave runs, "Leaving in 9:12" and Keep reading;
+ * - LeaveFocusDialog: the two ways out before the time is up: an answer of 40 words, or the wait;
+ * - EndFocusDialog: "Did you answer it?" when the time is up or the wait has run out: the answer, saved as a note.
  * The rule for all of M26 holds: the reader writes first. Nothing here shows the AI's view of anything.
  */
 
@@ -176,6 +181,7 @@ export function StartFocusDialog({
           value={minutes}
           onChange={(e) => setMinutes(e.target.value)}
         />
+        <PhoneLock />
         {problem ? (
           <p className={styles.formError} role="alert">
             {problem}
@@ -194,33 +200,189 @@ export function StartFocusDialog({
   );
 }
 
-/** In the top bar's place while the session runs. The clock is read once a second (so page.clock drives it in tests). */
-export function FocusStrip({ session, onEnd }: { session: FocusSession; onEnd: () => void }) {
-  const [left, setLeft] = useState(() => remainingMs(session));
+/**
+ * In the top bar's place while the session runs. The clock is read once a second (so page.clock drives it in tests).
+ * While a wait to leave early runs, the strip says so, and Keep reading cancels it.
+ */
+export function FocusStrip({ session, onLeave, onStay }: { session: FocusSession; onLeave: () => void; onStay: () => Promise<void> }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    const tick = () => setLeft(remainingMs(session));
+    const tick = () => setNow(Date.now());
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [session]);
+  const left = remainingMs(session, now);
+  const wait = waitRemainingMs(session, now);
   return (
     <div className={own.strip} data-testid="focus-strip">
       <p className={own.stripQuestion} title={session.question}>
         {session.question}
       </p>
-      <p className={own.clock} role="timer" aria-label={describeRemaining(left)} data-testid="focus-clock">
-        <span aria-hidden="true">{formatRemaining(left)}</span>
-      </p>
-      <button type="button" className={styles.tool} onClick={onEnd}>
-        End now
-      </button>
+      {wait === null ? (
+        <>
+          <p className={own.clock} role="timer" aria-label={describeRemaining(left)} data-testid="focus-clock">
+            <span aria-hidden="true">{formatRemaining(left)}</span>
+          </p>
+          <button type="button" className={styles.tool} onClick={onLeave}>
+            Leave early…
+          </button>
+        </>
+      ) : (
+        <>
+          <p className={own.clock} role="timer" aria-label={`Leaving in ${describeRemaining(wait).replace(/ left$/, "")}`} data-testid="focus-wait">
+            <span aria-hidden="true">Leaving in {formatRemaining(wait)}</span>
+          </p>
+          <button
+            type="button"
+            className={styles.tool}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onStay();
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Keep reading
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
 /**
- * When the time is up (or End now): the question again, and a box for the answer. Save keeps it as a note on the
- * book; "No answer yet" ends the session with nothing saved (the sitting still keeps its question).
+ * Leave early… (M26 R4b): the two ways out before the time is up. Writing an answer of at least 40 words ends the
+ * session at once (the Save button stays off until then); the wait (10 minutes) lets the reader go when it runs
+ * out, and the page stays readable meanwhile. Escape, or Keep reading, closes this and changes nothing.
+ */
+export function LeaveFocusDialog({
+  session,
+  open,
+  waitMinutes,
+  onAnswer,
+  onWait,
+  onCancel,
+}: {
+  session: FocusSession | null;
+  open: boolean;
+  waitMinutes: number;
+  onAnswer: (answer: string) => Promise<void>;
+  onWait: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const box = useRef<HTMLTextAreaElement>(null);
+  const words = countWords(answer);
+  const enough = words >= EARLY_ANSWER_WORDS;
+  const run = async (step: () => Promise<void>, fallback: string) => {
+    setBusy(true);
+    setProblem("");
+    try {
+      await step();
+    } catch (err) {
+      setProblem(err instanceof Error && err.message ? err.message : fallback);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const cancel = () => {
+    setProblem("");
+    onCancel();
+  };
+  // "10-minute" and "10 minutes"; the browser tests shorten the wait to seconds (FOCUS_WAIT_MS).
+  const [n, unit] = waitMinutes >= 1 ? [Math.round(waitMinutes), "minute"] : [Math.round(waitMinutes * 60), "second"];
+  const wait = `${n}-${unit}`;
+  const waitLong = `${n} ${unit}${n === 1 ? "" : "s"}`;
+  return (
+    <Modal open={open} label="Leave early" first={box} onCancel={cancel} testId="focus-leave">
+      <form
+        className={own.form}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (enough) void run(() => onAnswer(answer.trim()), "The answer could not be saved. Try again.");
+        }}
+      >
+        <h2 className={styles.panelTitle}>Leave early?</h2>
+        <blockquote className={own.asked}>{session?.question}</blockquote>
+        <p className={own.lede}>Write your answer now, at least {EARLY_ANSWER_WORDS} words, and the session ends. Or start the wait and keep reading until it runs out.</p>
+        <label htmlFor="focus-leave-answer" className={styles.groupLabel}>
+          Your answer
+        </label>
+        <textarea
+          ref={box}
+          id="focus-leave-answer"
+          className={own.question}
+          rows={5}
+          maxLength={4000}
+          value={answer}
+          aria-describedby="focus-leave-count"
+          placeholder="In your own words. It is saved as a note on this book, and comes back in Daily review."
+          onChange={(e) => setAnswer(e.target.value)}
+        />
+        <p id="focus-leave-count" className={`${own.count} ${enough ? own.countDone : ""}`} aria-live="polite" data-testid="focus-leave-count">
+          {words} of {EARLY_ANSWER_WORDS} words
+        </p>
+        {problem ? (
+          <p className={styles.formError} role="alert">
+            {problem}
+          </p>
+        ) : null}
+        <div className={own.actions}>
+          <button type="submit" className={styles.primaryTool} disabled={busy || !enough}>
+            {busy ? "Saving…" : "Save the answer and leave"}
+          </button>
+        </div>
+        <div className={own.or}>
+          <p className={own.lede}>Or wait {waitLong}. You can keep reading meanwhile, and stop the wait at any time.</p>
+          <div className={own.actions}>
+            <button type="button" className={styles.tool} onClick={cancel}>
+              Keep reading
+            </button>
+            <button type="button" className={styles.tool} disabled={busy} onClick={() => void run(onWait, "The wait could not start. Try again.")}>
+              Start the {wait} wait
+            </button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/**
+ * How to lock the phone itself to this page (M26 R4b). A web page cannot do it; the phone can. This only explains:
+ * the app changes no setting.
+ */
+function PhoneLock() {
+  return (
+    <details className={own.phoneLock}>
+      <summary>Lock this phone to the page too</summary>
+      <p>A web page cannot stop you opening another app. Your phone can, if you turn it on. This app changes no setting.</p>
+      <h3>iPhone or iPad: Guided Access</h3>
+      <ol>
+        <li>In Settings, open Accessibility, then Guided Access: turn it on, and set a passcode. Let someone you trust choose it.</li>
+        <li>Back here, press the side button (or the Home button) three times, then tap Start.</li>
+        <li>To stop, press it three times again and type the passcode.</li>
+      </ol>
+      <h3>Android: app pinning</h3>
+      <ol>
+        <li>In Settings, open Security (on some phones, Security and privacy, then More security settings), then App pinning: turn it on, with “Ask for PIN before unpinning”.</li>
+        <li>Open the recent apps, tap the browser’s icon at the top of its card, then tap Pin.</li>
+        <li>To unpin, swipe up and hold (or hold Back and Overview), then type your PIN.</li>
+      </ol>
+    </details>
+  );
+}
+
+/**
+ * When the time is up or the wait has run out: the question again, and a box for the answer. Save keeps it as a
+ * note on the book; "No answer yet" ends the session with nothing saved (the sitting still keeps its question).
  */
 export function EndFocusDialog({
   session,
@@ -231,14 +393,15 @@ export function EndFocusDialog({
   session: FocusSession | null;
   open: boolean;
   onSave: (answer: string) => Promise<void>;
-  onSkip: () => void;
+  onSkip: () => Promise<void>;
 }) {
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
   // Reader.tsx keys this dialog by the session's id, so each session starts with an empty box.
-  const over = session ? isOver(session) : true;
+  const timeUp = session ? remainingMs(session) === 0 : true;
+  const waited = session ? !timeUp && isOver(session) : false;
   return (
     <Modal open={open} label="Did you answer it?" first={box} testId="focus-end">
       <form
@@ -257,7 +420,7 @@ export function EndFocusDialog({
           }
         }}
       >
-        <h2 className={styles.panelTitle}>{over ? "Time's up. Did you answer it?" : "Did you answer it?"}</h2>
+        <h2 className={styles.panelTitle}>{timeUp ? "Time's up. Did you answer it?" : waited ? "The wait is over. Did you answer it?" : "Did you answer it?"}</h2>
         <blockquote className={own.asked}>{session?.question}</blockquote>
         <label htmlFor="focus-answer" className={styles.groupLabel}>
           Your answer
@@ -278,7 +441,22 @@ export function EndFocusDialog({
           </p>
         ) : null}
         <div className={own.actions}>
-          <button type="button" className={styles.tool} disabled={busy} onClick={onSkip}>
+          <button
+            type="button"
+            className={styles.tool}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setProblem("");
+              try {
+                await onSkip();
+              } catch (err) {
+                setProblem(err instanceof Error && err.message ? err.message : "The session could not end. Try again.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
             No answer yet
           </button>
           <button type="submit" className={styles.primaryTool} disabled={busy}>

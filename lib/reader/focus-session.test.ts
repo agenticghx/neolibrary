@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { answerFromNote, cleanMinutes, clearSession, describeRemaining, focusNoteBody, formatRemaining, fromServer, isOver, loadSession, remainingMs, saveSession, startSession } from "./focus-session";
+import {
+  answerFromNote,
+  cleanMinutes,
+  clearSession,
+  countWords,
+  describeRemaining,
+  earlyAnswerProblem,
+  endedLabel,
+  focusNoteBody,
+  formatRemaining,
+  fromServer,
+  isOver,
+  loadSession,
+  remainingMs,
+  saveSession,
+  startSession,
+  waitRemainingMs,
+} from "./focus-session";
 
 const ids = () => {
   let n = 0;
@@ -92,5 +109,44 @@ describe("the session from the server (M26 R4a)", () => {
     const local = { id: "s1", bookId: "b1", question: "Why?", minutes: 2, startedAt: 0, endsAt: 60_000, noteId: "n1" };
     expect(fromServer(server, local, 1_000_000).endsAt).toBe(60_000);
     expect(fromServer(server, { ...local, id: "s0" }, 1_000_000).endsAt).toBe(1_090_000);
+  });
+});
+
+describe("the ways out (M26 R4b)", () => {
+  it("counts words as a reader would: punctuation, new lines and double spaces are not words", () => {
+    expect(countWords("")).toBe(0);
+    expect(countWords("  \n ")).toBe(0);
+    expect(countWords("Because the future, not the past.")).toBe(6);
+    expect(countWords("one  two\n\nthree — four… five")).toBe(5);
+    expect(countWords("don't stop: it's the 1890s, well-known")).toBe(6);
+    expect(countWords("Café über naïve")).toBe(3);
+  });
+
+  it("an early answer needs 40 words, unless the reader may already leave", () => {
+    const words = (n: number) => Array.from({ length: n }, () => "word").join(" ");
+    expect(earlyAnswerProblem(words(39), false)).toBe("To leave before the time is up, write at least 40 words (this has 39).");
+    expect(earlyAnswerProblem(words(40), false)).toBeNull();
+    expect(earlyAnswerProblem("Short.", true)).toBeNull();
+  });
+
+  it("the wait from the server: at this device's now plus what is left; it is over when it runs out", () => {
+    const now = 1_000_000;
+    const s = fromServer({ id: "f1", bookId: "b1", question: "Q?", minutes: 30, noteId: "n1", remainingMs: 20 * 60_000, waitRemainingMs: 9 * 60_000 }, null, now);
+    expect(s.waitEndsAt).toBe(now + 9 * 60_000);
+    expect(waitRemainingMs(s, now + 60_000)).toBe(8 * 60_000);
+    expect(isOver(s, now + 60_000)).toBe(false);
+    expect(isOver(s, now + 9 * 60_000)).toBe(true);
+    // A reload keeps this device's wait; a wait cancelled elsewhere is gone.
+    expect(fromServer({ id: "f1", bookId: "b1", question: "Q?", minutes: 30, noteId: "n1", remainingMs: 1, waitRemainingMs: 5 }, s, now + 500).waitEndsAt).toBe(s.waitEndsAt);
+    expect(fromServer({ id: "f1", bookId: "b1", question: "Q?", minutes: 30, noteId: "n1", remainingMs: 1, waitRemainingMs: null }, s, now + 500).waitEndsAt).toBeNull();
+    expect(waitRemainingMs({ ...s, waitEndsAt: null })).toBeNull();
+  });
+
+  it("names how a session ended for Reading stats", () => {
+    expect(endedLabel("time")).toBe("On time");
+    expect(endedLabel("answered")).toBe("Answered early");
+    expect(endedLabel("waited")).toBe("Left after a wait");
+    expect(endedLabel("early")).toBe("Ended early");
+    expect(endedLabel(null)).toBeNull();
   });
 });

@@ -127,6 +127,6 @@ export default defineConfig({
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { PGLITE_DIR: ".data/e2e", FILES_DIR: ".data/e2e-files", SETUP_CODE, AI_FAKE: "1", COVER_LOOKUP: "off", FILES_MAX_RANGE_BYTES: String(TEST_MAX_RANGE), TEXT_EDITION_POLL_MS: "500" },
+    env: { PGLITE_DIR: ".data/e2e", FILES_DIR: ".data/e2e-files", SETUP_CODE, AI_FAKE: "1", COVER_LOOKUP: "off", FILES_MAX_RANGE_BYTES: String(TEST_MAX_RANGE), TEXT_EDITION_POLL_MS: "500", FOCUS_WAIT_MS: "20000" },
   },
 });

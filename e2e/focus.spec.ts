@@ -59,7 +59,9 @@ async function newReader(page: Page, browser: Browser, email = `focus-${Date.now
 
 const PASSWORD = "one question at a time";
 const QUESTION = "Why does the Time Traveller go forward, and not back?";
-const ANSWER = "Because the future is the one place no one has written about yet.";
+// 40 words or more: the browser's clock says the time is up, but the server's says it is not (M26 R4b's rule).
+const ANSWER =
+  "Because the future is the one place no one has written about yet. The past is known from books and from memory, so it holds no surprise. He wants to test his idea of time against something he cannot predict, and to see where mankind goes.";
 
 test("a focus session: a question and a timer, only the page, a reload part-way, then the answer as a note, a review card and a sitting", async ({ page, browser }) => {
   test.setTimeout(180_000); // two sessions, eight looks, the reader opened a dozen times
@@ -89,7 +91,7 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
   await start.getByLabel("Minutes").fill("2");
   await start.getByRole("button", { name: "Start" }).click();
 
-  // Only the page: the top bar and the foot are gone; a strip shows the question, the time left, End now.
+  // Only the page: the top bar and the foot are gone; a strip shows the question, the time left, Leave early….
   await expect(start).toBeHidden();
   await expect(view.locator("header")).toHaveCount(0);
   await expect(view.locator("footer")).toBeHidden();
@@ -171,7 +173,11 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
     await ready();
     await expect(reader.getByTestId("focus-strip")).toBeVisible();
   });
-  await reader.clock.runFor(50 * 60_000);
+  // M26 R4b: it ends early only by the wait (shortened to 20 seconds for the tests); then the question at the end.
+  await view.getByTestId("focus-strip").getByRole("button", { name: "Leave early…" }).click();
+  await reader.getByTestId("focus-leave").getByRole("button", { name: /^Start the .* wait$/ }).click();
+  await expect(reader.getByTestId("focus-wait")).toContainText("Leaving in");
+  await expect(reader.getByTestId("focus-end")).toContainText("The wait is over. Did you answer it?", { timeout: 40_000 });
   await fourLooks(reader, "focus-answer", async () => {
     await ready();
     await expect(reader.getByTestId("focus-end")).toBeVisible();
@@ -184,6 +190,150 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
   await reader.goto("/stats");
   await expect(reader.getByTestId("stats-focus").getByRole("listitem")).toHaveCount(2);
   await expect(reader.getByTestId("stats-focus")).toContainText("No answer saved.");
+  // How each ended (M26 R4b): the first answered before the server's time was up, the second after the wait.
+  await expect(reader.getByTestId("stats-focus-ended")).toHaveText([" · Left after a wait", " · Answered early"]);
+});
+
+// M26 R4b "Done when": the ways out of a session before its time is up. (1) A 30-word answer cannot leave and a
+// 40-word answer can, and the note is saved; nor can one request to the server end it. (2) The wait (20 seconds
+// here, FOCUS_WAIT_MS; 10 minutes on the live site) survives a reload, Keep reading cancels it, and at zero the
+// answer dialog opens. (3) Reading stats shows "Answered early" and "Left after a wait". The waits are real time
+// (the server's clock), so there is no page.clock here.
+test("leaving a focus session early: an answer of 40 words, or the wait", async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  const reader = await newReader(page, browser, `focus-leave-${Date.now()}@example.com`);
+  const res = await reader.request.post("/api/books", {
+    multipart: { files: { name: "wells-the-time-machine.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/wells-the-time-machine.epub") } },
+  });
+  const bookId = (await res.json()).results[0].bookId as string;
+  await reader.goto(`/books/${bookId}/read`);
+  const view = reader.getByTestId("reader");
+  const ready = () => expect(view).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await ready();
+  const begin = async (question: string) => {
+    await view.getByRole("button", { name: "Focus session" }).click();
+    const start = reader.getByTestId("focus-start");
+    await start.getByLabel("What are you reading to answer?").fill(question);
+    await start.getByLabel("Minutes").fill("30");
+    await start.getByRole("button", { name: "Start" }).click();
+    await expect(reader.getByTestId("focus-strip")).toContainText(question);
+    return (await (await reader.request.get("/api/focus")).json()).session as { id: string; running: boolean; waitRemainingMs: number | null };
+  };
+  const words = (n: number) => ANSWER.split(" ").slice(0, n).join(" ");
+
+  // The start dialog explains how to lock the phone itself; it changes nothing.
+  await view.getByRole("button", { name: "Focus session" }).click();
+  const start = reader.getByTestId("focus-start");
+  await start.getByText("Lock this phone to the page too").click();
+  await expect(start).toContainText("Guided Access");
+  await expect(start).toContainText("App pinning");
+  await start.getByRole("button", { name: "Cancel" }).click();
+
+  // (1) Leave early… with an answer.
+  const first = await begin(QUESTION);
+  // One request to the server cannot end it: not without an answer, nor with a short one.
+  expect((await reader.request.post("/api/focus/end", { data: { id: first.id } })).status()).toBe(409);
+  const short = await reader.request.post(`/api/books/${bookId}/focus`, { data: { focusId: first.id, question: QUESTION, answer: words(30) } });
+  expect(short.status()).toBe(400);
+  expect((await short.json()).error).toContain("at least 40 words (this has 30)");
+  expect((await (await reader.request.get("/api/focus")).json()).session).toMatchObject({ id: first.id, running: true });
+
+  await view.getByTestId("focus-strip").getByRole("button", { name: "Leave early…" }).click();
+  const leave = reader.getByTestId("focus-leave");
+  await expect(leave).toContainText(QUESTION);
+  // Escape (or Keep reading) changes nothing.
+  await reader.keyboard.press("Escape");
+  await expect(leave).toBeHidden();
+  await expect(reader.getByTestId("focus-clock")).toBeVisible();
+  await view.getByTestId("focus-strip").getByRole("button", { name: "Leave early…" }).click();
+  // The four looks of the dialog (no reload: a dialog does not survive one).
+  await mkdir("screenshots", { recursive: true });
+  for (const [size, width, height] of [
+    ["desktop", 1280, 800],
+    ["phone", 390, 844],
+  ] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await reader.setViewportSize({ width, height });
+      await reader.emulateMedia({ colorScheme: scheme });
+      await expect(leave).toBeVisible();
+      await axe(reader, `leave ${size} ${scheme}`);
+      expect(await reader.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await reader.screenshot({ path: `screenshots/focus-leave-${size}-${scheme}.png` });
+    }
+  }
+  await reader.setViewportSize({ width: 1280, height: 800 });
+  await reader.emulateMedia({ colorScheme: "light" });
+  const save = leave.getByRole("button", { name: "Save the answer and leave" });
+  await leave.getByLabel("Your answer").fill(words(30));
+  await expect(leave.getByTestId("focus-leave-count")).toHaveText("30 of 40 words");
+  await expect(save).toBeDisabled();
+  await leave.getByLabel("Your answer").fill(words(40));
+  await expect(leave.getByTestId("focus-leave-count")).toHaveText("40 of 40 words");
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(leave).toBeHidden();
+  await expect(view.locator("header")).toBeVisible();
+  expect((await (await reader.request.get("/api/focus")).json()).session).toBeNull();
+  type Note = { kind: string; body: string };
+  const notes = (await (await reader.request.get(`/api/books/${bookId}/annotations`)).json()).annotations as Note[];
+  expect(notes.filter((n) => n.kind === "note").map((n) => n.body)).toEqual([`Question: ${QUESTION}\n\nAnswer: ${words(40)}`]);
+
+  // (2) The wait.
+  const second = await begin("What does the Time Traveller make of the Eloi?");
+  const waitSeconds = async () => {
+    const [m, sec] = (await reader.getByTestId("focus-wait").innerText()).replace("Leaving in ", "").split(":").map(Number);
+    return m * 60 + sec;
+  };
+  const startWait = async () => {
+    await view.getByTestId("focus-strip").getByRole("button", { name: "Leave early…" }).click();
+    await reader.getByTestId("focus-leave").getByRole("button", { name: /^Start the .* wait$/ }).click();
+    await expect(reader.getByTestId("focus-leave")).toBeHidden();
+    await expect(reader.getByTestId("focus-wait")).toHaveText(/^Leaving in 0:[0-2]\d$/);
+  };
+  await startWait();
+  const before = await waitSeconds();
+  // A reload does not skip it, nor start it again: the server keeps its end.
+  await reader.reload();
+  await ready();
+  await expect(reader.getByTestId("focus-wait")).toHaveText(/^Leaving in /);
+  expect(await waitSeconds()).toBeLessThanOrEqual(before);
+  const waiting = (await (await reader.request.get("/api/focus")).json()).session;
+  expect(waiting).toMatchObject({ id: second.id, running: true });
+  expect(waiting.waitRemainingMs).toBeGreaterThan(0);
+  // While it runs, the server still will not end the session without an answer.
+  expect((await reader.request.post("/api/focus/end", { data: { id: second.id } })).status()).toBe(409);
+  // Keep reading cancels it, on the server too.
+  await view.getByTestId("focus-strip").getByRole("button", { name: "Keep reading" }).click();
+  await expect(reader.getByTestId("focus-clock")).toBeVisible();
+  await expect(reader.getByTestId("focus-wait")).toHaveCount(0);
+  expect((await (await reader.request.get("/api/focus")).json()).session.waitRemainingMs).toBeNull();
+  // Again, and this time to the end; the look of the strip while it runs (no reload).
+  await startWait();
+  for (const [size, width, height] of [
+    ["desktop", 1280, 800],
+    ["phone", 390, 844],
+  ] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await reader.setViewportSize({ width, height });
+      await reader.emulateMedia({ colorScheme: scheme });
+      await expect(reader.getByTestId("focus-wait")).toBeVisible();
+      await reader.mouse.move(0, 0);
+      await reader.screenshot({ path: `screenshots/focus-waiting-${size}-${scheme}.png` });
+    }
+  }
+  await reader.setViewportSize({ width: 1280, height: 800 });
+  await reader.emulateMedia({ colorScheme: "light" });
+  await axe(reader, "waiting");
+  const end = reader.getByTestId("focus-end");
+  await expect(end).toContainText("The wait is over. Did you answer it?", { timeout: 40_000 });
+  await end.getByRole("button", { name: "No answer yet" }).click();
+  await expect(end).toBeHidden();
+  await expect(view.locator("header")).toBeVisible();
+  expect((await (await reader.request.get("/api/focus")).json()).session).toBeNull();
+
+  // (3) Reading stats says how each ended.
+  await reader.goto("/stats");
+  await expect(reader.getByTestId("stats-focus-ended")).toHaveText([" · Left after a wait", " · Answered early"]);
 });
 
 // M26 R4a "Done when": the running session lives on the server. A 2-minute session; Library, Search and another

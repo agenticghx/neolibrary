@@ -2,7 +2,7 @@ import { and, eq, isNull, lte, or } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, focusSessions } from "@/lib/db/schema";
 import { getBook } from "@/lib/library/paths";
-import { cleanMinutes, cleanQuestion, MAX_MINUTES, MIN_MINUTES } from "@/lib/reader/focus-session";
+import { cleanMinutes, cleanQuestion, DEFAULT_WAIT_MINUTES, earlyAnswerProblem, MAX_MINUTES, MIN_MINUTES } from "@/lib/reader/focus-session";
 
 export { focusRedirect } from "./focus-redirect";
 
@@ -14,6 +14,11 @@ export { focusRedirect } from "./focus-redirect";
  * Words used here: a session is *open* until it is ended (ended_at is set); it is *running* while it is open and
  * its time is not up. Only a running session locks anything: once the time is up every page opens again, even if
  * the reader has not yet answered "Did you answer it?" (that waits in the reader, on the focused book).
+ *
+ * The ways out before the time is up (M26 R4b), judged here and not by the page, so no request can skip them: an
+ * answer of at least 40 words (it ends the session at once, as "answered"), or a wait (10 minutes; Leave early
+ * starts it, Keep reading cancels it). Once the wait runs out the session stops locking, as when the time is up,
+ * and ends as "waited". Nothing else ends a session early.
  */
 export class FocusError extends Error {
   constructor(
@@ -30,7 +35,28 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A device whose clock runs a little ahead says "time's up" a few seconds early: still counted as on time. */
 const ON_TIME_MS = 5_000;
 
-export const isRunning = (s: Pick<FocusRow, "endedAt" | "endsAt">, now = new Date()) => !s.endedAt && s.endsAt.getTime() > now.getTime();
+/** How long the wait to leave early lasts: 10 minutes; FOCUS_WAIT_MS shortens it for the browser tests. */
+export function waitMs(env: Record<string, string | undefined> = process.env) {
+  const ms = Number(env.FOCUS_WAIT_MS);
+  return Number.isFinite(ms) && ms > 0 ? ms : DEFAULT_WAIT_MINUTES * 60_000;
+}
+
+/** When the session stops locking: when its time is up, or sooner when a wait to leave early runs out. */
+export const freeAt = (s: Pick<FocusRow, "endsAt" | "waitEndsAt">) =>
+  s.waitEndsAt && s.waitEndsAt.getTime() < s.endsAt.getTime() ? s.waitEndsAt : s.endsAt;
+
+export const isRunning = (s: Pick<FocusRow, "endedAt" | "endsAt" | "waitEndsAt">, now = new Date()) =>
+  !s.endedAt && freeAt(s).getTime() > now.getTime();
+
+/** The reader may go: the time is up, or the wait has run out (a device clock a few seconds ahead counts as on time). */
+export const mayLeave = (s: Pick<FocusRow, "endsAt" | "waitEndsAt">, now = new Date()) => freeAt(s).getTime() - now.getTime() <= ON_TIME_MS;
+
+/** How an open session ends now: "time", "waited", "answered", or null when it may not end yet. */
+function howItEnds(s: FocusRow, answered: boolean, now: Date): FocusRow["endedHow"] {
+  if (s.endsAt.getTime() - now.getTime() <= ON_TIME_MS) return "time";
+  if (s.waitEndsAt && s.waitEndsAt.getTime() - now.getTime() <= ON_TIME_MS) return "waited";
+  return answered ? "answered" : null;
+}
 
 /** The reader's open session, running or with its time up but not yet ended; null when there is none. */
 export async function openFocus(db: Db, ownerId: string): Promise<FocusRow | null> {
@@ -47,14 +73,16 @@ export async function runningFocus(db: Db, ownerId: string, now = new Date()): P
   return row && isRunning(row, now) ? row : null;
 }
 
-/** Sessions whose time ran out while no device was open are closed as "time", so they do not block the next one. */
+/** Sessions whose time (or wait) ran out while no device was open are closed, so they do not block the next one. */
 async function closeTimedOut(db: Db, ownerId: string, now: Date) {
-  const timedOut = await db
-    .select({ id: focusSessions.id, endsAt: focusSessions.endsAt })
+  const open = await db
+    .select()
     .from(focusSessions)
-    .where(and(eq(focusSessions.ownerId, ownerId), isNull(focusSessions.endedAt), lte(focusSessions.endsAt, now)));
-  for (const s of timedOut) {
-    await db.update(focusSessions).set({ endedAt: s.endsAt, endedHow: "time" }).where(eq(focusSessions.id, s.id));
+    .where(and(eq(focusSessions.ownerId, ownerId), isNull(focusSessions.endedAt), or(lte(focusSessions.endsAt, now), lte(focusSessions.waitEndsAt, now))));
+  for (const s of open) {
+    const at = freeAt(s);
+    const endedHow = at === s.endsAt ? "time" : "waited";
+    await db.update(focusSessions).set({ endedAt: at, endedHow }).where(eq(focusSessions.id, s.id));
   }
 }
 
@@ -119,13 +147,16 @@ export async function getFocus(db: Db, ownerId: string, id: unknown): Promise<Fo
 }
 
 /**
- * Ends a session: "time" when its time was up, otherwise "answered" (an answer was saved) or "early". Ending one
- * already ended changes nothing, so a retry or a second device is harmless. Null when there is no such session.
+ * Ends a session: "time" when its time was up, "waited" when its wait had run out, otherwise "answered" (an answer
+ * of 40 words or more was saved: the route checks it with `answerProblem` first). Without an answer, before either,
+ * it is refused (409): Leave early is a wait, never one request. Ending one already ended changes nothing, so a
+ * retry or a second device is harmless. Null when there is no such session.
  */
 export async function endFocus(db: Db, ownerId: string, id: unknown, opts: { answered: boolean }, now = new Date()): Promise<FocusRow | null> {
   const row = await getFocus(db, ownerId, id);
   if (!row || row.endedAt) return row;
-  const endedHow = row.endsAt.getTime() - now.getTime() <= ON_TIME_MS ? "time" : opts.answered ? "answered" : "early";
+  const endedHow = howItEnds(row, opts.answered, now);
+  if (!endedHow) throw new FocusError("The session is still running. To leave early, write your answer or start the wait.", 409);
   const [ended] = await db
     .update(focusSessions)
     .set({ endedAt: now, endedHow })
@@ -133,6 +164,39 @@ export async function endFocus(db: Db, ownerId: string, id: unknown, opts: { ans
     .returning();
   // Another request ended it a moment before: read what that one wrote.
   return ended ?? (await getFocus(db, ownerId, row.id));
+}
+
+/** Why this answer cannot end the session yet (too short, before the time is up or the wait has run out), or null. */
+export function answerProblem(s: FocusRow | null, answer: string, now = new Date()) {
+  if (!s || s.endedAt) return null;
+  return earlyAnswerProblem(answer, mayLeave(s, now));
+}
+
+/**
+ * Leave early (M26 R4b): starts the wait on the server, so a reload or another device does not skip it. Asking
+ * again while a wait runs keeps the first one (it never moves later, or sooner). Null when there is no such session.
+ */
+export async function startWait(db: Db, ownerId: string, id: unknown, now = new Date(), wait = waitMs()): Promise<FocusRow | null> {
+  const row = await getFocus(db, ownerId, id);
+  if (!row || row.endedAt || row.waitEndsAt || !isRunning(row, now)) return row;
+  const [updated] = await db
+    .update(focusSessions)
+    .set({ waitEndsAt: new Date(now.getTime() + wait) })
+    .where(and(eq(focusSessions.id, row.id), isNull(focusSessions.endedAt), isNull(focusSessions.waitEndsAt)))
+    .returning();
+  return updated ?? (await getFocus(db, ownerId, row.id));
+}
+
+/** Keep reading: cancels the wait, while it still runs (a wait that has run out has already let the reader go). */
+export async function cancelWait(db: Db, ownerId: string, id: unknown, now = new Date()): Promise<FocusRow | null> {
+  const row = await getFocus(db, ownerId, id);
+  if (!row || row.endedAt || !row.waitEndsAt || !isRunning(row, now)) return row;
+  const [updated] = await db
+    .update(focusSessions)
+    .set({ waitEndsAt: null })
+    .where(and(eq(focusSessions.id, row.id), isNull(focusSessions.endedAt)))
+    .returning();
+  return updated ?? (await getFocus(db, ownerId, row.id));
 }
 
 /** What the reader's browser is told about a session: the times, and the milliseconds left by the server's clock. */
@@ -147,6 +211,10 @@ export function focusJson(s: FocusRow, now = new Date()) {
     startedAt: s.startedAt.toISOString(),
     endsAt: s.endsAt.toISOString(),
     remainingMs: Math.max(0, s.endsAt.getTime() - now.getTime()),
+    waitEndsAt: s.waitEndsAt?.toISOString() ?? null,
+    waitRemainingMs: s.waitEndsAt ? Math.max(0, s.waitEndsAt.getTime() - now.getTime()) : null,
+    /** How long a wait to leave early lasts, so the page says "the 10-minute wait" from the server's own setting. */
+    waitMs: waitMs(),
     running: isRunning(s, now),
     endedHow: s.endedHow,
   };

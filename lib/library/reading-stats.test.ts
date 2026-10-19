@@ -24,6 +24,7 @@ import {
   weekStart,
   wordsPerMinute,
 } from "./reading-stats";
+import { endFocus, startFocus, startWait } from "./focus-lock";
 
 let database: Database;
 let ownerId: string;
@@ -231,6 +232,24 @@ describe("a focus session with a question (M26 R3)", () => {
     expect(cleanFocus({ id: f1, question: 5, answerAnnotationId: s1 })).toEqual({ id: f1, question: "", answerAnnotationId: s1 });
   });
 
+  it("says how each session ended, from the server's record of it (M26 R4b)", async () => {
+    const answered = await startFocus(database.db, ownerId, { bookId: tm, question: "Why forward?", minutes: 30 }, new Date("2026-10-18T09:00:00Z"));
+    await endFocus(database.db, ownerId, answered.id, { answered: true }, new Date("2026-10-18T09:10:00Z"));
+    const waited = await startFocus(database.db, ownerId, { bookId: tm, question: "Why the Eloi?", minutes: 30 }, new Date("2026-10-18T10:00:00Z"));
+    await startWait(database.db, ownerId, waited.id, new Date("2026-10-18T10:05:00Z"), 600_000);
+    await endFocus(database.db, ownerId, waited.id, { answered: false }, new Date("2026-10-18T10:15:00Z"));
+    for (const [f, sessionId, startedAt] of [
+      [answered, s1, "2026-10-18T09:00:00Z"],
+      [waited, s2, "2026-10-18T10:00:00Z"],
+    ] as const) {
+      await recordReading(database.db, ownerId, { sessionId, bookId: tm, startedAt, activeSeconds: 60, words: 200, pages: 1, focus: { id: f.id, question: f.question } });
+    }
+    expect((await focusSessions(database.db, ownerId)).map((f) => [f.question, f.endedHow])).toEqual([
+      ["Why the Eloi?", "waited"],
+      ["Why forward?", "answered"],
+    ]);
+  });
+
   it("a sitting keeps its session and question; a reload makes a second sitting of the same session; the answer links them", async () => {
     const at = "2026-10-18T09:00:00Z";
     const focus = { id: f1, question: "Why does the Time Traveller go forward, not back?" };
@@ -249,6 +268,8 @@ describe("a focus session with a question (M26 R3)", () => {
       words: 660,
       question: focus.question,
       answer: null,
+      // No server row for this session (as for one from before M26 R4a): nothing is said about how it ended.
+      endedHow: null,
     });
 
     // The answer, saved as a note on the book, links every sitting of the session.

@@ -1,7 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { AnnotationError, createAnnotationOnce } from "@/lib/library/annotations";
-import { endFocus, getFocus } from "@/lib/library/focus-lock";
+import { answerProblem, endFocus, FocusError, getFocus } from "@/lib/library/focus-lock";
 import { linkFocusAnswer, StatsError } from "@/lib/library/reading-stats";
 import { focusNoteBody } from "@/lib/reader/focus-session";
 
@@ -23,6 +23,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!answer) return Response.json({ error: "Write your answer first." }, { status: 400 });
   const db = await getDb();
   const session = await getFocus(db, user.id, body.focusId);
+  const tooShort = answerProblem(session, answer);
+  if (tooShort) return Response.json({ error: tooShort }, { status: 400 });
   try {
     const noteId = session ? session.noteId : body.noteId;
     const { annotation } = await createAnnotationOnce(db, user.id, noteId, { kind: "note", bookId: (await params).id, body: focusNoteBody(question, answer) });
@@ -31,6 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return Response.json({ note: annotation, sittings }, { status: 201 });
   } catch (e) {
     if (e instanceof AnnotationError || e instanceof StatsError) return Response.json({ error: e.message }, { status: 400 });
+    if (e instanceof FocusError) return Response.json({ error: e.message }, { status: e.status });
     throw e;
   }
 }

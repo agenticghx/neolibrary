@@ -16,9 +16,10 @@ import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ExplainPanel } from "./ExplainPanel";
 import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
-import { EndFocusDialog, FocusStrip, StartFocusDialog } from "./FocusSession";
+import { EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
 import {
   clearSession as clearFocusSession,
+  DEFAULT_WAIT_MINUTES,
   type FocusSession,
   fromServer as focusFromServer,
   isOver as focusIsOver,
@@ -343,13 +344,20 @@ export function Reader(props: {
   const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
   const [focusStart, setFocusStart] = useState(false);
   const [focusEnding, setFocusEnding] = useState(false);
+  // Leave early… (M26 R4b): the dialog with the two ways out, and how long the server's wait lasts.
+  const [focusLeaving, setFocusLeaving] = useState(false);
+  const [focusWaitMinutes, setFocusWaitMinutes] = useState(DEFAULT_WAIT_MINUTES);
   // The session just ended with its answer saved: the sitting still reports it once more, now with the note's id.
   const [focusDone, setFocusDone] = useState<{ id: string; question: string; answerAnnotationId: string } | null>(null);
-  // The time is up: ask "Did you answer it?" (checked once a second, so page.clock drives it in tests).
+  // The time is up, or the wait to leave early has run out: ask "Did you answer it?" (checked once a second, so
+  // page.clock drives it in tests).
   useEffect(() => {
     if (!focusSession || focusEnding) return;
     const timer = setInterval(() => {
-      if (focusIsOver(focusSession)) setFocusEnding(true);
+      if (focusIsOver(focusSession)) {
+        setFocusLeaving(false);
+        setFocusEnding(true);
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, [focusSession, focusEnding]);
@@ -568,35 +576,60 @@ export function Reader(props: {
     }
   }, []);
 
-  // A focus session on this book picks up where it was, with the time that is left (M26 R4a): the server says
-  // whether one is open (it may have been started or ended on another device); offline, this device's copy stands.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  /**
+   * The focus session as the server has it (M26 R4a), put on this device: it may have been started or ended, or a
+   * wait begun or cancelled, on another device (M26 R4b). Offline, this device's copy stands. `trustServer` drops
+   * this device's own end time: after the server refused to end the session, this device's clock was ahead.
+   */
+  const syncFocus = useCallback(
+    async (trustServer = false) => {
       const local = loadFocusSession(props.bookId);
       let session = local;
       try {
         const res = await fetch("/api/focus", { cache: "no-store" });
         if (res.ok) {
-          const open = ((await res.json()) as { session: ServerFocus | null }).session;
-          session = open && open.bookId === props.bookId ? focusFromServer(open, local) : null;
+          const open = ((await res.json()) as { session: (ServerFocus & { waitMs?: number }) | null }).session;
+          session = open && open.bookId === props.bookId ? focusFromServer(open, trustServer ? null : local) : null;
+          if (open?.waitMs) setFocusWaitMinutes(open.waitMs / 60_000);
         }
       } catch {
         // Offline: the copy on this device runs the timer.
       }
-      if (cancelled) return;
-      if (session) {
-        saveFocusSession(session);
-        setFocusSession(session);
-        if (focusIsOver(session)) setFocusEnding(true);
-      } else if (local) {
-        clearFocusSession();
-      }
-    })();
+      return { session, local };
+    },
+    [props.bookId],
+  );
+  const showFocus = useCallback((session: FocusSession | null, hadLocal: boolean) => {
+    if (session) {
+      saveFocusSession(session);
+      setFocusSession(session);
+      setFocusEnding(focusIsOver(session));
+      if (focusIsOver(session)) setFocusLeaving(false);
+    } else {
+      if (hadLocal) clearFocusSession();
+      setFocusSession(null);
+      setFocusEnding(false);
+      setFocusLeaving(false);
+    }
+  }, []);
+
+  // A focus session on this book picks up where it was, with the time that is left (M26 R4a), and again each time
+  // this tab comes back to the front.
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      if (document.visibilityState !== "visible") return;
+      const { session, local } = await syncFocus();
+      if (!cancelled) showFocus(session, Boolean(local));
+    };
+    void sync();
+    const onVisible = () => void sync();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [props.bookId]);
+  }, [syncFocus, showFocus]);
 
   // Open the book once. Settings live on this device (localStorage).
   useEffect(() => {
@@ -1193,8 +1226,9 @@ export function Reader(props: {
 
   /** Starts the session on the server (one at a time: it refuses a second); throws its reason for the dialog. */
   const beginFocus = async (question: string, minutes: number) => {
-    const { session: started } = (await api("/api/focus", "POST", { bookId: props.bookId, question, minutes })) as { session: ServerFocus };
+    const { session: started } = (await api("/api/focus", "POST", { bookId: props.bookId, question, minutes })) as { session: ServerFocus & { waitMs?: number } };
     const session = focusFromServer(started, null);
+    if (started.waitMs) setFocusWaitMinutes(started.waitMs / 60_000);
     saveFocusSession(session);
     setFocusDone(null);
     setFocusEnding(false);
@@ -1203,12 +1237,33 @@ export function Reader(props: {
     setPanel("none");
   };
 
-  /** The session is over, with or without an answer. Without one, the server is told here (saving an answer ends it there). */
-  const finishFocus = (answered = false) => {
-    if (focusSession && !answered) void api("/api/focus/end", "POST", { id: focusSession.id }).catch(() => undefined);
+  /**
+   * The session is over, with or without an answer. Without one, the server is told here (saving an answer ends it
+   * there), and may refuse: this device's clock ran ahead, so the strip comes back with the time the server says is
+   * left. Offline, this device lets go; the server stops locking at the same moment by its own clock.
+   */
+  const finishFocus = async (answered = false) => {
+    if (focusSession && !answered) {
+      const res = await fetch("/api/focus/end", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: focusSession.id }) }).catch(() => null);
+      if (res?.status === 409) {
+        const { session } = await syncFocus(true);
+        if (session) return showFocus(session, true);
+      }
+    }
     clearFocusSession();
     setFocusEnding(false);
+    setFocusLeaving(false);
     setFocusSession(null);
+  };
+
+  /** Leave early…: the wait (M26 R4b), started or cancelled on the server, so a reload or another device keeps it. */
+  const focusWait = async (method: "POST" | "DELETE") => {
+    if (!focusSession) return;
+    const { session } = (await api("/api/focus/wait", method, { id: focusSession.id })) as { session: ServerFocus };
+    const next = focusFromServer(session, focusSession);
+    saveFocusSession(next);
+    setFocusSession(next);
+    setFocusLeaving(false);
   };
 
   /** The answer is saved as a note on the book (the reader's own, never overwritten), and the sittings point at it. */
@@ -1222,7 +1277,7 @@ export function Reader(props: {
     });
     // One last report with the note's id, after the session goes.
     setFocusDone({ id: focusSession.id, question: focusSession.question, answerAnnotationId: note.id });
-    finishFocus(true);
+    await finishFocus(true);
     await reload();
   };
 
@@ -1472,7 +1527,7 @@ export function Reader(props: {
       data-focus-session={focusSession ? "" : undefined}
     >
       {focusSession ? (
-        <FocusStrip session={focusSession} onEnd={() => setFocusEnding(true)} />
+        <FocusStrip session={focusSession} onLeave={() => setFocusLeaving(true)} onStay={() => focusWait("DELETE")} />
       ) : (
       <header className={styles.bar}>
         {/* Left, as in Kindle: leave the book, and the table of contents. */}
@@ -1923,6 +1978,15 @@ export function Reader(props: {
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
       <StartFocusDialog open={focusStart} onStart={beginFocus} onCancel={() => setFocusStart(false)} />
+      <LeaveFocusDialog
+        key={`leave-${focusSession?.id ?? ""}`}
+        session={focusSession}
+        open={Boolean(focusSession) && focusLeaving && !focusEnding}
+        waitMinutes={focusWaitMinutes}
+        onAnswer={answerFocus}
+        onWait={() => focusWait("POST")}
+        onCancel={() => setFocusLeaving(false)}
+      />
       <EndFocusDialog key={focusSession?.id ?? ""} session={focusSession} open={Boolean(focusSession) && focusEnding} onSave={answerFocus} onSkip={() => finishFocus()} />
     </div>
   );
