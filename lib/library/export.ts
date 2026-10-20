@@ -15,6 +15,22 @@ import { isRating, MIN_EASE, type Rating } from "./review-schedule";
  */
 export const EXPORT_FORMAT = "neolibrary-library";
 export const EXPORT_VERSION = 1;
+
+/** A review card's name in a file: `cardId`, or a file from before M28's `annotationId`. */
+const cardIdOf = (r: { cardId?: unknown; annotationId?: unknown }) => (r.cardId ?? r.annotationId) as string | undefined;
+/** The kind of AI answer each letter of a card's name stands for: a Test yourself bank, an Explain it back attempt. */
+const CARD_SOURCES = { q: "questions", g: "explain-back" } as const;
+/**
+ * The AI answer a card comes from, as "<generation kind>:<id>" ("q:<bank id>:<number>" → "questions:<bank id>",
+ * "g:<attempt id>:<number>" → "explain-back:<attempt id>"), or null for a highlight or note.
+ */
+const sourceOf = (cardId: string) => {
+  const m = /^([qg]):([0-9a-f-]{36}):\d+$/i.exec(cardId);
+  return m ? `${CARD_SOURCES[m[1].toLowerCase() as keyof typeof CARD_SOURCES]}:${m[2].toLowerCase()}` : null;
+};
+/** The names sourceOf gives, for the AI answers a file brings. */
+const sourcesIn = (gens: { id: string; kind: string }[]) =>
+  new Set(gens.filter((g) => Object.values(CARD_SOURCES).some((k) => k === g.kind)).map((g) => `${g.kind}:${g.id.toLowerCase()}`));
 /** A library file is metadata (books, notes, paths), not the book files. 32 MB is far past a real one. */
 export const MAX_IMPORT_BYTES = 32 * 1024 * 1024;
 
@@ -197,9 +213,15 @@ export type LibraryExport = {
     endedAt: string | null;
     endedHow: (typeof focusSessions.$inferSelect)["endedHow"];
   }[];
-  /** Daily review's schedule for each highlight or note rated so far (added in M21). */
+  /**
+   * Daily review's schedule for each card rated so far (added in M21). Since M28 each has a `cardId`: a highlight's or
+   * note's id (then `annotationId` is the same), "q:<question bank id>:<number>" for a Test yourself question, or "g:<Explain it back attempt id>:<number>" for
+   * what an attempt found missing (M28 S2). A file
+   * from before M28 has only `annotationId`.
+   */
   reviewCards?: {
-    annotationId: string;
+    cardId?: string;
+    annotationId?: string;
     ease: number;
     intervalDays: number;
     reps: number;
@@ -266,9 +288,10 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .where(eq(readingSessions.ownerId, ownerId))
     .orderBy(asc(readingSessions.startedAt), asc(readingSessions.id));
   const focusRows = await db.select().from(focusSessions).where(eq(focusSessions.ownerId, ownerId)).orderBy(asc(focusSessions.startedAt), asc(focusSessions.id));
-  const reviewRows = await db.select().from(reviewCards).where(eq(reviewCards.ownerId, ownerId)).orderBy(asc(reviewCards.firstReviewedAt), asc(reviewCards.annotationId));
-  // Only schedules of notes the file brings (a schedule has no database link to its note).
+  const reviewRows = await db.select().from(reviewCards).where(eq(reviewCards.ownerId, ownerId)).orderBy(asc(reviewCards.firstReviewedAt), asc(reviewCards.cardId));
+  // Only schedules of notes and question banks the file brings (a schedule has no database link to either).
   const exportedNotes = new Set(annotationRows.map((a) => a.annotationId));
+  const exportedSources = sourcesIn(generationRows);
   const [settings] = await db.select({ aiStyle: users.aiStyle, rewrittenView: users.rewrittenView }).from(users).where(eq(users.id, ownerId));
 
   return {
@@ -445,9 +468,10 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       endedHow: r.endedHow,
     })),
     reviewCards: reviewRows
-      .filter((r) => exportedNotes.has(r.annotationId))
+      .filter((r) => (r.annotationId ? exportedNotes.has(r.annotationId) : exportedSources.has(sourceOf(r.cardId) ?? "")))
       .map((r) => ({
-        annotationId: r.annotationId,
+        cardId: r.cardId,
+        ...(r.annotationId ? { annotationId: r.annotationId } : {}),
         ease: r.ease,
         intervalDays: r.intervalDays,
         reps: r.reps,
@@ -572,10 +596,17 @@ function checkImport(x: LibraryExport, ownerId: string) {
   const isDate = (d: unknown) => typeof d === "string" && !Number.isNaN(Date.parse(d));
   const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
   const reviewed = new Set<string>();
+  const sources = sourcesIn((x.generations ?? []).filter((g) => typeof g.id === "string"));
   for (const r of x.reviewCards ?? []) {
-    if (!noteIds.has(r.annotationId)) refuse("A review card is for a note that is not in this file.");
-    if (reviewed.has(r.annotationId)) refuse("A note has two review schedules in this file.");
-    reviewed.add(r.annotationId);
+    const id = typeof cardIdOf(r) === "string" ? cardIdOf(r)! : "";
+    if (r.cardId !== undefined && r.annotationId !== undefined && r.cardId !== r.annotationId) refuse("A review card names two different notes.");
+    if (!id) refuse("A review card has no name.");
+    const source = sourceOf(id);
+    if (source === null && !noteIds.has(id)) refuse("A review card is for a note that is not in this file.");
+    if (source?.startsWith("questions:") && !sources.has(source)) refuse("A review card is for a question bank that is not in this file.");
+    if (source?.startsWith("explain-back:") && !sources.has(source)) refuse("A review card is for an Explain it back attempt that is not in this file.");
+    if (reviewed.has(id)) refuse("A card has two review schedules in this file.");
+    reviewed.add(id);
     const scheduleOk =
       typeof r.ease === "number" && Number.isFinite(r.ease) && r.ease >= MIN_EASE && isCount(r.intervalDays) && isCount(r.reps) && isCount(r.lapses) && isRating(r.lastRating);
     if (!scheduleOk || !isDate(r.dueAt) || !isDate(r.firstReviewedAt) || !isDate(r.lastReviewedAt)) refuse("A review card's schedule is not one Neolibrary can use.");
@@ -742,9 +773,11 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       });
     }
     for (const r of x.reviewCards ?? []) {
+      const cardId = cardIdOf(r)!;
       await tx.insert(reviewCards).values({
         ownerId,
-        annotationId: r.annotationId,
+        cardId,
+        annotationId: sourceOf(cardId) === null ? cardId : null,
         ease: r.ease,
         intervalDays: r.intervalDays,
         reps: r.reps,

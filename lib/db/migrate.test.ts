@@ -105,7 +105,8 @@ describe("migrations", () => {
     );
     const card = (ease: string) =>
       database.raw.query(
-        "INSERT INTO review_cards (owner_id, annotation_id, ease, due_at, first_reviewed_at, last_reviewed_at, last_rating) VALUES ($1, gen_random_uuid(), $2::float8, now(), now(), now(), 'good')",
+        // card_id since 0030: a highlight's card is named by its annotation id.
+        "INSERT INTO review_cards (owner_id, annotation_id, card_id, ease, due_at, first_reviewed_at, last_reviewed_at, last_rating) SELECT $1, u, u::text, $2::float8, now(), now(), now(), 'good' FROM gen_random_uuid() u",
         [user.id, ease],
       );
     for (const ease of ["1.2", "NaN", "Infinity"]) await expect(card(ease)).rejects.toThrow("review_cards_ease_check");
@@ -114,6 +115,45 @@ describe("migrations", () => {
     const ids = (await loadMigrations()).map((m) => m.id);
     await migrateDown(database.raw, ids.length - ids.indexOf("0024_review"));
     expect(await tables()).not.toContain("review_cards");
+  });
+
+  it("0030 names cards so a question can be one, keeps every schedule made before it, and the reverse step keeps highlights' schedules", async () => {
+    database = await openDatabase({});
+    await migrateUp(database.raw);
+    const ids = (await loadMigrations()).map((m) => m.id);
+    const from0030 = ids.slice(ids.indexOf("0030_review_card_ids"));
+    await migrateDown(database.raw, from0030.length);
+    const [user] = await database.raw.query<{ id: string }>(
+      "INSERT INTO users (email, name, password_hash, role) VALUES ('q@example.com', 'Q', 'x', 'reader') RETURNING id",
+    );
+    const note = "11111111-2222-4333-8444-555555555555";
+    await database.raw.query(
+      "INSERT INTO review_cards (owner_id, annotation_id, ease, interval_days, due_at, first_reviewed_at, last_reviewed_at, last_rating) VALUES ($1, $2, 2.35, 2, '2026-10-13T00:00:00Z', now(), now(), 'hard')",
+      [user.id, note],
+    );
+    expect(await migrateUp(database.raw)).toEqual(from0030);
+    expect(await database.raw.query("SELECT card_id, annotation_id, ease, interval_days FROM review_cards")).toEqual([
+      { card_id: note, annotation_id: note, ease: 2.35, interval_days: 2 },
+    ]);
+    const add = (cardId: string, annotationId: string | null) =>
+      database.raw.query(
+        "INSERT INTO review_cards (owner_id, card_id, annotation_id, due_at, first_reviewed_at, last_reviewed_at, last_rating) VALUES ($1, $2, $3, now(), now(), now(), 'good')",
+        [user.id, cardId, annotationId],
+      );
+    const question = "q:66666666-7777-4888-8999-000000000000:3";
+    await add(question, null);
+    // A highlight's card must carry its own id; any other card needs a kind letter, a source id and a number.
+    for (const [cardId, annotationId] of [
+      ["q:66666666-7777-4888-8999-000000000000:4", note],
+      ["22222222-3333-4444-8555-666666666666", note],
+      ["anything", null],
+    ] as const)
+      await expect(add(cardId, annotationId)).rejects.toThrow("review_cards_card_id_check");
+    await expect(add(question, null)).rejects.toThrow("review_cards_pkey");
+    await migrateDown(database.raw, from0030.length);
+    expect(await database.raw.query("SELECT annotation_id, ease FROM review_cards")).toEqual([{ annotation_id: note, ease: 2.35 }]);
+    const cols = await database.raw.query<{ column_name: string }>("SELECT column_name FROM information_schema.columns WHERE table_name = 'review_cards'");
+    expect(cols.map((c) => c.column_name)).not.toContain("card_id");
   });
 
   it("0025 marks every cover stored before it as from its file, refuses an unknown source, and the reverse step removes the columns", async () => {

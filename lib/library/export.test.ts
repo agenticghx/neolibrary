@@ -26,9 +26,11 @@ import { recordReading } from "./reading-stats";
 import { speakPassage } from "./audio";
 import { markQuestion, questionBank } from "./questions";
 import { rewriteParagraph } from "./rewrite";
-import { getSections } from "./sections-store";
+import { backfillSections, getSections } from "./sections-store";
 import { createCollection, listShelf, setInCollection } from "./shelf";
 import { rateCard, reviewQueue } from "./review";
+import { explainBack } from "./explain-back";
+import { chapterFor } from "./prerequisites";
 import { buildPackage } from "@/lib/readalong/fixture";
 import { startImport } from "@/lib/readalong/importer";
 import { FakeCovers } from "@/lib/covers/sources";
@@ -122,6 +124,16 @@ describe("library export (ground rule 7)", () => {
     await rateCard(database.db, ownerId, marked.id, "good", new Date("2026-10-10T09:00:00Z"));
     await rateCard(database.db, ownerId, marked.id, "hard", new Date("2026-10-11T09:00:00Z"));
     await rateCard(database.db, ownerId, note.id, "again", new Date("2026-10-11T09:01:00Z"));
+    // M28: a Test yourself question rated as a card.
+    await rateCard(database.db, ownerId, `q:${bank.generation.id}:1`, "easy", new Date("2026-10-11T09:02:00Z"));
+    // M28 S2: what an Explain it back attempt found missing, rated as a card.
+    const explained = await explainBack(database.db, new FakeModel(), ownerId, {
+      bookId,
+      chapterId: (await chapterFor(database.db, ownerId, bookId, { cfi: paragraph.cfi })).id,
+      summary: "The lawyer Utterson is stern with himself but tolerant of others, and he walks with Enfield.",
+    });
+    const gapCard = `g:${explained.attempt!.id}:0`;
+    await rateCard(database.db, ownerId, gapCard, "good", new Date("2026-10-11T09:03:00Z"));
     const reviewNow = new Date("2026-10-11T10:00:00Z");
     const queueBefore = await reviewQueue(database.db, ownerId, reviewNow);
     // M25: a text edition, a book of its own linked to its scan (here only the link matters).
@@ -147,6 +159,7 @@ describe("library export (ground rule 7)", () => {
       ["Hidden later", 2, true],
       ["", 1, false],
       ["Remember this", 1, false],
+      ["The lawyer Utterson is stern with himself but tolerant of others, and he walks with Enfield.", 1, false], // Explain it back keeps the summary as a note
     ]);
     expect(before.annotations!.find((a) => a.kind === "voice")).toMatchObject({
       kind: "voice",
@@ -186,6 +199,7 @@ describe("library export (ground rule 7)", () => {
       expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
       expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "ste-light" } }),
       expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
+      expect.objectContaining({ id: explained.attempt!.id, kind: "explain-back", output: expect.stringContaining("\"question\":") }),
     ]);
     expect(before.collections).toEqual([expect.objectContaining({ name: "Time travel", bookIds: [bookId] })]);
     expect(before.books.find((b) => b.title === "Chip War")).toMatchObject({
@@ -207,7 +221,10 @@ describe("library export (ground rule 7)", () => {
     expect(before.reviewCards).toEqual([
       expect.objectContaining({ annotationId: marked.id, ease: 2.35, intervalDays: 2, reps: 2, lapses: 0, lastRating: "hard", firstReviewedAt: "2026-10-10T09:00:00.000Z", dueAt: "2026-10-13T00:00:00.000Z" }),
       expect.objectContaining({ annotationId: note.id, intervalDays: 0, reps: 0, lastRating: "again", dueAt: "2026-10-11T00:00:00.000Z" }),
+      { cardId: `q:${bank.generation.id}:1`, ease: 2.65, intervalDays: 4, reps: 1, lapses: 0, lastRating: "easy", dueAt: "2026-10-15T00:00:00.000Z", firstReviewedAt: "2026-10-11T09:02:00.000Z", lastReviewedAt: "2026-10-11T09:02:00.000Z" },
+      { cardId: gapCard, ease: 2.5, intervalDays: 1, reps: 1, lapses: 0, lastRating: "good", dueAt: "2026-10-12T00:00:00.000Z", firstReviewedAt: "2026-10-11T09:03:00.000Z", lastReviewedAt: "2026-10-11T09:03:00.000Z" },
     ]);
+    expect(before.reviewCards![0]).toMatchObject({ cardId: marked.id, annotationId: marked.id });
 
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
@@ -217,15 +234,25 @@ describe("library export (ground rule 7)", () => {
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));
-    // The same cards are due, on the same days.
+    // The same cards are due, on the same days, once the books' paragraphs are rebuilt from their files (the server
+    // does this when it starts): a gap card is checked against its chapter's paragraphs, as in Study.
+    await backfillSections(database.db, storage);
     expect(await reviewQueue(database.db, ownerId, reviewNow)).toEqual(queueBefore);
     expect((await listShelf(database.db, ownerId, { collectionId: c.id })).map((b) => b.title)).toEqual(["The Time Machine"]);
     expect((await listAnnotations(database.db, ownerId, bookId)).map((a) => [a.kind, a.body])).toEqual([
       ["note", "Second"],
       ["note", "Brought back"],
+      ["note", "The lawyer Utterson is stern with himself but tolerant of others, and he walks with Enfield."],
       ["voice", ""],
       ["highlight", "Remember this"],
     ]);
+
+    // A file from before M28 names each card by its note only: it still imports, with the same schedules.
+    const old = JSON.parse(JSON.stringify(before)) as typeof before;
+    old.reviewCards = old.reviewCards!.filter((r) => r.annotationId).map((r) => ({ ...r, cardId: undefined }));
+    await wipeLibrary(database.db, ownerId);
+    await importLibrary(database.db, ownerId, old);
+    expect(strip(await exportLibrary(database.db, ownerId)).reviewCards).toEqual(strip(before).reviewCards!.filter((r) => r.annotationId));
   });
 
   it("refuses files that are not a library export", async () => {
@@ -459,6 +486,10 @@ describe("a library file may only point inside the importing reader's library", 
       .insert(generations)
       .values({ ...generation(0, { bookId: theirs.id, kind: "questions" }), ownerId: otherId, createdAt: new Date() })
       .returning();
+    const [theirAttempt] = await database.db
+      .insert(generations)
+      .values({ ...generation(1, { bookId: theirs.id, kind: "explain-back" }), ownerId: otherId, createdAt: new Date() })
+      .returning();
     const slot = { id: crypto.randomUUID(), kind: "N" as const, bookId: theirs.id, note: "" };
     const path = { id: crypto.randomUUID(), slug: "s", title: "Stoics", description: "", sourceUrl: null, createdAt: now, pillars: [{ id: crypto.randomUUID(), slug: "a", title: "A", question: "", group: "main", slots: [slot] }] };
     const cases: [Partial<LibraryExport>, string][] = [
@@ -494,6 +525,18 @@ describe("a library file may only point inside the importing reader's library", 
         })(),
         "A review card's schedule is not one Neolibrary can use.",
       ],
+      // M28: a question card is for a question bank the file brings.
+      [{ reviewCards: [{ ...card(), annotationId: undefined, cardId: `q:${theirBank.id}:0` }] }, "A review card is for a question bank that is not in this file."],
+      // M28 S2: a gap card is for an Explain it back attempt the file brings (a question bank of that id is not one).
+      [{ reviewCards: [{ ...card(), annotationId: undefined, cardId: `g:${theirAttempt.id}:0` }] }, "A review card is for an Explain it back attempt that is not in this file."],
+      [
+        (() => {
+          const n = note();
+          return { annotations: [n], reviewCards: [{ ...card(), annotationId: n.annotationId, cardId: crypto.randomUUID() }] };
+        })(),
+        "A review card names two different notes.",
+      ],
+      [{ reviewCards: [{ ...card(), annotationId: undefined }] }, "A review card has no name."],
     ];
     for (const [extra, message] of cases) {
       await expect(importLibrary(database.db, ownerId, libraryFile(extra))).rejects.toThrow(message);

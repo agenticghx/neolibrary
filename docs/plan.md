@@ -886,7 +886,10 @@ writes); S3 reuses Explain it back's call.
   existing highlight cards keep their schedules through the migration and
   its reverse; export → wipe → import keeps question schedules, and an old
   export without `cardId` imports. Screenshots of a question card: phone
-  and desktop, light and dark.
+  and desktop, light and dark. *Built 2026-10-19 (branch
+  `m28-s1-question-cards`, migration 0030). The day's wait is checked in
+  the unit tests with a test clock; the browser tests' server sets
+  `REVIEW_QUESTION_DELAY_DAYS=0`, as its clock cannot be moved.*
 - **S2 · What Explain it back found missing becomes a question.** Claude's
   answer to Explain it back gets one more field per item: a question whose
   answer is the point you missed ("What does the author say makes card
@@ -900,7 +903,14 @@ writes); S3 reuses Explain it back's call.
   Done when: with the fake Claude, a test writes a summary, gets back items
   with questions, sees no card that day and one card per item the next
   day, front and back as above; an attempt stored without questions gives
-  no cards and still shows in Study as before.
+  no cards and still shows in Study as before. *Built 2026-10-19 (branch
+  `m28-s2-gap-cards`, no migration: a gap card is named
+  `g:<attempt id>:<item number>`, which 0030's check already allows). The
+  item number is the item's place in Claude's answer, so a dropped item
+  does not move the others' schedules. A question that copies the book's
+  line is dropped (it would give the answer away). After a library import,
+  gap cards come back once the books' paragraphs are rebuilt (at server
+  start), as Study's items do.*
 - **S3 · "Where were we?" when you come back to a book.** Opening a book
   you last read on an earlier day shows, above the page, a short box: "Last
   time you read *<chapter>*. What do you remember?" Write (or say) a few

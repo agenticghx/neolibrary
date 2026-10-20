@@ -170,3 +170,134 @@ test("Daily review: the passage, Show, rate with the keys, Again comes back, the
   await expect(empty).toContainText("Nothing to review today.");
   await reader.context().close();
 });
+
+// M28 S1 "Done when" (the browser half; the day's wait is checked in lib/library/review.test.ts with a test clock,
+// as the server's clock cannot be moved from here, so this server sets REVIEW_QUESTION_DELAY_DAYS=0): a chapter's
+// Test yourself questions are cards, the question on the front and the bank's answer only after Show; Go to chapter
+// opens the reader in that chapter; a rating is saved.
+test("Daily review: Test yourself questions are cards, the question first and its answer on Show", async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const reader = await newReader(page, browser);
+  const upload = await reader.request.post("/api/books", {
+    multipart: {
+      files: { name: "shelley-frankenstein.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/shelley-frankenstein.epub") },
+    },
+  });
+  const bookId = (await upload.json()).results[0].bookId as string;
+  const { hits } = await (await reader.request.get(`/api/books/${bookId}/search?q=${encodeURIComponent("rejoice disaster commencement enterprise")}`)).json();
+  const at = (await (await reader.request.get(`/api/books/${bookId}/questions?cfi=${encodeURIComponent(hits[0].cfi)}`)).json()) as { chapter: { id: string; label: string } };
+  const made = await reader.request.post(`/api/books/${bookId}/questions`, { data: { chapterId: at.chapter.id } });
+  expect(made.ok()).toBe(true);
+  const questions = ((await made.json()).generation.questions as { question: string; answer: string }[]).slice(0, 2);
+
+  await reader.goto("/review");
+  const card = reader.getByTestId("review-card");
+  const answer = reader.getByTestId("review-answer");
+  const progress = reader.getByTestId("review-progress");
+  await expect(progress).toContainText("1 of 9");
+  await expect(card.getByText(`Frankenstein · ${at.chapter.label}`)).toBeVisible();
+  await expect(card.getByTestId("review-question")).toHaveText(questions[0].question);
+  await expect(card.getByRole("blockquote")).toHaveCount(0);
+  await expect(answer).toHaveCount(0);
+  await expect(reader.getByText(questions[0].answer, { exact: true })).toHaveCount(0); // the answer only after Show
+  await expect(reader.getByText("Keys: Space shows the answer; 1 Again, 2 Hard, 3 Good, 4 Easy.")).toBeVisible();
+
+  await fourLooks(reader, "review-question", async () => {
+    await expect(card.getByTestId("review-question")).toHaveText(questions[0].question);
+    await reader.getByRole("button", { name: "Show", exact: true }).click();
+    await expect(answer).toContainText(questions[0].answer);
+  });
+
+  // Go to chapter opens the reader in the question's chapter.
+  await reader.reload();
+  await card.getByRole("link", { name: "Go to chapter" }).click();
+  await expect(reader).toHaveURL(new RegExp(`/books/${bookId}/read\\?at=`));
+  await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader.locator("footer").getByText(at.chapter.label, { exact: true })).toBeVisible();
+
+  // Space shows the answer, 3 rates it Good: the next question, and the rating survives a reload.
+  await reader.goto("/review");
+  await reader.keyboard.press(" ");
+  await expect(answer).toContainText("Test yourself’s answer");
+  await expect(answer).toContainText(questions[0].answer);
+  await reader.keyboard.press("3");
+  await expect(progress).toContainText("2 of 9");
+  await expect(card.getByTestId("review-question")).toHaveText(questions[1].question);
+  await reader.reload();
+  await expect(progress).toContainText("1 of 8");
+  await expect(card.getByTestId("review-question")).toHaveText(questions[1].question);
+  await reader.context().close();
+});
+
+
+// M28 S2 "Done when" (the browser half; the day's wait is checked in lib/library/review.test.ts with a test clock, as
+// for S1): the reader writes a summary in Explain it back; what the test AI found missing comes back as cards, its
+// question on the front and the book's own line only after Show; Go to passage opens the reader there; a rating is
+// saved. The summary itself is a card too (a note on the chapter's first paragraph), as before M28.
+test("Daily review: what Explain it back found missing are cards, the question first and the book's line on Show", async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const reader = await newReader(page, browser);
+  const upload = await reader.request.post("/api/books", {
+    multipart: {
+      files: { name: "shelley-frankenstein.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/shelley-frankenstein.epub") },
+    },
+  });
+  const bookId = (await upload.json()).results[0].bookId as string;
+  const { hits } = await (await reader.request.get(`/api/books/${bookId}/search?q=${encodeURIComponent("rejoice disaster commencement enterprise")}`)).json();
+  const part = (await (await reader.request.get(`/api/books/${bookId}/explain-back?cfi=${encodeURIComponent(hits[0].cfi)}`)).json()) as { chapter: { id: string; label: string } };
+  const summary = "Walton writes to his sister that he has arrived safely and is full of hope for his voyage to the north.";
+  const made = await reader.request.post(`/api/books/${bookId}/explain-back`, { data: { chapterId: part.chapter.id, summary } });
+  expect(made.status()).toBe(201);
+  const items = (await made.json()).attempt.items as { quote: string; question: string; cfi: string }[];
+  expect(items.map((i) => i.question)).toEqual(["Test AI question: how does this part open?", "Test AI question: what does the text really say in its second passage?"]);
+  expect(items.every((i) => i.quote)).toBe(true);
+
+  await reader.goto("/review");
+  const card = reader.getByTestId("review-card");
+  const answer = reader.getByTestId("review-answer");
+  const progress = reader.getByTestId("review-progress");
+  // First the summary, a note like any other; Good puts it off, and the first gap is next.
+  await expect(progress).toContainText("1 of 3");
+  await expect(card.getByRole("blockquote")).toBeVisible();
+  await reader.getByRole("button", { name: "Show", exact: true }).click();
+  await expect(answer).toContainText(summary);
+  await reader.keyboard.press("3");
+  await expect(progress).toContainText("2 of 3");
+
+  // The gap: the question, labelled as from Explain it back; the book's line is not on the page until Show.
+  await reader.reload();
+  await expect(progress).toContainText("1 of 2");
+  await expect(card.getByText("From Explain it back")).toBeVisible();
+  await expect(card.getByText(`Frankenstein · ${part.chapter.label}`)).toBeVisible();
+  await expect(card.getByTestId("review-question")).toHaveText(items[0].question);
+  await expect(card.getByRole("blockquote")).toHaveCount(0);
+  await expect(answer).toHaveCount(0);
+  await expect(reader.getByText(items[0].quote)).toHaveCount(0);
+  await expect(reader.getByText("Keys: Space shows the book's line; 1 Again, 2 Hard, 3 Good, 4 Easy.")).toBeVisible();
+
+  await fourLooks(reader, "review-gap", async () => {
+    await expect(card.getByTestId("review-question")).toHaveText(items[0].question);
+    await reader.getByRole("button", { name: "Show", exact: true }).click();
+    await expect(answer.getByText("The book says")).toBeVisible();
+    await expect(answer.getByRole("blockquote")).toHaveText(items[0].quote);
+  });
+
+  // Go to passage opens the reader at the book's line.
+  await reader.reload();
+  await card.getByRole("link", { name: "Go to passage" }).click();
+  await expect(reader).toHaveURL(`/books/${bookId}/read?at=${encodeURIComponent(items[0].cfi)}`);
+  await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader.locator("footer").getByText(part.chapter.label, { exact: true })).toBeVisible();
+
+  // Space shows the line, 3 rates it Good: the next gap, and the rating survives a reload.
+  await reader.goto("/review");
+  await reader.keyboard.press(" ");
+  await expect(answer.getByRole("blockquote")).toHaveText(items[0].quote);
+  await reader.keyboard.press("3");
+  await expect(progress).toContainText("2 of 2");
+  await expect(card.getByTestId("review-question")).toHaveText(items[1].question);
+  await reader.reload();
+  await expect(progress).toContainText("1 of 1");
+  await expect(card.getByTestId("review-question")).toHaveText(items[1].question);
+  await reader.context().close();
+});
