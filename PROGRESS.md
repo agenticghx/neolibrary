@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M28 S1 (#211), then S2 (gap cards, rebased onto main); deploy both at Samuel's word with a backup (migration 0030); then build S3; Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
+next_action: Merge #214 (the PDF read-aloud test's page-turn flake, fixed in the reader) with the merge train; merge M28 S3 (#213); deploy M28 S1 and S2 at Samuel's word with a backup (migration 0030); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-19
+updated: 2026-10-20
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-20 09:40 (laptop clock, from `date`). **The PDF read-aloud test's "page 2 shown" flake is fixed in the reader** (side session, branch `m28-readalong-page-turn`, PR #214): the reader now records the page on screen (`data-cfi`) in the same step as foliate shows it. No reader ever saw a word lit on a page not yet shown; the record trailed by up to 22 ms. Next: merge #214 with the merge train when the four checks are green. No deploy needed for readers (nothing visible changes); it rides along with the next deploy.
 
 Written 2026-10-19 21:46 (laptop clock, from `date`). **M28 S2 built (branch `m28-s2-gap-cards`, stacked on S1's branch): what Explain it back found missing becomes a Daily review card** (`g:<attempt id>:<item number>`, no migration). Next: once #211 (S1) is merged, rebase S2 onto main (`git rebase --onto origin/main origin/m28-s1-question-cards m28-s2-gap-cards`), push, merge with the merge train when the four checks are green (new reference screenshots `review-gap-*` may need refreshing from CI). Deploy S1 and S2 together only at Samuel's word, with a backup first (migration 0030). Then S3 ("Where were we?").
 
@@ -287,6 +289,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 09:40 · Claude Opus 5.5 (laptop, side session) · The PDF read-aloud test's "page 2 shown" flake: the reader records the page in the same step
+- **Done:** Found and removed the cause of the flaky test `e2e/readalong.spec.ts:1652` ("a PDF is read aloud in a made voice…", `page 2 shown when its first word was lit`), which failed on #134, #137, #170, twice on #200 and three times on #211, none of which touched the reader. The page turn was on time; the test's record of it was late. foliate (the book-display library) shows PDF page 2 and announces it (`relocate`) in one step; 1 to 4 ms later page 2's text layer (the invisible copy of its words) is ready and lights the first word. The reader kept the page shown in React state, and React wrote it to `data-cfi` (the attribute the test reads) 2 ms after on an idle laptop, 22 ms after on a loaded one: a screen frame in between showed the word lit, on page 2 and on screen, with `data-cfi` still page 1. Fix: the reader's `relocate` handler writes `data-cfi` itself, the way `recordLit` already writes the lit word (`data-word`). The test is unchanged. Nothing a reader sees changes, so there are no new screenshots.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (the `relocate` handler); docs/ci-flakes.md (row moved from Open to Causes removed); LEARNING_LOG.md Iteration 88.
+- **Commands that worked:** `npm ci`; `npm run build`; the server started by hand with the config's env (`PGLITE_DIR=.data/e2e … npx next start -p 3100`), then `npx playwright test --project=setup --no-deps` and `npx playwright test --project=readalong --no-deps -g "read aloud in a made voice" --workers 1 --repeat-each N`. With a temporary diagnostic (not committed: `Emulation.setCPUThrottlingRate` rate 6, a `MutationObserver` on `data-cfi`, the reader's `nl:` timing marks): before the fix `3 failed, 3 passed`; after `12 passed`. The committed test at normal speed: `10 passed (2.7m)`. `npx tsc --noEmit` and `npx eslint` on Reader.tsx: no output.
+- **Known issues / blockers:** Running the PDF tests of `reader` and `readalong` with `--no-deps` fails two tests that need books earlier projects upload ("The Strange Case"); that is the chain, not this change. CI's browser job runs the chain. A change to `Reader.tsx` alone runs only CI's screenshots and behavior slices (`docs/ci-time.md`), not the read-aloud file, so the first CI run of #214 (39432573623) did not run the fixed test; a comment added beside the assertion in `e2e/readalong.spec.ts` turns the `readalong` slice on. That run's one failure was `e2e/review.spec.ts:178` (Daily review, the answer after Space), the M28 S1 flake whose fix is in #213. Follow-up: `Reader.tsx` holds the read-aloud code (`highlightWord`, `showPassage`) and should turn on the `readalong` slice in `scripts/ci-browser-needed.mjs`.
+- **Exact next steps:** 1. Merge #214 with the merge train when the four checks are green. 2. After a week without this failure, nothing to drop from `flaky-tests.txt` (it was never listed). 3. Resume M28: #213 (S3), then deploy S1 and S2 at Samuel's word with a backup (migration 0030).
 
 ### 2026-10-19 21:46 · Claude Opus 5.5 (laptop, side session) · M28 S2: what Explain it back found missing becomes a Daily review card
 - **Done:** Claude's answer to Explain it back now has a `question` per item: a question whose answer is the point the summary missed ("What does the author say makes card payments two-sided?"), not a sentence that gives it away. Each item with a question, in a chapter's newest attempt, is a Daily review card: the question on the front (labelled "From Explain it back"), and after Show the book's own line ("The book says", only when Claude's quote was found word for word; otherwise "The passage begins" and the passage's start), with Go to passage. First due the day after the attempt, like question cards. A newer attempt on the same chapter replaces the older one's cards. Attempts stored before this change have no questions: they give no cards and show in Study exactly as before. A question that copies the book's line is dropped. A card is named `g:<attempt id>:<item number>`, where the number is the item's place in Claude's answer, so dropping one item never moves another's schedule; migration 0030's check already allows that name, so no new migration. The library export keeps gap-card schedules and refuses a gap card whose attempt is not in the file. The prompt changed, so its fingerprint (prompt hash) changed: stored attempts stay as they are. No paid call is added: the question rides in the answer Claude already writes.

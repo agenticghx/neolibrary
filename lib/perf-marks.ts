@@ -12,7 +12,7 @@
 export type MarkName =
   | "nl:turn-request" // the reader asked foliate for another PDF page (Reader.tsx)
   | "nl:frame-load" // foliate's frame for a page or chapter finished loading
-  | "nl:relocate" // foliate reported the new place (data-cfi follows through React)
+  | "nl:relocate" // foliate reported the new place (the reader writes data-cfi in the same step)
   | "nl:textlayer-start" // pdf-book.ts: a page's text layer is being built
   | "nl:textlayer-ready" // ... and is complete (the text-layer event fires next)
   | "nl:draw-start" // pdf-book.ts: a page's picture (canvas) is being drawn
