@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { ImportError, readBook } from "./ebook";
+import { isMarkdownName, markdownToEpub } from "./markdown-epub";
 import { pickBook, sameBook, UUID } from "./paths";
 import { buildSections } from "./sections-store";
 
@@ -32,6 +33,8 @@ export async function importBook(
   file: { name: string; bytes: Uint8Array },
   opts: { attachTo?: string | null } = {},
 ): Promise<ImportResult> {
+  // M29: a Markdown book becomes an EPUB here, and is an ordinary EPUB from then on (its file name stays the .md's).
+  if (isMarkdownName(file.name)) file = { name: file.name, bytes: markdownBook(file.bytes, file.name) };
   const info = await readBook(file.bytes, file.name);
   let wanted: { id: string; title: string; author: string } | undefined;
   if (opts.attachTo) {
@@ -111,6 +114,22 @@ export async function importBook(
   if (coverKey && had?.coverKey && had.coverKey !== coverKey) await storage.delete(had.coverKey);
   await buildSections(db, bookId, file.bytes, info.toc, info.type);
   return { status: wanted ? "attached" : "added", bookId, title: wanted?.title ?? info.title };
+}
+
+/** A Markdown file's bytes as an EPUB; refuses text that is not UTF-8, or has no text. */
+function markdownBook(bytes: Uint8Array, name: string) {
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new ImportError("This Markdown file is not plain text (UTF-8).");
+  }
+  if (text.includes("\u0000")) throw new ImportError("This Markdown file is not plain text (UTF-8).");
+  try {
+    return markdownToEpub(text, name).bytes;
+  } catch {
+    throw new ImportError("This Markdown file has no text.");
+  }
 }
 
 /** Owner of a stored file, from its key (books/<owner>/…, covers/<owner>/…). */

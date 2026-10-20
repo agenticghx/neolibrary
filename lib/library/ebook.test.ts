@@ -101,6 +101,6 @@ describe("file types", () => {
   it("accepts only EPUB and PDF", async () => {
     expect(detectType(strToU8("%PDF-1.7"))).toBe("pdf");
     expect(detectType(strToU8("hello"))).toBeNull();
-    await expect(readBook(strToU8("plain text"), "x.txt")).rejects.toThrow("Only EPUB and PDF");
+    await expect(readBook(strToU8("plain text"), "x.txt")).rejects.toThrow("Only EPUB, PDF and Markdown (.md) files can be added.");
   });
 });

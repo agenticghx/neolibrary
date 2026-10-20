@@ -181,7 +181,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
             <span className={styles.available}>{availabilityLabel(available)}</span>
             {hasFile
               ? ` · ${Math.round(book.progress * 100)}% read`
-              : ". Add the book file (EPUB or PDF) and it attaches here."}
+              : ". Add the book file (EPUB, PDF or Markdown) and it attaches here."}
           </p>
           {/* Always here, so its message outlives the refresh that brings the file (it draws nothing for a book that had one). */}
           <AttachFile bookId={book.id} hasFile={hasFile} readLinkId="read-book" />

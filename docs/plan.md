@@ -972,6 +972,40 @@ Claude, and the check waits under "Waiting on Samuel".
 - Novels: questions about plot, characters and your own reactions; the
   research above is almost all on nonfiction.
 
+### M29 · Markdown books, and Chip War rewritten (Samuel, 2026-10-20)
+
+Written for Samuel and for the session that builds it.
+
+- **K1 · A Markdown (.md) file can be added like an EPUB or a PDF.** On the
+  Import page, on "Add the book file" for a waiting title, and through the
+  agent API (`POST /api/agent/books`, multipart field `file`, optional
+  `attachTo`, with the reader's token). At import the file becomes an EPUB
+  (`lib/library/markdown-epub.ts`), so from then on it is an ordinary EPUB:
+  chapters, Contents, Listen, Study, rewrites, notes. Every `#` or `##`
+  heading starts a chapter (a part heading alone is the part's title page);
+  text before the first heading is "Opening pages"; Contents nests chapters
+  under their part. Title and author come from front matter (`title:`,
+  `author:`), else the title from the file name and no author. Nothing in
+  the file is passed through as HTML. *Built 2026-10-20 (branch
+  `m29-markdown-books`).*
+  Done when: unit tests turn an invented Markdown book into an EPUB the app
+  reads (title, author, nested Contents, one chapter per heading, escaped
+  text) and import it, attached to a waiting title or not; a browser test
+  adds one on the Import page, finds its chapters in the reader, adds a
+  second with an agent token, and removes both.
+- **K2 · Chip War, from Samuel's Markdown (`chip_war.md`, made from his
+  PDF), in the library and rewritten paragraph by paragraph in all four
+  styles** (Plain, STE light, STE standard, STE strict) with `claude -p` on
+  his subscription, by the recipe of The Pay Off and Meditations
+  (`docs/handoffs/2026-10-17-1938-rewrites-done-live.md`). Book text stays
+  out of git. Checked locally before upload: 67 chapters (opening pages,
+  praise, cast, glossary, introduction, 8 parts, 54 chapters), 841
+  paragraphs, 95,339 words in paragraphs (the reading index counts 95,753
+  with headings).
+  Done when: the live book has those chapters, and every paragraph has a
+  rewrite in each style, read back from the live database and matched to
+  its file.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

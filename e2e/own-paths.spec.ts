@@ -197,12 +197,12 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   await page.getByRole("link", { name: "The Structure of Scientific Revolutions (not available yet)" }).click();
   await expect(page.getByText("Philosophy of science › Revolutions · Story first")).toBeVisible();
   await expect(page.getByRole("main").locator("figure").getByText(/^[NE]$/)).toHaveCount(0);
-  await expect(page.getByText("Not available yet. Add the book file (EPUB or PDF) and it attaches here.")).toBeVisible();
+  await expect(page.getByText("Not available yet. Add the book file (EPUB, PDF or Markdown) and it attaches here.")).toBeVisible();
   // A file that is not a book is refused in words, and keyboard focus stays on the picker for the next try.
   const picker = page.getByLabel("Choose the book file");
   await picker.focus();
   await picker.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Not a book.") });
-  await expect(page.getByTestId("attach-status")).toHaveText("Only EPUB and PDF files can be added.");
+  await expect(page.getByTestId("attach-status")).toHaveText("Only EPUB, PDF and Markdown (.md) files can be added.");
   await expect(picker).toBeFocused();
   await page.getByLabel("Choose the book file").setInputFiles({
     name: "kuhn.pdf",

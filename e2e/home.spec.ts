@@ -132,7 +132,7 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   ]);
   const results = page.getByTestId("upload-results");
   await expect(results.getByText("Already in your library")).toBeVisible();
-  await expect(results.getByText("Only EPUB and PDF files can be added.")).toBeVisible();
+  await expect(results.getByText("Only EPUB, PDF and Markdown (.md) files can be added.")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "2 files read." })).toBeAttached();
 
   // A file dropped anywhere on the Import page, even on the sidebar, is sent, not opened by the browser.
@@ -144,7 +144,7 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   });
   const sidebar = page.getByRole("complementary", { name: "Sidebar" });
   for (const type of ["dragenter", "dragover", "drop"]) await sidebar.dispatchEvent(type, { dataTransfer: transfer });
-  await expect(page.getByTestId("upload-results").getByText("Only EPUB and PDF files can be added.")).toBeVisible();
+  await expect(page.getByTestId("upload-results").getByText("Only EPUB, PDF and Markdown (.md) files can be added.")).toBeVisible();
   await expect(page).toHaveURL(/\/import$/);
   await page.goto("/");
 

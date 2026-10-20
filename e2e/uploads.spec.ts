@@ -92,7 +92,7 @@ test("duplicates, other file types and DRM-protected books are refused politely"
   ]);
   const results = page.getByTestId("upload-results");
   await expect(results.getByText("Already in your library")).toBeVisible();
-  await expect(results.getByText("Only EPUB and PDF files can be added.")).toBeVisible();
+  await expect(results.getByText("Only EPUB, PDF and Markdown (.md) files can be added.")).toBeVisible();
   await expect(results.getByText(/DRM-protected/)).toBeVisible();
   await page.goto("/library");
   await expect(page.getByText("4 books.")).toBeVisible();
@@ -364,4 +364,76 @@ test("a book can be removed from the library and brought back, with its notes", 
   await confirm.click();
   await expect(page).toHaveURL(/\/library$/);
   await expect(shelf.getByRole("link", { name: /^A Spare Book/ })).toHaveCount(0);
+});
+
+// M29 "Done when": a Markdown (.md) book is added on the Import page and opens in the reader as a book with chapters
+// (its parts and chapters in Contents; italics and the rest are checked in lib/library/markdown-epub.test.ts); a script with the reader's token can add one too
+// (POST /api/agent/books). Both are removed again at the end, so the later tests find the shelves as before.
+test("a Markdown book is added like an EPUB, opens with its chapters, and an agent can add one", async ({ page, playwright }) => {
+  test.setTimeout(90_000);
+  const md = [
+    "---",
+    "title: The Lamp Book",
+    "author: Ann Example",
+    "---",
+    "# Part I: LIGHT",
+    "",
+    "## Chapter 1: The First Lamp",
+    "",
+    "The first lamp burned oil, and _The Lamp Gazette_ said it was smoky. A keeper trimmed the wick each night.",
+    "",
+    "## Chapter 2: The Second Lamp",
+    "",
+    "The second lamp burned gas, brighter and cleaner, and the keeper slept a little longer.",
+  ].join("\n");
+  await page.goto("/import");
+  await expect(page.getByText("EPUB, PDF or Markdown (.md) files, free of DRM (copy protection).")).toBeVisible();
+  await page.getByLabel("Choose files").setInputFiles({ name: "the-lamp-book.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+
+  const shelf = page.getByTestId("shelf");
+  await page.goto("/library");
+  await shelf.getByRole("link", { name: /^The Lamp Book/ }).click();
+  await expect(page.getByRole("heading", { name: "The Lamp Book", level: 1 })).toBeVisible();
+  await expect(page.getByText("Ann Example").first()).toBeVisible();
+  const bookUrl = page.url();
+  const id = /\/books\/([0-9a-f-]{36})/.exec(bookUrl)![1];
+
+  // In the reader: an EPUB with the parts and chapters in Contents, and its text searchable.
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const { hits } = await (await page.request.get(`/api/books/${id}/search?q=${encodeURIComponent("keeper trimmed wick")}`)).json();
+  expect(hits.length).toBe(1);
+  await page.getByRole("button", { name: "Contents" }).click();
+  for (const name of ["Part I: LIGHT", "Chapter 1: The First Lamp", "Chapter 2: The Second Lamp"]) await expect(page.getByRole("link", { name, exact: true }).or(page.getByRole("button", { name, exact: true })).first()).toBeVisible();
+
+  // An agent with the reader's token adds a Markdown book.
+  await page.goto("/agents");
+  await page.getByLabel("Which agent is it for?").fill("Markdown script");
+  await page.getByRole("button", { name: "Make a token" }).click();
+  const token = await page.getByTestId("new-token").inputValue();
+  const agent = await playwright.request.newContext({
+    baseURL: test.info().project.use.baseURL,
+    storageState: { cookies: [], origins: [] },
+    extraHTTPHeaders: { authorization: `Bearer ${token}` },
+  });
+  const sent = await agent.post("/api/agent/books", {
+    multipart: { file: { name: "a-second-lamp.md", mimeType: "text/markdown", buffer: Buffer.from("# A Second Lamp\n\nOne short chapter about a lamp on a hill.") } },
+  });
+  expect(sent.status()).toBe(201);
+  const second = (await sent.json()) as { status: string; bookId: string; title: string };
+  expect(second).toMatchObject({ status: "added", title: "A Second Lamp" });
+  expect((await agent.post("/api/agent/books", { multipart: { file: { name: "x.txt", mimeType: "text/plain", buffer: Buffer.from("hello") } } })).status()).toBe(400);
+  expect((await agent.post("/api/agent/books", { multipart: { note: "no file" } })).status()).toBe(400);
+  await agent.dispose();
+  expect((await (await page.request.get("/api/export")).json()).books.find((b: { id: string }) => b.id === second.bookId)).toMatchObject({ title: "A Second Lamp" });
+
+  // Leave the shelves as the later tests expect them: both removed (kept, out of every list).
+  for (const url of [bookUrl, `/books/${second.bookId}`]) {
+    await page.goto(url);
+    await page.locator("summary", { hasText: "Remove from library" }).click();
+    await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
+    await expect(page).toHaveURL(/\/library$/);
+  }
+  await expect(shelf.getByRole("link", { name: /Lamp/ })).toHaveCount(0);
 });
