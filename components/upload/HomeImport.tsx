@@ -96,7 +96,7 @@ export function ImportZone() {
         <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" className={styles.zoneIcon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 16V4M7 9l5-5 5 5M5 20h14" />
         </svg>
-        <p className={styles.zoneText}>{busy ? "Reading your books…" : "Drop your DRM-free books (EPUB, PDF) anywhere on this page."}</p>
+        <p className={styles.zoneText}>{busy ? "Reading your books…" : "Drop your DRM-free books (EPUB, PDF, Markdown) anywhere on this page."}</p>
         <label className={styles.pick}>
           Choose files
           <input
