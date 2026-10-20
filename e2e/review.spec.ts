@@ -175,8 +175,8 @@ test("Daily review: the passage, Show, rate with the keys, Again comes back, the
 // as the server's clock cannot be moved from here, so this server sets REVIEW_QUESTION_DELAY_DAYS=0): a chapter's
 // Test yourself questions are cards, the question on the front and the bank's answer only after Show; Go to chapter
 // opens the reader in that chapter; a rating is saved.
-test("Daily review: Test yourself questions are cards, the question first and its answer on Show", async ({ page, browser }) => {
-  test.setTimeout(120_000);
+test("Daily review: Test yourself questions are cards, the question first and its answer on Show; then Where were we? on coming back", async ({ page, browser }) => {
+  test.setTimeout(240_000);
   const reader = await newReader(page, browser);
   const upload = await reader.request.post("/api/books", {
     multipart: {
@@ -232,6 +232,9 @@ test("Daily review: Test yourself questions are cards, the question first and it
   await reader.reload();
   await expect(progress).toContainText("1 of 8");
   await expect(card.getByTestId("review-question")).toHaveText(questions[1].question);
+
+  // M28 S3, with the same reader and book (see whereWereWe below).
+  await whereWereWe(reader, bookId);
   await reader.context().close();
 });
 
@@ -317,15 +320,9 @@ test("Daily review: what Explain it back found missing are cards, the question f
 // their saved place; the answer is saved as an Explain it back attempt on that chapter; Skip hides the strip for the
 // day; read today, it is not asked. The earlier day is a sitting sent the way the reader sends one (as stats.spec.ts
 // does), since the server's clock cannot be moved; the rule's days are checked in lib/library/where-were-we.test.ts.
-test("Where were we? asks what you remember on coming back, saves it as Explain it back, and Skip hides it for the day", async ({ page, browser }) => {
-  test.setTimeout(150_000);
-  const reader = await newReader(page, browser);
-  const upload = await reader.request.post("/api/books", {
-    multipart: {
-      files: { name: "shelley-frankenstein.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/shelley-frankenstein.epub") },
-    },
-  });
-  const bookId = (await upload.json()).results[0].bookId as string;
+// Run by the question-card test's reader, not a reader of its own: sign-ups are limited to 10 per 15 minutes from one
+// address, and a full CI run of all the specs that invite readers would pass that (CI run 39360494245, both attempts).
+async function whereWereWe(reader: Page, bookId: string) {
   const { hits } = await (await reader.request.get(`/api/books/${bookId}/search?q=${encodeURIComponent("slowly encompassed frost snow")}`)).json();
   const place = hits[0].cfi as string;
   expect((await reader.request.put(`/api/books/${bookId}/position`, { data: { cfi: place, fraction: 0.02 } })).ok()).toBe(true);
@@ -384,25 +381,21 @@ test("Where were we? asks what you remember on coming back, saves it as Explain 
   await reader.evaluate(() => localStorage.clear());
   await open();
   await expect(strip).toHaveCount(0);
-  await reader.context().close();
-});
 
-test("Where were we? is not asked when you have read the book today", async ({ page, browser }) => {
-  const reader = await newReader(page, browser);
-  const upload = await reader.request.post("/api/books", {
+  // Read today (a sitting of a minute or more): not asked. Another book, read yesterday and today.
+  const second = await reader.request.post("/api/books", {
     multipart: {
-      files: { name: "shelley-frankenstein.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/shelley-frankenstein.epub") },
+      files: { name: "wells-the-time-machine.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/wells-the-time-machine.epub") },
     },
   });
-  const bookId = (await upload.json()).results[0].bookId as string;
-  const { hits } = await (await reader.request.get(`/api/books/${bookId}/search?q=${encodeURIComponent("slowly encompassed frost snow")}`)).json();
-  expect((await reader.request.put(`/api/books/${bookId}/position`, { data: { cfi: hits[0].cfi, fraction: 0.02 } })).ok()).toBe(true);
-  for (const startedAt of [new Date(dayAfter(new Date(), -1).getTime() + 12 * 3_600_000), new Date()]) {
-    const sent = await reader.request.post(`/api/books/${bookId}/reading`, { data: { sessionId: crypto.randomUUID(), startedAt: startedAt.toISOString(), activeSeconds: 600, words: 2400, pages: 6 } });
+  const otherId = (await second.json()).results[0].bookId as string;
+  const found = await (await reader.request.get(`/api/books/${otherId}/search?q=${encodeURIComponent("Time Traveller")}`)).json();
+  expect((await reader.request.put(`/api/books/${otherId}/position`, { data: { cfi: found.hits[0].cfi, fraction: 0.05 } })).ok()).toBe(true);
+  for (const startedAt of [yesterday, new Date()]) {
+    const sent = await reader.request.post(`/api/books/${otherId}/reading`, { data: { sessionId: crypto.randomUUID(), startedAt: startedAt.toISOString(), activeSeconds: 600, words: 2400, pages: 6 } });
     expect(sent.status()).toBe(204);
   }
-  await reader.goto(`/books/${bookId}/read`);
+  await reader.goto(`/books/${otherId}/read`);
   await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  await expect(reader.getByTestId("where-were-we")).toHaveCount(0);
-  await reader.context().close();
-});
+  await expect(strip).toHaveCount(0);
+}

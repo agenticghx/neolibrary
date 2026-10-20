@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #211 (review test fix) and #213 (M28 S3); S1 and S2 are on main through #212; no deploy until Samuel says (backup first, migration 0030); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
+next_action: Merge #213 (M28 S3) when green, then deploy it at Samuel's word; Samuel adds ANTHROPIC_API_KEY for the Pay Off check.   #213 (M28 S3) when green; deploy only at Samuel's word with a backup first.   #211 (review test fix) and #213 (M28 S3); S1 and S2 are on main through #212; no deploy until Samuel says (backup first, migration 0030); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -290,6 +290,34 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 10:15 · Claude Opus 5.5 (laptop) · #213: too many test sign-ups, not a flake; S3's checks reuse a reader
+- **Done:** #213's browser job failed twice on `e2e/focus.spec.ts:344` at the reader's sign-up (CI run 39360494245, attempts 1 and 2). The page snapshot in the run's report says "Too many attempts. Wait 15 minutes.": joining is limited to 10 per 15 minutes from one address, and with S3's two new readers a full CI run made 11 (12 with flows.spec's used-link retry). S3's checks now run with the question-card test's reader (one function, `whereWereWe` in e2e/review.spec.ts), so review.spec makes 3 readers, as on main. Main's scheduled run 39430816766 (2ffd889) failed on S2's gap-card test, the Space-too-early race this PR already fixes. Gotcha added to docs/handoff.md.
+- **Key paths:** e2e/review.spec.ts; docs/handoff.md (Process); app/(public)/actions.ts (the limit, unchanged).
+- **Commands that worked:** `gh run download 39360494245 -n playwright-report` → error-context.md shows the alert; `PORT=3193 npx playwright test --project=setup --project=review --no-deps --workers=1 --ignore-snapshots` → 4 passed; `npm run lint` → clean.
+- **Known issues / blockers:** S3 is not deployed. #214 (read-aloud fix) is its own session's.
+- **Exact next steps:** 1. Merge #213 when the four checks are green. 2. Deploy it at Samuel's word (no migration, no backup needed). 3. Samuel adds ANTHROPIC_API_KEY on Railway, then the Pay Off check.
+
+### 2026-10-20 10:03 · Claude Opus 5.5 (laptop) · Live: 2ffd889 (M28 S1+S2; migration 0030 applied, backup taken and restore-checked first)
+- **Done:** Deployed at Samuel's word ('I approve this deploy', 2026-10-20). Backup ~/Backups/neolibrary/prod-before-0030-20261020T1334Z.sql restore-checked earlier (exit 0, 0 errors, 29 migrations). railway up from ../neolibrary-deploy detached at 2ffd889, 0 untracked files: Deploy complete. Live on both addresses: /api/health commit 2ffd889; /sign-in 200; POST /api/review signed out 401. Database: _migrations 30, last 0030_review_card_ids; review_cards has the card_id column; 1 row, its card_id equal to its annotation id (the one schedule from before kept).
+- **Key paths:** ~/Backups/neolibrary/prod-before-0030-20261020T1334Z.sql; db/migrations/0030_review_card_ids.up.sql
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=2ffd8896... --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl /api/health (both) -> 2ffd889; psql over Railway SSH -> 30|0030_review_card_ids, review_cards 1|1
+- **Known issues / blockers:** S3 (#213) is not merged or deployed yet. Test yourself and Explain it back still cannot run live: no ANTHROPIC_API_KEY on Railway web. Not yet tried signed in on the live site.
+- **Exact next steps:** 1. Samuel opens Review signed in: his highlight card should still be there. 2. Merge #213 when green; deploy it at Samuel's word (no migration, no backup needed). 3. Samuel adds ANTHROPIC_API_KEY on Railway, then the Pay Off two-chapter check.
+
+### 2026-10-20 09:35 · Claude Opus 5.5 (laptop) · Deploy of M28 S1+S2 (2ffd889): backup taken and restore-checked; deploy blocked by the permission check
+- **Done:** Samuel: 'deploy'. Live was 31b815b. Backup ~/Backups/neolibrary/prod-before-0030-20261020T1334Z.sql (20,562,390 bytes, 'dump complete' footer) restored into a throwaway Postgres: exit 0, 0 errors, 22 tables, 29 migrations (last 0029_focus_sessions_live), 2 users, 257 books, 21 annotations, 172 reading_sessions, 1 review_cards row. ../neolibrary-deploy detached at 2ffd889 (origin/main), 0 untracked files. The deploy command (railway variable set NEOLIBRARY_COMMIT + railway up) was refused by Claude Code's auto-mode permission check, so nothing was deployed. #213 (S3) re-run started after an unrelated focus-test sign-up timeout.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0030-20261020T1334Z.sql; ../neolibrary-deploy
+- **Commands that worked:** ssh <postgres ssh user>@ssh.railway.com 'pg_dump --no-owner -U "$PGUSER" -d "$PGDATABASE"' < /dev/null > prod-before-0030-....sql -> exit 0; restore check -> exit 0, 0 errors
+- **Known issues / blockers:** Deploy needs Samuel to run it himself or allow it: the auto-mode check blocks railway up.
+- **Exact next steps:** 1. Samuel runs, in ../neolibrary-deploy: railway variable set NEOLIBRARY_COMMIT=$(git rev-parse HEAD) --service web --environment production --skip-deploys, then railway up --service web --environment production --ci. 2. Check /api/health says 2ffd889 and _migrations has 30 (0030_review_card_ids), review_cards still 1 row with card_id set. 3. Merge #213 when green; deploy it the same way (no migration).
+
+### 2026-10-19 23:35 · Claude Opus 5.5 (laptop) · Checkpoint: M28 S1+S2 on main via #212; S3 open as #213; nothing deployed
+- **Done:** M28 planned (#210). S1 and S2 merged to main inside #212 (2ffd889). #211 closed, its test fixes folded into #213. S3 (Where were we?) open as #213, rebased onto main at c4e8350, CI running. Not deployed, at Samuel's word.
+- **Key paths:** docs/handoffs/2026-10-19-2334-m28-review-loop.md; docs/plan.md (M28); lib/library/review.ts; lib/library/where-were-we.ts; db/migrations/0030_review_card_ids.up.sql; e2e/review.spec.ts
+- **Commands that worked:** npx vitest run (115 files, 963 passed); PORT=3193 npx playwright test --project=setup --project=review --no-deps --workers=1 --ignore-snapshots (6 passed); npm run lint (clean)
+- **Known issues / blockers:** Flaky readalong.spec.ts:1652 failed on all three #211 runs (not caused by M28; session card task_4f13d266 proposed). No ANTHROPIC_API_KEY on Railway web, so Test yourself and Explain it back cannot run live.
+- **Exact next steps:** 1. Merge #213 when its four checks are green. 2. Deploy M28 only at Samuel's word, with a production backup first (migration 0030). 3. Samuel adds ANTHROPIC_API_KEY on Railway, then the Pay Off two-chapter check. 4. Fix the read-aloud flake in its own session.
 
 ### 2026-10-19 22:43 · Claude Opus 5.5 (laptop) · #213 rebased onto main after #212; #211's fixes folded in, #211 closed
 - **Done:** #212 merged (2ffd889) with S1 inside it, so #213 (S3) conflicted with main on `e2e/review.spec.ts` and `PROGRESS.md`. Rebased #213 onto main, keeping all five review tests. #211's remaining changes (the question-card test's Space fix, the flake row, its ledger entries) are folded into #213 and #211 is closed, so the two would not conflict again and one CI round is saved. S2's gap-card test had the same Space-too-early race; it now presses until the line shows.

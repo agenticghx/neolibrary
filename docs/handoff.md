@@ -298,6 +298,13 @@ network returns):
   `e2e/__screenshots__/<name>-<look>.png` and push.
 
 **Process**
+- **Browser tests share one sign-up limit:** joining by invitation is limited
+  to 10 attempts per 15 minutes from one address (`app/(public)/actions.ts`),
+  and in CI every test runs from the same address. A full run makes about ten
+  (review 3, focus 3, covers 1, flows 1 plus its used-link retry, uploads 1),
+  so a test that invites one more reader gets "Too many attempts. Wait 15
+  minutes." in whichever spec signs up last (#213, 2026-10-20). Reuse a
+  reader the spec already has instead of adding one.
 - **Auto-merge only takes branches named `m…` or `claude/…`**
   (`.github/workflows/auto-merge.yml`). Any other name (e.g. `deploy-…`)
   stays open even when green; merge it yourself if every check passed.
