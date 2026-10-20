@@ -288,6 +288,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-19 22:40 · Claude Opus 5.5 (laptop) · #211 cut down: S1 reached main through #212; only the review test fix and notes remain
+- **Done:** #212 (S2) was built on S1's branch and the auto-merge Action merged it (2ffd889, 2026-10-20 02:07 UTC), so S1's code and migration 0030 are on main through it. #211 is now rebuilt from main with only what main lacks: the review test's Space fix (press until the answer shows), the read-aloud flake row in `docs/ci-flakes.md`, and these ledger entries. The read-aloud test (`readalong.spec.ts:1652`) failed on all three of #211's runs (39349975911 attempts 1 and 2, 39355817168), and passed on #212 and #213, which carry the same code.
+- **Key paths:** e2e/review.spec.ts; docs/ci-flakes.md row 21; PROGRESS.md.
+- **Commands that worked:** `git switch -c m28-s1-rest origin/main`, `git cherry-pick 025341a5 dd15c53a` (ledger conflicts resolved keeping both sides), `git push --force-with-lease origin m28-s1-rest:m28-s1-question-cards`.
+- **Known issues / blockers:** The read-aloud race is real by the merge-train rule (failed twice or more on one PR); not caused by M28; not investigated. Not deployed (Samuel).
+- **Exact next steps:** 1. Merge #211 (now small) and #213 (S3) when green. 2. Investigate the read-aloud race in its own session. 3. Deploy only at Samuel's word, backup first (migration 0030).
+
 ### 2026-10-19 21:36 · Claude Opus 5.5 (laptop) · #211 (M28 S1): known read-aloud flake, re-run; merge on green, no deploy
 - **Done:** Samuel: "Merge #211 when green but do not deploy yet." CI run 39349975911 attempt 1: Lint, Real Postgres and PR hygiene passed; Browser tests failed on one test only, `e2e/readalong.spec.ts:1652` "a PDF is read aloud in a made voice…", with `page 2 shown when its first word was lit` (Expected `epubcfi(/6/4)`, Received `epubcfi(/6/2)`). That is the known flake in `docs/ci-flakes.md` row 21; #211 changes no reader code. Re-ran the failed job once (`gh run rerun 39349975911 --failed`).
 - **Key paths:** docs/ci-flakes.md (row 21: add run 39349975911 attempt 1, #211, 2026-10-19).
