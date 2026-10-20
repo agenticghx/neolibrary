@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Import" };
 
 /**
  * Import (M14 follow-up V3a; Samuel's verdict on #90): the one place to add
- * things. Books (EPUB or PDF), dropped anywhere on the page or chosen; your
+ * things. Books (EPUB, PDF or Markdown), dropped anywhere on the page or chosen; your
  * own audiobook for a book you have (a read-along package); AI voice
  * narration for an entire EPUB, made in advance and paid up front, only when
  * chosen on purpose (V5, Samuel's decision of 2026-10-06), by the library's
@@ -56,7 +56,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         <h2 id="books-h" className={styles.sectionTitle}>
           Add books
         </h2>
-        <p className={styles.note}>EPUB or PDF files, free of DRM (copy protection). Several at once is fine.</p>
+        <p className={styles.note}>EPUB, PDF or Markdown (.md) files, free of DRM (copy protection). Several at once is fine.</p>
         <ImportZone />
       </section>
 

@@ -136,9 +136,9 @@ describe("importing books", () => {
     expect(b).toEqual({ status: "duplicate", bookId: a.bookId, title: "Frankenstein" });
   });
 
-  it("refuses files that are not EPUB or PDF and stores nothing", async () => {
+  it("refuses files that are not EPUB, PDF or Markdown and stores nothing", async () => {
     await expect(importBook(database.db, storage, ownerId, { name: "x.txt", bytes: strToU8("hello") })).rejects.toThrow(
-      "Only EPUB and PDF",
+      "Only EPUB, PDF and Markdown (.md) files can be added.",
     );
   });
 

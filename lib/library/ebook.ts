@@ -237,5 +237,5 @@ export async function readBook(bytes: Uint8Array, fileName: string): Promise<Boo
     if (!info.title) info.title = fileName.replace(/\.epub$/i, "").replace(/[_-]+/g, " ").trim();
     return info;
   }
-  throw new ImportError("Only EPUB and PDF files can be added.");
+  throw new ImportError("Only EPUB, PDF and Markdown (.md) files can be added.");
 }

@@ -12,14 +12,14 @@ export const UPLOAD_MESSAGES = {
   restored: "You had removed this book: it is back, with your notes",
 } as const;
 
-export const ACCEPT = ".epub,.pdf,application/epub+zip,application/pdf";
+export const ACCEPT = ".epub,.pdf,.md,.markdown,application/epub+zip,application/pdf,text/markdown";
 
 /** What a .zip dropped on the Import page is told: it is your own audiobook's package, which goes with a book. */
 export const ZIP_NOT_A_BOOK =
   "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.";
 
 /**
- * Sends EPUB and PDF files to /api/books, one request per file, and refreshes
+ * Sends EPUB, PDF and Markdown files to /api/books, one request per file, and refreshes
  * the page so the new books show. Used by the Import page (M14 follow-up V3a),
  * which accepts drops anywhere on the page.
  */

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel adds ANTHROPIC_API_KEY on Railway; then the Pay Off two-chapter check of M28.   #213 (M28 S3) when green, then deploy it at Samuel's word; Samuel adds ANTHROPIC_API_KEY for the Pay Off check.   #213 (M28 S3) when green; deploy only at Samuel's word with a backup first.   #211 (review test fix) and #213 (M28 S3); S1 and S2 are on main through #212; no deploy until Samuel says (backup first, migration 0030); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
+next_action: M29: merge and deploy Markdown books, send chip_war.md, rewrite Chip War in four styles (claude -p), load and verify.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -291,6 +291,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-20 11:27 · Claude Opus 5.5 (laptop) · M29 K1: Markdown books can be added (Import page, waiting titles, agent API)
+- **Done:** Samuel: "allow books in .md ext to be uploaded" (with `chip_war.md` and its PDF), then rewrite it in all styles; work alone, test, merge, deploy. A `.md` file is turned into an EPUB at import (`lib/library/markdown-epub.ts`): a chapter per `#`/`##` heading, nested Contents, front matter for title/author, everything escaped. The Import page, "Add the book file" and the upload limits accept `.md`; the refusal now says "Only EPUB, PDF and Markdown (.md) files can be added." New `POST /api/agent/books` (multipart `file`, optional `attachTo`) so a script with the owner token can send a book: the browser cannot pick a file from the laptop. Converted `chip_war.md` locally and read it back with the app's own reader code: 67 chapters, 841 paragraphs, 95,339 words in paragraphs.
+- **Key paths:** lib/library/markdown-epub.ts (+ test); lib/library/import.ts; app/api/agent/books/route.ts; components/upload/useBookUpload.ts; app/(app)/import/page.tsx; app/(app)/books/[id]/page.tsx; e2e/uploads.spec.ts; docs/plan.md (M29).
+- **Commands that worked:** `npx vitest run` → 116 files passed, 971 tests passed, 2 skipped; `PORT=3194 npx playwright test --project=setup --project=uploads --no-deps --workers=1 --ignore-snapshots` → 13 passed; `npm run lint` → clean.
+- **Known issues / blockers:** The Import page's wording changed, so its reference screenshots need CI's renderings (merge-train refresh).
+- **Exact next steps:** 1. Merge, deploy (no migration). 2. Send `chip_war.md` with the owner token, attached to the waiting Chip War title if there is one; check 67 chapters live. 3. Rewrite in four styles with the recipe; back up generations; load; md5 read-back.
 ### 2026-10-20 11:07 · Claude Opus 5.5 (laptop) · "Where were we?": its own row (covers no text) and "chapter I" for numeral chapter names
 - **Done:** Samuel ("fix pls") after the signed-in live check found two rough edges. 1. The strip lay over the page's first lines; it now has a row of its own between the reader's bar and the book (`.withRecall` adds an auto row to the reader's grid; `.recallSlot` holds it), so the book starts below it and gets the room back when it closes. The reader also sets its theme class on the element directly (when the book opens and when settings change), which dropped the new class at first and left the book a few lines high; both places now keep it (`recallClass`). 2. A chapter named only by a numeral ("I", "8.") reads "chapter I" (`lib/library/chapter-name.ts`; upper-case numerals only, so a chapter called "Mix" stays "Mix"). Signed-in live check before the fix (Samuel's browser pane): Review kept his card's schedule (next card Sunday, October 25); the strip showed on The Pay Off (chapter 8) and The Time Machine; Write it opened the box; Test yourself said AI is not set up; no console errors; nothing saved; today's sittings stayed under a minute.
 - **Key paths:** app/(reader)/books/[id]/read/Reader.tsx, reader.module.css, WhereWereWe.tsx, WhereWereWe.module.css; lib/library/chapter-name.ts (+ test); e2e/review.spec.ts (the strip ends above the book, and the book keeps over half the window).

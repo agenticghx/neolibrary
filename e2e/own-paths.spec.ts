@@ -202,7 +202,7 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   const picker = page.getByLabel("Choose the book file");
   await picker.focus();
   await picker.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Not a book.") });
-  await expect(page.getByTestId("attach-status")).toHaveText("Only EPUB and PDF files can be added.");
+  await expect(page.getByTestId("attach-status")).toHaveText("Only EPUB, PDF and Markdown (.md) files can be added.");
   await expect(picker).toBeFocused();
   await page.getByLabel("Choose the book file").setInputFiles({
     name: "kuhn.pdf",
