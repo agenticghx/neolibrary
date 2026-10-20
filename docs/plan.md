@@ -923,6 +923,15 @@ writes); S3 reuses Explain it back's call.
   an Explain it back attempt on that chapter; Skip hides it for the day;
   reopening the same day shows nothing. Screenshots: phone and desktop,
   light and dark.
+  *Built 2026-10-19 (branch `m28-s3-where-were-we`, no migration). Details
+  settled while building: "the chapter" is the one at your saved place;
+  "an earlier day" means your latest sitting of a minute or more began on
+  an earlier day (UTC), since every opening of a book records a sitting,
+  even a glance; a chapter counts as explained back once it has an
+  Explain it back answer or the summary note it keeps when Claude cannot
+  answer; it is not asked when the book is opened at a place of its own (a
+  search result, a review card). The strip sits over the book's column,
+  one line until you choose to write.*
 
 **Real-book check for M28 (Samuel, on *The Pay Off*).** A nonfiction book
 with chapters (its text edition, M25), so the research above applies to it
