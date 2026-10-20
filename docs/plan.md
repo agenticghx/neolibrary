@@ -833,6 +833,126 @@ Written for Samuel and for the session that builds it.
   brings the window back to the front, sees the offer, and Go there opens
   that place; no offer appears after the tab's own page turns.
 
+### M28 · Review what you read, not only what you highlighted (Samuel, 2026-10-19)
+
+Written for Samuel and for the session that builds it.
+
+**Why.** Daily review (M21) brings back only your highlights and notes, and
+shows you the highlight itself. So a reader who highlights little gets one
+card ("1 of 1", Samuel's screenshot, 2026-10-19), and looking at your own
+highlight is rereading. Highlighting and rereading are the two study
+methods the best-known review of the research rates lowest; recalling from
+memory ("retrieval practice") and spreading it over days ("spacing") are
+the two it rates highest (Dunlosky et al., 2013). Recalling a text from
+memory beat both rereading and concept maps a week later (Roediger &
+Karpicke, 2006; Karpicke & Blunt, 2011).
+
+**The idea: connect what already exists.** The app already has the parts,
+but they don't feed each other:
+
+| Part of a review loop | Already in the app | What M28 adds |
+|---|---|---|
+| Questions about each chapter | Test yourself (M6): recall, understanding and application questions per chapter, answers hidden, marked right or wrong | S1: the questions become Daily review cards |
+| Recall at the end of a chapter | Explain it back (M26 R1): you write what the chapter argued; Claude quotes what you missed | S2: each thing you missed becomes a question card |
+| A schedule that spaces reviews | Daily review (M21): Again / Hard / Good / Easy, SM-2 | uses it as it is |
+| Recall when you come back to a book | nothing | S3: "Where were we?" |
+| A purpose before reading | Focus session with a question (M26 R3); Need to know (M6) explains, but asks nothing | Later: prequestions |
+| Links across books | word-stem links (M6); links by meaning planned (M26 R2) | Later: rides on R2 |
+
+The rule from M26 still holds: **the reader answers first, Claude second.**
+No card shows Claude's answer before the reader has tried. Steps S1 and S2
+add no new paid calls (S2 adds one short field to an answer Claude already
+writes); S3 reuses Explain it back's call.
+
+- **S1 · Test yourself questions become review cards.** Every question in
+  the newest question bank of a chapter (one per chapter: a newer bank, made
+  fresh or in another style, replaces the older one's cards) is a card. The
+  front is the question; Show gives the bank's answer and a link to the
+  chapter. A question card first comes due **the day after its bank was
+  made**, never the same day: reviewing a question minutes after answering
+  it is rereading again, and the gain from recall comes after a delay. New
+  cards of every kind share the 20-a-day limit. Right or wrong marks in Test
+  yourself are not read by the schedule yet (Later). Highlights and notes
+  stay cards as before. Database: `review_cards` gets a text `card_id` (an
+  annotation's id for highlights and notes, so existing schedules are
+  kept; `q:<bank id>:<question number>` for a question), with a reverse
+  step; backup before it runs in production. The library export carries
+  `cardId`, and an export made before M28 still imports.
+  Done when: with the fake Claude, a test makes a question bank for a
+  chapter of a public-domain book; that day Review does not show its
+  questions; the next day (test clock) it does, one card per question,
+  with the question on the front and the answer only after Show; rating
+  one sets its next date; a fresh bank replaces the old bank's cards;
+  existing highlight cards keep their schedules through the migration and
+  its reverse; export → wipe → import keeps question schedules, and an old
+  export without `cardId` imports. Screenshots of a question card: phone
+  and desktop, light and dark.
+- **S2 · What Explain it back found missing becomes a question.** Claude's
+  answer to Explain it back gets one more field per item: a question whose
+  answer is the point you missed ("What does the author say makes card
+  payments two-sided?"), not a sentence that gives it away. Each item of a
+  chapter's newest attempt is a card: the question on the front; Show gives
+  the book's own line (quoted only when found word for word, as today) and
+  a link to it. Older attempts, made before the field existed, give no
+  cards. The day-after rule of S1 applies. Note: one Explain it back can
+  give up to six cards (your summary note, which is already a card, and up
+  to five gaps).
+  Done when: with the fake Claude, a test writes a summary, gets back items
+  with questions, sees no card that day and one card per item the next
+  day, front and back as above; an attempt stored without questions gives
+  no cards and still shows in Study as before.
+- **S3 · "Where were we?" when you come back to a book.** Opening a book
+  you last read on an earlier day shows, above the page, a short box: "Last
+  time you read *<chapter>*. What do you remember?" Write (or say) a few
+  sentences and it goes to Explain it back for that chapter, so its gaps
+  become cards (S2); or press Skip, or just start reading. It shows at
+  most once a day per book, never in a focus session, and never for a
+  chapter you have already explained back.
+  Done when: a browser test reads a chapter, moves the clock to the next
+  day, reopens the book, sees the box, answers it, and finds the answer as
+  an Explain it back attempt on that chapter; Skip hides it for the day;
+  reopening the same day shows nothing. Screenshots: phone and desktop,
+  light and dark.
+
+**Real-book check for M28 (Samuel, on *The Pay Off*).** A nonfiction book
+with chapters (its text edition, M25), so the research above applies to it
+directly. Pick two chapters of about the same length that you have not
+read yet.
+1. Chapter A, with the loop: read it, do Explain it back, open Test
+   yourself. Review its cards when Daily review offers them (days 1, 3 and
+   7 or so).
+2. Chapter B, without it: read it, nothing else.
+3. Day 7 after reading B: answer, from memory, a fresh Test yourself bank
+   for each chapter (Claude writes it then; you have not seen it). Count
+   your right answers.
+4. Record both scores and your verdict in the Log. It is one reader and
+   two chapters (n = 1): a sign, not proof.
+Needs `ANTHROPIC_API_KEY` on Railway `web`: on 2026-10-19 it is not there
+(checked by name), so Test yourself and Explain it back cannot run on the
+live site yet. Until it is, S1 to S3 are built and tested with the fake
+Claude, and the check waits under "Waiting on Samuel".
+
+**Later** (from the same research; not planned in detail):
+- Answer first: type or say your answer before Show, and Claude checks it
+  against the book and suggests a rating (one cheap call per answer, under
+  the caps).
+- Book milestones: at a quarter, half, three quarters and the end, four
+  questions about the whole book, from Adler's *How to Read a Book* (what is
+  it about as a whole; its main arguments; are they true; so what), answered
+  in your words and coming back at a week, a month, six months.
+- FSRS (the Free Spaced Repetition Scheduler, Anki's default since 2025)
+  instead of SM-2: it learns your own forgetting and needs fewer reviews for
+  the same memory.
+- Test yourself marks as the first rating of a question card.
+- Prequestions: two or three of a chapter's questions before you read it
+  (helps with the asked content, not the rest: St. Hilaire et al., 2024).
+- Within a session, a missed card comes back until you get it (today Again
+  puts it at the end of the day's cards once).
+- Cross-book questions ("How does this compare with what *Y* said?"), on top
+  of M26 R2's links by meaning.
+- Novels: questions about plot, characters and your own reactions; the
+  research above is almost all on nonfiction.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
