@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M28 S1 (question cards); deploy at Samuel's word with a backup (migration 0030); then build S2; Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
+next_action: Merge M28 S1 (#211), then S2 (gap cards, rebased onto main); deploy both at Samuel's word with a backup (migration 0030); then build S3; Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-19
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-19 21:46 (laptop clock, from `date`). **M28 S2 built (branch `m28-s2-gap-cards`, stacked on S1's branch): what Explain it back found missing becomes a Daily review card** (`g:<attempt id>:<item number>`, no migration). Next: once #211 (S1) is merged, rebase S2 onto main (`git rebase --onto origin/main origin/m28-s1-question-cards m28-s2-gap-cards`), push, merge with the merge train when the four checks are green (new reference screenshots `review-gap-*` may need refreshing from CI). Deploy S1 and S2 together only at Samuel's word, with a backup first (migration 0030). Then S3 ("Where were we?").
 
 Written 2026-10-19 20:49 (laptop clock, from `date`). **M28 S1 built (branch `m28-s1-question-cards`): Test yourself questions become Daily review cards, first due the day after.** Next: merge when green; deploy only at Samuel's word, with a backup first (migration 0030). Then S2 (gaps from Explain it back become question cards), then S3 ("Where were we?"). The Pay Off two-chapter check needs `ANTHROPIC_API_KEY` on Railway (Samuel's step).
 
@@ -285,6 +287,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 21:46 · Claude Opus 5.5 (laptop, side session) · M28 S2: what Explain it back found missing becomes a Daily review card
+- **Done:** Claude's answer to Explain it back now has a `question` per item: a question whose answer is the point the summary missed ("What does the author say makes card payments two-sided?"), not a sentence that gives it away. Each item with a question, in a chapter's newest attempt, is a Daily review card: the question on the front (labelled "From Explain it back"), and after Show the book's own line ("The book says", only when Claude's quote was found word for word; otherwise "The passage begins" and the passage's start), with Go to passage. First due the day after the attempt, like question cards. A newer attempt on the same chapter replaces the older one's cards. Attempts stored before this change have no questions: they give no cards and show in Study exactly as before. A question that copies the book's line is dropped. A card is named `g:<attempt id>:<item number>`, where the number is the item's place in Claude's answer, so dropping one item never moves another's schedule; migration 0030's check already allows that name, so no new migration. The library export keeps gap-card schedules and refuses a gap card whose attempt is not in the file. The prompt changed, so its fingerprint (prompt hash) changed: stored attempts stay as they are. No paid call is added: the question rides in the answer Claude already writes.
+- **Key paths:** prompts/explain-back.md; lib/library/explain-back.ts (`question`, `index`, `cleanQuestion`); lib/ai/fake.ts (`fakeExplainBack`); lib/library/review.ts (`gapRows`, `gapCardId`, `cardSchedules`); lib/library/export.ts (`sourceOf`, `sourcesIn`); app/(app)/review/ReviewSession.tsx and page.module.css (`.bookLine`); tests in lib/library/{explain-back,review,export}.test.ts and e2e/review.spec.ts; docs/plan.md (S2 marked built).
+- **Commands that worked:** `npm ci` in the worktree. `npm run check` (lint, types, unit tests): 114 files passed, 960 tests passed, 2 skipped; exit 0. `npx playwright test --project=setup --project=review --no-deps --workers=1 --ignore-snapshots`: 4 passed (the new test "Daily review: what Explain it back found missing are cards…" in 2.7s). Screenshots looked at: `screenshots/review-gap-{desktop,phone}-{light,dark}.png` (git ignores them): question, "The book says" and the line, readable in all four looks, no sideways scroll on the phone.
+- **Known issues / blockers:** Built on S1's branch, as #211 was not merged yet (its browser check was red, then re-running); this PR needs a rebase onto main after #211 merges. After a library import, gap cards (like Study's Explain it back items) come back only once the books' paragraphs are rebuilt, which the server does when it starts (`backfillSections` in instrumentation.ts); the schedules themselves are kept. Not deployed. Explain it back cannot run on the live site until `ANTHROPIC_API_KEY` is on Railway `web`.
+- **Exact next steps:** 1. Merge #211, then rebase this branch onto main and merge it with the merge train when the four checks are green. 2. Deploy S1 and S2 together at Samuel's word, backup first (migration 0030). 3. Build S3 ("Where were we?" on reopening a book).
 
 ### 2026-10-19 20:49 · Claude Opus 5.5 (laptop) · M28 S1: Test yourself questions become Daily review cards
 - **Done:** Every question of a chapter's newest Test yourself bank is now a Daily review card: the question on the front, the bank's answer after Show (upright type, so it never reads as the reader's own words), and Go to chapter. A question card first comes due the day after its bank was made, never the same day. A fresh bank (made again, or in another style) replaces the old bank's cards. Highlights and notes are cards as before and keep their schedules. Migration 0030 (a script that changes the database layout) adds `review_cards.card_id`: a highlight's or note's id, or `q:<bank id>:<number>`; its reverse step keeps highlights' schedules and drops the questions'. The library export carries `cardId`, and a file from before M28 still imports. The test found a bug, now fixed: an empty `REVIEW_QUESTION_DELAY_DAYS` counted as zero days.
