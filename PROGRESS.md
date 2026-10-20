@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #213 (M28 S3) when green, then deploy it at Samuel's word; Samuel adds ANTHROPIC_API_KEY for the Pay Off check.   #213 (M28 S3) when green; deploy only at Samuel's word with a backup first.   #211 (review test fix) and #213 (M28 S3); S1 and S2 are on main through #212; no deploy until Samuel says (backup first, migration 0030); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
+next_action: Samuel adds ANTHROPIC_API_KEY on Railway; then the Pay Off two-chapter check of M28.   #213 (M28 S3) when green, then deploy it at Samuel's word; Samuel adds ANTHROPIC_API_KEY for the Pay Off check.   #213 (M28 S3) when green; deploy only at Samuel's word with a backup first.   #211 (review test fix) and #213 (M28 S3); S1 and S2 are on main through #212; no deploy until Samuel says (backup first, migration 0030); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -290,6 +290,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 10:49 · Claude Opus 5.5 (laptop) · Live: 82fb8e0 (M28 S3 Where were we? #213, and #214's read-aloud fix; no migration since 2ffd889, so no backup)
+- **Done:** Samuel: 'deploy when it merges'. #213 merged as 82fb8e0 with all four checks green. railway up from ../neolibrary-deploy detached at 82fb8e0, 0 untracked files: Deploy complete. Both addresses: /api/health commit 82fb8e0; /sign-in 200; POST /api/review signed out 401. Database: _migrations 30 (0030_review_card_ids), review_cards 1 row. M28 S1, S2 and S3 are all live.
+- **Key paths:** ../neolibrary-deploy; lib/library/where-were-we.ts; app/(reader)/books/[id]/read/WhereWereWe.tsx
+- **Commands that worked:** git diff --name-only 2ffd8896 origin/main -- db/migrations -> empty; railway variable set NEOLIBRARY_COMMIT=82fb8e07... --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl /api/health (both) -> 82fb8e0; psql over Railway SSH -> 30|0030_review_card_ids
+- **Known issues / blockers:** Test yourself and Explain it back still cannot run live: no ANTHROPIC_API_KEY on Railway web, so no question or gap cards appear yet; Where were we? still saves the summary note. Not tried signed in on the live site.
+- **Exact next steps:** 1. Samuel adds ANTHROPIC_API_KEY on Railway web (his key, his step). 2. The Pay Off two-chapter check (docs/plan.md M28). 3. M28 Later items only at Samuel's word. This entry sits on local branch m28-deploy-82fb8e0-record (not pushed): commit it with the next real pull request.
 
 ### 2026-10-20 10:15 · Claude Opus 5.5 (laptop) · #213: too many test sign-ups, not a flake; S3's checks reuse a reader
 - **Done:** #213's browser job failed twice on `e2e/focus.spec.ts:344` at the reader's sign-up (CI run 39360494245, attempts 1 and 2). The page snapshot in the run's report says "Too many attempts. Wait 15 minutes.": joining is limited to 10 per 15 minutes from one address, and with S3's two new readers a full CI run made 11 (12 with flows.spec's used-link retry). S3's checks now run with the question-card test's reader (one function, `whereWereWe` in e2e/review.spec.ts), so review.spec makes 3 readers, as on main. Main's scheduled run 39430816766 (2ffd889) failed on S2's gap-card test, the Space-too-early race this PR already fixes. Gotcha added to docs/handoff.md.
