@@ -217,7 +217,13 @@ test("Daily review: Test yourself questions are cards, the question first and it
 
   // Space shows the answer, 3 rates it Good: the next question, and the rating survives a reload.
   await reader.goto("/review");
-  await reader.keyboard.press(" ");
+  await expect(card.getByTestId("review-question")).toHaveText(questions[0].question);
+  // Space is handled once the page is interactive; a press before that is lost (CI run 39349975911 attempt 2), so
+  // press until the answer shows (a second Space after Show does nothing, as the first test checks).
+  await expect(async () => {
+    await reader.keyboard.press(" ");
+    await expect(answer).toBeVisible({ timeout: 1_000 });
+  }).toPass();
   await expect(answer).toContainText("Test yourself’s answer");
   await expect(answer).toContainText(questions[0].answer);
   await reader.keyboard.press("3");
