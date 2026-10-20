@@ -86,7 +86,8 @@ export function ImportLink() {
 
 /** The dashed hint, with Choose files, and what happened to each file. */
 export function ImportZone() {
-  const { input, busy, results, read, error, upload } = useUpload();
+  const { input, busy, results, read, error, upload, fromDrive } = useUpload();
+  const [link, setLink] = useState("");
   return (
     <div className={styles.zoneWrap}>
       <p role="status" className="visually-hidden">
@@ -111,6 +112,33 @@ export function ImportZone() {
           />
         </label>
       </div>
+      {/* M30: or a Google Drive link, to a book file or a folder of books, shared as "Anyone with the link". */}
+      <form
+        className={styles.drive}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void fromDrive(link).then((ok) => ok && setLink(""));
+        }}
+      >
+        <label htmlFor="drive-link" className={styles.driveLabel}>
+          Or add from Google Drive: a link to a book file or a folder, shared as “Anyone with the link”
+        </label>
+        <div className={styles.driveRow}>
+          <input
+            id="drive-link"
+            type="url"
+            inputMode="url"
+            className={styles.driveInput}
+            placeholder="https://drive.google.com/…"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            disabled={busy}
+          />
+          <button type="submit" className={styles.pick} disabled={busy || !link.trim()}>
+            Add from Drive
+          </button>
+        </div>
+      </form>
       {error ? (
         <p role="alert" className={styles.error}>
           {error}

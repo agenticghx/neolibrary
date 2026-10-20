@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel reads Chip War's rewrites in each style and gives a verdict.
+next_action: Merge M30 (Google Drive import), deploy, and add Samuel's LibraryBooks folder live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -290,6 +290,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 19:37 · Claude Opus 5.5 (laptop) · M30 G1: add books from a Google Drive link (file or shared folder)
+- **Done:** Samuel: 'make it possible to upload books from google drive' with his shared folder (LibraryBooks: Kuhn-SSR-2ndEd-2.pdf). Built: Import page form 'Or add from Google Drive' → POST /api/books/drive {link, attachTo?} → each EPUB/PDF/Markdown in the shared file or folder is imported like an upload (lib/library/drive-import.ts); other files skipped; 25 per folder; a file not shared says how to share it. Google behind DriveSource (lib/drive/drive.ts, public folder view + public download with confirm=t; only the id is taken from the link) with a fake for tests (lib/drive/fake.ts, DRIVE_FAKE=1). Checked the real reader against Samuel's folder: listed Kuhn-SSR-2ndEd-2.pdf, downloaded 825,544 bytes, %PDF-1.4.
+- **Key paths:** lib/drive/{drive,fake,index}.ts (+ drive.test.ts); lib/library/drive-import.ts (+ test); app/api/books/drive/route.ts; components/upload/{HomeImport.tsx,useBookUpload.ts,HomeImport.module.css}; e2e/uploads.spec.ts; playwright.config.ts (DRIVE_FAKE); docs/plan.md (M30)
+- **Commands that worked:** npx vitest run -> 119 files, 980 passed, 2 skipped; PORT=3195 npx playwright test --project=setup --project=uploads --no-deps --workers=1 --ignore-snapshots -> 14 passed; npx tsx (PublicDrive on the real folder) -> Kuhn-SSR-2ndEd-2.pdf 825544 %PDF-1.4
+- **Known issues / blockers:** Import page reference screenshots change (new form): refresh from CI. Private (not link-shared) files need Google sign-in: listed as Later.
+- **Exact next steps:** 1. Merge with the merge train (screenshot refresh), deploy. 2. Add Samuel's folder on the live site; check Kuhn attaches to its waiting title and opens.
 
 ### 2026-10-20 17:56 · Claude Opus 5.5 (laptop) · M29 K2 done: Chip War rewritten in all four styles, live (3,320 rows, md5-checked)
 - **Done:** Chip War (from Samuel's chip_war.md via M29 K1, attached to his waiting title, book c4413fe0…) rewritten paragraph by paragraph with claude -p on Opus 5.5, his subscription: 57 units x 4 styles = 228 runs, all pass validate.py. Loaded in 5 transactions after a backup (~/Backups/neolibrary/prod-generations-before-chip-war-20261020T1837Z.sql): live now 830 rows per style (plain, ste light, ste standard, ste strict); read-back matched 3,320 of 3,320, 0 different, 0 duplicates; every paragraph from Cast of Characters to Chapter 54 covered. Runs paused twice: the session limit (15:30, 'resets 5pm', though the app's usage page showed 4%) and two internet outages; supervisor resumed on its own; round 2 started 17:14.
