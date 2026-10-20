@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Attempt } from "@/lib/library/explain-back";
+import { chapterName } from "@/lib/library/chapter-name";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import own from "./WhereWereWe.module.css";
 import styles from "./reader.module.css";
@@ -65,7 +66,7 @@ export function WhereWereWeStrip({ bookId, recall, onSeeMissed, onSaved }: { boo
   };
 
   if (state === "hidden") return null;
-  const label = recall.label || "this part";
+  const label = chapterName(recall.label);
   const missed = saved?.attempt?.items.length ?? 0;
   return (
     <section className={own.strip} aria-label="Where were we?" data-testid="where-were-we">

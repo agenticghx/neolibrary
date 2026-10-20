@@ -346,6 +346,14 @@ export function Reader(props: {
   // A focus session with a question (M26 R3). Since R4a it lives on the server; this device keeps a copy, so a
   // reload part-way through, or a moment offline, picks it up with the time that is left.
   const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
+  // M28 S3: "Where were we?" has a row of its own (not in a focus session). The theme class is also set on the
+  // element directly (when the book opens, when settings change), so those places add this class too, or the strip
+  // would take the book's row.
+  const withRecall = props.recall && !focusSession ? ` ${styles.withRecall}` : "";
+  const recallClass = useRef(withRecall);
+  useEffect(() => {
+    recallClass.current = withRecall;
+  }, [withRecall]);
   const [focusStart, setFocusStart] = useState(false);
   const [focusEnding, setFocusEnding] = useState(false);
   // Leave early… (M26 R4b): the dialog with the two ways out, and how long the server's wait lasts.
@@ -707,7 +715,7 @@ export function Reader(props: {
             setPanel(a.kind === "image" ? "picture" : "notes");
           }
         });
-        root.current!.className = readerClass(initial);
+        root.current!.className = readerClass(initial) + recallClass.current;
         applySettings(v, initial, root.current!);
         setSettings(initial);
         v.addEventListener("relocate", (e: Event) => {
@@ -857,7 +865,7 @@ export function Reader(props: {
     if (!settings) return;
     saveSettings(settings);
     // The theme class must be on the element before colours are read from it.
-    if (root.current) root.current.className = readerClass(settings);
+    if (root.current) root.current.className = readerClass(settings) + recallClass.current;
     const v = view.current;
     if (v && root.current) applySettings(v, settings, root.current);
     // Focus (M21): EPUBs only. A new mode is set on every page shown; a new size or layout moves the lines, so the
@@ -1523,6 +1531,7 @@ export function Reader(props: {
     (panel === "picture" && Boolean(activePicture?.picture)) ||
     (panel === "rewrite" && Boolean(rewriteAt)) ||
     (panel === "settings" && Boolean(settings));
+  const recallRow = Boolean(withRecall);
   const stageClass = [styles.stage, paneMode === "side" ? styles.stageSide : "", panelBeside ? styles.stagePanel : ""]
     .filter(Boolean)
     .join(" ");
@@ -1530,7 +1539,7 @@ export function Reader(props: {
   return (
     <div
       ref={root}
-      className={settings ? readerClass(settings) : styles.reader}
+      className={(settings ? readerClass(settings) : styles.reader) + withRecall}
       data-testid="reader"
       data-cfi={where.cfi ?? ""}
       data-status={status}
@@ -1650,6 +1659,14 @@ export function Reader(props: {
       </header>
       )}
 
+      {/* M28 S3: a row of its own between the bar and the book, so the strip never covers the page's first lines. */}
+      {recallRow ? (
+        <div className={styles.recallSlot}>
+          {status === "ready" && !elsewhere ? (
+            <WhereWereWeStrip bookId={props.bookId} recall={props.recall!} onSeeMissed={() => setPanel("explain")} onSaved={() => void reload()} />
+          ) : null}
+        </div>
+      ) : null}
       <div ref={stage} className={stageClass}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -1667,9 +1684,6 @@ export function Reader(props: {
           <p className={styles.notice} role="status">
             Opening the book…{downloaded ? ` ${downloaded} downloaded` : ""}
           </p>
-        ) : null}
-        {props.recall && status === "ready" && !focusSession && !elsewhere ? (
-          <WhereWereWeStrip bookId={props.bookId} recall={props.recall} onSeeMissed={() => setPanel("explain")} onSaved={() => void reload()} />
         ) : null}
         {elsewhere && status === "ready" ? (
           <div className={styles.elsewhere} role="status">

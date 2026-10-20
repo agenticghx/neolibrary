@@ -343,6 +343,15 @@ async function whereWereWe(reader: Page, bookId: string) {
   };
   await open();
   await expect(strip).toContainText(`Last time you were reading ${chapter.label}. What do you remember?`);
+  // In a row of its own above the book: it ends where the book's row begins, so it covers none of the page.
+  const rows = await strip.evaluate((el) => {
+    const book = el.parentElement!.nextElementSibling!.getBoundingClientRect();
+    return { overlap: el.getBoundingClientRect().bottom - book.top, bookShare: book.height / window.innerHeight };
+  });
+  expect(rows.overlap).toBeLessThanOrEqual(0);
+  // And the book keeps most of the page (the strip's row is only as tall as the strip: an earlier build gave it the
+  // book's row and left the book a few lines).
+  expect(rows.bookShare).toBeGreaterThan(0.5);
 
   // The four looks, with the strip open for writing.
   await fourLooks(reader, "where-were-we", async () => {
