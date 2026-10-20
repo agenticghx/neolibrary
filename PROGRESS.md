@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries M26 R4b on the live site (deployed 2026-10-19 as 31b815b, per the session that built it); merge #209 (Playwright 1.64.1, the WebKit crash gone), then read main's WebKit CI results.
+next_action: Build M28 S1 (Test yourself questions become Daily review cards); Samuel adds ANTHROPIC_API_KEY on Railway for the Pay Off check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-19
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-19 20:36 (laptop clock, from `date`). **M28 planned (#210): Daily review gets cards from Test yourself and Explain it back.** Next: build S1 (Test yourself questions become review cards, first due the day after; migration 0030 with a reverse step, backup before production). Then S2 and S3. The Pay Off two-chapter check needs `ANTHROPIC_API_KEY` on Railway (Samuel's step).
 
 Written 2026-10-19 16:57 (laptop clock). **Playwright is upgraded to 1.64.1** (PR #209, branch `m26-playwright-upgrade`): its WebKit no longer crashes after pushState, reload, next page (`docs/ci-flakes.md`, resolved). Next: merge #209 when the four checks are green; then read main's CI run for the WebKit projects (`safari`, `readalong-safari`), which pull requests skip.
 
@@ -281,6 +283,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-19 20:36 · Claude Opus 5.5 (laptop) · Plan M28: review what you read, not only what you highlighted (#210)
+- **Done:** Samuel found Daily review showing "1 of 1" (only his one highlight) and asked for a systematic way to review books. Researched the learning science (retrieval practice and spacing rate highest, highlighting and rereading lowest: Dunlosky 2013) and compared it with what the app has. Test yourself already writes chapter questions and Explain it back already does end-of-chapter recall, but neither feeds Daily review. Wrote M28 in `docs/plan.md`: S1 Test yourself questions become review cards (first due the day after), S2 what Explain it back found missing becomes a question card, S3 "Where were we?" when a book is reopened on a later day; a Later list; and a two-chapter real-book check on *The Pay Off*.
+- **Key paths:** docs/plan.md (M28); lib/library/review.ts, review-schedule.ts, questions.ts, explain-back.ts (read, unchanged).
+- **Commands that worked:** `railway variables --service web --json` piped to a name-only filter: 21 names, none with ANTHROPIC.
+- **Known issues / blockers:** No `ANTHROPIC_API_KEY` on Railway `web` (checked by name, 2026-10-19), so Test yourself and Explain it back cannot run on the live site and the Pay Off check waits on Samuel.
+- **Exact next steps:** 1. Merge #210. 2. Build M28 S1 on branch `m28-s1-question-cards` (migration 0030: `review_cards.card_id`, with a reverse step). 3. S2, then S3.
 
 ### 2026-10-19 16:57 · Claude Opus 5.5 (laptop, side session) · Playwright 1.56.1 → 1.64.1: its WebKit no longer crashes
 - **Done:** Upgraded Playwright (the tool that drives browsers in the end-to-end tests; it downloads its own browsers) from 1.56.1 to 1.64.1 on branch `m26-playwright-upgrade`, PR #209. The WebKit crash of 2026-10-19 16:11 is gone: the check script in `docs/ci-flakes.md` printed `webkit PAGE CRASHED` before and `webkit /b.html: next page loaded: no crash | entries 3, current 2` after (WebKit 27.2, `webkit-2370`); the focus test "walk away" in WebKit passed (`2 passed (2.4m)`). That section of `docs/ci-flakes.md` is marked resolved. Since Playwright 1.57, offline mode reaches service workers by default and the old opt-in variable `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS` is gone; a probe showed a worker's fetch fails offline by default and succeeds with `PLAYWRIGHT_DISABLE_SERVICE_WORKER_NETWORK=1`, so `playwright.config.ts` now deletes that variable. Merge-train's Linux image tag is `v1.64.1-noble`.
