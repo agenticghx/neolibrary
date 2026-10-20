@@ -378,6 +378,17 @@
   display: contents;
 }
 
+/* M28 S3: "Where were we?" gets a row between the bar and the book (the book's row stays the one that grows). */
+.withRecall {
+  grid-template-rows: auto auto 1fr auto auto;
+}
+
+.recallSlot {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
 /* A row of the reader's grid (not floating over the page), so the book's
    pages end above it and the word being read is never hidden under it. */
 .listenBar {
