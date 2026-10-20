@@ -886,7 +886,10 @@ writes); S3 reuses Explain it back's call.
   existing highlight cards keep their schedules through the migration and
   its reverse; export → wipe → import keeps question schedules, and an old
   export without `cardId` imports. Screenshots of a question card: phone
-  and desktop, light and dark.
+  and desktop, light and dark. *Built 2026-10-19 (branch
+  `m28-s1-question-cards`, migration 0030). The day's wait is checked in
+  the unit tests with a test clock; the browser tests' server sets
+  `REVIEW_QUESTION_DELAY_DAYS=0`, as its clock cannot be moved.*
 - **S2 · What Explain it back found missing becomes a question.** Claude's
   answer to Explain it back gets one more field per item: a question whose
   answer is the point you missed ("What does the author say makes card
