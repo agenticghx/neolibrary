@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-19 20:52 (laptop clock, from `date`). **M28 S1 built (branch `m28-s1-question-cards`): Test yourself questions become Daily review cards, first due the day after.** Next: merge when green; deploy only at Samuel's word, with a backup first (migration 0030). Then S2 (gaps from Explain it back become question cards), then S3 ("Where were we?"). The Pay Off two-chapter check needs `ANTHROPIC_API_KEY` on Railway (Samuel's step).
+Written 2026-10-19 20:49 (laptop clock, from `date`). **M28 S1 built (branch `m28-s1-question-cards`): Test yourself questions become Daily review cards, first due the day after.** Next: merge when green; deploy only at Samuel's word, with a backup first (migration 0030). Then S2 (gaps from Explain it back become question cards), then S3 ("Where were we?"). The Pay Off two-chapter check needs `ANTHROPIC_API_KEY` on Railway (Samuel's step).
 
 Written 2026-10-19 20:36 (laptop clock, from `date`). **M28 planned (#210): Daily review gets cards from Test yourself and Explain it back.** Next: build S1 (Test yourself questions become review cards, first due the day after; migration 0030 with a reverse step, backup before production). Then S2 and S3. The Pay Off two-chapter check needs `ANTHROPIC_API_KEY` on Railway (Samuel's step).
 
@@ -286,7 +286,7 @@ Never blocks the loop. Newest first.
 
 ## Log
 
-### 2026-10-19 20:52 · Claude Opus 5.5 (laptop) · M28 S1: Test yourself questions become Daily review cards
+### 2026-10-19 20:49 · Claude Opus 5.5 (laptop) · M28 S1: Test yourself questions become Daily review cards
 - **Done:** Every question of a chapter's newest Test yourself bank is now a Daily review card: the question on the front, the bank's answer after Show (upright type, so it never reads as the reader's own words), and Go to chapter. A question card first comes due the day after its bank was made, never the same day. A fresh bank (made again, or in another style) replaces the old bank's cards. Highlights and notes are cards as before and keep their schedules. Migration 0030 (a script that changes the database layout) adds `review_cards.card_id`: a highlight's or note's id, or `q:<bank id>:<number>`; its reverse step keeps highlights' schedules and drops the questions'. The library export carries `cardId`, and a file from before M28 still imports. The test found a bug, now fixed: an empty `REVIEW_QUESTION_DELAY_DAYS` counted as zero days.
 - **Key paths:** db/migrations/0030_review_card_ids.{up,down}.sql; lib/library/review.ts; lib/library/questions.ts (`parseQuestions`); lib/library/export.ts; app/(app)/review/ReviewSession.tsx and page.module.css; app/api/review/route.ts (`cardId`, `annotationId` still works); e2e/review.spec.ts; playwright.config.ts (`REVIEW_QUESTION_DELAY_DAYS: "0"` for the browser tests' server only; reference screenshots are taken before any data, so they are unaffected).
 - **Commands that worked:** `npm ci` in the worktree first (without it, pdf.js tests fail on missing files from the main checkout's node_modules). `npx vitest run`: 114 files passed, 954 tests passed, 2 skipped. `PORT=3193 npx playwright test --project=setup --project=review --no-deps --workers=1 --ignore-snapshots`: 3 passed. Screenshots looked at: `screenshots/review-question-{desktop,phone}-{light,dark}.png` (git ignores them). `npm run lint`: clean.
