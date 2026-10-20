@@ -1784,7 +1784,9 @@ test("a PDF is read aloud in a made voice: every word lit in order on its page, 
     });
     expect(lit, `${name}: words lit`).toBeGreaterThan(40);
   }
-  // Page 2's first word was lit with page 2 shown.
+  // Page 2's first word was lit with page 2 shown. The reader writes data-cfi in the same step as foliate shows the
+  // page (Reader.tsx, the "relocate" handler); written through React it trailed by up to 22 ms on a loaded runner, and a
+  // frame recorded the word lit on page 2 with page 1 still in data-cfi (docs/ci-flakes.md, Causes removed).
   const firstOn2 = frames.find((f) => sectionOf(f[0]) === page2[0].id && f[3] === page2[0].text.split(" ")[0]);
   expect(firstOn2?.[5], "page 2 shown when its first word was lit").toBe("epubcfi(/6/4)");
   // Paused: the word being read stays lit on its page in every look, and the bar fits (phone and desktop, light and dark).
