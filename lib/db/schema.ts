@@ -359,14 +359,19 @@ export const focusSessions = pgTable("focus_sessions", {
 /** Time and words of one sitting inside one chapter (M10 (c)). */
 export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };
 
-/** M21: one reader's Daily review schedule for one highlight or note (see db/migrations/0024_review.up.sql). */
+/**
+ * M21: one reader's Daily review schedule for one card (see db/migrations/0024_review.up.sql). M28 (migration 0030):
+ * a card is named by `cardId`, a highlight's or note's annotation id, or "q:<question bank id>:<question number>" for
+ * a Test yourself question; `annotationId` is set only for highlights and notes.
+ */
 export const reviewCards = pgTable(
   "review_cards",
   {
     ownerId: uuid("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    annotationId: uuid("annotation_id").notNull(),
+    cardId: text("card_id").notNull(),
+    annotationId: uuid("annotation_id"),
     ease: doublePrecision("ease").notNull().default(2.5),
     intervalDays: integer("interval_days").notNull().default(0),
     reps: integer("reps").notNull().default(0),
@@ -376,7 +381,7 @@ export const reviewCards = pgTable(
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }).notNull(),
     lastRating: text("last_rating", { enum: ["again", "hard", "good", "easy"] }).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.ownerId, t.annotationId] })],
+  (t) => [primaryKey({ columns: [t.ownerId, t.cardId] })],
 );
 
 /** M25: a job reading a scanned PDF's pages with Claude through the Batch API (migration 0027). */

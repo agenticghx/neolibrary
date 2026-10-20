@@ -13,7 +13,8 @@ type Props = { cards: ReviewCard[]; nextDueAt: string | null; total: number };
 
 /**
  * One card at a time (M21): the passage with its book and chapter; the reader's note stays hidden
- * until Show (or Space); then Again, Hard, Good or Easy (or keys 1 to 4). Again puts the card at the
+ * until Show (or Space); then Again, Hard, Good or Easy (or keys 1 to 4). A Test yourself question
+ * (M28 S1) shows the question first and its answer on Show. Again puts the card at the
  * end of today's cards. Each rating is saved before the next card shows.
  */
 export function ReviewSession({ cards, nextDueAt, total }: Props) {
@@ -46,7 +47,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ annotationId: card.id, rating }),
+        body: JSON.stringify({ cardId: card.id, rating }),
       }).catch(() => null);
       busy.current = false;
       if (!res?.ok) {
@@ -93,7 +94,9 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
         {next ? (
           <p className={styles.emptyText}>Next card: {formatDay(next)}.</p>
         ) : (
-          <p className={styles.emptyText}>Highlight a passage or write a note while you read, and it comes back here on a schedule that helps you remember it.</p>
+          <p className={styles.emptyText}>
+            Highlight a passage, write a note, or open Test yourself in Study while you read, and it comes back here on a schedule that helps you remember it.
+          </p>
         )}
         <Link href="/" className={styles.quiet}>
           Back to Home
@@ -102,7 +105,8 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
     );
   }
 
-  const where = card.on === "passage" && card.cfi ? `/books/${card.bookId}/read?at=${encodeURIComponent(card.cfi)}` : `/books/${card.bookId}`;
+  const where = card.on !== "book" && card.cfi ? `/books/${card.bookId}/read?at=${encodeURIComponent(card.cfi)}` : `/books/${card.bookId}`;
+  const isQuestion = card.kind === "question";
   return (
     <div className={styles.session}>
       <p className={styles.progress} aria-live="polite" data-testid="review-progress">
@@ -114,19 +118,35 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
           {card.bookTitle}
           {card.chapter ? <span className={styles.chapter}> · {card.chapter}</span> : null}
         </p>
-        {card.on === "passage" ? (
+        {isQuestion ? (
+          <>
+            <p className={styles.answerLabel}>Test yourself</p>
+            <p className={styles.question} data-testid="review-question">
+              {card.question}
+            </p>
+          </>
+        ) : card.on === "passage" ? (
           <blockquote className={styles.quote}>{card.quote}</blockquote>
         ) : (
           <p className={styles.bookWide}>Your note on the whole book. What did you write?</p>
         )}
         {revealed ? (
           <div className={styles.answer} data-testid="review-answer">
-            <p className={styles.answerLabel}>Your note</p>
-            {card.note ? <p className={styles.note}>{card.note}</p> : <p className={styles.noNote}>No note: you highlighted this passage.</p>}
+            {isQuestion ? (
+              <>
+                <p className={styles.answerLabel}>Test yourself&rsquo;s answer</p>
+                <p className={styles.modelAnswer}>{card.answer}</p>
+              </>
+            ) : (
+              <>
+                <p className={styles.answerLabel}>Your note</p>
+                {card.note ? <p className={styles.note}>{card.note}</p> : <p className={styles.noNote}>No note: you highlighted this passage.</p>}
+              </>
+            )}
           </div>
         ) : null}
         <Link href={where} className={styles.go}>
-          {card.on === "passage" ? "Go to passage" : "Open the book"}
+          {isQuestion ? "Go to chapter" : card.on === "passage" ? "Go to passage" : "Open the book"}
         </Link>
       </article>
       {revealed ? (
@@ -148,7 +168,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
           {error}
         </p>
       ) : null}
-      <p className={styles.hint}>Keys: Space shows your note; 1 Again, 2 Hard, 3 Good, 4 Easy.</p>
+      <p className={styles.hint}>Keys: Space shows {isQuestion ? "the answer" : "your note"}; 1 Again, 2 Hard, 3 Good, 4 Easy.</p>
     </div>
   );
 }

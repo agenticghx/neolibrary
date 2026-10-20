@@ -73,11 +73,11 @@ export type QuestionsView = Generation & {
   ste: { score: number; errors: number; warnings: number } | null;
 };
 
-export function viewQuestions(g: Generation): QuestionsView {
-  let questions: Question[] = [];
+/** The questions in a bank's stored answer, numbered as stored (the number is part of a review card's name). */
+export function parseQuestions(output: string): Question[] {
   try {
-    const data = JSON.parse(g.output) as { questions?: { type?: unknown; question?: unknown; answer?: unknown }[] };
-    questions = (data.questions ?? [])
+    const data = JSON.parse(output) as { questions?: { type?: unknown; question?: unknown; answer?: unknown }[] };
+    return (data.questions ?? [])
       .slice(0, MAX_QUESTIONS)
       .map((q, index) => ({ index, q }))
       .filter(({ q }) => typeof q?.question === "string" && q.question.trim() && typeof q.answer === "string")
@@ -89,7 +89,12 @@ export function viewQuestions(g: Generation): QuestionsView {
       }));
   } catch {
     // Not JSON (should not happen with structured output): show nothing rather than garbage.
+    return [];
   }
+}
+
+export function viewQuestions(g: Generation): QuestionsView {
+  const questions = parseQuestions(g.output);
   const style = (g.options?.style as Style | undefined) ?? "plain";
   return { ...g, style, questions, ste: steScore(style, questions.flatMap((q) => [q.question, q.answer])) };
 }

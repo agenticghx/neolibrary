@@ -97,6 +97,24 @@
   text-transform: uppercase;
 }
 
+/* A Test yourself question (M28): serif like the book, on the card's own surface (not a highlight). */
+.question {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-read);
+  line-height: var(--leading-read);
+}
+
+/* Claude's answer from the question bank: upright, so it never reads as the reader's own words. */
+.modelAnswer {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  line-height: var(--leading-read);
+}
+
 /* The reader's own words: italic serif (design rule 4). */
 .note {
   color: var(--ink-900);
@@ -241,7 +259,8 @@
     padding: var(--space-5) var(--space-4);
   }
 
-  .quote {
+  .quote,
+  .question {
     font-size: var(--text-read-phone);
   }
 

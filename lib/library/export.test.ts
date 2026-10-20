@@ -122,6 +122,8 @@ describe("library export (ground rule 7)", () => {
     await rateCard(database.db, ownerId, marked.id, "good", new Date("2026-10-10T09:00:00Z"));
     await rateCard(database.db, ownerId, marked.id, "hard", new Date("2026-10-11T09:00:00Z"));
     await rateCard(database.db, ownerId, note.id, "again", new Date("2026-10-11T09:01:00Z"));
+    // M28: a Test yourself question rated as a card.
+    await rateCard(database.db, ownerId, `q:${bank.generation.id}:1`, "easy", new Date("2026-10-11T09:02:00Z"));
     const reviewNow = new Date("2026-10-11T10:00:00Z");
     const queueBefore = await reviewQueue(database.db, ownerId, reviewNow);
     // M25: a text edition, a book of its own linked to its scan (here only the link matters).
@@ -207,7 +209,9 @@ describe("library export (ground rule 7)", () => {
     expect(before.reviewCards).toEqual([
       expect.objectContaining({ annotationId: marked.id, ease: 2.35, intervalDays: 2, reps: 2, lapses: 0, lastRating: "hard", firstReviewedAt: "2026-10-10T09:00:00.000Z", dueAt: "2026-10-13T00:00:00.000Z" }),
       expect.objectContaining({ annotationId: note.id, intervalDays: 0, reps: 0, lastRating: "again", dueAt: "2026-10-11T00:00:00.000Z" }),
+      { cardId: `q:${bank.generation.id}:1`, ease: 2.65, intervalDays: 4, reps: 1, lapses: 0, lastRating: "easy", dueAt: "2026-10-15T00:00:00.000Z", firstReviewedAt: "2026-10-11T09:02:00.000Z", lastReviewedAt: "2026-10-11T09:02:00.000Z" },
     ]);
+    expect(before.reviewCards![0]).toMatchObject({ cardId: marked.id, annotationId: marked.id });
 
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
@@ -226,6 +230,13 @@ describe("library export (ground rule 7)", () => {
       ["voice", ""],
       ["highlight", "Remember this"],
     ]);
+
+    // A file from before M28 names each card by its note only: it still imports, with the same schedules.
+    const old = JSON.parse(JSON.stringify(before)) as typeof before;
+    old.reviewCards = old.reviewCards!.filter((r) => r.annotationId).map((r) => ({ ...r, cardId: undefined }));
+    await wipeLibrary(database.db, ownerId);
+    await importLibrary(database.db, ownerId, old);
+    expect(strip(await exportLibrary(database.db, ownerId)).reviewCards).toEqual(strip(before).reviewCards!.filter((r) => r.annotationId));
   });
 
   it("refuses files that are not a library export", async () => {
@@ -494,6 +505,16 @@ describe("a library file may only point inside the importing reader's library", 
         })(),
         "A review card's schedule is not one Neolibrary can use.",
       ],
+      // M28: a question card is for a question bank the file brings.
+      [{ reviewCards: [{ ...card(), annotationId: undefined, cardId: `q:${theirBank.id}:0` }] }, "A review card is for a question bank that is not in this file."],
+      [
+        (() => {
+          const n = note();
+          return { annotations: [n], reviewCards: [{ ...card(), annotationId: n.annotationId, cardId: crypto.randomUUID() }] };
+        })(),
+        "A review card names two different notes.",
+      ],
+      [{ reviewCards: [{ ...card(), annotationId: undefined }] }, "A review card has no name."],
     ];
     for (const [extra, message] of cases) {
       await expect(importLibrary(database.db, ownerId, libraryFile(extra))).rejects.toThrow(message);
