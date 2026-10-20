@@ -61,6 +61,35 @@ describe("Claude's items, checked against the book (M26 R1)", () => {
   });
 });
 
+describe("each item's question, for Daily review (M28 S2)", () => {
+  const out = (items: unknown[]) => JSON.stringify({ items });
+
+  it("keeps a question that asks for the point; none on an older answer, or when it copies the book's line", () => {
+    const [asked, older, copied] = checkItems(
+      out([
+        { kind: "missed", passage: 1, quote: "a man of a rugged countenance", why: "You leave out his face.", question: "  What does the lawyer's   face look like? " },
+        { kind: "missed", passage: 2, quote: "drank gin when he was alone", why: "He drinks gin." },
+        { kind: "misread", passage: 1, quote: "a man of a rugged countenance", why: "Not cheerful.", question: "Was he “a man of a rugged Countenance”?" },
+      ]),
+      passages,
+    );
+    expect(asked).toMatchObject({ question: "What does the lawyer's face look like?", index: 0 });
+    expect(older).toMatchObject({ question: "", index: 1 });
+    expect(copied).toMatchObject({ question: "", index: 2 });
+  });
+
+  it("numbers an item by its place in Claude's answer, so a dropped item does not move the others", () => {
+    const items = checkItems(
+      out([
+        { kind: "missed", passage: 9, quote: "nothing like it", why: "No such passage.", question: "What is not there?" },
+        { kind: "missed", passage: 2, quote: "drank gin when he was alone", why: "He drinks gin.", question: "What did he drink alone?" },
+      ]),
+      passages,
+    );
+    expect(items.map((i) => [i.index, i.question])).toEqual([[1, "What did he drink alone?"]]);
+  });
+});
+
 describe("explaining a part back, in the database (M26 R1)", () => {
   let database: Database;
   let ownerId: string;

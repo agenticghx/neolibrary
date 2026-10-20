@@ -8,6 +8,7 @@ For each one:
 - passage: the number of the passage that shows it.
 - quote: one sentence, or part of one, copied exactly, word for word, from that passage. Do not change, shorten inside, or join its words.
 - why: one short sentence on what the summary missed or got wrong there, addressed to the reader ("You say…", "The text also argues…").
+- question: one short question whose answer is what the summary missed, or what the text really says where the summary got it wrong ("What does the author say makes card payments two-sided?"). The reader will see it days later, on its own, and answer it from memory before seeing the quote: so ask for the point, do not state it, and do not copy the quote into the question.
 
 Order them as they appear in the text. If the summary covers the main ideas and gets nothing wrong, return no items: say nothing to fill the list. Judge ideas, not wording: a summary in different words that keeps the meaning is right. Never add facts from outside the passages.
 

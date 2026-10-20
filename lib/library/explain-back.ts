@@ -37,6 +37,7 @@ const MAX_PARAGRAPH_CHARS = 4000;
 const MAX_TOKENS = 4000;
 const EXCERPT_CHARS = 180;
 const ANCHOR_CHARS = 300;
+const MAX_QUESTION_CHARS = 300;
 
 export const KINDS = { missed: "Missed", misread: "Not quite" } as const;
 export type ItemKind = keyof typeof KINDS;
@@ -53,8 +54,9 @@ export const SCHEMA = {
           passage: { type: "integer", description: "The number of the passage that shows it." },
           quote: { type: "string", description: "One sentence, or part of one, copied exactly from that passage." },
           why: { type: "string", description: "One short sentence to the reader." },
+          question: { type: "string", description: "A question whose answer is the point missed or misread, without giving it away." },
         },
-        required: ["kind", "passage", "quote", "why"],
+        required: ["kind", "passage", "quote", "why", "question"],
         additionalProperties: false,
       },
     },
@@ -149,22 +151,38 @@ export type Item = {
   quote: string | null;
   excerpt: string;
   why: string;
+  /**
+   * M28 S2: a question whose answer is what was missed: a Daily review card. "" when there is none: an attempt made
+   * before the field existed, or a question that copies the book's line (it would give the answer away).
+   */
+  question: string;
+  /** The item's place in Claude's answer (from 0): its review card's number, which stays put if another item is dropped. */
+  index: number;
 };
+
+/** An item's question, tidied: "" when missing, or when it copies the quote (a question that gives its answer away). */
+function cleanQuestion(q: unknown, quote: string) {
+  const s = typeof q === "string" ? q.replace(/\s+/g, " ").trim().slice(0, MAX_QUESTION_CHARS) : "";
+  if (s.length < 8) return "";
+  return quote.length >= 8 && normalize(s).includes(normalize(quote)) ? "" : s;
+}
 
 /**
  * The model's items, checked against the passages: a passage number that does not exist is dropped; a quote not
  * found in the book is not shown as a quote.
  */
 export function checkItems(output: string, passages: Passage[]): Item[] {
-  let raw: { kind?: unknown; passage?: unknown; quote?: unknown; why?: unknown }[] = [];
+  let raw: { kind?: unknown; passage?: unknown; quote?: unknown; why?: unknown; question?: unknown }[] = [];
   try {
     raw = (JSON.parse(output) as { items?: typeof raw }).items ?? [];
   } catch {
     return [];
   }
   const items: Item[] = [];
-  for (const r of raw) {
+  if (!Array.isArray(raw)) return [];
+  for (const [index, r] of raw.entries()) {
     if (items.length === MAX_ITEMS) break;
+    if (!r || typeof r !== "object") continue;
     const named = passages.find((p) => p.n === Number(r.passage));
     const quote = typeof r.quote === "string" ? r.quote.trim().replace(/^["“'‘]+|["”'’]+$/g, "").trim() : "";
     const why = typeof r.why === "string" ? r.why.trim() : "";
@@ -180,6 +198,8 @@ export function checkItems(output: string, passages: Passage[]): Item[] {
       quote: found ? quote : null,
       excerpt: cut(at.text, EXCERPT_CHARS),
       why,
+      question: cleanQuestion(r.question, quote),
+      index,
     });
   }
   return items;

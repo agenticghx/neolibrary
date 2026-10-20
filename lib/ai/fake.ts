@@ -45,7 +45,8 @@ function fakeAsk(prompt: string) {
 
 /**
  * Explain it back (M26 R1): one "missed" item quoting passage 1's first words exactly, and, when there is a second
- * passage, one "misread" item quoting its first words. Real quotes, so the app's quote check passes.
+ * passage, one "misread" item quoting its first words. Real quotes, so the app's quote check passes. Each has a
+ * question (M28 S2) that does not copy its quote.
  */
 function fakeExplainBack(prompt: string) {
   const first = (n: number) => {
@@ -53,11 +54,25 @@ function fakeExplainBack(prompt: string) {
     // Its first twelve words, copied as they are (a sentence would stop at "Mr.").
     return text ? text.split(/\s+/).slice(0, 12).join(" ") : null;
   };
-  const items: { kind: string; passage: number; quote: string; why: string }[] = [];
+  const items: { kind: string; passage: number; quote: string; why: string; question: string }[] = [];
   const one = first(1);
-  if (one) items.push({ kind: "missed", passage: 1, quote: one, why: "The test AI says your summary leaves out how this part opens." });
+  if (one)
+    items.push({
+      kind: "missed",
+      passage: 1,
+      quote: one,
+      why: "The test AI says your summary leaves out how this part opens.",
+      question: "Test AI question: how does this part open?",
+    });
   const two = first(2);
-  if (two) items.push({ kind: "misread", passage: 2, quote: two, why: "The test AI says the text puts this differently from your summary." });
+  if (two)
+    items.push({
+      kind: "misread",
+      passage: 2,
+      quote: two,
+      why: "The test AI says the text puts this differently from your summary.",
+      question: "Test AI question: what does the text really say in its second passage?",
+    });
   return { items };
 }
 

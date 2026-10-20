@@ -903,7 +903,14 @@ writes); S3 reuses Explain it back's call.
   Done when: with the fake Claude, a test writes a summary, gets back items
   with questions, sees no card that day and one card per item the next
   day, front and back as above; an attempt stored without questions gives
-  no cards and still shows in Study as before.
+  no cards and still shows in Study as before. *Built 2026-10-19 (branch
+  `m28-s2-gap-cards`, no migration: a gap card is named
+  `g:<attempt id>:<item number>`, which 0030's check already allows). The
+  item number is the item's place in Claude's answer, so a dropped item
+  does not move the others' schedules. A question that copies the book's
+  line is dropped (it would give the answer away). After a library import,
+  gap cards come back once the books' paragraphs are rebuilt (at server
+  start), as Study's items do.*
 - **S3 · "Where were we?" when you come back to a book.** Opening a book
   you last read on an earlier day shows, above the page, a short box: "Last
   time you read *<chapter>*. What do you remember?" Write (or say) a few

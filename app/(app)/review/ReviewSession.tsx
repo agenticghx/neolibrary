@@ -14,7 +14,8 @@ type Props = { cards: ReviewCard[]; nextDueAt: string | null; total: number };
 /**
  * One card at a time (M21): the passage with its book and chapter; the reader's note stays hidden
  * until Show (or Space); then Again, Hard, Good or Easy (or keys 1 to 4). A Test yourself question
- * (M28 S1) shows the question first and its answer on Show. Again puts the card at the
+ * (M28 S1) shows the question first and its answer on Show; a gap Explain it back found (M28 S2)
+ * shows Claude's question first and the book's own line on Show. Again puts the card at the
  * end of today's cards. Each rating is saved before the next card shows.
  */
 export function ReviewSession({ cards, nextDueAt, total }: Props) {
@@ -95,7 +96,8 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
           <p className={styles.emptyText}>Next card: {formatDay(next)}.</p>
         ) : (
           <p className={styles.emptyText}>
-            Highlight a passage, write a note, or open Test yourself in Study while you read, and it comes back here on a schedule that helps you remember it.
+            Highlight a passage, write a note, or open Test yourself or Explain it back in Study while you read, and it comes back here on a schedule that helps you
+            remember it.
           </p>
         )}
         <Link href="/" className={styles.quiet}>
@@ -107,6 +109,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
 
   const where = card.on !== "book" && card.cfi ? `/books/${card.bookId}/read?at=${encodeURIComponent(card.cfi)}` : `/books/${card.bookId}`;
   const isQuestion = card.kind === "question";
+  const isGap = card.kind === "gap";
   return (
     <div className={styles.session}>
       <p className={styles.progress} aria-live="polite" data-testid="review-progress">
@@ -118,9 +121,9 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
           {card.bookTitle}
           {card.chapter ? <span className={styles.chapter}> · {card.chapter}</span> : null}
         </p>
-        {isQuestion ? (
+        {isQuestion || isGap ? (
           <>
-            <p className={styles.answerLabel}>Test yourself</p>
+            <p className={styles.answerLabel}>{isGap ? "From Explain it back" : "Test yourself"}</p>
             <p className={styles.question} data-testid="review-question">
               {card.question}
             </p>
@@ -137,6 +140,19 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
                 <p className={styles.answerLabel}>Test yourself&rsquo;s answer</p>
                 <p className={styles.modelAnswer}>{card.answer}</p>
               </>
+            ) : isGap ? (
+              card.quote ? (
+                <>
+                  <p className={styles.answerLabel}>The book says</p>
+                  <blockquote className={styles.bookLine}>{card.quote}</blockquote>
+                </>
+              ) : (
+                <>
+                  {/* Claude's quote was not found word for word in the book, so it is not shown as the book's words. */}
+                  <p className={styles.answerLabel}>The passage begins</p>
+                  <p className={styles.bookLine}>{card.answer}</p>
+                </>
+              )
             ) : (
               <>
                 <p className={styles.answerLabel}>Your note</p>
@@ -168,7 +184,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
           {error}
         </p>
       ) : null}
-      <p className={styles.hint}>Keys: Space shows {isQuestion ? "the answer" : "your note"}; 1 Again, 2 Hard, 3 Good, 4 Easy.</p>
+      <p className={styles.hint}>Keys: Space shows {isQuestion ? "the answer" : isGap ? "the book's line" : "your note"}; 1 Again, 2 Hard, 3 Good, 4 Easy.</p>
     </div>
   );
 }

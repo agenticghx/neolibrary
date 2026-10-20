@@ -1,6 +1,7 @@
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { reviewCards } from "@/lib/db/schema";
+import { checkItems, partPassages } from "./explain-back";
 import { parseQuestions } from "./questions";
 import { dayAfter, intervals, isRating, schedule, startOfDay, type Rating, type Schedule } from "./review-schedule";
 
@@ -19,6 +20,10 @@ import { dayAfter, intervals, isRating, schedule, startOfDay, type Rating, type 
  * too (a newer bank, made fresh or in another style, replaces the older one's
  * cards). A question card is new from the day after its bank was made, never
  * the same day: recalling it minutes after answering it in Study is rereading.
+ *
+ * M28 S2: what a chapter's newest Explain it back attempt found missing is a card too ("gap"): Claude's question
+ * on the front, the book's own line behind it, on the same day-after rule. An attempt made before Claude was asked
+ * for questions gives no cards.
  */
 export const NEW_PER_DAY = 20;
 
@@ -34,10 +39,13 @@ export function questionDelayDays(env: Record<string, string | undefined> = proc
 export class ReviewError extends Error {}
 
 export type ReviewCard = {
-  /** The card's name: a highlight's or note's stable id, or "q:<bank id>:<question number>" for a question. */
+  /**
+   * The card's name: a highlight's or note's stable id, "q:<bank id>:<question number>" for a question, or
+   * "g:<attempt id>:<item number>" for a gap Explain it back found.
+   */
   id: string;
-  kind: "highlight" | "note" | "question";
-  /** A passage (with a quote and a place in the book), a note on the whole book, or a question on a chapter. */
+  kind: "highlight" | "note" | "question" | "gap";
+  /** A passage (with a quote and a place in the book; a gap's passage), a note on the whole book, or a question on a chapter. */
   on: "passage" | "book" | "chapter";
   bookId: string;
   bookTitle: string;
@@ -46,10 +54,14 @@ export type ReviewCard = {
   chapter: string;
   /** The passage's place; for a question, the chapter's first paragraph. */
   cfi: string | null;
+  /** The passage's words; for a gap, the book's line only when Claude quoted it word for word, else "". */
   quote: string;
   /** The reader's own note ("" for a highlight without one, and for a question). */
   note: string;
-  /** A question card's question and its bank's answer ("" for other cards). */
+  /**
+   * A question card's question and its bank's answer; a gap card's question and the start of its passage (shown
+   * when `quote` is ""). "" for other cards.
+   */
   question: string;
   answer: string;
   isNew: boolean;
@@ -62,9 +74,13 @@ export type ReviewCard = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const QUESTION_CARD = /^q:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(\d{1,3})$/i;
+const GAP_CARD = /^g:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(\d{1,3})$/i;
 
 /** A question card's name: "q:<bank id>:<question number>". */
 export const questionCardId = (bankId: string, index: number) => `q:${bankId.toLowerCase()}:${index}`;
+
+/** A gap card's name: "g:<Explain it back attempt id>:<item number in Claude's answer>". */
+export const gapCardId = (attemptId: string, index: number) => `g:${attemptId.toLowerCase()}:${index}`;
 
 type Row = {
   id: string;
@@ -189,15 +205,7 @@ async function questionRows(db: Db, ownerId: string, delayDays: number): Promise
     `),
   );
   if (!banks.length) return [];
-  const schedules = new Map(
-    listOf(
-      await db.execute(sql`
-        SELECT card_id AS "cardId", ease, interval_days AS "intervalDays", reps, lapses, due_at AS "dueAt",
-               first_reviewed_at AS "firstReviewedAt", last_reviewed_at AS "lastReviewedAt", last_rating AS "lastRating"
-        FROM review_cards WHERE owner_id = ${ownerId} AND annotation_id IS NULL AND card_id LIKE 'q:%'
-      `),
-    ).map((r) => [r.cardId as string, scheduleOf(r)]),
-  );
+  const schedules = await cardSchedules(db, ownerId, "q");
   return banks.flatMap((b) => {
     const createdAt = asDate(b.createdAt)!;
     return parseQuestions(b.output as string).map((q) => {
@@ -222,6 +230,74 @@ async function questionRows(db: Db, ownerId: string, delayDays: number): Promise
       };
     });
   });
+}
+
+/** The schedules of a reader's cards whose names start with `letter` and a colon ("q", "g"). */
+async function cardSchedules(db: Db, ownerId: string, letter: "q" | "g") {
+  return new Map(
+    listOf(
+      await db.execute(sql`
+        SELECT card_id AS "cardId", ease, interval_days AS "intervalDays", reps, lapses, due_at AS "dueAt",
+               first_reviewed_at AS "firstReviewedAt", last_reviewed_at AS "lastReviewedAt", last_rating AS "lastRating"
+        FROM review_cards WHERE owner_id = ${ownerId} AND annotation_id IS NULL AND card_id LIKE ${`${letter}:%`}
+      `),
+    ).map((r) => [r.cardId as string, scheduleOf(r)]),
+  );
+}
+
+/**
+ * Every gap card of a reader: each item with a question in the newest Explain it back attempt of each part of a
+ * book still in the library, with its schedule if it has been rated. Items are checked against the part's
+ * paragraphs as Study shows them (checkItems): a quote not found word for word is not given as the book's line.
+ * A part whose paragraphs are not there (a book's sections are rebuilt from its file after a library import) gives
+ * no cards until they are, as Study then shows no items either.
+ */
+async function gapRows(db: Db, ownerId: string, delayDays: number): Promise<Row[]> {
+  const attempts = listOf(
+    await db.execute(sql`
+      WITH attempts AS (
+        SELECT DISTINCT ON (book_id, section_id) id, book_id, section_id, output, created_at FROM generations
+        WHERE owner_id = ${ownerId} AND kind = 'explain-back' AND book_id IS NOT NULL AND section_id IS NOT NULL
+        ORDER BY book_id, section_id, created_at DESC, id DESC
+      )
+      SELECT g.id, g.book_id AS "bookId", g.output, g.created_at AS "createdAt",
+             b.title AS "bookTitle", b.author AS "bookAuthor", c.id AS "chapterId", c.label AS chapter, c.chapter_index AS "chapterIndex"
+      FROM attempts g
+      JOIN books b ON b.id = g.book_id AND b.owner_id = ${ownerId} AND b.deleted_at IS NULL
+      JOIN sections c ON c.book_id = g.book_id AND c.id = g.section_id AND c.kind = 'chapter'
+    `),
+  );
+  if (!attempts.length) return [];
+  const schedules = await cardSchedules(db, ownerId, "g");
+  const rows: Row[] = [];
+  for (const a of attempts) {
+    const chapter = { id: a.chapterId as string, label: (a.chapter as string) ?? "", chapterIndex: Number(a.chapterIndex) };
+    const passages = await partPassages(db, a.bookId as string, chapter).catch(() => []);
+    const createdAt = asDate(a.createdAt)!;
+    for (const item of checkItems(a.output as string, passages)) {
+      if (!item.question) continue;
+      const id = gapCardId(a.id as string, item.index);
+      rows.push({
+        id,
+        kind: "gap",
+        targetType: "passage",
+        bookId: a.bookId as string,
+        bookTitle: a.bookTitle as string,
+        bookAuthor: (a.bookAuthor as string) ?? "",
+        chapter: chapter.label,
+        cfi: item.cfi,
+        quote: item.quote ?? "",
+        note: "",
+        question: item.question,
+        answer: item.excerpt,
+        createdAt,
+        order: item.index,
+        availableFrom: dayAfter(createdAt, delayDays),
+        schedule: schedules.get(id) ?? null,
+      });
+    }
+  }
+  return rows;
 }
 
 const toCard = (r: Row): ReviewCard => ({
@@ -255,8 +331,12 @@ export type ReviewQueue = {
   total: number;
 };
 
-/** Every card of a reader: highlights and notes, then questions. */
-const allRows = async (db: Db, ownerId: string, delayDays: number) => [...(await annotationRows(db, ownerId)), ...(await questionRows(db, ownerId, delayDays))];
+/** Every card of a reader: highlights and notes, then questions, then gaps. */
+const allRows = async (db: Db, ownerId: string, delayDays: number) => [
+  ...(await annotationRows(db, ownerId)),
+  ...(await questionRows(db, ownerId, delayDays)),
+  ...(await gapRows(db, ownerId, delayDays)),
+];
 
 /** Today's review for a reader at `now`. */
 export async function reviewQueue(db: Db, ownerId: string, now = new Date(), newPerDay = NEW_PER_DAY, delayDays = questionDelayDays()): Promise<ReviewQueue> {
@@ -292,19 +372,23 @@ async function findCard(db: Db, ownerId: string, cardId: unknown): Promise<Row |
     const id = cardId.toLowerCase();
     return (await questionRows(db, ownerId, 0)).find((r) => r.id === id);
   }
+  if (GAP_CARD.test(cardId)) {
+    const id = cardId.toLowerCase();
+    return (await gapRows(db, ownerId, 0)).find((r) => r.id === id);
+  }
   return undefined;
 }
 
 /** Rates a card at `now` and stores its next date. Refuses anything that is not one of this reader's current cards. */
 export async function rateCard(db: Db, ownerId: string, cardId: unknown, rating: unknown, now = new Date()) {
-  if (typeof cardId !== "string" || !(UUID.test(cardId) || QUESTION_CARD.test(cardId))) throw new ReviewError("Card not found.");
+  if (typeof cardId !== "string" || !(UUID.test(cardId) || QUESTION_CARD.test(cardId) || GAP_CARD.test(cardId))) throw new ReviewError("Card not found.");
   if (!isRating(rating)) throw new ReviewError("Rate it Again, Hard, Good or Easy.");
   const row = await findCard(db, ownerId, cardId);
   if (!row) throw new ReviewError("Card not found.");
   const next = schedule(row.schedule, rating, now);
   await db
     .insert(reviewCards)
-    .values({ ownerId, cardId: row.id, annotationId: row.kind === "question" ? null : row.id, ...next })
+    .values({ ownerId, cardId: row.id, annotationId: row.kind === "highlight" || row.kind === "note" ? row.id : null, ...next })
     .onConflictDoUpdate({ target: [reviewCards.ownerId, reviewCards.cardId], set: { ...next } });
   return next;
 }

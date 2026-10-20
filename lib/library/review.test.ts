@@ -10,8 +10,10 @@ import { MemoryStorage } from "@/lib/storage";
 import { createAnnotation, deleteAnnotation, restoreAnnotation, updateAnnotation } from "./annotations";
 import { importBook } from "./import";
 import { removeBook, restoreBook } from "./remove-book";
+import { explainBack, listAttempts, partPassages } from "./explain-back";
+import { chapterFor } from "./prerequisites";
 import { questionBank } from "./questions";
-import { dueCount, questionCardId, questionDelayDays, rateCard, reviewQueue, ReviewError } from "./review";
+import { dueCount, gapCardId, questionCardId, questionDelayDays, rateCard, reviewQueue, ReviewError, type ReviewCard } from "./review";
 import { getSections } from "./sections-store";
 
 let database: Database;
@@ -217,5 +219,116 @@ describe("Test yourself questions as cards (M28 S1)", () => {
     expect(questionDelayDays({ REVIEW_QUESTION_DELAY_DAYS: "0" })).toBe(0);
     expect(questionDelayDays({ REVIEW_QUESTION_DELAY_DAYS: "3" })).toBe(3);
     for (const v of ["", "-1", "1.5", "lots", "99"]) expect(questionDelayDays({ REVIEW_QUESTION_DELAY_DAYS: v })).toBe(1);
+  });
+});
+
+describe("What Explain it back found missing, as cards (M28 S2)", () => {
+  const summary = "The lawyer Utterson is stern with himself but tolerant of others, and his walk with Enfield turns up a strange door.";
+
+  /** The chapter of paragraph `i`. */
+  const chapterOf = (i: number) => chapterFor(database.db, ownerId, bookId, { cfi: paras[i].cfi });
+
+  /** An Explain it back attempt on the chapter of paragraph `i`, made (with its summary note) at `when`. */
+  async function attempt(i: number, when: Date, words = summary) {
+    const chapter = await chapterOf(i);
+    const out = await explainBack(database.db, new FakeModel(), ownerId, { bookId, chapterId: chapter.id, summary: words }, { now: () => when });
+    expect(out.error).toBeNull();
+    await database.db.update(generations).set({ createdAt: when }).where(eq(generations.id, out.attempt!.id));
+    return { id: out.attempt!.id, chapter, items: out.attempt!.items, note: out.note! };
+  }
+
+  const gaps = (cards: ReviewCard[]) => cards.filter((c) => c.kind === "gap");
+
+  it("each item with a question is a card from the day after: the question first, the book's own line behind it", async () => {
+    const a = await attempt(40, at("2026-10-11T08:00:00Z"));
+    expect(a.items).toHaveLength(2);
+    expect(a.items.every((i) => i.question)).toBe(true);
+    // That day: the summary note is a card (as before M28), the gaps are not; the next card comes the next day.
+    let q = await reviewQueue(database.db, ownerId, DAY0);
+    expect(q.cards.map((c) => c.id)).toEqual([a.note.id]);
+    expect(q.total).toBe(3);
+    expect(q.nextDueAt).toBe("2026-10-12T00:00:00.000Z");
+    // The next day: one card per item, in Claude's order.
+    q = await reviewQueue(database.db, ownerId, at("2026-10-12T00:00:00Z"));
+    expect(gaps(q.cards).map((c) => c.id)).toEqual([gapCardId(a.id, 0), gapCardId(a.id, 1)]);
+    const parts = await partPassages(database.db, bookId, a.chapter);
+    expect(gaps(q.cards)[0]).toEqual({
+      id: `g:${a.id}:0`,
+      kind: "gap",
+      on: "passage",
+      bookId,
+      bookTitle: expect.stringMatching(/^The Strange Case/),
+      bookAuthor: expect.any(String),
+      chapter: a.chapter.label,
+      cfi: parts[0].cfi,
+      quote: a.items[0].quote,
+      note: "",
+      question: "Test AI question: how does this part open?",
+      answer: a.items[0].excerpt,
+      isNew: true,
+      createdAt: "2026-10-11T08:00:00.000Z",
+      dueAt: null,
+      next: { again: 0, hard: 1, good: 1, easy: 4 },
+    });
+    // The question does not give the book's line away.
+    expect(gaps(q.cards).every((c) => !c.question.includes(c.quote))).toBe(true);
+  });
+
+  it("an attempt stored without questions gives no cards and still shows in Study; a line not found word for word is not quoted", async () => {
+    const a = await attempt(40, at("2026-10-10T08:00:00Z"));
+    const [row] = await database.db.select().from(generations).where(eq(generations.id, a.id));
+    const items = (JSON.parse(row.output) as { items: Record<string, unknown>[] }).items;
+    // As stored before M28 S2: no question on any item.
+    await database.db
+      .update(generations)
+      .set({ output: JSON.stringify({ items: items.map((i) => Object.fromEntries(Object.entries(i).filter(([k]) => k !== "question"))) }) })
+      .where(eq(generations.id, a.id));
+    const day = at("2026-10-12T09:00:00Z");
+    let q = await reviewQueue(database.db, ownerId, day);
+    expect(gaps(q.cards)).toEqual([]);
+    expect(q.cards.map((c) => c.id)).toEqual([a.note.id]);
+    const study = await listAttempts(database.db, ownerId, bookId, a.chapter);
+    expect(study).toHaveLength(1);
+    expect(study[0].items.map((i) => [i.kind, i.quote, i.question])).toEqual(a.items.map((i) => [i.kind, i.quote, ""]));
+
+    // A question on an item whose quote Claude made up: a card, with the passage's start behind it, not a quote.
+    await database.db
+      .update(generations)
+      .set({ output: JSON.stringify({ items: [{ ...items[0], quote: "He loved the theatre above all things.", question: "What did he love?" }] }) })
+      .where(eq(generations.id, a.id));
+    q = await reviewQueue(database.db, ownerId, day);
+    expect(gaps(q.cards)).toMatchObject([{ id: `g:${a.id}:0`, quote: "", question: "What did he love?", answer: a.items[0].excerpt }]);
+  });
+
+  it("a rated gap comes back on its day; a newer attempt on the chapter replaces the older one's cards", async () => {
+    const a = await attempt(40, at("2026-10-10T08:00:00Z"));
+    const day = at("2026-10-11T09:00:00Z");
+    const s = await rateCard(database.db, ownerId, `g:${a.id.toUpperCase()}:1`, "good", day);
+    expect(s).toMatchObject({ intervalDays: 1, dueAt: at("2026-10-12T00:00:00Z") });
+    let q = await reviewQueue(database.db, ownerId, day);
+    expect(gaps(q.cards).map((c) => c.id)).toEqual([`g:${a.id}:0`]);
+    q = await reviewQueue(database.db, ownerId, at("2026-10-12T09:00:00Z"));
+    expect(q.cards[0]).toMatchObject({ id: `g:${a.id}:1`, isNew: false, next: { good: 6 } });
+
+    // A newer attempt with another summary: its gaps replace the older attempt's, from the day after.
+    const b = await attempt(40, at("2026-10-12T10:00:00Z"), `${summary} Then Hyde tramples a child.`);
+    expect(b.id).not.toBe(a.id);
+    q = await reviewQueue(database.db, ownerId, at("2026-10-12T11:00:00Z"));
+    expect(gaps(q.cards)).toEqual([]);
+    q = await reviewQueue(database.db, ownerId, at("2026-10-13T09:00:00Z"));
+    expect(gaps(q.cards).map((c) => c.id)).toEqual([`g:${b.id}:0`, `g:${b.id}:1`]);
+    await expect(rateCard(database.db, ownerId, `g:${a.id}:1`, "good", day)).rejects.toThrow("Card not found.");
+  });
+
+  it("refuses an item that is not in the attempt, another reader's gap, and a removed book's gaps", async () => {
+    const a = await attempt(40, at("2026-10-10T08:00:00Z"));
+    const { token } = await createInvite(database.db, { id: ownerId, email: "o@example.com", name: "O", role: "admin" });
+    const otherId = (await acceptInvite(database.db, token, { email: "r2@example.com", name: "R", password: "long enough pw" })).id;
+    await expect(rateCard(database.db, ownerId, `g:${a.id}:99`, "good", DAY0)).rejects.toThrow("Card not found.");
+    await expect(rateCard(database.db, ownerId, `q:${a.id}:0`, "good", DAY0)).rejects.toThrow("Card not found.");
+    await expect(rateCard(database.db, otherId, `g:${a.id}:0`, "good", DAY0)).rejects.toThrow("Card not found.");
+    await removeBook(database.db, ownerId, bookId);
+    expect((await reviewQueue(database.db, ownerId, DAY0)).total).toBe(0);
+    await expect(rateCard(database.db, ownerId, `g:${a.id}:0`, "good", DAY0)).rejects.toThrow("Card not found.");
   });
 });
