@@ -62,7 +62,7 @@ test("a title not available yet has its own page saying where it sits", async ({
   await page.getByRole("link", { name: "Chip War (not available yet)", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Chip War", level: 1 })).toBeVisible();
   await expect(page.getByText("Hidden Machinery › Semiconductors · narrative, read first")).toBeVisible();
-  await expect(page.getByText("Not available yet. Add the book file (EPUB or PDF) and it attaches here.")).toBeVisible();
+  await expect(page.getByText("Not available yet. Add the book file (EPUB, PDF or Markdown) and it attaches here.")).toBeVisible();
 });
 
 test("a reading list cannot be edited: no Edit path, and its edit page is not found", async ({ page }) => {
