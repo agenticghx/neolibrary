@@ -727,6 +727,12 @@ export function Reader(props: {
             setScanPage(Number.isInteger(page) && page > 0 ? page : null);
           }
           setWhere({ cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+          // The page on screen (data-cfi, read by the tests) is recorded now, in the same step as foliate
+          // shows it, as recordLit does for the lit word. Left to React it was written up to 22 ms later,
+          // after the next page's first word had already been lit there by its text layer, so on a loaded
+          // CI runner a screen frame showed the word lit with the page before still recorded
+          // (docs/ci-flakes.md). React's own render writes the same value, so it changes nothing.
+          root.current?.setAttribute("data-cfi", cfi);
           // A PDF's pages on screen (two side by side bring both); an EPUB's visible range.
           const pageCfi = (n: number) => `epubcfi(/6/${(n + 1) * 2})`;
           setScreen(pages.length ? { from: pageCfi(Math.min(...pages)), to: pageCfi(Math.max(...pages)) } : { from: cfi, to: cfi });

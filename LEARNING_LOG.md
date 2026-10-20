@@ -2252,3 +2252,12 @@ tests that pin it, in a small PR.
 **Result.** Tabs two by two; the test now also checks the panel's own scroll width. The note did not show in Notes until a reload (the reader reads notes once), so the panel now tells the reader to read them again.
 **Lesson.** A "no sideways scroll" check on the page misses a scrolling panel; check the element that holds the new content. And look at the screenshots before trusting a green run.
 **Next experiment.** Samuel writes a summary of a real chapter and judges whether what it points to is fair.
+
+### Iteration 88 · 2026-10-20 09:40 (laptop clock) · The PDF made-voice test's "page 2 shown" flake · success
+
+**Hypothesis.** The reader does not turn the page late: the word is lit on page 2 after page 2 is on screen, and only `data-cfi` (React state, the test's record of the page shown) trails it, as `data-word` did before `recordLit` (Iterations 25 and 39).
+**Action.** Added, on the laptop only, a `MutationObserver` on `data-cfi`, a time for every frame the test records, the reader's timing marks (`window.__nlMarks`), and Chrome's CPU slowed 6 times through CDP. Then the fix: the `relocate` handler writes `data-cfi` itself, next to `whereCfi.current = cfi`.
+**Evaluation.** Before the fix, at 6 times slower: `3 failed, 3 passed`, each with CI's message. In a failing run: `relocate` at −10 ms, the first word lit by the text layer at −6 ms, a frame at 0 ms with the word lit and on screen and `data-cfi` still `/6/2`, React's write at +12 ms. After: `12 passed` at 6 times slower (7 of the 12 had React's write after the first lit frame); the test as committed, at normal speed, `10 passed`.
+**Result.** The hypothesis held; the reader saw page 2 before its word was lit. The assertion is unchanged.
+**Lesson.** An attribute a test reads to know what is on screen must be written in the same step as the thing on screen, not through React state: under load a render lands a frame or more late. `grep -n "data-" Reader.tsx` for any other test-facing attribute set from state before the next timing test.
+**Next experiment.** Watch row "Causes removed" in `docs/ci-flakes.md`: if the test fails again, read whether the frame's `onScreen` was true.
