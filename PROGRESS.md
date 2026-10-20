@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M29: merge and deploy Markdown books, send chip_war.md, rewrite Chip War in four styles (claude -p), load and verify.
+next_action: Samuel reads Chip War's rewrites in each style and gives a verdict.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -290,6 +290,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 17:56 · Claude Opus 5.5 (laptop) · M29 K2 done: Chip War rewritten in all four styles, live (3,320 rows, md5-checked)
+- **Done:** Chip War (from Samuel's chip_war.md via M29 K1, attached to his waiting title, book c4413fe0…) rewritten paragraph by paragraph with claude -p on Opus 5.5, his subscription: 57 units x 4 styles = 228 runs, all pass validate.py. Loaded in 5 transactions after a backup (~/Backups/neolibrary/prod-generations-before-chip-war-20261020T1837Z.sql): live now 830 rows per style (plain, ste light, ste standard, ste strict); read-back matched 3,320 of 3,320, 0 different, 0 duplicates; every paragraph from Cast of Characters to Chapter 54 covered. Runs paused twice: the session limit (15:30, 'resets 5pm', though the app's usage page showed 4%) and two internet outages; supervisor resumed on its own; round 2 started 17:14.
+- **Key paths:** ~/Documents/neolibrary-rewrites/chip-war (book text, not in git; upload-*.sql and .undo); ~/Documents/neolibrary-rewrites/scripts/{supervise.sh,load-new.sh,load-loop.sh,readback.py,run-one.sh}; docs/handoffs/2026-10-20-1433-chip-war-rewrites-running.md (laptop, not committed)
+- **Commands that worked:** zsh scripts/supervise.sh chip-war 8 40; zsh scripts/load-new.sh chip-war <book id> -> COMMIT, matched 3320 of 3320; psql duplicates check -> 0|830
+- **Known issues / blockers:** None open. Undo for any load: chip-war/upload-<n>.sql.undo. Samuel has not yet read the rewrites signed in.
+- **Exact next steps:** 1. Samuel opens Chip War (Aa → AI explanations to switch style; Side by side) and gives a verdict. 2. Nothing else pending for M29.
 
 ### 2026-10-20 11:27 · Claude Opus 5.5 (laptop) · M29 K1: Markdown books can be added (Import page, waiting titles, agent API)
 - **Done:** Samuel: "allow books in .md ext to be uploaded" (with `chip_war.md` and its PDF), then rewrite it in all styles; work alone, test, merge, deploy. A `.md` file is turned into an EPUB at import (`lib/library/markdown-epub.ts`): a chapter per `#`/`##` heading, nested Contents, front matter for title/author, everything escaped. The Import page, "Add the book file" and the upload limits accept `.md`; the refusal now says "Only EPUB, PDF and Markdown (.md) files can be added." New `POST /api/agent/books` (multipart `file`, optional `attachTo`) so a script with the owner token can send a book: the browser cannot pick a file from the laptop. Converted `chip_war.md` locally and read it back with the app's own reader code: 67 chapters, 841 paragraphs, 95,339 words in paragraphs.
