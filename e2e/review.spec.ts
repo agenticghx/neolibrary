@@ -175,8 +175,8 @@ test("Daily review: the passage, Show, rate with the keys, Again comes back, the
 // as the server's clock cannot be moved from here, so this server sets REVIEW_QUESTION_DELAY_DAYS=0): a chapter's
 // Test yourself questions are cards, the question on the front and the bank's answer only after Show; Go to chapter
 // opens the reader in that chapter; a rating is saved.
-test("Daily review: Test yourself questions are cards, the question first and its answer on Show", async ({ page, browser }) => {
-  test.setTimeout(120_000);
+test("Daily review: Test yourself questions are cards, the question first and its answer on Show; then Where were we? on coming back", async ({ page, browser }) => {
+  test.setTimeout(240_000);
   const reader = await newReader(page, browser);
   const upload = await reader.request.post("/api/books", {
     multipart: {
@@ -217,7 +217,13 @@ test("Daily review: Test yourself questions are cards, the question first and it
 
   // Space shows the answer, 3 rates it Good: the next question, and the rating survives a reload.
   await reader.goto("/review");
-  await reader.keyboard.press(" ");
+  await expect(card.getByTestId("review-question")).toHaveText(questions[0].question);
+  // Space is handled once the page is interactive; a press before that is lost (CI run 39349975911 attempt 2), so
+  // press until the answer shows (a second Space after Show does nothing, as the first test checks).
+  await expect(async () => {
+    await reader.keyboard.press(" ");
+    await expect(answer).toBeVisible({ timeout: 1_000 });
+  }).toPass();
   await expect(answer).toContainText("Test yourself’s answer");
   await expect(answer).toContainText(questions[0].answer);
   await reader.keyboard.press("3");
@@ -226,6 +232,9 @@ test("Daily review: Test yourself questions are cards, the question first and it
   await reader.reload();
   await expect(progress).toContainText("1 of 8");
   await expect(card.getByTestId("review-question")).toHaveText(questions[1].question);
+
+  // M28 S3, with the same reader and book (see whereWereWe below).
+  await whereWereWe(reader, bookId);
   await reader.context().close();
 });
 
@@ -289,9 +298,14 @@ test("Daily review: what Explain it back found missing are cards, the question f
   await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader.locator("footer").getByText(part.chapter.label, { exact: true })).toBeVisible();
 
-  // Space shows the line, 3 rates it Good: the next gap, and the rating survives a reload.
+  // Space shows the line, 3 rates it Good: the next gap, and the rating survives a reload. Space is handled once the
+  // page is interactive, so press until the line shows (as in the question-card test).
   await reader.goto("/review");
-  await reader.keyboard.press(" ");
+  await expect(card.getByTestId("review-question")).toHaveText(items[0].question);
+  await expect(async () => {
+    await reader.keyboard.press(" ");
+    await expect(answer).toBeVisible({ timeout: 1_000 });
+  }).toPass();
   await expect(answer.getByRole("blockquote")).toHaveText(items[0].quote);
   await reader.keyboard.press("3");
   await expect(progress).toContainText("2 of 2");
@@ -301,3 +315,87 @@ test("Daily review: what Explain it back found missing are cards, the question f
   await expect(card.getByTestId("review-question")).toHaveText(items[1].question);
   await reader.context().close();
 });
+
+// M28 S3 "Done when": coming back to a book on a later day, a strip asks what the reader remembers of the chapter at
+// their saved place; the answer is saved as an Explain it back attempt on that chapter; Skip hides the strip for the
+// day; read today, it is not asked. The earlier day is a sitting sent the way the reader sends one (as stats.spec.ts
+// does), since the server's clock cannot be moved; the rule's days are checked in lib/library/where-were-we.test.ts.
+// Run by the question-card test's reader, not a reader of its own: sign-ups are limited to 10 per 15 minutes from one
+// address, and a full CI run of all the specs that invite readers would pass that (CI run 39360494245, both attempts).
+async function whereWereWe(reader: Page, bookId: string) {
+  const { hits } = await (await reader.request.get(`/api/books/${bookId}/search?q=${encodeURIComponent("slowly encompassed frost snow")}`)).json();
+  const place = hits[0].cfi as string;
+  expect((await reader.request.put(`/api/books/${bookId}/position`, { data: { cfi: place, fraction: 0.02 } })).ok()).toBe(true);
+  const chapter = ((await (await reader.request.get(`/api/books/${bookId}/explain-back?cfi=${encodeURIComponent(place)}`)).json()) as { chapter: { id: string; label: string } }).chapter;
+  const readOn = async (day: Date) => {
+    const sent = await reader.request.post(`/api/books/${bookId}/reading`, {
+      data: { sessionId: crypto.randomUUID(), startedAt: day.toISOString(), activeSeconds: 600, words: 2400, pages: 6 },
+    });
+    expect(sent.status()).toBe(204);
+  };
+  const yesterday = new Date(dayAfter(new Date(), -1).getTime() + 12 * 3_600_000);
+  await readOn(yesterday);
+
+  const strip = reader.getByTestId("where-were-we");
+  const open = async () => {
+    await reader.goto(`/books/${bookId}/read`);
+    await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  };
+  await open();
+  await expect(strip).toContainText(`Last time you were reading ${chapter.label}. What do you remember?`);
+
+  // The four looks, with the strip open for writing.
+  await fourLooks(reader, "where-were-we", async () => {
+    await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await strip.getByRole("button", { name: "Write it" }).click();
+    await expect(strip.getByLabel(/What do you remember of/)).toBeVisible();
+  });
+
+  // Skip hides it, and it stays hidden on this device today.
+  await open();
+  await strip.getByRole("button", { name: "Skip" }).click();
+  await expect(strip).toHaveCount(0);
+  await open();
+  await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready");
+  await expect(strip).toHaveCount(0);
+
+  // Another device (no Skip stored): asked again. Write it, then Save once there are enough words.
+  await reader.evaluate(() => localStorage.clear());
+  await open();
+  await strip.getByRole("button", { name: "Write it" }).click();
+  const text = strip.getByLabel(/What do you remember of/);
+  const save = strip.getByRole("button", { name: "Save" });
+  await text.fill("Walton is lonely.");
+  await expect(save).toBeDisabled();
+  await text.fill("Walton is lonely on his voyage north and wishes he had a friend who could share his hopes.");
+  await save.click();
+  await expect(strip).toContainText(`Saved as your summary of ${chapter.label}.`);
+  await expect(strip).toContainText("Claude found 2 things you missed. They come back in Daily review.");
+  await strip.getByRole("button", { name: "See what you missed" }).click();
+  await expect(reader.getByRole("region", { name: "Explain it back" })).toBeVisible();
+
+  // Stored as an Explain it back attempt on that chapter, with the reader's words.
+  const after = (await (await reader.request.get(`/api/books/${bookId}/explain-back?cfi=${encodeURIComponent(place)}`)).json()) as { attempts: { summary: string; items: unknown[] }[] };
+  expect(after.attempts.map((a) => [a.summary, a.items.length])).toEqual([["Walton is lonely on his voyage north and wishes he had a friend who could share his hopes.", 2]]);
+  // That chapter is explained back now: not asked again, whatever the day.
+  await reader.evaluate(() => localStorage.clear());
+  await open();
+  await expect(strip).toHaveCount(0);
+
+  // Read today (a sitting of a minute or more): not asked. Another book, read yesterday and today.
+  const second = await reader.request.post("/api/books", {
+    multipart: {
+      files: { name: "wells-the-time-machine.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/wells-the-time-machine.epub") },
+    },
+  });
+  const otherId = (await second.json()).results[0].bookId as string;
+  const found = await (await reader.request.get(`/api/books/${otherId}/search?q=${encodeURIComponent("Time Traveller")}`)).json();
+  expect((await reader.request.put(`/api/books/${otherId}/position`, { data: { cfi: found.hits[0].cfi, fraction: 0.05 } })).ok()).toBe(true);
+  for (const startedAt of [yesterday, new Date()]) {
+    const sent = await reader.request.post(`/api/books/${otherId}/reading`, { data: { sessionId: crypto.randomUUID(), startedAt: startedAt.toISOString(), activeSeconds: 600, words: 2400, pages: 6 } });
+    expect(sent.status()).toBe(204);
+  }
+  await reader.goto(`/books/${otherId}/read`);
+  await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(strip).toHaveCount(0);
+}

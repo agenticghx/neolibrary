@@ -33,11 +33,13 @@ import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
+import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
+import { WhereWereWeStrip } from "./WhereWereWe";
 import { RewritePanel } from "./RewritePanel";
 import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
@@ -266,6 +268,8 @@ export function Reader(props: {
   edition?: { scanId: string; textId: string; current: "scan" | "text" };
   /** M25: open the text edition at the marker of this page of the scan. */
   openPage?: number;
+  /** M28 S3: back on a later day, ask what the reader remembers of this chapter (lib/library/where-were-we.ts). */
+  recall?: WhereWereWe | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -1663,6 +1667,9 @@ export function Reader(props: {
           <p className={styles.notice} role="status">
             Opening the book…{downloaded ? ` ${downloaded} downloaded` : ""}
           </p>
+        ) : null}
+        {props.recall && status === "ready" && !focusSession && !elsewhere ? (
+          <WhereWereWeStrip bookId={props.bookId} recall={props.recall} onSeeMissed={() => setPanel("explain")} onSaved={() => void reload()} />
         ) : null}
         {elsewhere && status === "ready" ? (
           <div className={styles.elsewhere} role="status">

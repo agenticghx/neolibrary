@@ -9,6 +9,7 @@ import { getBook } from "@/lib/library/paths";
 import { getPreferences } from "@/lib/library/preferences";
 import { isCfi } from "@/lib/library/reading";
 import { editionOf } from "@/lib/library/text-edition";
+import { whereWereWe } from "@/lib/library/where-were-we";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
 import { Reader } from "./Reader";
@@ -59,6 +60,9 @@ export default async function ReadPage({
   const page = Number(sp.page);
   const openPage = edition?.current === "text" && Number.isInteger(page) && page > 0 ? page : undefined;
   const { rewrittenView } = await getPreferences(db, user.id);
+  // M28 S3: "Where were we?" on coming back on a later day; not during a focus session, nor when opened at a
+  // place of its own (a search result, a review card, a shared link): the reader came for that place.
+  const recall = focus && isRunning(focus) ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
   return (
     <Reader
       bookId={book.id}
@@ -73,6 +77,7 @@ export default async function ReadPage({
       initialFraction={book.progress}
       startListening={sp.listen === "1" && found.available.listen}
       rewrittenView={rewrittenView}
+      recall={recall}
     />
   );
 }
