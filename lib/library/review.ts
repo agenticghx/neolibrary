@@ -28,7 +28,7 @@ import { dayAfter, intervals, isRating, schedule, startOfDay, type Rating, type 
 export const NEW_PER_DAY = 20;
 
 /**
- * Whole days (UTC) a new question card waits after its bank was made: 1, or REVIEW_QUESTION_DELAY_DAYS (the browser
+ * Whole days (UTC) a new question or gap card waits after its bank or Explain it back attempt was made: 1, or REVIEW_QUESTION_DELAY_DAYS (the browser
  * tests set 0, as the server's clock cannot be moved from a test; the unit tests check the wait with their own clock).
  */
 export function questionDelayDays(env: Record<string, string | undefined> = process.env) {
