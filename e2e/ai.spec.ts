@@ -654,6 +654,9 @@ test("the rewritten view is accessible, and looks right beside the page and alon
 });
 
 test("the AI and cross-book panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
+  // Four looks of six panels, each with an accessibility check: 15 to 22 s on CI, so the default 30 s ran out on a
+  // slow runner (CI run 39445509504). The same budget as the other four-look tests.
+  test.setTimeout(120_000);
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
