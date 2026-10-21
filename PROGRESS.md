@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M30 (Google Drive import), deploy, and add Samuel's LibraryBooks folder live.
+next_action: Samuel tries Add from Drive himself; follow-up: rename a book and ignore junk PDF titles.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -290,6 +290,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 20:10 · Claude Opus 5.5 (laptop) · Live: 8e78564 (M30 Google Drive import); Samuel's LibraryBooks folder added: Kuhn opens
+- **Done:** #217 merged (8e78564), deployed (no migration). On the live Import page, in Samuel's signed-in browser pane: pasted his LibraryBooks folder link, Add from Drive → 'Microsoft Word - Kuhn_2.docx · Added to your library'. The PDF's own title is Word's export name and no Kuhn title was waiting, so the title and author were set by hand: 'The Structure of Scientific Revolutions', 'Thomas S. Kuhn' (book 4757027f…; undo: ~/Backups/neolibrary/kuhn-title-undo-20261020.sql). Book page shows PDF · 222 pages; reader ready on the title page; search 'paradigm' → 60 hits.
+- **Key paths:** lib/drive/drive.ts; lib/library/drive-import.ts; ~/Backups/neolibrary/kuhn-title-undo-20261020.sql
+- **Commands that worked:** railway up --service web --environment production --ci -> Deploy complete; curl /api/health -> 8e78564; POST /api/books/drive signed out -> 401; psql UPDATE books (title, author) -> UPDATE 1
+- **Known issues / blockers:** No way in the app to rename a book; PDFs exported from Word carry titles like 'Microsoft Word - X.docx'. Proposed as a follow-up.
+- **Exact next steps:** 1. A follow-up: rename a book (title, author) on its page, and ignore junk PDF titles at import. This entry sits on local branch m30-drive-live-record (not pushed): commit it with the next real pull request.
 
 ### 2026-10-20 19:37 · Claude Opus 5.5 (laptop) · M30 G1: add books from a Google Drive link (file or shared folder)
 - **Done:** Samuel: 'make it possible to upload books from google drive' with his shared folder (LibraryBooks: Kuhn-SSR-2ndEd-2.pdf). Built: Import page form 'Or add from Google Drive' → POST /api/books/drive {link, attachTo?} → each EPUB/PDF/Markdown in the shared file or folder is imported like an upload (lib/library/drive-import.ts); other files skipped; 25 per folder; a file not shared says how to share it. Google behind DriveSource (lib/drive/drive.ts, public folder view + public download with confirm=t; only the id is taken from the link) with a fake for tests (lib/drive/fake.ts, DRIVE_FAKE=1). Checked the real reader against Samuel's folder: listed Kuhn-SSR-2ndEd-2.pdf, downloaded 825,544 bytes, %PDF-1.4.
