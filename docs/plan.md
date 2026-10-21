@@ -1031,6 +1031,39 @@ Written for Samuel and for the session that builds it.
 - **Later:** private files (not shared by link) would need Google sign-in
   (OAuth, a Google Cloud project: Samuel's to set up).
 
+### M31 · Flowing text from a PDF's own text (Samuel, 2026-10-20)
+
+Written for Samuel and for the session that builds it.
+
+- **P1 · A PDF that has text in it (not a scan) can be laid out again as a
+  flowing text edition, with no AI.** Why: Kuhn's *Structure of Scientific
+  Revolutions* (added from Drive, M30) could not be read with `claude -p`:
+  Anthropic's service blocked nearly every page ("Output blocked by
+  content filtering policy", 34 of the first 41 pages), as copying a
+  published book. Its PDF already holds its text, so nothing needs
+  copying. `lib/library/pdf-text-pages.ts` reads each page's text with
+  pdf.js (positions, sizes and real font names) and writes the Markdown
+  a scan's page reading gives: running heads and page numbers dropped
+  (words in the top or bottom band that recur on 3+ pages), chapter
+  headings (a heavier font at the top of a page, followed by prose), section
+  headings, paragraphs (indented lines after a sentence's end), italics,
+  footnotes (the run of smaller lines at the foot, or a line opening with a
+  raised number) with their references, and line-end hyphens mended unless
+  the book writes the word with a hyphen elsewhere. The pages go through the
+  same chapter builder and EPUB as a scan's (lib/library/text-epub.ts),
+  whose "About this edition" says no AI read or wrote it. The book page
+  shows "Flowing text from this PDF" (owner only) for such PDFs, needing no
+  AI key. *Built 2026-10-20 (branch `m31-pdf-text-edition`).*
+  Done when: unit tests on an invented, book-like PDF (running heads, page
+  numbers, a bold chapter heading, indented paragraphs, italics, a footnote
+  and its reference, broken words) get exactly the expected Markdown; a
+  scan is told apart and refused; the edition is linked to its PDF, made
+  again under the same id, and its About page says no AI; a browser test
+  makes one from the book page and opens it with Scan | Text. Real-book
+  check on Kuhn: the contents list matches the printed contents page.
+  Known limit: a word broken at a line end that the book never writes
+  whole elsewhere is joined ("mid-" "century" became "midcentury").
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

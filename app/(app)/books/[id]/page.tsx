@@ -9,8 +9,9 @@ import { coverSigner } from "@/lib/library/covers";
 import { KIND_WORDS } from "@/lib/library/path-words";
 import { getBook } from "@/lib/library/paths";
 import { getBatchModel } from "@/lib/ai";
-import { mayMakeTextEditions, textEditionForPage } from "@/lib/library/text-edition";
+import { mayMakeTextEditions, pdfTextEditionForPage, textEditionForPage } from "@/lib/library/text-edition";
 import { getStorage } from "@/lib/storage";
+import { PdfTextEdition } from "./PdfTextEdition";
 import { TextEdition } from "./TextEdition";
 import { isReadingList } from "@/lib/library/seed";
 import { NotesExport, NotesImport } from "@/components/NotesExport";
@@ -49,6 +50,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
     hasFile && book.fileType === "pdf" && mayMakeTextEditions(user)
       ? await textEditionForPage({ db: await getDb(), storage: await getStorage(), model: () => getBatchModel() }, user.id, book.id)
       : null;
+  // M31: a PDF with text of its own can be laid out again as flowing text, free, for the library's owner.
+  const fromText = hasFile && book.fileType === "pdf" && mayMakeTextEditions(user) ? await pdfTextEditionForPage(await getDb(), user.id, book.id) : null;
   // The cover's N or E letter comes from a reading list only (your own Paths say the words instead).
   const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
 
@@ -175,7 +178,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               </ul>
             </section>
           ) : null}
-          {textEdition ? <TextEdition bookId={book.id} initial={textEdition} /> : null}
+          {fromText ? <PdfTextEdition bookId={book.id} editionId={fromText.editionId} /> : null}
+          {textEdition && !fromText ? <TextEdition bookId={book.id} initial={textEdition} /> : null}
           {hasFile && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} /> : null}
           <p className={styles.status}>
             <span className={styles.available}>{availabilityLabel(available)}</span>

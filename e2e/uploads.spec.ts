@@ -486,3 +486,69 @@ test("books are added from a Google Drive link to a shared folder; other files a
   }
   await expect(shelf.getByRole("link", { name: /Drive/ })).toHaveCount(0);
 });
+
+// M31 "Done when": a PDF with text of its own offers "Flowing text from this PDF" on its page; making it gives a
+// flowing edition (no AI) that opens in the reader with Scan | Text, chapter by chapter. The book is removed at the
+// end, so the later tests find the shelves as before.
+test("a PDF with text of its own is laid out again as flowing text, without AI", async ({ page }) => {
+  test.setTimeout(90_000);
+  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const pdf = await PDFDocument.create();
+  const roman = await pdf.embedFont(StandardFonts.TimesRoman);
+  const bold = await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const italic = await pdf.embedFont(StandardFonts.TimesRomanItalic);
+  const words = "The keeper climbed the tower at dusk and lit the great lamp, and ships far out at sea could see it shine across the water all night long.";
+  for (const [n, heading] of [[1, "I. The Tower"], [2, null], [3, "II. The Ships"]] as const) {
+    const p = pdf.addPage([612, 792]);
+    p.drawText("A Lighthouse Book", { x: 72, y: 740, size: 11, font: italic });
+    p.drawText(String(n), { x: 300, y: 40, size: 11, font: roman });
+    let y = 680;
+    if (heading) {
+      p.drawText(heading, { x: 72, y, size: 14, font: bold });
+      y -= 40;
+    }
+    for (let k = 0; k < 6; k++, y -= 16) p.drawText(k % 3 === 0 ? `   ${words.slice(0, 80)}` : words.slice(0, 80), { x: k % 3 === 0 ? 90 : 72, y, size: 12, font: roman });
+  }
+  const upload = await page.request.post("/api/books", {
+    multipart: { files: { name: "a-lighthouse-book.pdf", mimeType: "application/pdf", buffer: Buffer.from(await pdf.save()) } },
+  });
+  const bookId = (await upload.json()).results[0].bookId as string;
+
+  await page.goto(`/books/${bookId}`);
+  const panel = page.getByTestId("pdf-text-edition");
+  await expect(panel.getByRole("heading", { name: "Flowing text from this PDF" })).toBeVisible();
+  await expect(panel).toContainText("No AI is used and nothing is spent");
+  await panel.getByRole("button", { name: "Make the flowing text" }).click();
+  await expect(page.getByTestId("pdf-text-edition-status")).toHaveText("Made from 3 of 3 pages.");
+  await expect(panel.getByRole("button", { name: "Make it again" })).toBeVisible();
+
+  mkdirSync("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.mouse.move(0, 0); // no hover state in the check or the screenshot (as fourLooks in review.spec.ts)
+      await page.waitForTimeout(300); // the Read button's colours ease into the new theme (as agents.spec.ts waits)
+      const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(axe.violations.map((v) => `${name} ${scheme} ${v.id}: ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join("; ")}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await panel.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `screenshots/pdf-text-edition-${name}-${scheme}.png`, fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // The flowing text opens in the reader, chapter by chapter, with Scan | Text.
+  await panel.getByRole("link", { name: "Read the flowing text" }).click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Scan" }).or(page.getByRole("link", { name: "Scan" })).first()).toBeVisible();
+  await page.getByRole("button", { name: "Contents" }).click();
+  for (const name of ["About this edition", "I. The Tower", "II. The Ships"]) await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+
+  // Leave the shelves as the later tests expect them: the book removed.
+  await page.goto(`/books/${bookId}`);
+  await page.locator("summary", { hasText: "Remove from library" }).click();
+  await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
+  await expect(page).toHaveURL(/\/library$/);
+});

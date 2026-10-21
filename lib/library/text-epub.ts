@@ -37,6 +37,8 @@ export type EditionMeta = {
   madeAt: Date;
   /** Pages whose reading disagreed with the scan's own text. */
   toCheck: number[];
+  /** M31: "pdf-text" when the pages are the PDF's own text laid out again, not read from pictures by a model. */
+  source?: "scan" | "pdf-text";
 };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -318,7 +320,9 @@ export function buildTextEdition(pages: EditionPage[], meta: EditionMeta): Uint8
     : "";
   const about = xhtml(
     "About this edition",
-    `<section class="about"><h1>About this edition</h1><p class="made">This text was read from the scanned pages of the PDF by ${esc(meta.model)} on ${day}, page by page (${read} of ${pages.length} pages; blank pages left out). It is machine-written: the scan is the original, and each page here is marked with its page number in the scan.</p>${check}</section>`,
+    meta.source === "pdf-text"
+      ? `<section class="about"><h1>About this edition</h1><p class="made">This text is the PDF's own text, laid out again to flow on ${day}, page by page (${read} of ${pages.length} pages; blank pages left out). No AI read or wrote it. Running heads and page numbers are left out, and headings, paragraphs and footnotes were worked out from the type, so the PDF is the original: each page here is marked with its page number in the PDF.</p></section>`
+      : `<section class="about"><h1>About this edition</h1><p class="made">This text was read from the scanned pages of the PDF by ${esc(meta.model)} on ${day}, page by page (${read} of ${pages.length} pages; blank pages left out). It is machine-written: the scan is the original, and each page here is marked with its page number in the scan.</p>${check}</section>`,
     lang,
   );
   const files: Record<string, Uint8Array | [Uint8Array, { level: 0 }]> = {
@@ -353,7 +357,7 @@ export function buildTextEdition(pages: EditionPage[], meta: EditionMeta): Uint8
   ].join("");
   const spine = ['<itemref idref="about"/>', ...chapters.map((_, i) => `<itemref idref="c${i + 1}"/>`)].join("");
   files["OEBPS/content.opf"] = strToU8(
-    `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="${esc(lang)}"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:neolibrary:text-edition:${esc(meta.bookId)}</dc:identifier><dc:title>${esc(meta.title)}</dc:title><dc:creator>${esc(meta.author)}</dc:creator><dc:language>${esc(lang)}</dc:language><dc:source>A scanned PDF, read page by page by ${esc(meta.model)}</dc:source><meta property="dcterms:modified">${modified}</meta></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`,
+    `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="${esc(lang)}"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:neolibrary:text-edition:${esc(meta.bookId)}</dc:identifier><dc:title>${esc(meta.title)}</dc:title><dc:creator>${esc(meta.author)}</dc:creator><dc:language>${esc(lang)}</dc:language><dc:source>${meta.source === "pdf-text" ? "A PDF's own text, laid out again" : `A scanned PDF, read page by page by ${esc(meta.model)}`}</dc:source><meta property="dcterms:modified">${modified}</meta></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`,
   );
   return zipSync(files as Parameters<typeof zipSync>[0]);
 }
