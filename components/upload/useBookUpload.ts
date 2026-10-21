@@ -75,5 +75,32 @@ export function useBookUpload() {
     }
   }
 
-  return { input, busy, results, read, error, upload };
+  /** M30: the books behind a Google Drive link (a shared file or folder), read by the server. */
+  async function fromDrive(link: string) {
+    if (!link.trim()) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/books/drive", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ link }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResults([]);
+        setRead(0);
+        setError(json.error ?? "That Google Drive link could not be read.");
+        return false;
+      }
+      const outcomes: UploadOutcome[] = json.results ?? [];
+      setResults(outcomes);
+      setRead(outcomes.length);
+      if (outcomes.some((o) => o.status !== "error")) router.refresh();
+      return true;
+    } catch {
+      setError("That Google Drive link could not be read. Check the connection and try again.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return { input, busy, results, read, error, upload, fromDrive };
 }

@@ -1006,6 +1006,31 @@ Written for Samuel and for the session that builds it.
   rewrite in each style, read back from the live database and matched to
   its file.
 
+### M30 · Add books from Google Drive (Samuel, 2026-10-20)
+
+Written for Samuel and for the session that builds it.
+
+- **G1 · A Google Drive link adds its books.** On the Import page, under
+  the drop zone: paste a link to a book file, or to a folder of books,
+  shared as "Anyone with the link"; "Add from Drive" adds each EPUB, PDF
+  or Markdown file in it (not its subfolders, at most 25 at a time), as
+  if uploaded, so a title waiting for its file gets it. Other files are
+  listed as skipped. No Google account, key or sign-in: the server reads
+  Google's public folder view and public download address
+  (`lib/drive/drive.ts`), and takes only the id from the pasted link, so
+  it never fetches an address the reader gave. A file not shared says
+  how to share it. A fake Drive (`lib/drive/fake.ts`, `DRIVE_FAKE=1`) is
+  used in every test. *Built 2026-10-20 (branch `m30-google-drive`).*
+  Done when: unit tests read file and folder links, refuse other hosts,
+  list a folder view's files (not subfolders), download a shared file and
+  explain one not shared or too large, and add a folder's books
+  (attaching to a waiting title, skipping other files); a browser test
+  adds a fake folder's two books on the Import page and sees the skipped
+  file and the "not shared" message. Real-book check: Samuel's shared
+  folder "LibraryBooks" (Kuhn, *The Structure of Scientific Revolutions*).
+- **Later:** private files (not shared by link) would need Google sign-in
+  (OAuth, a Google Cloud project: Samuel's to set up).
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

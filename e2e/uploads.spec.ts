@@ -437,3 +437,52 @@ test("a Markdown book is added like an EPUB, opens with its chapters, and an age
   }
   await expect(shelf.getByRole("link", { name: /Lamp/ })).toHaveCount(0);
 });
+
+// M30 "Done when": a Google Drive link to a shared folder adds its books like uploads, says which files were skipped,
+// and explains a link that is not shared. The server's Drive is the fake one here (DRIVE_FAKE=1, lib/drive/fake.ts).
+// Both books are removed at the end, so the later tests find the shelves as before.
+test("books are added from a Google Drive link to a shared folder; other files are skipped", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto("/import");
+  const linkBox = page.getByLabel(/Or add from Google Drive/);
+  const add = page.getByRole("button", { name: "Add from Drive" });
+  await expect(add).toBeDisabled();
+  await linkBox.fill("https://drive.google.com/drive/folders/1FakeDrivePrivateForTests00?usp=sharing");
+  await add.click();
+  await expect(page.getByRole("alert").filter({ hasText: "Anyone with the link" })).toBeVisible();
+
+  await linkBox.fill("https://drive.google.com/drive/folders/1FakeDriveFolderForTests00?usp=sharing");
+  await add.click();
+  const results = page.getByTestId("upload-results");
+  await expect(results.getByRole("listitem")).toHaveCount(3);
+  await expect(results.getByRole("listitem").filter({ hasText: "A Book From Drive" })).toContainText("Added to your library");
+  await expect(results.getByRole("listitem").filter({ hasText: "Drive Notes" })).toContainText("Added to your library");
+  await expect(results.getByRole("listitem").filter({ hasText: "shopping-list.txt" })).toContainText("Skipped: not an EPUB, PDF or Markdown file.");
+  await expect(linkBox).toHaveValue("");
+
+  // Screenshots of the Import page with the results (phone and desktop, light and dark).
+  mkdirSync("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(axe.violations.map((v) => `${name} ${scheme} ${v.id}`)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: `screenshots/import-drive-${name}-${scheme}.png`, fullPage: true });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Leave the shelves as the later tests expect them: both removed.
+  const shelf = page.getByTestId("shelf");
+  for (const title of ["A Book From Drive", "Drive Notes"]) {
+    await page.goto("/library");
+    await shelf.getByRole("link", { name: new RegExp(`^${title}`) }).click();
+    await page.locator("summary", { hasText: "Remove from library" }).click();
+    await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
+    await expect(page).toHaveURL(/\/library$/);
+  }
+  await expect(shelf.getByRole("link", { name: /Drive/ })).toHaveCount(0);
+});
