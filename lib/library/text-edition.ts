@@ -32,6 +32,7 @@ import type { Storage } from "@/lib/storage";
 import { checkPage } from "./page-check";
 import { readBook } from "./ebook";
 import { buildSections } from "./sections-store";
+import { hasOwnText, pagesFromPdfText, rawPdfPages } from "./pdf-text-pages";
 import { buildTextEdition, type EditionPage } from "./text-epub";
 import { BLANK_INK, openPdfForPictures, pictureTokens, MAX_PICTURE_TOKENS } from "./page-pictures";
 
@@ -538,8 +539,36 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
     const r = newest.get(page);
     return r ? { page, kind: "read", markdown: r.output } : blank.has(page) ? { page, kind: "blank" } : { page, kind: "unread" };
   });
-  const madeAt = deps.now?.() ?? new Date();
   const models = [...new Set([...newest.values()].map((r) => r.model))].join(" and ");
+  return saveEdition(deps, ownerId, scan, pages, {
+    model: models,
+    toCheck: [...flagged].filter(([, f]) => f).map(([p]) => p).sort((a, b) => a - b),
+    source: "scan",
+  });
+}
+
+type ScanRow = {
+  id: string;
+  title: string;
+  author: string;
+  language: string | null;
+  publisher: string | null;
+  description: string | null;
+  coverKey: string | null;
+  coverSource: (typeof books.$inferSelect)["coverSource"];
+};
+
+/** Builds a scan's text edition from its pages and saves it as the edition book (made again: same id, so notes stay). */
+async function saveEdition(
+  deps: Pick<TextEditionDeps, "db" | "storage" | "now">,
+  ownerId: string,
+  scan: ScanRow,
+  pages: EditionPage[],
+  meta: { model: string; toCheck: number[]; source: "scan" | "pdf-text" },
+) {
+  const { db } = deps;
+  const scanId = scan.id;
+  const madeAt = deps.now?.() ?? new Date();
   const existing = await editionOf(db, ownerId, scanId);
   const id = existing?.id ?? crypto.randomUUID();
   const epub = buildTextEdition(pages, {
@@ -547,9 +576,10 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
     title: scan.title,
     author: scan.author,
     language: scan.language,
-    model: models,
+    model: meta.model,
     madeAt,
-    toCheck: [...flagged].filter(([, f]) => f).map(([p]) => p).sort((a, b) => a - b),
+    toCheck: meta.toCheck,
+    source: meta.source,
   });
   const fileName = `${scan.title} (text edition).epub`.slice(0, 255);
   const info = await readBook(epub, fileName);
@@ -575,6 +605,60 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
   else await db.insert(books).values({ id, ownerId, editionOf: scanId, createdAt: madeAt, ...values });
   await buildSections(db, id, epub, info.toc, "epub");
   return id;
+}
+
+/**
+ * M31: a text edition from a PDF's own text, for a PDF that has text in it (not a scan): its pages laid out again by
+ * lib/library/pdf-text-pages.ts and joined into chapters as a scan's pages are. No model reads or writes anything,
+ * so nothing is spent and no AI set-up is needed. Made again, it replaces the edition, keeping its id. A PDF with
+ * no text of its own is refused: a scan is read with startTextEdition instead.
+ */
+export async function makeTextEditionFromPdfText(deps: Pick<TextEditionDeps, "db" | "storage" | "now">, ownerId: string, scanId: string) {
+  const { db } = deps;
+  const book = await pdfOf(db, ownerId, scanId);
+  const [scan] = await db
+    .select({
+      id: books.id,
+      title: books.title,
+      author: books.author,
+      language: books.language,
+      publisher: books.publisher,
+      description: books.description,
+      coverKey: books.coverKey,
+      coverSource: books.coverSource,
+    })
+    .from(books)
+    .where(and(eq(books.id, book.id), eq(books.ownerId, ownerId)));
+  const file = await deps.storage.get(book.fileKey!);
+  if (!file) throw new TextEditionError("This book's file is missing.", 404);
+  const raw = await rawPdfPages(file.data);
+  if (!hasOwnText(raw)) throw new TextEditionError("This PDF has no text of its own (it is a scan): use Make a text edition, which reads its pages.", 400);
+  const pages = pagesFromPdfText(raw);
+  const id = await saveEdition(deps, ownerId, scan, pages, { model: "the PDF's own text", toCheck: [], source: "pdf-text" });
+  return { editionId: id, pages: pages.length, read: pages.filter((p) => p.kind === "read").length };
+}
+
+/**
+ * Whether a PDF book has text of its own on most pages (from the paragraphs found at import, so nothing is read
+ * again), and its text edition if it has one: what the book page's "Flowing text from this PDF" needs (M31).
+ */
+export async function pdfTextEditionForPage(db: Db, ownerId: string, bookId: string) {
+  const [book] = await db
+    .select({ fileType: books.fileType, pageCount: books.pageCount })
+    .from(books)
+    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  if (!book || book.fileType !== "pdf") return null;
+  const rows = await db
+    .select({ chapterIndex: sections.chapterIndex, text: sections.text })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")));
+  const perPage = new Map<number, number>();
+  for (const r of rows) perPage.set(r.chapterIndex, (perPage.get(r.chapterIndex) ?? 0) + r.text.trim().length);
+  const pages = Math.max(book.pageCount ?? 0, perPage.size, 1);
+  const withText = [...perPage.values()].filter((n) => n > 200).length;
+  if (withText / pages < 0.5) return null;
+  const edition = await editionOf(db, ownerId, bookId);
+  return { editionId: edition?.id ?? null };
 }
 
 /** How pages read elsewhere are marked: `provider` on their rows and job, so the generations table tells them from pages read through the API. */

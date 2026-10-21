@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M30 (Google Drive import), deploy, and add Samuel's LibraryBooks folder live.
+next_action: Merge and deploy M31, then make Kuhn's flowing text from its page and check it.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-20
 shared_copy: none
@@ -290,6 +290,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-20 22:18 · Claude Opus 5.5 (laptop) · M31 P1: flowing text from a PDF's own text (no AI); Kuhn's claude -p reading blocked by the content filter
+- **Done:** Samuel: 'do the flowing text. with claude -p'. The scan-to-text reading of Kuhn (two runs, 4 at a time) was blocked by Anthropic's service: 'API Error: Output blocked by content filtering policy' on 34 of the first 41 pages (7 read, all near-empty front pages); both runs stopped. Not worked around. Samuel agreed ('ok go ahead') to build it from the PDF's own text instead: lib/library/pdf-text-pages.ts (pdf.js text with real font names: running heads/page numbers dropped, chapter and section headings, paragraphs, italics, footnotes with references, line-end hyphens), makeTextEditionFromPdfText in lib/library/text-edition.ts (shares the save step with the scan edition: saveEdition), About page says no AI, POST /api/books/[id]/text-edition/from-text, book-page panel 'Flowing text from this PDF' (owner only; no AI key needed). On Kuhn locally: contents = Opening pages, Preface, I–XIII, Postscript—1969 (matches the printed contents); preview: nothing wider than the column; one mid-sentence join left (p. 200, displayed formulas).
+- **Key paths:** lib/library/pdf-text-pages.ts (+ test); lib/library/text-edition.ts; lib/library/text-epub.ts (source: pdf-text); app/api/books/[id]/text-edition/from-text/route.ts; app/(app)/books/[id]/PdfTextEdition.tsx and page.tsx; e2e/uploads.spec.ts; docs/plan.md (M31); ~/Documents/neolibrary-text-edition/kuhn-pdftext (book text, not in git)
+- **Commands that worked:** npx vitest run -> 120 files, 984 passed, 2 skipped; PORT=3196 npx playwright test --project=setup --project=uploads --no-deps --workers=1 --ignore-snapshots -> 15 passed; npx tsx scripts/text-edition-on-subscription.ts preview ~/Documents/neolibrary-text-edition/kuhn-pdftext … -> contents as printed, over-text check clean
+- **Known issues / blockers:** The book page's Read button eases its colours on a theme change, so an accessibility check right after switching to dark mode measured a midpoint (2.7:1); the test waits 300 ms as agents.spec.ts does. 'mid-century' at a line end became 'midcentury' (the book never writes it whole).
+- **Exact next steps:** 1. Merge (reference screenshots unchanged: the panel only shows on a PDF with text, not on the pages in e2e/pages.ts), deploy (no migration). 2. On the live site, Kuhn's page: Make the flowing text; check the contents and a chapter in the reader.
+
+### 2026-10-20 20:10 · Claude Opus 5.5 (laptop) · Live: 8e78564 (M30 Google Drive import); Samuel's LibraryBooks folder added: Kuhn opens
+- **Done:** #217 merged (8e78564), deployed (no migration). On the live Import page, in Samuel's signed-in browser pane: pasted his LibraryBooks folder link, Add from Drive → 'Microsoft Word - Kuhn_2.docx · Added to your library'. The PDF's own title is Word's export name and no Kuhn title was waiting, so the title and author were set by hand: 'The Structure of Scientific Revolutions', 'Thomas S. Kuhn' (book 4757027f…; undo: ~/Backups/neolibrary/kuhn-title-undo-20261020.sql). Book page shows PDF · 222 pages; reader ready on the title page; search 'paradigm' → 60 hits.
+- **Key paths:** lib/drive/drive.ts; lib/library/drive-import.ts; ~/Backups/neolibrary/kuhn-title-undo-20261020.sql
+- **Commands that worked:** railway up --service web --environment production --ci -> Deploy complete; curl /api/health -> 8e78564; POST /api/books/drive signed out -> 401; psql UPDATE books (title, author) -> UPDATE 1
+- **Known issues / blockers:** No way in the app to rename a book; PDFs exported from Word carry titles like 'Microsoft Word - X.docx'. Proposed as a follow-up.
+- **Exact next steps:** 1. A follow-up: rename a book (title, author) on its page, and ignore junk PDF titles at import. This entry sits on local branch m30-drive-live-record (not pushed): commit it with the next real pull request.
 
 ### 2026-10-20 19:37 · Claude Opus 5.5 (laptop) · M30 G1: add books from a Google Drive link (file or shared folder)
 - **Done:** Samuel: 'make it possible to upload books from google drive' with his shared folder (LibraryBooks: Kuhn-SSR-2ndEd-2.pdf). Built: Import page form 'Or add from Google Drive' → POST /api/books/drive {link, attachTo?} → each EPUB/PDF/Markdown in the shared file or folder is imported like an upload (lib/library/drive-import.ts); other files skipped; 25 per folder; a file not shared says how to share it. Google behind DriveSource (lib/drive/drive.ts, public folder view + public download with confirm=t; only the id is taken from the link) with a fake for tests (lib/drive/fake.ts, DRIVE_FAKE=1). Checked the real reader against Samuel's folder: listed Kuhn-SSR-2ndEd-2.pdf, downloaded 825,544 bytes, %PDF-1.4.
