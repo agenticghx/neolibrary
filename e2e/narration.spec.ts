@@ -358,9 +358,9 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
     await expect(hers.getByLabel("Book to narrate")).toHaveCount(0);
     await expect(hers.getByRole("checkbox")).toHaveCount(0);
     await expect(hers.getByRole("button")).toHaveCount(0);
-    // Nothing else on her page offers it: the opening line names books and audiobooks only, and "How books are heard"
-    // keeps Samuel's words without the sentence on the whole-book choice.
-    await expect(grace.getByText("Add your books and your own audiobooks for them.", { exact: true })).toBeVisible();
+    // Nothing else on her page offers it: "paid up front" (the owner's sentence under "How books are heard"; the page's
+    // lede went on 2026-10-22, fewer labels) appears nowhere, and "How books are heard" keeps Samuel's words without it.
+    await expect(grace.getByText("paid up front", { exact: false })).toHaveCount(0);
     await expect(grace.getByRole("region", { name: "How books are heard", exact: true }).locator("p")).toHaveText([HEARD]);
     await fourLooks(grace, "narration-reader");
 

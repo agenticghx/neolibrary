@@ -45,18 +45,12 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     <ImportRoot className={styles.main}>
       <header className={styles.head}>
         <h1 className={styles.title}>Import</h1>
-        <p className={styles.lede}>
-          {owner
-            ? "Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front."
-            : "Add your books and your own audiobooks for them."}
-        </p>
       </header>
 
       <section aria-labelledby="books-h" className={styles.section}>
         <h2 id="books-h" className={styles.sectionTitle}>
           Add books
         </h2>
-        <p className={styles.note}>EPUB, PDF or Markdown (.md) files, free of DRM (copy protection). Several at once is fine.</p>
         <ImportZone />
       </section>
 
@@ -64,10 +58,6 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         <h2 id="audio-h" className={styles.sectionTitle}>
           Add your audiobook to a book
         </h2>
-        <p className={styles.note}>
-          A read-along package made from that book&apos;s file: the audio, the script that was read, and the time of every word, so the word
-          being said is lit as you listen.
-        </p>
         {withFile.length ? (
           // #audio-h: after Choose, the page opens at this section (on a phone it is below the fold).
           <form method="get" action="/import#audio-h" className={styles.choose}>
@@ -89,7 +79,15 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
             </button>
           </form>
         ) : (
-          <p className={styles.note}>Add a book first: an audiobook goes with a book you have.</p>
+          // No book yet: the picker is there but greyed out, and says so in its one option (fewer labels, 2026-10-22).
+          <div className={styles.choose}>
+            <label htmlFor="audio-book" className={forms.label}>
+              Book
+            </label>
+            <select id="audio-book" className={`${forms.input} ${styles.select}`} disabled defaultValue="">
+              <option value="">Add a book first</option>
+            </select>
+          </div>
         )}
         {chosen ? (
           <div className={styles.upload}>
@@ -112,7 +110,16 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
             {epubs.length ? (
               <WholeBookNarration books={epubs} running={narrating} />
             ) : (
-              <p className={styles.note}>Add an EPUB first: whole-book narration is for a book you have, as an EPUB.</p>
+              <div className={styles.fields}>
+                <div className={styles.field}>
+                  <label htmlFor="narrate-book" className={forms.label}>
+                    Book to narrate
+                  </label>
+                  <select id="narrate-book" className={`${forms.input} ${styles.select}`} disabled defaultValue="">
+                    <option value="">Add an EPUB first</option>
+                  </select>
+                </div>
+              </div>
             )}
           </>
         ) : (

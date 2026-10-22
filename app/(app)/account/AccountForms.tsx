@@ -17,7 +17,6 @@ export function AccountForms() {
         <h2 id="password" className={styles.cardTitle}>
           Change password
         </h2>
-        <p className={styles.cardText}>The new password needs at least 10 characters. Other browsers stay signed in.</p>
         <form action={change} className={forms.form}>
           <label className={forms.label} htmlFor="current-password">
             Current password
@@ -54,10 +53,6 @@ export function AccountForms() {
         <h2 id="sessions" className={styles.cardTitle}>
           Other sessions
         </h2>
-        <p className={styles.cardText}>
-          Sign out of every other browser that is still signed in to this account. This browser stays signed in. Sign out,
-          in the account menu, ends this browser only.
-        </p>
         <form action={endOthers} className={forms.form}>
           {sessions.done ? (
             <p className={styles.status} role="status">

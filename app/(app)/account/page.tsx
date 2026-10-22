@@ -26,9 +26,9 @@ export default async function AccountPage() {
   const focusBook = focus ? await getBook(db, user.id, focus.bookId) : null;
   return (
     <main className={styles.main}>
-      <p className={styles.eyebrow}>You</p>
       <h1 className={styles.title}>Account</h1>
-      <p className={styles.lede}>
+      {/* On a phone only: desktop shows the name at the foot of the sidebar (fewer labels, 2026-10-22). */}
+      <p className={`${styles.lede} ${styles.phoneOnly}`}>
         Signed in as {user.name} ({user.email}).
       </p>
       {focus ? (

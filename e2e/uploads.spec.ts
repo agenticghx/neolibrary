@@ -262,8 +262,9 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(axe.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      // The serif text at the reading size: smaller on a phone, as on the other pages.
-      const lede = page.getByText("Add your books and your own audiobooks for them, or create AI voice narration for an entire EPUB, paid up front.", { exact: true });
+      // The serif text at the reading size: smaller on a phone, as on the other pages (the page's lede went on
+      // 2026-10-22, fewer labels; "How books are heard" is set the same way).
+      const lede = page.getByRole("region", { name: "How books are heard", exact: true }).locator("p").first();
       expect(await lede.evaluate((el) => getComputedStyle(el).fontSize)).toBe(name === "phone" ? "18px" : "20px");
       await page.screenshot({ path: `screenshots/import-audiobook-${name}-${scheme}.png`, fullPage: true });
     }
@@ -387,7 +388,8 @@ test("a Markdown book is added like an EPUB, opens with its chapters, and an age
     "The second lamp burned gas, brighter and cleaner, and the keeper slept a little longer.",
   ].join("\n");
   await page.goto("/import");
-  await expect(page.getByText("EPUB, PDF or Markdown (.md) files, free of DRM (copy protection).")).toBeVisible();
+  // The drop zone itself says Markdown is welcome (the line above it went on 2026-10-22, fewer labels).
+  await expect(page.getByText("Drop your DRM-free books (EPUB, PDF, Markdown) anywhere on this page.")).toBeVisible();
   await page.getByLabel("Choose files").setInputFiles({ name: "the-lamp-book.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
   await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
 

@@ -45,10 +45,7 @@ export function ReadingPreferences({ initial }: { initial: Preferences }) {
             </button>
           ))}
         </div>
-        <p className={styles.cardText}>
-          The style of rewrites and other AI explanations, for every book. STE is Simplified Technical English: one meaning per
-          word, short sentences. A book can have its own style, under Aa in the reader.
-        </p>
+        <p className={styles.cardText}>STE is Simplified Technical English: one meaning per word, short sentences.</p>
       </fieldset>
       <fieldset className={styles.choice}>
         <legend className={styles.choiceLegend}>A book opens with</legend>
@@ -65,10 +62,6 @@ export function ReadingPreferences({ initial }: { initial: Preferences }) {
             </button>
           ))}
         </div>
-        <p className={styles.cardText}>
-          Original is the book alone; Side by side puts the rewrite beside the page (under it on a phone); Rewritten shows the
-          rewrite alone. The switch in the reader changes this too.
-        </p>
       </fieldset>
       {error ? (
         <p className={styles.status} role="alert">
