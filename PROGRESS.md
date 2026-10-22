@@ -291,6 +291,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-22 09:47 · Claude Fable 5.1 (laptop) · Drive import test: wait for the page title before the accessibility check (a race met on #219)
+- **Done:** CI run 39788695057 on #219 (fewer labels) failed once on uploads.spec's Google Drive test: axe reported document-title on html at the first look. Cause: a successful Drive import calls router.refresh() (useBookUpload.ts) and the title is empty for a moment during the refresh; the same race review.spec.ts met on 2026-10-12 (#175). Fix: the test waits until the title reads Import again (expect.poll on page.title()) before the four looks; recorded under Causes removed in docs/ci-flakes.md. The failed job was re-run once for #219's merge.
+- **Key paths:** e2e/uploads.spec.ts (the Drive test); docs/ci-flakes.md
+- **Commands that worked:** npx eslint e2e/uploads.spec.ts -> exit 0 (see below)
+- **Known issues / blockers:** Not run on the laptop: the Drive test passed locally before the change (15 passed in the uploads project on #219's branch), and the wait is the same one review.spec.ts uses; CI runs it.
+- **Exact next steps:** 1. Merge with the merge train after #219 merges (the ledgers conflict; the train keeps both sides). 2. No deploy needed for a test-only change; it rides with the next.
 ### 2026-10-22 09:27 · Claude Fable 5.1 (laptop) · PR #219 open (fewer labels): browser tests on the laptop, after pictures shown, pushed over HTTPS
 - **Done:** Samuel asked to see the 'after' pictures: the test suite rendered Home, Import and Account signed in (desktop and phone, light) on this branch; the six renderings are on his page https://claude.ai/artifact/7rCCMFvyQvjCMDWoqguMHM under each boxed 'before'. A third pinned assertion found and retargeted: the Markdown-books test (uploads.spec) checked the removed DRM line; it now checks the drop zone's own line, which names Markdown. Commit 7d94c94 pushed over HTTPS (git -c credential.helper='!gh auth git-credential' push https://github.com/agenticghx/neolibrary.git m31-fewer-labels); PR #219 opened with gh.
 - **Key paths:** e2e/uploads.spec.ts; scratchpad renderings: /private/tmp/claude-503/-Users-sahuno-projects-personal-Neolibrary/c36c9aa5-dbfb-40ff-b42b-93eeaa3eb8ea/scratchpad/boxes/after-*.png
