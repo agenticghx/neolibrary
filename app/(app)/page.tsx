@@ -126,10 +126,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 <h2 id="library-h" className={styles.sectionTitle}>
                   Your library
                 </h2>
-                <p className={styles.lede}>
-                  No book files yet: add them on the <Link href="/import">Import</Link> page. Your Paths&apos; titles wait below until you add
-                  their files.
-                </p>
                 <SampleOffer />
               </>
             )}
@@ -141,13 +137,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   );
 }
 
+/** Three public-domain classics from Standard Ebooks, for a library with no files yet. The button is the whole offer (fewer labels, 2026-10-22). */
 function SampleOffer() {
   return (
     <form action={addSampleBooksAction} className={styles.samples}>
-      <p className={styles.samplesText}>
-        No books to hand? Start with three free classics: <em>Frankenstein</em>, <em>Jekyll and Hyde</em> and <em>The Time Machine</em>{" "}
-        (public-domain editions from Standard Ebooks).
-      </p>
       <button type="submit" className={styles.samplesButton}>
         Add three free classics
       </button>

@@ -6,13 +6,6 @@
   gap: var(--space-5);
 }
 
-.eyebrow {
-  color: var(--ink-900); /* on the room's dark band: main ink only (M24) */
-  font-size: var(--text-xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
 .title {
   font-size: var(--text-2xl);
 }
@@ -22,6 +15,17 @@
   font-family: var(--font-serif);
   font-size: var(--text-read);
   line-height: var(--leading-read);
+}
+
+/* Phones only (as Home's account button): desktop has the name at the foot of the sidebar. */
+.phoneOnly {
+  display: none;
+}
+
+@media (width <= 48rem) {
+  .phoneOnly {
+    display: block;
+  }
 }
 
 .card {
