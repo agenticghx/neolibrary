@@ -461,6 +461,11 @@ test("books are added from a Google Drive link to a shared folder; other files a
   await expect(results.getByRole("listitem").filter({ hasText: "Drive Notes" })).toContainText("Added to your library");
   await expect(results.getByRole("listitem").filter({ hasText: "shopping-list.txt" })).toContainText("Skipped: not an EPUB, PDF or Markdown file.");
   await expect(linkBox).toHaveValue("");
+  // A successful Drive import calls router.refresh() so the audiobook picker lists the new books. During that
+  // refresh the page title can be empty for a moment (CI run 39788695057 on #219: axe reported document-title on
+  // html), as review.spec.ts met after its last rating. The check still requires a title; it waits until the
+  // refresh has put "Import" back.
+  await expect.poll(() => page.title()).toMatch(/Import/);
 
   // Screenshots of the Import page with the results (phone and desktop, light and dark).
   mkdirSync("screenshots", { recursive: true });
