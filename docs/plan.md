@@ -1064,6 +1064,44 @@ Written for Samuel and for the session that builds it.
   Known limit: a word broken at a line end that the book never writes
   whole elsewhere is joined ("mid-" "century" became "midcentury").
 
+### M32 · X-ray: who and what is in a book (Samuel, 2026-10-22)
+
+Written for Samuel and for the session that builds it. Not started: Samuel
+says when. X-ray is Kindle's name for the panel behind a book: the people,
+places and terms in it, each with a description and a bar showing where it
+comes up. The ideas, ranked, are in `docs/xray-ideas.md`; the live prototype
+Samuel chose from is linked there, with its source in
+`docs/design/prototypes/xray/`.
+
+Samuel's picks on the prototype (2026-10-22, "Let's go for this 'C A A A'"):
+- C · on the page: a dotted underline on the first mention in each paragraph,
+  and an "On this page" strip above the text;
+- A · the card: three layers in order (from this book up to here, a quote
+  for every fact; from your library; from the world, labelled as AI);
+- A · the Who & what list: by how often, with each entry's trail of chapters;
+- A · position: a card knows only what the reader has read, with a "Show
+  everything" switch; entries not yet met are not listed.
+
+First slice (a working assumption, since the prototype is tier 1 of the
+ideas doc): the index itself, the marks and strip, the position-aware card.
+Names and their trails come first from the text alone, at no cost (option C
+in the doc); the facts from a chapter-by-chapter pass by Claude behind a
+"Build the X-ray" button that shows the estimate first. Every fact must
+carry a quote found word for word in the stored text, or it is dropped and
+counted; facts are stored per chapter, which is what makes "only up to here"
+possible. Tiers 2 to 4 wait. The four remaining choices (the name in the
+app, the argument X-ray, when to pay, the "from the world" layer) are Open
+unknowns row 27, with defaults.
+
+Done when: a browser test opens a public-domain book with the fake Claude,
+sees the Who & what tab with entries sorted by how often they appear, taps a
+dotted name on the page and gets a card whose facts each open the right
+place; a fact from a later chapter is absent until the reader moves there
+and present after; the index exports and imports identically; the quote
+check drops a planted fact with no quote. Screenshots: phone and desktop,
+light and dark. Then Samuel builds the X-ray for *Chip War* on the live site,
+checks twenty entries by eye, and records a verdict.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
