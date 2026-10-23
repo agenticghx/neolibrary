@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel's twenty-entry check of Chip War's Who & what and his look at Get help; this ledger entry rides with the next real pull request.
+next_action: Merge X7, deploy, tidy Chip War, record the before/after.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-23
 shared_copy: none
@@ -293,6 +293,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-23 03:04 · Claude Fable 5.1 (laptop) · M32 X7: local runs green (244 browser tests, 1012 unit tests); pushed as a PR
+- **Done:** The browser run of the ai project and the whole unit suite passed with the alias rules in place; committed on m32-x7-alias-hygiene (on top of the unpushed Chip War record) and opened as a pull request.
+- **Key paths:** lib/library/xray-aliases.ts; lib/library/xray-read.ts; scripts/xray-on-subscription.ts
+- **Commands that worked:** npx playwright test --project ai --ignore-snapshots -> 244 passed (4.0m); npx vitest run -> 1012 passed, 2 skipped (125 files)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge the X7 PR when the four checks are green. 2. Read main's run; deploy; run tidy on Chip War; record the before and after (integrated circuit's count, Tokyo's aliases, the pairs sharing an alias).
+
+### 2026-10-23 03:00 · Claude Fable 5.1 (laptop) · M32 X7: alias hygiene, written on m32-x7-alias-hygiene; local browser and unit runs in progress
+- **Done:** After the Chip War reading, the stored aliases were looked at on the live database (read-only): Claude's aliases held quoted forms (chip with quotes and a comma), possessives, descriptions (TSMC's chairman, the island of Taiwan), demonyms (Japanese) and other entries' names (Japan under Tokyo); 'integrated circuit' counted 832 mentions, mostly 'chip', and Japan was merged into Tokyo. Written: lib/library/xray-aliases.ts (five rules: one way of writing; a description adds only lower-case words to the name; a lower-case alias must share a word stem with the name, acronym words included; no demonyms; not another entry's name, except a shorter form of the same kind), applied in checkAnswer to every answer and, through tidyEntries at the end of applyChapter, to every stored entry; a join by name or shared alias needs the same kind; tidyXray for a book read before the rules, on the agent route (POST { tidy: true }) and as the script's tidy command; one sentence in prompts/xray.md (an alias is not a description; a different person sharing a surname is a different entry); the skill's step 4; plan X7. The existing test that expected 'the lawyer' as an alias of Utterson now expects it dropped: a deliberate change of behaviour, said so in the test.
+- **Key paths:** lib/library/xray-aliases.ts; lib/library/xray-aliases.test.ts; lib/library/xray-read.ts; lib/library/xray-read.test.ts; lib/library/xray.ts (ADJECTIVES exported); app/api/agent/books/[id]/xray/route.ts; scripts/xray-on-subscription.ts; prompts/xray.md; .claude/skills/xray-on-subscription/SKILL.md; docs/plan.md
+- **Commands that worked:** npx vitest run lib/library/xray-aliases.test.ts lib/library/xray-read.test.ts lib/library/xray.test.ts lib/library/export.test.ts lib/library/xray-layers.test.ts -> 35 passed (5 files); npx eslint -> ok; npx tsc --noEmit -> ok; a diagnostic run of the rules on the Jekyll fixture changed no entry
+- **Known issues / blockers:** The browser run of the ai project and the whole unit suite were running locally at the time of this entry; the PR waits for them. A description with a capitalised word (California's tech epicenter) still passes the rules. The before/after on Chip War (integrated circuit's count, Tokyo's aliases, the three pairs sharing an alias) is taken after the deploy and the tidy command.
+- **Exact next steps:** 1. Read the two local runs; fix what they show. 2. Commit on m32-x7-alias-hygiene (built on m32-chipwar-record, which carries the unpushed ledger record), push, open the PR, merge when green. 3. Read main's run, deploy, run tidy on Chip War, record before and after.
 
 ### 2026-10-23 02:22 · Claude Fable 5.1 (laptop) · Live: 115978a0 (M32 X6, a praise page is not a chapter). Chip War read for X-ray on the subscription: 59 chapters, 890 entries, 2816 facts, 1 dropped, $0 to the app, $0.60 it would have cost on the API
 - **Done:** The reading (scripts/xray-on-subscription.ts read, started 00:54 laptop clock) finished at 01:51: 'Every chapter is read (59 of 67)' (the 8 Part pages have no text). Per the log: 2816 facts, 1 dropped by the quote check (Chapter 54), 56 min 35 s of reading, API price it would have cost $0.60. On the live database afterwards (read-only psql): 890 entries (259 organisations, 199 terms, 192 people, 150 places, 46 works, 44 events), 2816 facts, 10568 mentions, 59 generations with provider claude-subscription, app cost $0. The twenty entries with most facts, looked at by eye: Intel, TSMC, Morris Chang, Andy Grove, Texas Instruments, Fairchild Semiconductor, Silicon Valley, Robert Noyce, Gordon Moore, Taiwan, Defense Department, Moore's Law, Samsung, Huawei, ASML, DRAM, AMD, Soviet Union, Akio Morita, integrated circuit; Morris Chang's facts are right and specific (founded TSMC; TI from 1958; born in mainland China, grew up in Hong Kong). Then X6 deployed: main's run 39907837623 green after the unit job's re-run; the first railway up failed ('Deploy failed: Failed to build an image', deployment cff3819f, production untouched); the second succeeded (deployment eb77ef97). #231 (the EPUB writers' entry time) merged as 19a5fb71 and is not deployed on its own; it rides with the next deploy (main's run 39910345788 for it: green, WebKit projects included).

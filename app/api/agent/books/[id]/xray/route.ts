@@ -2,7 +2,7 @@ import { agentUser } from "@/lib/auth/agent";
 import { getDb } from "@/lib/db";
 import { jsonAtMost } from "@/lib/http-body";
 import { XrayError } from "@/lib/library/xray";
-import { nextChapterToRead, saveChapterReadElsewhere, type ReadElsewhere } from "@/lib/library/xray-read";
+import { nextChapterToRead, saveChapterReadElsewhere, tidyXray, type ReadElsewhere } from "@/lib/library/xray-read";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = await jsonAtMost(req, MAX_BODY);
   if (body instanceof Response) return body;
   try {
+    // { tidy: true }: the aliases of every entry put through the rules again and the mentions rebuilt (M32 X7).
+    if ((body as { tidy?: unknown } | null)?.tidy === true) return Response.json(await tidyXray(await getDb(), who.user.id, bookId));
     return Response.json(await saveChapterReadElsewhere(await getDb(), who.user.id, bookId, (body ?? {}) as ReadElsewhere), { status: 201 });
   } catch (e) {
     if (e instanceof XrayError) return Response.json({ error: e.message }, { status: e.message.includes("not found") ? 404 : 400 });

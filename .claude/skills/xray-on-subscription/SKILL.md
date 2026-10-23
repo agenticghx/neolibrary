@@ -42,8 +42,13 @@ The site's own way, "Build the X-ray" in Who & what, calls Claude from the serve
    - Stopped part-way (or out of subscription), the same command carries on from the next unread chapter.
    - `--chapters 3` reads three and stops: use it first on a new book, then look.
    - `--model claude-haiku-5-5` is the default, as on the server (`AI_MODEL_XRAY`); `--effort medium` likewise.
-4. **Look at the result on the live site** (Samuel, or a session with the browser): open the book, Study, Who & what. Names should have kinds (Person, Place…) and a card should show "From this book, up to here" with facts and their quotes. Dropped counts above about one in ten facts mean the model is paraphrasing: say so in the ledger.
-5. **Record it in the ledger**: the book, chapters read, facts stored, facts dropped, the API price it would have cost, and what was looked at by eye.
+4. **A book read before the alias rules** (M32 X7, 2026-10-23: the rules that keep an alias only when it is a way of writing the name) is put through them once, with its mentions rebuilt:
+   ```bash
+   zsh -ic 'npx tsx scripts/xray-on-subscription.ts tidy <site> <book id>'
+   ```
+   It prints how many entries changed. A book read after the rules needs nothing: every answer goes through them as it is stored.
+5. **Look at the result on the live site** (Samuel, or a session with the browser): open the book, Study, Who & what. Names should have kinds (Person, Place…) and a card should show "From this book, up to here" with facts and their quotes. Dropped counts above about one in ten facts mean the model is paraphrasing: say so in the ledger.
+6. **Record it in the ledger**: the book, chapters read, facts stored, facts dropped, the API price it would have cost, and what was looked at by eye.
 
 ## What can go wrong
 

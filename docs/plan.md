@@ -1143,6 +1143,15 @@ The steps, one pull request each (Samuel: "build the M32", 2026-10-22):
   20 facts about the book's reviewers. The X-ray now skips a praise page as
   it skips the publisher's other pages, and whatever was stored for one
   stays out of the list and the marks.
+- **X7 · Alias hygiene.** Claude's aliases on *Chip War* also held quoted
+  forms (“chip,”), possessives, descriptions ("TSMC’s chairman", "the island
+  of Taiwan"), demonyms ("Japanese") and other entries' names ("Japan" under
+  Tokyo): "integrated circuit" counted 832 times, mostly "chip", and Japan
+  merged into Tokyo. Rules on the server (`lib/library/xray-aliases.ts`)
+  keep an alias only when it is a way of writing the name, on every answer
+  and, for a book read before the rules, through `tidy` (the agent route and
+  the script); a join by a shared alias needs the same kind. One line in
+  the prompt: a different person sharing a surname is a different entry.
 
 Built and live (2026-10-23): X1 to X4 and X1b (the name finder checked on
 three real books) in d1632ebd with migrations 0031 and 0032; X5 in 4fcc2154.
