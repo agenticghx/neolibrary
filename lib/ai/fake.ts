@@ -25,6 +25,10 @@ function fakeAnswer(req: TextRequest) {
   if (task === "Ask this book") return fakeAsk(req.prompt);
   if (task === "Explain it back") return JSON.stringify(fakeExplainBack(req.prompt));
   if (task === "Who and what") return JSON.stringify(fakeXray(req.prompt));
+  if (task === "From the world") {
+    const name = /^Name: (.+?) \(/m.exec(req.prompt)?.[1] ?? "this name";
+    return `The test AI's general knowledge of ${name}: a made-up note, labelled as from outside the book. The real one comes from Claude.`;
+  }
   const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   if (req.schema) return JSON.stringify(/question/i.test(task) ? fakeQuestions(text) : fakeConcepts(text));
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];

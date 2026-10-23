@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the X3 pull request when green; then X4 (library and world layers).
+next_action: Merge X3 (#225) when green; rebase, open and merge the X4 pull request; then deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-22
 shared_copy: none
@@ -292,6 +292,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-22 22:53 · Claude Fable 5.1 (laptop) · M32 X4 built on m32-x4-xray-layers (stacked on X3): the same name in your other books with links, and what the world knows on request; all checks green locally; waits on X3's merge to rebase and open its PR
+- **Done:** X4 (the card's two outer layers, Samuel's pick A): lib/library/xray-layers.ts (entryOf; libraryLinks: the same name in the reader's other books by any shared way of writing it, with mentions, facts and a link to the first mention there, a scan and its text edition counted as one book; worldRequest/askWorld/storedWorld: Claude's general knowledge of a name, asked for on the card, stored once per name and style under the entry's id, shared like rewrites); prompts/xray-world.md (two or three sentences from outside the book; a name that exists only inside the book is said to be so, and the story is never told); GET/POST /api/books/[id]/xray/entry; the fake answers 'From the world'; FEATURE_MODELS['xray-world'] on Haiku; the card shows From your library (links into the other books) and From the world (a button with the estimate, then the note in the machine-written look, labelled as from general knowledge, with provenance), both below what the book itself says.
+- **Key paths:** lib/library/xray-layers.ts and xray-layers.test.ts; prompts/xray-world.md; app/api/books/[id]/xray/entry/route.ts; app/(reader)/books/[id]/read/XrayEntryCard.tsx, XrayEntryCard.module.css, XrayCard.tsx, XrayPanel.tsx; lib/ai/fake.ts, lib/ai/model.ts, lib/ai/generate.ts; e2e/ai.spec.ts
+- **Commands that worked:** npm run check -> lint and types clean, 999 passed, 2 skipped (a set-state-in-effect lint finding fixed first); npx vitest run lib/library/xray-layers.test.ts -> 2 passed; npx playwright test --project ai --ignore-snapshots -> 236 passed (3.2m), the X4 test among them (Frankenstein named for London with an Open in Frankenstein link; the world's note asked once and kept; nothing elsewhere for Utterson; a name not in the book refused)
+- **Known issues / blockers:** X3's pull request #225 still has its browser job running; X4 is stacked on X3's tip and must be rebased with --onto once #225 merges. Not committed yet at the time of this entry. Samuel's Chip War check (the last line of M32) waits on a real Anthropic key on Railway.
+- **Exact next steps:** 1. When #225 merges: git rebase --onto origin/main <X3 tip> m32-x4-xray-layers, resolve PROGRESS.md with unwind.py, npm run check, push, open the X4 pull request, merge with the merge train. 2. Deploy at Samuel's word (migrations 0031 and 0032 need a backup first). 3. Samuel builds the X-ray for Chip War on the live site and checks twenty entries by eye.
 
 ### 2026-10-22 22:40 · Claude Fable 5.1 (laptop) · M32 X3 ready on m32-x3-xray-facts (rebased onto main after X2 merged as 12731d36): all checks green locally; pull request next
 - **Done:** Since the 22:31 entry: the chapter label in the facts block takes the machine-text ink (the dashed-rule colour on the tinted block was 4.01:1); the panel asks for the build summary again right after a start (an instant run was over before its own start answer was read, and the box stayed at 0 of 10). Browser: 235 passed, the Build test among them (0 of 10 to 10 of 10 chapters read, 'Every chapter is read. 10 facts were left out: their quotes were not in the book', Person kinds in the list, no Green Cheese in the book, the lawyer's card with facts and quotes from chapter 1, a quote opening its place, spending on the book under the cap). Screenshots looked at by eye: the card with the facts block, light and dark, computer and phone. Rebased onto main from X2's rebased commit 50efc831; PROGRESS.md kept both sides with unwind.py.
