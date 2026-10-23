@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build M32 (X-ray, tier 1) at Samuel's word; row 27 defaults on 2026-10-29.
+next_action: Merge the M32 X1 pull request when green; then X2 (marks on the page).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-22
 shared_copy: none
@@ -292,6 +292,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-22 21:41 · Claude Fable 5.1 (laptop) · M32 X1 ready: X-ray index from the text and the Who & what tab; all checks green locally; pull request next
+- **Done:** X1 complete on branch m32-x1-xray-index. Since the 21:26 entry: the browser test found two true behaviours my test had assumed wrongly (at the top of chapter 2 Enfield and Utterson are level; Soho is named only at the end of chapter 2) and one real choice to make: the reader's place was the start of the visible page, so a name first written lower on the same page counted as unmet; it is now the end of the visible range (positionAt collapses the range CFI to its end). The trail leaves the publisher's pages out, as the index does. Screenshots looked at by eye in all four looks: list, trail with the current chapter marked, phone layout.
+- **Key paths:** lib/library/xray.ts; lib/library/xray.test.ts; app/(reader)/books/[id]/read/XrayPanel.tsx; e2e/ai.spec.ts; screenshots/reader-who-and-what-{desktop,phone}-{light,dark}.png (not in git; CI's grid shows them)
+- **Commands that worked:** npm run check -> lint and types clean, 990 passed, 2 skipped; npx vitest run lib/library/xray.test.ts -> 6 passed; npx vitest run lib/library/export.test.ts -> 12 passed; npx playwright test --project ai --ignore-snapshots -> 233 passed (3.1m), before the trail's chapter filter, which the browser test does not assert on
+- **Known issues / blockers:** Reference screenshots are Linux renderings, so the looks projects fail on a Mac by design (run with --ignore-snapshots locally). The X1 card lives inside the panel (a name opened replaces the list); the card over the page, with a sheet on a phone, comes with the marks in X2, as Samuel chose. Kinds are all 'name' until X3.
+- **Exact next steps:** 1. Push, open the X1 pull request with this evidence, merge with the merge train when the four checks are green. 2. X2 in a new worktree off main: dotted underline on foliate's overlay, the On this page strip, the card over the page with quote links. 3. X3: prompts/xray.md and the chapter-by-chapter pass with the quote check.
+
+### 2026-10-22 21:26 · Claude Fable 5.1 (laptop) · M32 X1 built on branch m32-x1-xray-index (worktree): X-ray index from the text, Who & what tab; unit tests green, browser run in progress
+- **Done:** Samuel: 'build the M32'. Three scouts mapped the reader, the Need to know pattern and the data conventions; the four steps X1 to X4 are written into docs/plan.md under M32. X1 is built: migration 0031 (xray_entries, xray_mentions) with its down step and the drizzle mirror; lib/library/xray.ts (findNames: capitalised names grouped by how the book writes them, sentence-starters and the publisher's pages left out; findMentions: offsets into sections.text; buildXray at import; ensureXray on first open; listXray with per-chapter trails and the reader's position); GET/POST /api/books/[id]/xray; a fifth Study tab 'Who & what' (XrayPanel.tsx, list by mentions so far, trail, search, Show everything, a name opened lists where it appears with links); entries exported and imported, mentions rebuilt. Jekyll fixture: 13 entries, the six people lead, every mention's slice is an alias.
+- **Key paths:** db/migrations/0031_xray.up.sql and .down.sql; lib/db/schema.ts; lib/library/xray.ts and xray.test.ts; lib/library/import.ts; lib/library/export.ts and export.test.ts; app/api/books/[id]/xray/route.ts; app/(reader)/books/[id]/read/XrayPanel.tsx, XrayPanel.module.css, StudyTabs.tsx, StudyTabs.module.css, Reader.tsx; e2e/ai.spec.ts; docs/plan.md (M32 steps)
+- **Commands that worked:** npx vitest run lib/library/xray.test.ts -> 6 passed; npx vitest run lib/library/export.test.ts -> 12 passed; npx vitest run -> 990 passed, 2 skipped; npm run lint and npm run typecheck -> clean (after reordering two CSS rules); npx playwright test --project ai -> running in the background at the time of this entry
+- **Known issues / blockers:** Browser test and the four reader-who-and-what screenshots not yet seen: the Playwright ai project was still running. The worktree's PROGRESS.md fails ledger-lint on 139 older lines from main, not touched here. Nothing committed yet.
+- **Exact next steps:** 1. Read the Playwright result; look at screenshots/reader-who-and-what-*.png by eye; fix what they show. 2. Commit on m32-x1-xray-index, push, open the X1 pull request with the evidence, merge with the merge train when green. 3. X2: marks on the page (dotted underline on foliate's overlay, the On this page strip, the card over the page).
 
 ### 2026-10-22 20:15 · Claude Fable 5.1 (laptop) · PR #221 (X-ray docs, M32 plan, Samuel's C A A A) merged as 31577e09 by the auto-merge Action; nothing to deploy
 - **Done:** All four checks green on head 8cc7198a (Lint/types/unit, Real Postgres, Browser tests, PR hygiene). The auto-merge Action squash-merged #221 before my own merge command ran (gh: 'already merged'). Merge commit 31577e09 on main at 2026-10-23 00:14 UTC. Docs only, so no backup, no migration, no deploy. The 15 ledger entries from 2026-10-17 to 10-19 that sat on local branch m25-scan-compare are now on main; that branch's two staged files (docs/neolibrary-architecture.html, docs/suggestionsForAINative.md) are untouched, and the duplicate untracked X-ray files were removed from that working tree.

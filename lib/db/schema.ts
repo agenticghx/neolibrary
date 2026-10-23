@@ -356,6 +356,46 @@ export const focusSessions = pgTable("focus_sessions", {
   endedHow: text("ended_how").$type<"time" | "answered" | "early" | "waited" | "released">(),
 });
 
+/**
+ * M32 X1: the X-ray index of a book (see db/migrations/0031_xray.up.sql). An entry is a person, place,
+ * organisation or term the book names, with every way the book writes it; its kind is "name" until Claude
+ * classifies it (X3). generation_id is the AI answer it came from, null when found in the text alone.
+ */
+export const xrayEntries = pgTable(
+  "xray_entries",
+  {
+    bookId: uuid("book_id")
+      .notNull()
+      .references(() => books.id, { onDelete: "cascade" }),
+    id: text("id").notNull(),
+    name: text("name").notNull(),
+    kind: text("kind").$type<XrayKind>().notNull().default("name"),
+    aliases: jsonb("aliases").$type<string[]>().notNull().default([]),
+    generationId: uuid("generation_id").references(() => generations.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.bookId, t.id] })],
+);
+export type XrayKind = "name" | "person" | "place" | "organisation" | "term" | "work" | "event";
+
+/**
+ * One occurrence of an entry's alias in one paragraph: character offsets into sections.text (whitespace
+ * collapsed), the paragraph's chapter and its place in the book. Derived from the entries and the text (M32 X1).
+ */
+export const xrayMentions = pgTable(
+  "xray_mentions",
+  {
+    bookId: uuid("book_id").notNull(),
+    entryId: text("entry_id").notNull(),
+    sectionId: text("section_id").notNull(),
+    chapterIndex: integer("chapter_index").notNull(),
+    position: integer("position").notNull(),
+    startAt: integer("start_at").notNull(),
+    endAt: integer("end_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.bookId, t.entryId, t.sectionId, t.startAt] })],
+);
+
 /** Time and words of one sitting inside one chapter (M10 (c)). */
 export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };
 

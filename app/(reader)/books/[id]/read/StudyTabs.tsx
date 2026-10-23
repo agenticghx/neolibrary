@@ -3,19 +3,20 @@
 import styles from "./reader.module.css";
 import own from "./StudyTabs.module.css";
 
-export type StudyTab = "know" | "questions" | "ask" | "explain";
+export type StudyTab = "know" | "questions" | "ask" | "explain" | "xray";
 
 const TABS: [StudyTab, string][] = [
   ["know", "Need to know"],
   ["questions", "Test yourself"],
   ["ask", "Ask"],
   ["explain", "Explain it back"],
+  ["xray", "Who & what"],
 ];
 
 /**
- * The parts of Study (M19 P5, M21, M26): the ideas a chapter takes for granted, questions on it, a question of
- * your own answered from the book, and your own summary of the chapter, checked against it. Tabs at the top of each panel, so each is one press away. The arrow keys move
- * between them.
+ * The parts of Study (M19 P5, M21, M26, M32): the ideas a chapter takes for granted, questions on it, a question of
+ * your own answered from the book, your own summary of the chapter, checked against it, and who and what the book
+ * names (X-ray). Tabs at the top of each panel, so each is one press away. The arrow keys move between them.
  */
 export function StudyTabs({ current, onPick }: { current: StudyTab; onPick: (tab: StudyTab) => void }) {
   return (

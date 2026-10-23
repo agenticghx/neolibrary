@@ -15,7 +15,7 @@ import { importBook } from "./import";
 import { seedPath } from "./paths";
 import { savePosition } from "./reading";
 import { and, eq } from "drizzle-orm";
-import { annotations, books, generations, users } from "@/lib/db/schema";
+import { annotations, books, generations, users, xrayMentions } from "@/lib/db/schema";
 import { setStyle } from "./ai-style";
 import { setPreferences } from "./preferences";
 import { FakeSpeech, wav } from "@/lib/speech/fake";
@@ -35,6 +35,7 @@ import { buildPackage } from "@/lib/readalong/fixture";
 import { startImport } from "@/lib/readalong/importer";
 import { FakeCovers } from "@/lib/covers/sources";
 import { findMissingCovers, rejectCover, uploadCover } from "./cover-lookup";
+import { ensureXray } from "./xray";
 
 let database: Database;
 let ownerId: string;
@@ -226,14 +227,25 @@ describe("library export (ground rule 7)", () => {
     ]);
     expect(before.reviewCards![0]).toMatchObject({ cardId: marked.id, annotationId: marked.id });
 
+    // M32 X1: the X-ray index was built from the book's text at import; its mentions are derived and not in the file.
+    expect(before.xrayEntries!.length).toBeGreaterThan(5);
+    expect(before.xrayEntries!.every((e) => e.bookId === bookId && e.kind === "name" && e.aliases.length >= 1 && e.generationId === null)).toBe(true);
+    const mentionsBefore = (await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).length;
+    expect(mentionsBefore).toBeGreaterThan(50);
+
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
+    expect(empty.xrayEntries).toEqual([]);
+    expect(await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).toEqual([]);
     expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions, empty.reviewCards]).toEqual([[], [], [], [], [], [], [], [], [], []]);
     expect(empty.focusSessions).toEqual([]);
 
     await importLibrary(database.db, ownerId, JSON.parse(JSON.stringify(before)));
     expect(strip(await exportLibrary(database.db, ownerId))).toEqual(strip(before));
+    // The mentions come back once the paragraphs are rebuilt and the index is next opened.
+    await backfillSections(database.db, storage);
+    expect((await ensureXray(database.db, bookId))?.mentions).toBe(mentionsBefore);
     // The same cards are due, on the same days, once the books' paragraphs are rebuilt from their files (the server
     // does this when it starts): a gap card is checked against its chapter's paragraphs, as in Study.
     await backfillSections(database.db, storage);

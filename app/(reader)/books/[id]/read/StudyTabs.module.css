@@ -1,7 +1,7 @@
 /*
- * Four Study tabs (M21, M26) in the panel's width, two by two: on one row they need more room than the panel has
- * (about 19rem inside), and the row then pushed the whole panel sideways. Each label stays on one line. The rest of
- * their look is in reader.module.css.
+ * Five Study tabs (M21, M26, M32) in the panel's width, two by two: on one row they need more room than the panel
+ * has (about 19rem inside), and the row then pushed the whole panel sideways. The fifth takes a row of its own.
+ * Each label stays on one line. The rest of their look is in reader.module.css.
  */
 .tabs[role="tablist"] {
   display: grid;
@@ -11,4 +11,8 @@
 .tabs .tab {
   padding-inline: var(--space-2);
   white-space: nowrap;
+}
+
+.tabs .tab:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
