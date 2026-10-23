@@ -334,3 +334,31 @@ export async function listXray(db: Db, ownerId: string, bookId: string, cfi: str
   entries.sort((a, b) => b.soFar - a.soFar || b.total - a.total || a.name.localeCompare(b.name));
   return { chapters, position, entries: entries.filter((e) => e.total > 0) };
 }
+
+export type XrayMark = { entryId: string; name: string; sectionId: string; cfi: string; start: number; end: number; position: number };
+
+/**
+ * X2: the marks for one chapter (a spine index; a PDF's page), for the page
+ * to underline and the "On this page" strip: the first mention of each entry
+ * in each paragraph, with the paragraph's address and the offsets into its
+ * text. In reading order.
+ */
+export async function marksFor(db: Db, ownerId: string, bookId: string, chapterIndex: number): Promise<XrayMark[]> {
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  if (!book) throw new XrayError("That book was not found.");
+  await ensureXray(db, bookId);
+  const rows = await db
+    .select({ entryId: xrayMentions.entryId, name: xrayEntries.name, sectionId: xrayMentions.sectionId, cfi: sections.cfi, start: xrayMentions.startAt, end: xrayMentions.endAt, position: xrayMentions.position })
+    .from(xrayMentions)
+    .innerJoin(xrayEntries, and(eq(xrayEntries.bookId, xrayMentions.bookId), eq(xrayEntries.id, xrayMentions.entryId)))
+    .innerJoin(sections, and(eq(sections.bookId, xrayMentions.bookId), eq(sections.id, xrayMentions.sectionId)))
+    .where(and(eq(xrayMentions.bookId, bookId), eq(xrayMentions.chapterIndex, chapterIndex)))
+    .orderBy(asc(xrayMentions.position), asc(xrayMentions.startAt));
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    const key = `${r.entryId}|${r.sectionId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}

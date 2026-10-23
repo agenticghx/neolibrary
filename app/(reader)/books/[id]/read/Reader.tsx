@@ -38,6 +38,10 @@ import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { XrayPanel } from "./XrayPanel";
+import { XrayCard } from "./XrayCard";
+import { drawMarks, entryOfKey, namesOnScreen, type DrawnMark } from "./xray-marks";
+import xrayStyles from "./XrayCard.module.css";
+import type { XrayMark } from "@/lib/library/xray";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { WhereWereWeStrip } from "./WhereWereWe";
@@ -307,6 +311,12 @@ export function Reader(props: {
   // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
   const [pageCount, setPageCount] = useState(0);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "links" | "images" | "picture">("none");
+  // X-ray on the page (M32 X2): the name whose card is open, the names on the screen, and each chapter's marks
+  // (fetched once, drawn on its overlay).
+  const [xrayCard, setXrayCard] = useState<string | null>(null);
+  const [onPage, setOnPage] = useState<{ id: string; name: string }[]>([]);
+  const xrayMarks = useRef(new Map<number, Promise<XrayMark[]>>());
+  const xrayDrawn = useRef(new Map<number, DrawnMark[]>());
   // The keyboard follows the panel (M19 P1b), as in the account menu: focus moves into a panel when it opens, and
   // back to the button that opened it when it closes, if the focus went away with the panel.
   const opener = useRef<HTMLElement | null>(null);
@@ -540,7 +550,10 @@ export function Reader(props: {
     else if (e.key === "ArrowLeft" || e.key === "PageUp") turnRef.current("prev");
     else if (e.key === "Escape") {
       // The selected-text bar first (M27 Q1), then the panel.
-      if (!dismissSelection()) setPanel("none");
+      if (!dismissSelection()) {
+        setXrayCard(null);
+        setPanel("none");
+      }
     }
   }, [dismissSelection]);
 
@@ -685,8 +698,34 @@ export function Reader(props: {
         setNotes(loaded);
         // Send anything made offline earlier, and show what is still waiting (see the sync effect below).
         window.dispatchEvent(new Event(SYNC_EVENT));
-        v.addEventListener("create-overlay", () => {
+        /** A chapter's X-ray marks (M32 X2), fetched once per chapter. */
+        const marksOf = (index: number) => {
+          let p = xrayMarks.current.get(index);
+          if (!p) {
+            p = fetch(`/api/books/${props.bookId}/xray/marks?chapter=${index}`)
+              .then((r) => (r.ok ? r.json() : { marks: [] }))
+              .then((b: { marks: XrayMark[] }) => b.marks)
+              .catch(() => []);
+            xrayMarks.current.set(index, p);
+          }
+          return p;
+        };
+        /** The names on the screen now: the marks of the chapter shown that lie inside the visible range. */
+        const showOnPage = (index: number, range?: Range | null) => {
+          const visible = range ?? (v as { lastLocation?: { range?: Range | null } | null }).lastLocation?.range;
+          setOnPage(namesOnScreen(xrayDrawn.current.get(index) ?? [], visible));
+        };
+        v.addEventListener("create-overlay", (e: Event) => {
           for (const a of notesRef.current) if (["highlight", "sticker", "drawing", "image"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
+          // The chapter's names, underlined (EPUBs: a PDF's pages have no overlay).
+          const { index } = (e as CustomEvent<{ index: number }>).detail;
+          if (props.fileType === "pdf" || !Number.isInteger(index)) return;
+          void marksOf(index).then((marks) => {
+            if (!root.current) return;
+            const color = getComputedStyle(root.current).getPropertyValue("--accent").trim();
+            xrayDrawn.current.set(index, drawMarks(v, index, marks, color));
+            showOnPage(index);
+          });
         });
         v.addEventListener("draw-annotation", (e: Event) => {
           const { draw, annotation, range } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string }; range: Range | null }>)
@@ -710,6 +749,11 @@ export function Reader(props: {
           draw(Overlayer.highlight, { color });
         });
         v.addEventListener("show-annotation", (e: Event) => {
+          const entry = entryOfKey((e as CustomEvent<{ value: string }>).detail.value);
+          if (entry) {
+            setXrayCard(entry);
+            return;
+          }
           const a = notesRef.current.find((x) => x.cfi === (e as CustomEvent<{ value: string }>).detail.value);
           if (a) {
             setActiveId(a.id);
@@ -740,6 +784,18 @@ export function Reader(props: {
             setScanPage(Number.isInteger(page) && page > 0 ? page : null);
           }
           setWhere({ cfi, fraction: d.fraction, chapter: d.tocItem?.label?.trim() ?? "" });
+          if (props.fileType === "pdf") {
+            // A page's names, from its marks (no underlines on a page picture).
+            if (pages.length) void marksOf(pages[0]).then((marks) => setOnPage(marks.filter((m, i) => marks.findIndex((x) => x.entryId === m.entryId) === i).map((m) => ({ id: m.entryId, name: m.name }))));
+          } else {
+            let index = -1;
+            try {
+              index = v.resolveCFI(cfi).index;
+            } catch {
+              // Not a place in the book: nothing on the screen to name.
+            }
+            showOnPage(index, d.range);
+          }
           // The page on screen (data-cfi, read by the tests) is recorded now, in the same step as foliate
           // shows it, as recordLit does for the lit word. Left to React it was written up to 22 ms later,
           // after the next page's first word had already been lit there by its text layer, so on a loaded
@@ -1668,6 +1724,19 @@ export function Reader(props: {
           ) : null}
         </div>
       ) : null}
+      {xrayCard ? (
+        <XrayCard
+          bookId={props.bookId}
+          cfi={where.cfi}
+          entryId={xrayCard}
+          onClose={() => setXrayCard(null)}
+          onGo={(cfi) => void view.current?.goTo(cfi)}
+          onAll={() => {
+            setXrayCard(null);
+            setPanel("xray");
+          }}
+        />
+      ) : null}
       <div ref={stage} className={stageClass}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -1676,6 +1745,16 @@ export function Reader(props: {
         </button>
         {/* Covered by the rewrite alone: kept open (and its turns working) but out of reach. */}
         <div ref={host} className={styles.host} inert={paneMode === "rewritten"} />
+        {onPage.length ? (
+          <div className={xrayStyles.strip} role="region" aria-label="On this page">
+            <span className={xrayStyles.stripLabel}>On this page</span>
+            {onPage.map((n) => (
+              <button key={n.id} type="button" className={xrayStyles.chip} onClick={() => setXrayCard(n.id)}>
+                {n.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <button type="button" className={`${styles.turn} ${styles.turnNext}`} aria-label="Next page" onClick={() => turnRef.current("next")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="m7 3 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

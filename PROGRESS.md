@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M32 X1 pull request when green; then X2 (marks on the page).
+next_action: Merge #223 (X1) when its rerun hygiene job is green; finish and open the X2 PR; then X3.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-22
 shared_copy: none
@@ -292,6 +292,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-22 21:57 · Claude Fable 5.1 (laptop) · M32 X2 built on m32-x2-xray-page (stacked on X1): dotted underlines on the page, the On this page strip, the card over the page; browser run in progress; X1's PR #223 waits on a rerun hygiene job
+- **Done:** X2 (marks on the page) is written: marksFor + GET /api/books/[id]/xray/marks?chapter= (the first mention of each name in each paragraph, with offsets); xray-marks.ts draws a dotted underline per mark on foliate's overlay (its own key 'xray:...', so foliate's show-annotation reports the tap) and works out the names inside the visible range; XrayCard.tsx is the card over the page (a sheet on a phone) with Show everything and All names; XrayEntryCard.tsx holds the one-name markup shared with the panel; the Reader draws marks on create-overlay, updates the strip on relocate, opens the card on a tapped mark or chip, and closes it on Escape. The strip moved from the top band to the foot of the page column: a reader test samples the top band for the theme colour. X1's PR #223: Lint, Postgres and Browser green; the hygiene job stalled in checkout for 15 minutes, so the run was cancelled and that job alone rerun.
+- **Key paths:** lib/library/xray.ts (marksFor); app/api/books/[id]/xray/marks/route.ts; app/(reader)/books/[id]/read/xray-marks.ts, XrayCard.tsx, XrayCard.module.css, XrayEntryCard.tsx, XrayEntryCard.module.css, XrayPanel.tsx, Reader.tsx; e2e/ai.spec.ts
+- **Commands that worked:** npx vitest run lib/library/xray.test.ts -> 7 passed; npx vitest run -> 991 passed, 2 skipped; npm run lint and npm run typecheck -> clean; npx playwright test --project ai --ignore-snapshots -> running at the time of this entry (the two earlier runs found: the overlay SVG lives beside the frame, counted through renderer.getContents()[i].overlayer.element; the strip at the top band broke reader.spec's margin-colour test); gh run cancel 39885465045; gh run rerun 39885465045 --job 120192507192
+- **Known issues / blockers:** Not yet seen: the X2 browser result and the four reader-xray-card screenshots. The X2 branch is stacked on X1 (built on f09c282d): rebase with --onto after #223 merges, as the merge-train skill describes. Nothing of X2 committed yet.
+- **Exact next steps:** 1. Read the X2 browser result; look at reader-xray-card-*.png by eye. 2. Commit X2, push, open its PR stacked on #223; once #223 merges, train.sh <pr> m32-x2-xray-page f09c282d. 3. X3: prompts/xray.md, the chapter-by-chapter pass with the quote check, the fake's planted fact.
 
 ### 2026-10-22 21:41 · Claude Fable 5.1 (laptop) · M32 X1 ready: X-ray index from the text and the Who & what tab; all checks green locally; pull request next
 - **Done:** X1 complete on branch m32-x1-xray-index. Since the 21:26 entry: the browser test found two true behaviours my test had assumed wrongly (at the top of chapter 2 Enfield and Utterson are level; Soho is named only at the end of chapter 2) and one real choice to make: the reader's place was the start of the visible page, so a name first written lower on the same page counted as unmet; it is now the end of the visible range (positionAt collapses the range CFI to its end). The trail leaves the publisher's pages out, as the index does. Screenshots looked at by eye in all four looks: list, trail with the current chapter marked, phone layout.
