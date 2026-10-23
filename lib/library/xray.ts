@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import * as CFI from "foliate-js/epubcfi.js";
 import type { Db } from "@/lib/db/client";
-import { books, sections, xrayEntries, xrayMentions, type XrayKind } from "@/lib/db/schema";
+import { books, generations, sections, xrayEntries, xrayFacts, xrayMentions, type XrayKind } from "@/lib/db/schema";
 import { sectionForCfi } from "./annotations";
 
 /**
@@ -190,7 +190,8 @@ export function findMentions(entries: XrayEntry[], paragraphs: Paragraph[]): Xra
 /** Chapters that are about the file, not the book: a publisher's pages at either end. */
 export const BOILERPLATE = /colophon|copyright|imprint|title ?page|about the (author|publisher)|also by|advertisement/i;
 
-async function paragraphsOf(db: Db, bookId: string): Promise<Paragraph[]> {
+/** The book's own paragraphs, in order: what the index reads and what mentions are found in. */
+export async function paragraphsOf(db: Db, bookId: string): Promise<Paragraph[]> {
   const chapters = await db
     .select({ index: sections.chapterIndex, label: sections.label, href: sections.href })
     .from(sections)
@@ -247,6 +248,8 @@ export async function ensureXray(db: Db, bookId: string) {
 }
 
 export type XrayChapter = { index: number; label: string; position: number };
+/** X3: one thing the book says about an entry, with the quote it rests on and where that is. */
+export type XrayFact = { id: string; chapterIndex: number; sectionId: string; cfi: string; position: number; start: number; end: number; fact: string; quote: string; seen: boolean; model: string; readAt: string };
 export type XrayListEntry = XrayEntry & {
   /** Mentions in the whole book, and up to where the reader is. */
   total: number;
@@ -256,6 +259,8 @@ export type XrayListEntry = XrayEntry & {
   seen: boolean;
   /** Per chapter with a mention: how many, and where the first one is. */
   chapters: { index: number; count: number; soFar: number; cfi: string }[];
+  /** What Claude read about it (X3), in the book's order; `seen` says the reader has reached that place. */
+  facts: XrayFact[];
 };
 export type XrayList = { chapters: XrayChapter[]; position: number; entries: XrayListEntry[] };
 
@@ -317,6 +322,13 @@ export async function listXray(db: Db, ownerId: string, bookId: string, cfi: str
     ? await db.select({ position: sections.position, cfi: sections.cfi }).from(sections).where(and(eq(sections.bookId, bookId), inArray(sections.position, firsts)))
     : [];
   const cfiAt = new Map(cfis.map((c) => [c.position, c.cfi]));
+  const factRows = await db
+    .select({ id: xrayFacts.id, entryId: xrayFacts.entryId, chapterIndex: xrayFacts.chapterIndex, sectionId: xrayFacts.sectionId, cfi: sections.cfi, position: xrayFacts.position, start: xrayFacts.startAt, end: xrayFacts.endAt, fact: xrayFacts.fact, quote: xrayFacts.quote, model: generations.model, readAt: generations.createdAt })
+    .from(xrayFacts)
+    .innerJoin(sections, and(eq(sections.bookId, xrayFacts.bookId), eq(sections.id, xrayFacts.sectionId)))
+    .innerJoin(generations, eq(generations.id, xrayFacts.generationId))
+    .where(eq(xrayFacts.bookId, bookId))
+    .orderBy(asc(xrayFacts.position), asc(xrayFacts.startAt), asc(xrayFacts.createdAt));
   const entries: XrayListEntry[] = rows.map((e) => {
     const mine = counts.filter((c) => c.entryId === e.id).sort((a, b) => a.first - b.first);
     const total = mine.reduce((n, c) => n + c.count, 0);
@@ -329,10 +341,13 @@ export async function listXray(db: Db, ownerId: string, bookId: string, cfi: str
       firstChapter: first?.chapterIndex ?? -1,
       seen: first ? first.first <= position : false,
       chapters: mine.map((c) => ({ index: c.chapterIndex, count: c.count, soFar: c.soFar, cfi: cfiAt.get(c.first) ?? "" })),
+      facts: factRows
+        .filter((f) => f.entryId === e.id)
+        .map((f) => ({ id: f.id, chapterIndex: f.chapterIndex, sectionId: f.sectionId, cfi: f.cfi, position: f.position, start: f.start, end: f.end, fact: f.fact, quote: f.quote, model: f.model, readAt: f.readAt.toISOString(), seen: f.position <= position })),
     };
   });
   entries.sort((a, b) => b.soFar - a.soFar || b.total - a.total || a.name.localeCompare(b.name));
-  return { chapters, position, entries: entries.filter((e) => e.total > 0) };
+  return { chapters, position, entries: entries.filter((e) => e.total > 0 || e.facts.length > 0) };
 }
 
 export type XrayMark = { entryId: string; name: string; sectionId: string; cfi: string; start: number; end: number; position: number };

@@ -93,6 +93,8 @@ export const FEATURE_MODELS = {
   questions: "claude-haiku-5-5",
   ask: "claude-opus-5-5",
   "explain-back": "claude-opus-5-5",
+  // M32 X3: reading a chapter for who and what it names is routine indexing, Haiku's kind of job.
+  xray: "claude-haiku-5-5",
 } as const;
 export type AiFeature = keyof typeof FEATURE_MODELS;
 

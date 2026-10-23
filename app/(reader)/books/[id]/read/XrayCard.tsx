@@ -13,7 +13,7 @@ import own from "./XrayCard.module.css";
  * up to here, and a "Show everything" switch.
  */
 export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookId: string; cfi: string | null; entryId: string; onClose: () => void; onGo: (cfi: string) => void; onAll: () => void }) {
-  const [data, setData] = useState<XrayList | null>(null);
+  const [data, setData] = useState<(XrayList & { fake?: boolean }) | null>(null);
   const [showAll, setShowAll] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -21,7 +21,7 @@ export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookI
     let live = true;
     const load = () =>
       fetch(`/api/books/${bookId}/xray?${new URLSearchParams(cfi ? { cfi } : {})}`)
-        .then(async (res) => (res.ok ? ((await res.json()) as XrayList) : null))
+        .then(async (res) => (res.ok ? ((await res.json()) as XrayList & { fake?: boolean }) : null))
         .then((body) => live && body && setData(body))
         .catch(() => undefined);
     if (timer.current) clearTimeout(timer.current);
@@ -44,7 +44,7 @@ export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookI
       </div>
       {!data ? <p className={styles.hint}>Looking it up…</p> : null}
       {data && !entry ? <p className={styles.hint}>That name is not in the index.</p> : null}
-      {data && entry ? <XrayEntryCard entry={entry} chapters={data.chapters} position={data.position} showAll={showAll} onGo={onGo} /> : null}
+      {data && entry ? <XrayEntryCard entry={entry} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} /> : null}
       <div className={own.foot}>
         <label className={own.toggle}>
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show everything
