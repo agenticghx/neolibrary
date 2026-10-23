@@ -37,6 +37,7 @@ import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
+import { XrayPanel } from "./XrayPanel";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { WhereWereWeStrip } from "./WhereWereWe";
@@ -305,7 +306,7 @@ export function Reader(props: {
   const [toc, setToc] = useState<TocItem[]>([]);
   // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
   const [pageCount, setPageCount] = useState(0);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "links" | "images" | "picture">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "links" | "images" | "picture">("none");
   // The keyboard follows the panel (M19 P1b), as in the account menu: focus moves into a panel when it opens, and
   // back to the button that opened it when it closes, if the focus went away with the panel.
   const opener = useRef<HTMLElement | null>(null);
@@ -1527,7 +1528,7 @@ export function Reader(props: {
     panel === "links" ||
     panel === "images" ||
     panel === "ask" ||
-    ((panel === "know" || panel === "questions" || panel === "explain") && Boolean(where.cfi)) ||
+    ((panel === "know" || panel === "questions" || panel === "explain" || panel === "xray") && Boolean(where.cfi)) ||
     (panel === "picture" && Boolean(activePicture?.picture)) ||
     (panel === "rewrite" && Boolean(rewriteAt)) ||
     (panel === "settings" && Boolean(settings));
@@ -1771,6 +1772,10 @@ export function Reader(props: {
             }}
             onSaved={() => void reload()}
           />
+        ) : null}
+
+        {panel === "xray" && where.cfi ? (
+          <XrayPanel bookId={props.bookId} cfi={where.cfi} onTab={setPanel} onGo={(cfi) => void view.current?.goTo(cfi)} />
         ) : null}
 
         {panel === "links" ? <CrossLinksPanel links={links} /> : null}

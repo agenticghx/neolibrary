@@ -1102,6 +1102,37 @@ check drops a planted fact with no quote. Screenshots: phone and desktop,
 light and dark. Then Samuel builds the X-ray for *Chip War* on the live site,
 checks twenty entries by eye, and records a verdict.
 
+The steps, one pull request each (Samuel: "build the M32", 2026-10-22):
+
+- **X1 · The index from the text alone.** Two tables (`xray_entries`,
+  `xray_mentions`, migration 0031): the names the book writes with capitals,
+  grouped when they are one name written differently, with every mention as
+  offsets into the stored paragraph text. Built at import and on first open
+  for older books; entries exported, mentions rebuilt. The Who & what tab:
+  names by mentions so far, a trail of chapters, "met in", a search box,
+  "Show everything"; a name opened lists where it appears, each chapter a
+  link. Unit tests on the Jekyll fixture (the six people lead; every
+  mention's slice of the text is an alias; nothing from the publisher's
+  pages), the export round trip, and the browser test above's list and
+  "met later" sentences. Names only, no AI.
+- **X2 · On the page.** A dotted underline on the first mention in each
+  paragraph, drawn on foliate's overlay (its own underline drawer, unused
+  until now), and the "On this page" strip from the visible range; a tap
+  opens the card over the page (a sheet on a phone), with each quote a link
+  to its place. No AI, no migration.
+- **X3 · Facts from Claude, with the quote check.** `prompts/xray.md`, one
+  call per chapter with the entries known so far (so a new name joins an
+  old entry), behind a "Build the X-ray" button that shows the estimate and
+  a confirm box; a fact whose quote is not found word for word in the
+  stored text is dropped and counted; facts stored per chapter
+  (`xray_facts`, with provenance), shared like rewrites. The fake Claude
+  must always return one planted fact with an invented quote, so the
+  dropped count can be asserted from the browser (the fake is one shared
+  model in browser tests and cannot be told otherwise).
+- **X4 · From your library, from the world.** The same name in the
+  reader's other books, with links; Claude's general knowledge on a card,
+  labelled and always last. Then Samuel's check on *Chip War*.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

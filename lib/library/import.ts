@@ -6,6 +6,7 @@ import { ImportError, readBook } from "./ebook";
 import { isMarkdownName, markdownToEpub } from "./markdown-epub";
 import { pickBook, sameBook, UUID } from "./paths";
 import { buildSections } from "./sections-store";
+import { buildXray } from "./xray";
 
 export type ImportResult =
   | { status: "added" | "attached"; bookId: string; title: string }
@@ -113,6 +114,8 @@ export async function importBook(
     .where(eq(books.id, bookId));
   if (coverKey && had?.coverKey && had.coverKey !== coverKey) await storage.delete(had.coverKey);
   await buildSections(db, bookId, file.bytes, info.toc, info.type);
+  // M32 X1: the X-ray index from the text alone, so the Who & what tab has something the moment the book opens.
+  await buildXray(db, bookId);
   return { status: wanted ? "attached" : "added", bookId, title: wanted?.title ?? info.title };
 }
 

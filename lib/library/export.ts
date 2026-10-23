@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, focusSessions, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, type ChapterReading } from "@/lib/db/schema";
+import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, focusSessions, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, xrayEntries, type ChapterReading, type XrayKind } from "@/lib/db/schema";
 import { assertSafeKey } from "@/lib/storage";
 import { isStyle, isView } from "./levels";
 import { cleanPicture } from "./pinned";
@@ -214,6 +214,11 @@ export type LibraryExport = {
     endedHow: (typeof focusSessions.$inferSelect)["endedHow"];
   }[];
   /**
+   * M32 X1: the X-ray index's entries (who and what each book names). Their mentions are derived from the entries
+   * and the book's text, so the file leaves them out and the server rebuilds them, as it rebuilds the paragraphs.
+   */
+  xrayEntries?: { id: string; bookId: string; name: string; kind: XrayKind; aliases: string[]; generationId: string | null }[];
+  /**
    * Daily review's schedule for each card rated so far (added in M21). Since M28 each has a `cardId`: a highlight's or
    * note's id (then `annotationId` is the same), "q:<question bank id>:<number>" for a Test yourself question, or "g:<Explain it back attempt id>:<number>" for
    * what an attempt found missing (M28 S2). A file
@@ -288,6 +293,13 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     .where(eq(readingSessions.ownerId, ownerId))
     .orderBy(asc(readingSessions.startedAt), asc(readingSessions.id));
   const focusRows = await db.select().from(focusSessions).where(eq(focusSessions.ownerId, ownerId)).orderBy(asc(focusSessions.startedAt), asc(focusSessions.id));
+  const xrayRows = bookRows.length
+    ? await db
+        .select({ id: xrayEntries.id, bookId: xrayEntries.bookId, name: xrayEntries.name, kind: xrayEntries.kind, aliases: xrayEntries.aliases, generationId: xrayEntries.generationId })
+        .from(xrayEntries)
+        .where(inArray(xrayEntries.bookId, bookRows.map((b) => b.id)))
+        .orderBy(asc(xrayEntries.bookId), asc(xrayEntries.id))
+    : [];
   const reviewRows = await db.select().from(reviewCards).where(eq(reviewCards.ownerId, ownerId)).orderBy(asc(reviewCards.firstReviewedAt), asc(reviewCards.cardId));
   // Only schedules of notes and question banks the file brings (a schedule has no database link to either).
   const exportedNotes = new Set(annotationRows.map((a) => a.annotationId));
@@ -467,6 +479,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
       endedAt: r.endedAt?.toISOString() ?? null,
       endedHow: r.endedHow,
     })),
+    xrayEntries: xrayRows,
     reviewCards: reviewRows
       .filter((r) => (r.annotationId ? exportedNotes.has(r.annotationId) : exportedSources.has(sourceOf(r.cardId) ?? "")))
       .map((r) => ({
@@ -496,6 +509,7 @@ export async function wipeLibrary(db: Db, ownerId: string) {
     await tx.delete(readalongImports).where(eq(readalongImports.ownerId, ownerId));
     await tx.delete(readingSessions).where(eq(readingSessions.ownerId, ownerId));
     await tx.delete(focusSessions).where(eq(focusSessions.ownerId, ownerId));
+    await tx.delete(xrayEntries).where(inArray(xrayEntries.bookId, tx.select({ id: books.id }).from(books).where(eq(books.ownerId, ownerId))));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
     await tx.delete(collections).where(eq(collections.ownerId, ownerId));
     await tx.delete(paths).where(eq(paths.ownerId, ownerId));
@@ -592,6 +606,14 @@ function checkImport(x: LibraryExport, ownerId: string) {
   for (const r of x.readingSessions ?? []) if (!bookIds.has(r.bookId)) refuse("A reading session is for a book that is not in this file.");
   for (const f of x.focusSessions ?? []) if (!bookIds.has(f.bookId)) refuse("A focus session is for a book that is not in this file.");
   if ((x.focusSessions ?? []).filter((f) => !f.endedAt).length > 1) refuse("More than one focus session in this file is still open.");
+  const xrayKinds: unknown[] = ["name", "person", "place", "organisation", "term", "work", "event"];
+  for (const e of x.xrayEntries ?? []) {
+    if (!bookIds.has(e.bookId)) refuse("An X-ray entry is for a book that is not in this file.");
+    if (typeof e.id !== "string" || typeof e.name !== "string" || !e.name.trim()) refuse("An X-ray entry has no name.");
+    if (!xrayKinds.includes(e.kind)) refuse("An X-ray entry is of a kind this library does not know.");
+    if (!Array.isArray(e.aliases) || !e.aliases.every((a) => typeof a === "string")) refuse("An X-ray entry's other names are not a list of words.");
+    if (e.generationId != null && !generationIds.has(e.generationId)) refuse("An X-ray entry came from an AI answer that is not in this file.");
+  }
   const noteIds = new Set((x.annotations ?? []).map((a) => a.annotationId));
   const isDate = (d: unknown) => typeof d === "string" && !Number.isNaN(Date.parse(d));
   const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
@@ -741,6 +763,10 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     }
     for (const m of x.questionMarks ?? []) {
       await tx.insert(questionMarks).values({ ...m, ownerId, createdAt: new Date(m.createdAt) });
+    }
+    const xray = x.xrayEntries ?? [];
+    for (let i = 0; i < xray.length; i += 500) {
+      await tx.insert(xrayEntries).values(xray.slice(i, i + 500).map((e) => ({ id: e.id, bookId: e.bookId, name: e.name, kind: e.kind, aliases: e.aliases, generationId: e.generationId ?? null })));
     }
     // Imports before tracks: an uploaded track points at its import.
     for (const r of x.readalongImports ?? []) {

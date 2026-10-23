@@ -253,7 +253,7 @@ test("Study opens on Need to know, with Test yourself one tab away; Rewrite offe
   await expect(page.getByRole("button", { name: "What do I need to know?" })).toHaveCount(0); // the "?" is gone
   await page.getByRole("button", { name: "Study" }).click();
   const tabs = page.getByRole("tablist", { name: "Study" });
-  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask", "Explain it back"]);
+  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask", "Explain it back", "Who & what"]);
   await expect(tabs.getByRole("tab", { name: "Need to know" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("region", { name: "What do I need to know?" })).toBeVisible();
   await tabs.getByRole("tab", { name: "Test yourself" }).click();
@@ -653,6 +653,58 @@ test("the rewritten view is accessible, and looks right beside the page and alon
   await expect(pane(page)).toHaveCount(0);
 });
 
+// M32 X1: Who & what, the X-ray index found in the book's own text: the names most mentioned so far first, each
+// with a trail of chapters. The list knows where the reader is: a name first met in a later chapter is not listed
+// until the reader gets there, inside the reader (the saved position moves, and the list follows).
+test("Who & what lists the book's names by mentions so far, and a name met later appears once the reader gets there", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary"); // chapter 2, Search for Mr. Hyde
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Who & what" }).click();
+  const who = page.getByRole("region", { name: "Who & what" });
+  await expect(who).toBeVisible();
+  const list = who.getByTestId("xray-list");
+  // At the top of chapter 2 the first chapter's names lead: Utterson, Enfield and Hyde, in that chapter's counts.
+  await expect(list).toContainText("Mr. Utterson");
+  await expect(list).toContainText("Mr. Richard Enfield");
+  await expect(list).toContainText("Edward Hyde");
+  await expect(list).not.toContainText("Sir Danvers Carew"); // first met in chapter 4, The Carew Murder Case
+  await expect(who).toContainText(/\d+ of \d+ names, met so far/);
+  // Everything, including what is ahead.
+  const everything = who.getByLabel("Show everything, including what is ahead");
+  await everything.check();
+  await expect(list).toContainText("Sir Danvers Carew");
+  await everything.uncheck();
+  await expect(list).not.toContainText("Sir Danvers Carew");
+  // Find a name (one the reader has met: London is named in chapter 1; Soho not before the end of chapter 2).
+  await who.getByLabel("Find a name").fill("london");
+  await expect(list.getByRole("button")).toHaveCount(1);
+  await expect(list).toContainText("London");
+  await who.getByLabel("Find a name").fill("soho");
+  await expect(who).toContainText("No name like that.");
+  await who.getByLabel("Find a name").fill("");
+  // The reader moves on to the murder, in the reader: the list follows.
+  const xray = await (await page.request.get(`/api/books/${bookIdOf(page)}/xray`)).json();
+  const carew = xray.entries.find((e: { aliases: string[] }) => e.aliases.includes("Carew"));
+  await page.evaluate((cfi) => (document.querySelector("foliate-view") as unknown as { goTo(cfi: string): Promise<void> }).goTo(cfi), carew.chapters[0].cfi);
+  await expect(list).toContainText("Sir Danvers Carew", { timeout: 10_000 });
+  // By chapter 4 the lawyer has been named far more often than anyone: he leads.
+  await expect(list.getByRole("button").first()).toContainText("Mr. Utterson");
+  // A name opened: where it appears, each chapter a link to its first mention there.
+  await list.getByRole("button", { name: /Mr\. Utterson/ }).click();
+  const card = who.getByTestId("xray-card");
+  await expect(card).toContainText("Mr. Utterson");
+  await expect(card).toContainText("Also written Utterson");
+  await expect(card).toContainText("Where it appears");
+  await card.getByRole("button", { name: /Search for Mr\. Hyde/ }).click();
+  await page.waitForFunction(
+    () => (document.querySelector("foliate-view") as unknown as { lastLocation?: { tocItem?: { label?: string } } }).lastLocation?.tocItem?.label === "Search for Mr. Hyde",
+  );
+  await card.getByRole("button", { name: "Back to the list" }).click();
+  await expect(list).toBeVisible();
+  // A place that is not in the book is refused.
+  expect((await page.request.get(`/api/books/${bookIdOf(page)}/xray?cfi=nonsense`)).status()).toBe(400);
+});
+
 test("the AI and cross-book panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   // Four looks of six panels, each with an accessibility check: 15 to 22 s on CI, so the default 30 s ran out on a
   // slow runner (CI run 39445509504). The same budget as the other four-look tests.
@@ -686,6 +738,14 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       expect(know.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-need-to-know-${name}-${scheme}.png` });
+
+      // M32 X1: Who & what, the names found in the book's text.
+      await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Who & what" }).click();
+      await expect(page.getByTestId("xray-list")).toBeVisible();
+      const who = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(who.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/reader-who-and-what-${name}-${scheme}.png` });
 
       await page.getByRole("button", { name: "Reading settings" }).click();
       await expect(page.getByRole("group", { name: "AI explanations" })).toBeVisible();
