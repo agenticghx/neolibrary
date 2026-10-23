@@ -138,7 +138,10 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
       {data && !current && build ? (
         <section className={own.build} aria-label="Read the book with Claude">
           {!build.configured ? (
-            <p className={styles.hint}>Names from the book’s text. For what it says about each, AI needs setting up: the owner adds an Anthropic API key.</p>
+            <p className={styles.hint}>
+              Names from the book’s text. For what it says about each, AI needs setting up: the owner adds an Anthropic API key on the server, or reads
+              the book on the laptop with the subscription (the xray-on-subscription skill).
+            </p>
           ) : (
             <>
               <p className={own.buildLine} data-testid="xray-build-line">

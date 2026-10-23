@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
-import { capsFromEnv, estimateCost, generate, spendingWithJobs, SpendingCapReached, type Caps, type GenerationRequest } from "@/lib/ai/generate";
+import { capsFromEnv, estimateCost, generate, generationCacheKey, spendingWithJobs, SpendingCapReached, type Caps, type GenerationRequest } from "@/lib/ai/generate";
 import { AiError, type TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
@@ -400,4 +400,85 @@ async function run(job: Job, deps: ReadDeps) {
       end("error", "Something went wrong on the server.");
     }
   }
+}
+
+// Reading on the owner's own Claude subscription (M32 X5), as scanned pages are (scripts/xray-on-subscription.ts):
+// the server hands out the next unread chapter's exact request, the laptop runs `claude -p`, and the answer comes
+// back to be stored as the server's own, at $0 to the app's limits, and checked like any other.
+export const SUBSCRIPTION_PROVIDER = "claude-subscription";
+const MAX_OUTPUT_CHARS = 400_000;
+
+export type NextChapter = {
+  done: number;
+  total: number;
+  chapter: (Chapter & { system: string; prompt: string; promptHash: string; inputHash: string; style: string; schema: typeof SCHEMA }) | null;
+};
+
+/** The next chapter this reader has not had read, with the request the server would send for it; `chapter` null when every chapter is read. */
+export async function nextChapterToRead(db: Db, ownerId: string, bookId: string): Promise<NextChapter> {
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  if (!book) throw new XrayError("That book was not found.");
+  const chapters = await bookChapters(db, bookId);
+  const read = new Set(
+    (await db.select({ sectionId: generations.sectionId }).from(generations).where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, "xray")))).map((g) => g.sectionId),
+  );
+  const done = chapters.filter((c) => read.has(c.id)).length;
+  for (const c of chapters) {
+    if (read.has(c.id)) continue;
+    const passages = await chapterPassages(db, bookId, c.chapterIndex);
+    if (!passages.length) continue;
+    const req = await buildRequest(db, ownerId, bookId, c, passages, await db_entries(db, bookId));
+    return { done, total: chapters.length, chapter: { ...c, system: req.system, prompt: req.prompt, promptHash: req.promptHash, inputHash: sha256(req.input), style: req.options.style, schema: SCHEMA } };
+  }
+  return { done, total: chapters.length, chapter: null };
+}
+
+export type ReadElsewhere = { chapterId: unknown; output: unknown; model: unknown; promptHash: unknown; inputHash: unknown; inputTokens: unknown; outputTokens: unknown };
+
+/**
+ * Stores a chapter read on the subscription: refused unless it is this book's chapter, read with this server's own
+ * instructions (the prompt fingerprint) on this chapter's own text (the input fingerprint) with the entries known
+ * now; then stored as an answer of the server's own (provider claude-subscription, cost $0) and checked and applied
+ * like one. A chapter read twice keeps both answers; the facts come from the newest.
+ */
+export async function saveChapterReadElsewhere(db: Db, ownerId: string, bookId: string, input: ReadElsewhere, now = new Date()) {
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  if (!book) throw new XrayError("That book was not found.");
+  const chapter = (await bookChapters(db, bookId)).find((c) => c.id === input.chapterId);
+  if (!chapter) throw new XrayError("That is not one of this book's chapters.");
+  if (typeof input.output !== "string" || !input.output.trim() || input.output.length > MAX_OUTPUT_CHARS) throw new XrayError("The answer is missing or too long.");
+  if (typeof input.model !== "string" || !/^claude-[a-z0-9-]+$/.test(input.model)) throw new XrayError("The model must be a Claude model.");
+  const isCount = (n: unknown) => Number.isInteger(n) && (n as number) >= 0;
+  if (!isCount(input.inputTokens) || !isCount(input.outputTokens)) throw new XrayError("The token counts are missing.");
+  const passages = await chapterPassages(db, bookId, chapter.chapterIndex);
+  if (!passages.length) throw new XrayError("This chapter has no text to read.");
+  const known = await db_entries(db, bookId);
+  const req = await buildRequest(db, ownerId, bookId, chapter, passages, known);
+  if (input.promptHash !== req.promptHash) throw new XrayError("It was read with other instructions than prompts/xray.md on this server.");
+  if (input.inputHash !== sha256(req.input)) throw new XrayError("It was read from other text than this chapter's.");
+  const [row] = await db
+    .insert(generations)
+    .values({
+      ownerId,
+      bookId,
+      sectionId: chapter.id,
+      kind: req.kind,
+      options: req.options,
+      cacheKey: generationCacheKey(req.kind, req.options, req.promptHash, sha256(req.input)),
+      provider: SUBSCRIPTION_PROVIDER,
+      model: input.model,
+      promptName: req.promptName,
+      promptHash: req.promptHash,
+      inputHash: sha256(req.input),
+      inputTokens: input.inputTokens as number,
+      outputTokens: input.outputTokens as number,
+      costUsd: 0,
+      output: input.output,
+      createdAt: now,
+    })
+    .returning();
+  const checked = checkAnswer(input.output, passages, known);
+  const applied = await applyChapter(db, bookId, row.id, checked);
+  const next = await nextChapterToRead(db, ownerId, bookId);
+  return { generationId: row.id, entries: applied.entries, facts: applied.facts, dropped: checked.dropped, done: next.done, total: next.total };
 }

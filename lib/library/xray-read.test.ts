@@ -12,7 +12,7 @@ import { setStyle } from "./ai-style";
 import { importBook } from "./import";
 import { getSections } from "./sections-store";
 import { listXray } from "./xray";
-import { bookChapters, chapterPassages, checkAnswer, findQuote, readChapter, resetXrayJobsForTests, startXray, stopXray, xraySummary, type Passage } from "./xray-read";
+import { bookChapters, chapterPassages, checkAnswer, findQuote, nextChapterToRead, readChapter, resetXrayJobsForTests, saveChapterReadElsewhere, startXray, stopXray, xraySummary, type Passage } from "./xray-read";
 
 let database: Database;
 let ownerId: string;
@@ -194,5 +194,59 @@ describe("reading a chapter with Claude (M32 X3)", () => {
     expect(t.stoppedBecause?.kind).toBe("limit");
     expect(t.stoppedBecause?.message).toContain("spending cap");
     expect(stopXray(ownerId, bookId)).toBe(false);
+  });
+});
+
+describe("reading on the owner's own subscription (M32 X5)", () => {
+  it("hands out the next unread chapter's exact request, stores an answer read elsewhere at no cost, and counts it as read", async () => {
+    const model = new FakeModel();
+    const first = await nextChapterToRead(database.db, ownerId, bookId);
+    expect(first).toMatchObject({ done: 0, total: 10 });
+    expect(first.chapter?.label).toBe("Story of the Door");
+    expect(first.chapter?.prompt).toContain('<passage n="1">');
+    expect(first.chapter?.system).toContain("Return the entries this chapter names");
+    // The laptop reads it (here: the fake, given the same request) and sends the answer back.
+    const c = first.chapter!;
+    const answer = await model.generate({ system: c.system, prompt: c.prompt, maxTokens: 8000, effort: "medium", schema: c.schema });
+    const saved = await saveChapterReadElsewhere(database.db, ownerId, bookId, {
+      chapterId: c.id,
+      output: answer.text,
+      model: "claude-haiku-5-5",
+      promptHash: c.promptHash,
+      inputHash: c.inputHash,
+      inputTokens: answer.inputTokens,
+      outputTokens: answer.outputTokens,
+    });
+    expect(saved).toMatchObject({ done: 1, total: 10, dropped: 1 });
+    expect(saved.facts).toBeGreaterThan(1);
+    const [row] = await database.db.select().from(generations).where(eq(generations.id, saved.generationId));
+    expect(row).toMatchObject({ kind: "xray", provider: "claude-subscription", model: "claude-haiku-5-5", costUsd: 0, sectionId: c.id, promptHash: c.promptHash, inputHash: c.inputHash });
+    expect(row.inputTokens).toBe(answer.inputTokens);
+    const facts = await database.db.select().from(xrayFacts).where(eq(xrayFacts.generationId, saved.generationId));
+    expect(facts.length).toBe(saved.facts);
+    // The server's own path finds the answer stored and pays nothing; the summary counts the chapter as read.
+    const again = await readChapter({ db: database.db, model }, ownerId, bookId, c);
+    expect(again.reused).toBe(true);
+    expect(model.calls.length).toBe(1);
+    expect((await xraySummary(database.db, model, ownerId, bookId)).done).toBe(1);
+    // The next request is the second chapter, told the entries the first one made.
+    const second = await nextChapterToRead(database.db, ownerId, bookId);
+    expect(second.chapter?.label).toBe("Search for Mr. Hyde");
+    expect(second.chapter?.prompt).toContain("Mr. Utterson (person)");
+  });
+
+  it("refuses an answer for another book's chapter, read with other instructions, or from other text", async () => {
+    const { chapter } = await nextChapterToRead(database.db, ownerId, bookId);
+    const c = chapter!;
+    const good = { chapterId: c.id, output: JSON.stringify({ entries: [] }), model: "claude-haiku-5-5", promptHash: c.promptHash, inputHash: c.inputHash, inputTokens: 1, outputTokens: 1 };
+    await expect(saveChapterReadElsewhere(database.db, ownerId, bookId, { ...good, chapterId: "c-0000000000" })).rejects.toThrow("not one of this book's chapters");
+    await expect(saveChapterReadElsewhere(database.db, ownerId, bookId, { ...good, promptHash: "x" })).rejects.toThrow("other instructions");
+    await expect(saveChapterReadElsewhere(database.db, ownerId, bookId, { ...good, inputHash: "x" })).rejects.toThrow("other text");
+    await expect(saveChapterReadElsewhere(database.db, ownerId, bookId, { ...good, model: "gpt-9" })).rejects.toThrow("Claude model");
+    await expect(saveChapterReadElsewhere(database.db, ownerId, bookId, { ...good, output: "" })).rejects.toThrow("missing");
+    await expect(saveChapterReadElsewhere(database.db, "00000000-0000-0000-0000-000000000000", bookId, good)).rejects.toThrow("not found");
+    await expect(nextChapterToRead(database.db, "00000000-0000-0000-0000-000000000000", bookId)).rejects.toThrow("not found");
+    // An empty answer is still a reading: the chapter counts as read, with no facts.
+    expect((await saveChapterReadElsewhere(database.db, ownerId, bookId, good)).done).toBe(1);
   });
 });
