@@ -665,7 +665,7 @@ test("Who & what lists the book's names by mentions so far, and a name met later
   const list = who.getByTestId("xray-list");
   // At the top of chapter 2 the first chapter's names lead: Utterson, Enfield and Hyde, in that chapter's counts.
   await expect(list).toContainText("Mr. Utterson");
-  await expect(list).toContainText("Mr. Richard Enfield");
+  await expect(list).toContainText("Mr. Enfield"); // the way the book most often writes him
   await expect(list).toContainText("Edward Hyde");
   await expect(list).not.toContainText("Sir Danvers Carew"); // first met in chapter 4, The Carew Murder Case
   await expect(who).toContainText(/\d+ of \d+ names, met so far/);
