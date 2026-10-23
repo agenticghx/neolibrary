@@ -8,7 +8,7 @@ import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
 import { getSections } from "./sections-store";
-import { BOILERPLATE, buildXray, ensureXray, findMentions, findNames, listXray, type Paragraph } from "./xray";
+import { BOILERPLATE, buildXray, ensureXray, findMentions, findNames, listXray, marksFor, type Paragraph } from "./xray";
 
 let database: Database;
 let ownerId: string;
@@ -133,6 +133,25 @@ describe("X-ray from the text alone (M32 X1)", () => {
     await database.db.delete(xrayEntries).where(eq(xrayEntries.bookId, bookId));
     expect((await ensureXray(database.db, bookId))?.mentions).toBe(before.length);
     expect((await buildXray(database.db, bookId)).mentions).toBe(before.length);
+  });
+
+  it("gives a chapter's marks: the first mention of each name in each paragraph, in reading order", async () => {
+    const chapter = all.find((s) => s.kind === "chapter" && s.label === "Story of the Door")!;
+    const marks = await marksFor(database.db, ownerId, bookId, chapter.chapterIndex);
+    expect(marks.length).toBeGreaterThan(10);
+    const text = new Map(all.map((s) => [s.id, s.text]));
+    for (const m of marks) expect(all.find((s) => s.id === m.sectionId)?.cfi).toBe(m.cfi);
+    // One mark per name per paragraph, the first one; in reading order.
+    const keys = marks.map((m) => `${m.entryId}|${m.sectionId}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (let i = 1; i < marks.length; i++) expect(marks[i].position >= marks[i - 1].position).toBe(true);
+    const first = marks[0];
+    expect(first.name).toBe("Mr. Utterson");
+    expect(text.get(first.sectionId)!.slice(first.start, first.end)).toBe("Mr. Utterson");
+    // A chapter with no names (a publisher's page) has none; another reader is refused.
+    const colophon = all.find((s) => s.kind === "chapter" && /uncopyright/i.test(s.label))!;
+    expect(await marksFor(database.db, ownerId, bookId, colophon.chapterIndex)).toEqual([]);
+    await expect(marksFor(database.db, "00000000-0000-0000-0000-000000000000", bookId, chapter.chapterIndex)).rejects.toThrow("That book was not found.");
   });
 
   it("refuses another reader's book", async () => {

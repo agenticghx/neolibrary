@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { KIND_LABELS, type XrayList, type XrayListEntry } from "@/lib/library/xray";
 import { StudyTabs, type StudyTab } from "./StudyTabs";
+import { Trail, XrayEntryCard } from "./XrayEntryCard";
 import styles from "./reader.module.css";
 import own from "./XrayPanel.module.css";
 
@@ -46,12 +47,6 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
   }, [bookId, cfi]);
 
   const chapterLabel = useMemo(() => new Map((data?.chapters ?? []).map((c) => [c.index, c.label])), [data]);
-  /** The chapter the reader is in: the last one that starts at or before their place. */
-  const nowChapter = useMemo(() => {
-    let now = -1;
-    for (const c of data?.chapters ?? []) if (c.position <= (data?.position ?? 0)) now = c.index;
-    return now;
-  }, [data]);
 
   const entries = useMemo(() => {
     let list = data?.entries ?? [];
@@ -64,20 +59,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
   const current = open ? data?.entries.find((e) => e.id === open) : undefined;
   const count = (e: XrayListEntry) => (showAll ? e.total : e.soFar);
 
-  const trail = (e: XrayListEntry) => {
-    const max = Math.max(1, ...e.chapters.map((c) => c.count));
-    const by = new Map(e.chapters.map((c) => [c.index, c]));
-    return (
-      <span className={own.trail} aria-hidden="true">
-        {(data?.chapters ?? []).map((c) => {
-          const m = by.get(c.index);
-          const ahead = !showAll && c.position > (data?.position ?? 0);
-          const level = m ? (m.count >= max * 0.6 ? own.m3 : m.count >= max * 0.25 ? own.m2 : own.m1) : "";
-          return <i key={c.index} className={[own.cell, ahead ? own.ahead : level, c.index === nowChapter ? own.now : ""].filter(Boolean).join(" ")} />;
-        })}
-      </span>
-    );
-  };
+  const trail = (e: XrayListEntry) => <Trail entry={e} chapters={data?.chapters ?? []} position={data?.position ?? 0} showAll={showAll} />;
 
   return (
     <section className={styles.panel} aria-label="Who & what">
@@ -94,36 +76,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
           <button type="button" className={own.back} onClick={() => setOpen(null)}>
             Back to the list
           </button>
-          <h3 className={own.cardName}>{current.name}</h3>
-          <p className={own.meta}>
-            {current.kind !== "name" ? <span>{KIND_LABELS[current.kind]}</span> : null}
-            {current.firstChapter >= 0 ? <span>met in {chapterLabel.get(current.firstChapter) ?? "the book"}</span> : null}
-            <span>
-              {count(current)} {count(current) === 1 ? "mention" : "mentions"}
-              {showAll ? "" : " so far"}
-            </span>
-          </p>
-          {trail(current)}
-          {current.aliases.length > 1 ? <p className={styles.hint}>Also written {current.aliases.filter((a) => a !== current.name).join(", ")}.</p> : null}
-          <p className={styles.groupLabel}>Where it appears</p>
-          <ul className={own.places}>
-            {current.chapters.map((c) => {
-              const ahead = c.soFar === 0 && !showAll;
-              return (
-                <li key={c.index}>
-                  {ahead ? (
-                    <span className={own.placeAhead}>A chapter ahead of you</span>
-                  ) : (
-                    <button type="button" className={own.place} onClick={() => onGo(c.cfi)}>
-                      <span>{chapterLabel.get(c.index) ?? `Part ${c.index + 1}`}</span>
-                      <span className={own.placeCount}>{showAll ? c.count : c.soFar}</span>
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          <p className={styles.hint}>From the book’s own text: names only, no descriptions yet.</p>
+          <XrayEntryCard entry={current} chapters={data.chapters} position={data.position} showAll={showAll} onGo={onGo} />
         </article>
       ) : null}
       {data && !current ? (
