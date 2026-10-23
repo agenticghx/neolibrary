@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #223 (X1) when its rerun hygiene job is green; finish and open the X2 PR; then X3.
+next_action: Merge the X2 pull request when green; finish X3 (facts from Claude with the quote check).   #223 (X1) when its rerun hygiene job is green; finish and open the X2 PR; then X3.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-22
 shared_copy: none
@@ -292,6 +292,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-22 22:07 · Claude Fable 5.1 (laptop) · M32 X2 ready on m32-x2-xray-page (rebased onto main after X1 merged as 7c6e6d25): all checks green locally; pull request next
+- **Done:** X1 merged as 7c6e6d25 (#223, the auto-merge Action; its hygiene job had stalled in checkout and was rerun alone). X2 rebased onto main with --onto f09c282d, no conflicts. Since the 21:57 entry: the underline count in the browser test reads foliate's overlay object (its SVG sits beside the page frame, not in the page document); the card's All names and Back links use ink with an accent underline (the accent on raised paper is 4.42:1 in dark mode, the known case); the chapters ahead on a card are one line ('and 7 chapters ahead of you') instead of a row each. Screenshots looked at by eye: dotted underlines under first mentions, the strip at the foot, the card over the page on a computer and as a sheet on a phone, light and dark.
+- **Key paths:** app/(reader)/books/[id]/read/xray-marks.ts, XrayCard.tsx, XrayCard.module.css, XrayEntryCard.tsx, XrayEntryCard.module.css, Reader.tsx; app/api/books/[id]/xray/marks/route.ts; lib/library/xray.ts (marksFor); e2e/ai.spec.ts; screenshots/reader-xray-card-{desktop,phone}-{light,dark}.png (not in git)
+- **Commands that worked:** git rebase --onto origin/main f09c282d m32-x2-xray-page -> clean; npm run check -> lint and types clean, 991 passed, 2 skipped; npx playwright test --project ai --ignore-snapshots -> 234 passed (3.2m)
+- **Known issues / blockers:** None open. Of the Done when, X2 proves the tap on a dotted name opening a card; 'facts each open the right place' and the quote check wait for X3, which is started on m32-x3-xray-facts (stacked on X2): prompts/xray.md, migration 0032, lib/library/xray-read.ts (the chapter pass, checkAnswer, applyChapter, the job), the fake's planted fact; its tests, API and UI are not written yet.
+- **Exact next steps:** 1. Push m32-x2-xray-page, open the X2 pull request, merge with the merge train when green. 2. X3: unit tests for findQuote/checkAnswer/readChapter/the job; the build endpoint (summary, start, stop); facts on the card and in the list; export of facts; the browser test with the planted fact's dropped count; then rebase onto main with --onto once X2 merges.
 
 ### 2026-10-22 21:57 · Claude Fable 5.1 (laptop) · M32 X2 built on m32-x2-xray-page (stacked on X1): dotted underlines on the page, the On this page strip, the card over the page; browser run in progress; X1's PR #223 waits on a rerun hygiene job
 - **Done:** X2 (marks on the page) is written: marksFor + GET /api/books/[id]/xray/marks?chapter= (the first mention of each name in each paragraph, with offsets); xray-marks.ts draws a dotted underline per mark on foliate's overlay (its own key 'xray:...', so foliate's show-annotation reports the tap) and works out the names inside the visible range; XrayCard.tsx is the card over the page (a sheet on a phone) with Show everything and All names; XrayEntryCard.tsx holds the one-name markup shared with the panel; the Reader draws marks on create-overlay, updates the strip on relocate, opens the card on a tapped mark or chip, and closes it on Escape. The strip moved from the top band to the foot of the page column: a reader test samples the top band for the theme colour. X1's PR #223: Lint, Postgres and Browser green; the hygiene job stalled in checkout for 15 minutes, so the run was cancelled and that job alone rerun.
