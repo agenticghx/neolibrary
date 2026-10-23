@@ -11,7 +11,7 @@ type Props = { name: string; email: string; admin: boolean; placement: "sidebar"
 
 /**
  * The account menu (M18, Samuel's picks of 2026-10-11, borrowed from the Claude app): the reader's email,
- * then Account, Reading stats and Your data, then Invite (admins only), then Sign out on its own.
+ * then Account, Reading stats, Your data and Get help (M33), then Invite (admins only), then Sign out on its own.
  * - "sidebar" (desktop, computer A): the initial, the name and an arrow at the foot of the sidebar;
  *   a card opens above them.
  * - "sheet" (phone, phone B): the round initial on Home; a sheet slides up from the bottom of the screen,
@@ -98,6 +98,7 @@ export function AccountMenu({ name, email, admin, placement }: Props) {
         {row("/account", "account", "Account")}
         {row("/stats", "stats", "Reading stats")}
         {row("/data", "data", "Your data")}
+        {row("/help", "help", "Get help")}
         {admin ? (
           <>
             <hr className={styles.menuRule} />

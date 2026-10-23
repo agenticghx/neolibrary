@@ -27,6 +27,8 @@ export const pages: PageCase[] = [
   // M14 step 6b: Home with the mini-player, while an audiobook is read aloud (written by readalong.spec.ts).
   { name: "miniplayer", path: "/", signedIn: true, spec: "readalong.spec.ts" },
   { name: "data", path: "/data", signedIn: true },
+  // M33: how the library works, in plain English, from the account menu.
+  { name: "help", path: "/help", signedIn: true },
   { name: "account", path: "/account", signedIn: true },
   { name: "agents", path: "/agents", signedIn: true },
   { name: "stats", path: "/stats", signedIn: true },
