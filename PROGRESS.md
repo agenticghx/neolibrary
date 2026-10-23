@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Get help PR: after CI's first round, copy the help reference screenshots from the artifact, push, merge; then merge and deploy X5 and read Chip War on the subscription.
+next_action: Merge X6; after the Chip War reading finishes, record it and deploy X6; then Samuel's twenty-entry check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-23
 shared_copy: none
@@ -292,6 +292,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-23 01:34 · Claude Fable 5.1 (laptop) · M32 X6: a praise page is not a chapter (found by reading Chip War on the subscription); the Chip War reading is running
+- **Done:** Chip War's X-ray reading on the subscription started 00:54 (laptop clock): one claude -p call per chapter, each answer sent to the live site and quote-checked there. Looked at the stored entries by eye after 18 chapters (read-only psql): the main chapters are right (Fairchild Semiconductor, Robert Noyce, Texas Instruments, Gordon Moore, Morris Chang lead; kinds assigned; 0 facts dropped), but the front matter's 'More Praise for CHIP WAR' page gave 14 entries and 20 facts about the book's reviewers (a columnist, a professor, their newspapers). Fix: BOILERPLATE also matches a label that starts 'Praise for', 'More/Advance/Additional/Early Praise for' or 'Acclaim for' (not 'In Praise of Idleness'); listXray leaves out mentions and facts stored in a chapter outside the trail; marksFor returns nothing for a publisher's page. 'Opening pages' (2 facts about the publisher's ebook notice) is left alone: it is the importer's label for text before the first heading, which for a headingless Markdown book is the whole book. Cast of Characters and Glossary stay: they are the author's own lists. Two unit tests, which fail without the fix.
+- **Key paths:** lib/library/xray.ts (BOILERPLATE, listXray, marksFor); lib/library/xray.test.ts (the M32 X6 describe); docs/plan.md
+- **Commands that worked:** npx vitest run lib/library/xray.test.ts lib/library/xray-read.test.ts lib/library/export.test.ts lib/library/xray-layers.test.ts -> 31 passed (4 files); the same two tests without the fix -> 2 failed; npx eslint -> ok; npx tsc --noEmit -> ok; reading progress at the time of this entry: 27 of 67 chapters, 0 dropped
+- **Known issues / blockers:** Deploy X6 only after the reading prints 'Every chapter is read': the script follows the server's chapter list, and a server that starts skipping chapters mid-run could refuse one in flight. The facts and mentions already stored for the praise page stay in the tables (harmless, filtered at read time) until the mentions are next rebuilt. Playwright ai project running locally in the background at the time of this entry.
+- **Exact next steps:** 1. Open the X6 PR, merge when green. 2. When the Chip War reading ends, record it (chapters, entries, facts, dropped, API price it would have cost) and deploy X6. 3. Samuel checks twenty entries of Chip War's Who & what by eye.
+
+### 2026-10-23 01:34 · Claude Fable 5.1 (laptop) · Live: 4fcc2154 (M32 X5, the X-ray reading on the subscription) and then 924f98ff (M33 Get help); no migration in either, so no backup
+- **Done:** Both merged by the auto-merge Action when the four checks were green (#228 -> 4fcc2154, #229 -> 924f98ff; #229 was rebased onto main after #228 landed, both ledgers kept, the d1632ebd deploy record riding with it). Main's CI run for each merge commit was green with the WebKit projects before the deploy. Deployed from the deploy checkout (detached at the commit, 0 stray files) with railway up.
+- **Key paths:** docs/plan.md (M32 X5, X6 and the built-and-live note; M33); app/(app)/help; scripts/xray-on-subscription.ts; .claude/skills/xray-on-subscription/SKILL.md
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=<sha> --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; /api/health on library.samuelahuno.com and web-production-f27a0e.up.railway.app -> commit 4fcc215, later 924f98f; /sign-in -> 200; /help signed out -> 307 to /sign-in?next=%2Fhelp
+- **Known issues / blockers:** The Railway CLI warns that railway.json config is deprecated in favour of .railway/railway.ts (existing files work until 2026-12-01): a chore for a later session, not urgent.
+- **Exact next steps:** Samuel opens Get help from the account menu on the live site and says what is missing or unclear.
 
 ### 2026-10-23 00:47 · Claude Fable 5.1 (laptop) · M33 Get help: local browser run green (191 passed), pushed as a PR
 - **Done:** The local run of the shell, desktop-light and phone-light projects: the help page passed its accessibility and visual checks in all three; the two shell tests that list the account menu's links now expect Get help after Your data (desktop menu and phone sheet). The renderings were looked at: a titled band, one card per part, readable in light and dark, on the phone and the desktop.

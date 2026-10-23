@@ -1132,6 +1132,32 @@ The steps, one pull request each (Samuel: "build the M32", 2026-10-22):
 - **X4 · From your library, from the world.** The same name in the
   reader's other books, with links; Claude's general knowledge on a card,
   labelled and always last. Then Samuel's check on *Chip War*.
+- **X5 · Read on the subscription.** The same reading done on the laptop
+  with `claude -p` (Samuel's subscription, no API key, no API spending):
+  `scripts/xray-on-subscription.ts` and the `xray-on-subscription` skill.
+  The site hands out the exact request for the next unread chapter and
+  stores the answer as read through the subscription, at $0 to the app's
+  limits, after the same quote check. Built in #228.
+- **X6 · A praise page is not a chapter.** The endorsements page at the
+  front of *Chip War* ("More Praise for…") was read as a chapter and gave
+  20 facts about the book's reviewers. The X-ray now skips a praise page as
+  it skips the publisher's other pages, and whatever was stored for one
+  stays out of the list and the marks.
+
+Built and live (2026-10-23): X1 to X4 and X1b (the name finder checked on
+three real books) in d1632ebd with migrations 0031 and 0032; X5 in 4fcc2154.
+The first subscription reading, *Chip War*, is recorded in the ledger.
+Samuel's twenty-entry check by eye is still to come.
+
+### M33 · Get help (Samuel, 2026-10-23)
+
+Written for Samuel. A page under the account menu (after Your data) that
+explains how to do the important things in the library in plain English:
+one card per part (your books, reading, notes, listening, the Study tools,
+Who & what, remembering, paths, your data and agents), and a card for the
+owner's own tasks that only the owner sees. Samuel's words: "time to have a
+`Get Help` under the name settings that spells out how to conduct the
+important functionalities on the web app". Built and live in 924f98ff (#229).
 
 ## How a cloud session works on this repo
 
