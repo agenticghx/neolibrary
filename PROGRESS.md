@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge and deploy X5, then read Chip War on the subscription; then the Get help page.
+next_action: Get help PR: after CI's first round, copy the help reference screenshots from the artifact, push, merge; then merge and deploy X5 and read Chip War on the subscription.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-23
 shared_copy: none
@@ -293,6 +293,19 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-10-23 00:47 · Claude Fable 5.1 (laptop) · M33 Get help: local browser run green (191 passed), pushed as a PR
+- **Done:** The local run of the shell, desktop-light and phone-light projects: the help page passed its accessibility and visual checks in all three; the two shell tests that list the account menu's links now expect Get help after Your data (desktop menu and phone sheet). The renderings were looked at: a titled band, one card per part, readable in light and dark, on the phone and the desktop.
+- **Key paths:** e2e/shell.spec.ts (the two link lists); screenshots/help-desktop-light.png, help-desktop-dark.png, help-phone-light.png, help-phone-dark.png (local renderings, not in git)
+- **Commands that worked:** npx playwright test --project shell --ignore-snapshots -> 191 passed (54.1s); npx tsc --noEmit -> ok; npm run lint -> exit 0
+- **Known issues / blockers:** CI's first round will fail on the four missing help reference screenshots (a page new to e2e/pages.ts); they are copied from the run's artifact with refresh-screenshots.sh and pushed for a second round. #228 (X5) was still under CI.
+- **Exact next steps:** 1. Open the PR for m33-get-help; after CI's first round, copy the four help renderings into e2e/__screenshots__, look at them, push; merge when the four checks are green. 2. Merge #228 and deploy; run the X-ray reading on Chip War on the subscription; record it.
+
+### 2026-10-23 00:43 · Claude Fable 5.1 (laptop) · M33 Get help: a page in the account menu that explains the library in plain English; written on m33-get-help, local browser run in progress
+- **Done:** Samuel: 'time to have a Get Help under the name settings that spells out how to conduct the important functionalities'. Written: app/(app)/help (one card per part: your books, reading, notes, listening, the Study tools, Who & what, remembering, paths, your data and agents, and a card for the owner), a help icon, the Get help row in the account menu after Your data, the page in e2e/pages.ts (so it gets reference screenshots in four looks and the accessibility check) and in shell.spec's menu-row test.
+- **Key paths:** app/(app)/help/page.tsx and page.module.css; components/shell/AccountMenu.tsx; components/shell/icons.tsx; e2e/pages.ts; e2e/shell.spec.ts
+- **Commands that worked:** npm run lint and npx tsc --noEmit -> running with the browser projects shell, desktop-light and phone-light (--ignore-snapshots) in the background at the time of this entry
+- **Known issues / blockers:** A new page in pages.ts has no reference screenshots yet: CI's first round fails on the comparisons, then the renderings are copied from the artifact (merge-train skill, refresh-screenshots.sh) and pushed for a second round. X5's PR #228 is under CI on another branch.
+- **Exact next steps:** 1. Read the local run; fix what it shows. 2. Commit on m33-get-help, push, open the PR; after CI's first round copy the four help renderings into e2e/__screenshots__, look at them, push; merge when green. 3. Merge #228, deploy, run the X-ray reading on Chip War on the subscription.
 ### 2026-10-23 00:41 · Claude Fable 5.1 (laptop) · M32 X5: X-ray read on Samuel's subscription (script, agent endpoint, skill); checks green; pull request next
 - **Done:** Samuel: why ask for an API key when claude -p on the subscription reads the books. Built as the text editions were: GET/POST /api/agent/books/[id]/xray with the owner's token (nextChapterToRead hands out the next unread chapter's exact request with the names known so far; saveChapterReadElsewhere refuses another book's chapter, other instructions or other text, stores the answer as the server's own with provider claude-subscription at cost 0 and the same cache key so Build the X-ray re-serves it, then runs the quote check and applies it); scripts/xray-on-subscription.ts (read|status: claude -p with the server's system prompt, no tools, the API key removed from its environment; prints entries, facts, dropped and the API price it would have cost per chapter; stopped part-way it carries on); .claude/skills/xray-on-subscription/SKILL.md; the panel's hint names the path. claude -p answers on Haiku on the subscription (smoke test); Chip War's id found with the token.
 - **Key paths:** lib/library/xray-read.ts (nextChapterToRead, saveChapterReadElsewhere); lib/library/xray-read.test.ts; app/api/agent/books/[id]/xray/route.ts; scripts/xray-on-subscription.ts; .claude/skills/xray-on-subscription/SKILL.md; app/(reader)/books/[id]/read/XrayPanel.tsx

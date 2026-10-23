@@ -1,0 +1,54 @@
+/* Get help (M33): the same page shape as Your data: a dark band with the title, then one card per part of the app. */
+.main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-9);
+  display: grid;
+  gap: var(--space-5);
+}
+
+.eyebrow {
+  color: var(--ink-900); /* on the room's dark band: main ink only (M24) */
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: var(--text-2xl);
+}
+
+.lede {
+  color: var(--ink-900); /* on the room's dark band: main ink only (M24) */
+  font-family: var(--font-serif);
+  font-size: var(--text-read);
+  line-height: var(--leading-read);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-5);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel); /* a card (M24, Samuel's pick A) */
+  backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--shadow-panel);
+}
+
+.cardTitle {
+  font-size: var(--text-lg);
+}
+
+.cardText {
+  color: var(--ink-700);
+  line-height: var(--leading-read);
+}
+
+.cardText a {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: var(--space-0);
+}
