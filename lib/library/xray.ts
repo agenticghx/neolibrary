@@ -280,7 +280,9 @@ export function findMentions(entries: XrayEntry[], paragraphs: Paragraph[]): Xra
 }
 
 /** Chapters that are about the file, not the book: a publisher's pages at either end. */
-export const BOILERPLATE = /colophon|copyright|imprint|title ?page|about the (author|publisher)|also by|advertisement/i;
+// A praise page ("More Praise for …", "Acclaim for …") only when the label starts so: "In Praise of Idleness" is a chapter.
+// (Chip War, 2026-10-23: read as a chapter, its praise page gave 20 facts about the book's reviewers.)
+export const BOILERPLATE = /colophon|copyright|imprint|title ?page|about the (author|publisher)|also by|advertisement|^\s*(more |advance |additional |early )?(praise|acclaim) for\b/i;
 
 /** The book's own paragraphs, in order: what the index reads and what mentions are found in. */
 export async function paragraphsOf(db: Db, bookId: string): Promise<Paragraph[]> {
@@ -401,9 +403,12 @@ export async function listXray(db: Db, ownerId: string, bookId: string, cfi: str
     .filter((c) => !BOILERPLATE.test(c.label) && !BOILERPLATE.test(c.href))
     .map(({ index, label, position }) => ({ index, label, position }));
   const rows = await db.select({ id: xrayEntries.id, name: xrayEntries.name, kind: xrayEntries.kind, aliases: xrayEntries.aliases }).from(xrayEntries).where(eq(xrayEntries.bookId, bookId));
-  const counts = await db
-    .select({
-      entryId: xrayMentions.entryId,
+  // What was stored for a publisher's page (a praise page, read before it was known as one) stays out of the list.
+  const trail = new Set(chapters.map((c) => c.index));
+  const counts = (
+    await db
+      .select({
+        entryId: xrayMentions.entryId,
       chapterIndex: xrayMentions.chapterIndex,
       count: sql<number>`count(*)::int`,
       soFar: sql<number>`count(*) filter (where ${xrayMentions.position} <= ${position})::int`,
@@ -411,19 +416,22 @@ export async function listXray(db: Db, ownerId: string, bookId: string, cfi: str
     })
     .from(xrayMentions)
     .where(eq(xrayMentions.bookId, bookId))
-    .groupBy(xrayMentions.entryId, xrayMentions.chapterIndex);
+      .groupBy(xrayMentions.entryId, xrayMentions.chapterIndex)
+  ).filter((c) => trail.has(c.chapterIndex));
   const firsts = [...new Set(counts.map((c) => c.first))];
   const cfis = firsts.length
     ? await db.select({ position: sections.position, cfi: sections.cfi }).from(sections).where(and(eq(sections.bookId, bookId), inArray(sections.position, firsts)))
     : [];
   const cfiAt = new Map(cfis.map((c) => [c.position, c.cfi]));
-  const factRows = await db
-    .select({ id: xrayFacts.id, entryId: xrayFacts.entryId, chapterIndex: xrayFacts.chapterIndex, sectionId: xrayFacts.sectionId, cfi: sections.cfi, position: xrayFacts.position, start: xrayFacts.startAt, end: xrayFacts.endAt, fact: xrayFacts.fact, quote: xrayFacts.quote, model: generations.model, readAt: generations.createdAt })
+  const factRows = (
+    await db
+      .select({ id: xrayFacts.id, entryId: xrayFacts.entryId, chapterIndex: xrayFacts.chapterIndex, sectionId: xrayFacts.sectionId, cfi: sections.cfi, position: xrayFacts.position, start: xrayFacts.startAt, end: xrayFacts.endAt, fact: xrayFacts.fact, quote: xrayFacts.quote, model: generations.model, readAt: generations.createdAt })
     .from(xrayFacts)
     .innerJoin(sections, and(eq(sections.bookId, xrayFacts.bookId), eq(sections.id, xrayFacts.sectionId)))
     .innerJoin(generations, eq(generations.id, xrayFacts.generationId))
     .where(eq(xrayFacts.bookId, bookId))
-    .orderBy(asc(xrayFacts.position), asc(xrayFacts.startAt), asc(xrayFacts.createdAt));
+      .orderBy(asc(xrayFacts.position), asc(xrayFacts.startAt), asc(xrayFacts.createdAt))
+  ).filter((f) => trail.has(f.chapterIndex));
   const entries: XrayListEntry[] = rows.map((e) => {
     const mine = counts.filter((c) => c.entryId === e.id).sort((a, b) => a.first - b.first);
     const total = mine.reduce((n, c) => n + c.count, 0);
@@ -457,6 +465,11 @@ export async function marksFor(db: Db, ownerId: string, bookId: string, chapterI
   const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
   if (!book) throw new XrayError("That book was not found.");
   await ensureXray(db, bookId);
+  const [chapter] = await db
+    .select({ label: sections.label, href: sections.href })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "chapter"), eq(sections.chapterIndex, chapterIndex)));
+  if (chapter && (BOILERPLATE.test(chapter.label) || BOILERPLATE.test(chapter.href))) return []; // a publisher's page: no marks, whatever was stored
   const rows = await db
     .select({ entryId: xrayMentions.entryId, name: xrayEntries.name, sectionId: xrayMentions.sectionId, cfi: sections.cfi, start: xrayMentions.startAt, end: xrayMentions.endAt, position: xrayMentions.position })
     .from(xrayMentions)

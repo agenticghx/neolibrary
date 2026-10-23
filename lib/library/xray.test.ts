@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
-import { xrayEntries, xrayMentions } from "@/lib/db/schema";
+import { generations, xrayEntries, xrayFacts, xrayMentions } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
@@ -158,5 +158,27 @@ describe("X-ray from the text alone (M32 X1)", () => {
     const other = (await createFirstAdmin(database.db, { email: "p@example.com", name: "P", password: "long enough pw" }).catch(() => null))?.id;
     if (other) await expect(listXray(database.db, other, bookId, null)).rejects.toThrow("That book was not found.");
     await expect(listXray(database.db, "00000000-0000-0000-0000-000000000000", bookId, null)).rejects.toThrow("That book was not found.");
+  });
+});
+
+describe("a publisher's pages (M32 X6)", () => {
+  it("knows a praise page by its label, and only at the start of it", () => {
+    for (const label of ["More Praise for CHIP WAR", "Praise for The Chip", "Advance Praise for Chip War", "Acclaim for Chip War", " praise for chip war"]) expect(BOILERPLATE.test(label)).toBe(true);
+    for (const label of ["In Praise of Idleness", "Notes from Underground", "Chapter 3: Notes", "The Praise Singer", "Acclaim", "Uncopyright"]) expect(BOILERPLATE.test(label)).toBe(label === "Uncopyright");
+  });
+
+  it("leaves a fact or a mention stored in a publisher's page out of the list and out of the marks", async () => {
+    await ensureXray(database.db, bookId);
+    const colophon = all.find((s) => s.kind === "chapter" && /uncopyright/i.test(s.label))!;
+    const para = all.find((s) => s.kind === "paragraph" && s.chapterIndex === colophon.chapterIndex)!;
+    const gen = { id: crypto.randomUUID(), ownerId, bookId, sectionId: colophon.id, kind: "xray", options: {}, cacheKey: "k", provider: "anthropic", model: "m", promptName: "xray", promptHash: "h", inputHash: "i", inputTokens: 1, outputTokens: 1, costUsd: 0, output: "o", createdAt: new Date() };
+    await database.db.insert(generations).values(gen);
+    await database.db.insert(xrayEntries).values({ bookId, id: "publisher", name: "Standard Ebooks", kind: "organisation", aliases: ["Standard Ebooks"] });
+    await database.db.insert(xrayFacts).values({ bookId, entryId: "publisher", generationId: gen.id, chapterIndex: colophon.chapterIndex, sectionId: para.id, position: para.position, startAt: 0, endAt: 5, fact: "Standard Ebooks made this file.", quote: para.text.slice(0, 5) });
+    await database.db.insert(xrayMentions).values({ bookId, entryId: "publisher", sectionId: para.id, chapterIndex: colophon.chapterIndex, position: para.position, startAt: 0, endAt: 5 });
+    const list = await listXray(database.db, ownerId, bookId, null);
+    expect(list.entries.find((e) => e.id === "publisher")).toBeUndefined();
+    expect(list.entries.flatMap((e) => e.facts).some((f) => f.chapterIndex === colophon.chapterIndex)).toBe(false);
+    expect(await marksFor(database.db, ownerId, bookId, colophon.chapterIndex)).toEqual([]);
   });
 });
