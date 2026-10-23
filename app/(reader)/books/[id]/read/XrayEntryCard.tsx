@@ -1,6 +1,6 @@
 "use client";
 
-import { KIND_LABELS, type XrayChapter, type XrayListEntry } from "@/lib/library/xray";
+import { KIND_LABELS, type XrayChapter, type XrayFact, type XrayListEntry } from "@/lib/library/xray";
 import styles from "./reader.module.css";
 import own from "./XrayEntryCard.module.css";
 
@@ -41,16 +41,23 @@ export function XrayEntryCard({
   chapters,
   position,
   showAll,
+  fake,
   onGo,
 }: {
   entry: XrayListEntry;
   chapters: XrayChapter[];
   position: number;
   showAll: boolean;
-  onGo: (cfi: string) => void;
+  /** The answers came from the test AI (browser tests), not Claude. */
+  fake?: boolean;
+  onGo: (cfi: string, fact?: XrayFact) => void;
 }) {
   const label = new Map(chapters.map((c) => [c.index, c.label]));
   const count = showAll ? entry.total : entry.soFar;
+  /** X3: what Claude read, up to where the reader is unless everything is asked for. */
+  const shown = entry.facts.filter((f) => showAll || f.seen);
+  const factsAhead = entry.facts.length - shown.length;
+  const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   /** Chapters with a mention that the reader has not reached: named by their number only, not by what they hold. */
   const ahead = entry.chapters.filter((c) => c.soFar === 0).length;
   return (
@@ -66,6 +73,37 @@ export function XrayEntryCard({
       </p>
       <Trail entry={entry} chapters={chapters} position={position} showAll={showAll} />
       {entry.aliases.length > 1 ? <p className={styles.hint}>Also written {entry.aliases.filter((a) => a !== entry.name).join(", ")}.</p> : null}
+      {entry.facts.length ? (
+        <>
+          <p className={own.factsHead}>
+            <span className={styles.groupLabel}>From this book, up to here</span>
+            {factsAhead ? <span className={own.factsAhead}>{factsAhead} more ahead</span> : null}
+          </p>
+          <aside className={`${styles.machine} ${own.facts}`} aria-label="What the book says" data-testid="xray-facts">
+            <p className={styles.machineLabel}>Written by {fake ? "the test AI" : "AI"}, from the book’s words</p>
+            {shown.length ? (
+              <ol className={own.factList}>
+                {shown.map((f) => (
+                  <li key={f.id} className={own.fact}>
+                    <span className={own.factChapter}>{label.get(f.chapterIndex) ?? `Part ${f.chapterIndex + 1}`}</span>
+                    <span>{f.fact}</span>
+                    <button type="button" className={own.quote} onClick={() => onGo(f.cfi, f)} title="Open this place in the book">
+                      “{f.quote}”
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>Nothing yet: the book has not said anything about this up to here.</p>
+            )}
+            {shown.length ? (
+              <p className={styles.provenance}>
+                {shown[0].model} · {when(shown[0].readAt)}
+              </p>
+            ) : null}
+          </aside>
+        </>
+      ) : null}
       <p className={styles.groupLabel}>Where it appears</p>
       <ul className={own.places}>
         {entry.chapters
@@ -84,7 +122,7 @@ export function XrayEntryCard({
           </li>
         ) : null}
       </ul>
-      <p className={styles.hint}>From the book’s own text: names only, no descriptions yet.</p>
+      {entry.facts.length ? null : <p className={styles.hint}>From the book’s own text. Read the book with Claude (in Who &amp; what) for what it says about each name.</p>}
     </>
   );
 }

@@ -396,6 +396,27 @@ export const xrayMentions = pgTable(
   (t) => [primaryKey({ columns: [t.bookId, t.entryId, t.sectionId, t.startAt] })],
 );
 
+/**
+ * M32 X3: what the book says about an X-ray entry, one short statement per fact with the quote it rests on, by
+ * chapter (see db/migrations/0032_xray_facts.up.sql). generation_id is the AI answer it came from.
+ */
+export const xrayFacts = pgTable("xray_facts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookId: uuid("book_id").notNull(),
+  entryId: text("entry_id").notNull(),
+  generationId: uuid("generation_id")
+    .notNull()
+    .references(() => generations.id, { onDelete: "cascade" }),
+  chapterIndex: integer("chapter_index").notNull(),
+  sectionId: text("section_id").notNull(),
+  position: integer("position").notNull(),
+  startAt: integer("start_at").notNull(),
+  endAt: integer("end_at").notNull(),
+  fact: text("fact").notNull(),
+  quote: text("quote").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Time and words of one sitting inside one chapter (M10 (c)). */
 export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };
 

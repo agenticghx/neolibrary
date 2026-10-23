@@ -90,3 +90,25 @@
   cursor: pointer;
 }
 
+/* X3: reading the book with Claude: what is read, the estimate and the confirm box, progress while it runs. */
+.build {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  /* Plain paper, not the sunken well: quiet grey text keeps its contrast there (4.49:1 on the well). */
+  background-color: var(--paper);
+}
+
+.buildLine {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  width: 100%;
+  height: var(--space-2);
+  accent-color: var(--accent);
+}

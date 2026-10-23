@@ -24,6 +24,7 @@ function fakeAnswer(req: TextRequest) {
   const task = /^Task: (.+)$/m.exec(req.prompt)?.[1] ?? "answer";
   if (task === "Ask this book") return fakeAsk(req.prompt);
   if (task === "Explain it back") return JSON.stringify(fakeExplainBack(req.prompt));
+  if (task === "Who and what") return JSON.stringify(fakeXray(req.prompt));
   const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? req.prompt;
   if (req.schema) return JSON.stringify(/question/i.test(task) ? fakeQuestions(text) : fakeConcepts(text));
   const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
@@ -101,4 +102,38 @@ function fakeQuestions(text: string) {
       })),
     ),
   };
+}
+
+/**
+ * Who and what (M32 X3): for each known entry whose name is in the chapter, and for a few capitalised words of its
+ * first passages, one fact quoting the first eight words of a passage exactly (so the app's quote check keeps it),
+ * plus one planted entry whose quote is not in the book, so the dropped count can be seen and tested. The fake is
+ * one shared model in browser tests, so the planted fact is always there.
+ */
+function fakeXray(prompt: string) {
+  const passages = [...prompt.matchAll(/<passage n="(\d+)">\s*([\s\S]*?)\s*<\/passage>/g)].map((m) => ({ n: Number(m[1]), text: m[2] }));
+  const known = (/<known>\s*([\s\S]*?)\s*<\/known>/.exec(prompt)?.[1] ?? "")
+    .split("\n")
+    .map((l) => /^(.+?) \(/.exec(l)?.[1]?.trim())
+    .filter((n): n is string => !!n && n !== "(none yet)");
+  const first = (p: { text: string }) => p.text.split(/\s+/).slice(0, 8).join(" ");
+  const entries: { name: string; kind: string; aliases: string[]; same_as: string | null; facts: { passage: number; fact: string; quote: string }[] }[] = [];
+  const named = new Set<string>();
+  for (const k of known) {
+    const last = k.split(" ").pop()!;
+    const p = passages.find((x) => x.text.includes(last));
+    if (!p || named.has(k)) continue;
+    named.add(k);
+    entries.push({ name: k, kind: "person", aliases: [k, last], same_as: k, facts: [{ passage: p.n, fact: `The test AI says this chapter names ${k} here.`, quote: first(p) }] });
+  }
+  for (const p of passages.slice(0, 3)) {
+    for (const w of [...new Set(p.text.match(/\b[A-Z][a-z]{3,}\b/g) ?? [])]) {
+      if (entries.length >= 6) break;
+      if (named.has(w) || known.some((k) => k.includes(w))) continue;
+      named.add(w);
+      entries.push({ name: w, kind: "term", aliases: [w], same_as: null, facts: [{ passage: p.n, fact: `A made-up fact about ${w} from the test AI.`, quote: first(p) }] });
+    }
+  }
+  entries.push({ name: "Green Cheese", kind: "term", aliases: ["Green Cheese"], same_as: null, facts: [{ passage: 1, fact: "A planted fact whose quote is not in the book.", quote: "The moon was made of green cheese." }] });
+  return { entries };
 }

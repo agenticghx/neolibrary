@@ -1,3 +1,4 @@
+import { aiIsFake } from "@/lib/ai/index";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { isCfi } from "@/lib/library/reading";
@@ -20,7 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const cfi = new URL(req.url).searchParams.get("cfi") ?? "";
   if (cfi && !isCfi(cfi)) return Response.json({ error: "That is not a place in the book." }, { status: 400 });
   try {
-    return Response.json(await listXray(await getDb(), user.id, bookId, cfi || null));
+    return Response.json({ ...(await listXray(await getDb(), user.id, bookId, cfi || null)), fake: aiIsFake() });
   } catch (e) {
     if (e instanceof XrayError) return Response.json({ error: e.message }, { status: 404 });
     throw e;

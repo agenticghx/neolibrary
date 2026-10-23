@@ -285,7 +285,7 @@ export async function findStored(db: Db, ownerId: string, req: GenerationRequest
  * between readers of the same book"). Ask and Explain it back carry the
  * reader's own words, so they stay with that reader.
  */
-export const SHARED_KINDS = ["rewrite", "prerequisites", "questions"];
+export const SHARED_KINDS = ["rewrite", "prerequisites", "questions", "xray"];
 
 /**
  * Another reader's stored answer to exactly this request, copied into this

@@ -36,6 +36,7 @@ import { startImport } from "@/lib/readalong/importer";
 import { FakeCovers } from "@/lib/covers/sources";
 import { findMissingCovers, rejectCover, uploadCover } from "./cover-lookup";
 import { ensureXray } from "./xray";
+import { bookChapters, readChapter } from "./xray-read";
 
 let database: Database;
 let ownerId: string;
@@ -143,6 +144,9 @@ describe("library export (ground rule 7)", () => {
       .values({ ownerId, title: "The Time Machine", author: "H. G. Wells", fileKey: `books/${ownerId}/edition.epub`, fileName: "edition.epub", fileType: "epub", fileSize: 4321, editionOf: bookId })
       .returning({ id: books.id });
 
+    // M32 X3: one chapter read for X-ray by the fake AI, so facts and their AI answer are in the file.
+    const [firstChapter] = await bookChapters(database.db, bookId);
+    await readChapter({ db: database.db, model: new FakeModel() }, ownerId, bookId, firstChapter);
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.find((b) => b.id === edition.id)?.editionOf).toBe(bookId);
     expect(before.books.length).toBeGreaterThan(100);
@@ -196,7 +200,8 @@ describe("library export (ground rule 7)", () => {
     ]);
     expect(before.settings).toEqual({ aiStyle: "ste-standard", rewrittenView: "rewritten" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
-    expect(before.generations).toEqual([
+    // The X-ray reading (M32 X3) is one more AI answer, checked below with its facts; the four made above are these.
+    expect(before.generations!.filter((g) => g.kind !== "xray")).toEqual([
       expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
       expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "ste-light" } }),
       expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
@@ -228,8 +233,11 @@ describe("library export (ground rule 7)", () => {
     expect(before.reviewCards![0]).toMatchObject({ cardId: marked.id, annotationId: marked.id });
 
     // M32 X1: the X-ray index was built from the book's text at import; its mentions are derived and not in the file.
+    // X3: one chapter read by the (fake) AI (before the export) adds facts with quotes, carried with their AI answer.
     expect(before.xrayEntries!.length).toBeGreaterThan(5);
-    expect(before.xrayEntries!.every((e) => e.bookId === bookId && e.kind === "name" && e.aliases.length >= 1 && e.generationId === null)).toBe(true);
+    expect(before.xrayEntries!.every((e) => e.bookId === bookId && e.aliases.length >= 1)).toBe(true);
+    expect(before.xrayFacts!.length).toBeGreaterThan(0);
+    expect(before.generations!.some((g) => g.id === before.xrayFacts![0].generationId && g.kind === "xray")).toBe(true);
     const mentionsBefore = (await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).length;
     expect(mentionsBefore).toBeGreaterThan(50);
 
@@ -237,6 +245,7 @@ describe("library export (ground rule 7)", () => {
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
     expect(empty.xrayEntries).toEqual([]);
+    expect(empty.xrayFacts).toEqual([]);
     expect(await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).toEqual([]);
     expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions, empty.reviewCards]).toEqual([[], [], [], [], [], [], [], [], [], []]);
     expect(empty.focusSessions).toEqual([]);

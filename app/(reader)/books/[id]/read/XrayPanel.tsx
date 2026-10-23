@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KIND_LABELS, type XrayList, type XrayListEntry } from "@/lib/library/xray";
+import type { XraySummary } from "@/lib/library/xray-read";
 import { StudyTabs, type StudyTab } from "./StudyTabs";
 import { Trail, XrayEntryCard } from "./XrayEntryCard";
 import styles from "./reader.module.css";
@@ -14,11 +15,19 @@ import own from "./XrayPanel.module.css";
  * the chapters ahead as empty, until "Show everything" is ticked. Tapping an
  * entry shows where it appears; each chapter opens its first mention.
  *
- * X1 knows names only (found in the text, no AI): kinds and facts come with
- * Claude's reading (X3); marks on the page come in X2.
+ * X3: "Build the X-ray" reads the whole book with Claude, chapter by chapter,
+ * behind an estimate and a confirm box; the list then carries kinds and each
+ * name's facts, with their quotes. Marks on the page are X2.
  */
+type Build = Partial<XraySummary> & { configured: boolean; fake?: boolean };
+const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
 export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: string; onTab: (tab: StudyTab) => void; onGo: (cfi: string) => void }) {
-  const [data, setData] = useState<XrayList | null>(null);
+  const [data, setData] = useState<(XrayList & { fake?: boolean }) | null>(null);
+  const [tick, setTick] = useState(0);
+  const [build, setBuild] = useState<Build | null>(null);
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [buildError, setBuildError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -44,7 +53,54 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
       if (timer.current) clearTimeout(timer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `data` only decides the first load's delay
-  }, [bookId, cfi]);
+  }, [bookId, cfi, tick]);
+
+  // Reading the book with Claude (X3): what is read, what the rest costs; polled while a run goes on, and the
+  // list fetched again when it ends (kinds and facts have arrived).
+  const loadBuild = useCallback(
+    () =>
+      fetch(`/api/books/${bookId}/xray/build`)
+        .then(async (res) => (res.ok ? ((await res.json()) as Build) : null))
+        .then((b) => b && setBuild(b))
+        .catch(() => undefined),
+    [bookId],
+  );
+  useEffect(() => {
+    void loadBuild();
+  }, [loadBuild]);
+  const running = !!build?.running;
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running) setTick((t) => t + 1);
+    wasRunning.current = running;
+    if (!running) return;
+    const t = setInterval(() => void loadBuild(), 1500);
+    return () => clearInterval(t);
+  }, [running, loadBuild]);
+
+  const startBuild = async () => {
+    setBusy(true);
+    setBuildError(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/xray/build`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: agree }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "That did not start. Try again.");
+      setBuild({ configured: true, fake: build?.fake, ...body });
+      // A run that ended at once (a book read before, or the test AI) is over before this answer is read: ask again.
+      if (!body.running) {
+        void loadBuild();
+        setTick((t) => t + 1);
+      }
+    } catch (e) {
+      setBuildError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const stopBuild = async () => {
+    await fetch(`/api/books/${bookId}/xray/build`, { method: "DELETE" }).catch(() => undefined);
+    void loadBuild();
+  };
 
   const chapterLabel = useMemo(() => new Map((data?.chapters ?? []).map((c) => [c.index, c.label])), [data]);
 
@@ -76,8 +132,57 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
           <button type="button" className={own.back} onClick={() => setOpen(null)}>
             Back to the list
           </button>
-          <XrayEntryCard entry={current} chapters={data.chapters} position={data.position} showAll={showAll} onGo={onGo} />
+          <XrayEntryCard entry={current} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} />
         </article>
+      ) : null}
+      {data && !current && build ? (
+        <section className={own.build} aria-label="Read the book with Claude">
+          {!build.configured ? (
+            <p className={styles.hint}>Names from the book’s text. For what it says about each, AI needs setting up: the owner adds an Anthropic API key.</p>
+          ) : (
+            <>
+              <p className={own.buildLine} data-testid="xray-build-line">
+                {build.done} of {build.chapters} chapters read{build.facts ? ` · ${build.facts} ${build.facts === 1 ? "fact" : "facts"}` : ""}
+              </p>
+              {build.running ? (
+                <>
+                  <progress className={own.progress} value={build.done} max={build.chapters} aria-label="Chapters read" />
+                  <p className={styles.hint}>Reading {build.current ?? "the book"}…</p>
+                  <button type="button" className={styles.tool} onClick={() => void stopBuild()} disabled={build.stopping}>
+                    {build.stopping ? "Stopping…" : "Stop"}
+                  </button>
+                </>
+              ) : null}
+              {!build.running && build.stoppedBecause ? (
+                <p className={styles.hint} role="status">
+                  {build.stoppedBecause.message}
+                </p>
+              ) : null}
+              {!build.running && (build.done ?? 0) < (build.chapters ?? 0) ? (
+                <>
+                  <label className={own.toggle}>
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> I understand this reads {(build.chapters ?? 0) - (build.done ?? 0)} chapters with{" "}
+                    {build.fake ? "the test AI" : "Claude"} and costs {usd(build.estimateUsd ?? 0)} at most
+                  </label>
+                  {build.overLimit && build.caps ? (
+                    <p className={styles.hint}>
+                      That passes a spending cap: {usd(build.caps.spentBookUsd)} of {usd(build.caps.perBookUsd)} spent on this book, {usd(build.caps.spentMonthUsd)} of{" "}
+                      {usd(build.caps.perMonthUsd)} this month.
+                    </p>
+                  ) : null}
+                  <button type="button" className={styles.primaryTool} disabled={!agree || busy || build.overLimit} onClick={() => void startBuild()}>
+                    {busy ? "Starting…" : build.done ? "Read the rest" : "Build the X-ray"}
+                  </button>
+                </>
+              ) : null}
+              {buildError ? (
+                <p className={styles.formError} role="alert">
+                  {buildError}
+                </p>
+              ) : null}
+            </>
+          )}
+        </section>
       ) : null}
       {data && !current ? (
         <>
@@ -112,8 +217,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
             <p className={styles.hint}>{query ? "No name like that." : "No one named yet. Read on."}</p>
           )}
           <p className={styles.hint}>
-            {entries.length} of {data.entries.length} names{showAll ? "" : ", met so far"}. Counts are mentions {showAll ? "in the whole book" : "up to where you are"}; from the
-            book’s own text.
+            {entries.length} of {data.entries.length} names{showAll ? "" : ", met so far"}. Counts are mentions {showAll ? "in the whole book" : "up to where you are"}.
           </p>
         </>
       ) : null}

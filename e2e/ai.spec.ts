@@ -756,6 +756,51 @@ test("names on the page carry a dotted underline, the strip names what is on the
   expect((await page.request.get(`/api/books/${bookIdOf(page)}/xray/marks?chapter=x`)).status()).toBe(400);
 });
 
+// M32 X3: Build the X-ray reads the whole book with Claude (the test AI here), chapter by chapter, behind an estimate
+// and a confirm box. Facts carry the quote they rest on; a fact whose quote is not in the book is dropped and counted
+// (the test AI plants one per chapter). A card shows what the book has said up to where the reader is; a quote opens
+// its place in the book.
+test("Build the X-ray reads the book with the AI, drops the planted facts, and a card shows what the book has said up to here", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary"); // chapter 2, Search for Mr. Hyde
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Who & what" }).click();
+  const who = page.getByRole("region", { name: "Who & what" });
+  const build = who.getByRole("region", { name: "Read the book with Claude" });
+  await expect(build).toContainText("0 of 10 chapters read");
+  const agree = build.getByLabel(/I understand this reads 10 chapters with the test AI and costs (about \$|under \$)/);
+  await expect(build.getByRole("button", { name: "Build the X-ray" })).toBeDisabled();
+  expect((await page.request.post(`/api/books/${bookIdOf(page)}/xray/build`, { data: { confirm: "yes" } })).status()).toBe(400);
+  await agree.check();
+  await build.getByRole("button", { name: "Build the X-ray" }).click();
+  await expect(build).toContainText("10 of 10 chapters read", { timeout: 30_000 });
+  await expect(build.getByRole("status")).toContainText("Every chapter is read. 10 facts were left out: their quotes were not in the book.");
+  await expect(build).toContainText(/\d+ facts/);
+  // The list now knows kinds, and the planted name has no place in the book.
+  const list = who.getByTestId("xray-list");
+  await expect(list).toContainText("Person");
+  await who.getByLabel("Show everything, including what is ahead").check();
+  await expect(list).not.toContainText("Green Cheese");
+  await who.getByLabel("Show everything, including what is ahead").uncheck();
+  // The lawyer's card: facts from chapter 1 (read), the rest ahead; each quote is the book's own words.
+  await list.getByRole("button", { name: /Mr\. Utterson/ }).click();
+  const facts = who.getByTestId("xray-facts");
+  await expect(facts).toContainText("Written by the test AI, from the book’s words");
+  await expect(facts).toContainText("The test AI says this chapter names Mr. Utterson here.");
+  await expect(facts).toContainText("“Mr. Utterson the lawyer was a man of”"); // the test AI quotes a passage's first eight words
+  await expect(who.getByTestId("xray-card")).toContainText(/\d+ more ahead/);
+  await expect(facts).toContainText(/fake · \d+ \w+ \d{4}/);
+  // A quote opens its place: the first chapter.
+  await facts.getByRole("button", { name: /Mr\. Utterson the lawyer was a man/ }).click();
+  await page.waitForFunction(
+    () => (document.querySelector("foliate-view") as unknown as { lastLocation?: { tocItem?: { label?: string } } }).lastLocation?.tocItem?.label === "Story of the Door",
+  );
+  // The ten AI answers count as spending on this book, under the caps.
+  const summary = await (await page.request.get(`/api/books/${bookIdOf(page)}/xray/build`)).json();
+  expect(summary.done).toBe(10);
+  expect(summary.caps.spentBookUsd).toBeGreaterThan(0);
+  expect(summary.caps.spentBookUsd).toBeLessThanOrEqual(summary.caps.perBookUsd);
+});
+
 test("the AI and cross-book panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   // Four looks of six panels, each with an accessibility check: 15 to 22 s on CI, so the default 30 s ran out on a
   // slow runner (CI run 39445509504). The same budget as the other four-look tests.
