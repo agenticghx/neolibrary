@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After the Chip War reading finishes: record it and deploy X6 (115978a0 or later); then Samuel's twenty-entry check.
+next_action: Samuel's twenty-entry check of Chip War's Who & what and his look at Get help; this ledger entry rides with the next real pull request.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-23
 shared_copy: none
@@ -155,6 +155,7 @@ Open unknowns rows 12, 13, and 14 wait on Samuel (decide by 2026-10-14). The def
 
 Never blocks the loop. Newest first.
 
+- **Chip War's X-ray and the Get help page (M32 X5/X6 and M33, 2026-10-23; nothing blocks).** (1) Open *Chip War* on the live site, Study > Who & what, and check twenty entries by eye (the names, their kinds, a few facts against the page); the plan's Done when asks for your verdict, and Open unknowns row 27 (the name in the app, the argument X-ray, when to pay, the world layer) defaults on 2026-10-29. (2) Open Get help from the account menu and say in one line what is missing or unclear. (3) To read another book the same way, no key needed: the `xray-on-subscription` skill, or `npx tsx scripts/xray-on-subscription.ts read <site> <book id>` in a terminal (about an hour for a 54-chapter book).
 - **Covers (M22, 2026-10-11; nothing blocks).** (1) On **/covers**, turn down any cover that is a poor picture ("Not this cover": the next match takes its place, or the drawn cover comes back). (2) ~~A Google Books key~~ **Given 2026-10-11 and live** (on Railway `web` since the 357d746 deploy): 12 of the 14 titles found; two more weak ones to judge on /covers (How Buildings Learn, The Gift Relationship). (3) Covers are looked up for every reader, your invited reader too; say if it should be you only.
 
 - ~~Three small things from 2026-10-10~~ **Answered 2026-10-10:** deploy #134 and #135 (done, live at 7d61d2c), push the dotfiles skills (done), and reword "How books are heard" so PDFs are included (pull request from `m16-heard-sentence`).
@@ -292,6 +293,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-23 02:22 · Claude Fable 5.1 (laptop) · Live: 115978a0 (M32 X6, a praise page is not a chapter). Chip War read for X-ray on the subscription: 59 chapters, 890 entries, 2816 facts, 1 dropped, $0 to the app, $0.60 it would have cost on the API
+- **Done:** The reading (scripts/xray-on-subscription.ts read, started 00:54 laptop clock) finished at 01:51: 'Every chapter is read (59 of 67)' (the 8 Part pages have no text). Per the log: 2816 facts, 1 dropped by the quote check (Chapter 54), 56 min 35 s of reading, API price it would have cost $0.60. On the live database afterwards (read-only psql): 890 entries (259 organisations, 199 terms, 192 people, 150 places, 46 works, 44 events), 2816 facts, 10568 mentions, 59 generations with provider claude-subscription, app cost $0. The twenty entries with most facts, looked at by eye: Intel, TSMC, Morris Chang, Andy Grove, Texas Instruments, Fairchild Semiconductor, Silicon Valley, Robert Noyce, Gordon Moore, Taiwan, Defense Department, Moore's Law, Samsung, Huawei, ASML, DRAM, AMD, Soviet Union, Akio Morita, integrated circuit; Morris Chang's facts are right and specific (founded TSMC; TI from 1958; born in mainland China, grew up in Hong Kong). Then X6 deployed: main's run 39907837623 green after the unit job's re-run; the first railway up failed ('Deploy failed: Failed to build an image', deployment cff3819f, production untouched); the second succeeded (deployment eb77ef97). #231 (the EPUB writers' entry time) merged as 19a5fb71 and is not deployed on its own; it rides with the next deploy (main's run 39910345788 for it: green, WebKit projects included).
+- **Key paths:** PROGRESS.md; scripts/xray-on-subscription.ts; lib/library/xray.ts
+- **Commands that worked:** zsh -ic "npx tsx scripts/xray-on-subscription.ts status|read https://library.samuelahuno.com c4413fe0-aecb-48cd-bd2a-18f7c2f1152a" -> Every chapter is read (59 of 67). API price this run would have cost: $0.60; railway up --service web --environment production --ci -> Deploy complete (second attempt); /api/health on both addresses -> commit 115978a; /sign-in -> 200
+- **Known issues / blockers:** Twenty-two facts from the front matter stay in the tables (2 from Opening pages, shown; 20 from the praise page, hidden by X6 at read time until the mentions are next rebuilt). 'integrated circuit' has 832 mentions: the finder counts a common phrase once Claude names it as a term; worth a look by eye. A fact said in two chapters is stored twice, once per chapter, by design. A railway up can fail at the image build after a clean compile: retry once before reading further.
+- **Exact next steps:** 1. Samuel: open Chip War on the live site, Study > Who & what, check twenty entries by eye and record a verdict (Open unknowns row 27 defaults on 2026-10-29). 2. Samuel: open Get help from the account menu and say what is missing. 3. This entry sits on local branch m32-chipwar-record (not pushed): commit it with the next real pull request.
 
 ### 2026-10-23 02:02 · Claude Fable 5.1 (laptop) · EPUB writers: the zip entries stamped with the EPUB's own date, so the same file makes the same bytes (main's unit job failed once on it after #230)
 - **Done:** Main's CI run 39907837623 (the X6 merge) failed in the unit job on markdown-epub.test's 'the same file makes the same EPUB' check while the browser job passed. Cause, not a flake in the test: fflate's zipSync stamps each entry with the current time (2-second steps), so two builds across a boundary differ; shown with a one-off script (two builds 2.5 s apart: 12 bytes differ before, 0 after). Fix: markdownToEpub and the text edition's EPUB pass their own modified date (now / meta.madeAt) as the entries' mtime. A row in docs/ci-flakes.md under Causes removed. The failed job was re-run meanwhile so the X6 deploy is not held by it.
