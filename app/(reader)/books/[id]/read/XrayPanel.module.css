@@ -97,6 +97,7 @@
   padding: var(--space-3);
   border: var(--border-hair) solid var(--rule);
   border-radius: var(--radius-md);
+
   /* Plain paper, not the sunken well: quiet grey text keeps its contrast there (4.49:1 on the well). */
   background-color: var(--paper);
 }
