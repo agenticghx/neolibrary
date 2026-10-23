@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { capsFromEnv, estimateCost, generate, spendingWithJobs, SpendingCapReached, type Caps, type GenerationRequest } from "@/lib/ai/generate";
 import { AiError, type TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
-import { books, generations, sections, xrayEntries, xrayFacts, xrayMentions, type XrayKind } from "@/lib/db/schema";
+import { books, generations, sections, xrayEntries, xrayFacts, type XrayKind } from "@/lib/db/schema";
 import { getStyles } from "./ai-style";
 import { bookLine, styleInstruction } from "./prerequisites";
-import { BOILERPLATE, findMentions, paragraphsOf, XrayError, type XrayEntry } from "./xray";
+import { BOILERPLATE, findMentions, paragraphsOf, saveMentions, XrayError, type XrayEntry } from "./xray";
 
 /**
  * X-ray, read by Claude (M32 X3). One call per chapter, in order, each told
@@ -249,14 +249,9 @@ export async function applyChapter(db: Db, bookId: string, generationId: string,
     for (let i = 0; i < facts.length; i += 500) await tx.insert(xrayFacts).values(facts.slice(i, i + 500));
   });
   if (changed.length) {
-    // The same paragraphs the index reads (a publisher's pages left out), so a rebuild finds the same mentions.
-    const mentions = findMentions(changed, await paragraphsOf(db, bookId));
-    await db.transaction(async (tx) => {
-      await tx.delete(xrayMentions).where(and(eq(xrayMentions.bookId, bookId), inArray(xrayMentions.entryId, changed.map((e) => e.id))));
-      for (let i = 0; i < mentions.length; i += 500) {
-        await tx.insert(xrayMentions).values(mentions.slice(i, i + 500).map((m) => ({ bookId, entryId: m.entryId, sectionId: m.sectionId, chapterIndex: m.chapterIndex, position: m.position, startAt: m.start, endAt: m.end })));
-      }
-    });
+    // Every name's mentions again, together (a span goes to the longest name), on the same paragraphs the index
+    // reads: the same result a rebuild from the entries alone gives.
+    await saveMentions(db, bookId, findMentions(await db_entries(db, bookId), await paragraphsOf(db, bookId)));
   }
   return { entries: checked.entries.length, facts: checked.entries.reduce((n, e) => n + e.facts.length, 0), changed: changed.length };
 }

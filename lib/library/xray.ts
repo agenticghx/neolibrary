@@ -52,13 +52,29 @@ const STOP = new Set(
     "Although Unless Whether Thus Hence Such Much Many More Most Less Few Several All Some Any Every Each Both " +
     "Either Neither Nothing Something Anything Everything None One Two Three Four Five Six Seven Eight Nine Ten " +
     "First Second Third Last Next Good Bad Poor Dear Very Quite Still Just Only Also Even Never Ever Always Once " +
-    "Again Soon Away Back Yesterday Today Tomorrow Tonight Night Day Morning Evening Afternoon"
+    "Again Soon Away Back Yesterday Today Tomorrow Tonight Night Day Morning Evening Afternoon " +
+    "Besides Finally However Thus Hence Moreover Nevertheless Therefore Meanwhile Otherwise Instead Rather Whether " +
+    "Chapter Chapters Figure Figures Table Tables Section Sections Part Parts Page Pages Note Notes Index Introduction " +
+    "Preface Appendix Bibliography Contents Reply Replies Objection Objections See Cf Ibid Op Loc St Prof Rev Ed Eds Vol " +
+    "Fourth Fifth Sixth Seventh Eighth Ninth Tenth Meditation Meditations"
+  ).split(" "),
+);
+/** A people's or a school's adjective is not a name on its own ("European", "Cartesian"); inside a name it stays. */
+const ADJECTIVES = new Set(
+  (
+    "American Americans European Europeans Chinese German Germans French British English Spanish Italian Italians Russian Russians " +
+    "Japanese Indian Indians Dutch Latin Greek Greeks Roman Romans Western Eastern Northern Southern Asian African Africans Arab Arabs " +
+    "Christian Christians Catholic Catholics Protestant Jewish Islamic Muslim Muslims Aristotelian Cartesian Platonic Scholastic " +
+    "Victorian Medieval Modern Ancient Classical Soviet Communist Socialist Liberal Conservative Republican Democratic Federal National"
   ).split(" "),
 );
 
+/** In the stop list, whatever the capitals ("CHAPTER" in a heading is "Chapter"). */
+const stopped = (w: string) => STOP.has(w) || STOP.has(w[0] + w.slice(1).toLowerCase());
+
 /** One word of a name: a capital, then letters, apostrophes or hyphens ("O’Brien", "Jean-Luc"). */
-const WORD = "\\p{Lu}[\\p{L}’'-]*";
-const NAME_RE = new RegExp(`(?:\\b(?:${HONORIFICS.join("|")})\\.?\\s)?${WORD}(?:\\s(?:${JOINERS.join("|")})\\s${WORD}|\\s${WORD})*`, "gu");
+const WORD = "\\p{Lu}[\\p{L}’'&-]*";
+const NAME_RE = new RegExp(`(?:\\b(?:${HONORIFICS.join("|")})\\.?\\s)?${WORD}(?:\\s(?:${JOINERS.join("|")}|&)\\s${WORD}|\\s${WORD})*`, "gu");
 
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 12);
 
@@ -87,6 +103,17 @@ function startsSentence(text: string, at: number) {
 
 type Form = { count: number; nonInitial: number };
 
+/** A heading or a title line: short, and most of its words capitalised. Title case is not evidence of a name. */
+export function looksLikeHeading(text: string) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length > 14 || !words.length) return false;
+  const caps = words.filter((w) => /^\p{Lu}/u.test(w)).length;
+  return caps / words.length > 0.6;
+}
+
+/** A possessive inside a run of capitals ends the name: "Germany’s FinTech" is two names, not one. */
+const breakPossessives = (text: string) => text.replace(/([’'])s(?=\s)/gu, "$1s\u2060");
+
 /**
  * The names a book writes with capitals, from its paragraphs alone. Kept: a
  * form seen at least twice and at least once inside a sentence. Forms are
@@ -95,66 +122,125 @@ type Form = { count: number; nonInitial: number };
  */
 export function findNames(paragraphs: Paragraph[]): XrayEntry[] {
   const forms = new Map<string, Form>();
+  const lower = new Map<string, number>();
   for (const p of paragraphs) {
-    for (const m of p.text.matchAll(NAME_RE)) {
-      const form = trimName(m[0]);
-      const words = tokens(form);
-      const next = p.text[(m.index ?? 0) + m[0].length] ?? "";
+    for (const w of p.text.matchAll(/(?<![\p{L}’'])\p{Ll}[\p{L}]+/gu)) lower.set(w[0], (lower.get(w[0]) ?? 0) + 1);
+    if (looksLikeHeading(p.text)) continue;
+    const text = breakPossessives(p.text);
+    for (const m of text.matchAll(NAME_RE)) {
+      let form = trimName(m[0]);
+      const next = text[(m.index ?? 0) + m[0].length] ?? "";
       if (/\p{N}/u.test(next) || /^\p{Lu}[’'](?:m|ll|ve|d|re|s)$/u.test(m[0])) continue;
-      if (!form || !words.length || !words[0] || words.every((w) => STOP.has(w) || JOINER_RE.test(w))) continue;
-      if (words.some((w) => w.length < 2 && !JOINER_RE.test(w))) continue;
-      if (words.length === 1 && STOP.has(words[0])) continue;
+      // A sentence opener or a title word glued to the front ("In Hawaii", "See Gaukroger", "Chapter Three") is not
+      // part of the name, nor one at the end ("Fourth Objections"); nor a unit after a number ("15 MW GE"): strip
+      // them, and what is left stands inside the sentence.
+      let stripped = false;
+      let afterNumber = false;
+      const before = text.slice(0, m.index ?? 0).trimEnd();
+      if (/\p{N}$/u.test(before)) {
+        const first = tokens(form)[0] ?? "";
+        if (tokens(form).length === 1) continue;
+        if (!hasHonorific(form) && (first.length <= 3 || first === first.toUpperCase())) {
+          form = form.slice(form.indexOf(" ") + 1);
+          stripped = true;
+        } else afterNumber = true; // a page number, a footnote mark: what follows may open a line, not a sentence
+      }
+      let apparatus = false;
+      for (;;) {
+        const words = tokens(form);
+        if (words.length < 2 || hasHonorific(form)) break;
+        if (stopped(words[0])) {
+          form = form.slice(form.indexOf(" ") + 1);
+          stripped = true;
+        } else if (stopped(words[words.length - 1])) {
+          // "Explanatory Notes", "Fourth Objections": a two-word title of the book's own apparatus, not a name.
+          if (words.length === 2) apparatus = true;
+          form = form.slice(0, form.lastIndexOf(" "));
+        } else break;
+        // A joiner left at an end ("of Descartes") goes with the word it joined.
+        form = form.replace(new RegExp(`^(?:${JOINERS.join("|")}|&)\\s|\\s(?:${JOINERS.join("|")}|&)$`, "gu"), "");
+      }
+      if (apparatus) continue;
+      const words = tokens(form);
+      if (!form || !words.length || !words[0] || words.every((w) => stopped(w) || JOINER_RE.test(w))) continue;
+      if (JOINER_RE.test(words[0]) || words[0] === "&" || JOINER_RE.test(words[words.length - 1]) || words[words.length - 1] === "&") continue;
+      if (words.some((w) => w.length < 2 && !JOINER_RE.test(w) && w !== "&")) continue;
+      if (words.length === 1 && (stopped(words[0]) || ADJECTIVES.has(words[0]))) continue;
       const f = forms.get(form) ?? { count: 0, nonInitial: 0 };
       f.count += 1;
-      if (!startsSentence(p.text, m.index ?? 0)) f.nonInitial += 1;
+      if (stripped || (!afterNumber && !startsSentence(text, m.index ?? 0))) f.nonInitial += 1;
       forms.set(form, f);
     }
   }
-  const kept = [...forms.entries()].filter(([, f]) => f.count >= 2 && f.nonInitial >= 1).map(([form, f]) => ({ form, ...f }));
+  const commonNoun = (form: string) => {
+    const words = tokens(form);
+    if (words.length !== 1) return false;
+    const n = lower.get(words[0].toLowerCase()) ?? 0;
+    return n >= 2 && n >= (forms.get(form)?.count ?? 0) * 0.3;
+  };
+  const kept = [...forms.entries()]
+    .filter(([form, f]) => f.count >= 2 && f.nonInitial >= 1 && !commonNoun(form))
+    .map(([form, f]) => ({ form, ...f }));
   const known = new Set(kept.flatMap((k) => tokens(k.form)));
   for (const [form, f] of forms) {
     const words = tokens(form);
     if (f.count === 1 && words.length > 1 && words.every((w) => known.has(w) || JOINER_RE.test(w))) kept.push({ form, ...f });
   }
   const standalone = new Set(kept.filter((k) => tokens(k.form).length === 1).map((k) => core(k.form)));
+  // A last word that ends many different names ("Bank", "Energy", "Edison" the companies) is a kind of thing, not a
+  // surname: it groups nothing.
+  const endings = new Map<string, Set<string>>();
+  for (const k of kept) {
+    const words = tokens(k.form);
+    if (words.length > 1) (endings.get(words[words.length - 1]) ?? endings.set(words[words.length - 1], new Set()).get(words[words.length - 1]))!.add(core(k.form));
+  }
+  const surnameLike = (w: string) => standalone.has(w) && (endings.get(w)?.size ?? 0) <= 2;
 
-  // Grouping: a form joins the group of its last word when that word stands alone as a kept form ("Hyde" for
-  // "Mr. Hyde" and "Edward Hyde"); otherwise it is a group of its own ("Cavendish Square").
+  // Grouping: a form joins the group of its last word when that word stands alone as a kept form and is a name's
+  // end, not a kind of thing ("Hyde" for "Mr. Hyde" and "Edward Hyde"); otherwise it is a group of its own.
   const groups = new Map<string, typeof kept>();
   const keyOf = (form: string) => {
     const words = tokens(form);
     const last = words[words.length - 1];
-    return words.length === 1 || standalone.has(last) ? last : core(form);
+    return words.length === 1 || surnameLike(last) ? last : core(form);
   };
   for (const k of kept) {
     const key = keyOf(k.form);
     groups.set(key, [...(groups.get(key) ?? []), k]);
   }
-  // Then a group joins another when one of the other's names contains one of its names whole: "Sir Danvers" goes
-  // with "Sir Danvers Carew"; a first name on its own goes with the full name.
-  const contains = (longer: string, shorter: string) => longer !== shorter && ` ${longer} `.includes(` ${shorter} `);
-  let merged = true;
-  while (merged) {
-    merged = false;
-    search: for (const [a, ga] of groups) {
-      for (const [b, gb] of groups) {
-        if (a === b) continue;
-        if (gb.some((kb) => ga.some((ka) => contains(core(kb.form), core(ka.form))))) {
-          groups.set(b, [...gb, ...ga]);
-          groups.delete(a);
-          merged = true;
-          break search;
-        }
-      }
-    }
+  // Then a group joins another when one of its names is the start or the end of one of the other's longer names
+  // ("Sir Danvers" and "Sir Danvers Carew"; "Richard" and "Richard Enfield"), and there is exactly one such other
+  // group: a word shared in the middle ("French", "American") joins nothing, and a first name two people share
+  // stays on its own. One pass, so nothing chains.
+  const atAnEnd = (longer: string, shorter: string) => {
+    if (longer === shorter) return false;
+    const l = longer.split(" ");
+    const s = shorter.split(" ");
+    if (s.length >= l.length) return false;
+    return s.every((w, i) => w === l[i]) || s.every((w, i) => w === l[l.length - s.length + i]);
+  };
+  const before = [...groups.entries()];
+  for (const [a, ga] of before) {
+    if (!groups.has(a)) continue;
+    const targets = before.filter(([b, gb]) => b !== a && groups.has(b) && gb.some((kb) => ga.some((ka) => atAnEnd(core(kb.form), core(ka.form)))));
+    if (targets.length !== 1) continue;
+    const [b, gb] = targets[0];
+    groups.set(b, [...(groups.get(b) ?? gb), ...ga]);
+    groups.delete(a);
   }
 
   const entries: XrayEntry[] = [];
   for (const list of groups.values()) {
-    const fullest = [...list].sort(
-      (a, b) => tokens(b.form).length - tokens(a.form).length || Number(hasHonorific(b.form)) - Number(hasHonorific(a.form)) || b.count - a.count,
-    );
-    const name = fullest[0].form;
+    // The name shown: the way the book most often writes it in full (a first name and a surname), else with its
+    // title, else the single word; never a form seen once.
+    const length = (form: string) => form.split(" ").length;
+    const byCount = [...list].sort((a, b) => b.count - a.count || length(b.form) - length(a.form));
+    const plain = byCount.filter((k) => k.count >= 2 && tokens(k.form).length > 1 && !hasHonorific(k.form) && !tokens(k.form).some((w) => JOINER_RE.test(w)));
+    const titled = byCount.filter((k) => k.count >= 2 && length(k.form) > 1);
+    const base = (plain[0] ?? titled[0] ?? byCount[0]).form;
+    // Written in full once ("Sir Danvers Carew" for "Sir Danvers"), the fuller form is the name.
+    const longer = list.filter((k) => k.form.startsWith(`${base} `)).sort((a, b) => b.form.length - a.form.length);
+    const name = longer[0]?.form ?? base;
     const aliases = [...new Set(list.map((k) => k.form))].sort((a, b) => b.length - a.length || a.localeCompare(b));
     entries.push({ id: `x-${hash(aliases.join("|"))}`, name, kind: "name", aliases });
   }
@@ -177,11 +263,17 @@ export function findMentions(entries: XrayEntry[], paragraphs: Paragraph[]): Xra
       re: new RegExp(`(?<![\\p{L}\\p{N}’'])(?:${[...e.aliases].sort((a, b) => b.length - a.length).map(escape).join("|")})(?![\\p{L}\\p{N}])`, "gu"),
     }));
   for (const p of paragraphs) {
+    const found: { entryId: string; start: number; end: number }[] = [];
     for (const { entryId, re } of matchers) {
-      for (const m of p.text.matchAll(re)) {
-        const start = m.index ?? 0;
-        out.push({ entryId, sectionId: p.id, chapterIndex: p.chapterIndex, position: p.position, start, end: start + m[0].length });
-      }
+      for (const m of p.text.matchAll(re)) found.push({ entryId, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+    }
+    // One name per span: the longest wins, so "Energy" inside "Department of Energy" is that department's mention.
+    found.sort((a, b) => a.start - b.start || b.end - a.end);
+    let upTo = -1;
+    for (const f of found) {
+      if (f.start < upTo) continue;
+      upTo = f.end;
+      out.push({ entryId: f.entryId, sectionId: p.id, chapterIndex: p.chapterIndex, position: p.position, start: f.start, end: f.end });
     }
   }
   return out;
@@ -205,7 +297,8 @@ export async function paragraphsOf(db: Db, bookId: string): Promise<Paragraph[]>
   return rows.filter((r) => !skipped.has(r.chapterIndex));
 }
 
-async function saveMentions(db: Db, bookId: string, list: XrayMention[]) {
+/** Replaces a book's mentions. */
+export async function saveMentions(db: Db, bookId: string, list: XrayMention[]) {
   await db.transaction(async (tx) => {
     await tx.delete(xrayMentions).where(eq(xrayMentions.bookId, bookId));
     for (let i = 0; i < list.length; i += 500) {
@@ -218,9 +311,11 @@ async function saveMentions(db: Db, bookId: string, list: XrayMention[]) {
 export async function buildXray(db: Db, bookId: string) {
   const paragraphs = await paragraphsOf(db, bookId);
   const found = findNames(paragraphs);
-  const mentions = findMentions(found, paragraphs);
-  const mentioned = new Set(mentions.map((m) => m.entryId));
-  const entries = found.filter((e) => mentioned.has(e.id));
+  const counts = new Map<string, number>();
+  for (const m of findMentions(found, paragraphs)) counts.set(m.entryId, (counts.get(m.entryId) ?? 0) + 1);
+  // A name with fewer than two mentions of its own (not inside a longer name) is not worth an entry.
+  const entries = found.filter((e) => (counts.get(e.id) ?? 0) >= 2);
+  const mentions = findMentions(entries, paragraphs);
   await db.transaction(async (tx) => {
     await tx.delete(xrayEntries).where(eq(xrayEntries.bookId, bookId));
     for (let i = 0; i < entries.length; i += 500) {

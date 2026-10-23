@@ -54,7 +54,7 @@ describe("X-ray from the text alone (M32 X1)", () => {
     expect(hyde.name).toBe("Edward Hyde");
     const jekyll = byAlias(entries, "Henry Jekyll")!;
     expect(jekyll.aliases).toEqual(expect.arrayContaining(["Jekyll", "Dr. Jekyll", "Henry Jekyll", "Harry Jekyll", "Harry"]));
-    expect(jekyll.name).toBe("Dr. Henry Jekyll");
+    expect(jekyll.name).toBe("Henry Jekyll"); // the way the book most often writes him in full, without his title
     expect(byAlias(entries, "Utterson")!.name).toBe("Mr. Utterson");
     // "Sir Danvers" and "Sir Danvers Carew" are one man.
     const carew = byAlias(entries, "Carew")!;
