@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge X6; after the Chip War reading finishes, record it and deploy X6; then Samuel's twenty-entry check.
+next_action: After the Chip War reading finishes: record it and deploy X6 (115978a0 or later); then Samuel's twenty-entry check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-23
 shared_copy: none
@@ -292,6 +292,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-23 02:02 · Claude Fable 5.1 (laptop) · EPUB writers: the zip entries stamped with the EPUB's own date, so the same file makes the same bytes (main's unit job failed once on it after #230)
+- **Done:** Main's CI run 39907837623 (the X6 merge) failed in the unit job on markdown-epub.test's 'the same file makes the same EPUB' check while the browser job passed. Cause, not a flake in the test: fflate's zipSync stamps each entry with the current time (2-second steps), so two builds across a boundary differ; shown with a one-off script (two builds 2.5 s apart: 12 bytes differ before, 0 after). Fix: markdownToEpub and the text edition's EPUB pass their own modified date (now / meta.madeAt) as the entries' mtime. A row in docs/ci-flakes.md under Causes removed. The failed job was re-run meanwhile so the X6 deploy is not held by it.
+- **Key paths:** lib/library/markdown-epub.ts; lib/library/text-epub.ts; docs/ci-flakes.md
+- **Commands that worked:** npx vitest run lib/library/markdown-epub.test.ts lib/library/text-epub.test.ts -> 27 passed (2 files); npx eslint -> ok; npx tsc --noEmit -> ok; gh run rerun 39907837623 --failed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge when green (no deploy needed on its own: it changes the bytes of EPUBs made from now on only in their entry times; it rides with the next deploy).
 
 ### 2026-10-23 01:34 · Claude Fable 5.1 (laptop) · M32 X6: a praise page is not a chapter (found by reading Chip War on the subscription); the Chip War reading is running
 - **Done:** Chip War's X-ray reading on the subscription started 00:54 (laptop clock): one claude -p call per chapter, each answer sent to the live site and quote-checked there. Looked at the stored entries by eye after 18 chapters (read-only psql): the main chapters are right (Fairchild Semiconductor, Robert Noyce, Texas Instruments, Gordon Moore, Morris Chang lead; kinds assigned; 0 facts dropped), but the front matter's 'More Praise for CHIP WAR' page gave 14 entries and 20 facts about the book's reviewers (a columnist, a professor, their newspapers). Fix: BOILERPLATE also matches a label that starts 'Praise for', 'More/Advance/Additional/Early Praise for' or 'Acclaim for' (not 'In Praise of Idleness'); listXray leaves out mentions and facts stored in a chapter outside the trail; marksFor returns nothing for a publisher's page. 'Opening pages' (2 facts about the publisher's ebook notice) is left alone: it is the importer's label for text before the first heading, which for a headingless Markdown book is the whole book. Cast of Characters and Glossary stay: they are the author's own lists. Two unit tests, which fail without the fix.

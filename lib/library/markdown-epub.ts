@@ -202,5 +202,7 @@ export function markdownToEpub(md: string, fileName: string, now = new Date()): 
   files["OEBPS/content.opf"] = strToU8(
     `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="${esc(lang)}"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:neolibrary:markdown:${digest(md)}</dc:identifier><dc:title>${esc(title)}</dc:title>${creator}<dc:language>${esc(lang)}</dc:language><dc:source>A Markdown file, ${esc(fileName)}</dc:source><meta property="dcterms:modified">${modified}</meta></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`,
   );
-  return { bytes: zipSync(files as Parameters<typeof zipSync>[0]), title, author, chapters: chapters.length };
+  // Every entry in the zip is stamped with the EPUB's own modified date, not the clock: the same file makes the same bytes
+  // (CI run 39907837623, 2026-10-23: two builds a second apart differed in the entries' times alone).
+  return { bytes: zipSync(files as Parameters<typeof zipSync>[0], { mtime: now }), title, author, chapters: chapters.length };
 }

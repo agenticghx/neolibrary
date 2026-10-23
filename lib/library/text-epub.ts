@@ -359,7 +359,7 @@ export function buildTextEdition(pages: EditionPage[], meta: EditionMeta): Uint8
   files["OEBPS/content.opf"] = strToU8(
     `<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid" xml:lang="${esc(lang)}"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">urn:neolibrary:text-edition:${esc(meta.bookId)}</dc:identifier><dc:title>${esc(meta.title)}</dc:title><dc:creator>${esc(meta.author)}</dc:creator><dc:language>${esc(lang)}</dc:language><dc:source>${meta.source === "pdf-text" ? "A PDF's own text, laid out again" : `A scanned PDF, read page by page by ${esc(meta.model)}`}</dc:source><meta property="dcterms:modified">${modified}</meta></metadata><manifest>${manifest}</manifest><spine>${spine}</spine></package>`,
   );
-  return zipSync(files as Parameters<typeof zipSync>[0]);
+  return zipSync(files as Parameters<typeof zipSync>[0], { mtime: meta.madeAt }); // the entries stamped with the edition's own date, not the clock
 }
 
 function fileOfPage(chapters: EditionChapter[], page: number) {
