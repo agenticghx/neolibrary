@@ -801,6 +801,43 @@ test("Build the X-ray reads the book with the AI, drops the planted facts, and a
   expect(summary.caps.spentBookUsd).toBeLessThanOrEqual(summary.caps.perBookUsd);
 });
 
+// M32 X4: a card's two outer layers. "From your library": the same name in the reader's other books, with a link into
+// each. "From the world": what is generally known of the name, asked for on the card, labelled as AI and as from
+// outside the book, stored once asked. Always below what the book itself says.
+test("a card shows the same name in your other books with a link, and asks the AI what the world knows, once", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary"); // chapter 2; London was named in chapter 1
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Who & what" }).click();
+  const who = page.getByRole("region", { name: "Who & what" });
+  await who.getByLabel("Find a name").fill("london");
+  await who.getByTestId("xray-list").getByRole("button", { name: /London/ }).click();
+  const card = who.getByTestId("xray-card");
+  await expect(card).toContainText("From your library");
+  const library = card.getByTestId("xray-library");
+  await expect(library).toContainText("Frankenstein");
+  await expect(library).toContainText(/\d+ mentions?/);
+  await expect(library.getByRole("link", { name: "Open in Frankenstein" })).toHaveAttribute("href", /\/books\/[0-9a-f-]{36}\/read\?at=epubcfi/);
+  // The world's layer comes last, on request, and is kept.
+  await expect(card.getByTestId("xray-world")).toHaveCount(0);
+  await card.getByRole("button", { name: /What is generally known \((about \$|under \$)/ }).click();
+  const world = card.getByTestId("xray-world");
+  await expect(world).toContainText("Written by the test AI from general knowledge, not from the book");
+  await expect(world).toContainText("The test AI's general knowledge of London");
+  await expect(world).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);
+  // Opened again: the stored note, no button.
+  await card.getByRole("button", { name: "Back to the list" }).click();
+  await who.getByTestId("xray-list").getByRole("button", { name: /London/ }).click();
+  await expect(card.getByTestId("xray-world")).toContainText("The test AI's general knowledge of London");
+  await expect(card.getByRole("button", { name: /What is generally known/ })).toHaveCount(0);
+  // A name that is nowhere else says so; the layers refuse a name that is not in this book.
+  await card.getByRole("button", { name: "Back to the list" }).click();
+  await who.getByLabel("Find a name").fill("utterson");
+  await who.getByTestId("xray-list").getByRole("button", { name: /Mr\. Utterson/ }).click();
+  await expect(card).toContainText("Nothing in your other books.");
+  expect((await page.request.get(`/api/books/${bookIdOf(page)}/xray/entry?entry=x-000000000000`)).status()).toBe(404);
+  expect((await page.request.get(`/api/books/${bookIdOf(page)}/xray/entry?entry=nonsense`)).status()).toBe(400);
+});
+
 test("the AI and cross-book panels are accessible, and look right on phone and desktop, light and dark", async ({ page }) => {
   // Four looks of six panels, each with an accessibility check: 15 to 22 s on CI, so the default 30 s ran out on a
   // slow runner (CI run 39445509504). The same budget as the other four-look tests.

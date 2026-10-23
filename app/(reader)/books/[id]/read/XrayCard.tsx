@@ -44,7 +44,7 @@ export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookI
       </div>
       {!data ? <p className={styles.hint}>Looking it up…</p> : null}
       {data && !entry ? <p className={styles.hint}>That name is not in the index.</p> : null}
-      {data && entry ? <XrayEntryCard entry={entry} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} /> : null}
+      {data && entry ? <XrayEntryCard bookId={bookId} entry={entry} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} /> : null}
       <div className={own.foot}>
         <label className={own.toggle}>
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show everything

@@ -132,7 +132,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
           <button type="button" className={own.back} onClick={() => setOpen(null)}>
             Back to the list
           </button>
-          <XrayEntryCard entry={current} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} />
+          <XrayEntryCard bookId={bookId} entry={current} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} />
         </article>
       ) : null}
       {data && !current && build ? (

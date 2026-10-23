@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { KIND_LABELS, type XrayChapter, type XrayFact, type XrayListEntry } from "@/lib/library/xray";
+import type { LibraryLink, WorldView } from "@/lib/library/xray-layers";
 import styles from "./reader.module.css";
 import own from "./XrayEntryCard.module.css";
+
+type Layers = { library: LibraryLink[]; world: WorldView | null; estimate: number | null; fake: boolean; for: string };
+const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
 
 /** The chapter the reader is in: the last one that starts at or before their place. */
 export function chapterNow(chapters: XrayChapter[], position: number) {
@@ -37,6 +43,7 @@ export function Trail({ entry, chapters, position, showAll }: { entry: XrayListE
  * card that opens from a name on the page (X2). Names only until Claude's reading (X3) adds facts.
  */
 export function XrayEntryCard({
+  bookId,
   entry,
   chapters,
   position,
@@ -44,6 +51,7 @@ export function XrayEntryCard({
   fake,
   onGo,
 }: {
+  bookId: string;
   entry: XrayListEntry;
   chapters: XrayChapter[];
   position: number;
@@ -52,6 +60,36 @@ export function XrayEntryCard({
   fake?: boolean;
   onGo: (cfi: string, fact?: XrayFact) => void;
 }) {
+  // X4: the same name in the reader's other books, and what the world knows (asked for here, kept once asked).
+  const [loaded, setLoaded] = useState<Layers | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/books/${bookId}/xray/entry?${new URLSearchParams({ entry: entry.id })}`)
+      .then(async (res) => (res.ok ? ((await res.json()) as Omit<Layers, "for">) : null))
+      .then((l) => live && l && setLoaded({ ...l, for: entry.id }))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [bookId, entry.id]);
+  // The layers of the name shown; another name's, still in hand while this one's load, are not.
+  const layers = loaded?.for === entry.id ? loaded : null;
+  const askWorld = async () => {
+    setAsking(true);
+    setAskError(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/xray/entry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entry: entry.id }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "That did not work. Try again.");
+      setLoaded((l) => (l && l.for === entry.id ? { ...l, world: body.world } : l));
+    } catch (e) {
+      setAskError((e as Error).message);
+    } finally {
+      setAsking(false);
+    }
+  };
   const label = new Map(chapters.map((c) => [c.index, c.label]));
   const count = showAll ? entry.total : entry.soFar;
   /** X3: what Claude read, up to where the reader is unless everything is asked for. */
@@ -103,6 +141,56 @@ export function XrayEntryCard({
             ) : null}
           </aside>
         </>
+      ) : null}
+      <p className={styles.groupLabel}>From your library</p>
+      {layers === null ? (
+        <p className={styles.hint}>Looking in your other books…</p>
+      ) : layers.library.length ? (
+        <ul className={own.places} data-testid="xray-library">
+          {layers.library.map((l) => (
+            <li key={`${l.bookId}|${l.entryId}`} className={own.libraryItem}>
+              <span>
+                <span className={own.libraryTitle}>{l.title}</span>
+                <span className={own.placeCount}>
+                  {" "}
+                  {l.mentions} {l.mentions === 1 ? "mention" : "mentions"}
+                  {l.facts ? `, ${l.facts} ${l.facts === 1 ? "fact" : "facts"}` : ""}
+                </span>
+              </span>
+              {l.cfi ? (
+                <Link className={own.libraryLink} href={`/books/${l.bookId}/read?at=${encodeURIComponent(l.cfi)}`}>
+                  Open in {l.title}
+                </Link>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={styles.hint}>Nothing in your other books.</p>
+      )}
+      <p className={styles.groupLabel}>From the world</p>
+      {layers?.world ? (
+        <aside className={`${styles.machine} ${own.facts}`} aria-label="What the world knows" data-testid="xray-world">
+          <p className={styles.machineLabel}>Written by {layers.fake ? "the test AI" : "AI"} from general knowledge, not from the book</p>
+          <p>{layers.world.text}</p>
+          <p className={styles.provenance}>
+            {layers.world.provenance.model} · {when(layers.world.createdAt)} · $
+            {layers.world.provenance.costUsd.toFixed(layers.world.provenance.costUsd < 0.01 ? 4 : 2)}
+          </p>
+        </aside>
+      ) : layers && layers.estimate === null ? (
+        <p className={styles.hint}>AI is not set up yet: the owner needs to add an Anthropic API key.</p>
+      ) : layers ? (
+        <div className={styles.noteActions}>
+          <button type="button" className={styles.tool} disabled={asking} onClick={() => void askWorld()}>
+            {asking ? "Asking…" : `What is generally known (${usd(layers.estimate ?? 0)})`}
+          </button>
+        </div>
+      ) : null}
+      {askError ? (
+        <p className={styles.formError} role="alert">
+          {askError}
+        </p>
       ) : null}
       <p className={styles.groupLabel}>Where it appears</p>
       <ul className={own.places}>
