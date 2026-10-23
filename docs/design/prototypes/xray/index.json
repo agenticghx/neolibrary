@@ -1,0 +1,910 @@
+[
+{
+"id": "utterson",
+"name": "Mr. Utterson",
+"kind": "person",
+"aliases": [
+"Utterson"
+],
+"facts": [
+{
+"ch": 1,
+"para": 0,
+"text": "A lawyer: dry, loyal, slow to judge, and often the last friend of men going downhill.",
+"quote": "it was frequently his fortune to be the last reputable acquaintance and the last good influence in the lives of downgoing men"
+},
+{
+"ch": 1,
+"para": 24,
+"text": "Already knows whose name was on the cheque, and asks Enfield to be exact.",
+"quote": "if I do not ask you the name of the other party, it is because I know it already"
+},
+{
+"ch": 2,
+"para": 0,
+"text": "Keeps Dr. Jekyll’s will in his safe and has always hated it.",
+"quote": "This document had long been the lawyer’s eyesore."
+},
+{
+"ch": 2,
+"para": 14,
+"text": "Decides to find Hyde by watching the door.",
+"quote": "I shall be Mr. Seek."
+},
+{
+"ch": 4,
+"para": 3,
+"text": "Identifies the murdered man as his client Sir Danvers Carew.",
+"quote": "I am sorry to say that this is Sir Danvers Carew."
+},
+{
+"ch": 5,
+"para": 37,
+"text": "Locks away Hyde’s letter after Guest finds the hand like Jekyll’s, and suspects forgery.",
+"quote": "Henry Jekyll forge for a murderer!"
+},
+{
+"ch": 6,
+"para": 11,
+"text": "Holds Lanyon’s sealed packet, to be opened only on Jekyll’s death or disappearance.",
+"quote": "not to be opened till the death or disappearance of Dr. Henry Jekyll."
+},
+{
+"ch": 8,
+"para": 87,
+"text": "Breaks into the cabinet with Poole and finds a new will naming himself.",
+"quote": "read the name of Gabriel John Utterson"
+},
+{
+"ch": 10,
+"para": 8,
+"text": "Objected to the will from the start, as Jekyll acknowledges.",
+"quote": "I next drew up that will to which you so much objected"
+}
+]
+},
+{
+"id": "enfield",
+"name": "Mr. Richard Enfield",
+"kind": "person",
+"aliases": [
+"Enfield"
+],
+"facts": [
+{
+"ch": 1,
+"para": 1,
+"text": "Utterson’s distant kinsman and Sunday walking companion.",
+"quote": "Mr. Richard Enfield, his distant kinsman, the well-known man about town."
+},
+{
+"ch": 1,
+"para": 7,
+"text": "Saw a small man trample a child at three in the morning and made him pay.",
+"quote": "the man trampled calmly over the child’s body and left her screaming on the ground."
+},
+{
+"ch": 1,
+"para": 19,
+"text": "Names the man.",
+"quote": "It was a man of the name of Hyde."
+},
+{
+"ch": 7,
+"para": 3,
+"text": "Has worked out that the door is a back way into Dr. Jekyll’s house.",
+"quote": "this was a back way to Dr. Jekyll’s"
+},
+{
+"ch": 10,
+"para": 11,
+"text": "Jekyll recognises him as the passerby who stopped Hyde after the child.",
+"quote": "whom I recognised the other day in the person of your kinsman"
+}
+]
+},
+{
+"id": "hyde",
+"name": "Edward Hyde",
+"kind": "person",
+"aliases": [
+"Hyde"
+],
+"library": [
+{
+"book": "Frankenstein",
+"where": "ch. 5",
+"note": "Your highlight: “I had worked hard for nearly two years, for the sole purpose of infusing life into an inanimate body.”",
+"example": true
+}
+],
+"facts": [
+{
+"ch": 1,
+"para": 7,
+"text": "A small man who trampled a child and paid with a cheque signed by someone well known.",
+"quote": "a cheque for the balance on Coutts’s, drawn payable to bearer and signed with a name that I can’t mention"
+},
+{
+"ch": 1,
+"para": 21,
+"text": "Gives everyone a feeling of deformity that no one can pin down.",
+"quote": "He must be deformed somewhere; he gives a strong feeling of deformity, although I couldn’t specify the point."
+},
+{
+"ch": 2,
+"para": 0,
+"text": "Named in Dr. Jekyll’s will as heir to everything, even if Jekyll merely disappears.",
+"quote": "the said Edward Hyde should step into the said Henry Jekyll’s shoes without further delay"
+},
+{
+"ch": 2,
+"para": 25,
+"text": "Has a key to the door; gives Utterson an address in Soho.",
+"quote": "And he gave a number of a street in Soho."
+},
+{
+"ch": 2,
+"para": 36,
+"text": "Pale, dwarfish, with a husky whispering voice.",
+"quote": "Mr. Hyde was pale and dwarfish, he gave an impression of deformity without any nameable malformation"
+},
+{
+"ch": 2,
+"para": 44,
+"text": "Jekyll’s servants have orders to obey him.",
+"quote": "We have all orders to obey him."
+},
+{
+"ch": 3,
+"para": 10,
+"text": "Jekyll says he can be rid of him whenever he chooses.",
+"quote": "the moment I choose, I can be rid of Mr. Hyde."
+},
+{
+"ch": 4,
+"para": 0,
+"text": "Beats Sir Danvers Carew to death with a cane, seen by a maid.",
+"quote": "Mr. Hyde broke out of all bounds and clubbed him to the earth."
+},
+{
+"ch": 4,
+"para": 15,
+"text": "His Soho rooms are found ransacked, papers burned, the other half of the stick behind the door.",
+"quote": "the other half of the stick was found behind the door"
+},
+{
+"ch": 5,
+"para": 32,
+"text": "His handwriting is nearly Jekyll’s, only sloped the other way.",
+"quote": "the two hands are in many points identical: only differently sloped."
+},
+{
+"ch": 6,
+"para": 0,
+"text": "Vanishes after the murder.",
+"quote": "Mr. Hyde had disappeared out of the ken of the police as though he had never existed."
+},
+{
+"ch": 8,
+"para": 72,
+"text": "Found dead in Jekyll’s cabinet, in Jekyll’s clothes, a crushed phial in his hand.",
+"quote": "turned it on its back and beheld the face of Edward Hyde."
+},
+{
+"ch": 9,
+"para": 32,
+"text": "Lanyon saw him drink a draught and turn into Henry Jekyll.",
+"quote": "The creature who crept into my house that night was, on Jekyll’s own confession, known by the name of Hyde"
+},
+{
+"ch": 10,
+"para": 5,
+"text": "Jekyll’s own evil nature, given a body by a drug.",
+"quote": "Edward Hyde, alone in the ranks of mankind, was pure evil."
+}
+]
+},
+{
+"id": "jekyll",
+"name": "Dr. Henry Jekyll",
+"kind": "person",
+"aliases": [
+"Jekyll",
+"Harry"
+],
+"facts": [
+{
+"ch": 2,
+"para": 0,
+"text": "A doctor of many titles whose will leaves everything to Edward Hyde.",
+"quote": "in case of the decease of Henry Jekyll, M.D., D.C.L., LL.D., F.R.S., etc., all his possessions were to pass into the hands of his"
+},
+{
+"ch": 2,
+"para": 8,
+"text": "Lanyon says he went wrong in mind more than ten years ago.",
+"quote": "it is more than ten years since Henry Jekyll became too fanciful for me."
+},
+{
+"ch": 2,
+"para": 46,
+"text": "His house is in a square; Hyde comes and goes by the laboratory behind it.",
+"quote": "he mostly comes and goes by the laboratory."
+},
+{
+"ch": 3,
+"para": 0,
+"text": "Fifty, large and smooth-faced, fond of Utterson.",
+"quote": "a large, well-made, smooth-faced man of fifty"
+},
+{
+"ch": 3,
+"para": 15,
+"text": "Asks Utterson to promise to protect Hyde’s rights if he is gone.",
+"quote": "I only ask you to help him for my sake, when I am no longer here."
+},
+{
+"ch": 5,
+"para": 4,
+"text": "Swears he is done with Hyde for ever.",
+"quote": "I swear to God I will never set eyes on him again."
+},
+{
+"ch": 6,
+"para": 10,
+"text": "After two months of good health, shuts himself away and asks Utterson to respect his silence.",
+"quote": "I mean from henceforth to lead a life of extreme seclusion"
+},
+{
+"ch": 7,
+"para": 11,
+"text": "Seen at his window, then struck by a look of terror.",
+"quote": "an expression of such abject terror and despair"
+},
+{
+"ch": 8,
+"para": 92,
+"text": "Leaves Utterson a note: read Lanyon’s narrative, then his own confession.",
+"quote": "first read the narrative which Lanyon warned me he was to place in your hands"
+},
+{
+"ch": 9,
+"para": 31,
+"text": "Appears in Lanyon’s consulting room where Hyde had stood.",
+"quote": "there stood Henry Jekyll!"
+},
+{
+"ch": 10,
+"para": 0,
+"text": "His thesis: a man is two, not one.",
+"quote": "man is not truly one, but truly two."
+},
+{
+"ch": 10,
+"para": 1,
+"text": "Made a drug that gives the lower side of him a body of its own.",
+"quote": "managed to compound a drug by which these powers should be dethroned from their supremacy"
+},
+{
+"ch": 10,
+"para": 27,
+"text": "The salt ran out; the fresh supply does not work; the first batch had an impurity.",
+"quote": "it was that unknown impurity which lent efficacy to the draught."
+}
+]
+},
+{
+"id": "lanyon",
+"name": "Dr. Hastie Lanyon",
+"kind": "person",
+"aliases": [
+"Lanyon"
+],
+"facts": [
+{
+"ch": 2,
+"para": 2,
+"text": "A great physician of Cavendish Square, old friend of Utterson and Jekyll.",
+"quote": "the great Dr. Lanyon, had his house and received his crowding patients."
+},
+{
+"ch": 2,
+"para": 3,
+"text": "Hearty, red-faced, hair white early.",
+"quote": "a hearty, healthy, dapper, red-faced gentleman, with a shock of hair prematurely white"
+},
+{
+"ch": 2,
+"para": 8,
+"text": "Fell out with Jekyll over his science.",
+"quote": "Such unscientific balderdash"
+},
+{
+"ch": 2,
+"para": 10,
+"text": "Has never heard of Hyde.",
+"quote": "Never heard of him. Since my time."
+},
+{
+"ch": 3,
+"para": 2,
+"text": "Jekyll calls him a hidebound pedant.",
+"quote": "that hidebound pedant, Lanyon"
+},
+{
+"ch": 6,
+"para": 3,
+"text": "Has had a shock and says he will not recover.",
+"quote": "I have had a shock"
+},
+{
+"ch": 6,
+"para": 5,
+"text": "Will not hear Jekyll’s name.",
+"quote": "I am quite done with that person"
+},
+{
+"ch": 6,
+"para": 11,
+"text": "Dies within a fortnight, leaving a sealed packet for Utterson.",
+"quote": "in something less than a fortnight he was dead."
+},
+{
+"ch": 9,
+"para": 9,
+"text": "Fetched a drawer of powders from Jekyll’s cabinet, as a letter begged him to.",
+"quote": "returned with it to Cavendish Square."
+},
+{
+"ch": 9,
+"para": 32,
+"text": "Watched Hyde drink the draught and become Jekyll, and cannot bear what he saw.",
+"quote": "I saw what I saw, I heard what I heard, and my soul sickened at it"
+}
+]
+},
+{
+"id": "poole",
+"name": "Poole",
+"kind": "person",
+"aliases": [
+"Poole"
+],
+"facts": [
+{
+"ch": 2,
+"para": 37,
+"text": "Jekyll’s elderly butler.",
+"quote": "A well-dressed, elderly servant opened the door."
+},
+{
+"ch": 2,
+"para": 42,
+"text": "Confirms that Hyde has a key.",
+"quote": "Mr. Hyde has a key."
+},
+{
+"ch": 5,
+"para": 19,
+"text": "Says no letter came by hand that day, only the post.",
+"quote": "nothing had come except by post"
+},
+{
+"ch": 6,
+"para": 12,
+"text": "Reports the doctor shut in the cabinet, silent and low.",
+"quote": "Poole had, indeed, no very pleasant news to communicate."
+},
+{
+"ch": 8,
+"para": 9,
+"text": "Comes to Utterson at night, afraid of foul play.",
+"quote": "I think there’s been foul play"
+},
+{
+"ch": 8,
+"para": 30,
+"text": "Twenty years in Jekyll’s service; sure the voice behind the door is not his master’s.",
+"quote": "Have I been twenty years in this man’s house, to be deceived about his voice?"
+},
+{
+"ch": 8,
+"para": 70,
+"text": "Breaks the cabinet door with an axe.",
+"quote": "Poole swung the axe over his shoulder"
+},
+{
+"ch": 9,
+"para": 3,
+"text": "Has orders to wait for Lanyon with a locksmith.",
+"quote": "Poole, my butler, has his orders"
+}
+]
+},
+{
+"id": "carew",
+"name": "Sir Danvers Carew",
+"kind": "person",
+"aliases": [
+"Carew",
+"Danvers"
+],
+"facts": [
+{
+"ch": 4,
+"para": 0,
+"text": "An aged, white-haired gentleman, beaten to death in a lane by Hyde.",
+"quote": "an aged and beautiful gentleman with white hair"
+},
+{
+"ch": 4,
+"para": 3,
+"text": "Identified by Utterson.",
+"quote": "this is Sir Danvers Carew."
+},
+{
+"ch": 5,
+"para": 3,
+"text": "Was Utterson’s client.",
+"quote": "Carew was my client"
+},
+{
+"ch": 5,
+"para": 20,
+"text": "A Member of Parliament, says the special edition.",
+"quote": "Shocking murder of an M.P."
+},
+{
+"ch": 6,
+"para": 0,
+"text": "A reward is offered; his death is felt as a public injury.",
+"quote": "the death of Sir Danvers was resented as a public injury"
+},
+{
+"ch": 10,
+"para": 17,
+"text": "Jekyll says no sane man could have killed him on so small a provocation.",
+"quote": "no man morally sane could have been guilty of that crime upon so pitiful a provocation"
+}
+]
+},
+{
+"id": "guest",
+"name": "Mr. Guest",
+"kind": "person",
+"aliases": [
+"Guest"
+],
+"facts": [
+{
+"ch": 5,
+"para": 21,
+"text": "Utterson’s head clerk, a student of handwriting.",
+"quote": "a great student and critic of handwriting"
+},
+{
+"ch": 5,
+"para": 32,
+"text": "Finds Hyde’s hand and Jekyll’s nearly identical.",
+"quote": "there’s a rather singular resemblance; the two hands are in many points identical"
+},
+{
+"ch": 6,
+"para": 1,
+"text": "Dines with Utterson while Jekyll’s door is shut.",
+"quote": "The fifth night, he had in Guest to dine with him"
+}
+]
+},
+{
+"id": "newcomen",
+"name": "Inspector Newcomen",
+"kind": "person",
+"aliases": [
+"Newcomen"
+],
+"facts": [
+{
+"ch": 4,
+"para": 12,
+"text": "The Scotland Yard inspector on the Carew case.",
+"quote": "This is Inspector Newcomen of Scotland Yard."
+},
+{
+"ch": 4,
+"para": 15,
+"text": "Finds the burnt cheque book and the other half of the stick in Hyde’s rooms.",
+"quote": "the butt end of a green cheque book"
+}
+]
+},
+{
+"id": "bradshaw",
+"name": "Bradshaw",
+"kind": "person",
+"aliases": [
+"Bradshaw"
+],
+"facts": [
+{
+"ch": 8,
+"para": 58,
+"text": "Jekyll’s footman, sent to guard the laboratory door.",
+"quote": "The footman came at the summons, very white and nervous."
+},
+{
+"ch": 10,
+"para": 13,
+"text": "Once saw Hyde in the house at a strange hour, in clothes far too big.",
+"quote": "Bradshaw stared and drew back at seeing Mr. Hyde at such an hour"
+}
+]
+},
+{
+"id": "door",
+"name": "The door in the bystreet",
+"kind": "place",
+"aliases": [
+"bystreet",
+"Black Mail House",
+"place with the door"
+],
+"facts": [
+{
+"ch": 1,
+"para": 3,
+"text": "A blistered door without bell or knocker, in a sinister windowless block.",
+"quote": "The door, which was equipped with neither bell nor knocker, was blistered and distained."
+},
+{
+"ch": 1,
+"para": 9,
+"text": "Enfield calls it Black Mail House.",
+"quote": "Black Mail House is what I call that place with the door"
+},
+{
+"ch": 2,
+"para": 13,
+"text": "Utterson watches it at all hours.",
+"quote": "Mr. Utterson began to haunt the door in the bystreet of shops."
+},
+{
+"ch": 2,
+"para": 41,
+"text": "It is the old dissecting room door of Jekyll’s house.",
+"quote": "I saw Mr. Hyde go in by the old dissecting room door, Poole"
+},
+{
+"ch": 7,
+"para": 3,
+"text": "Enfield now knows it leads to Jekyll’s.",
+"quote": "this was a back way to Dr. Jekyll’s"
+},
+{
+"ch": 8,
+"para": 76,
+"text": "Its key is found broken and rusted on the flags.",
+"quote": "they found the key, already stained with rust."
+},
+{
+"ch": 10,
+"para": 18,
+"text": "Jekyll locked it and crushed the key after the murder.",
+"quote": "ground the key under my heel!"
+}
+]
+},
+{
+"id": "soho",
+"name": "Soho",
+"kind": "place",
+"aliases": [
+"Soho"
+],
+"world": "A district of London’s West End. In the 1880s it was crowded and poor, known for foreign eating houses, music halls and cheap lodgings.",
+"facts": [
+{
+"ch": 2,
+"para": 25,
+"text": "Hyde’s address.",
+"quote": "And he gave a number of a street in Soho."
+},
+{
+"ch": 4,
+"para": 9,
+"text": "Seen through fog, a district like a city in a nightmare.",
+"quote": "The dismal quarter of Soho seen under these changing glimpses"
+},
+{
+"ch": 4,
+"para": 15,
+"text": "Hyde’s two rooms there are furnished with luxury.",
+"quote": "Mr. Hyde had only used a couple of rooms; but these were furnished with luxury and good taste."
+},
+{
+"ch": 6,
+"para": 0,
+"text": "Hyde was last seen leaving his Soho house on the morning of the murder.",
+"quote": "From the time he had left the house in Soho on the morning of the murder, he was simply blotted out"
+},
+{
+"ch": 10,
+"para": 8,
+"text": "Jekyll took and furnished the Soho house himself.",
+"quote": "I took and furnished that house in Soho, to which Hyde was tracked by the police"
+}
+]
+},
+{
+"id": "cavendish",
+"name": "Cavendish Square",
+"kind": "place",
+"aliases": [
+"Cavendish Square"
+],
+"world": "A garden square in Marylebone, London. By Stevenson’s day the streets around it, Harley Street among them, were lined with physicians’ houses.",
+"facts": [
+{
+"ch": 2,
+"para": 2,
+"text": "Lanyon’s house, in the citadel of medicine.",
+"quote": "Cavendish Square, that citadel of medicine"
+},
+{
+"ch": 9,
+"para": 3,
+"text": "Where Jekyll’s letter asks Lanyon to bring the drawer.",
+"quote": "carry back with you to Cavendish Square exactly as it stands."
+},
+{
+"ch": 9,
+"para": 9,
+"text": "Lanyon brings the drawer home there.",
+"quote": "returned with it to Cavendish Square."
+}
+]
+},
+{
+"id": "will",
+"name": "Dr. Jekyll’s will",
+"kind": "term",
+"aliases": [
+"Dr. Jekyll’s Will",
+"the will",
+"my will",
+"that will",
+"your will",
+"a will"
+],
+"facts": [
+{
+"ch": 2,
+"para": 0,
+"text": "Written in Jekyll’s own hand; Utterson refused to help draft it.",
+"quote": "The will was holograph, for Mr. Utterson, though he took charge of it now that it was made, had refused to lend the least assistance in the making of it"
+},
+{
+"ch": 2,
+"para": 0,
+"text": "Leaves everything to Hyde, even on a disappearance of three months.",
+"quote": "the said Edward Hyde should step into the said Henry Jekyll’s shoes without further delay"
+},
+{
+"ch": 3,
+"para": 2,
+"text": "Jekyll knows Utterson is distressed by it and will not discuss it.",
+"quote": "I never saw a man so distressed as you were by my will"
+},
+{
+"ch": 5,
+"para": 15,
+"text": "Hyde dictated the disappearance clause; Jekyll admits it with a nod.",
+"quote": "it was Hyde who dictated the terms in your will about that disappearance?"
+},
+{
+"ch": 6,
+"para": 11,
+"text": "Utterson has long since returned it to Jekyll.",
+"quote": "the mad will which he had long ago restored to its author"
+},
+{
+"ch": 8,
+"para": 87,
+"text": "A new will, in the same terms, names Utterson instead of Hyde.",
+"quote": "in place of the name of Edward Hyde, the lawyer, with indescribable amazement, read the name of Gabriel John Utterson."
+},
+{
+"ch": 10,
+"para": 8,
+"text": "Jekyll drew it up so he could carry on as Hyde without losing his money.",
+"quote": "so that if anything befell me in the person of Dr. Jekyll, I could enter on that of Edward Hyde without pecuniary loss."
+}
+]
+},
+{
+"id": "cabinet",
+"name": "The cabinet",
+"kind": "place",
+"aliases": [
+"cabinet"
+],
+"facts": [
+{
+"ch": 5,
+"para": 0,
+"text": "Jekyll’s private room above the old dissecting theatre: glass presses, a cheval-glass, barred windows.",
+"quote": "It was a large room, fitted round with glass presses, furnished, among other things, with a cheval-glass and a business table"
+},
+{
+"ch": 6,
+"para": 12,
+"text": "Jekyll now lives and sometimes sleeps there.",
+"quote": "confined himself to the cabinet over the laboratory, where he would sometimes even sleep"
+},
+{
+"ch": 8,
+"para": 4,
+"text": "Jekyll has shut himself in again; Poole is afraid.",
+"quote": "he’s shut up again in the cabinet"
+},
+{
+"ch": 8,
+"para": 70,
+"text": "Its red baize door gives way to Poole’s axe at the fifth blow.",
+"quote": "it was not until the fifth, that the lock burst in sunder and the wreck of the door fell inwards on the carpet."
+},
+{
+"ch": 9,
+"para": 3,
+"text": "Holds press E with the drawer of powders.",
+"quote": "to open the glazed press (letter E) on the left hand"
+},
+{
+"ch": 10,
+"para": 26,
+"text": "Jekyll’s refuge when the change comes on him.",
+"quote": "I had but the time to gain the shelter of my cabinet"
+}
+]
+},
+{
+"id": "drug",
+"name": "The drug",
+"kind": "term",
+"aliases": [
+"drug",
+"powders",
+"draught",
+"tincture",
+"the salt",
+"potion"
+],
+"library": [
+{
+"book": "Frankenstein",
+"where": "ch. 4",
+"note": "Your note: “Both men hide the recipe from the reader on purpose.”",
+"example": true
+}
+],
+"facts": [
+{
+"ch": 8,
+"para": 32,
+"text": "Something Jekyll sends Poole to every chemist for, and rejects as impure.",
+"quote": "This drug is wanted bitter bad, sir, whatever for."
+},
+{
+"ch": 8,
+"para": 34,
+"text": "A note to Messrs. Maw begs for the old sample.",
+"quote": "find me some of the old."
+},
+{
+"ch": 8,
+"para": 80,
+"text": "A white salt in measured heaps on glass saucers in the cabinet.",
+"quote": "various measured heaps of some white salt being laid on glass saucers"
+},
+{
+"ch": 9,
+"para": 3,
+"text": "In the drawer: powders, a phial and a paper book.",
+"quote": "some powders, a phial and a paper book"
+},
+{
+"ch": 9,
+"para": 26,
+"text": "Mixed, it effervesces, turns dark purple, then watery green.",
+"quote": "the compound changed to a dark purple, which faded again more slowly to a watery green"
+},
+{
+"ch": 10,
+"para": 1,
+"text": "Jekyll’s own compound, which lets a second form take over.",
+"quote": "a second form and countenance substituted"
+},
+{
+"ch": 10,
+"para": 27,
+"text": "The first supply was impure, and only that impurity worked.",
+"quote": "I am now persuaded that my first supply was impure"
+}
+]
+},
+{
+"id": "maw",
+"name": "Messrs. Maw",
+"kind": "organisation",
+"aliases": [
+"Messrs. Maw",
+"Maw’s",
+"Messrs. M."
+],
+"facts": [
+{
+"ch": 8,
+"para": 34,
+"text": "Wholesale chemists Jekyll bought his salt from, years before.",
+"quote": "Dr. Jekyll presents his compliments to Messrs. Maw."
+},
+{
+"ch": 8,
+"para": 36,
+"text": "Their man threw the note back at Poole in anger.",
+"quote": "The man at Maw’s was main angry, sir"
+}
+]
+},
+{
+"id": "coutts",
+"name": "Coutts’s",
+"kind": "organisation",
+"aliases": [
+"Coutts’s"
+],
+"world": "A private bank in the Strand, London, founded in 1692 and long the banker of the wealthy.",
+"facts": [
+{
+"ch": 1,
+"para": 7,
+"text": "The bank the cheque was drawn on.",
+"quote": "a cheque for the balance on Coutts’s"
+}
+]
+},
+{
+"id": "regents",
+"name": "Regent’s Park",
+"kind": "place",
+"aliases": [
+"Regent’s Park"
+],
+"world": "A large royal park in north-west London, opened to the public in the 1830s.",
+"facts": [
+{
+"ch": 10,
+"para": 21,
+"text": "Where Jekyll, on a bench on a January day, turns into Hyde without the drug.",
+"quote": "the Regent’s Park was full of winter chirrupings and sweet with spring odours."
+}
+]
+},
+{
+"id": "denman",
+"name": "Dr. Denman",
+"kind": "person",
+"aliases": [
+"Denman"
+],
+"facts": [
+{
+"ch": 9,
+"para": 9,
+"text": "The surgeon whose theatre became Jekyll’s laboratory.",
+"quote": "old Dr. Denman’s surgical theatre"
+}
+]
+}
+]

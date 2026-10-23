@@ -1,0 +1,463 @@
+<title>X-ray Prototypes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: a brief, a try-this list, four choices (A/B/C), one live reader drawn as a computer or a phone, a reply box. Neolibrary's paper, ink and oxidised teal; book text serif on paper, machine-written text sans on a tinted block with a dashed rule. */
+:root {
+  --paper: #f3ede1; --raised: #faf6ee; --sunken: #e9e1d1;
+  --ink: #243239; --ink-2: #3c4b52; --ink-3: #5a676c;
+  --accent: #376963; --accent-strong: #2a524d; --accent-wash: #37696319; --line: #24323924;
+  --pick: #a5612b; --machine-bg: #ece6f0; --machine-ink: #3c4b52; --machine-rule: #7a6a8c;
+  --flash: #e3c98a66;
+  --serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", georgia, serif;
+  --sans: "Source Sans 3", "Segoe UI", "Helvetica Neue", arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #1b282f; --raised: #22323a; --sunken: #152026;
+  --ink: #e7ddc9; --ink-2: #cdc3b0; --ink-3: #a49d8e;
+  --accent: #6b9f95; --accent-strong: #8bbab0; --accent-wash: #6b9f9524; --line: #e7ddc924;
+  --pick: #d99a63; --machine-bg: #2a2a3a; --machine-ink: #d3c9b6; --machine-rule: #a796bb;
+  --flash: #d99a6333; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #1b282f; --raised: #22323a; --sunken: #152026;
+  --ink: #e7ddc9; --ink-2: #cdc3b0; --ink-3: #a49d8e;
+  --accent: #6b9f95; --accent-strong: #8bbab0; --accent-wash: #6b9f9524; --line: #e7ddc924;
+  --pick: #d99a63; --machine-bg: #2a2a3a; --machine-ink: #d3c9b6; --machine-rule: #a796bb;
+  --flash: #d99a6333; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font: 16px/1.55 var(--sans); margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; display: grid; gap: 36px; }
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.7rem, 3.2vw, 2.3rem); line-height: 1.15; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.02rem; font-family: var(--sans); font-weight: 700; }
+p { margin: 0; max-width: 70ch; }
+.eyebrow { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+button { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.brief { display: grid; gap: 12px; }
+.brief .who { color: var(--ink-3); font-size: .92rem; }
+.try { background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 8px; }
+.try ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; color: var(--ink-2); }
+.try li { max-width: 80ch; }
+
+/* The four choices */
+.choices { display: grid; gap: 22px; }
+.q { display: grid; gap: 10px; }
+.q header { display: grid; gap: 4px; }
+.options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.opt { text-align: left; background: var(--raised); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; cursor: pointer; min-width: 0; }
+.opt[aria-checked="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.opt .tag { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.letter { font: 700 .95rem var(--sans); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--raised); flex: none; }
+.rec { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pick); }
+.opt p { font-size: .92rem; color: var(--ink-2); }
+
+/* The live reader */
+.live { display: grid; gap: 12px; }
+.viewbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--accent); border-radius: 999px; overflow: hidden; }
+.seg button { background: none; border: 0; padding: 5px 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--raised); }
+.hint { color: var(--ink-3); font-size: .9rem; }
+.frame { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; height: 660px; width: 100%; max-width: 100%; }
+.frame.phone { width: 392px; height: 760px; border-radius: 26px; border-width: 2px; margin: 0 auto; }
+.bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--raised); border-bottom: 1px solid var(--line); min-width: 0; }
+.bar .title { font: 600 1rem var(--serif); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .b { background: none; border: 0; padding: 4px 8px; border-radius: 6px; color: var(--ink-2); cursor: pointer; font-size: .9rem; }
+.bar .b[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); }
+.frame.desk .b.study { display: none; }
+.body { display: grid; grid-template-columns: 1fr 300px; min-height: 0; position: relative; }
+.frame.phone .body { grid-template-columns: 1fr; }
+.pagecol { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto 1fr; }
+.strip { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 6px 28px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: .8rem; color: var(--ink-3); min-height: 32px; }
+.frame.phone .strip { padding: 6px 16px; }
+.strip .lbl { letter-spacing: .06em; text-transform: uppercase; font-weight: 600; font-size: .7rem; }
+.chip { border: 1px solid var(--line); background: var(--raised); border-radius: 999px; padding: 1px 9px; font-size: .8rem; color: var(--ink-2); cursor: pointer; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.page { overflow-y: auto; padding: 18px 28px 40px; font-family: var(--serif); font-size: 17px; line-height: 1.62; color: var(--ink); min-height: 0; }
+.frame.phone .page { padding: 14px 16px 40px; font-size: 16px; }
+.page h2 { font-size: 1.35rem; margin: 0 0 14px; }
+.page h2 small { display: block; font: 600 .72rem var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+.page p { max-width: 62ch; margin: 0 0 1em; transition: background .4s; border-radius: 4px; }
+.page p.flash { background: var(--flash); }
+.mark { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; border-bottom: 1px dotted var(--accent); border-radius: 0; }
+.mark:hover { color: var(--accent); }
+
+aside.study { border-left: 1px solid var(--line); background: var(--raised); display: grid; grid-template-rows: auto auto 1fr; min-height: 0; }
+.frame.phone aside.study { position: absolute; inset: auto 0 0 0; height: 72%; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px #0000002e; z-index: 6; }
+.study .head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 0; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--ink-3); }
+.study .head .close { display: none; }
+.frame.phone .study .head .close { display: inline-block; background: none; border: 0; color: var(--accent); font-weight: 600; letter-spacing: 0; text-transform: none; font-size: .9rem; cursor: pointer; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.tabs button { background: none; border: 0; padding: 3px 8px; border-radius: 999px; font-size: .84rem; color: var(--ink-3); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--raised); font-weight: 600; }
+.tabs button[disabled] { cursor: default; opacity: .6; }
+.panel { overflow-y: auto; padding: 10px 12px 20px; display: grid; gap: 8px; align-content: start; min-height: 0; }
+.panel .search { width: 100%; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; font-size: .9rem; }
+.panel .group { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--ink-3); margin-top: 6px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 7px 2px; cursor: pointer; width: 100%; }
+.row .nm { font: 600 .98rem var(--serif); color: var(--ink); }
+.row .kd { font-size: .72rem; color: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; }
+.row .ct { font-size: .8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.row .trail { grid-column: 1 / -1; }
+.row.veil .nm { filter: blur(5px); }
+.note { font-size: .86rem; color: var(--ink-3); }
+.toggle { display: flex; align-items: center; gap: 8px; font-size: .86rem; color: var(--ink-2); }
+.toggle input { accent-color: var(--accent); }
+
+/* Trail: ten cells, one per chapter */
+.trail { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 8px; margin-top: 4px; }
+.trail i { display: block; border-radius: 2px; background: var(--sunken); border: 1px solid transparent; }
+.trail i.m1 { background: color-mix(in srgb, var(--accent) 35%, var(--sunken)); }
+.trail i.m2 { background: color-mix(in srgb, var(--accent) 65%, var(--sunken)); }
+.trail i.m3 { background: var(--accent); }
+.trail i.now { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick); }
+.trail i.ahead { background: transparent; border-color: var(--line); border-style: dashed; }
+
+/* The card */
+.card { position: absolute; top: 48px; right: 314px; width: min(400px, 62%); max-height: calc(100% - 110px); overflow-y: auto; background: var(--raised); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 34px #00000030; padding: 14px 16px 16px; display: grid; gap: 10px; z-index: 5; }
+.frame.phone .card { inset: auto 0 0 0; top: auto; width: auto; max-height: 74%; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px #0000002e; z-index: 7; }
+.card.inpanel { position: static; width: auto; max-height: none; box-shadow: none; border: 0; padding: 0; }
+.card .top { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+.card .nm { font: 600 1.15rem var(--serif); }
+.card .meta { font-size: .8rem; color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; }
+.card .x { background: none; border: 0; font-size: 1.1rem; color: var(--ink-3); cursor: pointer; padding: 0 4px; line-height: 1; }
+.card .back { background: none; border: 0; color: var(--accent); font-weight: 600; cursor: pointer; padding: 0; text-align: left; font-size: .9rem; }
+.sec { display: grid; gap: 6px; }
+.sec .h { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--ink-3); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ai { background: var(--machine-bg); border-left: 2px dashed var(--machine-rule); color: var(--machine-ink); padding: 8px 10px; border-radius: 0 8px 8px 0; display: grid; gap: 7px; font-size: .92rem; }
+.ai .lab { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--machine-rule); font-weight: 700; }
+.fact { display: grid; gap: 2px; }
+.fact .ch { font-size: .74rem; color: var(--machine-rule); font-weight: 700; letter-spacing: .04em; }
+.fact q { font: italic 400 .92rem/1.45 var(--serif); color: var(--ink); quotes: "“" "”"; cursor: pointer; }
+.fact q:hover { color: var(--accent); }
+.fact.veiled .t, .fact.veiled q { filter: blur(5px); user-select: none; }
+.fact .reveal { justify-self: start; background: none; border: 1px solid var(--machine-rule); color: var(--machine-ink); border-radius: 999px; padding: 1px 9px; font-size: .78rem; cursor: pointer; }
+.lib { display: grid; gap: 4px; font-size: .9rem; color: var(--ink-2); }
+.lib .ex { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--pick); font-weight: 700; margin-left: 6px; }
+.more { justify-self: start; background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 2px 12px; font-size: .86rem; cursor: pointer; }
+
+.foot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--raised); border-top: 1px solid var(--line); flex-wrap: wrap; font-size: .86rem; color: var(--ink-2); }
+.foot .nav { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; cursor: pointer; color: var(--accent); font-weight: 600; }
+.foot .nav[disabled] { opacity: .4; cursor: default; }
+.foot select { font: inherit; font-size: .86rem; background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; max-width: 46vw; }
+.foot .prog { flex: 1 1 80px; height: 4px; border-radius: 2px; background: var(--sunken); position: relative; min-width: 60px; }
+.foot .prog b { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 2px; }
+.foot .pos { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.reply { background: var(--accent-wash); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; }
+.reply strong { font-family: var(--serif); font-size: 1.1rem; }
+@media (max-width: 720px) { .frame.desk { height: 620px; } .frame.desk .body { grid-template-columns: 1fr; } .frame.desk aside.study { display: none; } .frame.desk .card { right: 16px; width: min(400px, 90%); } }
+@media (prefers-reduced-motion: reduce) { .page p { transition: none; } }
+</style>
+
+<main class="wrap">
+  <section class="brief">
+    <span class="eyebrow">Neolibrary · X-ray · for Samuel</span>
+    <h1>X-ray while reading: four choices, one live prototype</h1>
+    <p>X-ray is Kindle’s panel behind a book: the people, places and terms in it, each with a description and a bar showing where it comes up. The prototype below is the version this library could have. It runs on a real book, <em>The Strange Case of Dr. Jekyll and Mr. Hyde</em> (public domain, from the test fixtures), so the cards say real things and the book keeps a real secret.</p>
+    <p class="who">The index was written by Claude this session: 20 entries, 112 facts, each with a quote; a script checked every quote word for word against the text, and counts the mentions in each chapter. Nothing here is built in the app. The reader follows your device’s light or dark setting.</p>
+  </section>
+
+  <section class="try">
+    <span class="eyebrow">Try this first</span>
+    <ol>
+      <li>Leave the choices as they are. In the reader, open <strong>Chapter 2</strong> and scroll to its end. Tap <strong>Hyde</strong> in the text, or in the Who &amp; what list. The card knows only what chapters 1 and 2 have said.</li>
+      <li>Use the chapter menu to jump to <strong>Chapter 10</strong> and tap Hyde again. Now the card ends with the book’s secret.</li>
+      <li>Go back to Chapter 2 and set <strong>choice 4 to C</strong>. Tap Hyde. That is what a card that ignores where you are does to a reader.</li>
+      <li>Switch to <strong>Phone</strong> and open Study. Then try choice 2 C, which puts the card in the panel instead of over the page.</li>
+    </ol>
+  </section>
+
+  <section class="choices" id="choices">
+    <div class="q" data-q="marks">
+      <header><span class="eyebrow">Choice 1 of 4</span><h2>How a name shows on the page</h2></header>
+      <div class="options" role="radiogroup" aria-label="How a name shows on the page">
+        <button class="opt" role="radio" data-v="A" aria-checked="false"><span class="tag"><span class="letter">A</span><h3>A dotted underline</h3></span><p>The first mention of an entry in each paragraph gets a quiet dotted line. Tap it for the card. Nothing else changes.</p></button>
+        <button class="opt" role="radio" data-v="B" aria-checked="false"><span class="tag"><span class="letter">B</span><h3>A strip, no marks in the text</h3></span><p>The text stays exactly as printed. A thin “On this page” strip above it lists who and what is on the screen now.</p></button>
+        <button class="opt" role="radio" data-v="C" aria-checked="false"><span class="tag"><span class="letter">C</span><h3>Both</h3><span class="rec">Recommended</span></span><p>The underline for the moment you stumble on a name, the strip for a glance without reading.</p></button>
+      </div>
+    </div>
+    <div class="q" data-q="card">
+      <header><span class="eyebrow">Choice 2 of 4</span><h2>What a card shows, and where</h2></header>
+      <div class="options" role="radiogroup" aria-label="What a card shows">
+        <button class="opt" role="radio" data-v="A" aria-checked="false"><span class="tag"><span class="letter">A</span><h3>Three layers, in order</h3><span class="rec">Recommended</span></span><p>From this book up to here (facts, each with its quote), then from your library, then from the world. Floats over the page; a sheet on a phone.</p></button>
+        <button class="opt" role="radio" data-v="B" aria-checked="false"><span class="tag"><span class="letter">B</span><h3>One line first</h3></span><p>The name, the trail and the latest fact only. “More” opens the full three layers. Less in the way while reading.</p></button>
+        <button class="opt" role="radio" data-v="C" aria-checked="false"><span class="tag"><span class="letter">C</span><h3>In the Study panel</h3></span><p>The card opens inside Who &amp; what, where the list was, with a way back. Nothing covers the page.</p></button>
+      </div>
+    </div>
+    <div class="q" data-q="index">
+      <header><span class="eyebrow">Choice 3 of 4</span><h2>How the Who &amp; what list is ordered</h2></header>
+      <div class="options" role="radiogroup" aria-label="How the list is ordered">
+        <button class="opt" role="radio" data-v="A" aria-checked="false"><span class="tag"><span class="letter">A</span><h3>By how often</h3><span class="rec">Recommended</span></span><p>Most mentioned first, with each entry’s trail of chapters. The main characters rise to the top on their own.</p></button>
+        <button class="opt" role="radio" data-v="B" aria-checked="false"><span class="tag"><span class="letter">B</span><h3>By kind</h3></span><p>People, then places, organisations and terms, each group in order of mentions. Easier to find a place or a term.</p></button>
+        <button class="opt" role="radio" data-v="C" aria-checked="false"><span class="tag"><span class="letter">C</span><h3>In the order you met them</h3></span><p>First appearance first. Reads like the book’s own cast list and is the natural shape for a recap.</p></button>
+      </div>
+    </div>
+    <div class="q" data-q="pos">
+      <header><span class="eyebrow">Choice 4 of 4</span><h2>What the card knows about where you are</h2></header>
+      <div class="options" role="radiogroup" aria-label="What the card knows about where you are">
+        <button class="opt" role="radio" data-v="A" aria-checked="false"><span class="tag"><span class="letter">A</span><h3>Only up to here</h3><span class="rec">Recommended</span></span><p>Facts from later pages do not exist yet. A “Show everything” switch is there when you want it. Entries you have not met are not listed.</p></button>
+        <button class="opt" role="radio" data-v="B" aria-checked="false"><span class="tag"><span class="letter">B</span><h3>Everything, later facts veiled</h3></span><p>Later facts are present but blurred, each with its chapter number; tap one to read it. You see how much is still ahead.</p></button>
+        <button class="opt" role="radio" data-v="C" aria-checked="false"><span class="tag"><span class="letter">C</span><h3>Everything, always</h3></span><p>Kindle’s way. Simple, and it gives the ending away on page one.</p></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="live" aria-label="Live prototype">
+    <div class="viewbar">
+      <div class="seg" role="group" aria-label="Screen"><button id="viewDesk" aria-pressed="true">Computer</button><button id="viewPhone" aria-pressed="false">Phone</button></div>
+      <span class="hint">Everything in the frame works: the chapter menu, the names, the strip, the list, the card.</span>
+    </div>
+    <div class="frame desk" id="frame">
+      <div class="bar">
+        <span class="title">The Strange Case of Dr. Jekyll and Mr. Hyde</span>
+        <button class="b study" id="studyBtn" aria-pressed="false">Study</button>
+        <button class="b" disabled aria-disabled="true">Notes</button>
+        <button class="b" disabled aria-disabled="true">Aa</button>
+      </div>
+      <div class="body">
+        <div class="pagecol">
+          <div class="strip" id="strip"></div>
+          <div class="page" id="page" tabindex="0"></div>
+        </div>
+        <aside class="study" id="study" hidden>
+          <div class="head"><span>Study</span><button class="close" id="studyClose">Close</button></div>
+          <div class="tabs" role="tablist">
+            <button role="tab" disabled aria-selected="false">Rewrite</button>
+            <button role="tab" disabled aria-selected="false">Need to know</button>
+            <button role="tab" disabled aria-selected="false">Test yourself</button>
+            <button role="tab" disabled aria-selected="false">Explain it back</button>
+            <button role="tab" disabled aria-selected="false">See it</button>
+            <button role="tab" disabled aria-selected="false">Ask</button>
+            <button role="tab" aria-selected="true">Who &amp; what</button>
+          </div>
+          <div class="panel" id="panel"></div>
+        </aside>
+        <div class="card" id="card" hidden></div>
+      </div>
+      <div class="foot">
+        <button class="nav" id="prev">Previous chapter</button>
+        <select id="chsel" aria-label="Chapter"></select>
+        <button class="nav" id="next">Next chapter</button>
+        <span class="prog"><b id="progb"></b></span>
+        <span class="pos" id="pos"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="reply">
+    <strong>Reply with four letters, for example “C A A A”, and what the prototype made you think.</strong>
+    <p>The recommendation is C A A A: underline and strip, a layered card, the list by how often, and cards that know only what you have read. Nothing visible is built until you say.</p>
+  </section>
+</main>
+
+<script>
+const CH = __CHAPTERS__;
+const IDX = __INDEX__;
+const KINDS = { person: "Person", place: "Place", organisation: "Organisation", term: "Term" };
+const state = { marks: "C", card: "A", index: "A", pos: "A", view: "desk", ch: 1, last: 0, showAll: false, open: null, revealed: new Set(), query: "", expanded: false };
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rxEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Mentions: counts per chapter and the paragraphs each entry appears in.
+for (const e of IDX) {
+  e.rx = new RegExp("(?<![\\w’])(?:" + e.aliases.map(rxEsc).join("|") + ")(?![\\w])", "g");
+  e.counts = []; e.paras = {}; e.first = null;
+  CH.forEach((c, ci) => {
+    let n = 0;
+    c.paragraphs.forEach((p, pi) => { const m = p.match(e.rx); if (m) { n += m.length; (e.paras[ci + 1] ||= []).push(pi); if (!e.first) e.first = { ch: ci + 1, para: pi }; } });
+    e.counts.push(n);
+  });
+  e.total = e.counts.reduce((a, b) => a + b, 0);
+}
+const byId = Object.fromEntries(IDX.map(e => [e.id, e]));
+const seenFact = f => f.ch < state.ch || (f.ch === state.ch && f.para <= state.last);
+const seenEntry = e => !!e.first && seenFact(e.first);
+const countUpToHere = e => e.counts.reduce((a, n, i) => a + ((i + 1 < state.ch) ? n : (i + 1 === state.ch ? (e.paras[state.ch] || []).filter(j => j <= state.last).length : 0)), 0);
+const allMode = () => state.pos === "C" || (state.pos === "A" && state.showAll);
+
+const $ = id => document.getElementById(id);
+const page = $("page"), strip = $("strip"), panel = $("panel"), card = $("card"), frame = $("frame"), study = $("study");
+
+function trailHtml(e) {
+  const max = Math.max(...e.counts, 1);
+  return '<span class="trail" aria-hidden="true">' + e.counts.map((n, i) => {
+    const ch = i + 1; const cls = [];
+    if (n) cls.push(n >= max * 0.6 ? "m3" : n >= max * 0.25 ? "m2" : "m1");
+    if (ch === state.ch) cls.push("now");
+    if (ch > state.ch && !allMode()) cls.push("ahead");
+    return "<i class=\"" + cls.join(" ") + "\"></i>";
+  }).join("") + "</span>";
+}
+
+function renderPage() {
+  const c = CH[state.ch - 1];
+  const marks = state.marks === "A" || state.marks === "C";
+  let html = "<h2><small>Chapter " + state.ch + " of " + CH.length + "</small>" + esc(c.title) + "</h2>";
+  c.paragraphs.forEach((p, j) => {
+    let out = "";
+    if (marks) {
+      const hits = [];
+      for (const e of IDX) { e.rx.lastIndex = 0; const m = e.rx.exec(p); if (m) hits.push({ s: m.index, t: m.index + m[0].length, id: e.id }); }
+      hits.sort((a, b) => a.s - b.s);
+      let cur = 0;
+      for (const h of hits) { if (h.s < cur) continue; out += esc(p.slice(cur, h.s)) + '<button class="mark" data-id="' + h.id + '">' + esc(p.slice(h.s, h.t)) + "</button>"; cur = h.t; }
+      out += esc(p.slice(cur));
+    } else out = esc(p);
+    html += '<p id="p-' + j + '">' + out + "</p>";
+  });
+  const keep = page.scrollTop; page.innerHTML = html; page.scrollTop = keep;
+  $("chsel").value = state.ch;
+  $("prev").disabled = state.ch === 1; $("next").disabled = state.ch === CH.length;
+}
+
+function updatePosition() {
+  const ps = [...page.querySelectorAll("p")];
+  const top = page.scrollTop, bottom = top + page.clientHeight;
+  let last = 0; const vis = [];
+  ps.forEach((p, j) => { const a = p.offsetTop, b = a + p.offsetHeight; if (b > top + 8 && a < bottom - 8) { vis.push(j); last = j; } });
+  if (bottom >= page.scrollHeight - 4) last = ps.length - 1;
+  state.last = last;
+  $("pos").textContent = "Read up to ch. " + state.ch + ", ¶ " + (last + 1) + " of " + ps.length;
+  const frac = (state.ch - 1 + (last + 1) / ps.length) / CH.length;
+  $("progb").style.width = Math.round(frac * 100) + "%";
+  renderStrip(vis);
+  renderPanel();
+  if (state.open) renderCard();
+}
+
+function renderStrip(vis) {
+  if (!(state.marks === "B" || state.marks === "C")) { strip.hidden = true; return; }
+  strip.hidden = false;
+  const here = [];
+  for (const e of IDX) { const ps = e.paras[state.ch] || []; if (ps.some(j => vis.includes(j))) here.push(e); }
+  here.sort((a, b) => Math.min(...(a.paras[state.ch] || [])) - Math.min(...(b.paras[state.ch] || [])));
+  strip.innerHTML = '<span class="lbl">On this page</span>' + (here.length ? here.map(e => '<button class="chip" data-id="' + e.id + '">' + esc(e.name) + "</button>").join("") : '<span>nothing named yet</span>');
+}
+
+function sortedEntries() {
+  let list = IDX.filter(e => e.total > 0);
+  const q = state.query.trim().toLowerCase();
+  if (q) list = list.filter(e => e.name.toLowerCase().includes(q) || e.aliases.some(a => a.toLowerCase().includes(q)));
+  if (state.pos === "A" && !state.showAll) list = list.filter(seenEntry);
+  const ct = e => allMode() ? e.total : countUpToHere(e);
+  if (state.index === "C") list.sort((a, b) => a.first.ch - b.first.ch || a.first.para - b.first.para);
+  else list.sort((a, b) => ct(b) - ct(a) || a.name.localeCompare(b.name));
+  return { list, ct };
+}
+
+function renderPanel() {
+  if (state.card === "C" && state.open) { renderCard(); return; }
+  const { list, ct } = sortedEntries();
+  let html = '<input class="search" id="search" type="search" placeholder="Find a name or a term" value="' + esc(state.query) + '" aria-label="Find a name or a term">';
+  if (state.pos === "A") html += '<label class="toggle"><input type="checkbox" id="showAll"' + (state.showAll ? " checked" : "") + "> Show everything, including what is ahead</label>";
+  const row = e => {
+    const veil = state.pos === "B" && !seenEntry(e);
+    return '<button class="row' + (veil ? " veil" : "") + '" data-id="' + e.id + '"><span class="nm">' + esc(e.name) + '</span><span class="ct">× ' + ct(e) + '</span><span class="kd">' + KINDS[e.kind] + (e.first ? " · met in ch. " + e.first.ch : "") + "</span>" + trailHtml(e) + "</button>";
+  };
+  if (state.index === "B") {
+    for (const k of Object.keys(KINDS)) { const g = list.filter(e => e.kind === k); if (g.length) html += '<div class="group">' + KINDS[k] + "s</div>" + g.map(row).join(""); }
+  } else html += list.map(row).join("");
+  if (!list.length) html += '<p class="note">No one named yet. Read on.</p>';
+  html += '<p class="note">' + list.length + " of " + IDX.length + " entries" + (state.pos === "A" && !state.showAll ? ", met so far" : "") + ". Counts are mentions" + (allMode() ? " in the whole book." : " up to where you are.") + "</p>";
+  panel.innerHTML = html;
+  $("search").addEventListener("input", ev => { state.query = ev.target.value; renderPanel(); });
+  const sa = $("showAll"); if (sa) sa.addEventListener("change", ev => { state.showAll = ev.target.checked; renderPanel(); if (state.open) renderCard(); });
+}
+
+function factHtml(f, i) {
+  const seen = seenFact(f);
+  if (!seen && state.pos === "A" && !state.showAll) return "";
+  const veiled = !seen && state.pos === "B" && !state.revealed.has(state.open + ":" + i);
+  return '<div class="fact' + (veiled ? " veiled" : "") + '"><span class="ch">Ch. ' + f.ch + (seen ? "" : " · ahead of you") + '</span><span class="t">' + esc(f.text) + '</span><q data-ch="' + f.ch + '" data-para="' + f.para + '" title="Open this place in the book">' + esc(f.quote) + "</q>" + (veiled ? '<button class="reveal" data-i="' + i + '">Show this fact from ch. ' + f.ch + "</button>" : "") + "</div>";
+}
+
+function renderCard() {
+  const e = byId[state.open]; if (!e) return;
+  const inPanel = state.card === "C";
+  const facts = e.facts.map((f, i) => ({ f, i }));
+  const shown = facts.filter(({ f }) => seenFact(f) || state.pos !== "A" || state.showAll);
+  const hiddenAhead = facts.length - shown.length;
+  const compact = state.card === "B" && !state.expanded;
+  let html = '<div class="top"><div><div class="nm">' + esc(e.name) + '</div><div class="meta"><span>' + KINDS[e.kind] + "</span>" + (e.first ? "<span>met in ch. " + e.first.ch + ", ¶ " + (e.first.para + 1) + "</span>" : "") + "<span>" + (allMode() ? e.total : countUpToHere(e)) + " mentions" + (allMode() ? "" : " so far") + "</span></div></div>" + (inPanel ? "" : '<button class="x" id="cardClose" aria-label="Close">×</button>') + "</div>" + trailHtml(e);
+  if (inPanel) html = '<button class="back" id="cardBack">← Who &amp; what</button>' + html;
+  const bookSec = () => {
+    let s = '<div class="sec"><div class="h"><span>From this book, up to here</span>' + (hiddenAhead && state.pos === "A" && !state.showAll ? "<span>" + hiddenAhead + " more ahead</span>" : "") + '</div><div class="ai"><span class="lab">AI, from the book’s words</span>';
+    const body = shown.map(({ f, i }) => factHtml(f, i)).join("");
+    s += body || '<span class="note">Nothing yet: the book has not said anything about this up to here.</span>';
+    return s + "</div></div>";
+  };
+  if (compact) {
+    const latest = shown.filter(({ f }) => seenFact(f)).slice(-1)[0];
+    html += '<div class="sec"><div class="ai"><span class="lab">AI, from the book’s words</span>' + (latest ? factHtml(latest.f, latest.i) : '<span class="note">Nothing yet.</span>') + "</div></div>" + '<button class="more" id="cardMore">More</button>';
+  } else {
+    html += bookSec();
+    html += '<div class="sec"><div class="h"><span>From your library</span></div>' + (e.library ? '<div class="lib">' + e.library.map(l => "<span><strong>" + esc(l.book) + "</strong>, " + esc(l.where) + ": " + esc(l.note) + (l.example ? '<span class="ex">example</span>' : "") + "</span>").join("") + "</div>" : '<span class="note">Nothing in your other books yet.</span>') + "</div>";
+    html += '<div class="sec"><div class="h"><span>From the world</span></div>' + (e.world ? '<div class="ai"><span class="lab">AI, general knowledge, not from the book</span><span>' + esc(e.world) + "</span></div>" : '<span class="note">' + (e.kind === "person" ? "Not shown for the people in a story: the world knows how it ends." : "Nothing to add.") + "</span>") + "</div>";
+    if (state.card === "B") html += '<button class="more" id="cardLess">Less</button>';
+  }
+  const host = inPanel ? panel : card;
+  if (inPanel) { card.hidden = true; panel.innerHTML = '<div class="card inpanel">' + html + "</div>"; if (state.view === "phone") study.hidden = false; }
+  else { card.innerHTML = html; card.hidden = false; }
+  const root = inPanel ? panel : card;
+  root.querySelectorAll("q").forEach(q => q.addEventListener("click", () => goTo(+q.dataset.ch, +q.dataset.para)));
+  root.querySelectorAll(".reveal").forEach(b => b.addEventListener("click", () => { state.revealed.add(state.open + ":" + b.dataset.i); renderCard(); }));
+  const close = $("cardClose"); if (close) close.addEventListener("click", closeCard);
+  const back = $("cardBack"); if (back) back.addEventListener("click", closeCard);
+  const more = $("cardMore"); if (more) more.addEventListener("click", () => { state.expanded = true; renderCard(); });
+  const less = $("cardLess"); if (less) less.addEventListener("click", () => { state.expanded = false; renderCard(); });
+}
+function openCard(id) { state.open = id; state.expanded = false; renderCard(); }
+function closeCard() { state.open = null; card.hidden = true; renderPanel(); }
+
+function goTo(ch, para) {
+  if (ch !== state.ch) { state.ch = ch; renderPage(); }
+  const p = $("p-" + para); if (!p) return;
+  page.scrollTop = Math.max(0, p.offsetTop - 24);
+  p.classList.add("flash"); setTimeout(() => p.classList.remove("flash"), 1600);
+  updatePosition();
+}
+function setChapter(n) { state.ch = Math.min(CH.length, Math.max(1, n)); state.last = 0; renderPage(); page.scrollTop = 0; updatePosition(); }
+
+// Wiring
+const sel = $("chsel"); CH.forEach((c, i) => { const o = document.createElement("option"); o.value = i + 1; o.textContent = (i + 1) + ". " + c.title; sel.appendChild(o); });
+sel.addEventListener("change", () => setChapter(+sel.value));
+$("prev").addEventListener("click", () => setChapter(state.ch - 1));
+$("next").addEventListener("click", () => setChapter(state.ch + 1));
+page.addEventListener("scroll", () => { clearTimeout(page._t); page._t = setTimeout(updatePosition, 60); });
+page.addEventListener("click", ev => { const b = ev.target.closest(".mark"); if (b) openCard(b.dataset.id); });
+strip.addEventListener("click", ev => { const b = ev.target.closest(".chip"); if (b) openCard(b.dataset.id); });
+panel.addEventListener("click", ev => { const b = ev.target.closest(".row"); if (b) openCard(b.dataset.id); });
+document.addEventListener("keydown", ev => { if (ev.key === "Escape" && state.open) closeCard(); });
+document.querySelectorAll(".q").forEach(q => {
+  const key = q.dataset.q;
+  q.querySelectorAll(".opt").forEach(b => {
+    b.setAttribute("aria-checked", String(b.dataset.v === state[key]));
+    b.addEventListener("click", () => {
+      state[key] = b.dataset.v; q.querySelectorAll(".opt").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+      if (key === "card") { state.expanded = false; if (state.open) { card.hidden = true; } }
+      if (key === "pos") { state.showAll = false; state.revealed.clear(); }
+      renderPage(); updatePosition();
+    });
+  });
+});
+function setView(v) {
+  state.view = v; frame.className = "frame " + v;
+  $("viewDesk").setAttribute("aria-pressed", String(v === "desk")); $("viewPhone").setAttribute("aria-pressed", String(v === "phone"));
+  study.hidden = v === "phone"; $("studyBtn").setAttribute("aria-pressed", "false");
+  if (state.open) renderCard();
+  updatePosition();
+}
+$("viewDesk").addEventListener("click", () => setView("desk"));
+$("viewPhone").addEventListener("click", () => setView("phone"));
+$("studyBtn").addEventListener("click", () => { study.hidden = !study.hidden; $("studyBtn").setAttribute("aria-pressed", String(!study.hidden)); });
+$("studyClose").addEventListener("click", () => { study.hidden = true; $("studyBtn").setAttribute("aria-pressed", "false"); });
+
+renderPage(); study.hidden = false; updatePosition();
+</script>
