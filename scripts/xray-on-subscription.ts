@@ -13,6 +13,7 @@
  *
  *   npx tsx scripts/xray-on-subscription.ts read <site> <book id> [--model claude-haiku-5-5] [--effort medium] [--chapters 3]
  *   npx tsx scripts/xray-on-subscription.ts status <site> <book id>
+ *   npx tsx scripts/xray-on-subscription.ts tidy <site> <book id>     (a book read before the alias rules of X7: aliases through them, mentions rebuilt)
  *
  * The whole workflow: .claude/skills/xray-on-subscription/SKILL.md. Needs an
  * API token of the library's owner (made at /agents) in NEOLIBRARY_AGENT_TOKEN.
@@ -96,6 +97,11 @@ async function status(site: string, bookId: string) {
   console.log(`${next.done} of ${next.total} chapters read.${next.chapter ? ` Next: ${next.chapter.label}.` : " Every chapter is read."}`);
 }
 
+async function tidy(site: string, bookId: string) {
+  const r = (await api(site, bookId, { method: "POST", body: JSON.stringify({ tidy: true }) })) as { entries: number; changed: number; mentions: number };
+  console.log(`${r.entries} entries; ${r.changed} had their aliases changed by the rules${r.changed ? `; ${r.mentions} mentions rebuilt` : ""}.`);
+}
+
 async function read(site: string, bookId: string) {
   const model = arg("model", "claude-haiku-5-5");
   const effort = arg("effort", "medium");
@@ -130,11 +136,11 @@ async function read(site: string, bookId: string) {
 
 const [cmd, site, bookId] = process.argv.slice(2);
 const usage = () => {
-  console.error("Usage: xray-on-subscription.ts read|status <site> <book id> [--model m] [--effort e] [--chapters n]");
+  console.error("Usage: xray-on-subscription.ts read|status|tidy <site> <book id> [--model m] [--effort e] [--chapters n]");
   process.exit(2);
 };
 if (!site || !bookId || !/^[0-9a-f-]{36}$/i.test(bookId)) usage();
-(cmd === "read" ? read(site, bookId) : cmd === "status" ? status(site, bookId) : Promise.reject(new Error("read or status"))).catch((e) => {
+(cmd === "read" ? read(site, bookId) : cmd === "status" ? status(site, bookId) : cmd === "tidy" ? tidy(site, bookId) : Promise.reject(new Error("read, status or tidy"))).catch((e) => {
   console.error(e instanceof Error ? e.message : String(e));
   process.exit(1);
 });

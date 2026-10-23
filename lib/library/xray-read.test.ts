@@ -11,8 +11,8 @@ import { MemoryStorage } from "@/lib/storage";
 import { setStyle } from "./ai-style";
 import { importBook } from "./import";
 import { getSections } from "./sections-store";
-import { listXray } from "./xray";
-import { bookChapters, chapterPassages, checkAnswer, findQuote, nextChapterToRead, readChapter, resetXrayJobsForTests, saveChapterReadElsewhere, startXray, stopXray, xraySummary, type Passage } from "./xray-read";
+import { ensureXray, listXray } from "./xray";
+import { bookChapters, chapterPassages, checkAnswer, findQuote, nextChapterToRead, readChapter, resetXrayJobsForTests, saveChapterReadElsewhere, startXray, stopXray, tidyXray, xraySummary, type Passage } from "./xray-read";
 
 let database: Database;
 let ownerId: string;
@@ -76,7 +76,8 @@ describe("the quote check (M32 X3)", () => {
     const utterson = entries.find((e) => e.id === "x-utt")!;
     expect(utterson.isNew).toBe(false);
     expect(utterson.kind).toBe("person");
-    expect(utterson.aliases).toEqual(expect.arrayContaining(["Mr. Utterson", "Utterson", "Gabriel John Utterson", "the lawyer"]));
+    expect(utterson.aliases).toEqual(expect.arrayContaining(["Mr. Utterson", "Utterson", "Gabriel John Utterson"]));
+    expect(utterson.aliases).not.toContain("the lawyer"); // a description, not a way of writing the name (X7)
     const at = passages[0].text.indexOf("a man of a rugged countenance");
     expect(utterson.facts).toEqual([{ sectionId: "p1", position: 5, chapterIndex: 2, start: at, end: at + "a man of a rugged countenance".length, fact: "A lawyer with a rugged face.", quote: "a man of a rugged countenance" }]);
     // Two answers for one new name in the same chapter are one entry, with both sets of names and facts.
@@ -90,6 +91,37 @@ describe("the quote check (M32 X3)", () => {
     // Nonsense is no answer.
     expect(checkAnswer("not json", passages, known)).toEqual({ entries: [], dropped: 0 });
     expect(checkAnswer(JSON.stringify({ entries: "no" }), passages, known)).toEqual({ entries: [], dropped: 0 });
+  });
+});
+
+describe("alias hygiene on an answer (M32 X7)", () => {
+  it("drops an alias that is another entry's name, joins a known entry only by same_as, its name or a shared alias of the same kind", () => {
+    const known = [
+      { id: "x-japan", name: "Japan", kind: "place" as const, aliases: ["Japan"] },
+      { id: "x-jg", name: "Johannes Gutenberg", kind: "person" as const, aliases: ["Johannes Gutenberg", "Gutenberg"] },
+      { id: "x-noyce", name: "Robert Noyce", kind: "person" as const, aliases: ["Robert Noyce", "Noyce"] },
+    ];
+    const answer = JSON.stringify({
+      entries: [
+        { name: "Tokyo", kind: "place", aliases: ["Tokyo", "Japan", "Japan’s", "Japanese"], same_as: null, facts: [] },
+        { name: "Gutenberg moment", kind: "term", aliases: ["Gutenberg moment", "Gutenberg"], same_as: null, facts: [] },
+        { name: "Bob Noyce", kind: "person", aliases: ["Bob Noyce", "Noyce"], same_as: null, facts: [] },
+        { name: "Chang", kind: "person", aliases: ["Chang", "Morris Chang"], same_as: "Morris Chang", facts: [] },
+      ],
+    });
+    const { entries } = checkAnswer(answer, [], known);
+    const tokyo = entries.find((e) => e.name === "Tokyo")!;
+    expect(tokyo.isNew).toBe(true);
+    expect(tokyo.aliases).toEqual(["Tokyo"]); // Japan is Japan's; "Japanese" is an adjective
+    const moment = entries.find((e) => e.name === "Gutenberg moment")!;
+    expect(moment.isNew).toBe(true); // a term does not join a person over a shared alias
+    expect(moment.id).not.toBe("x-jg");
+    const noyce = entries.find((e) => e.id === "x-noyce")!;
+    expect(noyce.isNew).toBe(false); // a person joins a person over "Noyce"
+    expect(noyce.aliases).toEqual(["Robert Noyce", "Noyce", "Bob Noyce"]);
+    const chang = entries.find((e) => e.name === "Chang")!;
+    expect(chang.isNew).toBe(true); // same_as names an entry that is not known: new, and "Morris Chang" stays an alias (a fuller name)
+    expect(chang.aliases).toEqual(["Chang", "Morris Chang"]);
   });
 });
 
@@ -248,5 +280,26 @@ describe("reading on the owner's own subscription (M32 X5)", () => {
     await expect(nextChapterToRead(database.db, "00000000-0000-0000-0000-000000000000", bookId)).rejects.toThrow("not found");
     // An empty answer is still a reading: the chapter counts as read, with no facts.
     expect((await saveChapterReadElsewhere(database.db, ownerId, bookId, good)).done).toBe(1);
+  });
+});
+
+describe("a book read before the alias rules (M32 X7)", () => {
+  it("tidyXray puts every entry's aliases through the rules and rebuilds the mentions; another reader is refused", async () => {
+    await ensureXray(database.db, bookId);
+    await database.db.insert(xrayEntries).values([
+      { bookId, id: "x-japan", name: "Japan", kind: "place", aliases: ["Japan"] },
+      { bookId, id: "x-tokyo", name: "Tokyo", kind: "place", aliases: ["Tokyo", "Japan", "Japan’s", "Japanese", "the city"] },
+    ]);
+    const before = (await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).length;
+    const result = await tidyXray(database.db, ownerId, bookId);
+    expect(result.changed).toBe(1);
+    expect(result.mentions).toBeGreaterThan(0);
+    const [tokyo] = await database.db.select().from(xrayEntries).where(and(eq(xrayEntries.bookId, bookId), eq(xrayEntries.id, "x-tokyo")));
+    expect(tokyo.aliases).toEqual(["Tokyo"]);
+    expect((await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).length).toBe(result.mentions);
+    expect(before).toBeGreaterThan(0);
+    // Nothing to change the second time: no rebuild.
+    expect(await tidyXray(database.db, ownerId, bookId)).toEqual({ entries: result.entries, changed: 0, mentions: 0 });
+    await expect(tidyXray(database.db, "00000000-0000-0000-0000-000000000000", bookId)).rejects.toThrow("That book was not found.");
   });
 });

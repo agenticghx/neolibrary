@@ -8,6 +8,7 @@ import { books, generations, sections, xrayEntries, xrayFacts, type XrayKind } f
 import { getStyles } from "./ai-style";
 import { bookLine, styleInstruction } from "./prerequisites";
 import { BOILERPLATE, findMentions, paragraphsOf, saveMentions, XrayError, type XrayEntry } from "./xray";
+import { namesToAvoid, tidyAliases } from "./xray-aliases";
 
 /**
  * X-ray, read by Claude (M32 X3). One call per chapter, in order, each told
@@ -182,7 +183,16 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
   }
   if (!Array.isArray(raw)) return { entries: [], dropped: 0 };
   const byN = new Map(passages.map((p) => [p.n, p]));
-  const findKnown = (names: string[]) => known.find((k) => names.some((n) => same(n, k.name) || k.aliases.some((a) => same(a, n))));
+  // A known entry joins by same_as (any kind), else by this entry's name, else by a shared alias; a join by name or
+  // alias needs the same kind (or a name from the text alone, not yet classified), so a term never joins a person.
+  const joinable = (k: XrayEntry, kind: XrayKind) => k.kind === "name" || k.kind === kind;
+  const byWord = (word: string) => known.find((k) => same(k.name, word) || k.aliases.some((a) => same(a, word)));
+  const findKnown = (name: string, aliases: string[], kind: XrayKind) =>
+    known.find((k) => joinable(k, kind) && (same(k.name, name) || k.aliases.some((a) => same(a, name)))) ??
+    known.find((k) => joinable(k, kind) && aliases.some((a) => k.aliases.some((b) => same(a, b))));
+  const rawEntries = raw
+    .map((r) => (r && typeof r === "object" ? { name: clean(r.name, 120), kind: (KINDS as string[]).includes(String(r.kind)) ? String(r.kind) : "term" } : { name: "", kind: "" }))
+    .filter((r) => r.name);
   const entries: CheckedEntry[] = [];
   let dropped = 0;
   for (const r of raw) {
@@ -190,11 +200,14 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
     const name = clean(r.name, 120);
     if (!name) continue;
     const kind = (KINDS as string[]).includes(String(r.kind)) ? (r.kind as XrayKind) : "term";
-    const aliases = [...new Set([name, ...(Array.isArray(r.aliases) ? r.aliases.map((a) => clean(a, 120)) : [])].filter(Boolean))];
     const sameAs = clean(r.same_as, 120);
+    const sameAsEntry = sameAs ? byWord(sameAs) : undefined;
+    // The other entries' names, which no alias of this one may be (rule 5): the one it joins is not another.
+    const otherNames = namesToAvoid(name, kind, [...known, ...rawEntries]).filter((n) => !(sameAsEntry && same(n, sameAsEntry.name)));
+    const aliases = tidyAliases(name, Array.isArray(r.aliases) ? r.aliases.map((a) => clean(a, 120)) : [], otherNames);
     const names = sameAs ? [sameAs, ...aliases] : aliases;
     const earlier = entries.find((e) => e.aliases.some((a) => names.some((b) => same(a, b))));
-    const target = findKnown(names);
+    const target = sameAsEntry ?? findKnown(name, aliases, kind);
     const facts: CheckedFact[] = [];
     for (const f of Array.isArray(r.facts) ? (r.facts as { passage?: unknown; fact?: unknown; quote?: unknown }[]) : []) {
       if (facts.length === MAX_FACTS) break;
@@ -209,7 +222,7 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
     }
     if (earlier) {
       // Two answers for one entry in the same chapter: one entry.
-      earlier.aliases = [...new Set([...earlier.aliases, ...aliases])];
+      earlier.aliases = tidyAliases(earlier.name, [...earlier.aliases, ...aliases], otherNames);
       earlier.facts = [...earlier.facts, ...facts].slice(0, MAX_FACTS);
       continue;
     }
@@ -217,7 +230,7 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
       id: target?.id ?? `x-${hash(name.toLowerCase())}`,
       name,
       kind,
-      aliases: target ? [...new Set([...target.aliases, ...aliases])] : aliases,
+      aliases: target ? tidyAliases(target.name, [...target.aliases, ...aliases], otherNames) : aliases,
       isNew: !target,
       facts,
     });
@@ -248,12 +261,51 @@ export async function applyChapter(db: Db, bookId: string, generationId: string,
     const facts = checked.entries.flatMap((e) => e.facts.map((f) => ({ bookId, entryId: e.id, generationId, chapterIndex: f.chapterIndex, sectionId: f.sectionId, position: f.position, startAt: f.start, endAt: f.end, fact: f.fact, quote: f.quote })));
     for (let i = 0; i < facts.length; i += 500) await tx.insert(xrayFacts).values(facts.slice(i, i + 500));
   });
-  if (changed.length) {
-    // Every name's mentions again, together (a span goes to the longest name), on the same paragraphs the index
-    // reads: the same result a rebuild from the entries alone gives.
-    await saveMentions(db, bookId, findMentions(await db_entries(db, bookId), await paragraphsOf(db, bookId)));
+  // The aliases of every entry through the rules once more (an alias may now be another entry's name), then every
+  // name's mentions again, together (a span goes to the longest name), on the same paragraphs the index reads: the
+  // same result a rebuild from the entries alone gives.
+  const tidied = await tidyEntries(db, bookId);
+  if (changed.length || tidied) await saveMentions(db, bookId, findMentions(await db_entries(db, bookId), await paragraphsOf(db, bookId)));
+  return { entries: checked.entries.length, facts: checked.entries.reduce((n, e) => n + e.facts.length, 0), changed: changed.length + tidied };
+}
+
+/** Every entry's aliases through the rules (M32 X7), against the other entries' names; how many rows changed. */
+async function tidyEntries(db: Db, bookId: string): Promise<number> {
+  const all = await db_entries(db, bookId);
+  let changed = 0;
+  for (const [i, e] of all.entries()) {
+    const aliases = tidyAliases(
+      e.name,
+      e.aliases,
+      namesToAvoid(
+        e.name,
+        e.kind,
+        all.filter((_, j) => j !== i),
+      ),
+    );
+    if (aliases.length === e.aliases.length && aliases.every((a) => e.aliases.includes(a))) continue; // the same set, in any order: nothing to write
+    await db.update(xrayEntries).set({ aliases }).where(and(eq(xrayEntries.bookId, bookId), eq(xrayEntries.id, e.id)));
+    changed += 1;
   }
-  return { entries: checked.entries.length, facts: checked.entries.reduce((n, e) => n + e.facts.length, 0), changed: changed.length };
+  return changed;
+}
+
+/**
+ * A book already read put through the alias rules (M32 X7): for the owner's
+ * agent, on a book read before the rules existed. Mentions are rebuilt when
+ * anything changed.
+ */
+export async function tidyXray(db: Db, ownerId: string, bookId: string): Promise<{ entries: number; changed: number; mentions: number }> {
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  if (!book) throw new XrayError("That book was not found.");
+  const changed = await tidyEntries(db, bookId);
+  let mentions = 0;
+  if (changed) {
+    const list = findMentions(await db_entries(db, bookId), await paragraphsOf(db, bookId));
+    await saveMentions(db, bookId, list);
+    mentions = list.length;
+  }
+  return { entries: (await db_entries(db, bookId)).length, changed, mentions };
 }
 
 export type ReadDeps = { db: Db; model: TextModel; caps?: Caps; now?: () => Date };

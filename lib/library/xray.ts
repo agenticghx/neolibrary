@@ -60,12 +60,13 @@ const STOP = new Set(
   ).split(" "),
 );
 /** A people's or a school's adjective is not a name on its own ("European", "Cartesian"); inside a name it stays. */
-const ADJECTIVES = new Set(
+export const ADJECTIVES = new Set(
   (
     "American Americans European Europeans Chinese German Germans French British English Spanish Italian Italians Russian Russians " +
     "Japanese Indian Indians Dutch Latin Greek Greeks Roman Romans Western Eastern Northern Southern Asian African Africans Arab Arabs " +
     "Christian Christians Catholic Catholics Protestant Jewish Islamic Muslim Muslims Aristotelian Cartesian Platonic Scholastic " +
-    "Victorian Medieval Modern Ancient Classical Soviet Communist Socialist Liberal Conservative Republican Democratic Federal National"
+    "Victorian Medieval Modern Ancient Classical Soviet Soviets Communist Socialist Liberal Conservative Republican Democratic Federal National " +
+    "Taiwanese Korean Koreans"
   ).split(" "),
 );
 
