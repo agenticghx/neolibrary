@@ -456,7 +456,7 @@ test("a focus session you cannot walk away from: every page and every browser go
 // M26 R5 "Done when": a whole-book focus on a public-domain book; Home and Library show only that book (they go to
 // its page); another book's reader goes there too; jumping to the last page brings up the question; the answer is a
 // note. Leaving early with a short answer is refused, and the wait (20 seconds here, FOCUS_BOOK_WAIT_MS) starts and
-// can be cancelled. Daily review and the Reading stats card are R5b's.
+// can be cancelled. R5b: Daily review holds only this book's cards; Reading stats has a card for the focus.
 const BOOK_QUESTION = "What does the Time Traveller learn about where mankind is going?";
 const BOOK_ANSWER = "That comfort without struggle makes people weak, and that the split between those who work and those who rest can harden into two kinds of creature.";
 const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
@@ -474,6 +474,13 @@ test("whole-book focus: only this book, for days; leaving early takes 150 words 
   const jekyll = await upload("stevenson-jekyll-and-hyde.epub");
   const view = reader.getByTestId("reader");
   const ready = async () => expect(view).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // A note on each book: two cards in Daily review before the focus.
+  for (const [id, body] of [
+    [tm, "The Eloi and the Morlocks are one people, split."],
+    [jekyll, "Utterson is the lawyer."],
+  ]) {
+    expect((await reader.request.post(`/api/books/${id}/annotations`, { data: { kind: "note", body } })).status()).toBe(201);
+  }
 
   // Start it from the reader: the whole book, a question, three days.
   await reader.goto(`/books/${tm}/read`);
@@ -506,10 +513,12 @@ test("whole-book focus: only this book, for days; leaving early takes 150 words 
   await banner.getByRole("link", { name: "Account" }).click();
   await expect(reader).toHaveURL(/\/account$/);
   await expect(reader.getByTestId("account-focus")).toContainText("A whole-book focus is running");
-  // The pages that list no other book open.
+  // The pages that list no other book open. Daily review holds only this book's card (R5b).
   await reader.goto("/review");
   await expect(reader).toHaveURL(/\/review$/);
   await expect(reader.getByTestId("book-focus-banner")).toBeVisible();
+  await expect(reader.getByTestId("review-card")).toContainText("The Time Machine");
+  await expect(reader.getByTestId("review-progress")).toContainText("1 of 1");
   await reader.goto("/stats");
   await expect(reader).toHaveURL(/\/stats$/);
   // Another book's file is refused (423 Locked); this book's is not.
@@ -567,7 +576,22 @@ test("whole-book focus: only this book, for days; leaving early takes 150 words 
   // The answer is a note on the book, with its question.
   const notes = (await (await reader.request.get(`/api/books/${tm}/annotations`)).json()).annotations as { kind: string; body: string }[];
   expect(notes.some((n) => n.kind === "note" && n.body.includes(BOOK_QUESTION) && n.body.includes("comfort without struggle"))).toBe(true);
-  // Other books open again.
+  // Reading stats has a card for the focus: the book, how it ended, the reading done in it, the question and answer.
+  await reader.goto("/stats");
+  const card = reader.getByTestId("stats-book-focus");
+  await expect(card).toContainText("The Time Machine");
+  await expect(card.getByTestId("stats-book-focus-ended")).toContainText("Finished the book");
+  await expect(card).toContainText(BOOK_QUESTION);
+  await expect(card).toContainText("comfort without struggle");
+  await expect(card).not.toContainText("Question:");
+  await fourLooks(reader, "book-focus-stats", async () => {
+    await expect(reader.getByTestId("stats-book-focus")).toBeVisible();
+    await reader.getByRole("heading", { name: "Whole-book focus" }).scrollIntoViewIfNeeded();
+    await reader.getByRole("heading", { name: "Whole-book focus" }).evaluate((h) => h.scrollIntoView({ block: "start" }));
+  });
+  // Other books open again, and their cards come back to Daily review.
+  await reader.goto("/review");
+  await expect(reader.getByTestId("review-progress")).toContainText("of 3");
   await reader.goto("/library");
   await expect(reader).toHaveURL(/\/library$/);
   await expect(reader.getByTestId("book-focus-banner")).toHaveCount(0);

@@ -250,6 +250,15 @@ async function bookFamily(db: Db, ownerId: string, bookId: string): Promise<{ id
 }
 
 /**
+ * During a whole-book focus (M26 R5), every id the focused book goes by, so Daily review can keep to it; null
+ * otherwise (no session, or a sitting).
+ */
+export async function focusedBookIds(db: Db, ownerId: string, now = new Date()): Promise<string[] | null> {
+  const running = await runningFocus(db, ownerId, now);
+  return running?.kind === "book" ? bookIdsOf(db, ownerId, running.bookId) : null;
+}
+
+/**
  * A running session as the redirect rule needs it (lib/library/focus-redirect.ts): for a whole book, with every id
  * the book goes by and its own page. Null for null.
  */
