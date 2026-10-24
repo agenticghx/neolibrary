@@ -170,7 +170,13 @@ Pick one book and read only it, for days or until its last page.
     Stats, Paths, Import, Account and the rest open, with a one-line banner
     naming the book and the day the focus ends. Other books' files answer 423
     Locked, as in R4a. A scanned book and its text edition count as one book
-    throughout (both open; the banner and redirects use the scan's page).
+    throughout (both open; the banner and redirects use the scan's page). On a
+    phone, Daily review, Reading stats and Account are reached from the menu on
+    Home, which now goes to the book's page, so the banner links all three.
+  - **Known gap:** a book whose last page was reached but whose question was
+    not answered (the tab was closed) keeps the lock until the days run out or
+    the reader opens it again and answers; the lock is judged by time, not by
+    the saved place. For R5b or later.
   - **In the reader:** it reads as usual (top bar, panels, "Where were we?"),
     with one line above the page: the question, "Only this book until 7
     November", and Leave early…. The ways out are R4b's with the whole-book

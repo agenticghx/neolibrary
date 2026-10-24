@@ -500,7 +500,13 @@ test("whole-book focus: only this book, for days; leaving early takes 150 words 
     await expect(reader, path).toHaveURL(bookPage);
     await expect(reader.getByTestId("book-focus-banner")).toContainText("The Time Machine");
   }
-  // A link followed inside the app does the same (FocusGuard), and the pages that list no other book open.
+  // On a phone Daily review, Reading stats and Account sit in the menu on Home, which comes here: the banner links them.
+  const banner = reader.getByTestId("book-focus-banner");
+  for (const name of ["Read it", "Daily review", "Reading stats", "Account"]) await expect(banner.getByRole("link", { name })).toBeVisible();
+  await banner.getByRole("link", { name: "Account" }).click();
+  await expect(reader).toHaveURL(/\/account$/);
+  await expect(reader.getByTestId("account-focus")).toContainText("A whole-book focus is running");
+  // The pages that list no other book open.
   await reader.goto("/review");
   await expect(reader).toHaveURL(/\/review$/);
   await expect(reader.getByTestId("book-focus-banner")).toBeVisible();

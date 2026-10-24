@@ -27,6 +27,19 @@
   text-decoration-color: var(--accent);
 }
 
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.link {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  white-space: nowrap;
+}
+
 /* As plain links on app pages (M24): main ink with a green underline (the green alone is too faint in the dark). */
 .open {
   color: var(--ink-900);
