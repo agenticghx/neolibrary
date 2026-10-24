@@ -1,14 +1,17 @@
 import { readFileSync } from "node:fs";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
+import { books } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
-import { createAnnotation, deleteAnnotation, updateAnnotation } from "./annotations";
+import { createAnnotation, createAnnotationOnce, deleteAnnotation, updateAnnotation } from "./annotations";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
 import { removeBook } from "./remove-book";
 import {
+  bookFocuses,
   chapterStatsByBook,
   cleanChapters,
   cleanFocus,
@@ -304,5 +307,44 @@ describe("a focus session with a question (M26 R3)", () => {
     await expect(linkFocusAnswer(database.db, ownerId, "nope", note.id)).rejects.toThrow("Bad focus session.");
     await expect(linkFocusAnswer(database.db, ownerId, f1, "nope")).rejects.toThrow("Bad note.");
     expect(await linkFocusAnswer(database.db, "00000000-0000-4000-8000-000000000099", f1, note.id)).toBe(0);
+  });
+});
+
+describe("whole-book focus on Reading stats (M26 R5)", () => {
+  it("adds up the reading done in it on either edition, says how it ended, and shows the answer", async () => {
+    // Jekyll stands in for The Time Machine's text edition here: a whole-book focus covers both.
+    await database.db.update(books).set({ editionOf: tm }).where(eq(books.id, jekyll));
+    const f = await startFocus(database.db, ownerId, { bookId: jekyll, question: "Where is mankind going?", kind: "book", days: 3 }, new Date("2026-10-01T09:00:00Z"));
+    const sit = (n: number, bookId: string, startedAt: string, activeSeconds: number) =>
+      recordReading(database.db, ownerId, { sessionId: `bbbbbbbb-0000-4000-8000-00000000000${n}`, bookId, startedAt, activeSeconds, words: 100, pages: 1 });
+    await sit(1, tm, "2026-09-30T10:00:00Z", 600); // before it began: not counted
+    await sit(2, tm, "2026-10-01T10:00:00Z", 60);
+    await sit(3, jekyll, "2026-10-02T10:00:00Z", 120);
+    await sit(4, jekyll, "2026-10-02T18:00:00Z", 0); // opened, nothing read: no day, no sitting
+    let [card] = await bookFocuses(database.db, ownerId);
+    expect(card).toMatchObject({
+      focusId: f.id,
+      bookId: tm,
+      title: "The Time Machine",
+      question: "Where is mankind going?",
+      startedAt: "2026-10-01T09:00:00.000Z",
+      endedAt: null,
+      endsAt: "2026-10-04T09:00:00.000Z",
+      endedHow: null,
+      days: 2,
+      activeSeconds: 180,
+      sittings: 2,
+      answer: null,
+    });
+    // The last page reached: the answer is the note chosen when it began, and it ends as finished.
+    await database.db.update(books).set({ progress: 1 }).where(eq(books.id, jekyll));
+    await createAnnotationOnce(database.db, ownerId, f.noteId, { kind: "note", bookId: jekyll, body: "Question: Where?\n\nAnswer: Down, into two kinds." });
+    await endFocus(database.db, ownerId, f.id, { answered: true }, new Date("2026-10-02T20:00:00Z"));
+    await sit(5, tm, "2026-10-03T10:00:00Z", 300); // after it ended: not counted
+    [card] = await bookFocuses(database.db, ownerId);
+    expect(card).toMatchObject({ endedAt: "2026-10-02T20:00:00.000Z", endedHow: "finished", days: 2, activeSeconds: 180, sittings: 2, answer: "Question: Where?\n\nAnswer: Down, into two kinds." });
+    // A sitting is not a whole-book focus, and another reader's are theirs.
+    await startFocus(database.db, ownerId, { bookId: tm, question: "A sitting", minutes: 5 }, new Date("2026-10-05T09:00:00Z"));
+    expect(await bookFocuses(database.db, ownerId)).toHaveLength(1);
   });
 });

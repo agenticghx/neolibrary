@@ -338,9 +338,20 @@ const allRows = async (db: Db, ownerId: string, delayDays: number) => [
   ...(await gapRows(db, ownerId, delayDays)),
 ];
 
-/** Today's review for a reader at `now`. */
-export async function reviewQueue(db: Db, ownerId: string, now = new Date(), newPerDay = NEW_PER_DAY, delayDays = questionDelayDays()): Promise<ReviewQueue> {
-  const rows = await allRows(db, ownerId, delayDays);
+/**
+ * Today's review for a reader at `now`. `onlyBooks`: during a whole-book focus (M26 R5), only the cards from that
+ * book (either edition) come; the others wait, due as before, until it ends.
+ */
+export async function reviewQueue(
+  db: Db,
+  ownerId: string,
+  now = new Date(),
+  newPerDay = NEW_PER_DAY,
+  delayDays = questionDelayDays(),
+  onlyBooks: readonly string[] | null = null,
+): Promise<ReviewQueue> {
+  const every = await allRows(db, ownerId, delayDays);
+  const rows = onlyBooks ? every.filter((r) => onlyBooks.includes(r.bookId)) : every;
   const [{ n: introduced }] = await db
     .select({ n: count() })
     .from(reviewCards)
@@ -359,9 +370,9 @@ export async function reviewQueue(db: Db, ownerId: string, now = new Date(), new
   return { cards: [...due, ...fresh.slice(0, allowance)].map(toCard), nextDueAt: later[0]?.toISOString() ?? null, total: rows.length };
 }
 
-/** How many cards are waiting today (the sidebar's count). */
-export async function dueCount(db: Db, ownerId: string, now = new Date()) {
-  return (await reviewQueue(db, ownerId, now)).cards.length;
+/** How many cards are waiting today (the sidebar's count); `onlyBooks` as for reviewQueue. */
+export async function dueCount(db: Db, ownerId: string, now = new Date(), onlyBooks: readonly string[] | null = null) {
+  return (await reviewQueue(db, ownerId, now, NEW_PER_DAY, questionDelayDays(), onlyBooks)).cards.length;
 }
 
 /** The card named `cardId`, if it is one of this reader's current cards. */

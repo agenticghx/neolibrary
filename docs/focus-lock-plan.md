@@ -190,6 +190,19 @@ Pick one book and read only it, for days or until its last page.
     end, added by migration 0033 (with its reverse step: a finished focus becomes
     "time"). When the days run out the same question comes, as "The days are up".
 
+- **As built, part two (R5b, 2026-10-24, branch `m26-r5b-review-stats`):**
+  - **Daily review** holds only the focused book's cards (either edition)
+    while a whole-book focus runs; the sidebar's "due today" counts the same.
+    The other cards keep their dates and come back when the focus ends. A
+    sitting does not narrow the review (it locks every other page anyway).
+  - **Reading stats** has a "Whole-book focus" section (only once there is one):
+    for each, the book, its dates ("to 7 Nov (running)" while it runs), how it
+    ended ("Finished the book", "Answered early", "Left after a wait", "On
+    time"), the days read, the time and the sittings in it (any sitting on
+    either edition that began between its start and its end; a sitting with
+    nothing read is not counted), the question and the answer.
+  - The known gap in part one stays.
+
 ## Order
 
 R4a, then R4b, then R5. Each is one pull request. R4a and R5 change what you
