@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { books } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { focusRedirect, isRunning, openFocus, redirectInfo } from "@/lib/library/focus-lock";
+import { focusRedirect, isRunning, openFocus, redirectInfo, runningFocus } from "@/lib/library/focus-lock";
 import { getBook } from "@/lib/library/paths";
 import { getPreferences } from "@/lib/library/preferences";
 import { isCfi } from "@/lib/library/reading";
@@ -31,7 +31,7 @@ export default async function ReadPage({
   // page, because the reader's layout is not run again when the command palette opens another book.
   // M26 R5: a whole-book focus lets both editions of the focused book open, and sends other books to its page.
   const focus = await openFocus(db, user.id);
-  const running = focus && isRunning(focus) ? focus : null;
+  const running = focus && isRunning(focus) ? await runningFocus(db, user.id) : null;
   const to = focusRedirect(await redirectInfo(db, user.id, running), `/books/${id}/read`);
   if (to) redirect(to);
   // A sitting (R3/R4) shows only the page; a whole-book focus (R5) is the ordinary reader, with its own line.

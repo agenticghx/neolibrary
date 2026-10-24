@@ -154,6 +154,72 @@ export async function focusSessions(db: Db, ownerId: string, limit = 50): Promis
   }));
 }
 
+/** One whole-book focus (M26 R5) on the Reading stats page: its dates, the reading done in it, how it ended, the answer. */
+export type BookFocusStats = {
+  focusId: string;
+  /** The book's own page: the scan's, for a scanned book with a text edition. */
+  bookId: string;
+  title: string;
+  question: string;
+  startedAt: string;
+  /** When it ended, or null while it runs (then `endsAt` is when it will). */
+  endedAt: string | null;
+  endsAt: string;
+  endedHow: "time" | "answered" | "early" | "waited" | "released" | "finished" | null;
+  /** Days with reading in it (UTC days, as the rest of the page), the time read, and the sittings. */
+  days: number;
+  activeSeconds: number;
+  sittings: number;
+  answer: string | null;
+};
+
+/**
+ * The reader's whole-book focuses, newest first. The reading in one is every sitting on the book (either edition)
+ * that began between its start and its end (or now, while it runs). Its answer is the latest version of the note
+ * chosen when it started, unless that note was removed or never written.
+ */
+export async function bookFocuses(db: Db, ownerId: string, limit = 20): Promise<BookFocusStats[]> {
+  const rows = await db.execute(sql`
+    SELECT f.id AS "focusId", h.id AS "bookId", h.title, f.question, f.started_at AS "startedAt", f.ended_at AS "endedAt",
+           f.ends_at AS "endsAt", f.ended_how AS "endedHow", st.days, st.seconds AS "activeSeconds", st.sittings, n.body AS answer
+    FROM focus_sessions f
+    JOIN books fb ON fb.id = f.book_id
+    JOIN books h ON h.id = coalesce(fb.edition_of, fb.id) AND h.deleted_at IS NULL
+    LEFT JOIN LATERAL (
+      SELECT count(DISTINCT (s.started_at AT TIME ZONE 'UTC')::date) FILTER (WHERE s.active_seconds > 0)::int AS days,
+             coalesce(sum(s.active_seconds), 0)::int AS seconds, count(*) FILTER (WHERE s.active_seconds > 0)::int AS sittings
+      FROM reading_sessions s
+      JOIN books sb ON sb.id = s.book_id
+      WHERE s.owner_id = ${ownerId} AND coalesce(sb.edition_of, sb.id) = h.id
+        AND s.started_at >= f.started_at AND s.started_at <= coalesce(f.ended_at, now())
+    ) st ON true
+    LEFT JOIN LATERAL (
+      SELECT case when a.deleted then null else a.body end AS body FROM annotations a
+      WHERE a.owner_id = ${ownerId} AND a.annotation_id = f.note_id
+      ORDER BY a.version DESC LIMIT 1
+    ) n ON true
+    WHERE f.owner_id = ${ownerId} AND f.kind = 'book'
+    ORDER BY f.started_at DESC
+    LIMIT ${limit}
+  `);
+  const list = (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows) as Record<string, unknown>[];
+  const iso = (v: unknown) => new Date(v as string).toISOString();
+  return list.map((r) => ({
+    focusId: r.focusId as string,
+    bookId: r.bookId as string,
+    title: r.title as string,
+    question: (r.question as string) ?? "",
+    startedAt: iso(r.startedAt),
+    endedAt: r.endedAt ? iso(r.endedAt) : null,
+    endsAt: iso(r.endsAt),
+    endedHow: (r.endedHow as BookFocusStats["endedHow"]) ?? null,
+    days: Number(r.days ?? 0),
+    activeSeconds: Number(r.activeSeconds ?? 0),
+    sittings: Number(r.sittings ?? 0),
+    answer: (r.answer as string | null) ?? null,
+  }));
+}
+
 const MAX_CHAPTERS = 500;
 
 /** The reader's chapter split, checked: known fields only, sane numbers, never more than the sitting's totals. */

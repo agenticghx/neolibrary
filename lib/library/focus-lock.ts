@@ -95,10 +95,15 @@ export async function openFocus(db: Db, ownerId: string): Promise<FocusRow | nul
   return row ?? null;
 }
 
-/** The reader's running session (open, time not up), or null: the one read every locked page makes. */
+/**
+ * The reader's running session (open, time not up), or null: the one read every locked page makes. A whole book
+ * whose last page has been reached (M26 R5) no longer runs, even before its question is answered: other books open
+ * at once, and the question waits in the reader.
+ */
 export async function runningFocus(db: Db, ownerId: string, now = new Date()): Promise<FocusRow | null> {
   const row = await openFocus(db, ownerId);
-  return row && isRunning(row, now) ? row : null;
+  if (!row || !isRunning(row, now)) return null;
+  return row.kind === "book" && (await bookFinished(db, ownerId, row)) ? null : row;
 }
 
 /** Sessions whose time (or wait) ran out while no device was open are closed, so they do not block the next one. */
@@ -149,6 +154,11 @@ export async function startFocus(
   const found = typeof input.bookId === "string" ? await getBook(db, ownerId, input.bookId) : null;
   if (!found || !found.available.read) throw new FocusError("Book not found.", 404);
   await closeTimedOut(db, ownerId, now);
+  // A whole book read to its end but never answered: closed as finished, so it does not block the next session.
+  const left = await openFocus(db, ownerId);
+  if (left?.kind === "book" && (await bookFinished(db, ownerId, left))) {
+    await db.update(focusSessions).set({ endedAt: now, endedHow: "finished" }).where(and(eq(focusSessions.id, left.id), isNull(focusSessions.endedAt)));
+  }
   const open = await openFocus(db, ownerId);
   if (open) throw new FocusError("A focus session is already running. End it before starting another.", 409);
   try {
@@ -250,6 +260,15 @@ async function bookFamily(db: Db, ownerId: string, bookId: string): Promise<{ id
 }
 
 /**
+ * During a whole-book focus (M26 R5), every id the focused book goes by, so Daily review can keep to it; null
+ * otherwise (no session, or a sitting).
+ */
+export async function focusedBookIds(db: Db, ownerId: string, now = new Date()): Promise<string[] | null> {
+  const running = await runningFocus(db, ownerId, now);
+  return running?.kind === "book" ? bookIdsOf(db, ownerId, running.bookId) : null;
+}
+
+/**
  * A running session as the redirect rule needs it (lib/library/focus-redirect.ts): for a whole book, with every id
  * the book goes by and its own page. Null for null.
  */
@@ -318,7 +337,9 @@ export async function focusView(db: Db, ownerId: string, s: FocusRow, now = new 
   const base = focusJson(s, now);
   if (s.kind !== "book") return base;
   const { ids, homeId } = await bookFamily(db, ownerId, s.bookId);
-  return { ...base, bookIds: ids, homeId, finished: await bookFinished(db, ownerId, s) };
+  const finished = await bookFinished(db, ownerId, s);
+  // A book read to its end no longer locks anything, though it stays open until its question is answered.
+  return { ...base, running: base.running && !finished, bookIds: ids, homeId, finished };
 }
 
 /** A book's text edition and its scan count as one book: the reader moves between them (M25). */

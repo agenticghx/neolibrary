@@ -16,6 +16,7 @@ import {
   FocusError,
   focusJson,
   focusRedirect,
+  focusedBookIds,
   focusView,
   lockedOut,
   lockedOutOfFile,
@@ -25,7 +26,9 @@ import {
   startFocus,
   startWait,
 } from "./focus-lock";
+import { createAnnotation } from "./annotations";
 import { importBook } from "./import";
+import { dueCount, NEW_PER_DAY, reviewQueue } from "./review";
 
 let database: Database;
 let ownerId: string;
@@ -262,6 +265,21 @@ describe("whole-book focus (M26 R5)", () => {
     expect((await endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-25T09:00:00Z")))!.endedHow).toBe("finished");
   });
 
+  it("once the last page is reached, other books open at once, before the question is answered, and a new session can start", async () => {
+    const s = await startBook(tm, "2026-10-24T09:00:00Z");
+    expect(await runningFocus(database.db, ownerId, at("2026-10-24T10:00:00Z"))).not.toBeNull();
+    expect((await lockedOut(database.db, ownerId, jekyll))?.status).toBe(423);
+    await setProgress(tm, 1);
+    // Still open (the reader will ask the question), but no longer locking anything.
+    expect((await openFocus(database.db, ownerId))?.id).toBe(s.id);
+    expect(await runningFocus(database.db, ownerId, at("2026-10-24T10:00:00Z"))).toBeNull();
+    expect(await lockedOut(database.db, ownerId, jekyll)).toBeNull();
+    // The tab was closed without an answer: the next session closes it as finished.
+    await start(jekyll, "2026-10-25T09:00:00Z");
+    const [old] = await database.db.select().from(focusSessions).where(eq(focusSessions.id, s.id));
+    expect(old).toMatchObject({ endedAt: at("2026-10-25T09:00:00Z"), endedHow: "finished" });
+  });
+
   it("a sitting never ends as finished, however far the reader has read", async () => {
     await setProgress(tm, 1);
     const s = await start(tm, "2026-10-24T09:00:00Z");
@@ -297,5 +315,28 @@ describe("whole-book focus (M26 R5)", () => {
     // Without the ids (an older answer), the book itself.
     expect(focusRedirect({ bookId: "b1", kind: "book" }, "/library")).toBe("/books/b1");
     expect(focusRedirect({ bookId: "b1", kind: "book" }, "/books/b1/read")).toBeNull();
+  });
+});
+
+describe("Daily review during a whole-book focus (M26 R5)", () => {
+  it("holds only the focused book's cards (either edition); the others come back when it ends", async () => {
+    await database.db.update(books).set({ editionOf: tm }).where(eq(books.id, jekyll));
+    const third = (await importBook(database.db, new MemoryStorage(), ownerId, { name: "fr.epub", bytes: new Uint8Array(readFileSync(new URL("../../fixtures/books/shelley-frankenstein.epub", import.meta.url))) })).bookId;
+    const now = new Date();
+    await createAnnotation(database.db, ownerId, { kind: "note", bookId: tm, body: "On the scan" }, new Date(now.getTime() - 3_600_000));
+    await createAnnotation(database.db, ownerId, { kind: "note", bookId: jekyll, body: "On the text edition" }, new Date(now.getTime() - 3_600_000));
+    await createAnnotation(database.db, ownerId, { kind: "note", bookId: third, body: "On another book" }, new Date(now.getTime() - 3_600_000));
+    const bodies = async () => (await reviewQueue(database.db, ownerId, now, NEW_PER_DAY, 0, await focusedBookIds(database.db, ownerId, now))).cards.map((c) => c.note).sort();
+    expect(await bodies()).toEqual(["On another book", "On the scan", "On the text edition"]);
+    expect(await focusedBookIds(database.db, ownerId, now)).toBeNull();
+    // A sitting does not narrow the review (it locks every other page anyway).
+    const sitting = await startFocus(database.db, ownerId, { bookId: tm, question: "Why?", minutes: 5 }, now);
+    expect(await focusedBookIds(database.db, ownerId, now)).toBeNull();
+    await database.db.update(focusSessions).set({ endedAt: now, endedHow: "answered" }).where(eq(focusSessions.id, sitting.id));
+    const f = await startFocus(database.db, ownerId, { bookId: tm, question: "Where is mankind going?", kind: "book", days: 3 }, now);
+    expect(await bodies()).toEqual(["On the scan", "On the text edition"]);
+    expect(await dueCount(database.db, ownerId, now, await focusedBookIds(database.db, ownerId, now))).toBe(2);
+    await database.db.update(focusSessions).set({ endedAt: now, endedHow: "answered" }).where(eq(focusSessions.id, f.id));
+    expect(await bodies()).toEqual(["On another book", "On the scan", "On the text edition"]);
   });
 });

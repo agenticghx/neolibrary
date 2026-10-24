@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import {
+  bookFocuses,
   CHAPTERS_NEEDED,
   chapterStatsByBook,
   focusSessions,
@@ -66,12 +67,13 @@ export default async function StatsPage() {
   const user = await requireUser();
   const db = await getDb();
   const books = await statsByBook(db, user.id);
-  const [weeks, { pillars, kinds }, chapterBooks, calendar, focus] = await Promise.all([
+  const [weeks, { pillars, kinds }, chapterBooks, calendar, focus, wholeBooks] = await Promise.all([
     statsByWeek(db, user.id),
     statsByPathSlot(db, user.id, books),
     chapterStatsByBook(db, user.id),
     readingCalendar(db, user.id),
     focusSessions(db, user.id),
+    bookFocuses(db, user.id),
   ]);
   const suggestions = suggestionsFrom(chapterBooks);
   const measured = chapterBooks.filter((b) => b.chapters.length >= CHAPTERS_NEEDED).length;
@@ -194,6 +196,31 @@ export default async function StatsPage() {
                   ))}
                 </tbody>
               </table>
+            </section>
+          ) : null}
+
+          {/* M26 R5: a card for each whole-book focus, only once there is one. */}
+          {wholeBooks.length > 0 ? (
+            <section aria-labelledby="book-focus" className={styles.list}>
+              <h2 id="book-focus" className={styles.listTitle}>
+                Whole-book focus
+              </h2>
+              <p className={own.note}>One book only, for days (Focus session in the reader, then The whole book). Your answer is a note on the book.</p>
+              <ol className={own.focusList} data-testid="stats-book-focus">
+                {wholeBooks.map((f) => (
+                  <li key={f.focusId} className={own.focusItem}>
+                    <p className={own.focusMeta}>
+                      <Link href={`/books/${f.bookId}`}>{f.title}</Link> · {dayLabel(f.startedAt)} to {f.endedAt ? dayLabel(f.endedAt) : `${dayLabel(f.endsAt)} (running)`}
+                      {endedLabel(f.endedHow) ? <span data-testid="stats-book-focus-ended"> · {endedLabel(f.endedHow)}</span> : null}
+                    </p>
+                    <p className={own.focusMeta} data-testid="stats-book-focus-reading">
+                      {f.days} {f.days === 1 ? "day" : "days"} read · {time(f.activeSeconds)} · {f.sittings} {f.sittings === 1 ? "sitting" : "sittings"}
+                    </p>
+                    <p className={own.focusQuestion}>{f.question}</p>
+                    {f.answer ? <p className={own.focusAnswer}>{answerFromNote(f.answer)}</p> : <p className={own.focusNone}>{f.endedAt ? "No answer saved." : "Not answered yet."}</p>}
+                  </li>
+                ))}
+              </ol>
             </section>
           ) : null}
 

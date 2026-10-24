@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { rateCard, reviewQueue, ReviewError } from "@/lib/library/review";
+import { focusedBookIds } from "@/lib/library/focus-lock";
+import { NEW_PER_DAY, questionDelayDays, rateCard, reviewQueue, ReviewError } from "@/lib/library/review";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export async function POST(req: Request) {
   try {
     const now = new Date();
     const s = await rateCard(db, user.id, body?.cardId ?? body?.annotationId, body?.rating, now);
-    const queue = await reviewQueue(db, user.id, now);
+    // During a whole-book focus (M26 R5), only that book's cards count.
+    const queue = await reviewQueue(db, user.id, now, NEW_PER_DAY, questionDelayDays(), await focusedBookIds(db, user.id, now));
     return Response.json({ dueAt: s.dueAt.toISOString(), intervalDays: s.intervalDays, remaining: queue.cards.length, nextDueAt: queue.nextDueAt });
   } catch (e) {
     if (e instanceof ReviewError) return Response.json({ error: e.message }, { status: 400 });

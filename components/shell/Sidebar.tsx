@@ -4,6 +4,7 @@ import { Mark } from "@/components/Mark";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { partsWord } from "@/lib/library/path-words";
+import { focusedBookIds } from "@/lib/library/focus-lock";
 import { dueCount } from "@/lib/library/review";
 import { AccountMenu } from "./AccountMenu";
 import { Icon, type IconName } from "./icons";
@@ -46,7 +47,8 @@ function Item({ href, icon, label, meta }: { href: string; icon: IconName; label
  */
 async function ReviewItem() {
   const user = await currentUser();
-  const due = user ? await getDb().then((db) => dueCount(db, user.id)).catch(() => 0) : 0;
+  // During a whole-book focus (M26 R5), only that book's cards.
+  const due = user ? await getDb().then(async (db) => dueCount(db, user.id, new Date(), await focusedBookIds(db, user.id))).catch(() => 0) : 0;
   return <Item href="/review" icon="review" label="Review" meta={due > 0 ? `${due} due today` : undefined} />;
 }
 
