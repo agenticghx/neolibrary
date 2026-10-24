@@ -300,7 +300,7 @@ Never blocks the loop. Newest first.
 - **Done:** During a whole-book focus, Daily review (the page, its rating route and the sidebar's count) holds only the focused book's cards, either edition; the others come back when it ends. Reading stats has a "Whole-book focus" section: per focus, the book, dates, how it ended, days read, time, sittings (sittings on either edition between its start and end), the question and the answer. Plan's "As built, part two" written.
 - **Key paths:** lib/library/review.ts (onlyBooks), lib/library/focus-lock.ts (focusedBookIds), app/(app)/review/page.tsx, app/api/review/route.ts, components/shell/Sidebar.tsx, lib/library/reading-stats.ts (bookFocuses), app/(app)/stats/page.tsx, e2e/focus.spec.ts, docs/focus-lock-plan.md
 - **Commands that worked:** npx vitest run lib/library/focus-lock.test.ts lib/library/reading-stats.test.ts lib/library/review.test.ts (49 passed)
-- **Known issues / blockers:** Built on R5a's branch (PR #233): merge after it. Not deployed (0033 from R5a needs a backup).
+- **Known issues / blockers:** Also (Samuel: "go for it" to the open questions, 2026-10-24): a whole book read to its end stops locking at once, before its question is answered; the next session closes it as finished. Not deployed until merged (0033 from R5a needs a backup). Left for later: a timed sitting inside a whole-book focus (needs the one-open-session rule changed).
 - **Exact next steps:** Merge #233, rebase this onto main, PR, merge; then deploy both at Samuel's word after a backup.
 
 ### 2026-10-24 11:51 · Claude Opus 5.5 (laptop) · M26 R5a: whole-book focus (one book only, for days), on a branch, not merged

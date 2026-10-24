@@ -568,6 +568,9 @@ test("whole-book focus: only this book, for days; leaving early takes 150 words 
   const end = reader.getByTestId("book-focus-end");
   await expect(end).toContainText("You reached the end. Did you answer it?", { timeout: 15_000 });
   await expect(end).toContainText(BOOK_QUESTION);
+  // Read to its end: other books open at once, before the question is answered.
+  expect((await (await reader.request.get("/api/focus")).json()).session).toMatchObject({ kind: "book", finished: true, running: false });
+  expect((await reader.request.get(`/api/books/${jekyll}/file-link`)).status()).toBe(200);
   await end.getByLabel("Your answer").fill(BOOK_ANSWER);
   await end.getByRole("button", { name: "Save the answer" }).click();
   await expect(line).toHaveCount(0);

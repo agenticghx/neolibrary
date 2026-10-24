@@ -173,10 +173,11 @@ Pick one book and read only it, for days or until its last page.
     throughout (both open; the banner and redirects use the scan's page). On a
     phone, Daily review, Reading stats and Account are reached from the menu on
     Home, which now goes to the book's page, so the banner links all three.
-  - **Known gap:** a book whose last page was reached but whose question was
-    not answered (the tab was closed) keeps the lock until the days run out or
-    the reader opens it again and answers; the lock is judged by time, not by
-    the saved place. For R5b or later.
+  - **Known gap (fixed in R5b):** a book whose last page was reached but whose
+    question was not answered (the tab was closed) kept the lock until the days
+    ran out. Since R5b it stops locking as soon as the last page is reached; the
+    question still waits in the reader, and the next session started closes it
+    as finished.
   - **In the reader:** it reads as usual (top bar, panels, "Where were we?"),
     with one line above the page: the question, "Only this book until 7
     November", and Leave early…. The ways out are R4b's with the whole-book
@@ -201,7 +202,8 @@ Pick one book and read only it, for days or until its last page.
     time"), the days read, the time and the sittings in it (any sitting on
     either edition that began between its start and its end; a sitting with
     nothing read is not counted), the question and the answer.
-  - The known gap in part one stays.
+  - A book read to its end stops locking at once (Samuel, 2026-10-24: "go for
+    it", to the open questions), even before its question is answered.
 
 ## Order
 
