@@ -1,0 +1,43 @@
+/* M26 R5: whole-book focus. A quiet line above the page, in the paper of the cards. */
+.banner {
+  max-width: 44rem;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  background-color: var(--paper-raised);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
+.text {
+  margin: 0;
+  min-width: 0;
+}
+
+.title {
+  font-style: italic;
+  color: var(--ink-900);
+  text-decoration-color: var(--accent);
+}
+
+/* As plain links on app pages (M24): main ink with a green underline (the green alone is too faint in the dark). */
+.open {
+  color: var(--ink-900);
+  font-weight: var(--weight-medium);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  white-space: nowrap;
+}
+
+@media (width <= 48rem) {
+  .banner {
+    margin-inline: var(--space-4);
+  }
+}

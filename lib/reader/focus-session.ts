@@ -15,6 +15,32 @@ export const MAX_MINUTES = 180;
 export const EARLY_ANSWER_WORDS = 40;
 export const DEFAULT_WAIT_MINUTES = 10;
 
+/**
+ * Whole-book focus (M26 R5): one book only, for days. Its length is a number of days (kept on the server as
+ * minutes, days x 1440); reaching the last page ends it sooner. Leaving early takes a longer answer or a longer wait.
+ */
+export const DEFAULT_BOOK_DAYS = 14;
+export const MAX_BOOK_DAYS = 30;
+export const BOOK_ANSWER_WORDS = 150;
+export const DEFAULT_BOOK_WAIT_HOURS = 24;
+/**
+ * The place in the book (0 to 1) that counts as the end. Measured 2026-10-24: The Time Machine (EPUB) reports exactly 1
+ * on its last page; 0.98 also counts a PDF whose last page reports where that page starts, and a book whose last
+ * pages are an index or notes.
+ */
+export const FINISHED_AT = 0.98;
+
+export type FocusKind = "sitting" | "book";
+
+/** A whole number of days in range, or null for anything else. */
+export function cleanDays(raw: unknown): number | null {
+  const n = Math.floor(Number(raw));
+  return Number.isFinite(n) && n >= 1 && n <= MAX_BOOK_DAYS ? n : null;
+}
+
+/** The words an answer needs to leave a session of this kind early. */
+export const answerWordsFor = (kind: FocusKind | string | null | undefined) => (kind === "book" ? BOOK_ANSWER_WORDS : EARLY_ANSWER_WORDS);
+
 export type FocusSession = {
   /** Shared by every sitting read during the session (the reading tracker reports it). */
   id: string;
@@ -106,12 +132,12 @@ export function countWords(text: string) {
 
 /**
  * Why an answer may not end the session yet, or null when it may: before the time is up and before any wait has
- * run out, it needs EARLY_ANSWER_WORDS words. Words are counted, not judged (judging would cost money on every exit).
+ * run out, it needs EARLY_ANSWER_WORDS words (BOOK_ANSWER_WORDS for a whole book). Words are counted, not judged (judging would cost money on every exit).
  */
-export function earlyAnswerProblem(answer: string, mayLeave: boolean) {
+export function earlyAnswerProblem(answer: string, mayLeave: boolean, minWords = EARLY_ANSWER_WORDS) {
   if (mayLeave) return null;
   const n = countWords(answer);
-  return n >= EARLY_ANSWER_WORDS ? null : `To leave before the time is up, write at least ${EARLY_ANSWER_WORDS} words (this has ${n}).`;
+  return n >= minWords ? null : `To leave before the time is up, write at least ${minWords} words (this has ${n}).`;
 }
 
 /** "50:00", "9:05", "0:07": minutes and seconds, as a kitchen timer shows them. */
@@ -158,6 +184,8 @@ export function endedLabel(how: string | null) {
       return "Ended early";
     case "released":
       return "Released";
+    case "finished":
+      return "Finished the book";
     default:
       return null;
   }

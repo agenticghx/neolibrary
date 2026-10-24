@@ -152,6 +152,37 @@ Pick one book and read only it, for days or until its last page.
   review card and a card on Reading stats. Leaving early with a short answer
   is refused, and the 24-hour wait (shortened in tests) works. Screenshots:
   phone and desktop, light and dark.
+- **As built, part one (R5a, 2026-10-24, branch `m26-r5-whole-book-focus`;
+  Samuel tried R4 on *The Pay Off* and said "we can go ahead"):** R5 is split
+  in two pull requests: R5a (this) is the focus itself; R5b is Daily review
+  showing only the focused book's cards, and the card on Reading stats.
+  - **Start:** the reader's clock button opens Focus session, which now asks
+    first: *This sitting* or *The whole book*. The whole book takes a question
+    and a number of days (1 to 30, 14 by default). There is no separate "until
+    the last page" choice: reaching the last page always ends it, so "until the
+    last page" is simply 30 days.
+  - **One session at a time still:** no timed sitting inside a whole-book
+    focus (the clock button is hidden while one runs). Allowing both at once
+    needs the database's one-open-session rule changed; left for later.
+  - **What locks:** Home, Library, Search, Shelf, Covers and any other book's
+    page or reader go to the focused book's own page (not a filtered list:
+    simpler and harder to get wrong, and the page shows only that book). Review,
+    Stats, Paths, Import, Account and the rest open, with a one-line banner
+    naming the book and the day the focus ends. Other books' files answer 423
+    Locked, as in R4a. A scanned book and its text edition count as one book
+    throughout (both open; the banner and redirects use the scan's page).
+  - **In the reader:** it reads as usual (top bar, panels, "Where were we?"),
+    with one line above the page: the question, "Only this book until 7
+    November", and Leave early…. The ways out are R4b's with the whole-book
+    numbers: an answer of at least 150 words, or a 24-hour wait
+    (`FOCUS_BOOK_WAIT_MS` shortens it in tests), cancelled by Keep reading.
+  - **The end:** when the reader's place reaches 98 % of the book
+    (`FINISHED_AT`), the reader saves the place, asks the server, and the server
+    (reading the saved place, on either edition) says the book is finished; the
+    question comes back ("You reached the end. Did you answer it?") and the
+    answer is a note on the book. The session ends as `finished`, a new way to
+    end, added by migration 0033 (with its reverse step: a finished focus becomes
+    "time"). When the days run out the same question comes, as "The days are up".
 
 ## Order
 

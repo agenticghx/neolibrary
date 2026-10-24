@@ -3,10 +3,28 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
-import { focusSessions } from "@/lib/db/schema";
+import { books, focusSessions } from "@/lib/db/schema";
+import { FINISHED_AT } from "@/lib/reader/focus-session";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
-import { answerProblem, cancelWait, endFocus, FocusError, focusJson, focusRedirect, lockedOut, lockedOutOfFile, openFocus, runningFocus, startFocus, startWait } from "./focus-lock";
+import {
+  answerProblem,
+  bookFinished,
+  bookIdsOf,
+  cancelWait,
+  endFocus,
+  FocusError,
+  focusJson,
+  focusRedirect,
+  focusView,
+  lockedOut,
+  lockedOutOfFile,
+  openFocus,
+  redirectInfo,
+  runningFocus,
+  startFocus,
+  startWait,
+} from "./focus-lock";
 import { importBook } from "./import";
 
 let database: Database;
@@ -195,5 +213,89 @@ describe("the ways out before the time is up (M26 R4b)", () => {
     await start(tm, "2026-10-18T09:00:00Z", 30);
     expect(await startWait(database.db, ownerId, "not an id")).toBeNull();
     expect(await cancelWait(database.db, ownerId, crypto.randomUUID())).toBeNull();
+  });
+});
+
+describe("whole-book focus (M26 R5)", () => {
+  const LONG_150 = Array.from({ length: 150 }, (_, i) => `word${i}`).join(" ");
+  const SHORT_149 = Array.from({ length: 149 }, (_, i) => `word${i}`).join(" ");
+  const startBook = (bookId: string, now: string, days: unknown = 14) =>
+    startFocus(database.db, ownerId, { bookId, question: "What is the book's argument about time?", kind: "book", days }, at(now));
+  const setProgress = (bookId: string, progress: number) => database.db.update(books).set({ progress }).where(eq(books.id, bookId));
+
+  it("lasts whole days (kept as minutes), up to 30, and is still one session at a time", async () => {
+    const s = await startBook(tm, "2026-10-24T09:00:00Z");
+    expect(s).toMatchObject({ kind: "book", minutes: 14 * 1440, endsAt: at("2026-11-07T09:00:00Z") });
+    await expect(start(jekyll, "2026-10-24T10:00:00Z")).rejects.toMatchObject({ status: 409 });
+    await endFocus(database.db, ownerId, s.id, { answered: true }, at("2026-10-24T09:30:00Z"));
+    for (const days of [0, 31, "x", undefined]) {
+      await expect(startFocus(database.db, ownerId, { bookId: tm, question: "Why?", kind: "book", days }), String(days)).rejects.toThrow("Set between 1 and 30 days");
+    }
+    expect(await openFocus(database.db, ownerId)).toBeNull();
+  });
+
+  it("leaving early takes 150 words or a 24-hour wait", async () => {
+    const s = await startBook(tm, "2026-10-24T09:00:00Z");
+    expect(answerProblem(s, SHORT_149, at("2026-10-25T09:00:00Z"))).toMatch(/at least 150 words \(this has 149\)/);
+    expect(answerProblem(s, LONG_150, at("2026-10-25T09:00:00Z"))).toBeNull();
+    await expect(endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-25T09:00:00Z"))).rejects.toMatchObject({ status: 409 });
+    const waiting = await startWait(database.db, ownerId, s.id, at("2026-10-25T09:00:00Z"));
+    expect(waiting!.waitEndsAt).toEqual(at("2026-10-26T09:00:00Z"));
+    expect(focusJson(waiting!, at("2026-10-25T09:00:00Z")).waitMs).toBe(24 * 3_600_000);
+    expect(await runningFocus(database.db, ownerId, at("2026-10-26T08:59:00Z"))).not.toBeNull();
+    expect(await runningFocus(database.db, ownerId, at("2026-10-26T09:00:01Z"))).toBeNull();
+    expect((await endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-26T09:00:01Z")))!.endedHow).toBe("waited");
+  });
+
+  it("reaching the last page ends it as finished, judged from the place saved, on either edition", async () => {
+    // Jekyll stands in for The Time Machine's text edition here: the reader moves between the two.
+    await database.db.update(books).set({ editionOf: tm }).where(eq(books.id, jekyll));
+    const s = await startBook(tm, "2026-10-24T09:00:00Z");
+    expect(await bookFinished(database.db, ownerId, s)).toBe(false);
+    await setProgress(jekyll, FINISHED_AT - 0.01);
+    expect(await bookFinished(database.db, ownerId, s)).toBe(false);
+    await expect(endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-25T09:00:00Z"))).rejects.toMatchObject({ status: 409 });
+    await setProgress(jekyll, FINISHED_AT);
+    expect(await bookFinished(database.db, ownerId, s)).toBe(true);
+    // At the end any answer will do, and no answer too.
+    expect(answerProblem(s, "Short.", at("2026-10-25T09:00:00Z"), true)).toBeNull();
+    expect((await endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-25T09:00:00Z")))!.endedHow).toBe("finished");
+  });
+
+  it("a sitting never ends as finished, however far the reader has read", async () => {
+    await setProgress(tm, 1);
+    const s = await start(tm, "2026-10-24T09:00:00Z");
+    expect(await bookFinished(database.db, ownerId, s)).toBe(false);
+    await expect(endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-24T09:01:00Z"))).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("when the days run out it ends on time, and other pages open again", async () => {
+    const s = await startBook(tm, "2026-10-24T09:00:00Z", 1);
+    expect(await runningFocus(database.db, ownerId, at("2026-10-25T08:59:00Z"))).not.toBeNull();
+    expect(await runningFocus(database.db, ownerId, at("2026-10-25T09:00:00Z"))).toBeNull();
+    expect((await endFocus(database.db, ownerId, s.id, { answered: false }, at("2026-10-25T09:00:00Z")))!.endedHow).toBe("time");
+  });
+
+  it("knows every id the book goes by, and its own page is the scan's", async () => {
+    await database.db.update(books).set({ editionOf: tm }).where(eq(books.id, jekyll));
+    expect((await bookIdsOf(database.db, ownerId, jekyll)).sort()).toEqual([jekyll, tm].sort());
+    const s = await startBook(jekyll, "2026-10-24T09:00:00Z");
+    expect(await redirectInfo(database.db, ownerId, s)).toMatchObject({ bookId: jekyll, kind: "book", homeId: tm });
+    expect(await focusView(database.db, ownerId, s, at("2026-10-24T09:00:00Z"))).toMatchObject({ kind: "book", homeId: tm, finished: false });
+    // Both editions open; the files of either are not locked.
+    expect(await lockedOut(database.db, ownerId, tm)).toBeNull();
+  });
+
+  it("locks the pages that list other books, and other books, and nothing else", () => {
+    const running = { bookId: "text", kind: "book", bookIds: ["text", "scan"], homeId: "scan" };
+    for (const page of ["/", "/library", "/library/all", "/search", "/shelf", "/shelf/x", "/covers", "/books/other", "/books/other/read"]) {
+      expect(focusRedirect(running, page), page).toBe("/books/scan");
+    }
+    for (const page of ["/books/scan", "/books/scan/read", "/books/text/read", "/review", "/stats", "/paths", "/paths/a-path", "/import", "/account", "/data", "/help"]) {
+      expect(focusRedirect(running, page), page).toBeNull();
+    }
+    // Without the ids (an older answer), the book itself.
+    expect(focusRedirect({ bookId: "b1", kind: "book" }, "/library")).toBe("/books/b1");
+    expect(focusRedirect({ bookId: "b1", kind: "book" }, "/books/b1/read")).toBeNull();
   });
 });

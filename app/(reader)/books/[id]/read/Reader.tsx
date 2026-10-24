@@ -16,7 +16,8 @@ import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ExplainPanel } from "./ExplainPanel";
 import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
-import { EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
+import { BookFocusLine, EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
+import { useBookFocus } from "./useBookFocus";
 import {
   clearSession as clearFocusSession,
   DEFAULT_WAIT_MINUTES,
@@ -357,14 +358,6 @@ export function Reader(props: {
   // A focus session with a question (M26 R3). Since R4a it lives on the server; this device keeps a copy, so a
   // reload part-way through, or a moment offline, picks it up with the time that is left.
   const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
-  // M28 S3: "Where were we?" has a row of its own (not in a focus session). The theme class is also set on the
-  // element directly (when the book opens, when settings change), so those places add this class too, or the strip
-  // would take the book's row.
-  const withRecall = props.recall && !focusSession ? ` ${styles.withRecall}` : "";
-  const recallClass = useRef(withRecall);
-  useEffect(() => {
-    recallClass.current = withRecall;
-  }, [withRecall]);
   const [focusStart, setFocusStart] = useState(false);
   const [focusEnding, setFocusEnding] = useState(false);
   // Leave early… (M26 R4b): the dialog with the two ways out, and how long the server's wait lasts.
@@ -446,6 +439,17 @@ export function Reader(props: {
     fraction: props.initialFraction,
     chapter: "",
   });
+  // Whole-book focus (M26 R5): one book only, for days; a line above the page. Answering it reloads the notes.
+  const bookAnswered = useRef<() => void>(() => {});
+  const bookFocus = useBookFocus(props.bookId, where, () => bookAnswered.current());
+  // M28 S3: "Where were we?" has a row of its own (not in a focus session), shared with the whole-book focus line. The
+  // theme class is also set on the element directly (when the book opens, when settings change), so those places add
+  // this class too, or the strip would take the book's row.
+  const withRecall = (props.recall || bookFocus.focus) && !focusSession ? ` ${styles.withRecall}` : "";
+  const recallClass = useRef(withRecall);
+  useEffect(() => {
+    recallClass.current = withRecall;
+  }, [withRecall]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   // While a large file downloads: "12 of 80 MB" (M20).
   const [downloaded, setDownloaded] = useState<string | null>(null);
@@ -615,7 +619,9 @@ export function Reader(props: {
         const res = await fetch("/api/focus", { cache: "no-store" });
         if (res.ok) {
           const open = ((await res.json()) as { session: (ServerFocus & { waitMs?: number }) | null }).session;
-          session = open && open.bookId === props.bookId ? focusFromServer(open, trustServer ? null : local) : null;
+          // A whole-book focus (M26 R5) is not a sitting: useBookFocus shows it.
+          const sitting = open && (open as { kind?: string }).kind !== "book" ? open : null;
+          session = sitting && sitting.bookId === props.bookId ? focusFromServer(sitting, trustServer ? null : local) : null;
           if (open?.waitMs) setFocusWaitMinutes(open.waitMs / 60_000);
         }
       } catch {
@@ -1589,6 +1595,10 @@ export function Reader(props: {
     (panel === "rewrite" && Boolean(rewriteAt)) ||
     (panel === "settings" && Boolean(settings));
   const recallRow = Boolean(withRecall);
+  // Answering a whole-book focus saves a note: show it (M26 R5).
+  useEffect(() => {
+    bookAnswered.current = () => void reload();
+  });
   const stageClass = [styles.stage, paneMode === "side" ? styles.stageSide : "", panelBeside ? styles.stagePanel : ""]
     .filter(Boolean)
     .join(" ");
@@ -1645,7 +1655,9 @@ export function Reader(props: {
               <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
             </svg>
           </button>
-          {/* A focus session with a question (M26 R3): a question, a timer, and only the page. */}
+          {/* A focus session with a question (M26 R3): a question, a timer, and only the page. Not during a whole-book
+              focus (M26 R5): one session at a time. */}
+          {bookFocus.focus ? null : (
           <button
             type="button"
             className={styles.tool}
@@ -1659,6 +1671,7 @@ export function Reader(props: {
               <path d="M8 6v3l2 1.5M6 1.5h4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+          )}
           {/* Study (M19 P5): "What do I need to know?" and Test yourself, as tabs. The word on a computer; an open book on a
               phone, where the bar is full. It was a "?" in a circle, which reads as Help. */}
           <button
@@ -1719,7 +1732,10 @@ export function Reader(props: {
       {/* M28 S3: a row of its own between the bar and the book, so the strip never covers the page's first lines. */}
       {recallRow ? (
         <div className={styles.recallSlot}>
-          {status === "ready" && !elsewhere ? (
+          {bookFocus.focus ? (
+            <BookFocusLine session={bookFocus.focus} onLeave={() => bookFocus.setLeaving(true)} onStay={() => bookFocus.wait("DELETE")} />
+          ) : null}
+          {props.recall && status === "ready" && !elsewhere ? (
             <WhereWereWeStrip bookId={props.bookId} recall={props.recall!} onSeeMissed={() => setPanel("explain")} onSaved={() => void reload()} />
           ) : null}
         </div>
@@ -2088,7 +2104,15 @@ export function Reader(props: {
       ) : null}
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
-      <StartFocusDialog open={focusStart} onStart={beginFocus} onCancel={() => setFocusStart(false)} />
+      <StartFocusDialog
+        open={focusStart}
+        onStart={beginFocus}
+        onStartBook={async (question, days) => {
+          await bookFocus.start(question, days);
+          setFocusStart(false);
+        }}
+        onCancel={() => setFocusStart(false)}
+      />
       <LeaveFocusDialog
         key={`leave-${focusSession?.id ?? ""}`}
         session={focusSession}
@@ -2099,6 +2123,27 @@ export function Reader(props: {
         onCancel={() => setFocusLeaving(false)}
       />
       <EndFocusDialog key={focusSession?.id ?? ""} session={focusSession} open={Boolean(focusSession) && focusEnding} onSave={answerFocus} onSkip={() => finishFocus()} />
+      {/* Whole-book focus (M26 R5): the same two dialogs, with the whole book's ways out (150 words, or 24 hours). */}
+      <LeaveFocusDialog
+        key={`leave-book-${bookFocus.focus?.id ?? ""}`}
+        session={bookFocus.focus}
+        open={Boolean(bookFocus.focus) && bookFocus.leaving && !bookFocus.ending}
+        waitMinutes={bookFocus.waitMinutes}
+        minWords={bookFocus.minWords}
+        testId="book-focus-leave"
+        onAnswer={bookFocus.answer}
+        onWait={() => bookFocus.wait("POST")}
+        onCancel={() => bookFocus.setLeaving(false)}
+      />
+      <EndFocusDialog
+        key={`end-book-${bookFocus.focus?.id ?? ""}`}
+        session={bookFocus.focus}
+        open={Boolean(bookFocus.focus) && bookFocus.ending}
+        heading={bookFocus.heading}
+        testId="book-focus-end"
+        onSave={bookFocus.answer}
+        onSkip={bookFocus.skip}
+      />
     </div>
   );
 }

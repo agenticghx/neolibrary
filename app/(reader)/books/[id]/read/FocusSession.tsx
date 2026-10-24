@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
+  cleanDays,
   cleanMinutes,
   cleanQuestion,
   countWords,
+  DEFAULT_BOOK_DAYS,
   DEFAULT_MINUTES,
   describeRemaining,
   EARLY_ANSWER_WORDS,
   type FocusSession,
   formatRemaining,
   isOver,
+  MAX_BOOK_DAYS,
   MAX_MINUTES,
   MIN_MINUTES,
   remainingMs,
@@ -110,19 +113,26 @@ function Modal({
   );
 }
 
-/** Before the session: the question to answer and how long to read for. */
+/**
+ * Before the session: the question to answer and how long to read for. A sitting (minutes, only the page) or, since
+ * M26 R5, the whole book (days: other books stay closed, and this one reads as usual).
+ */
 export function StartFocusDialog({
   open,
   onStart,
+  onStartBook,
   onCancel,
 }: {
   open: boolean;
   /** Starts it on the server; a refusal (another session running, no network) is thrown and shown here. */
   onStart: (question: string, minutes: number) => Promise<void>;
+  onStartBook: (question: string, days: number) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [kind, setKind] = useState<"sitting" | "book">("sitting");
   const [question, setQuestion] = useState("");
   const [minutes, setMinutes] = useState(String(DEFAULT_MINUTES));
+  const [days, setDays] = useState(String(DEFAULT_BOOK_DAYS));
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -137,13 +147,13 @@ export function StartFocusDialog({
         onSubmit={async (e) => {
           e.preventDefault();
           const q = cleanQuestion(question);
-          const m = cleanMinutes(minutes);
-          if (!q) return setProblem("Write the question you are reading to answer.");
-          if (!m) return setProblem(`Set between ${MIN_MINUTES} and ${MAX_MINUTES} minutes.`);
+          if (!q) return setProblem(kind === "book" ? "Write the question you are reading this book to answer." : "Write the question you are reading to answer.");
+          const m = kind === "book" ? cleanDays(days) : cleanMinutes(minutes);
+          if (!m) return setProblem(kind === "book" ? `Set between 1 and ${MAX_BOOK_DAYS} days.` : `Set between ${MIN_MINUTES} and ${MAX_MINUTES} minutes.`);
           setProblem("");
           setBusy(true);
           try {
-            await onStart(q, m);
+            await (kind === "book" ? onStartBook(q, m) : onStart(q, m));
             setQuestion("");
           } catch (err) {
             setProblem(err instanceof Error && err.message ? err.message : "The session could not start. Try again.");
@@ -153,9 +163,24 @@ export function StartFocusDialog({
         }}
       >
         <h2 className={styles.panelTitle}>Focus session</h2>
-        <p className={own.lede}>Everything but the page goes away until the time is up. Then you write what you found.</p>
+        <fieldset className={own.kinds}>
+          <legend className={styles.groupLabel}>For</legend>
+          <label className={own.kind}>
+            <input type="radio" name="focus-kind" value="sitting" checked={kind === "sitting"} onChange={() => setKind("sitting")} />
+            This sitting
+          </label>
+          <label className={own.kind}>
+            <input type="radio" name="focus-kind" value="book" checked={kind === "book"} onChange={() => setKind("book")} />
+            The whole book
+          </label>
+        </fieldset>
+        <p className={own.lede}>
+          {kind === "book"
+            ? "Only this book opens until you reach its last page or the days run out. It reads as usual. At the end you write what you found."
+            : "Everything but the page goes away until the time is up. Then you write what you found."}
+        </p>
         <label htmlFor="focus-question" className={styles.groupLabel}>
-          What are you reading to answer?
+          {kind === "book" ? "What are you reading this book to answer?" : "What are you reading to answer?"}
         </label>
         <textarea
           ref={box}
@@ -167,20 +192,41 @@ export function StartFocusDialog({
           placeholder="One question, in your own words."
           onChange={(e) => setQuestion(e.target.value)}
         />
-        <label htmlFor="focus-minutes" className={styles.groupLabel}>
-          Minutes
-        </label>
-        <input
-          id="focus-minutes"
-          className={own.minutes}
-          type="number"
-          inputMode="numeric"
-          min={MIN_MINUTES}
-          max={MAX_MINUTES}
-          step={1}
-          value={minutes}
-          onChange={(e) => setMinutes(e.target.value)}
-        />
+        {kind === "book" ? (
+          <>
+            <label htmlFor="focus-days" className={styles.groupLabel}>
+              Days (up to {MAX_BOOK_DAYS})
+            </label>
+            <input
+              id="focus-days"
+              className={own.minutes}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_BOOK_DAYS}
+              step={1}
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+            />
+          </>
+        ) : (
+          <>
+            <label htmlFor="focus-minutes" className={styles.groupLabel}>
+              Minutes
+            </label>
+            <input
+              id="focus-minutes"
+              className={own.minutes}
+              type="number"
+              inputMode="numeric"
+              min={MIN_MINUTES}
+              max={MAX_MINUTES}
+              step={1}
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+            />
+          </>
+        )}
         <PhoneLock />
         {problem ? (
           <p className={styles.formError} role="alert">
@@ -266,13 +312,18 @@ export function LeaveFocusDialog({
   session,
   open,
   waitMinutes,
+  minWords = EARLY_ANSWER_WORDS,
+  testId = "focus-leave",
   onAnswer,
   onWait,
   onCancel,
 }: {
+  testId?: string;
   session: FocusSession | null;
   open: boolean;
   waitMinutes: number;
+  /** The words an early answer needs: 40 for a sitting, 150 for a whole book (M26 R5). */
+  minWords?: number;
   onAnswer: (answer: string) => Promise<void>;
   onWait: () => Promise<void>;
   onCancel: () => void;
@@ -282,7 +333,10 @@ export function LeaveFocusDialog({
   const [problem, setProblem] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
   const words = countWords(answer);
-  const enough = words >= EARLY_ANSWER_WORDS;
+  const enough = words >= minWords;
+  // Two of these dialogs live in the reader (a sitting's and a whole book's), so their ids are made unique.
+  const answerId = useId();
+  const countId = useId();
   const run = async (step: () => Promise<void>, fallback: string) => {
     setBusy(true);
     setProblem("");
@@ -298,12 +352,17 @@ export function LeaveFocusDialog({
     setProblem("");
     onCancel();
   };
-  // "10-minute" and "10 minutes"; the browser tests shorten the wait to seconds (FOCUS_WAIT_MS).
-  const [n, unit] = waitMinutes >= 1 ? [Math.round(waitMinutes), "minute"] : [Math.round(waitMinutes * 60), "second"];
+  // "10-minute" and "10 minutes", "24-hour" and "24 hours"; the browser tests shorten the wait to seconds.
+  const [n, unit] =
+    waitMinutes >= 60 && waitMinutes % 60 === 0
+      ? [waitMinutes / 60, "hour"]
+      : waitMinutes >= 1
+        ? [Math.round(waitMinutes), "minute"]
+        : [Math.round(waitMinutes * 60), "second"];
   const wait = `${n}-${unit}`;
   const waitLong = `${n} ${unit}${n === 1 ? "" : "s"}`;
   return (
-    <Modal open={open} label="Leave early" first={box} onCancel={cancel} testId="focus-leave">
+    <Modal open={open} label="Leave early" first={box} onCancel={cancel} testId={testId}>
       <form
         className={own.form}
         onSubmit={(e) => {
@@ -313,23 +372,23 @@ export function LeaveFocusDialog({
       >
         <h2 className={styles.panelTitle}>Leave early?</h2>
         <blockquote className={own.asked}>{session?.question}</blockquote>
-        <p className={own.lede}>Write your answer now, at least {EARLY_ANSWER_WORDS} words, and the session ends. Or start the wait and keep reading until it runs out.</p>
-        <label htmlFor="focus-leave-answer" className={styles.groupLabel}>
+        <p className={own.lede}>Write your answer now, at least {minWords} words, and the session ends. Or start the wait and keep reading until it runs out.</p>
+        <label htmlFor={answerId} className={styles.groupLabel}>
           Your answer
         </label>
         <textarea
           ref={box}
-          id="focus-leave-answer"
+          id={answerId}
           className={own.question}
           rows={5}
           maxLength={4000}
           value={answer}
-          aria-describedby="focus-leave-count"
+          aria-describedby={countId}
           placeholder="In your own words. It is saved as a note on this book, and comes back in Daily review."
           onChange={(e) => setAnswer(e.target.value)}
         />
-        <p id="focus-leave-count" className={`${own.count} ${enough ? own.countDone : ""}`} aria-live="polite" data-testid="focus-leave-count">
-          {words} of {EARLY_ANSWER_WORDS} words
+        <p id={countId} className={`${own.count} ${enough ? own.countDone : ""}`} aria-live="polite" data-testid="focus-leave-count">
+          {words} of {minWords} words
         </p>
         {problem ? (
           <p className={styles.formError} role="alert">
@@ -389,11 +448,16 @@ function PhoneLock() {
 export function EndFocusDialog({
   session,
   open,
+  heading,
+  testId = "focus-end",
   onSave,
   onSkip,
 }: {
+  testId?: string;
   session: FocusSession | null;
   open: boolean;
+  /** Said instead of the usual heading: "You reached the end. Did you answer it?" for a whole book (M26 R5). */
+  heading?: string;
   onSave: (answer: string) => Promise<void>;
   onSkip: () => Promise<void>;
 }) {
@@ -401,11 +465,13 @@ export function EndFocusDialog({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
-  // Reader.tsx keys this dialog by the session's id, so each session starts with an empty box.
+  // Reader.tsx keys this dialog by the session's id, so each session starts with an empty box. Two live in the reader
+  // (a sitting's and a whole book's), so the box's id is made unique.
+  const answerId = useId();
   const timeUp = session ? remainingMs(session) === 0 : true;
   const waited = session ? !timeUp && isOver(session) : false;
   return (
-    <Modal open={open} label="Did you answer it?" first={box} testId="focus-end">
+    <Modal open={open} label="Did you answer it?" first={box} testId={testId}>
       <form
         className={own.form}
         onSubmit={async (e) => {
@@ -422,14 +488,14 @@ export function EndFocusDialog({
           }
         }}
       >
-        <h2 className={styles.panelTitle}>{timeUp ? "Time's up. Did you answer it?" : waited ? "The wait is over. Did you answer it?" : "Did you answer it?"}</h2>
+        <h2 className={styles.panelTitle}>{heading ?? (timeUp ? "Time's up. Did you answer it?" : waited ? "The wait is over. Did you answer it?" : "Did you answer it?")}</h2>
         <blockquote className={own.asked}>{session?.question}</blockquote>
-        <label htmlFor="focus-answer" className={styles.groupLabel}>
+        <label htmlFor={answerId} className={styles.groupLabel}>
           Your answer
         </label>
         <textarea
           ref={box}
-          id="focus-answer"
+          id={answerId}
           className={own.question}
           rows={5}
           maxLength={4000}
@@ -467,5 +533,69 @@ export function EndFocusDialog({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** "23:59:12" or "9:05": hours, minutes and seconds left in a whole-book focus's 24-hour wait. */
+export function formatLongRemaining(ms: number) {
+  const total = Math.ceil(Math.max(0, ms) / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : formatRemaining(ms);
+}
+
+/**
+ * Whole-book focus (M26 R5): one line above the page while it runs: the book's question, until when, and Leave
+ * early…; while a wait to leave runs, how long is left of it and Keep reading. The reader is otherwise as usual.
+ */
+export function BookFocusLine({ session, onLeave, onStay }: { session: FocusSession; onLeave: () => void; onStay: () => Promise<void> }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [session]);
+  const wait = waitRemainingMs(session, now);
+  const until = new Date(session.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+  return (
+    <section className={own.bookLine} aria-label="Whole-book focus" data-testid="book-focus">
+      <p className={own.stripQuestion} title={session.question}>
+        {session.question}
+      </p>
+      {wait === null ? (
+        <>
+          <p className={own.until}>Only this book until {until}</p>
+          <button type="button" className={styles.tool} onClick={onLeave}>
+            Leave early…
+          </button>
+        </>
+      ) : (
+        <>
+          <p className={own.until} role="timer" data-testid="book-focus-wait">
+            Leaving in {formatLongRemaining(wait)}
+          </p>
+          <button
+            type="button"
+            className={styles.tool}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onStay();
+              } catch {
+                // Offline: the wait goes on, here and on the server.
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Keep reading
+          </button>
+        </>
+      )}
+    </section>
   );
 }
