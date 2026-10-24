@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  answerWordsFor,
+  cleanDays,
   answerFromNote,
   cleanMinutes,
   clearSession,
@@ -148,5 +150,25 @@ describe("the ways out (M26 R4b)", () => {
     expect(endedLabel("waited")).toBe("Left after a wait");
     expect(endedLabel("early")).toBe("Ended early");
     expect(endedLabel(null)).toBeNull();
+  });
+});
+
+describe("whole-book focus (M26 R5)", () => {
+  it("lasts 1 to 30 whole days", () => {
+    expect(cleanDays("14")).toBe(14);
+    expect(cleanDays(30)).toBe(30);
+    for (const bad of [0, 31, "", "x", -1, null]) expect(cleanDays(bad), String(bad)).toBeNull();
+  });
+
+  it("an early answer needs 150 words for a whole book, 40 for a sitting", () => {
+    const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(" ");
+    expect(answerWordsFor("book")).toBe(150);
+    expect(answerWordsFor("sitting")).toBe(40);
+    expect(earlyAnswerProblem(words(149), false, answerWordsFor("book"))).toBe("To leave before the time is up, write at least 150 words (this has 149).");
+    expect(earlyAnswerProblem(words(150), false, answerWordsFor("book"))).toBeNull();
+  });
+
+  it("says a book read to its end was finished", () => {
+    expect(endedLabel("finished")).toBe("Finished the book");
   });
 });

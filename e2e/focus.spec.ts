@@ -452,3 +452,124 @@ test("a focus session you cannot walk away from: every page and every browser go
   expect((await reader.request.get(`/api/books/${jekyll}/file-link`)).status()).toBe(200);
   await ctx.close();
 });
+
+// M26 R5 "Done when": a whole-book focus on a public-domain book; Home and Library show only that book (they go to
+// its page); another book's reader goes there too; jumping to the last page brings up the question; the answer is a
+// note. Leaving early with a short answer is refused, and the wait (20 seconds here, FOCUS_BOOK_WAIT_MS) starts and
+// can be cancelled. Daily review and the Reading stats card are R5b's.
+const BOOK_QUESTION = "What does the Time Traveller learn about where mankind is going?";
+const BOOK_ANSWER = "That comfort without struggle makes people weak, and that the split between those who work and those who rest can harden into two kinds of creature.";
+const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
+
+test("whole-book focus: only this book, for days; leaving early takes 150 words or a wait; the last page asks the question", async ({ page, browser }) => {
+  test.setTimeout(240_000);
+  const reader = await newReader(page, browser, `book-focus-${Date.now()}@example.com`);
+  const upload = async (file: string) => {
+    const res = await reader.request.post("/api/books", {
+      multipart: { files: { name: file, mimeType: "application/epub+zip", buffer: readFileSync(`fixtures/books/${file}`) } },
+    });
+    return (await res.json()).results[0].bookId as string;
+  };
+  const tm = await upload("wells-the-time-machine.epub");
+  const jekyll = await upload("stevenson-jekyll-and-hyde.epub");
+  const view = reader.getByTestId("reader");
+  const ready = async () => expect(view).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+
+  // Start it from the reader: the whole book, a question, three days.
+  await reader.goto(`/books/${tm}/read`);
+  await ready();
+  await view.getByRole("button", { name: "Focus session" }).click();
+  const start = reader.getByTestId("focus-start");
+  await start.getByLabel("The whole book").check();
+  await start.getByLabel("What are you reading this book to answer?").fill(BOOK_QUESTION);
+  await start.getByLabel(/^Days/).fill("3");
+  await start.getByRole("button", { name: "Start" }).click();
+  const line = reader.getByTestId("book-focus");
+  await expect(line).toContainText(BOOK_QUESTION);
+  await expect(line).toContainText("Only this book until");
+  // The reader reads as usual (its top bar stays), but no sitting can start inside a whole-book focus.
+  await expect(view.getByRole("button", { name: "Contents" })).toBeVisible();
+  await expect(view.getByRole("button", { name: "Focus session" })).toHaveCount(0);
+  expect((await (await reader.request.get("/api/focus")).json()).session).toMatchObject({ kind: "book", bookId: tm, minutes: 3 * 1440, running: true, finished: false });
+  expect((await reader.request.post("/api/focus", { data: { bookId: jekyll, question: "Another?", minutes: 5 } })).status()).toBe(409);
+
+  // Home, Library, Search and another book go to this book's page, which names the focus.
+  const bookPage = new RegExp(`/books/${tm}$`);
+  for (const path of ["/", "/library", "/search", `/books/${jekyll}`, `/books/${jekyll}/read`]) {
+    await reader.goto(path);
+    await expect(reader, path).toHaveURL(bookPage);
+    await expect(reader.getByTestId("book-focus-banner")).toContainText("The Time Machine");
+  }
+  // On a phone Daily review, Reading stats and Account sit in the menu on Home, which comes here: the banner links them.
+  const banner = reader.getByTestId("book-focus-banner");
+  for (const name of ["Read it", "Daily review", "Reading stats", "Account"]) await expect(banner.getByRole("link", { name })).toBeVisible();
+  await banner.getByRole("link", { name: "Account" }).click();
+  await expect(reader).toHaveURL(/\/account$/);
+  await expect(reader.getByTestId("account-focus")).toContainText("A whole-book focus is running");
+  // The pages that list no other book open.
+  await reader.goto("/review");
+  await expect(reader).toHaveURL(/\/review$/);
+  await expect(reader.getByTestId("book-focus-banner")).toBeVisible();
+  await reader.goto("/stats");
+  await expect(reader).toHaveURL(/\/stats$/);
+  // Another book's file is refused (423 Locked); this book's is not.
+  expect((await reader.request.get(`/api/books/${jekyll}/file-link`)).status()).toBe(423);
+  expect((await reader.request.get(`/api/books/${tm}/file-link`)).status()).toBe(200);
+
+  // Leave early: 149 words are not enough; the wait starts, and Keep reading cancels it.
+  await reader.goto(`/books/${tm}/read`);
+  await ready();
+  await line.getByRole("button", { name: "Leave early…" }).click();
+  const leave = reader.getByTestId("book-focus-leave");
+  await leave.getByLabel("Your answer").fill(words(149));
+  await expect(leave.getByTestId("focus-leave-count")).toHaveText("149 of 150 words");
+  await expect(leave.getByRole("button", { name: "Save the answer and leave" })).toBeDisabled();
+  expect(
+    (await reader.request.post(`/api/books/${tm}/focus`, { data: { focusId: (await (await reader.request.get("/api/focus")).json()).session.id, question: BOOK_QUESTION, answer: words(149) } })).status(),
+  ).toBe(400);
+  await leave.getByLabel("Your answer").fill(words(150));
+  await expect(leave.getByRole("button", { name: "Save the answer and leave" })).toBeEnabled();
+  await leave.getByRole("button", { name: /^Start the .* wait$/ }).click();
+  await expect(reader.getByTestId("book-focus-wait")).toContainText("Leaving in");
+  await line.getByRole("button", { name: "Keep reading" }).click();
+  await expect(line).toContainText("Only this book until");
+  expect((await (await reader.request.get("/api/focus")).json()).session.waitEndsAt).toBeNull();
+
+  // The four looks: the reader with its line, and the book's page with the banner.
+  await fourLooks(reader, "book-focus-reader", async () => {
+    await ready();
+    await expect(line).toBeVisible();
+  });
+  await reader.goto("/library");
+  await expect(reader).toHaveURL(bookPage);
+  await fourLooks(reader, "book-focus-page", async () => expect(reader.getByTestId("book-focus-banner")).toBeVisible());
+
+  // The last page: the reader saves its place there, and the server says the book is finished; the question comes.
+  await reader.goto(`/books/${tm}/read`);
+  await ready();
+  const fractions = await reader.evaluate(async () => {
+    const v = document.querySelector("foliate-view") as HTMLElement & { goToFraction: (f: number) => Promise<void> };
+    const seen: number[] = [];
+    v.addEventListener("relocate", (e) => seen.push((e as CustomEvent<{ fraction: number }>).detail.fraction));
+    await v.goToFraction(1);
+    await new Promise((r) => setTimeout(r, 1000));
+    return seen;
+  });
+  console.log(`The Time Machine's last page reports fraction ${JSON.stringify(fractions)}`);
+  const end = reader.getByTestId("book-focus-end");
+  await expect(end).toContainText("You reached the end. Did you answer it?", { timeout: 15_000 });
+  await expect(end).toContainText(BOOK_QUESTION);
+  await end.getByLabel("Your answer").fill(BOOK_ANSWER);
+  await end.getByRole("button", { name: "Save the answer" }).click();
+  await expect(line).toHaveCount(0);
+  await expect(view.getByRole("button", { name: "Focus session" })).toBeVisible();
+  expect((await (await reader.request.get("/api/focus")).json()).session).toBeNull();
+  // The answer is a note on the book, with its question.
+  const notes = (await (await reader.request.get(`/api/books/${tm}/annotations`)).json()).annotations as { kind: string; body: string }[];
+  expect(notes.some((n) => n.kind === "note" && n.body.includes(BOOK_QUESTION) && n.body.includes("comfort without struggle"))).toBe(true);
+  // Other books open again.
+  await reader.goto("/library");
+  await expect(reader).toHaveURL(/\/library$/);
+  await expect(reader.getByTestId("book-focus-banner")).toHaveCount(0);
+  expect((await reader.request.get(`/api/books/${jekyll}/file-link`)).status()).toBe(200);
+});

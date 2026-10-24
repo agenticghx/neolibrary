@@ -353,7 +353,7 @@ export const focusSessions = pgTable("focus_sessions", {
   /** R4b: when a wait to leave early ends. */
   waitEndsAt: timestamp("wait_ends_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
-  endedHow: text("ended_how").$type<"time" | "answered" | "early" | "waited" | "released">(),
+  endedHow: text("ended_how").$type<"time" | "answered" | "early" | "waited" | "released" | "finished">(),
 });
 
 /**

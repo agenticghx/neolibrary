@@ -21,7 +21,7 @@ export default async function AccountPage() {
   const preferences = await getPreferences(db, user.id);
   // M26 R4a: while a focus session runs, this is the one page besides the book that opens. On a phone the account
   // menu (with Sign out) is on Home, which sends you to the book, so Sign out is offered here. Signing out does not
-  // end the session.
+  // end the session. M26 R5: a whole-book focus leaves this and most pages open; the card says what it does lock.
   const focus = await runningFocus(db, user.id);
   const focusBook = focus ? await getBook(db, user.id, focus.bookId) : null;
   return (
@@ -34,10 +34,14 @@ export default async function AccountPage() {
       {focus ? (
         <section className={styles.card} aria-labelledby="focus-running" data-testid="account-focus">
           <h2 id="focus-running" className={styles.cardTitle}>
-            A focus session is running
+            {focus.kind === "book" ? "A whole-book focus is running" : "A focus session is running"}
           </h2>
           <p className={styles.cardText}>
-            Until it ends, the other pages send you back to {focusBook ? <cite>{focusBook.book.title}</cite> : "your book"}. Signing out does not end it.
+            {focus.kind === "book" ? (
+              <>Until it ends, other books stay closed and the pages that list them send you to {focusBook ? <cite>{focusBook.book.title}</cite> : "your book"}. Signing out does not end it.</>
+            ) : (
+              <>Until it ends, the other pages send you back to {focusBook ? <cite>{focusBook.book.title}</cite> : "your book"}. Signing out does not end it.</>
+            )}
           </p>
           <Link className={styles.cardLink} href={`/books/${focus.bookId}/read`}>
             Back to the book

@@ -1,7 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { AnnotationError, createAnnotationOnce } from "@/lib/library/annotations";
-import { answerProblem, endFocus, FocusError, getFocus } from "@/lib/library/focus-lock";
+import { answerProblem, bookFinished, endFocus, FocusError, getFocus } from "@/lib/library/focus-lock";
 import { linkFocusAnswer, StatsError } from "@/lib/library/reading-stats";
 import { focusNoteBody } from "@/lib/reader/focus-session";
 
@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
  * The end of a focus session (M26 R3): { focusId, noteId, question, answer }. The answer is saved as a note on
  * the whole book (the reader's own, so it is never overwritten and becomes a Daily review card), and the sittings
  * read during the session point at it. The note's id was chosen when the session started (M26 R4a: the server's
- * row; before R4a, the browser's copy), so a retry saves nothing twice. The session ends here too, as "time" or,
- * before its time is up, "answered".
+ * row; before R4a, the browser's copy), so a retry saves nothing twice. The session ends here too, as "time",
+ * "finished" (a whole book's last page reached, M26 R5) or, before either, "answered".
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!answer) return Response.json({ error: "Write your answer first." }, { status: 400 });
   const db = await getDb();
   const session = await getFocus(db, user.id, body.focusId);
-  const tooShort = answerProblem(session, answer);
+  const tooShort = answerProblem(session, answer, new Date(), session ? await bookFinished(db, user.id, session) : false);
   if (tooShort) return Response.json({ error: tooShort }, { status: 400 });
   try {
     const noteId = session ? session.noteId : body.noteId;

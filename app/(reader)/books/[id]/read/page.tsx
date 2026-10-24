@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { books } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { focusRedirect, isRunning, openFocus } from "@/lib/library/focus-lock";
+import { focusRedirect, isRunning, openFocus, redirectInfo } from "@/lib/library/focus-lock";
 import { getBook } from "@/lib/library/paths";
 import { getPreferences } from "@/lib/library/preferences";
 import { isCfi } from "@/lib/library/reading";
@@ -29,9 +29,13 @@ export default async function ReadPage({
   const id = (await params).id;
   // M26 R4a: while a focus session runs, any other book sends the reader to the focused one. Checked here, in the
   // page, because the reader's layout is not run again when the command palette opens another book.
+  // M26 R5: a whole-book focus lets both editions of the focused book open, and sends other books to its page.
   const focus = await openFocus(db, user.id);
-  const to = focusRedirect(focus && isRunning(focus) ? focus : null, `/books/${id}/read`);
+  const running = focus && isRunning(focus) ? focus : null;
+  const to = focusRedirect(await redirectInfo(db, user.id, running), `/books/${id}/read`);
   if (to) redirect(to);
+  // A sitting (R3/R4) shows only the page; a whole-book focus (R5) is the ordinary reader, with its own line.
+  const sitting = running?.kind === "sitting" ? running : null;
   const found = await getBook(db, user.id, id);
   if (!found || !found.available.read || !found.book.fileType) notFound();
   const { book } = found;
@@ -48,8 +52,8 @@ export default async function ReadPage({
   // Text by default (Samuel, 2026-10-17): a scan with a text edition opens the edition, at the edition's own place,
   // or, first time, at the page reached in the scan. The scan opens only when asked for: Scan in the footer
   // (?view=scan) or a place in it (?at=, e.g. a search result).
-  // Not while a focus session is on this scan: the text edition would send the reader straight back here.
-  if (edition?.current === "scan" && sp.view !== "scan" && !isCfi(at) && focus?.bookId !== book.id) {
+  // Not while a sitting is on this scan: the text edition would send the reader straight back here.
+  if (edition?.current === "scan" && sp.view !== "scan" && !isCfi(at) && !(focus?.kind === "sitting" && focus.bookId === book.id)) {
     const [own] = await db.select({ position: books.position }).from(books).where(and(eq(books.id, edition.textId), eq(books.ownerId, user.id)));
     const scanPage = Number(/^epubcfi\(\/6\/(\d+)/.exec(book.position ?? "")?.[1]) / 2;
     const q = new URLSearchParams();
@@ -62,7 +66,8 @@ export default async function ReadPage({
   const { rewrittenView } = await getPreferences(db, user.id);
   // M28 S3: "Where were we?" on coming back on a later day; not during a focus session, nor when opened at a
   // place of its own (a search result, a review card, a shared link): the reader came for that place.
-  const recall = focus && isRunning(focus) ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
+  // A whole-book focus lasts days, so "Where were we?" still helps there.
+  const recall = sitting ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
   return (
     <Reader
       bookId={book.id}
