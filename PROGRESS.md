@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Live 5f0b30a (swipe/scroll to turn pages, Two pages in Scroll): Samuel tries it on the live site; migrate railway.json before 2026-12-01.
+next_action: Merge m33-railway-iac (railway.json replaced by .railway/railway.ts; settings already applied on Railway), then one deploy at Samuel's word to prove it.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-25
 shared_copy: none
@@ -19,7 +19,9 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-25 14:25 (laptop clock). **Live: 5f0b30a** (#236 swipe or scroll to turn pages, #237 Two pages in Scroll; no migration, no backup), deployed at Samuel's word. /api/health on both addresses says 5f0b30a; /sign-in 200. Next: Samuel tries it signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages). Before 2026-12-01: `railway config migrate` (Railway's warning on railway.json). Safari two-page scroll and PDFs: Open unknowns rows 28 and 29. This entry sits on local branch `m21-after-237-record` (not pushed): commit it with the next real pull request.
+Written 2026-10-25 14:35 (laptop clock, from `date`). **Railway settings moved from railway.json to .railway/railway.ts** (branch `m33-railway-iac`; the settings are already applied on Railway and live; railway.json is removed on the branch). Next: PR and merge; then, at Samuel's word, one deploy to prove a deploy without railway.json (no deprecation warning in the log; /api/health, /sign-in).
+
+Written 2026-10-25 14:23 (laptop clock, from the commit time). **Live: 5f0b30a** (#236 swipe or scroll to turn pages, #237 Two pages in Scroll; no migration, no backup), deployed at Samuel's word. /api/health on both addresses says 5f0b30a; /sign-in 200. Next: Samuel tries it signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages). Before 2026-12-01: `railway config migrate` (Railway's warning on railway.json). Safari two-page scroll and PDFs: Open unknowns rows 28 and 29. This entry sits on local branch `m21-after-237-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-25 12:48 (laptop clock, from `date`). **#236 (swipe or scroll to turn pages, issue #235) is merged (809b17ba), not deployed. Two pages in Scroll is built on branch `m21-two-page-scroll`** (Samuel chose "A now, B later": Chrome and Edge now, Safari later). Next: 1. PR, merge when the four checks are green. 2. Samuel tries it in Chrome (Aa, Scroll, Two pages). 3. Deploy both at his word (no migration, no backup). Option B (Safari) and PDFs: Open unknowns rows 28 and 29.
 
@@ -303,14 +305,21 @@ Never blocks the loop. Newest first.
 
 ## Log
 
-### 2026-10-25 14:25 · Claude Opus 5.5 (laptop) · Deployed 5f0b30a4: swipe or scroll to turn pages (#236), Two pages in Scroll (#237)
+### 2026-10-25 14:35 · Claude Opus 5.5 (laptop) · Railway settings: railway.json replaced by .railway/railway.ts (branch m33-railway-iac)
+- **Done:** Samuel: "correct that" (Railway's warning that railway.json, Config as Code, stops being read on 2026-12-01). `railway config migrate` found nothing (no service had a Config File path; Railway read railway.json from the repo root at each deploy), so migrated by hand: `railway config pull --variables unmanaged`, trimmed to the `web` service as a named partial (`export const partial = "web"`; Postgres, its volume and the bucket left out on purpose: a whole-project file deletes what it omits), and added railway.json's settings. `railway config plan`: "0 to add, 2 to change, 0 to destroy" (build command npm run build; start npm run start; health check /api/health, 120 s), variables unmanaged (10 left alone). `railway config apply --yes` (no --confirm-destructive). After: plan "already up to date"; `railway config partials list`: web owns service.web only; the service config shows the four settings live (not staged), 10 variables. Applying redeployed `web` by itself from GitHub main at 5f0b30a4 (deployment 59c2dc41): SUCCESS; /api/health 5f0b30a on both addresses, /sign-in 200. railway.json removed in this branch; restart policy left at Railway's default (on failure, as railway.json had). `railway` 3.16.0 (Railway's TypeScript SDK, railwayapp/railway-ts-sdk) added as an exact dev dependency so `railway config plan` can read the file. Railway's generated .railway/README.md not committed.
+- **Key paths:** .railway/railway.ts, package.json, package-lock.json, railway.json (removed)
+- **Commands that worked:** railway config pull --variables unmanaged; railway config plan --verbose; railway config apply --yes; railway config partials list; npx tsc --noEmit -p . (ok); npx eslint . (ok); npm run build (ok)
+- **Known issues / blockers:** Not yet proven: a deploy from a checkout without railway.json (the deprecation warning should be gone from the log and the health check still pass). That is a production deploy: at Samuel's word. If a deploy ever misbehaves, `railway.json` can be restored from git (it still overrides service settings until 2026-12-01).
+- **Exact next steps:** 1. PR, merge when the four checks are green. 2. At Samuel's word, deploy once from the deploy checkout at the merge commit; check the log has no "Config as Code ... deprecated" line, /api/health and /sign-in.
+
+### 2026-10-25 14:23 · Claude Opus 5.5 (laptop) · Deployed 5f0b30a4: swipe or scroll to turn pages (#236), Two pages in Scroll (#237)
 - **Done:** Deployed at Samuel's word ("deploy"). No migration since the live 2d01f4f (git diff --name-only 2d01f4f2 5f0b30a4: 13 files, none in db/ or .sql), so no backup. Main's CI run on 5f0b30a4 (40215746201) first failed one screenshot, `visual.spec.ts` "design looks as approved" [desktop-dark] (1280x3285 received, 3287 expected, 2,489 pixels); the /design page uses none of the changed files and the PR's own run on the identical tree (8b4c5a4a, run 40214466249) passed it; re-run once: all green (WebKit included). Then deployed from the deploy checkout (detached at 5f0b30a4, 0 stray files).
 - **Key paths:** /Users/sahuno/projects/personal/neolibrary-deploy (deploy checkout); docs/ci-flakes.md (the design screenshot added)
 - **Commands that worked:** gh run rerun 40215746201 --failed -> success; railway variable set NEOLIBRARY_COMMIT=5f0b30a4 --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; /api/health on library.samuelahuno.com and web-production-f27a0e.up.railway.app -> commit 5f0b30a; /sign-in -> 200 on both; railway logs -> "Page pictures: ready."
 - **Known issues / blockers:** Not checked on the live site signed in (needs Samuel's account): Samuel tries a sideways swipe, scrolling in Pages, and Aa > Scroll > Two pages in Chrome. Railway warns that railway.json (Config as Code) is deprecated: "Existing files keep working until 2026-12-01"; migrate with `railway config migrate` before then.
 - **Exact next steps:** 1. Samuel tries the reader on the live site (Chrome: swipe, Two pages in Scroll; Safari: Two pages greyed out in Scroll). 2. Before 2026-12-01: `railway config migrate` (its own small PR). 3. Open unknowns rows 28 (Safari two-page scroll) and 29 (PDFs) when Samuel wants them.
 
-### 2026-10-25 13:30 · Claude Opus 5.5 (laptop) · Merged #237 (Two pages in Scroll); #236 and #237 wait for a deploy
+### 2026-10-25 13:18 · Claude Opus 5.5 (laptop) · Merged #237 (Two pages in Scroll); #236 and #237 wait for a deploy
 - **Done:** #237 merged as 5f0b30a4 by the auto-merge Action, all four checks green on its head 8b4c5a4a (second CI round, after the greyed-out test was made independent of the browser). #236 (swipe or scroll to turn pages) merged earlier as 809b17ba; issue #235 closed. Neither is deployed.
 - **Key paths:** lib/reader/swipe-turn.ts, lib/reader/spread-scroll.ts, app/(reader)/books/[id]/read/Reader.tsx
 - **Commands that worked:** gh pr view 237 --json state,mergeCommit (MERGED 5f0b30a4); gh pr checks 237 (4 pass)
