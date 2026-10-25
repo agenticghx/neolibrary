@@ -35,6 +35,7 @@ import { mark } from "@/lib/perf-marks";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
 import { scrollsItself, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
+import { canWrapColumns, SPREAD_MAX_WIDTH, SPREAD_SETTLE_MS, spreadAlign, spreadCss, spreadPitch, spreadTurn } from "@/lib/reader/spread-scroll";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
@@ -63,12 +64,18 @@ type FoliateView = HTMLElement & {
   init(opts: { lastLocation?: string | null; showTextStart?: boolean }): Promise<void>;
   goTo(target: string | number): Promise<void>;
   goToFraction(fraction: number): Promise<void>;
-  prev(): Promise<void>;
-  next(): Promise<void>;
+  prev(distance?: number): Promise<void>;
+  next(distance?: number): Promise<void>;
   close(): void;
   book: { toc?: TocItem[]; dir?: string; rendition?: { spread?: string }; sections?: unknown[]; pageList?: { label: string; href: string }[] };
   /** `index`: in a PDF, the page shown, or being opened once a turn has begun. */
-  renderer: HTMLElement & { setStyles?(css: string): void; getContents(): { doc: Document; index: number }[]; readonly index?: number };
+  renderer: HTMLElement & {
+    setStyles?(css: string): void;
+    getContents(): { doc: Document; index: number }[];
+    readonly index?: number;
+    /** In Scroll, how far down the chapter the top of the screen is (px). */
+    readonly start?: number;
+  };
   getCFI(index: number, range: Range): string;
   resolveCFI(cfi: string): { index: number; anchor: (doc: Document) => Range };
   addAnnotation(a: { value: string }): Promise<unknown>;
@@ -145,16 +152,24 @@ const readerClass = (s: ReaderSettings) => (s.theme === "auto" ? styles.reader :
 
 const TOKENS = { paper: "--paper", ink: "--ink-900", accent: "--accent", highlight: "--highlight", spoken: "--highlight-active" } as const;
 
-function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element) {
+/**
+ * Lays the book out with the reader's settings. Returns the distance between two spreads when Two pages in Scroll
+ * stacks them (spread-scroll.ts), or 0 for one column.
+ */
+function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element): number {
   const r = v.renderer;
-  if (!r.setStyles) return; // PDFs (fixed layout): pages are pictures; only the reader's chrome is themed.
+  if (!r.setStyles) return 0; // PDFs (fixed layout): pages are pictures; only the reader's chrome is themed.
+  const pitch = spreadPitch(s, r.getBoundingClientRect(), canWrapColumns());
   r.setAttribute("flow", s.flow);
-  r.setAttribute("max-inline-size", "680px");
-  // "2" is only the wide-window maximum. Scroll stays one column. A window taller than it is wide still forces one (the paginator's portrait rule).
+  // Two pages in Scroll: two columns side by side, so the text may be twice as wide.
+  r.setAttribute("max-inline-size", pitch ? `${SPREAD_MAX_WIDTH}px` : "680px");
+  // In Pages, "2" is only the wide-window maximum: a window taller than it is wide still forces one (the paginator's
+  // portrait rule). Scroll's two columns are the book's own CSS (spreadCss), under the same rule.
   r.setAttribute("max-column-count", s.flow === "paginated" && s.pages === "two" ? "2" : "1");
   r.setAttribute("margin", "40px");
   r.setAttribute("gap", "7%");
-  r.setStyles?.(bookCss(s, themeColors(themeEl, s), location.origin));
+  r.setStyles?.(bookCss(s, themeColors(themeEl, s), location.origin) + (pitch ? spreadCss(pitch) : ""));
+  return pitch;
 }
 
 /** The reader is dark: Night, or Auto while the device is dark. */
@@ -288,11 +303,20 @@ export function Reader(props: {
   /** The open PDF, when this book is one, so a fold can draw a page that is not on screen yet. */
   const bookRef = useRef<SpineBook | null>(null);
   const turnRef = useRef<(dir: "next" | "prev") => void>(() => {});
+  /** Two pages in Scroll: the distance between two stacked spreads (one screen), or 0 for one column. */
+  const spreadRef = useRef(0);
   // A click, an arrow key, or Previous/Next. Read aloud turns with goTo and does not come through here.
   useEffect(() => {
     turnRef.current = (dir) => {
       const v = view.current;
       if (!v) return;
+      const pitch = spreadRef.current;
+      if (pitch && props.fileType !== "pdf") {
+        // Stacked spreads: scroll to the next (or previous) spread's top, so it shows whole.
+        const distance = spreadTurn(v.renderer?.start ?? 0, pitch, dir);
+        void (dir === "next" ? v.next(distance) : v.prev(distance));
+        return;
+      }
       void turnWithSpine(v, bookRef.current, dir, props.fileType === "pdf");
     };
   });
@@ -787,8 +811,25 @@ export function Reader(props: {
           }
         });
         root.current!.className = readerClass(initial) + recallClass.current;
-        applySettings(v, initial, root.current!);
+        spreadRef.current = applySettings(v, initial, root.current!);
         setSettings(initial);
+        // Two pages in Scroll: a jump (opening the book, a chapter, a search hit, a new layout) is lined up on the
+        // spread it lands in. foliate places a jump's target again as fonts and pictures arrive, and drops a turn
+        // asked for while one is under way, so the lining up waits until the jump has settled. Scrolling by hand is
+        // left where it stops.
+        let lineUp: ReturnType<typeof setTimeout> | undefined;
+        v.renderer.addEventListener("relocate", (e: Event) => {
+          const reason = (e as CustomEvent<{ reason?: string }>).detail?.reason;
+          if (reason === "scroll") clearTimeout(lineUp);
+          if (!spreadRef.current || (reason !== "anchor" && reason !== "navigation")) return;
+          clearTimeout(lineUp);
+          lineUp = setTimeout(() => {
+            const pitch = spreadRef.current;
+            if (!pitch) return;
+            const d = spreadAlign(v.renderer.start ?? 0, pitch);
+            if (Math.abs(d) > 1) void (d > 0 ? v.next(d) : v.prev(-d));
+          }, SPREAD_SETTLE_MS);
+        });
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
           let pages: number[] = [];
@@ -966,6 +1007,29 @@ export function Reader(props: {
     };
   }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection]);
 
+  // Two pages in Scroll: a spread is one screen tall, so a new window size lays the spreads out again (or goes to
+  // one column, in a window taller than wide).
+  useEffect(() => {
+    if (!settings || props.fileType === "pdf" || settings.flow !== "scrolled" || settings.pages !== "two") return;
+    const el = host.current;
+    if (!el) return;
+    let frame = 0;
+    const sizes = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const v = view.current;
+        if (!v?.renderer || !root.current) return;
+        if (spreadPitch(settings, v.renderer.getBoundingClientRect(), canWrapColumns()) !== spreadRef.current)
+          spreadRef.current = applySettings(v, settings, root.current);
+      });
+    });
+    sizes.observe(el);
+    return () => {
+      sizes.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [settings, props.fileType]);
+
   // Re-style when settings or the colour scheme change. A PDF's spread is read only when its renderer opens, so a new page choice reopens on the same page.
   useEffect(() => {
     if (!settings) return;
@@ -973,7 +1037,7 @@ export function Reader(props: {
     // The theme class must be on the element before colours are read from it.
     if (root.current) root.current.className = readerClass(settings) + recallClass.current;
     const v = view.current;
-    if (v && root.current) applySettings(v, settings, root.current);
+    if (v && root.current) spreadRef.current = applySettings(v, settings, root.current);
     // Focus (M21): EPUBs only. A new mode is set on every page shown; a new size or layout moves the lines, so the
     // band and the dimming are put back once the page is laid out again.
     const focus: FocusMode = props.fileType === "pdf" ? "off" : settings.focus;
@@ -1046,7 +1110,7 @@ export function Reader(props: {
     dimPages();
     const mq = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
-      if (view.current && root.current) applySettings(view.current, settings, root.current);
+      if (view.current && root.current) spreadRef.current = applySettings(view.current, settings, root.current);
       dimPages();
     };
     mq.addEventListener("change", onChange);
@@ -1414,6 +1478,10 @@ export function Reader(props: {
           CFI.compare(a.cfi, CFI.collapse(where.cfi!, true)) <= 0,
       )
     : undefined;
+
+  // Two pages in Scroll needs CSS column wrapping (spread-scroll.ts); where the browser has none, the choice is greyed
+  // out in Scroll and says why. Settings exist only in the browser, so the check never runs on the server.
+  const twoPagesOff = settings?.flow === "scrolled" && props.fileType !== "pdf" && !canWrapColumns();
 
   const toggleBookmark = async () => {
     if (!where.cfi) return;
@@ -1967,10 +2035,15 @@ export function Reader(props: {
                 value={settings.pages}
                 options={[
                   ["one", "One page"],
-                  ["two", "Two pages"],
+                  ["two", "Two pages", twoPagesOff],
                 ]}
                 onChange={(pages) => update({ pages })}
               />
+              {twoPagesOff ? (
+                <p className={styles.hint} data-testid="two-pages-note">
+                  Two pages in Scroll needs Chrome or Edge. In this browser, it works with the Pages layout.
+                </p>
+              ) : null}
             </fieldset>
             {props.fileType === "pdf" ? (
               <p className={styles.hint}>This is a PDF: its pages keep their own layout, so text settings do not apply.</p>
@@ -2197,13 +2270,14 @@ function Segment<T extends string>({
   onChange,
 }: {
   value: T;
-  options: [T, string][];
+  /** Value, label, and whether this choice is unavailable here (shown greyed out; a note beside says why). */
+  options: [T, string, boolean?][];
   onChange: (v: T) => void;
 }) {
   return (
     <div className={styles.segment}>
-      {options.map(([v, label]) => (
-        <button key={v} type="button" className={styles.segmentButton} aria-pressed={value === v} onClick={() => onChange(v)}>
+      {options.map(([v, label, off]) => (
+        <button key={v} type="button" className={styles.segmentButton} aria-pressed={value === v} disabled={off} onClick={() => onChange(v)}>
           {label}
         </button>
       ))}

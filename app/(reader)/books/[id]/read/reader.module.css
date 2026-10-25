@@ -586,6 +586,12 @@
   box-shadow: var(--shadow-raised);
 }
 
+/* A choice that does not apply here (Two pages in Scroll, in a browser without column wrapping): a note says why. */
+.segmentButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .rewrittenModes .segmentButton {
   flex: none;
   white-space: nowrap;

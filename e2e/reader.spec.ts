@@ -152,6 +152,115 @@ test("a sideways swipe turns the page, in Pages and in Scroll", async ({ page })
   await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the default for later tests
 });
 
+/** In Scroll: how far down the chapter the screen is, the height of one screen, and the book's column count. */
+async function scrollState(page: Page) {
+  return page.evaluate(() => {
+    const r = (document.querySelector("foliate-view") as unknown as {
+      renderer: { start: number; size: number; getContents(): { doc: Document }[] };
+    }).renderer;
+    const doc = r.getContents()[0]?.doc;
+    const columns = doc?.defaultView?.getComputedStyle(doc.body).columnCount ?? "";
+    return { start: Math.round(r.start), size: Math.round(r.size), columns };
+  });
+}
+
+// Two pages in Scroll (Samuel, 2026-10-25): spreads of two screen-tall columns, stacked; a turn lands on the next
+// spread, a jump is lined up on its spread, an upright window has one column. The browser lays it out with CSS column
+// wrapping, which Chrome has (155) and this Playwright's Chromium (141) has behind a switch, turned on here.
+test.describe("two pages in Scroll", () => {
+  test("spreads are stacked, and a turn or a jump lands on one", async ({ playwright, baseURL }) => {
+    // Its own browser: Playwright cannot switch a launch option for one group of tests.
+    const browser = await playwright.chromium.launch({ args: ["--enable-blink-features=MulticolColumnWrapping"] });
+    test.info().attach("note", { body: "Chromium launched with --enable-blink-features=MulticolColumnWrapping" });
+    const context = await browser.newContext({ baseURL, storageState: ADMIN_STATE, viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    await openJekyll(page);
+    await page.getByRole("button", { name: "Contents" }).click();
+    await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Story of the Door" }).click();
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await page.getByRole("button", { name: "Scroll", exact: true }).click();
+    await page.getByRole("button", { name: "Two pages", exact: true }).click();
+    await expect(page.getByTestId("two-pages-note")).toHaveCount(0);
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await expect.poll(async () => (await scrollState(page)).columns).toBe("2");
+    const lined = async () => {
+      const { start, size } = await scrollState(page);
+      return Math.round((start / size) * 100) / 100;
+    };
+    // foliate takes one turn at a time and drops a click while a turn is still under way (its smooth scroll and a
+    // tenth of a second after), as in every layout: each turn here waits for the one before.
+    const turn = async (name: "Next page" | "Previous page", to: number) => {
+      await page.getByRole("button", { name }).click();
+      await expect.poll(lined).toBe(to);
+      await page.waitForTimeout(300);
+    };
+    await expect.poll(lined).toBe(0);
+    await turn("Next page", 1);
+    await turn("Next page", 2);
+    await turn("Previous page", 1);
+    // Scrolling by hand stops where it stops; the next turn goes to the next spread's top.
+    const box = (await reader(page).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 200);
+    await expect.poll(lined).not.toBe(1);
+    await page.waitForTimeout(400);
+    await turn("Next page", 2);
+    // A jump to a chapter is lined up on the spread it lands in.
+    await page.getByRole("button", { name: "Contents" }).click();
+    await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "The Carew Murder Case" }).click();
+    await expect(page.locator("footer").getByText("The Carew Murder Case")).toBeVisible();
+    await expect.poll(async () => (await lined()) % 1).toBe(0);
+    // A window taller than wide has one column, as in Pages; a wide one has two again.
+    await page.setViewportSize({ width: 800, height: 1000 });
+    await expect.poll(async () => (await scrollState(page)).columns).not.toBe("2");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect.poll(async () => (await scrollState(page)).columns).toBe("2");
+
+    await mkdir("screenshots", { recursive: true });
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/two-pages-scroll-desktop-${scheme}.png` });
+    }
+    await page.emulateMedia({ colorScheme: null });
+
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await page.getByRole("button", { name: "One page", exact: true }).click();
+    await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the defaults for later tests
+    await browser.close();
+  });
+});
+
+// Where the browser cannot wrap columns (Safari 27, this Playwright's Chromium without the switch), Two pages is
+// greyed out in Scroll and says why; in Pages it is offered as before.
+test("without column wrapping, Two pages in Scroll is greyed out and says why", async ({ page }) => {
+  await openJekyll(page);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const two = page.getByRole("button", { name: "Two pages", exact: true });
+  await expect(two).toBeEnabled();
+  await page.getByRole("button", { name: "Scroll", exact: true }).click();
+  await expect(two).toBeDisabled();
+  await expect(page.getByTestId("two-pages-note")).toHaveText("Two pages in Scroll needs Chrome or Edge. In this browser, it works with the Pages layout.");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [
+    ["desktop", 1280, 800],
+    ["phone", 390, 844],
+  ] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect(page.getByTestId("two-pages-note")).toBeVisible();
+      await page.getByTestId("two-pages-note").scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `screenshots/two-pages-scroll-unavailable-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: null });
+  await page.getByRole("button", { name: "Pages", exact: true }).click();
+  await expect(two).toBeEnabled();
+  await expect(page.getByTestId("two-pages-note")).toHaveCount(0);
+});
+
 test("scripts inside a book never run", async ({ page }) => {
   const evil = readableEpub("Trap Book", [
     `<p>Nothing to see.</p><script>document.title = "pwned"; try { parent.document.title = "pwned"; parent.postMessage("pwned", "*"); } catch (e) {}</script><img src="x" onerror="parent.document.title='pwned'"/>`,
