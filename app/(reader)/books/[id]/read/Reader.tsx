@@ -34,7 +34,7 @@ import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
-import { scrollsSideways, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
+import { scrollsItself, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
@@ -562,15 +562,17 @@ export function Reader(props: {
     }
   }, [dismissSelection]);
 
-  // A sideways swipe on a trackpad turns the page (#235), in Pages and in Scroll. One turner serves the book's frames
-  // and the margins around them, so a swipe that crosses from one to the other is still one swipe.
+  // A sideways swipe on a trackpad turns the page (#235), in Pages and in Scroll; in Pages (and a PDF), so does
+  // scrolling up and down. One turner serves the book's frames and the margins around them, so a swipe that crosses
+  // from one to the other is still one swipe.
   const wheelTurn = useRef<ReturnType<typeof wheelTurner> | null>(null);
   const onWheel = useCallback((e: WheelEvent) => {
     // A pinch on a trackpad arrives as a wheel event with Ctrl held: that is the browser's zoom.
     if (e.ctrlKey || shortcutsOpen.current) return;
     wheelTurn.current ??= wheelTurner((dir) => turnRef.current(dir));
     const path = e.composedPath();
-    if (wheelTurn.current(e, (dx) => scrollsSideways(path, dx))) e.preventDefault();
+    const upDown = view.current?.renderer?.getAttribute("flow") !== "scrolled";
+    if (wheelTurn.current(e, upDown, (axis, px) => scrollsItself(path, axis, px))) e.preventDefault();
   }, []);
   useEffect(() => {
     const el = host.current;
@@ -867,7 +869,7 @@ export function Reader(props: {
             (e) => {
               const t = e.touches[0];
               const path = e.composedPath();
-              touchAt = e.touches.length === 1 && t && !scrollsSideways(path, 1) && !scrollsSideways(path, -1) ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
+              touchAt = e.touches.length === 1 && t && !scrollsItself(path, "x", 1) && !scrollsItself(path, "x", -1) ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
             },
             { passive: true },
           );

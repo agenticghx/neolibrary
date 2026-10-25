@@ -72,47 +72,81 @@ test("contents jump to a chapter; layout can switch to scrolling", async ({ page
   await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the default for later tests
 });
 
-/** A sideways trackpad swipe over the middle of the book: `n` wheel events of `dx` pixels each, as a trackpad sends them. */
-async function swipe(page: Page, dx: number, n = 1) {
+/** A trackpad swipe over the middle of the book: fingers on (growing steps), then `coast` ever smaller steps. */
+async function swipe(page: Page, dx: number, coast = 0, dy = 0) {
   const box = (await reader(page).boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  for (let i = 0; i < n; i++) await page.mouse.wheel(dx, 0);
+  const steps = [0.1, 0.25, 0.5, 0.8, 1];
+  for (let d = 0.93, i = 0; i < coast; d *= 0.93, i++) steps.push(d);
+  for (const f of steps) await page.mouse.wheel(Math.round(dx * f), Math.round(dy * f));
 }
 
-// #235: a sideways swipe on a trackpad turns the page, in Pages and in Scroll; one swipe is one page.
+/** Counts the reader's page turns (foliate's next and prev), whatever the layout. */
+async function countTurns(page: Page) {
+  await page.evaluate(() => {
+    const v = document.querySelector("foliate-view") as unknown as Record<string, (...a: unknown[]) => unknown> & { __counted?: boolean };
+    const w = window as unknown as { __turns: number };
+    w.__turns = 0;
+    if (v.__counted) return;
+    v.__counted = true;
+    for (const name of ["next", "prev"]) {
+      const real = v[name].bind(v);
+      v[name] = (...a: unknown[]) => {
+        w.__turns++;
+        return real(...a);
+      };
+    }
+  });
+  return () => page.evaluate(() => (window as unknown as { __turns: number }).__turns);
+}
+
+// #235: a sideways swipe on a trackpad turns the page, in Pages and in Scroll; one swipe is one page, also when
+// swipes follow each other while the last still coasts (Samuel found only the first one turned, 2026-10-25). In
+// Pages, scrolling down turns the page too; in Scroll it scrolls.
 test("a sideways swipe turns the page, in Pages and in Scroll", async ({ page }) => {
   await openJekyll(page);
   const cfi = async () => (await reader(page).getAttribute("data-cfi")) ?? "";
   const start = await cfi();
-  // One swipe of twenty small steps, as a trackpad sends it: exactly one page on, so one page back is the start.
-  await swipe(page, 10, 20);
+  // One swipe that coasts on: exactly one page on, so one page back is the start.
+  await swipe(page, 30, 40);
   await expect.poll(cfi).not.toBe(start);
   const turned = await cfi();
   await page.waitForTimeout(400); // the swipe is over
   await page.keyboard.press("ArrowLeft");
   await expect.poll(cfi).toBe(start);
-  // Scrolling up and down does not turn a page, even drifting a little sideways.
-  await page.mouse.wheel(4, 120);
   await page.waitForTimeout(400);
-  expect(await cfi()).toBe(start);
   // A swipe the other way goes back.
   await swipe(page, 80);
   await expect.poll(cfi).toBe(turned);
   await page.waitForTimeout(400);
   await swipe(page, -80);
   await expect.poll(cfi).toBe(start);
+  await page.waitForTimeout(400);
+
+  // Five swipes back to back, each starting while the one before still coasts: five pages.
+  const turns = await countTurns(page);
+  for (let i = 0; i < 5; i++) await swipe(page, 30, 10);
+  await expect.poll(turns).toBe(5);
+  await page.waitForTimeout(400);
+  // In Pages, scrolling down turns the page.
+  const scrolled = await countTurns(page);
+  await swipe(page, 0, 0, 30);
+  await expect.poll(scrolled).toBe(1);
 
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Scroll" }).click();
   await expect(page.getByRole("button", { name: "Scroll" })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
+  // In Scroll, scrolling down scrolls and is not a turn; a sideways swipe is.
+  const inScroll = await countTurns(page);
   const top = await cfi();
-  await swipe(page, 80);
+  await swipe(page, 0, 0, 60);
   await expect.poll(cfi).not.toBe(top);
+  expect(await inScroll()).toBe(0);
   await page.waitForTimeout(400);
-  await swipe(page, -80);
-  await expect.poll(cfi).toBe(top);
+  await swipe(page, 80);
+  await expect.poll(inScroll).toBe(1);
 
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the default for later tests
