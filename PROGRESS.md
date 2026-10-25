@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Two pages in Scroll (Chrome and Edge; Samuel: "A now, B later") on branch m21-two-page-scroll: PR and merge; #236 (swipe to turn) is merged; deploy both at Samuel's word.
+next_action: Deploy main (swipe/scroll to turn pages #236, Two pages in Scroll #237) at Samuel's word; Safari two-page scroll and PDFs are Open unknowns 28 and 29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-25
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-25 13:30 (laptop clock). **#236 (swipe or scroll to turn pages) and #237 (Two pages in Scroll, Chrome and Edge) are merged (809b17ba, 5f0b30a4), not deployed.** Next: deploy at Samuel's word, then check the reader in Chrome. Safari two-page scroll (option B) and PDFs: Open unknowns rows 28 and 29. This entry sits on local branch `m21-after-237-record` (not pushed).
 
 Written 2026-10-25 12:48 (laptop clock, from `date`). **#236 (swipe or scroll to turn pages, issue #235) is merged (809b17ba), not deployed. Two pages in Scroll is built on branch `m21-two-page-scroll`** (Samuel chose "A now, B later": Chrome and Edge now, Safari later). Next: 1. PR, merge when the four checks are green. 2. Samuel tries it in Chrome (Aa, Scroll, Two pages). 3. Deploy both at his word (no migration, no backup). Option B (Safari) and PDFs: Open unknowns rows 28 and 29.
 
@@ -300,6 +302,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-25 13:30 · Claude Opus 5.5 (laptop) · Merged #237 (Two pages in Scroll); #236 and #237 wait for a deploy
+- **Done:** #237 merged as 5f0b30a4 by the auto-merge Action, all four checks green on its head 8b4c5a4a (second CI round, after the greyed-out test was made independent of the browser). #236 (swipe or scroll to turn pages) merged earlier as 809b17ba; issue #235 closed. Neither is deployed.
+- **Key paths:** lib/reader/swipe-turn.ts, lib/reader/spread-scroll.ts, app/(reader)/books/[id]/read/Reader.tsx
+- **Commands that worked:** gh pr view 237 --json state,mergeCommit (MERGED 5f0b30a4); gh pr checks 237 (4 pass)
+- **Known issues / blockers:** Safari two-page scroll (option B) and PDFs: Open unknowns rows 28 and 29. This entry sits on local branch `m21-after-237-record` (not pushed): commit it with the next real pull request.
+- **Exact next steps:** 1. Deploy main (809b17ba + 5f0b30a4) at Samuel's word; no migration since the last deploy's, so check that before skipping the backup. 2. After the deploy, check /api/health, /sign-in, and the reader in Chrome (Aa, Scroll, Two pages; a sideways swipe).
 
 ### 2026-10-25 12:48 · Claude Opus 5.5 (laptop) · Two pages in Scroll: spreads stacked down the page, in Chrome and Edge (branch m21-two-page-scroll, built on #236)
 - **Done:** #236 (issue #235, swipe or scroll to turn pages) merged as 809b17ba by the auto-merge Action once the four checks were green (second round, after the help-* reference screenshots were refreshed from CI run 40210157344 and looked at); issue #235 closed by hand with a note (the auto-merge did not close it). Samuel asked for Two pages in Scroll and chose "A now, B later". Built A: in Scroll with Two pages, in a window wider than tall and wider than 680 px, the text runs in two columns one screen tall, and the spreads stack down the page (CSS `column-height` + `column-wrap`); Next/Previous, arrow keys and swipes land on a spread's top; a jump (opening, contents, search, a new layout) is lined up on its spread 200 ms after foliate stops placing it; scrolling by hand is left alone; a new window size lays spreads out again. Where the browser cannot wrap columns (Safari 27), Two pages is greyed out in Scroll with a note. Checked in Chrome 155 against the local server: turns land exactly on spreads (0, 691, 1382 px for 691 px spreads), a contents jump lines up, a reload reopens the same spread (1 px off), resizing keeps it lined up, an upright window has one column, a highlight in the right column survives a reload, read-aloud keeps the lit word on screen and moves to the next spread at a spread's end.
