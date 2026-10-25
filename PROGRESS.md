@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Deploy main (swipe/scroll to turn pages #236, Two pages in Scroll #237) at Samuel's word; Safari two-page scroll and PDFs are Open unknowns 28 and 29.
+next_action: Live 5f0b30a (swipe/scroll to turn pages, Two pages in Scroll): Samuel tries it on the live site; migrate railway.json before 2026-12-01.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-25
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-25 13:30 (laptop clock). **#236 (swipe or scroll to turn pages) and #237 (Two pages in Scroll, Chrome and Edge) are merged (809b17ba, 5f0b30a4), not deployed.** Next: deploy at Samuel's word, then check the reader in Chrome. Safari two-page scroll (option B) and PDFs: Open unknowns rows 28 and 29. This entry sits on local branch `m21-after-237-record` (not pushed).
+Written 2026-10-25 14:25 (laptop clock). **Live: 5f0b30a** (#236 swipe or scroll to turn pages, #237 Two pages in Scroll; no migration, no backup), deployed at Samuel's word. /api/health on both addresses says 5f0b30a; /sign-in 200. Next: Samuel tries it signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages). Before 2026-12-01: `railway config migrate` (Railway's warning on railway.json). Safari two-page scroll and PDFs: Open unknowns rows 28 and 29. This entry sits on local branch `m21-after-237-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-25 12:48 (laptop clock, from `date`). **#236 (swipe or scroll to turn pages, issue #235) is merged (809b17ba), not deployed. Two pages in Scroll is built on branch `m21-two-page-scroll`** (Samuel chose "A now, B later": Chrome and Edge now, Safari later). Next: 1. PR, merge when the four checks are green. 2. Samuel tries it in Chrome (Aa, Scroll, Two pages). 3. Deploy both at his word (no migration, no backup). Option B (Safari) and PDFs: Open unknowns rows 28 and 29.
 
@@ -302,6 +302,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-25 14:25 · Claude Opus 5.5 (laptop) · Deployed 5f0b30a4: swipe or scroll to turn pages (#236), Two pages in Scroll (#237)
+- **Done:** Deployed at Samuel's word ("deploy"). No migration since the live 2d01f4f (git diff --name-only 2d01f4f2 5f0b30a4: 13 files, none in db/ or .sql), so no backup. Main's CI run on 5f0b30a4 (40215746201) first failed one screenshot, `visual.spec.ts` "design looks as approved" [desktop-dark] (1280x3285 received, 3287 expected, 2,489 pixels); the /design page uses none of the changed files and the PR's own run on the identical tree (8b4c5a4a, run 40214466249) passed it; re-run once: all green (WebKit included). Then deployed from the deploy checkout (detached at 5f0b30a4, 0 stray files).
+- **Key paths:** /Users/sahuno/projects/personal/neolibrary-deploy (deploy checkout); docs/ci-flakes.md (the design screenshot added)
+- **Commands that worked:** gh run rerun 40215746201 --failed -> success; railway variable set NEOLIBRARY_COMMIT=5f0b30a4 --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; /api/health on library.samuelahuno.com and web-production-f27a0e.up.railway.app -> commit 5f0b30a; /sign-in -> 200 on both; railway logs -> "Page pictures: ready."
+- **Known issues / blockers:** Not checked on the live site signed in (needs Samuel's account): Samuel tries a sideways swipe, scrolling in Pages, and Aa > Scroll > Two pages in Chrome. Railway warns that railway.json (Config as Code) is deprecated: "Existing files keep working until 2026-12-01"; migrate with `railway config migrate` before then.
+- **Exact next steps:** 1. Samuel tries the reader on the live site (Chrome: swipe, Two pages in Scroll; Safari: Two pages greyed out in Scroll). 2. Before 2026-12-01: `railway config migrate` (its own small PR). 3. Open unknowns rows 28 (Safari two-page scroll) and 29 (PDFs) when Samuel wants them.
 
 ### 2026-10-25 13:30 · Claude Opus 5.5 (laptop) · Merged #237 (Two pages in Scroll); #236 and #237 wait for a deploy
 - **Done:** #237 merged as 5f0b30a4 by the auto-merge Action, all four checks green on its head 8b4c5a4a (second CI round, after the greyed-out test was made independent of the browser). #236 (swipe or scroll to turn pages) merged earlier as 809b17ba; issue #235 closed. Neither is deployed.
