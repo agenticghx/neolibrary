@@ -231,9 +231,14 @@ test.describe("two pages in Scroll", () => {
   });
 });
 
-// Where the browser cannot wrap columns (Safari 27, this Playwright's Chromium without the switch), Two pages is
-// greyed out in Scroll and says why; in Pages it is offered as before.
+// Where the browser cannot wrap columns (Safari 27), Two pages is greyed out in Scroll and says why; in Pages it is
+// offered as before. The page is told the browser has no column wrapping: Playwright's Chromium 141 has none on the
+// Mac but reported it on CI's Linux machine (run 40213546071), so the browser's own answer is not one to rely on.
 test("without column wrapping, Two pages in Scroll is greyed out and says why", async ({ page }) => {
+  await page.addInitScript(() => {
+    const supports = CSS.supports.bind(CSS) as (...a: string[]) => boolean;
+    CSS.supports = ((...a: string[]) => (/column-(wrap|height)/.test(a.join(" ")) ? false : supports(...a))) as typeof CSS.supports;
+  });
   await openJekyll(page);
   await page.getByRole("button", { name: "Reading settings" }).click();
   const two = page.getByRole("button", { name: "Two pages", exact: true });
