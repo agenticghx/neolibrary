@@ -42,7 +42,8 @@ export default async function HelpPage() {
         </h2>
         <p className={styles.cardText}>
           Open a book and it opens where you left off, on any device. <strong>Aa</strong> in the top bar sets the type size, the
-          theme (light, dark, sepia or your device&apos;s own) and pages or scrolling. <strong>Contents</strong> is the chapter list.
+          theme (light, dark, sepia or your device&apos;s own) and pages or scrolling. To turn a page, use the arrows at its sides, the
+          arrow keys, or swipe sideways with two fingers on a trackpad or one on a touch screen. <strong>Contents</strong> is the chapter list.
           <strong> Focus</strong> dims everything but the line or paragraph you are on. The footer shows how far you are and, for a
           scanned book, lets you switch between the scan and its text edition.
         </p>

@@ -34,6 +34,7 @@ import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
+import { scrollsSideways, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
@@ -561,6 +562,23 @@ export function Reader(props: {
     }
   }, [dismissSelection]);
 
+  // A sideways swipe on a trackpad turns the page (#235), in Pages and in Scroll. One turner serves the book's frames
+  // and the margins around them, so a swipe that crosses from one to the other is still one swipe.
+  const wheelTurn = useRef<ReturnType<typeof wheelTurner> | null>(null);
+  const onWheel = useCallback((e: WheelEvent) => {
+    // A pinch on a trackpad arrives as a wheel event with Ctrl held: that is the browser's zoom.
+    if (e.ctrlKey || shortcutsOpen.current) return;
+    wheelTurn.current ??= wheelTurner((dir) => turnRef.current(dir));
+    const path = e.composedPath();
+    if (wheelTurn.current(e, (dx) => scrollsSideways(path, dx))) e.preventDefault();
+  }, []);
+  useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onWheel]);
+
   /**
    * Puts Focus (M21) where it belongs on the pages shown: the paragraph read aloud (paragraph focus); else what is
    * under a mouse resting on the page; else the first line or paragraph on the page (the keyboard, a tap elsewhere,
@@ -840,6 +858,29 @@ export function Reader(props: {
             if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(v, doc, w.at, "text-layer"));
           });
           doc.addEventListener("keydown", onKey);
+          doc.addEventListener("wheel", onWheel, { passive: false });
+          // A finger swipe turns the page where foliate has no swipe of its own: Scroll, and a PDF's pages (#235).
+          // A swipe that starts on a wide table is the table's.
+          let touchAt: { x: number; y: number; t: number } | null = null;
+          doc.addEventListener(
+            "touchstart",
+            (e) => {
+              const t = e.touches[0];
+              const path = e.composedPath();
+              touchAt = e.touches.length === 1 && t && !scrollsSideways(path, 1) && !scrollsSideways(path, -1) ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
+            },
+            { passive: true },
+          );
+          doc.addEventListener("touchend", (e) => {
+            const a = touchAt;
+            touchAt = null;
+            const t = e.changedTouches[0];
+            if (!a || !t || v.renderer?.getAttribute("flow") === "paginated") return;
+            const selected = doc.getSelection();
+            if (selected && !selected.isCollapsed) return;
+            const dir = swipeDirection(a, { x: t.clientX, y: t.clientY, t: e.timeStamp });
+            if (dir) turnRef.current(dir);
+          });
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
           doc.addEventListener("pointerdown", () => {
             trackerRef.current.onActivity();
@@ -921,7 +962,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, lookForLinks, refocus, dismissSelection]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection]);
 
   // Re-style when settings or the colour scheme change. A PDF's spread is read only when its renderer opens, so a new page choice reopens on the same page.
   useEffect(() => {

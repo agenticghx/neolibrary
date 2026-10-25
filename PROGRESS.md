@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M26 R5a (whole-book focus), then build R5b (Daily review filter, Reading stats card); deploy both at Samuel's word with a backup (migration 0033).
+next_action: Issue #235 (swipe to turn pages) on branch m21-swipe-turn: 216 reader browser tests pass; try it on a real trackpad, then PR and merge; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-24
+updated: 2026-10-25
 shared_copy: none
 ---
 
@@ -295,6 +295,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-25 11:23 · Claude Opus 5.5 (laptop) · Issue #235: a sideways swipe turns the page, in Pages and in Scroll (branch m21-swipe-turn, not pushed yet)
+- **Done:** A two-finger sideways swipe on a trackpad turns one page (next for a swipe to the left, as on paper), in Pages and in Scroll (in Scroll, "a page" is one screen down, as the arrow keys), for EPUBs and PDFs. One swipe is one page however long it coasts; scrolling up and down never turns; Shift with a mouse wheel counts as sideways; a pinch (Ctrl+wheel) is left to the browser; a wide table that scrolls sideways keeps the swipe; the browser's own "back a page" swipe is cancelled over the book. A finger swipe on a touch screen now also turns the page in Scroll and in PDFs (foliate already did it in Pages for EPUBs). The Help page's Reading card says how to turn pages.
+- **Key paths:** lib/reader/swipe-turn.ts (the swipe logic), lib/reader/swipe-turn.test.ts, app/(reader)/books/[id]/read/Reader.tsx (onWheel on the book's frames and the margins; touch swipe in the frame load handler), e2e/reader.spec.ts ("a sideways swipe turns the page, in Pages and in Scroll"; a swipe step in the PDF test), app/(app)/help/page.tsx
+- **Commands that worked:** npx vitest run lib/reader/swipe-turn.test.ts (9 passed); npx vitest run lib/reader "app/(reader)" (49 passed); npx tsc --noEmit -p . and npx eslint on the changed files (clean); npx playwright test --project=reader --ignore-snapshots (216 passed in 2.5 min, with its dependency projects; the new swipe test and the PDF swipe step among them). The worktree needs a real node_modules (`cp -cR ../../../node_modules node_modules`): Next's Turbopack refuses a symlink.
+- **Known issues / blockers:** Not yet tried with a real trackpad (synthetic wheel events do not have a trackpad's rhythm; the 50 px / 250 ms numbers may need tuning). A right-to-left book turns the same way as the arrow keys (they ignore direction too). The Help text change will move the help-* reference screenshots: refresh from CI with the merge train.
+- **Exact next steps:** 1. Try a swipe on the local dev server with the laptop's trackpad, in Pages and Scroll. 2. Push, open the PR ("Closes #235"), merge with the merge train when the four checks are green. 3. Deploy at Samuel's word (no migration, no backup needed).
 
 ### 2026-10-24 12:05 · Claude Opus 5.5 (laptop) · M26 R5b: Daily review keeps to the focused book; a Reading stats card per whole-book focus (stacked on R5a, not merged)
 - **Done:** During a whole-book focus, Daily review (the page, its rating route and the sidebar's count) holds only the focused book's cards, either edition; the others come back when it ends. Reading stats has a "Whole-book focus" section: per focus, the book, dates, how it ended, days read, time, sittings (sittings on either edition between its start and end), the question and the answer. Plan's "As built, part two" written.

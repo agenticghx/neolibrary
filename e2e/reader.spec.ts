@@ -72,6 +72,52 @@ test("contents jump to a chapter; layout can switch to scrolling", async ({ page
   await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the default for later tests
 });
 
+/** A sideways trackpad swipe over the middle of the book: `n` wheel events of `dx` pixels each, as a trackpad sends them. */
+async function swipe(page: Page, dx: number, n = 1) {
+  const box = (await reader(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < n; i++) await page.mouse.wheel(dx, 0);
+}
+
+// #235: a sideways swipe on a trackpad turns the page, in Pages and in Scroll; one swipe is one page.
+test("a sideways swipe turns the page, in Pages and in Scroll", async ({ page }) => {
+  await openJekyll(page);
+  const cfi = async () => (await reader(page).getAttribute("data-cfi")) ?? "";
+  const start = await cfi();
+  // One swipe of twenty small steps, as a trackpad sends it: exactly one page on, so one page back is the start.
+  await swipe(page, 10, 20);
+  await expect.poll(cfi).not.toBe(start);
+  const turned = await cfi();
+  await page.waitForTimeout(400); // the swipe is over
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(cfi).toBe(start);
+  // Scrolling up and down does not turn a page, even drifting a little sideways.
+  await page.mouse.wheel(4, 120);
+  await page.waitForTimeout(400);
+  expect(await cfi()).toBe(start);
+  // A swipe the other way goes back.
+  await swipe(page, 80);
+  await expect.poll(cfi).toBe(turned);
+  await page.waitForTimeout(400);
+  await swipe(page, -80);
+  await expect.poll(cfi).toBe(start);
+
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Scroll" }).click();
+  await expect(page.getByRole("button", { name: "Scroll" })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+  const top = await cfi();
+  await swipe(page, 80);
+  await expect.poll(cfi).not.toBe(top);
+  await page.waitForTimeout(400);
+  await swipe(page, -80);
+  await expect.poll(cfi).toBe(top);
+
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "Pages", exact: true }).click(); // back to the default for later tests
+});
+
 test("scripts inside a book never run", async ({ page }) => {
   const evil = readableEpub("Trap Book", [
     `<p>Nothing to see.</p><script>document.title = "pwned"; try { parent.document.title = "pwned"; parent.postMessage("pwned", "*"); } catch (e) {}</script><img src="x" onerror="parent.document.title='pwned'"/>`,
@@ -312,6 +358,9 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);
   await page.getByRole("button", { name: "Next page" }).click();
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  // #235: a sideways swipe turns a PDF's page too.
+  await swipe(page, 80);
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/6/);
   await page.getByRole("button", { name: "Reading settings" }).click();
   await expect(page.getByText("This is a PDF")).toBeVisible();
 
