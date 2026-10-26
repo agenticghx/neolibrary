@@ -54,7 +54,7 @@ import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, saveSettings, SIZES, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
-import { clearFocus, focusAt, focusBlock, FOCUS_BLOCKS, setFocusMode } from "./focus";
+import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import styles from "./reader.module.css";
 
@@ -482,6 +482,9 @@ export function Reader(props: {
   const focusRef = useRef<FocusMode>("off");
   const spokenBlock = useRef<Element | null>(null);
   const pointer = useRef<{ x: number; y: number; inside: boolean } | null>(null);
+  // The layout last laid out (Pages or Scroll, One or Two pages), and the place to mark once a switch has settled.
+  const laidOut = useRef<string | null>(null);
+  const placeToMark = useRef<Spot | null>(null);
   // The Keyboard shortcuts dialog (M21): "?" or the link in Reading settings.
   const [shortcuts, setShortcuts] = useState(false);
   const shortcutsOpen = useRef(false);
@@ -1037,7 +1040,24 @@ export function Reader(props: {
     // The theme class must be on the element before colours are read from it.
     if (root.current) root.current.className = readerClass(settings) + recallClass.current;
     const v = view.current;
+    // A switch of layout moves the words read last (in Two pages, maybe to the right column): note where the text on
+    // screen starts, and mark that line once the new layout has settled. A second switch before then keeps the first
+    // place.
+    const layout = `${settings.flow} ${settings.pages}`;
+    if (laidOut.current !== null && laidOut.current !== layout && props.fileType !== "pdf" && !placeToMark.current) {
+      const onScreen = (v as { lastLocation?: { range?: Range | null } | null } | null)?.lastLocation?.range;
+      placeToMark.current = onScreen ? firstLetter(onScreen) : null;
+    }
+    laidOut.current = layout;
     if (v && root.current) spreadRef.current = applySettings(v, settings, root.current);
+    const marking = placeToMark.current
+      ? setTimeout(() => {
+          const spot = placeToMark.current;
+          placeToMark.current = null;
+          const doc = spot?.node.ownerDocument;
+          if (spot && doc) markLine(doc, spot);
+        }, 400)
+      : undefined;
     // Focus (M21): EPUBs only. A new mode is set on every page shown; a new size or layout moves the lines, so the
     // band and the dimming are put back once the page is laid out again.
     const focus: FocusMode = props.fileType === "pdf" ? "off" : settings.focus;
@@ -1116,6 +1136,7 @@ export function Reader(props: {
     mq.addEventListener("change", onChange);
     return () => {
       stop = true;
+      clearTimeout(marking);
       cancelAnimationFrame(relaid);
       mq.removeEventListener("change", onChange);
     };

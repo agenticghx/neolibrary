@@ -221,3 +221,66 @@ function dimAllBut(doc: Document, keep: Range) {
   dim.priority = -1;
   win.CSS.highlights.set(DIM, dim);
 }
+
+/** A place in the text: a text node and a character in it. Unlike a box on screen, it survives a new layout. */
+export type Spot = { node: Node; offset: number };
+
+/**
+ * The first letter of a range that is not a space: where the text on screen starts. Foliate's range can start with
+ * a space left at the end of the page before.
+ */
+export function firstLetter(range: Range): Spot | null {
+  const doc = range.startContainer.ownerDocument;
+  if (!doc) return null;
+  // A walker never returns its own root, and the range may lie inside one text node (a long paragraph).
+  const common = range.commonAncestorContainer;
+  const walker = doc.createTreeWalker(common.nodeType === Node.TEXT_NODE ? (common.parentNode ?? common) : common, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!range.intersectsNode(node)) continue;
+    const text = node.nodeValue ?? "";
+    const from = node === range.startContainer ? range.startOffset : 0;
+    const at = text.slice(from).search(/\S/);
+    if (at >= 0) return { node, offset: from + at };
+  }
+  return null;
+}
+
+/** How long the place stays marked after a layout switch, fading at the end (settings.ts, nl-place). */
+export const PLACE_MARK_MS = 2400;
+
+/**
+ * After a switch of layout (Pages or Scroll, One or Two pages), a soft band on the line holding `spot` for a moment,
+ * so the eye finds the place: in Two pages the words read last can sit in the right column (Samuel, 2026-10-26).
+ * Like the ruler's band, it is one element after <body>, so the addresses of passages do not move.
+ */
+export function markLine(doc: Document, spot: Spot) {
+  if (!spot.node.isConnected || spot.node.ownerDocument !== doc || !doc.documentElement) return;
+  const length = spot.node.nodeValue?.length ?? 0;
+  const letter = doc.createRange();
+  letter.setStart(spot.node, Math.min(spot.offset, length));
+  letter.setEnd(spot.node, Math.min(spot.offset + 1, length));
+  const box = Array.from(letter.getClientRects()).find((b) => b.width > 0 && b.height > 0);
+  if (!box) return;
+  const x = (box.left + box.right) / 2;
+  const y = (box.top + box.bottom) / 2;
+  const block = spot.node.parentElement?.closest(FOCUS_BLOCKS) ?? spot.node.parentElement;
+  const column = block ? nearest(Array.from(block.getClientRects()), x, y) : null;
+  let line: Box = { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+  if (block && column) {
+    const whole = doc.createRange();
+    whole.selectNodeContents(block);
+    line = lineAt(linesIn(Array.from(whole.getClientRects()), column), y) ?? line;
+  }
+  const lineHeight = (block && parseFloat(doc.defaultView?.getComputedStyle(block).lineHeight ?? "")) || (line.bottom - line.top) * 1.3;
+  const pad = Math.max(0, (lineHeight - (line.bottom - line.top)) / 2);
+  doc.querySelector(":root > [data-nl-place]")?.remove();
+  const mark = doc.createElement("div");
+  mark.setAttribute("data-nl-place", "");
+  mark.setAttribute("aria-hidden", "true");
+  const left = column?.left ?? line.left;
+  mark.style.width = `${(column?.right ?? line.right) - left}px`;
+  mark.style.height = `${line.bottom - line.top + 2 * pad}px`;
+  mark.style.transform = `translate(${left}px, ${line.top - pad}px)`;
+  doc.documentElement.append(mark);
+  doc.defaultView?.setTimeout(() => mark.remove(), PLACE_MARK_MS);
+}
