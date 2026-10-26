@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge m33-railway-iac (railway.json replaced by .railway/railway.ts; settings already applied on Railway), then one deploy at Samuel's word to prove it.
+next_action: Samuel tries the reader on the live site signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages); Open unknowns rows 23 and 24 are due 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-25
+updated: 2026-10-26
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-26 11:06 (laptop clock, from `date`). **Live: d08ce103** (#238, Railway settings in .railway/railway.ts instead of railway.json; no migration since 5f0b30a, so no backup), deployed at Samuel's word ("i approve the deploy"). Proven: a deploy from a checkout without railway.json succeeds and the build log has no Config as Code warning. Next: 1. Samuel tries the reader on the live site signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages; Safari: Two pages greyed out in Scroll). 2. Open unknowns rows 23 and 24 (decide by 2026-10-29; defaults apply). 3. Railway `web` still has no ANTHROPIC_API_KEY (last checked 2026-10-17; Samuel's step). This entry sits on local branch `m33-deploy-d08ce103-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-25 14:35 (laptop clock, from `date`). **Railway settings moved from railway.json to .railway/railway.ts** (branch `m33-railway-iac`; the settings are already applied on Railway and live; railway.json is removed on the branch). Next: PR and merge; then, at Samuel's word, one deploy to prove a deploy without railway.json (no deprecation warning in the log; /api/health, /sign-in).
 
@@ -304,6 +306,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-26 11:06 · Claude Opus 5.5 (laptop) · Deployed d08ce103: Railway settings without railway.json (#238)
+- **Done:** At Samuel's word ("i approve the deploy"). Checks first: deploy checkout ../neolibrary-deploy detached at d08ce103 with 0 stray files, railway.json absent, .railway/railway.ts present; no files changed under db/migrations between live 5f0b30a4 and d08ce103, so no backup; main's CI on d08ce103 success. Set NEOLIBRARY_COMMIT with --skip-deploys, then railway up: Deploy complete; deployment 74e800bf SUCCESS (59c2dc41 REMOVED). /api/health says d08ce10 on the Railway address and the custom address; /sign-in 200 on both. Build log: the only "deprecated" line is npm's note about eslint 9.39.5; no Config as Code or railway.json warning. Deploy log: "Page pictures: ready."
+- **Key paths:** .railway/railway.ts (no file changed in this entry except PROGRESS.md)
+- **Commands that worked:** git diff --name-only 5f0b30a4 d08ce103 -- db/migrations -> empty; gh run list --branch main -> d08ce103 CI success; railway variable set NEOLIBRARY_COMMIT=d08ce103... --service web --environment production --skip-deploys; railway up --service web --environment production --ci -> Deploy complete; curl /api/health (both) -> d08ce10; railway logs --build <id> | grep -i 'deprecat|config as code' -> eslint line only
+- **Known issues / blockers:** Not checked signed in (needs Samuel's account): swipe and Two pages in Scroll from the 5f0b30a deploy. The laptop's main checkout sits on old branch m25-scan-compare with uncommitted edits (docs/vision.md, docs/suggestionsForAINative.md, docs/neolibrary-architecture.html, PROGRESS.md) not on GitHub; left untouched, Samuel to say whether to keep them.
+- **Exact next steps:** 1. Samuel tries the reader on the live site signed in. 2. Open unknowns rows 23 and 24 by 2026-10-29. 3. ANTHROPIC_API_KEY on Railway `web` (Samuel's step).
 
 ### 2026-10-25 14:35 · Claude Opus 5.5 (laptop) · Railway settings: railway.json replaced by .railway/railway.ts (branch m33-railway-iac)
 - **Done:** Samuel: "correct that" (Railway's warning that railway.json, Config as Code, stops being read on 2026-12-01). `railway config migrate` found nothing (no service had a Config File path; Railway read railway.json from the repo root at each deploy), so migrated by hand: `railway config pull --variables unmanaged`, trimmed to the `web` service as a named partial (`export const partial = "web"`; Postgres, its volume and the bucket left out on purpose: a whole-project file deletes what it omits), and added railway.json's settings. `railway config plan`: "0 to add, 2 to change, 0 to destroy" (build command npm run build; start npm run start; health check /api/health, 120 s), variables unmanaged (10 left alone). `railway config apply --yes` (no --confirm-destructive). After: plan "already up to date"; `railway config partials list`: web owns service.web only; the service config shows the four settings live (not staged), 10 variables. Applying redeployed `web` by itself from GitHub main at 5f0b30a4 (deployment 59c2dc41): SUCCESS; /api/health 5f0b30a on both addresses, /sign-in 200. railway.json removed in this branch; restart policy left at Railway's default (on failure, as railway.json had). `railway` 3.16.0 (Railway's TypeScript SDK, railwayapp/railway-ts-sdk) added as an exact dev dependency so `railway config plan` can read the file. Railway's generated .railway/README.md not committed.
