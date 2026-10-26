@@ -440,6 +440,8 @@ export function Reader(props: {
   const notesRef = useRef<Annotation[]>([]);
   /** The other version's notes (a scan and its text edition) found on this one: their places here, by note id. */
   const crossedAt = useRef(new Map<string, string>());
+  /** Places the other version's notes on the pages already shown (set once the book is open). */
+  const placeShown = useRef<() => void>(() => {});
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const selectionDoc = useRef<Document | null>(null);
   // The selected-text bar (M27 Q1) closes on a tap or click outside it, or on Escape, as its × does; not while a
@@ -839,6 +841,8 @@ export function Reader(props: {
         });
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
+          // A page shown: the other version's notes on it are placed (also when its frame was not reported loading).
+          placeShown.current();
           let pages: number[] = [];
           if (props.fileType === "pdf") {
             const shown = pdfDocsOnScreen(v)
@@ -921,6 +925,19 @@ export function Reader(props: {
           notesRef.current = notesRef.current.map((a) => found.find((f) => f.id === a.id) ?? a);
           setNotes(notesRef.current);
           for (const a of found) if (["highlight", "sticker", "drawing", "image"].includes(a.kind)) void v.addAnnotation({ value: a.cfi! });
+        };
+        // Pages shown before these listeners were set (the notes are fetched first, and a slow fetch lets the first
+        // page open meanwhile: CI run 40412619634), or before a reload brought a note: a scan's page whose text is
+        // drawn (its end marker is there) now, one still drawing when its text is.
+        placeShown.current = () => {
+          for (const c of v.renderer?.getContents() ?? []) {
+            const doc = c.doc;
+            if (!doc) continue;
+            const index = (c as { index?: number }).index ?? Number(doc.documentElement.dataset.page);
+            if (!Number.isInteger(index)) continue;
+            if (props.fileType !== "pdf" || doc.querySelector(".textLayer .endOfContent")) placeCrossed(doc, index);
+            else doc.addEventListener(TEXT_LAYER_EVENT, () => placeCrossed(doc, index), { once: true });
+          }
         };
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
@@ -1020,6 +1037,7 @@ export function Reader(props: {
           });
         });
         setToc(v.book.toc ?? []);
+        placeShown.current();
         setPageCount(props.fileType === "pdf" ? (v.book.sections?.length ?? 0) : 0);
         await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi && !props.openPage });
         // M25: from the scan's page n to the same page in the text edition (its page marker, in the page list).
@@ -1233,6 +1251,7 @@ export function Reader(props: {
     const waiting = await outboxFor(props.bookId).catch(() => []);
     setAll(withOutbox(server ?? notesRef.current, waiting));
     setRefused(waiting.filter((w) => w.refused));
+    placeShown.current();
   };
 
   // Changes the server refused (M20): kept on the device and listed in Notes, never sent again.
@@ -1550,7 +1569,7 @@ export function Reader(props: {
   // Read aloud: highlight the word being spoken, inside the book's own frame
   // (CSS Custom Highlight API, so the book's text is not touched), and turn
   // the page when the voice reaches the end of it.
-  const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number]): string | null => {
+  const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number] | null): string | null => {
     const v = view.current;
     // Not before the book is open (foliate sets its renderer last), nor in a book that failed to open.
     if (!v?.renderer) return null;
@@ -1558,6 +1577,14 @@ export function Reader(props: {
     // in the page's text layer; its page is turned to by the player.
     if (props.fileType === "pdf") {
       const page = pdfPage(passageCfi);
+      // A word with no place on its page (a scan read aloud from its text edition, where the page's own text has
+      // nothing like it): nothing is lit, rather than the wrong word.
+      if (inPage === null && page >= 0) {
+        spokenPdf.current = null;
+        litCfi.current = passageCfi;
+        for (const d of pdfDocsOnScreen(v)) (d.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
+        return recordLit(listenBar.current, "");
+      }
       if (!inPage || page < 0) return null;
       spokenPdf.current = { page, at: inPage };
       // Going on after a pause returns to this page.

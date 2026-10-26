@@ -286,6 +286,30 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
     await page.screenshot({ path: `screenshots/wide-table-${w < 768 ? "phone" : "desktop"}.png` });
   }
   await page.setViewportSize({ width: 1280, height: 800 });
+
+  // Listen on the scan reads each page as the edition read it (Open unknowns row 24, decided 2026-10-26), not the
+  // scan's hidden text: page 1 whole, page 2's table a row to a sentence, and nothing after it (page 3 is blank).
+  const listen = async (q: Record<string, string>) =>
+    (await (await page.request.get(`/api/books/${scanId}/audio?${new URLSearchParams(q)}`)).json()).passage as { id: string; text: string; nextId: string | null };
+  const one = await listen({ cfi: "epubcfi(/6/2)" });
+  expect(one.text).toBe(page1.replace("# ", ""));
+  const two = await listen({ section: one.nextId! });
+  expect(two.text).toContain("Means, Anonymous?, Can be traced?");
+  expect(two.text).toContain("Bank transfer, Anonymous? value, Can value");
+  expect(two.nextId).toBeNull();
+  // In the reader, the voice reads the edition's words on the scan's page.
+  await page.goto(`/books/${scanId}/read?view=scan&at=${encodeURIComponent("epubcfi(/6/2)")}`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Listen" }).click();
+  const bar = page.getByRole("region", { name: "Read aloud" });
+  await bar.getByLabel("Voice").selectOption("fake-ada");
+  await bar.getByRole("button", { name: "Play" }).click();
+  await page.waitForFunction(
+    (words) => words.includes(document.querySelector('[aria-label="Read aloud"]')?.getAttribute("data-word") ?? ""),
+    ["Several", "years", "have", "now", "elapsed", "since"],
+    { timeout: 30_000 },
+  );
+  await page.evaluate(() => document.querySelector("audio")!.pause());
 });
 
 // Open unknowns row 23 (1), decided 2026-10-26: notes cross between a scan and its text edition. A highlight made on
@@ -372,7 +396,12 @@ test("notes cross between a scan and its text edition: drawn on the same words, 
   await page.emulateMedia({ colorScheme: "light" });
 
   // Back on the scan: the edition's note listed as from the text edition, and found on the scan's page 1 in its own
-  // text (so "Go to" goes to its words).
+  // text (so "Go to" goes to its words). The notes come late, as on a slow machine, after the page has drawn its
+  // text (CI run 40412619634: the note was never placed).
+  await page.route(`**/api/books/${scanId}/annotations`, async (route) => {
+    if (route.request().method() === "GET") await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
   await page.goto(`/books/${scanId}/read?view=scan&at=${encodeURIComponent("epubcfi(/6/2)")}`);
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await page.getByRole("button", { name: /^Notes/ }).click();

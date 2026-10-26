@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
@@ -12,6 +13,8 @@ import { speakPassage } from "./audio";
 import { importBook } from "./import";
 import { AUDIOBOOK_NAME, listenInfo } from "./listen";
 import { getSections } from "./sections-store";
+import { savePagesReadElsewhere } from "./text-edition";
+import { pageSpeech } from "./text-epub";
 
 /**
  * What the Listen bar gets when it opens (M7, M13 (d)). Under Vitest the
@@ -169,10 +172,10 @@ describe("Listen in a PDF book (M13 (e); made voices: docs/pdf-narration-plan.md
     // The page's text as the reader's text layer holds it, spaces aside: both paragraphs, in order.
     const pageLetters = ps.map((p) => p.text).join("").replace(/\s+/g, "");
     expect(track!.inPage).toHaveLength(track!.words.length);
-    const onPage = track!.inPage!.map(([a, b]) => pageLetters.slice(a, b));
+    const onPage = track!.inPage!.map((p) => pageLetters.slice(...p!));
     expect(onPage).toEqual(track!.words.map(([, , from, to]) => ps[1].text.slice(from, to).replace(/\s+/g, "")));
     // The second paragraph's first word comes after all the first paragraph's letters.
-    expect(track!.inPage![0][0]).toBe(ps[0].text.replace(/\s+/g, "").length);
+    expect(track!.inPage![0]![0]).toBe(ps[0].text.replace(/\s+/g, "").length);
     expect(onPage.slice(0, 3)).toEqual(["Then", "the", "second"]);
     // Opening the bar at the top of the page: its first paragraph, with nothing made for it yet.
     expect((await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake)).track).toBeNull();
@@ -208,3 +211,73 @@ describe("what the mini-player gets", () => {
   });
 });
 
+
+describe("Listen on a scan with a text edition (Open unknowns row 24, decided 2026-10-26)", () => {
+  /** A 4-page PDF whose own (OCR-like) text is: a page with one misspelling, a table read as nonsense, letters showing through a blank page, a page not read. */
+  async function scanWithEdition() {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.TimesRoman);
+    for (const line of ["The quick brovvn fox jumps over the lazy dog.", "asf ae ait 7 oar", "ghost letters", "A page that was never read for the edition."]) {
+      doc.addPage([612, 792]).drawText(line, { x: 72, y: 700, size: 12, font });
+    }
+    const id = (await importBook(database.db, storage, ownerId, { name: "scan.pdf", bytes: new Uint8Array(await doc.save()) })).bookId;
+    const ps = (await getSections(database.db, ownerId, id)).filter((x) => x.kind === "paragraph");
+    expect(ps.map((p) => p.chapterIndex)).toEqual([0, 1, 2, 3]);
+    const promptHash = sha256(await readPrompt("transcribe-page"));
+    const read = (page: number, markdown: string) => ({ page, markdown, model: "claude-sonnet-5-5", promptHash, inputHash: sha256(`picture ${page}`), inputTokens: 1, outputTokens: 1 });
+    const pages = [read(1, "# Chapter One\n\nThe quick brown fox jumps over the lazy dog.[^1]\n\n[^1]: A note at the foot."), read(2, "| Year | Total |\n|---|---|\n| 1990 | 12 |")];
+    const done = await savePagesReadElsewhere({ db: database.db, storage }, ownerId, id, { pages, blankPages: [3], finish: true });
+    expect(done.editionId).toEqual(expect.any(String));
+    return { id, ps, pages };
+  }
+
+  it("reads a page as the edition read it, passes over a blank page, and reads a page not read from its own text", async () => {
+    const { id, ps, pages } = await scanWithEdition();
+    const first = (await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake)).passage;
+    expect(first.text).toBe(pageSpeech(pages[0].markdown));
+    expect(first.text).toBe("Chapter One\n\nThe quick brown fox jumps over the lazy dog.\n\nNote 1: A note at the foot.");
+    expect(first).toMatchObject({ id: ps[0].id, nextId: ps[1].id, prevId: null });
+    const table = (await listenInfo(database.db, ownerId, id, { section: first.nextId }, withFake)).passage;
+    expect(table.text).toBe("Year, Total. 1990, 12.");
+    // Page 3 is blank: page 2 goes on to page 4, read from the page's own text.
+    expect(table.nextId).toBe(ps[3].id);
+    const last = (await listenInfo(database.db, ownerId, id, { section: table.nextId }, withFake)).passage;
+    expect(last).toMatchObject({ text: ps[3].text, prevId: ps[1].id, nextId: null });
+    // Opening the bar on the blank page reads on from the next page.
+    expect((await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/6)" }, withFake)).passage.id).toBe(ps[3].id);
+  });
+
+  it("lights a word only where the page's own text has it, never somewhere else", async () => {
+    const { id, ps } = await scanWithEdition();
+    await speakPassage(database.db, storage, fake, ownerId, { bookId: id, sectionId: ps[0].id, voice: "fake-ada" });
+    const { track, passage } = await listenInfo(database.db, ownerId, id, { section: ps[0].id, voice: "fake-ada" }, withFake);
+    const pageLetters = ps[0].text.replace(/\s+/g, "");
+    const lit = track!.words.map(([, , from, to], i) => [passage.text.slice(from, to), track!.inPage![i] && pageLetters.slice(...track!.inPage![i]!)]);
+    expect(lit).toEqual([
+      ["Chapter", null],
+      ["One", null],
+      ["The", "The"],
+      ["quick", "quick"],
+      // Misspelt on the page, between two words that match: the same place.
+      ["brown", "brovvn"],
+      ["fox", "fox"],
+      ["jumps", "jumps"],
+      ["over", "over"],
+      ["the", "the"],
+      ["lazy", "lazy"],
+      ["dog.", "dog."],
+      ["Note", null],
+      ["1:", null],
+      ["A", null],
+      ["note", null],
+      ["at", null],
+      ["the", null],
+      ["foot.", null],
+    ]);
+    // The table the page's own text read as nonsense: nothing is lit.
+    await speakPassage(database.db, storage, fake, ownerId, { bookId: id, sectionId: ps[1].id, voice: "fake-ada" });
+    const table = await listenInfo(database.db, ownerId, id, { section: ps[1].id, voice: "fake-ada" }, withFake);
+    expect(table.track!.inPage!.every((p) => p === null)).toBe(true);
+  });
+});

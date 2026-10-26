@@ -8,6 +8,7 @@ import { speechCost, type SpeechModel } from "@/lib/speech/model";
 import { wordTimings, type WordTiming } from "@/lib/speech/timings";
 import type { Storage } from "@/lib/storage";
 import { sectionForCfi } from "./annotations";
+import { pageReadings, placeWords, scanSpeechOf } from "./scan-speech";
 
 /**
  * Reading aloud (M7). Audio is made one paragraph at a time when first
@@ -40,9 +41,10 @@ export type Track = {
   /**
    * A made track in a PDF book (docs/pdf-narration-plan.md, Part A): where
    * each word is on its page, as an uploaded audiobook's `inPage`. Worked out
-   * when asked (placeOnPage), never stored.
+   * when asked (placeOnPage), never stored. null: a word with no place on
+   * the page (a scan read aloud from its text edition: scan-speech.ts).
    */
-  inPage?: [number, number][];
+  inPage?: ([number, number] | null)[];
 };
 
 type Row = typeof audioTracks.$inferSelect;
@@ -87,7 +89,7 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
   // A CFI with no place inside its chapter (no "!") is the top of a chapter,
   // or a whole PDF page: every paragraph of a page has its page's CFI, so
   // matching it would give the page's last paragraph; read from the first.
-  let id = "cfi" in at ? (at.cfi.includes("!") ? await sectionForCfi(db, bookId, at.cfi) : null) : at.sectionId;
+  const id = "cfi" in at ? (at.cfi.includes("!") ? await sectionForCfi(db, bookId, at.cfi) : null) : at.sectionId;
   let [row] = id
     ? await db
         .select({ id: sections.id, kind: sections.kind, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
@@ -116,23 +118,39 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
       .limit(1);
   }
   if (!row) throw new AudioError("There is nothing to read aloud here.");
-  id = row.id;
-  const around = await db
-    .select({ id: sections.id, text: sections.text, position: sections.position })
+  const all = await db
+    .select({ id: sections.id, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
     .from(sections)
     .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
     .orderBy(asc(sections.position));
-  const i = around.findIndex((s) => s.id === id);
+  // A scan with a text edition (scan-speech.ts): a page read for it is read whole, from its first paragraph;
+  // a page found blank is passed over; a page not read is read from its own paragraphs.
+  const speech = await scanSpeechOf(db, bookId);
+  const pageOf = (s: { chapterIndex: number }) => s.chapterIndex + 1;
+  const around = speech
+    ? all.filter((s, k) => !speech.blank.has(pageOf(s)) && (!speech.read.has(pageOf(s)) || all[k - 1]?.chapterIndex !== s.chapterIndex))
+    : all;
+  const page = pageOf(row);
+  const start = row;
+  const i = speech?.read.has(page)
+    ? around.findIndex((s) => s.chapterIndex === start.chapterIndex)
+    : speech?.blank.has(page)
+      ? around.findIndex((s) => s.position > start.position)
+      : around.findIndex((s) => s.id === start.id);
+  if (i < 0) throw new AudioError("There is nothing to read aloud here.");
+  const readings = speech ? await pageReadings(db, speech, bookId, around.slice(Math.max(i - 1, 0), i + 2).map(pageOf)) : new Map<number, string>();
+  const textOf = (s: { chapterIndex: number; text: string }) => readings.get(pageOf(s)) ?? s.text;
+  const here = around[i];
   return {
-    id: row.id,
-    text: row.text,
-    cfi: row.cfi,
-    chapterIndex: row.chapterIndex,
-    position: row.position,
+    id: here.id,
+    text: textOf(here),
+    cfi: here.cfi,
+    chapterIndex: here.chapterIndex,
+    position: here.position,
     nextId: around[i + 1]?.id ?? null,
     prevId: around[i - 1]?.id ?? null,
-    previousText: around[i - 1]?.text.slice(-300) ?? "",
-    nextText: around[i + 1]?.text.slice(0, 300) ?? "",
+    previousText: around[i - 1] ? textOf(around[i - 1]).slice(-300) : "",
+    nextText: around[i + 1] ? textOf(around[i + 1]).slice(0, 300) : "",
   };
 }
 
@@ -284,6 +302,22 @@ export async function placeOnPage<T extends Track>(db: Db, bookId: string, secti
     .from(sections)
     .where(and(eq(sections.bookId, bookId), eq(sections.id, sectionId)));
   if (section?.kind !== "paragraph") return track;
+  // A page read for the scan's text edition is read aloud from that reading: its words are lined up with the page's own.
+  const speech = await scanSpeechOf(db, bookId);
+  const page = section.chapterIndex + 1;
+  const spoken = speech?.read.has(page) ? (await pageReadings(db, speech, bookId, [page])).get(page) : undefined;
+  if (spoken !== undefined) {
+    const ocr = await db
+      .select({ text: sections.text })
+      .from(sections)
+      .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.chapterIndex, section.chapterIndex)))
+      .orderBy(asc(sections.position));
+    const place = placeWords(
+      spoken,
+      ocr.map((r) => r.text),
+    );
+    return { ...track, inPage: track.words.map(([, , from, to]) => place(from, to)) };
+  }
   const at = (await pageOffsets(db, bookId, new Set([section.chapterIndex]))).get(sectionId);
   if (!at) return track;
   return { ...track, inPage: track.words.map(([, , from, to]) => [at.base + at.before[from], at.base + at.before[to]]) };

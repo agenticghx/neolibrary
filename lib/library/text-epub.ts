@@ -122,6 +122,41 @@ function pageItems(page: number, markdown: string, notes: Note[], ownerOf: (page
   return items;
 }
 
+/** The text of a little XHTML this file made (a table, a list, a figure line), for reading aloud: a table row or list item is a sentence. */
+const spokenHtml = (html: string) =>
+  html
+    .replace(/<a epub:type="noteref"[^>]*>[\s\S]*?<\/a>/g, "")
+    .replace(/<\/(th|td)>(?=<t[hd]>)/g, ", ")
+    .replace(/<\/(tr|li)>/g, ". ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\[Figure: ([\s\S]*)\]$/, "Figure: $1");
+
+/**
+ * One page's reading as plain text to read aloud on the scan (Open unknowns
+ * row 24, decided 2026-10-26): headings, paragraphs, tables, figure lines and
+ * lists in their order on the page, then the page's footnotes ("Note 3: …"),
+ * where the scan prints them. Read as the edition reads the Markdown
+ * (pageItems), with emphasis marks and note numbers left out.
+ */
+export function pageSpeech(markdown: string): string {
+  const notes: Note[] = [];
+  const plain = (text: string) => text.replace(/\[\^\d+\]/g, "").replace(/\*\*(?=\S)([^*]+?)\*\*/g, "$1").replace(/\*(?=\S)([^*]+?)\*/g, "$1");
+  const out = pageItems(0, markdown, notes, (page) => page).map((it) =>
+    it.type === "heading" ? plain(it.text) : it.type === "p" ? plain(it.parts.map((p) => p.text).join(" ")) : it.type === "html" ? spokenHtml(it.html) : "",
+  );
+  for (const n of notes) out.push(`Note ${n.n}: ${plain(n.text)}`);
+  return out
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 /** A paragraph that ends this way is finished; one that does not goes on into the next page. */
 const FINISHED = /[.!?:;)\]"'’”…*]$/;
 /** The end of a sentence (not ";" or ":"), for a page that opens mid-sentence. */
