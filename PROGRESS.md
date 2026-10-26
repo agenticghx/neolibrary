@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #240 (Listen on a scan reads its text edition) when its four checks are green; then deploy main (#241 notes across editions, #240) as Samuel asked ("merge both when green, then deploy"), no migration.
+next_action: Samuel tries Listen on The Pay Off's scan (page 51 reads the table) and his notes across Scan | Text; he decides Open unknowns row 31 (draw highlights on scan pages) and row 27 by 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-26
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-26 19:27 (laptop clock, from `date`). **Live: f346316** (#241 notes across a scan and its text edition, #240 Listen on a scan reads its text edition; no migration since d08ce103, so no backup), deployed at Samuel's word ("merge both when green, then deploy"). Railway deployment 467dd2e3 SUCCESS; /api/health says f346316 on both addresses; /sign-in 200 on both. Checked live, signed in, read only, on The Pay Off's scan: Listen at page 51 reads the edition's table ("Table 1. Attributes of different payment mechanisms…"), at page 32 (blank) starts at page 33, at page 31 reads the edition's text; the scan's notes list gives 6 notes from the text edition beside its 1 own. Next: 1. Samuel tries both. 2. Polish: a table whose first header cell is empty is read with a stray leading comma (", Anonymous?, …"). 3. Open unknowns row 31 (draw highlights on scan pages) and row 27 are his. This entry sits on local branch `m25-deploy-f346316-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-26 17:40 (laptop clock, from `date`). **Notes across a scan and its text edition** (branch `m25-notes-across-editions`, Samuel's decision on Open unknowns row 23 (1)). Not merged, not deployed; no migration. Next: 1. PR after `m25-listen-edition-text` (#240) merges; rebase it (PROGRESS.md and the end of e2e/agents.spec.ts will conflict: keep both). 2. Deploy both at Samuel's word. 3. Open unknowns row 31 (highlights drawn on scan pages) is his to decide.
 
@@ -318,6 +320,21 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-26 19:27 · Claude Opus 5.5 (laptop) · Deployed f346316: notes across a scan and its text edition (#241), Listen on a scan reads its text edition (#240)
+- **Done:** #241 merged by the auto-merge Action as 70b038b7 (four checks green, run 40406586192). #240 was rebased onto it. Its browser job failed three ways before going green, each read before acting:
+  - A screenshot difference on the Import page (214 px, once, not seen again).
+  - The swipe test, every time it ran: the screen ended chapter 1, so Scroll could not scroll. The test now scrolls from the top of "Search for Mr. Hyde".
+  - The new notes test, once on CI: a note from the edition was not placed on the scan though its words were there. The reader now also places notes on the pages already shown.
+  - Merged as f346316f (run 40415964590 green; checked with gh pr view 240). Deployed from the clean checkout ../neolibrary-deploy at f346316f: Railway deployment 467dd2e3 SUCCESS, /api/health "f346316" on both addresses, /sign-in 200 on both. Live, signed in once, read only (scratchpad verify-f346.mjs), on The Pay Off's scan:
+  - Page 51 reads the edition's table.
+  - Page 32 (blank) is passed over to page 33.
+  - Page 31 reads the edition's text.
+  - The scan's notes come with 6 from the text edition.
+- **Key paths:** lib/library/scan-speech.ts, lib/library/notes-across.ts, lib/reader/find-quote.ts, lib/reader/crossed-notes.ts, app/(reader)/books/[id]/read/Reader.tsx, e2e/agents.spec.ts, e2e/reader.spec.ts (swipe test), docs/ci-flakes.md
+- **Commands that worked:** gh pr checks 240 / 241; gh pr view 240 --json state,mergeCommit -> MERGED f346316f; git diff --stat b34fcdc9 f346316f -- db/migrations (empty); railway variable set NEOLIBRARY_COMMIT=f346316f... --service web --environment production --skip-deploys; railway up --service web --environment production --ci (exit 0); curl /api/health on both addresses
+- **Known issues / blockers:** Highlights on scan pages are never drawn (Open unknowns row 31). A table with an empty first header cell is read with a leading comma. Not tested in Safari's engine. Seen while fixing the swipe test: one long coasting swipe turned two pages once (locally; docs/ci-flakes.md).
+- **Exact next steps:** 1. Samuel tries Listen on The Pay Off's scan and notes across Scan | Text. 2. The leading-comma polish. 3. Rows 31 and 27 are his.
 
 ### 2026-10-26 17:40 · Claude Opus 5.5 (laptop) · Notes across a scan and its text edition (branch m25-notes-across-editions)
 - **Done:** Samuel's decision on Open unknowns row 23 (1) ("do it now not later"). A note made on a scan now shows in its text edition, and one made in the text edition shows on the scan. Each note stays where it was made, under its own book (its export and the export round trip are unchanged). The reader's GET of a book's notes now also returns the other version's notes on passages, each with its printed page (`crossed`), and the page of each of the book's own notes (`pages`), so Notes lists both in page order with "From the scan · page 12" or "From the text edition · page 12".
