@@ -133,6 +133,12 @@ test("a sideways swipe turns the page, in Pages and in Scroll", async ({ page })
   await swipe(page, 0, 0, 30);
   await expect.poll(scrolled).toBe(1);
 
+  // Scroll from the top of a long chapter (about a dozen pages). The turns above start where the tests before left
+  // the book, and can end on a chapter's last screen, with nothing below it to scroll to (#240's CI runs
+  // 40404690273, twice, and 40409472519: the screen ended with chapter 1's last paragraph).
+  await page.getByRole("button", { name: "Contents" }).click();
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Search for Mr. Hyde" }).click();
+  await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible();
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Scroll" }).click();
   await expect(page.getByRole("button", { name: "Scroll" })).toHaveAttribute("aria-pressed", "true");
