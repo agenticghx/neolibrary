@@ -150,6 +150,11 @@ export function NotesPanel({
                   On this device · syncs when you are back online
                 </p>
               ) : null}
+              {a.crossed ? (
+                <p className={styles.hint} data-testid="note-crossed" data-placed={a.cfi ? "yes" : "no"}>
+                  From the {a.crossed.from === "scan" ? "scan" : "text edition"} · page {a.crossed.page}
+                </p>
+              ) : null}
               {a.agent ? (
                 <p className={styles.machineLabel} data-testid="note-agent">
                   Added by agent · {a.agent}
@@ -193,7 +198,7 @@ export function NotesPanel({
                 <p className={a.agent ? `${styles.noteBody} ${styles.machine}` : styles.noteBody}>{a.body}</p>
               ) : null}
               <div className={styles.noteActions}>
-                {a.cfi ? (
+                {a.cfi || a.crossed ? (
                   <button type="button" className={styles.tool} onClick={() => onGo(a)}>
                     Go to
                   </button>
