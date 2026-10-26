@@ -34,10 +34,11 @@ export type PlayerPage = {
   slot: HTMLElement;
   /**
    * Highlight a word of a paragraph (character offsets into its text; in a
-   * PDF also `inPage`, its place on the page in non-space characters);
+   * PDF also `inPage`, its place on the page in non-space characters, or
+   * null when it has none: then nothing is lit, and "" is returned);
    * returns the word's text, or null if it is not on the page yet.
    */
-  onWord: (passageCfi: string, from: number, to: number, inPage?: [number, number]) => string | null;
+  onWord: (passageCfi: string, from: number, to: number, inPage?: [number, number] | null) => string | null;
   /** Show a paragraph (turning the page if needed); `resume`: going on after a pause, show the word being read. */
   onPassage: (passageCfi: string, opts?: { resume?: boolean }) => void;
   renderBar: (view: ListenView) => ReactNode;

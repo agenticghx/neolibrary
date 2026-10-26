@@ -1550,7 +1550,7 @@ export function Reader(props: {
   // Read aloud: highlight the word being spoken, inside the book's own frame
   // (CSS Custom Highlight API, so the book's text is not touched), and turn
   // the page when the voice reaches the end of it.
-  const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number]): string | null => {
+  const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number] | null): string | null => {
     const v = view.current;
     // Not before the book is open (foliate sets its renderer last), nor in a book that failed to open.
     if (!v?.renderer) return null;
@@ -1558,6 +1558,14 @@ export function Reader(props: {
     // in the page's text layer; its page is turned to by the player.
     if (props.fileType === "pdf") {
       const page = pdfPage(passageCfi);
+      // A word with no place on its page (a scan read aloud from its text edition, where the page's own text has
+      // nothing like it): nothing is lit, rather than the wrong word.
+      if (inPage === null && page >= 0) {
+        spokenPdf.current = null;
+        litCfi.current = passageCfi;
+        for (const d of pdfDocsOnScreen(v)) (d.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
+        return recordLit(listenBar.current, "");
+      }
       if (!inPage || page < 0) return null;
       spokenPdf.current = { page, at: inPage };
       // Going on after a pause returns to this page.

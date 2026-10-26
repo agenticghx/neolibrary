@@ -110,7 +110,7 @@ export function ListenSession({
 
   /** The page showing the book, if any (the reader, while it is open). */
   const pageRef = useRef<PlayerPage | null>(null);
-  const onWord = (passageCfi: string, from: number, to: number, inPage?: [number, number]) => pageRef.current?.onWord(passageCfi, from, to, inPage) ?? null;
+  const onWord = (passageCfi: string, from: number, to: number, inPage?: [number, number] | null) => pageRef.current?.onWord(passageCfi, from, to, inPage) ?? null;
   const onPassage = (passageCfi: string, opts?: { resume?: boolean }) => pageRef.current?.onPassage(passageCfi, opts);
   const reading = (cfi: string) => {
     passage.current = cfi;
