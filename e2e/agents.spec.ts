@@ -396,7 +396,12 @@ test("notes cross between a scan and its text edition: drawn on the same words, 
   await page.emulateMedia({ colorScheme: "light" });
 
   // Back on the scan: the edition's note listed as from the text edition, and found on the scan's page 1 in its own
-  // text (so "Go to" goes to its words).
+  // text (so "Go to" goes to its words). The notes come late, as on a slow machine, after the page has drawn its
+  // text (CI run 40412619634: the note was never placed).
+  await page.route(`**/api/books/${scanId}/annotations`, async (route) => {
+    if (route.request().method() === "GET") await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
   await page.goto(`/books/${scanId}/read?view=scan&at=${encodeURIComponent("epubcfi(/6/2)")}`);
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await page.getByRole("button", { name: /^Notes/ }).click();
