@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries the reader on the live site signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages); Open unknowns rows 23 and 24 are due 2026-10-29.
+next_action: Open unknowns rows 23 and 24 are due 2026-10-29 (defaults apply); page turning on the live site checked by video 2026-10-26.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-26
 shared_copy: none
@@ -19,7 +19,7 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 
 ## Exact next steps
 
-Written 2026-10-26 11:06 (laptop clock, from `date`). **Live: d08ce103** (#238, Railway settings in .railway/railway.ts instead of railway.json; no migration since 5f0b30a, so no backup), deployed at Samuel's word ("i approve the deploy"). Proven: a deploy from a checkout without railway.json succeeds and the build log has no Config as Code warning. Next: 1. Samuel tries the reader on the live site signed in (Chrome: a sideways swipe, scrolling in Pages, Aa > Scroll > Two pages; Safari: Two pages greyed out in Scroll). 2. Open unknowns rows 23 and 24 (decide by 2026-10-29; defaults apply). 3. Railway `web` still has no ANTHROPIC_API_KEY (last checked 2026-10-17; Samuel's step). This entry sits on local branch `m33-deploy-d08ce103-record` (not pushed): commit it with the next real pull request.
+Written 2026-10-26 11:06 (laptop clock, from `date`). **Live: d08ce103** (#238, Railway settings in .railway/railway.ts instead of railway.json; no migration since 5f0b30a, so no backup), deployed at Samuel's word ("i approve the deploy"). Proven: a deploy from a checkout without railway.json succeeds and the build log has no Config as Code warning. Checked 2026-10-26 11:50: page turning works on the live site in Chrome (video, 10 of 10 checks; Log). Next: 1. Safari not checked (Two pages should be greyed out in Scroll). 2. Open unknowns rows 23 and 24 (decide by 2026-10-29; defaults apply). 3. Railway `web` still has no ANTHROPIC_API_KEY (last checked 2026-10-17; Samuel's step). This entry sits on local branch `m33-deploy-d08ce103-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-25 14:35 (laptop clock, from `date`). **Railway settings moved from railway.json to .railway/railway.ts** (branch `m33-railway-iac`; the settings are already applied on Railway and live; railway.json is removed on the branch). Next: PR and merge; then, at Samuel's word, one deploy to prove a deploy without railway.json (no deprecation warning in the log; /api/health, /sign-in).
 
@@ -306,6 +306,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-26 11:50 · Claude Opus 5.5 (laptop) · Page turning checked on the live site, signed in, in real Chrome (video)
+- **Done:** Samuel asked for a video check of #236 and #237 on the live site. Playwright drove the installed Google Chrome 155 (headless, signed in as Samuel once with the Keychain item NEOLIBRARY_PASSWORD, never printed) on The Strange Case of Dr. Jekyll and Mr. Hyde, with captions and a 48.7 s video. All 10 checks passed: Pages: a sideways swipe turns forward, a swipe back returns to the same place, scrolling down turns; Scroll: Two pages offered (not greyed out), two columns, Next page moves one spread (0 to 1), the wheel scrolls (596 to 755 px), a sideways swipe moves a spread (1 to 2); an upright window has one column; the reading position was put back (PUT 204, fraction 0.117 as before). Screenshots looked at by eye: the two columns read in order. The swipes are scripted wheel events, not a physical trackpad. Safari not checked.
+- **Key paths:** ~/Documents/neolibrary-live-checks/2026-10-26-page-turning/ (video and 6 screenshots; not in git: they show book text and the account)
+- **Commands that worked:** node record.mjs (scratchpad script; playwright chromium.launch({ channel: "chrome" }) with recordVideo); ffmpeg -c:v libx264 to MP4
+- **Known issues / blockers:** none found. The "Where were we?" card stays on screen through page turns until Write it or Skip is pressed (Escape does not close it); unchanged behaviour, noted only.
+- **Exact next steps:** 1. Samuel tries a real trackpad swipe himself if he wants. 2. Open unknowns rows 23 and 24 by 2026-10-29.
 
 ### 2026-10-26 11:06 · Claude Opus 5.5 (laptop) · Deployed d08ce103: Railway settings without railway.json (#238)
 - **Done:** At Samuel's word ("i approve the deploy"). Checks first: deploy checkout ../neolibrary-deploy detached at d08ce103 with 0 stray files, railway.json absent, .railway/railway.ts present; no files changed under db/migrations between live 5f0b30a4 and d08ce103, so no backup; main's CI on d08ce103 success. Set NEOLIBRARY_COMMIT with --skip-deploys, then railway up: Deploy complete; deployment 74e800bf SUCCESS (59c2dc41 REMOVED). /api/health says d08ce10 on the Railway address and the custom address; /sign-in 200 on both. Build log: the only "deprecated" line is npm's note about eslint 9.39.5; no Config as Code or railway.json warning. Deploy log: "Page pictures: ready."
