@@ -1,30 +1,35 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { AnnotationError, createAnnotation, createAnnotationOnce, listAnnotations } from "@/lib/library/annotations";
+import { AnnotationError, createAnnotation, createAnnotationOnce, listAnnotations, type Annotation } from "@/lib/library/annotations";
+import { notesAcross } from "@/lib/library/notes-across";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
+import { getStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
-/** The signed-in user's current highlights, bookmarks and notes for a book. */
+/**
+ * The signed-in user's current highlights, bookmarks and notes for a book. A scan or its text edition also gets the
+ * other version's notes on passages (`crossed`, each with its printed page) and the page of each of its own
+ * (`pages`), so the reader lists both versions' notes in page order (lib/library/notes-across.ts).
+ */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
-  if (!/^[0-9a-f-]{36}$/i.test(bookId)) return Response.json({ annotations: [] });
+  if (!/^[0-9a-f-]{36}$/i.test(bookId)) return Response.json({ annotations: [], crossed: [], pages: {} });
   const db = await getDb();
   const list = await listAnnotations(db, user.id, bookId);
+  const { crossed, pages } = await notesAcross(db, await getStorage(), user.id, bookId, list);
   // Voice notes and generated pictures come with short-lived links to their files.
-  const secret = list.some((a) => a.voice || a.picture?.source === "generated") ? await serverSecret(db, "file-links") : "";
-  return Response.json({
-    annotations: list.map((a) =>
-      a.voice
-        ? { ...a, audioUrl: signFileUrl(secret, a.voice.audioKey) }
-        : a.picture?.source === "generated"
-          ? { ...a, pictureUrl: signFileUrl(secret, a.picture.key) }
-          : a,
-    ),
-  });
+  const secret = [...list, ...crossed].some((a) => a.voice || a.picture?.source === "generated") ? await serverSecret(db, "file-links") : "";
+  const linked = <T extends Annotation>(a: T) =>
+    a.voice
+      ? { ...a, audioUrl: signFileUrl(secret, a.voice.audioKey) }
+      : a.picture?.source === "generated"
+        ? { ...a, pictureUrl: signFileUrl(secret, a.picture.key) }
+        : a;
+  return Response.json({ annotations: list.map(linked), crossed: crossed.map(linked), pages });
 }
 
 /**

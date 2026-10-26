@@ -32,6 +32,8 @@ import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
 import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
+import { withCrossed } from "@/lib/reader/crossed-notes";
+import { rangeForQuote } from "@/lib/reader/find-quote";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
 import { scrollsItself, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
@@ -436,6 +438,8 @@ export function Reader(props: {
   const [turn, setTurn] = useState<AsYouTurn>(TURN_OFF);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
+  /** The other version's notes (a scan and its text edition) found on this one: their places here, by note id. */
+  const crossedAt = useRef(new Map<string, string>());
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const selectionDoc = useRef<Document | null>(null);
   // The selected-text bar (M27 Q1) closes on a tap or click outside it, or on Escape, as its × does; not while a
@@ -746,7 +750,7 @@ export function Reader(props: {
         await v.open(book);
         // Highlights: load them, and draw each one when its page is rendered.
         const { Overlayer } = (await import("foliate-js/overlayer.js")) as { Overlayer: { highlight: DrawFn } };
-        const loaded: Annotation[] = (await (await fetch(`/api/books/${props.bookId}/annotations`)).json()).annotations ?? [];
+        const loaded = withCrossed(await (await fetch(`/api/books/${props.bookId}/annotations`)).json(), crossedAt.current);
         notesRef.current = loaded;
         setNotes(loaded);
         // Send anything made offline earlier, and show what is still waiting (see the sync effect below).
@@ -894,6 +898,30 @@ export function Reader(props: {
           // Focus (M21) on the page now in front of the reader.
           if (props.fileType !== "pdf") refocus(d.range ?? null);
         });
+        /**
+         * The other version's notes on the page just shown (a scan's page, with its text drawn; or a chapter of the
+         * text edition): found by their quoted words on their printed page (lib/reader/find-quote.ts), given a place
+         * here and drawn. One whose words are not here (read too differently) stays in Notes with "Go to" its page.
+         */
+        const placeCrossed = (doc: Document, index: number) => {
+          const found: Annotation[] = [];
+          for (const a of notesRef.current) {
+            if (!a.crossed || crossedAt.current.has(a.id) || !a.quote.exact) continue;
+            let range: Range | null = null;
+            if (props.fileType === "pdf") {
+              const layer = doc.documentElement.dataset.page === String(a.crossed.page - 1) ? doc.querySelector(".textLayer") : null;
+              range = layer ? rangeForQuote(layer, a.quote) : null;
+            } else if (doc.getElementById(`page-${a.crossed.page}`)) range = rangeForQuote(doc.body, a.quote, a.crossed.page);
+            if (!range) continue;
+            const cfi = v.getCFI(index, range);
+            crossedAt.current.set(a.id, cfi);
+            found.push({ ...a, cfi });
+          }
+          if (!found.length) return;
+          notesRef.current = notesRef.current.map((a) => found.find((f) => f.id === a.id) ?? a);
+          setNotes(notesRef.current);
+          for (const a of found) if (["highlight", "sticker", "drawing", "image"].includes(a.kind)) void v.addAnnotation({ value: a.cfi! });
+        };
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
           mark("nl:frame-load", { index, page: doc.documentElement.dataset.page ?? null });
@@ -902,7 +930,9 @@ export function Reader(props: {
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
             const w = spokenPdf.current;
             if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(v, doc, w.at, "text-layer"));
+            placeCrossed(doc, index);
           });
+          if (props.fileType !== "pdf") placeCrossed(doc, index);
           doc.addEventListener("keydown", onKey);
           doc.addEventListener("wheel", onWheel, { passive: false });
           // A finger swipe turns the page where foliate has no swipe of its own: Scroll, and a PDF's pages (#235).
@@ -1159,6 +1189,7 @@ export function Reader(props: {
     setNotes(list);
   };
 
+
   const api = async (url: string, method: string, body?: unknown) => {
     const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
@@ -1195,7 +1226,7 @@ export function Reader(props: {
   const reload = async () => {
     let server: Annotation[] | null = null;
     try {
-      server = (await api(`/api/books/${props.bookId}/annotations`, "GET")).annotations;
+      server = withCrossed(await api(`/api/books/${props.bookId}/annotations`, "GET"), crossedAt.current);
     } catch (e) {
       if (!isOffline(e)) throw e;
     }
@@ -1958,7 +1989,14 @@ export function Reader(props: {
             items={notes}
             activeId={activeId}
             onGo={(a) => {
-              if (a.cfi) void view.current?.goTo(a.cfi);
+              const v = view.current;
+              if (a.cfi) void v?.goTo(a.cfi);
+              // A note from the other version not found here yet: its printed page (it is found when the page is shown).
+              else if (a.crossed && props.fileType === "pdf") void v?.goTo(`epubcfi(/6/${a.crossed.page * 2})`);
+              else if (a.crossed) {
+                const href = v?.book.pageList?.find((item) => item.label === String(a.crossed!.page))?.href;
+                if (href) void v?.goTo(href);
+              }
             }}
             onSave={saveNote}
             onDelete={removeNote}

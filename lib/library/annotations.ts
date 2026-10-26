@@ -43,6 +43,11 @@ export type Annotation = {
   agent: string | null;
   /** In the browser only: made offline, waiting in the outbox to be sent (M12). */
   pending?: boolean;
+  /**
+   * In the reader of a scan or its text edition only: a note made in the other version, and the printed page it is
+   * on (lib/library/notes-across.ts). Its `cfi` there is the other version's; the reader places it on this one.
+   */
+  crossed?: { from: "scan" | "text"; page: number };
   createdAt: string; // first version
   updatedAt: string; // latest version
 };

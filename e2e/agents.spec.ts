@@ -287,3 +287,100 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
   }
   await page.setViewportSize({ width: 1280, height: 800 });
 });
+
+// Open unknowns row 23 (1), decided 2026-10-26: notes cross between a scan and its text edition. A highlight made on
+// the scan is drawn on the same words in the text edition, and one made there is drawn on the scan; each is listed in
+// Notes with the version it came from. Uses the scan the test above gave a text edition (its page 1 read faithfully).
+test("notes cross between a scan and its text edition: drawn on the same words, listed with where they came from", async ({ page }) => {
+  test.slow();
+  const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string }[];
+  const scanId = books.find((b) => b.title === "A Subscription Scanned Meditation")!.id;
+  await page.goto(`/books/${scanId}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const editionId = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  expect(editionId).not.toBe(scanId);
+
+  type View = { renderer: { getContents(): { doc: Document; overlayer?: { element: SVGElement } }[] } };
+  /** Selects a phrase in the page shown (in a scan, in its text layer), as a reader dragging over it would. */
+  const select = (phrase: string) =>
+    page.evaluate((phrase) => {
+      const view = document.querySelector("foliate-view") as unknown as View;
+      for (const { doc } of view.renderer.getContents()) {
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const i = n.nodeValue!.indexOf(phrase);
+          if (i < 0) continue;
+          const r = doc.createRange();
+          r.setStart(n, i);
+          r.setEnd(n, i + phrase.length);
+          doc.getSelection()!.removeAllRanges();
+          doc.getSelection()!.addRange(r);
+          return true;
+        }
+      }
+      return false;
+    }, phrase);
+  /** The highlights drawn on the pages shown (foliate's overlay; the X-ray's underlines aside). */
+  const drawn = () =>
+    page.evaluate(() =>
+      (document.querySelector("foliate-view") as unknown as View).renderer
+        .getContents()
+        .reduce((n, { overlayer }) => n + (overlayer?.element.querySelectorAll(":scope > g:not([data-xray])").length ?? 0), 0),
+    );
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  const notes = page.getByTestId("notes");
+  /** A book's own notes (what its export holds): their quoted words. */
+  const own = async (id: string) => ((await (await page.request.get(`/api/books/${id}/annotations`)).json()).annotations as { quote: { exact: string } }[]).map((a) => a.quote.exact);
+
+  // On the scan's page 1: a highlight on its own (hidden) text. (A scan's pages draw no highlights, their own
+  // included: the PDF renderer has no drawing layer; Open unknowns row 31.)
+  await page.goto(`/books/${scanId}/read?view=scan&at=${encodeURIComponent("epubcfi(/6/2)")}`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(() => select("Several years"), { timeout: 15_000 }).toBe(true);
+  await bar.getByRole("button", { name: "Highlight in Amber" }).click();
+  await expect.poll(() => own(scanId)).toEqual(["Several years"]);
+
+  // In the text edition, at page 1: drawn there too, and listed as from the scan.
+  await page.goto(`/books/${editionId}/read?page=1`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(drawn, { timeout: 15_000 }).toBe(1);
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const fromScan = notes.getByRole("listitem").filter({ has: page.getByTestId("note-crossed") });
+  await expect(fromScan).toHaveCount(1);
+  await expect(fromScan.getByTestId("note-crossed")).toHaveText("From the scan · page 1");
+  await expect(fromScan.getByTestId("note-crossed")).toHaveAttribute("data-placed", "yes");
+  await expect(fromScan.locator("blockquote")).toHaveText("Several years");
+  await page.keyboard.press("Escape");
+
+  // A highlight made in the text edition, on other words of page 1.
+  expect(await select("many false opinions")).toBe(true);
+  await bar.getByRole("button", { name: "Highlight in Amber" }).click();
+  await expect.poll(drawn).toBe(2);
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(notes.getByRole("listitem")).toHaveCount(2);
+  await mkdir("screenshots", { recursive: true });
+  for (const [size, width, height] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300); // the colours ease from one theme to the other
+      await expect(fromScan.getByTestId("note-crossed")).toBeVisible();
+      await page.screenshot({ path: `screenshots/notes-across-${size}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Back on the scan: the edition's note listed as from the text edition, and found on the scan's page 1 in its own
+  // text (so "Go to" goes to its words).
+  await page.goto(`/books/${scanId}/read?view=scan&at=${encodeURIComponent("epubcfi(/6/2)")}`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const fromText = notes.getByRole("listitem").filter({ has: page.getByTestId("note-crossed") });
+  await expect(fromText.getByTestId("note-crossed")).toHaveText("From the text edition · page 1");
+  await expect(fromText.locator("blockquote")).toHaveText("many false opinions");
+  await expect(fromText.getByTestId("note-crossed")).toHaveAttribute("data-placed", "yes", { timeout: 15_000 });
+  // Each book's own notes stay its own (an export of either gives only the notes made in it).
+  expect(await own(scanId)).toEqual(["Several years"]);
+  expect(await own(editionId)).toEqual(["many false opinions"]);
+});
