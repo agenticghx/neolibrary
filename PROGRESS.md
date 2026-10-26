@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Open unknowns rows 23 and 24 are due 2026-10-29 (defaults apply); page turning on the live site checked by video 2026-10-26.
+next_action: Merge m21-switch-mark (a layout switch marks the line read last) when the four checks are green; deploy at Samuel's word (no migration, no backup).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-26
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-26 12:29 (laptop clock, from `date`). **A layout switch marks the line read last** (branch `m21-switch-mark`, Samuel's decision on Open unknowns row 30): switching Pages and Scroll, or One and Two pages, lays a soft band over the line where the screen's text started, for 2.4 s. Reader tests 221 of 221 passed locally; `npm run check` exit 0. Not merged, not deployed. Next: 1. PR, merge with the merge train when the four checks are green. 2. Deploy at Samuel's word (no migration since d08ce103, so no backup). 3. Samuel switches layouts in a real book and says whether the band is right (colour, how long).
 
 Written 2026-10-26 11:06 (laptop clock, from `date`). **Live: d08ce103** (#238, Railway settings in .railway/railway.ts instead of railway.json; no migration since 5f0b30a, so no backup), deployed at Samuel's word ("i approve the deploy"). Proven: a deploy from a checkout without railway.json succeeds and the build log has no Config as Code warning. Checked 2026-10-26 11:50: page turning works on the live site in Chrome (video, 10 of 10 checks; Log). Next: 1. Safari not checked (Two pages should be greyed out in Scroll). 2. Open unknowns rows 23 and 24 (decide by 2026-10-29; defaults apply). 3. Railway `web` still has no ANTHROPIC_API_KEY (last checked 2026-10-17; Samuel's step). This entry sits on local branch `m33-deploy-d08ce103-record` (not pushed): commit it with the next real pull request.
 
@@ -266,7 +268,7 @@ Never blocks the loop. Newest first.
 | 27 | **X-ray (M32, docs/xray-ideas.md): the four choices the prototype did not settle.** Live prototype: https://claude.ai/artifact/PdnTUfLHeKJa8oyLBNEUuW (private). (1) Name in the app: Who & what (Claude's pick), Index, or X-ray. (2) The argument X-ray (claims and premises per chapter): behind the reader's own sketch first (pick, later), finished chapters only, or not at all. (3) When to pay: a Build button per book with the estimate (pick), at import for every book, or chapter ahead. (4) The from-the-world layer on a card (Claude's general knowledge, labelled, always last): keep (pick) or book-only. Samuel's prototype letters C A A A and tier 1 first are decided (Decisions). | Samuel | 2026-10-29 | open (defaults apply) |
 | 28 | **Two pages in Scroll in Safari (Mac, iPhone, iPad): option B.** Samuel chose "A now, B later" (Decisions, 2026-10-25): A uses the browser's CSS column wrapping, which Chrome 155 has and Safari 27 does not, so in Safari Two pages is greyed out in Scroll. B is a layout of our own (a copy of the chapter per spread), several days of work, touching highlights, read-aloud and saved places. Open: when to build B, or wait for Safari to add column wrapping (then A works there with no change). | Samuel | none (no deadline) | open: B not started |
 | 29 | **Two pages in Scroll for PDFs.** PDFs have no Scroll layout at all today (foliate's page renderer for PDFs only shows pages one or two at a time). Open: wanted? It would be a Scroll layout for PDFs first. | Samuel | none (no deadline) | open |
-| 30 | **After switching to Two pages in Scroll, your words can sit in the right column** (the view lines up on the start of a two-column spread, so the left column shows the text just before your place; nothing is lost). Mark the line you were on for a moment after a layout switch (a brief highlight), or leave it? Default: leave it. | Samuel | none (no deadline) | open (default applies) |
+| 30 | **After switching to Two pages in Scroll, your words can sit in the right column** (the view lines up on the start of a two-column spread, so the left column shows the text just before your place; nothing is lost). Mark the line you were on for a moment after a layout switch (a brief highlight), or leave it? Default: leave it. | Samuel | none (no deadline) | **decided 2026-10-26: mark it** ("yeah, should be hilighted"); built in branch m21-switch-mark |
 
 ## Decisions
 
@@ -307,6 +309,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-26 12:29 · Claude Opus 5.5 (laptop) · A layout switch marks the line read last (branch m21-switch-mark)
+- **Done:** Samuel chose to mark the place after a switch (Open unknowns row 30: "yeah, should be hilighted"). Before a switch of flow (Pages, Scroll) or pages (One, Two), the reader notes the first letter of the text on screen (foliate's last location; a text node and offset, so it survives the new layout); 400 ms later it lays a band over that line across its column, like the ruler's band but over the text (accent colour at 22%), fading out by 2.4 s (no fade with reduced motion) and removed. A second switch within the 400 ms keeps the first place. A theme change marks nothing. PDFs are left out. Found while building: foliate's on-screen range can lie inside one text node (a long paragraph), and a TreeWalker never returns its own root, so the first try found no letter; the walk now starts at the parent. Screenshots looked at by eye: desktop light and dark (Two pages in Scroll: the band on 'Six o'clock struck' in the left column), phone light and dark; the text reads through the band. On the phone, Scroll to Pages marks the second line on screen, not the first: foliate counts the place from below the top margin.
+- **Key paths:** app/(reader)/books/[id]/read/focus.ts (firstLetter, markLine, PLACE_MARK_MS), app/(reader)/books/[id]/read/settings.ts (nl-place style), app/(reader)/books/[id]/read/Reader.tsx (laidOut, placeToMark in the settings effect), e2e/reader.spec.ts ("a layout switch marks the place", 3 tests)
+- **Commands that worked:** npx tsc --noEmit -p . (ok); npx eslint (ok); npm run check -> exit 0, 1045 unit tests passed; npm run build; local test server (next start -p 3100 with the e2e env), npx playwright test --project reader --ignore-snapshots -> 221 passed
+- **Known issues / blockers:** Not on CI yet. The marked line can be one or two lines below the top of what was on screen (foliate's last location starts below the top margin in Scroll).
+- **Exact next steps:** 1. PR; merge with the merge train when the four checks are green. 2. Deploy at Samuel's word (no migration since d08ce103). 3. Samuel tries it on a real book.
 
 ### 2026-10-26 11:50 · Claude Opus 5.5 (laptop) · Page turning checked on the live site, signed in, in real Chrome (video)
 - **Done:** Samuel asked for a video check of #236 and #237 on the live site. Playwright drove the installed Google Chrome 155 (headless, signed in as Samuel once with the Keychain item NEOLIBRARY_PASSWORD, never printed) on The Strange Case of Dr. Jekyll and Mr. Hyde, with captions and a 48.7 s video. All 10 checks passed: Pages: a sideways swipe turns forward, a swipe back returns to the same place, scrolling down turns; Scroll: Two pages offered (not greyed out), two columns, Next page moves one spread (0 to 1), the wheel scrolls (596 to 755 px), a sideways swipe moves a spread (1 to 2); an upright window has one column; the reading position was put back (PUT 204, fraction 0.117 as before). Screenshots looked at by eye: the two columns read in order. The swipes are scripted wheel events, not a physical trackpad. Safari not checked.
