@@ -231,6 +231,122 @@ test.describe("two pages in Scroll", () => {
   });
 });
 
+/** The first words on screen (foliate's last location), with spaces evened out. */
+async function wordsOnTop(page: Page) {
+  return page.evaluate(() => {
+    const v = document.querySelector("foliate-view") as unknown as { lastLocation?: { range?: Range } };
+    return (v.lastLocation?.range?.toString() ?? "").replace(/\s+/g, " ").trim();
+  });
+}
+
+/**
+ * The place mark after a layout switch: whether the band is there, and whether it lies over the start of `words`
+ * (found in the book's text, so wherever the new layout put them).
+ */
+async function placeMark(page: Page, words: string) {
+  return page.evaluate((words) => {
+    const r = (document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } }).renderer;
+    const doc = r.getContents()[0]?.doc;
+    const mark = doc?.querySelector(":root > [data-nl-place]");
+    if (!doc || !mark) return { shown: false, over: false };
+    const box = mark.getBoundingClientRect();
+    // The words with any run of spaces between them, as the book's own text may have line breaks.
+    const pattern = new RegExp(words.split(" ").map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = (node.nodeValue ?? "").search(pattern);
+      if (at < 0) continue;
+      const letter = doc.createRange();
+      letter.setStart(node, at);
+      letter.setEnd(node, at + 1);
+      const l = letter.getBoundingClientRect();
+      const x = (l.left + l.right) / 2;
+      const y = (l.top + l.bottom) / 2;
+      return { shown: true, over: x >= box.left && x <= box.right && y >= box.top && y <= box.bottom };
+    }
+    return { shown: true, over: false };
+  }, words);
+}
+
+// After a switch of layout, the line read last is marked for a moment (Samuel, 2026-10-26: in Two pages the words
+// can sit in the right column, which looked like a jump back). The mark lies over the words that were at the top of
+// the screen before the switch, wherever the new layout put them, and fades within three seconds.
+test.describe("a layout switch marks the place", () => {
+  async function turnTo(page: Page, chapter: string, pages: number) {
+    await page.getByRole("button", { name: "Contents" }).click();
+    await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: chapter }).click();
+    await expect(page.locator("footer").getByText(chapter)).toBeVisible();
+    for (let i = 0; i < pages; i++) {
+      const at = await reader(page).getAttribute("data-cfi");
+      await page.getByRole("button", { name: "Next page" }).click();
+      await expect.poll(() => reader(page).getAttribute("data-cfi")).not.toBe(at);
+      await page.waitForTimeout(300);
+    }
+  }
+  async function choose(page: Page, ...names: string[]) {
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    for (const name of names) await page.getByRole("button", { name, exact: true }).click();
+    await page.keyboard.press("Escape");
+  }
+
+  test("Pages to Scroll, and back", async ({ page }) => {
+    await openJekyll(page);
+    await turnTo(page, "Story of the Door", 3);
+    const words = (await wordsOnTop(page)).slice(0, 12);
+    await choose(page, "Scroll");
+    await expect.poll(() => placeMark(page, words)).toEqual({ shown: true, over: true });
+    // Gone after a moment, so it never stays over the text.
+    await expect.poll(async () => (await placeMark(page, words)).shown, { timeout: 5000 }).toBe(false);
+    const back = (await wordsOnTop(page)).slice(0, 12);
+    await choose(page, "Pages");
+    await expect.poll(() => placeMark(page, back)).toEqual({ shown: true, over: true });
+    // A setting that does not move the text (the theme) marks nothing.
+    await expect.poll(async () => (await placeMark(page, back)).shown, { timeout: 5000 }).toBe(false);
+    await choose(page, "Night");
+    await page.waitForTimeout(800);
+    expect((await placeMark(page, back)).shown).toBe(false);
+    await choose(page, "Auto");
+  });
+
+  test("Two pages in Scroll: the line read last is marked, in either column", async ({ playwright, baseURL }) => {
+    // Its own browser with column wrapping, as in "two pages in Scroll".
+    const browser = await playwright.chromium.launch({ args: ["--enable-blink-features=MulticolColumnWrapping"] });
+    const context = await browser.newContext({ baseURL, storageState: ADMIN_STATE, viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    await openJekyll(page);
+    await turnTo(page, "Search for Mr. Hyde", 3);
+    const words = (await wordsOnTop(page)).slice(0, 12);
+    await choose(page, "Scroll", "Two pages");
+    await expect.poll(() => placeMark(page, words)).toEqual({ shown: true, over: true });
+    await mkdir("screenshots", { recursive: true });
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: `screenshots/layout-switch-mark-desktop-${scheme}.png` });
+    }
+    await page.emulateMedia({ colorScheme: null });
+    await browser.close();
+  });
+
+  test("on a phone, Pages to Scroll", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, storageState: ADMIN_STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const page = await context.newPage();
+    await openJekyll(page);
+    await turnTo(page, "Story of the Door", 3);
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      const words = (await wordsOnTop(page)).slice(0, 12);
+      await choose(page, scheme === "light" ? "Scroll" : "Pages");
+      await expect.poll(() => placeMark(page, words)).toEqual({ shown: true, over: true });
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: `screenshots/layout-switch-mark-phone-${scheme}.png` });
+      await expect.poll(async () => (await placeMark(page, words)).shown, { timeout: 5000 }).toBe(false);
+    }
+    await page.emulateMedia({ colorScheme: null });
+    await context.close();
+  });
+});
+
 // Where the browser cannot wrap columns (Safari 27), Two pages is greyed out in Scroll and says why; in Pages it is
 // offered as before. The page is told the browser has no column wrapping: Playwright's Chromium 141 has none on the
 // Mac but reported it on CI's Linux machine (run 40213546071), so the browser's own answer is not one to rely on.

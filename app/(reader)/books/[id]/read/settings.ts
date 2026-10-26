@@ -113,6 +113,15 @@ function focusCss(colors: Record<string, string>): string {
     html[data-nl-focus="ruler"] [data-nl-ruler][data-shown] { display: block; }
     [data-nl-ruler][data-glide] { transition: transform 120ms cubic-bezier(0.2, 0.7, 0.2, 1), width 120ms, height 120ms; }
     @media (prefers-reduced-motion: reduce) { [data-nl-ruler] { transition: none !important; } }
+    [data-nl-place] {
+      position: fixed; left: 0; top: 0; z-index: 1;
+      pointer-events: none; user-select: none; -webkit-user-select: none;
+      border-radius: 4px;
+      background: color-mix(in srgb, ${colors.accent} 22%, transparent);
+      animation: nl-place 2.4s ease-out forwards;
+    }
+    @keyframes nl-place { 0% { opacity: 0; } 8% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { [data-nl-place] { animation: none; } }
   `;
 }
 
