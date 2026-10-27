@@ -12,7 +12,14 @@ const themeBlock = (name: string) => {
   const start = css.indexOf(`.theme-${name} {`);
   return parseColorTokens(css.slice(start, css.indexOf("}", start)));
 };
-const themes = { paper: themeBlock("paper"), sepia: themeBlock("sepia"), night: themeBlock("night") };
+const themes = {
+  paper: themeBlock("paper"),
+  sepia: themeBlock("sepia"),
+  night: themeBlock("night"),
+  north: themeBlock("north"),
+  press: themeBlock("press"),
+  calfskin: themeBlock("calfskin"),
+};
 
 const pairs: [fg: string, bg: string, min: number][] = [
   ["ink-900", "paper", 7],
@@ -40,6 +47,9 @@ describe.each([
   ["light", light],
   ["dark", dark],
   ["sepia", themes.sepia],
+  ["north", themes.north],
+  ["press", themes.press],
+  ["calfskin", themes.calfskin],
 ])("%s theme colour tokens", (_name, tokens) => {
   it.each(pairs)("%s on %s reaches %s:1", (fg, bg, min) => {
     expect(tokens[fg], `missing --${fg}`).toBeDefined();
@@ -54,6 +64,9 @@ describe.each([
   ["light", light],
   ["dark", dark],
   ["sepia", themes.sepia],
+  ["north", themes.north],
+  ["press", themes.press],
+  ["calfskin", themes.calfskin],
 ])("%s reading calendar shades", (_name, tokens) => {
   const steps = ["paper-sunken", "heat-1", "heat-2", "heat-3", "heat-4"];
   it("each step stands further from the page than the one before", () => {
@@ -81,8 +94,17 @@ describe("explicit reader themes", () => {
     expect(themes.night).toEqual(themed(dark));
   });
 
-  it("Sepia defines every colour the other themes do", () => {
-    expect(Object.keys(themes.sepia).sort()).toEqual(Object.keys(themed(light)).sort());
+  it.each(["sepia", "north", "press", "calfskin"] as const)("%s defines every colour the other themes do", (name) => {
+    expect(Object.keys(themes[name]).sort()).toEqual(Object.keys(themed(light)).sort());
+  });
+
+  it("North Window, Private Press and Calfskin are not recolours of Paper or Sepia", () => {
+    for (const name of ["north", "press", "calfskin"] as const) {
+      expect(themes[name].paper).not.toBe(themes.paper.paper);
+      expect(themes[name].paper).not.toBe(themes.sepia.paper);
+      expect(themes[name].accent).not.toBe(themes.paper.accent);
+      expect(themes[name].accent).not.toBe(themes.sepia.accent);
+    }
   });
 });
 
@@ -94,6 +116,9 @@ describe.each([
   ["light", light],
   ["dark", dark],
   ["sepia", themes.sepia],
+  ["north", themes.north],
+  ["press", themes.press],
+  ["calfskin", themes.calfskin],
 ])("%s room and glass", (_name, tokens) => {
   const band = ["room-1", "room-2"];
   const body = ["room-3", "room-base"];

@@ -55,7 +55,7 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, saveSettings, SIZES, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
+import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
 import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import styles from "./reader.module.css";
@@ -2198,10 +2198,15 @@ export function Reader(props: {
             <fieldset className={styles.group}>
               <legend>Theme</legend>
               <Segment
+                className={styles.themeChoices}
                 value={settings.theme}
-                options={[["auto", "Auto"], ["paper", "Paper"], ["sepia", "Sepia"], ["night", "Night"]]}
+                options={[...READER_THEMES]}
                 onChange={(theme) => update({ theme })}
               />
+              <p className={styles.hint}>
+                North Window is cool daylight with a teal mark. Private Press is bright paper with a red mark. Calfskin is warm
+                hide with a gold mark.
+              </p>
             </fieldset>
             {props.fileType === "pdf" ? (
             <fieldset className={styles.group}>
@@ -2354,14 +2359,16 @@ function Segment<T extends string>({
   value,
   options,
   onChange,
+  className,
 }: {
   value: T;
   /** Value, label, and whether this choice is unavailable here (shown greyed out; a note beside says why). */
-  options: [T, string, boolean?][];
+  options: readonly (readonly [T, string, boolean?])[];
   onChange: (v: T) => void;
+  className?: string;
 }) {
   return (
-    <div className={styles.segment}>
+    <div className={className ? `${styles.segment} ${className}` : styles.segment}>
       {options.map(([v, label, off]) => (
         <button key={v} type="button" className={styles.segmentButton} aria-pressed={value === v} disabled={off} onClick={() => onChange(v)}>
           {label}

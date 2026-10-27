@@ -69,6 +69,17 @@ describe("reading settings on this device", () => {
     expect(loadSettings().focus).toBe("off");
   });
 
+  it("keeps North Window, Private Press and Calfskin, and ignores a theme it does not know", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    for (const theme of ["north", "press", "calfskin"] as const) {
+      storage.setItem("neolibrary.reader.v1", JSON.stringify({ theme }));
+      expect(loadSettings().theme).toBe(theme);
+    }
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ theme: "velvet" }));
+    expect(loadSettings().theme).toBe("auto");
+  });
+
   it("keeps a table inside the reading column, scrolling sideways, so it never covers the text beside it", () => {
     const css = bookCss(DEFAULT_SETTINGS, { paper: "#fff", ink: "#000", accent: "#00f", highlight: "#ff0", spoken: "#0f0", scheme: "light" }, "https://example.org");
     expect(css).toContain("table { display: block; width: max-content; max-width: 100%; overflow-x: auto; }");

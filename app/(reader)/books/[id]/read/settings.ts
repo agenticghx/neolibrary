@@ -1,11 +1,27 @@
 /** Reader preferences, kept on this device (localStorage). */
+/** Theme names stored on this device. The second column is the label Aa shows. */
+export const READER_THEMES = [
+  ["auto", "Auto"],
+  ["paper", "Paper"],
+  ["sepia", "Sepia"],
+  ["night", "Night"],
+  ["north", "North Window"],
+  ["press", "Private Press"],
+  ["calfskin", "Calfskin"],
+] as const;
+export type ReaderTheme = (typeof READER_THEMES)[number][0];
+const THEME_IDS: readonly string[] = READER_THEMES.map(([id]) => id);
+function isTheme(v: unknown): v is ReaderTheme {
+  return typeof v === "string" && THEME_IDS.includes(v);
+}
+
 export type ReaderSettings = {
   flow: "paginated" | "scrolled";
   pages: "one" | "two";
   size: number; // percent of the book's base size
   spacing: "compact" | "normal" | "loose";
   face: "serif" | "sans" | "book";
-  theme: "auto" | "paper" | "sepia" | "night";
+  theme: ReaderTheme;
   /** PDFs only: in the Night theme (or Auto while the device is dark), show the page dimmed: dark paper, light ink (M19). */
   dimPdf: boolean;
   /**
@@ -41,7 +57,7 @@ export function loadSettings(): ReaderSettings {
       size: SIZES.includes(raw.size) ? raw.size : 100,
       spacing: raw.spacing in SPACING ? raw.spacing : "normal",
       face: ["serif", "sans", "book"].includes(raw.face) ? raw.face : "serif",
-      theme: ["auto", "paper", "sepia", "night"].includes(raw.theme) ? raw.theme : "auto",
+      theme: isTheme(raw.theme) ? raw.theme : "auto",
       dimPdf: raw.dimPdf !== false, // on unless turned off; settings saved before it existed get it on
       focus: FOCUS_MODES.includes(raw.focus) ? raw.focus : "off", // off for settings saved before it existed
     };

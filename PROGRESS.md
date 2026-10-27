@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Listen on The Pay Off's scan (page 51 reads the table) and his notes across Scan | Text; he decides Open unknowns row 31 (draw highlights on scan pages) and row 27 by 2026-10-29.
+next_action: Pull request for North Window, Private Press and Calfskin: merge when the four checks are green; do not deploy until Samuel says so. Then he tries the themes, and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-26
+updated: 2026-10-27
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-27 16:53 (laptop clock, from `date`). **Three reading themes** on branch `m4-reading-themes`: North Window, Private Press, and Calfskin, in Aa. Not merged, not deployed. No database change. `npm run check` printed 1186 passed and 2 skipped. `npx playwright test --ignore-snapshots` printed `388 passed (14.7m)`. Next: 1. Push and open the pull request. 2. Merge when the four checks are green. The Help page picture will differ, because the Reading sentence names the three themes; refresh that picture from CI, not from the Mac. 3. Do not deploy until Samuel says so. 4. Then he tries the three themes in Aa on a book he is reading, and Listen on The Pay Off's scan. Open unknowns rows 31 and 27 are his, decide by 2026-10-29. This branch also carries the f346316 deploy record and the 2026-10-27 CLAUDE.md revision.
 
 Written 2026-10-26 19:27 (laptop clock, from `date`). **Live: f346316** (#241 notes across a scan and its text edition, #240 Listen on a scan reads its text edition; no migration since d08ce103, so no backup), deployed at Samuel's word ("merge both when green, then deploy"). Railway deployment 467dd2e3 SUCCESS; /api/health says f346316 on both addresses; /sign-in 200 on both. Checked live, signed in, read only, on The Pay Off's scan: Listen at page 51 reads the edition's table ("Table 1. Attributes of different payment mechanisms…"), at page 32 (blank) starts at page 33, at page 31 reads the edition's text; the scan's notes list gives 6 notes from the text edition beside its 1 own. Next: 1. Samuel tries both. 2. Polish: a table whose first header cell is empty is read with a stray leading comma (", Anonymous?, …"). 3. Open unknowns row 31 (draw highlights on scan pages) and row 27 are his. This entry sits on local branch `m25-deploy-f346316-record` (not pushed): commit it with the next real pull request.
 
@@ -320,6 +322,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-27 16:53 · Grok (laptop) · Three reading themes: North Window, Private Press, Calfskin
+- **Done:** Samuel picked three of the five page studies (2026-10-27): North Window, Private Press, and Calfskin. Each is now a theme in Aa, kept on this device, and a colour set of its own (cool stone and teal; bright paper and vermilion; warm hide and antique gold). Paper, Sepia, Night and Auto are unchanged. The three stay light, so a PDF page is not dimmed (only Night does that). Contrast is checked the same way as Sepia. On a phone the names wrap, and Calfskin sits on the next row, so the Aa panel has to be scrolled a little to reach it. The sideways-swipe test was failing after its own page turns: Contents then "Search for Mr. Hyde" left the footer on "Story of the Door", because the page viewer drops a jump asked for while a turn is still underway. The test now tries that chapter again until the footer names it. Not merged, not deployed. No database change.
+- **Key paths:** app/tokens.css (.theme-north, .theme-press, .theme-calfskin); app/(reader)/books/[id]/read/settings.ts, Reader.tsx, reader.module.css; lib/tokens.test.ts; e2e/reader.spec.ts; app/(app)/help/page.tsx; docs/design.md; LEARNING_LOG.md Iteration 89; screenshots/theme-theme-north-desktop.png, theme-theme-press-desktop.png, theme-theme-calfskin-desktop.png and the phone pair (gitignored)
+- **Commands that worked:** npm run check (16:24): Test Files 130 passed | 1 skipped (131), Tests 1186 passed | 2 skipped (1188); npx playwright test --ignore-snapshots e2e/reader.spec.ts -g "the theme picker recolours": 192 passed (58.1s); npx playwright test --ignore-snapshots: first run 1 failed (sideways swipe), then after the retry 388 passed (14.7m), exit 0
+- **Known issues / blockers:** CI will fail the Help page picture: the Reading sentence now names the three themes. Refresh that picture from CI with the merge train (Linux renders; do not replace them from the Mac). On a phone, Calfskin is one row below what the Aa screenshot shows until the panel is scrolled. Lamp falloff and paper grain were not built.
+- **Exact next steps:** 1. Push branch m4-reading-themes and open the pull request. 2. Merge with the merge train when the four checks are green (the Help picture will need a refresh from CI). 3. Do not deploy until Samuel says so. 4. After that, Samuel tries the three themes in Aa on a book he is reading, then Listen on The Pay Off's scan (page 51 reads the table) and his notes across Scan | Text. Open unknowns rows 31 and 27 are his, decide by 2026-10-29.
 
 ### 2026-10-26 19:27 · Claude Opus 5.5 (laptop) · Deployed f346316: notes across a scan and its text edition (#241), Listen on a scan reads its text edition (#240)
 - **Done:** #241 merged by the auto-merge Action as 70b038b7 (four checks green, run 40406586192). #240 was rebased onto it. Its browser job failed three ways before going green, each read before acting:
