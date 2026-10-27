@@ -13,13 +13,13 @@ engineer.
    and the loop to follow. Samuel is not watching (2026-10-04): work alone,
    implement → verify → merge → loop, and never stop for something only
    Samuel can give; list it under "Waiting on Samuel" and move on.
-2. Read the milestone you are working on in `docs/plan.md`, and
-   `docs/design.md` once it exists. For M14, read `docs/m14-home-plan.md`
-   first: it is the build plan, step by step.
-2a. During M14, keep `LEARNING_LOG.md` at the repo root (create it at the
-   start if it is missing; format and rules in `docs/m14-home-plan.md` §7):
-   one entry per attempt, with its hypothesis, the signal, the result as
-   measured, and the lesson. Commit it with each PR.
+2. Read the milestone you are working on in `docs/plan.md`, then its own
+   build plan in `docs/` (named there, e.g. `docs/scan-to-text-plan.md`,
+   `docs/focus-lock-plan.md`), and `docs/design.md`.
+2a. Keep `LEARNING_LOG.md` at the repo root for every milestone (format and
+   rules in `docs/m14-home-plan.md` §7): one entry per attempt, with its
+   hypothesis, the signal, the result as measured, and the lesson. Commit it
+   with each PR.
 3. If a step is blocked on a decision only Samuel can make, add it to
    `## Open unknowns` with a decide-by date, then pick the next step that is
    not blocked.
@@ -47,9 +47,27 @@ engineer.
   spending caps, notes never overwritten).
 - Keep each PR to one milestone step. Small PRs get reviewed; big ones don't.
 - To merge PRs (one at a time, rebased onto main), refresh reference
-  screenshots from CI, or decide whether a red check is a flake, use the
-  `merge-train` skill (`.claude/skills/merge-train/SKILL.md`): it holds the
-  scripts and the rules, and `docs/ci-flakes.md` lists the known flaky tests.
+  screenshots from CI, decide whether a red check is a flake, or deploy
+  (its step 6), use the `merge-train` skill
+  (`.claude/skills/merge-train/SKILL.md`); `docs/ci-flakes.md` lists the
+  known flaky tests. Two more skills sit beside it: `scan-to-text` (a
+  scanned PDF into a text edition) and `xray-on-subscription` (the X-ray,
+  a who-and-what index, for one book). Load the one that fits first.
+- Before a PR: `npm run check` (lint, types, unit tests); `npm run
+  test:postgres` when SQL or a migration changes; on a Mac, browser tests
+  with `npx playwright test --ignore-snapshots` (reference images are Linux
+  renders; the merge train refreshes them from CI).
+- Model work outside the app (reading scanned pages, building an X-ray,
+  comparing models) runs with `claude -p` on Samuel's Claude subscription,
+  not on an API key; when the subscription limit is hit, stop and wait for
+  the reset rather than switching to a paid key.
+- Deploys happen from the laptop, only at Samuel's explicit word, after a
+  backup when a migration is included. Never open a PR only to record a
+  deploy (each costs a CI round): write its ledger entry on your next
+  working branch so it rides in with the next real PR.
+- `docs/handoffs/` (session handoff notes) and `docs/ideasFeaturesSelf.md`
+  (Samuel's own notes) are gitignored on purpose: write there, never
+  force-add them.
 - Follow the ground rules in `docs/plan.md`: no copyrighted books and no
   secrets in git; every outside service (Claude, ElevenLabs, image search,
   storage) behind an interface with a fake used in tests.
@@ -67,8 +85,9 @@ changes the database layout"). Say who a document is written for.
 
 ## End of every session (no exceptions)
 
-Cloud sessions do not have the laptop's `ledger-append` tool, so edit
-`PROGRESS.md` by hand:
+On the laptop, the `checkpoint` skill (save mode) writes the handoff note
+in `docs/handoffs/` and the ledger entry. Cloud sessions do not have the
+laptop's `ledger-append` tool, so edit `PROGRESS.md` by hand:
 
 1. Add an entry at the top of `## Log` with the five fields: Done, Key paths,
    Commands that worked, Known issues / blockers, Exact next steps.
