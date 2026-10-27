@@ -169,10 +169,17 @@ highlight.
   turns at the sides, chapter + progress at the foot. Book pages get the app's
   colours (read from the tokens at run time) and fonts (`public/fonts/`);
   settings: Pages/Scroll, text size, line spacing, Serif/Sans/Book's own,
-  and theme (Auto, Paper, Sepia, Night). Themes are token sets in
-  `app/tokens.css` (`.theme-paper`, `.theme-sepia`, `.theme-night`); Paper and
-  Night must equal the light and dark values, Sepia passes the same contrast
-  checks. PDFs show one centred page at a time (pdf.js).
+  and theme (Auto, Paper, Sepia, Night, North Window, Private Press, Calfskin).
+  Themes are token sets in `app/tokens.css` (`.theme-paper`, `.theme-sepia`,
+  `.theme-night`, `.theme-north`, `.theme-press`, `.theme-calfskin`); Paper and
+  Night must equal the light and dark values, and every other theme passes the
+  same contrast checks. North Window is cool stone paper, blue-black ink and
+  the oxidised teal (`#f2f5f4`, `#1c2830`, `#2f645e`). Private Press is bright
+  cotton paper, carbon ink and a vermilion mark (`#f7f6f3`, `#1a1a1a`,
+  `#9a341f`). Calfskin is warm hide, iron-gall ink and antique gold
+  (`#f6e7cf`, `#2a2118`, `#7a5b24`). A highlighted sentence uses that theme's
+  own wash. PDFs show one centred page at a time (pdf.js); these three are
+  light themes, so a PDF page stays as printed.
 
 ## How the look is checked
 

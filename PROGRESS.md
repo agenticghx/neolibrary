@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #240 (Listen on a scan reads its text edition) when its four checks are green; then deploy main (#241 notes across editions, #240) as Samuel asked ("merge both when green, then deploy"), no migration.
+next_action: Pull request 242: Help pictures refreshed from CI; merge only when the four checks are green on the new commit. Do not deploy until Samuel says so. Then he tries the themes, and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-26
+updated: 2026-10-27
 shared_copy: none
 ---
 
@@ -18,6 +18,12 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-27 17:02 (laptop clock, from `date`). **Help page pictures refreshed from CI** for pull request 242 (run 40582302836): the four failures were `/help` on desktop and phone, light and dark. The phone picture is 27 pixels taller because the Reading sentence names the three themes. Looked at CI's four pictures; they are the Help page. Not merged, not deployed. Next: 1. Push them. 2. Merge only when the four checks are green on that commit (the later browser projects did not run in the failed job). 3. Do not deploy until Samuel says so. 4. Then he tries the three themes, and Listen on The Pay Off's scan. Rows 31 and 27 by 2026-10-29.
+
+Written 2026-10-27 16:53 (laptop clock, from `date`). **Three reading themes** on branch `m4-reading-themes`: North Window, Private Press, and Calfskin, in Aa. Pull request 242 is open. Not merged, not deployed. No database change. `npm run check` printed 1186 passed and 2 skipped. `npx playwright test --ignore-snapshots` printed `388 passed (14.7m)`. Next: 1. Merge when the four checks are green. The Help page picture will differ, because the Reading sentence names the three themes; refresh that picture from CI, not from the Mac. 2. Do not deploy until Samuel says so. 3. Then he tries the three themes in Aa on a book he is reading, and Listen on The Pay Off's scan. Open unknowns rows 31 and 27 are his, decide by 2026-10-29. This branch also carries the f346316 deploy record and the 2026-10-27 CLAUDE.md revision.
+
+Written 2026-10-26 19:27 (laptop clock, from `date`). **Live: f346316** (#241 notes across a scan and its text edition, #240 Listen on a scan reads its text edition; no migration since d08ce103, so no backup), deployed at Samuel's word ("merge both when green, then deploy"). Railway deployment 467dd2e3 SUCCESS; /api/health says f346316 on both addresses; /sign-in 200 on both. Checked live, signed in, read only, on The Pay Off's scan: Listen at page 51 reads the edition's table ("Table 1. Attributes of different payment mechanisms…"), at page 32 (blank) starts at page 33, at page 31 reads the edition's text; the scan's notes list gives 6 notes from the text edition beside its 1 own. Next: 1. Samuel tries both. 2. Polish: a table whose first header cell is empty is read with a stray leading comma (", Anonymous?, …"). 3. Open unknowns row 31 (draw highlights on scan pages) and row 27 are his. This entry sits on local branch `m25-deploy-f346316-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-26 17:40 (laptop clock, from `date`). **Notes across a scan and its text edition** (branch `m25-notes-across-editions`, Samuel's decision on Open unknowns row 23 (1)). Not merged, not deployed; no migration. Next: 1. PR after `m25-listen-edition-text` (#240) merges; rebase it (PROGRESS.md and the end of e2e/agents.spec.ts will conflict: keep both). 2. Deploy both at Samuel's word. 3. Open unknowns row 31 (highlights drawn on scan pages) is his to decide.
 
@@ -318,6 +324,35 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-27 17:02 · Grok (laptop) · Help page pictures refreshed from CI (pull request 242)
+- **Done:** The browser job on run 40582302836 failed only the four Help page pictures (desktop and phone, light and dark): 4 failed, 165 did not run, 141 passed. The Reading sentence now names North Window, Private Press and Calfskin, so the phone picture is 27 pixels taller (390 by 4913, was 390 by 4886). Looked at all four of CI's renderings: they are the Help page, and the rest of the layout is unchanged. Copied them in as the new reference pictures. Not merged. Not deployed.
+- **Key paths:** e2e/__screenshots__/help-desktop-light.png, help-desktop-dark.png, help-phone-light.png, help-phone-dark.png; LEARNING_LOG.md Iteration 90
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/attempt-log.sh 40582302836; zsh .claude/skills/merge-train/scripts/refresh-screenshots.sh 40582302836
+- **Known issues / blockers:** The later browser projects did not run, because they wait on the picture projects. The next CI round is the one that runs them. Lint on the previous commit was still going when this was written.
+- **Exact next steps:** 1. Push the four pictures. 2. Read the next run of pull request 242. Merge only when the four checks are green. 3. Do not deploy until Samuel says so. 4. Then he tries the three themes in Aa, and Listen on The Pay Off's scan. Rows 31 and 27 by 2026-10-29.
+
+### 2026-10-27 16:53 · Grok (laptop) · Three reading themes: North Window, Private Press, Calfskin
+- **Done:** Samuel picked three of the five page studies (2026-10-27): North Window, Private Press, and Calfskin. Each is now a theme in Aa, kept on this device, and a colour set of its own (cool stone and teal; bright paper and vermilion; warm hide and antique gold). Paper, Sepia, Night and Auto are unchanged. The three stay light, so a PDF page is not dimmed (only Night does that). Contrast is checked the same way as Sepia. On a phone the names wrap, and Calfskin sits on the next row, so the Aa panel has to be scrolled a little to reach it. The sideways-swipe test was failing after its own page turns: Contents then "Search for Mr. Hyde" left the footer on "Story of the Door", because the page viewer drops a jump asked for while a turn is still underway. The test now tries that chapter again until the footer names it. Not merged, not deployed. No database change.
+- **Key paths:** app/tokens.css (.theme-north, .theme-press, .theme-calfskin); app/(reader)/books/[id]/read/settings.ts, Reader.tsx, reader.module.css; lib/tokens.test.ts; e2e/reader.spec.ts; app/(app)/help/page.tsx; docs/design.md; LEARNING_LOG.md Iteration 89; screenshots/theme-theme-north-desktop.png, theme-theme-press-desktop.png, theme-theme-calfskin-desktop.png and the phone pair (gitignored)
+- **Commands that worked:** npm run check (16:24): Test Files 130 passed | 1 skipped (131), Tests 1186 passed | 2 skipped (1188); npx playwright test --ignore-snapshots e2e/reader.spec.ts -g "the theme picker recolours": 192 passed (58.1s); npx playwright test --ignore-snapshots: first run 1 failed (sideways swipe), then after the retry 388 passed (14.7m), exit 0
+- **Known issues / blockers:** CI will fail the Help page picture: the Reading sentence now names the three themes. Refresh that picture from CI with the merge train (Linux renders; do not replace them from the Mac). On a phone, Calfskin is one row below what the Aa screenshot shows until the panel is scrolled. Lamp falloff and paper grain were not built.
+- **Exact next steps:** 1. Pull request 242 is open. Merge with the merge train when the four checks are green (the Help picture will need a refresh from CI). 2. Do not deploy until Samuel says so. 3. After that, Samuel tries the three themes in Aa on a book he is reading, then Listen on The Pay Off's scan (page 51 reads the table) and his notes across Scan | Text. Open unknowns rows 31 and 27 are his, decide by 2026-10-29.
+
+### 2026-10-26 19:27 · Claude Opus 5.5 (laptop) · Deployed f346316: notes across a scan and its text edition (#241), Listen on a scan reads its text edition (#240)
+- **Done:** #241 merged by the auto-merge Action as 70b038b7 (four checks green, run 40406586192). #240 was rebased onto it. Its browser job failed three ways before going green, each read before acting:
+  - A screenshot difference on the Import page (214 px, once, not seen again).
+  - The swipe test, every time it ran: the screen ended chapter 1, so Scroll could not scroll. The test now scrolls from the top of "Search for Mr. Hyde".
+  - The new notes test, once on CI: a note from the edition was not placed on the scan though its words were there. The reader now also places notes on the pages already shown.
+  - Merged as f346316f (run 40415964590 green; checked with gh pr view 240). Deployed from the clean checkout ../neolibrary-deploy at f346316f: Railway deployment 467dd2e3 SUCCESS, /api/health "f346316" on both addresses, /sign-in 200 on both. Live, signed in once, read only (scratchpad verify-f346.mjs), on The Pay Off's scan:
+  - Page 51 reads the edition's table.
+  - Page 32 (blank) is passed over to page 33.
+  - Page 31 reads the edition's text.
+  - The scan's notes come with 6 from the text edition.
+- **Key paths:** lib/library/scan-speech.ts, lib/library/notes-across.ts, lib/reader/find-quote.ts, lib/reader/crossed-notes.ts, app/(reader)/books/[id]/read/Reader.tsx, e2e/agents.spec.ts, e2e/reader.spec.ts (swipe test), docs/ci-flakes.md
+- **Commands that worked:** gh pr checks 240 / 241; gh pr view 240 --json state,mergeCommit -> MERGED f346316f; git diff --stat b34fcdc9 f346316f -- db/migrations (empty); railway variable set NEOLIBRARY_COMMIT=f346316f... --service web --environment production --skip-deploys; railway up --service web --environment production --ci (exit 0); curl /api/health on both addresses
+- **Known issues / blockers:** Highlights on scan pages are never drawn (Open unknowns row 31). A table with an empty first header cell is read with a leading comma. Not tested in Safari's engine. Seen while fixing the swipe test: one long coasting swipe turned two pages once (locally; docs/ci-flakes.md).
+- **Exact next steps:** 1. Samuel tries Listen on The Pay Off's scan and notes across Scan | Text. 2. The leading-comma polish. 3. Rows 31 and 27 are his.
 
 ### 2026-10-26 17:40 · Claude Opus 5.5 (laptop) · Notes across a scan and its text edition (branch m25-notes-across-editions)
 - **Done:** Samuel's decision on Open unknowns row 23 (1) ("do it now not later"). A note made on a scan now shows in its text edition, and one made in the text edition shows on the scan. Each note stays where it was made, under its own book (its export and the export round trip are unchanged). The reader's GET of a book's notes now also returns the other version's notes on passages, each with its printed page (`crossed`), and the page of each of the book's own notes (`pages`), so Notes lists both in page order with "From the scan · page 12" or "From the text edition · page 12".

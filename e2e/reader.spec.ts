@@ -136,9 +136,15 @@ test("a sideways swipe turns the page, in Pages and in Scroll", async ({ page })
   // Scroll from the top of a long chapter (about a dozen pages). The turns above start where the tests before left
   // the book, and can end on a chapter's last screen, with nothing below it to scroll to (#240's CI runs
   // 40404690273, twice, and 40409472519: the screen ended with chapter 1's last paragraph).
-  await page.getByRole("button", { name: "Contents" }).click();
-  await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Search for Mr. Hyde" }).click();
-  await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible();
+  // A jump asked for while a page turn is still underway is dropped (the page viewer refuses it). The swipes
+  // above can still be turning when Contents opens, so try the chapter again until the footer names it.
+  await expect(async () => {
+    if ((await page.getByRole("navigation", { name: "Contents" }).count()) === 0) {
+      await page.getByRole("button", { name: "Contents" }).click();
+    }
+    await page.getByRole("navigation", { name: "Contents" }).getByRole("button", { name: "Search for Mr. Hyde" }).click();
+    await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible({ timeout: 1_500 });
+  }).toPass({ timeout: 15_000 });
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Scroll" }).click();
   await expect(page.getByRole("button", { name: "Scroll" })).toHaveAttribute("aria-pressed", "true");
@@ -544,6 +550,38 @@ test("the theme picker recolours the reader (Sepia), and Auto follows the device
   await page.reload();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveClass(/theme-sepia/);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  // Samuel's three picks (2026-10-27): cool daylight, a press page, warm hide.
+  const picked = [
+    ["North Window", "theme-north", "rgb(242, 245, 244)"],
+    ["Private Press", "theme-press", "rgb(247, 246, 243)"],
+    ["Calfskin", "theme-calfskin", "rgb(246, 231, 207)"],
+  ] as const;
+  await mkdir("screenshots", { recursive: true });
+  for (const [label, cls, paper] of picked) {
+    await page.getByRole("button", { name: label }).click();
+    await expect(reader(page)).toHaveClass(new RegExp(cls));
+    await expect(reader(page)).toHaveCSS("background-color", paper);
+    // Close Aa so the screenshot is the page, not the menu. Then reopen it for the next name.
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await page.screenshot({ path: `screenshots/theme-${cls}-desktop.png` });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `screenshots/theme-${cls}-phone.png` });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByRole("button", { name: "Reading settings" }).click();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  // The three new names wrap onto a second row. On a phone that row starts below the fold, so scroll it into view.
+  const north = page.getByRole("button", { name: "North Window" });
+  await north.scrollIntoViewIfNeeded();
+  await expect(north).toBeVisible();
+  await expect(page.getByRole("button", { name: "Private Press" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Calfskin" })).toBeVisible();
+  await page.screenshot({ path: "screenshots/theme-picker-phone.png" });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveClass(/theme-calfskin/);
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Auto" }).click();
   await expect(reader(page)).not.toHaveClass(/theme-/);

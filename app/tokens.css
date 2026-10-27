@@ -218,7 +218,8 @@
 /*
  * Explicit themes, used by the reader's theme picker (and anything else that
  * wants one). Paper and Night must equal the light and dark values above
- * (checked in lib/tokens.test.ts); Sepia is its own warm set.
+ * (checked in lib/tokens.test.ts). Sepia, North Window, Private Press and
+ * Calfskin are their own sets and pass the same contrast checks.
  */
 
 /* Paper: the light theme */
@@ -369,4 +370,154 @@
   --tabbar-edge: #e7ddc914;
   --shadow-panel: 0 1px 2px #0000004d, 0 16px 40px -16px #0000008c;
   --shadow-chip: 0 0 0 #0000;
+}
+
+/* North Window: cool daylight. Stone paper, blue-black ink, the same oxidised teal. */
+.theme-north {
+  color-scheme: light;
+  --paper: #f2f5f4;
+  --paper-raised: #f8fbfa;
+  --paper-sunken: #e3ebe8;
+  --ink-900: #1c2830;
+  --ink-700: #314049;
+  --ink-500: #4a5b64;
+  --rule: #d2dbd8;
+  --accent: #2f645e;
+  --accent-strong: #234e49;
+  --on-accent: #f8fbfa;
+  --highlight: #d4e6df;
+  --highlight-active: #8fbfb3;
+  --focus-ring: #234e49;
+  --machine-ink: #314049;
+  --machine-bg: #e6ebf2;
+  --machine-rule: #6d7c98;
+  --cover-navy: #22384a;
+  --cover-green: #2e5a50;
+  --cover-ink: #f0e8d8;
+  --cover-empty: #d5ddda;
+  --cover-empty-ink: #3d4c54;
+  --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
+  --shadow-cover: 0 1px 1px #1c283014, 0 6px 14px #1c283024, 0 18px 30px -12px #1c28302e;
+  --shadow-raised: 0 1px 2px #1c28301a, 0 8px 24px -8px #1c283029;
+  --scrim: #1c283059; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --heat-1: #d5dfde; /* reading calendar shades (M21) */
+  --heat-2: #c5d4d2;
+  --heat-3: #b6c8c6;
+  --heat-4: #2f645e;
+  --room-1: #7e96a4;
+  --room-2: #a8bcc6;
+  --room-3: #e4eae8;
+  --room-base: #f2f5f4;
+  --room-sage: #d5e4dc99;
+  --room-glow: #f8fbfacc;
+  --panel: #f8fbfae0;
+  --panel-edge: #1c28301f;
+  --rail: #f8fbfa6b;
+  --rail-edge: #f8fbfa99;
+  --nav-hover: #f8fbfa73;
+  --nav-current: #f8fbfacc;
+  --tabbar: #f8fbfad1;
+  --tabbar-edge: #f8fbfaa6;
+  --shadow-panel: 0 1px 2px #1c28300f, 0 14px 36px -14px #1c283038;
+  --shadow-chip: 0 1px 2px #1c28301f, 0 4px 10px -4px #1c28301f;
+}
+
+/* Private Press: bright cotton paper, carbon ink, one vermilion mark. */
+.theme-press {
+  color-scheme: light;
+  --paper: #f7f6f3;
+  --paper-raised: #fcfbf8;
+  --paper-sunken: #ebe9e3;
+  --ink-900: #1a1a1a;
+  --ink-700: #3a3a3a;
+  --ink-500: #595959;
+  --rule: #e0ddd4;
+  --accent: #9a341f;
+  --accent-strong: #7a2918;
+  --on-accent: #fcfbf8;
+  --highlight: #f4e2dc;
+  --highlight-active: #e2b0a4;
+  --focus-ring: #7a2918;
+  --machine-ink: #3a3a3a;
+  --machine-bg: #e7e8f0;
+  --machine-rule: #6e6a86;
+  --cover-navy: #22384a;
+  --cover-green: #2e5a50;
+  --cover-ink: #f0e8d8;
+  --cover-empty: #e3e1db;
+  --cover-empty-ink: #454545;
+  --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
+  --shadow-cover: 0 1px 1px #1a1a1a14, 0 6px 14px #1a1a1a24, 0 18px 30px -12px #1a1a1a2e;
+  --shadow-raised: 0 1px 2px #1a1a1a1a, 0 8px 24px -8px #1a1a1a29;
+  --scrim: #1a1a1a59; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --heat-1: #e9d9d3; /* reading calendar shades (M21) */
+  --heat-2: #e2c9c2;
+  --heat-3: #dabab1;
+  --heat-4: #9a341f;
+  --room-1: #8f8c86;
+  --room-2: #bdbab4;
+  --room-3: #eceae6;
+  --room-base: #f7f6f3;
+  --room-sage: #e4e2da99;
+  --room-glow: #fcfbf8cc;
+  --panel: #fcfbf8e0;
+  --panel-edge: #1a1a1a1f;
+  --rail: #fcfbf86b;
+  --rail-edge: #fcfbf899;
+  --nav-hover: #fcfbf873;
+  --nav-current: #fcfbf8cc;
+  --tabbar: #fcfbf8d1;
+  --tabbar-edge: #fcfbf8a6;
+  --shadow-panel: 0 1px 2px #1a1a1a0f, 0 14px 36px -14px #1a1a1a38;
+  --shadow-chip: 0 1px 2px #1a1a1a1f, 0 4px 10px -4px #1a1a1a1f;
+}
+
+/* Calfskin: warm hide, iron-gall ink, an antique-gold mark. */
+.theme-calfskin {
+  color-scheme: light;
+  --paper: #f6e7cf;
+  --paper-raised: #fbf3e4;
+  --paper-sunken: #ead9bc;
+  --ink-900: #2a2118;
+  --ink-700: #4a3c2e;
+  --ink-500: #64543f;
+  --rule: #e0d0b2;
+  --accent: #7a5b24;
+  --accent-strong: #5c4318;
+  --on-accent: #fbf3e4;
+  --highlight: #edd9a6;
+  --highlight-active: #d4b56a;
+  --focus-ring: #5c4318;
+  --machine-ink: #4a3c2e;
+  --machine-bg: #ebe3ef;
+  --machine-rule: #7d6a90;
+  --cover-navy: #22384a;
+  --cover-green: #2e5a50;
+  --cover-ink: #f0e8d8;
+  --cover-empty: #e6d5b8;
+  --cover-empty-ink: #4a3c2e;
+  --spine-fill: #00000047; /* a spine's read part: the cloth darkened (M14) */
+  --shadow-cover: 0 1px 1px #2a211814, 0 6px 14px #2a211824, 0 18px 30px -12px #2a21182e;
+  --shadow-raised: 0 1px 2px #2a21181a, 0 8px 24px -8px #2a211829;
+  --scrim: #2a211859; /* the page dimmed behind a sheet (the phone account menu, M18) */
+  --heat-1: #deccaf; /* reading calendar shades (M21) */
+  --heat-2: #d2be9d;
+  --heat-3: #c8b390;
+  --heat-4: #7a5b24;
+  --room-1: #a89878;
+  --room-2: #cfc0a4;
+  --room-3: #f0e4d0;
+  --room-base: #f6e7cf;
+  --room-sage: #e7dcc499;
+  --room-glow: #fbf3e4cc;
+  --panel: #fbf3e4e0;
+  --panel-edge: #2a21181f;
+  --rail: #fbf3e46b;
+  --rail-edge: #fbf3e499;
+  --nav-hover: #fbf3e473;
+  --nav-current: #fbf3e4cc;
+  --tabbar: #fbf3e4d1;
+  --tabbar-edge: #fbf3e4a6;
+  --shadow-panel: 0 1px 2px #2a21180f, 0 14px 36px -14px #2a211838;
+  --shadow-chip: 0 1px 2px #2a21181f, 0 4px 10px -4px #2a21181f;
 }

@@ -592,6 +592,16 @@
   cursor: default;
 }
 
+/* Seven theme names do not fit one row of the Aa panel. Short names share a row; long ones wrap. */
+.themeChoices {
+  flex-wrap: wrap;
+}
+
+.themeChoices .segmentButton {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
 .rewrittenModes .segmentButton {
   flex: none;
   white-space: nowrap;
