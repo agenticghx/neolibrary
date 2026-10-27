@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 242 (North Window, Private Press, Calfskin) is open. Merge when the four checks are green; the Help page picture will need a refresh from CI. Do not deploy until Samuel says so. Then he tries the themes, and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
+next_action: Pull request 242: Help pictures refreshed from CI; merge only when the four checks are green on the new commit. Do not deploy until Samuel says so. Then he tries the themes, and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-27
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-27 17:02 (laptop clock, from `date`). **Help page pictures refreshed from CI** for pull request 242 (run 40582302836): the four failures were `/help` on desktop and phone, light and dark. The phone picture is 27 pixels taller because the Reading sentence names the three themes. Looked at CI's four pictures; they are the Help page. Not merged, not deployed. Next: 1. Push them. 2. Merge only when the four checks are green on that commit (the later browser projects did not run in the failed job). 3. Do not deploy until Samuel says so. 4. Then he tries the three themes, and Listen on The Pay Off's scan. Rows 31 and 27 by 2026-10-29.
 
 Written 2026-10-27 16:53 (laptop clock, from `date`). **Three reading themes** on branch `m4-reading-themes`: North Window, Private Press, and Calfskin, in Aa. Pull request 242 is open. Not merged, not deployed. No database change. `npm run check` printed 1186 passed and 2 skipped. `npx playwright test --ignore-snapshots` printed `388 passed (14.7m)`. Next: 1. Merge when the four checks are green. The Help page picture will differ, because the Reading sentence names the three themes; refresh that picture from CI, not from the Mac. 2. Do not deploy until Samuel says so. 3. Then he tries the three themes in Aa on a book he is reading, and Listen on The Pay Off's scan. Open unknowns rows 31 and 27 are his, decide by 2026-10-29. This branch also carries the f346316 deploy record and the 2026-10-27 CLAUDE.md revision.
 
@@ -322,6 +324,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-27 17:02 · Grok (laptop) · Help page pictures refreshed from CI (pull request 242)
+- **Done:** The browser job on run 40582302836 failed only the four Help page pictures (desktop and phone, light and dark): 4 failed, 165 did not run, 141 passed. The Reading sentence now names North Window, Private Press and Calfskin, so the phone picture is 27 pixels taller (390 by 4913, was 390 by 4886). Looked at all four of CI's renderings: they are the Help page, and the rest of the layout is unchanged. Copied them in as the new reference pictures. Not merged. Not deployed.
+- **Key paths:** e2e/__screenshots__/help-desktop-light.png, help-desktop-dark.png, help-phone-light.png, help-phone-dark.png; LEARNING_LOG.md Iteration 90
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/attempt-log.sh 40582302836; zsh .claude/skills/merge-train/scripts/refresh-screenshots.sh 40582302836
+- **Known issues / blockers:** The later browser projects did not run, because they wait on the picture projects. The next CI round is the one that runs them. Lint on the previous commit was still going when this was written.
+- **Exact next steps:** 1. Push the four pictures. 2. Read the next run of pull request 242. Merge only when the four checks are green. 3. Do not deploy until Samuel says so. 4. Then he tries the three themes in Aa, and Listen on The Pay Off's scan. Rows 31 and 27 by 2026-10-29.
 
 ### 2026-10-27 16:53 · Grok (laptop) · Three reading themes: North Window, Private Press, Calfskin
 - **Done:** Samuel picked three of the five page studies (2026-10-27): North Window, Private Press, and Calfskin. Each is now a theme in Aa, kept on this device, and a colour set of its own (cool stone and teal; bright paper and vermilion; warm hide and antique gold). Paper, Sepia, Night and Auto are unchanged. The three stay light, so a PDF page is not dimmed (only Night does that). Contrast is checked the same way as Sepia. On a phone the names wrap, and Calfskin sits on the next row, so the Aa panel has to be scrolled a little to reach it. The sideways-swipe test was failing after its own page turns: Contents then "Search for Mr. Hyde" left the footer on "Story of the Door", because the page viewer drops a jump asked for while a turn is still underway. The test now tries that chapter again until the footer names it. Not merged, not deployed. No database change.

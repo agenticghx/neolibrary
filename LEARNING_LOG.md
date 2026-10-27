@@ -68,6 +68,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 80 | 2026-10-09 16:45 | PDF made voice (Part A) | Each word of an AI-voice paragraph in a PDF can be placed on its page the way an uploaded audiobook's words are | npm run check; full browser suite; 1 unit + 1 browser mutation; The Grid pages 22-25 by hand | success (one WebKit flake in the new test, cause removed) | a stale lit word at a paragraph change is not a new word |
 | 81 | 2026-10-09 22:20 | Row 14 (b) | The highlight tests can forgive a word only the machine skipped (no redraw while it was said) and still catch a real skip | 5 unit tests; full browser suite; a player that skips every fifth word | success | judge a skip by the redraws, not by the time it took |
 | 89 | 2026-10-27 20:30 | Reading themes | North Window, Private Press and Calfskin recolour the page and pass the same contrast checks as Sepia | `npm run check`; Playwright `--ignore-snapshots` | success (CI help-page image still to refresh) | a phone screenshot of a menu shows only what was scrolled into view |
+| 90 | 2026-10-27 21:02 | Help pictures | CI's Help page pictures differ only because the Reading sentence names the three themes | run 40582302836; looked at the four pictures | success (the rest of that browser job did not run) | a failed picture comparison stops the later browser projects |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2271,3 +2272,12 @@ tests that pin it, in a small PR.
 **Result.** Desktop pages of Jekyll and Hyde: cool grey-green paper and a teal progress mark (North Window), bright off-white and a red mark (Private Press), warm tan and a brown-gold mark (Calfskin). Phone pages of the same chapter read the same way. On a phone the Aa list wraps: Auto, Paper, Sepia, Night, then North Window and Private Press. Calfskin is the next row, under the bar at the bottom of that screenshot, so a reader scrolls the Aa panel a little to reach it. The test's "visible" check does not require the button to be on screen.
 **Lesson.** A phone screenshot of a long menu shows only the rows that were scrolled into view. `toBeVisible` is not "on the screen": look at the picture.
 **Next experiment.** CI will fail the Help page picture (the Reading sentence names the three themes). Refresh that picture from CI with the merge train. Do not deploy until Samuel says so.
+
+### Iteration 90 · 2026-10-27 17:02 (laptop clock) · Help page pictures from CI · success
+
+**Hypothesis.** The only picture comparison that fails on pull request 242 is `/help`, because the Reading sentence now names North Window, Private Press and Calfskin, and the new pictures are still the Help page.
+**Action.** Read run 40582302836. Copied CI's four `*-actual.png` files into `e2e/__screenshots__` and looked at each one.
+**Evaluation.** The browser job: `4 failed`, `165 did not run`, `141 passed (1.7m)`. The four failures are `help looks as approved` on desktop and phone, light and dark. The phone pictures were expected at 390×4886 and arrived at 390×4913 (27 pixels taller; about 101,000 and 105,000 pixels differ).
+**Result.** All four pictures are the Help page. The Reading card names Paper, Sepia, Night, North Window, Private Press, Calfskin. Light and dark, phone and desktop, the rest of the page is the same layout. The later browser projects did not run, because they wait on these picture projects.
+**Lesson.** A failed picture comparison stops the later browser projects. One page change can take a second CI round before the rest of the suite is seen.
+**Next experiment.** Push the four pictures. Read the next run. Do not merge until the four checks are green. Do not deploy until Samuel says so.
