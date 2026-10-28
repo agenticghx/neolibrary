@@ -526,7 +526,9 @@ test.describe("command palette", () => {
 });
 
 // M24 (Samuel, 2026-10-14: "a carousel for the books like how it is in Hark"), shown on the design page
-// with sample books. It moves only when asked, and settles with one book in the middle, named in its pill.
+// with sample books. It settles with one book in the middle, named in its pill. Since 2026-10-27 it drifts
+// slowly on its own, but never under a test robot unless the test asks (BookCarousel.tsx, mayDrift), so the
+// first tests below see a strip that moves only when asked; the "drift" tests ask.
 test.describe("book carousel", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -548,7 +550,7 @@ test.describe("book carousel", () => {
     }).toPass({ timeout: 10_000 });
     // The middle book's pill shows; a neighbour's does not.
     await expect(middle.getByText("Listen only")).toBeVisible();
-    // Nothing moves on its own.
+    // Without the drift (a test robot that did not ask for it), nothing moves on its own.
     await page.waitForTimeout(1_000);
     await expect(middle).toContainText("Walden");
 
@@ -566,6 +568,73 @@ test.describe("book carousel", () => {
     await carousel.getByRole("link", { name: /Middlemarch/ }).focus();
     await expect(middle).toContainText("Middlemarch");
     await expect(carousel.getByRole("button", { name: "Next book" })).toBeDisabled();
+  });
+
+  // Samuel 2026-10-27: "make the book carousel slow moving; moving the mouse cursor to a book pauses the motion
+  // and brings it in focus a bit."
+  test("drift: the strip moves on its own, stops under the mouse, brings that book forward, and moves on after", async ({ page }) => {
+    await page.addInitScript(() => Object.assign(window, { neolibraryDrift: true }));
+    await page.goto("/design");
+    const carousel = page.getByRole("region", { name: "Sample books" });
+    const strip = carousel.locator("ul");
+    await carousel.scrollIntoViewIfNeeded();
+    await page.mouse.move(2, 2);
+    await expect(strip).toHaveAttribute("data-drifting", "");
+    const left = () => strip.evaluate((ul) => ul.scrollLeft);
+    const before = await left();
+    await expect.poll(left, { timeout: 5_000 }).not.toBe(before);
+
+    // The mouse onto the strip stops it where it is. (Moved by hand: Playwright's hover() first waits for the
+    // cover to hold still, which a drifting cover rarely does for long.) Then the book under the mouse
+    // straightens and grows a little.
+    const box = (await strip.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
+    const stopped = await left();
+    await page.waitForTimeout(1_000);
+    expect(await left()).toBe(stopped);
+    const book = carousel.getByRole("listitem").filter({ has: page.getByRole("link", { name: /^Walden/ }) });
+    await book.hover();
+    await expect.poll(() => book.evaluate((li) => new DOMMatrix(getComputedStyle(li).transform).a)).toBeGreaterThan(1.03);
+    await expect(book.getByText("Listen only")).toBeVisible();
+
+    // Clicking the still book opens it (the sample books link to the carousel itself).
+    await book.getByRole("link").click();
+    await expect(page).toHaveURL(/\/design#carousel$/);
+
+    // The mouse away (and the keyboard out of the strip): it moves again.
+    await page.mouse.click(2, 2);
+    await expect.poll(left, { timeout: 8_000 }).not.toBe(stopped);
+  });
+
+  test("drift: never for a reader who asks for less motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => Object.assign(window, { neolibraryDrift: true }));
+    await page.goto("/design");
+    const strip = page.getByRole("region", { name: "Sample books" }).locator("ul");
+    await strip.scrollIntoViewIfNeeded();
+    await page.mouse.move(2, 2);
+    await expect(strip).not.toHaveAttribute("data-drifting");
+    const before = await strip.evaluate((ul) => ul.scrollLeft);
+    await page.waitForTimeout(1_500);
+    expect(await strip.evaluate((ul) => ul.scrollLeft)).toBe(before);
+  });
+
+  test("drift: on a phone, a finger on the strip stops it, and it moves again a little after", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => Object.assign(window, { neolibraryDrift: true }));
+    await page.goto("/design");
+    const strip = page.getByRole("region", { name: "Sample books" }).locator("ul");
+    await strip.scrollIntoViewIfNeeded();
+    const left = () => strip.evaluate((ul) => ul.scrollLeft);
+    const before = await left();
+    await expect.poll(left, { timeout: 5_000 }).not.toBe(before);
+    const touch = { pointerType: "touch", isPrimary: true, pointerId: 7, bubbles: true };
+    await strip.dispatchEvent("pointerdown", touch);
+    const held = await left();
+    await page.waitForTimeout(1_000);
+    expect(await left()).toBe(held);
+    await strip.dispatchEvent("pointerup", touch);
+    await expect.poll(left, { timeout: 8_000 }).not.toBe(held);
   });
 
   test("on a phone, the strip scrolls inside the page, never the page sideways", async ({ page }) => {

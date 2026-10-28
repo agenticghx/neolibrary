@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull request 242: Help pictures refreshed from CI; merge only when the four checks are green on the new commit. Do not deploy until Samuel says so. Then he tries the themes, and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
+next_action: Samuel looks at the drifting book carousel on Home (pace, the hovered book); then the three themes in Aa and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-27
 shared_copy: none
@@ -18,6 +18,10 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-27 21:15 (laptop clock, from `date`). **The book carousel drifts** (branch `m24-carousel-drift`, Samuel 2026-10-27: "make the book carousel slow moving; moving the mouse cursor to a book pauses the motion and brings it in focus a bit"; phones too). Next: 1. PR; merge when the four checks are green. 2. Deploy (Samuel said deploy in the same message; no migration, so no backup). 3. Samuel looks at it on Home: is the pace right (18 px a second, about one book every ten seconds)?
+
+Written 2026-10-27 19:36 (laptop clock, from `date`). **Live: 987e941** (North Window, Private Press, Calfskin; no migration since f346316, so no backup), deployed after the four checks were green and pull request 242 merged. Railway deployment 7b0e1f98; `railway up --ci` exit 0. /api/health says 987e941 on both addresses; /sign-in 200 on both. The log says "Page pictures: ready." Not tried while signed in. Next: 1. Samuel tries the three themes in Aa on a book he is reading. 2. He tries Listen on The Pay Off's scan and his notes across Scan | Text. 3. Open unknowns rows 31 and 27 are his, decide by 2026-10-29. This entry sits on local branch `m4-deploy-987e941-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-27 17:02 (laptop clock, from `date`). **Help page pictures refreshed from CI** for pull request 242 (run 40582302836): the four failures were `/help` on desktop and phone, light and dark. The phone picture is 27 pixels taller because the Reading sentence names the three themes. Looked at CI's four pictures; they are the Help page. Not merged, not deployed. Next: 1. Push them. 2. Merge only when the four checks are green on that commit (the later browser projects did not run in the failed job). 3. Do not deploy until Samuel says so. 4. Then he tries the three themes, and Listen on The Pay Off's scan. Rows 31 and 27 by 2026-10-29.
 
@@ -324,6 +328,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-27 21:15 · Claude (laptop) · The book carousel drifts slowly and stops under the mouse
+- **Done:** Samuel asked for a slowly moving book carousel where pointing at a book stops it and brings that book forward a little, on phones too (a finger stops it). The strip on Home, Library and the design page now drifts at 18 px a second and turns back at each end. It does not wrap around: wrapping needs duplicate covers, which would break Tab order and the tests that count the books on the shelf. It stops while the mouse is over it, a finger is on it, or the keyboard is in it, and for 2.5 s after a touch, an arrow or a drag. It does not drift off screen, for readers who turned on "reduce motion", or under a test robot unless the test asks. The book under the mouse straightens and grows to 1.06 with its title pill. This replaces Samuel's 2026-10-14 rule "nothing moves on its own".
+- **Key paths:** `components/home/BookCarousel.tsx`, `components/home/BookCarousel.module.css`, `e2e/shell.spec.ts` (three drift tests), `LEARNING_LOG.md` iteration 91.
+- **Commands that worked:** `npm run check` → `Tests 1186 passed | 2 skipped (1188)`, exit 0. With one test server started by hand (`npx next start -p 3100` with the webServer env from `playwright.config.ts`): `npx playwright test --project=setup`, then `npx playwright test --project=shell --no-deps -g "book carousel" --repeat-each 3` → `15 passed (10.0s)`. A script in Chromium and WebKit: WebKit desktop "drift 600->626 | mouse on Walden 628->628 (scale 1.060) | mouse away 628->682"; WebKit phone "finger held 506->506 | 4 s after lifting 533".
+- **Known issues / blockers:** Not checked on a real iPhone. WebKit was tested only through Playwright's own build. Running the setup and shell projects in two separate `playwright test` calls without a server you started yourself wipes the test database between them, so the shell tests land on the sign-in page.
+- **Exact next steps:** PR, merge when green, deploy (Samuel's word given), Samuel's verdict on the pace.
+
+### 2026-10-27 19:36 · Grok (laptop) · Deployed 987e941: North Window, Private Press, Calfskin
+- **Done:** Pull request 242 merged as 987e941b (four checks green on 9b27ec95; main CI run 40592230888 success on the merge). No database change since f346316, so no backup. Deployed from a clean detached checkout of 987e941b in ../neolibrary-deploy. railway up --ci exit 0. Deployment 7b0e1f98. /api/health says 987e941 on library.samuelahuno.com and on web-production-f27a0e.up.railway.app. /sign-in is 200 on both. The log says "Page pictures: ready."
+- **Key paths:** ../neolibrary-deploy at 987e941bfdcce37c5a92ceeb5ee9d0e78949cd7e; https://github.com/agenticghx/neolibrary/pull/242
+- **Commands that worked:** gh pr view 242 --json state,mergeCommit,statusCheckRollup; git diff --stat f346316f 987e941b -- db/migrations (empty); railway variable set NEOLIBRARY_COMMIT=987e941bfdcce37c5a92ceeb5ee9d0e78949cd7e --service web --environment production --skip-deploys; railway up --service web --environment production --ci (exit 0); curl /api/health and /sign-in on both addresses
+- **Known issues / blockers:** Not tried while signed in. Samuel still has to open Aa on a book and pick the three themes. Open unknowns rows 31 and 27 are his, decide by 2026-10-29.
+- **Exact next steps:** 1. Samuel tries North Window, Private Press and Calfskin in Aa on a book he is reading. 2. He tries Listen on The Pay Off's scan (page 51 reads the table) and his notes across Scan | Text. 3. Rows 31 and 27 by 2026-10-29. This entry stays on the local branch until the next real pull request.
 
 ### 2026-10-27 17:02 · Grok (laptop) · Help page pictures refreshed from CI (pull request 242)
 - **Done:** The browser job on run 40582302836 failed only the four Help page pictures (desktop and phone, light and dark): 4 failed, 165 did not run, 141 passed. The Reading sentence now names North Window, Private Press and Calfskin, so the phone picture is 27 pixels taller (390 by 4913, was 390 by 4886). Looked at all four of CI's renderings: they are the Help page, and the rest of the layout is unchanged. Copied them in as the new reference pictures. Not merged. Not deployed.
