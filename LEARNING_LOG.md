@@ -2322,3 +2322,12 @@ tests that pin it, in a small PR.
 **Lesson.** A mouse click leaves focus on the button it clicked. A rule meant for keyboard users ("keep it while focused") must say keyboard focus (`:focus-visible`), or it also holds for every mouse user.
 **Next experiment.** CI; then Samuel tries it in his own browser.
 
+### Iteration 95 · 2026-10-28 00:38 (laptop clock) · Full screen on a phone · success
+
+**Hypothesis.** CI's failure on #246 (`ai.spec.ts:992`, "phone light: sideways scroll", `Received: 12`) is caused by the new button: the reader's bar on a 390 px phone fits without a note count (my screenshot) but not with "Notes (n)".
+**Action.** Hid the Full screen button at 48rem (768 px) and narrower (`.fullTool`); F still works there. In the test, the phone part checks the button is hidden and uses F.
+**Evaluation.** `npx playwright test --project=ai --ignore-snapshots` (every project up to and including ai).
+**Result.** `254 passed (4.5m)`, including `ai.spec.ts:992`.
+**Lesson.** A bar that "still fits" in my screenshot is one state of it. Check the widest state (counts, long labels) before adding a control to a full bar. Another project's layout test caught what mine did not.
+**Next experiment.** CI on the new push; deploy at Samuel's word ("deploy when it merges").
+

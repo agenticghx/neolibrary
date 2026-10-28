@@ -535,7 +535,12 @@ test("full screen: the button and F fill the screen; the bars fade when still an
       await page.emulateMedia({ colorScheme: scheme });
       await page.reload();
       await expect(r).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-      await page.getByRole("button", { name: "Full screen" }).click();
+      // On a phone held upright the bar has no room for the button (the page would scroll sideways); F still works.
+      if (name === "phone") {
+        await expect(page.getByRole("button", { name: "Full screen" })).toBeHidden();
+        await page.keyboard.press("f");
+      } else await page.getByRole("button", { name: "Full screen" }).click();
+      await expect(r).toHaveAttribute("data-fullscreen", "");
       await page.mouse.move(w / 2, h / 2);
       await page.waitForTimeout(500);
       await page.screenshot({ path: `screenshots/reader-fullscreen-shown-${name}-${scheme}.png` });

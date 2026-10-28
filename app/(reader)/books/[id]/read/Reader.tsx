@@ -507,7 +507,8 @@ export function Reader(props: {
   }, [shortcuts]);
   // Full screen (Samuel 2026-10-28: "if I can enjoy Netflix in full screen then I should also enjoy reading in full
   // screen"): the whole page, so the panels and dialogs come along. The button shows only where the browser allows
-  // it (not on an iPhone, where Safari keeps full screen for videos). Esc, F or the button leave it.
+  // it (not on an iPhone, where Safari keeps full screen for videos), and not on a narrow screen, where the bar is
+  // full (it pushed the page 12 px sideways with a note count, CI run on #246). Esc, F or the button leave it.
   const canFull = useSyncExternalStore(noSubscribe, () => document.fullscreenEnabled === true, () => false);
   const full = useSyncExternalStore(onFullscreenChange, () => document.fullscreenElement !== null, () => false);
   const [idle, setIdle] = useState(false);
@@ -1955,7 +1956,7 @@ export function Reader(props: {
           {canFull ? (
             <button
               type="button"
-              className={`${styles.tool} ${styles.leadTool}`}
+              className={`${styles.tool} ${styles.leadTool} ${styles.fullTool}`}
               aria-pressed={full}
               aria-label={full ? "Leave full screen" : "Full screen"}
               title={full ? "Leave full screen (F or Esc)" : "Full screen (F)"}

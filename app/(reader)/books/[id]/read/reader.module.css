@@ -1422,6 +1422,11 @@
     display: none;
   }
 
+  /* The bar is full on a phone held upright: full screen is for wider screens (F still works with a keyboard). */
+  .fullTool {
+    display: none;
+  }
+
   .stage {
     grid-template-columns: var(--space-6) 1fr var(--space-6);
   }
