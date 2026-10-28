@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel looks at the faster carousel drift on Home (27 px a second, a book about every 7 s); then the three themes in Aa and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
+next_action: Samuel says go for M34 (a public showcase with three free books, docs/plan.md) or changes its defaults; meanwhile he looks at the faster carousel on Home.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-27
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-27 22:44 (laptop clock, from `date`). **Live: 395091b** (#244, the carousel drifts at 27 px a second, was 18; no migration, so no backup), deployed at Samuel's word ("make it a bit faster, deploy"). **M34 is recorded, not started** (`docs/plan.md`, branch `m34-public-showcase-plan`): the site opens to anyone with three public-domain books (The Time Machine, Jekyll and Hyde, Frankenstein); the rest stays behind Samuel's sign-in. Next: 1. PR for the record; merge when green. 2. Build M34 S1 to S4 only when Samuel says go; S1 has a migration, so a production backup before its deploy.
 
 Written 2026-10-27 21:53 (laptop clock, from `date`). **The carousel drifts a bit faster** (branch `m24-carousel-faster`, Samuel: "make it a bit faster, deploy"): 27 px a second, was 18. Next: 1. PR; merge when the four checks are green. 2. Deploy (Samuel's word given; no migration, no backup). 3. Samuel's eye on the pace.
 
@@ -332,6 +334,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-27 22:44 · Claude (laptop) · Deployed 395091b (faster carousel); M34 public showcase recorded
+- **Done:** #244 merged on its second CI attempt. Attempt 1 had two problems. First, one browser test failed: `e2e/agents.spec.ts:318`, a note not drawn on the scan within 15 s. It passed on attempt 2, so it is logged in `docs/ci-flakes.md`. Second, the PR-hygiene job hung for 27 min in `actions/checkout`; the run was cancelled and the failed jobs re-run. Deployed 395091b at Samuel's word. Then Samuel asked for a public showcase, and it is recorded as M34 in `docs/plan.md`. The three free books are The Time Machine, Jekyll and Hyde and Frankenstein, all Standard Ebooks editions per the live export. Meditations stays private: the file is the Oxford World's Classics edition, whose translation is under copyright. Samuel chose Frankenstein in its place.
+- **Key paths:** `docs/plan.md` (M34), `docs/ci-flakes.md`, `components/home/BookCarousel.tsx` (DRIFT 27).
+- **Commands that worked:** `railway variable set NEOLIBRARY_COMMIT=395091bce694211ad768caf7cd707f248f73aca0 ... --skip-deploys`; `railway up --service web --environment production --ci` → "Deploy complete". `/api/health` on both addresses → `"commit":"395091b"`; `/sign-in` 200 on both; log "Page pictures: ready.". Signed in once, as before: live drift `665 -> 771` over 4 s = 26.5 px a second. `gh run cancel 40617954946`, then `gh run rerun 40617954946 --failed`.
+- **Known issues / blockers:** M34 waits on Samuel's go. Its defaults are in the plan: visitors see stored AI answers only, use no paid voice, and keep notes in their own browser.
+- **Exact next steps:** Merge this PR when green. Build M34 at Samuel's word.
 
 ### 2026-10-27 21:53 · Claude (laptop) · The carousel drifts a bit faster
 - **Done:** Samuel asked for the drift "a bit faster". `DRIFT` is now 27 px a second, was 18: a new book reaches the middle about every 7 s on a computer (was 11 s) and every 6 s on a phone (was 9 s). This branch also carries the f3e7eae deploy record.

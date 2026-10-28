@@ -71,6 +71,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 90 | 2026-10-27 21:02 | Help pictures | CI's Help page pictures differ only because the Reading sentence names the three themes | run 40582302836; looked at the four pictures | success (the rest of that browser job did not run) | a failed picture comparison stops the later browser projects |
 | 91 | 2026-10-28 01:15 | Carousel drift | The book strip can drift slowly, stop under a mouse or finger, and bring the pointed-at book forward, without making any cover-clicking test or reference picture unsteady | `npm run check`; carousel tests ×3; Chromium and WebKit by script; screenshots | success (CI to come) | a moving element never passes Playwright's "still" wait: keep motion off under the robot and test it on purpose |
 | 92 | 2026-10-28 01:55 | Carousel pace | 27 px a second is "a bit faster" and changes nothing else | `npm run check`; carousel tests ×3; Chromium and WebKit by script | success (Samuel's eye to come) | state a pace as seconds per book, which Samuel can judge |
+| 93 | 2026-10-28 02:44 | #244 CI | A red browser job on a speed-only change is a flake, and a stuck job is the runner, not the code | the failed test's log; the stuck job's steps; attempt 2 | success | a wait loop must also end on failure; read a stuck job's steps before waiting longer |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2301,4 +2302,13 @@ tests that pin it, in a small PR.
 **Result.** `Tests 1186 passed | 2 skipped (1188)`, exit 0; `15 passed (10.1s)`. Script, over 1.5 s: WebKit desktop "drift 600->640 | mouse on Walden 642->642 (scale 1.060)"; WebKit phone "drift 480->519 | finger held 519->519 | 4 s after lifting 560" (was 600->626 and 480->506 at 18).
 **Lesson.** Give Samuel a pace as seconds per book; pixels a second mean nothing on their own.
 **Next experiment.** Samuel's eye on the live site.
+
+### Iteration 93 · 2026-10-27 22:44 (laptop clock) · #244's CI · success
+
+**Hypothesis.** The red browser job on #244 (which changed only one number in the carousel) is not caused by the change, and the PR-hygiene check that stayed "pending" is a stuck runner.
+**Action.** Read the failed job's log through `gh api .../actions/jobs/<id>/logs` (`gh run view --log-failed` refuses while any job runs). Read the stuck job's steps. Cancelled the run, then re-ran the failed jobs once.
+**Evaluation.** The failing test's name and error; the stuck job's step states; attempt 2.
+**Result.** One failure: `e2e/agents.spec.ts:318` (notes between a scan and its text edition), `data-placed` stayed "no" for 15 s. 303 passed. The hygiene job was "Run actions/checkout@v5: in_progress" 27 min after it started (1 min on #243). Attempt 2: all four checks success, and auto-merge merged 395091b.
+**Lesson.** My first wait loop ("until the PR is no longer open") would have waited forever on a red check, because auto-merge never merges one. Every wait must end on failure too. A check that is still pending long after its usual time: read its steps before waiting longer.
+**Next experiment.** If `agents.spec.ts:318` fails again, investigate it as real (`docs/ci-flakes.md`).
 
