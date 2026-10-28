@@ -70,6 +70,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 89 | 2026-10-27 20:30 | Reading themes | North Window, Private Press and Calfskin recolour the page and pass the same contrast checks as Sepia | `npm run check`; Playwright `--ignore-snapshots` | success (CI help-page image still to refresh) | a phone screenshot of a menu shows only what was scrolled into view |
 | 90 | 2026-10-27 21:02 | Help pictures | CI's Help page pictures differ only because the Reading sentence names the three themes | run 40582302836; looked at the four pictures | success (the rest of that browser job did not run) | a failed picture comparison stops the later browser projects |
 | 91 | 2026-10-28 01:15 | Carousel drift | The book strip can drift slowly, stop under a mouse or finger, and bring the pointed-at book forward, without making any cover-clicking test or reference picture unsteady | `npm run check`; carousel tests ×3; Chromium and WebKit by script; screenshots | success (CI to come) | a moving element never passes Playwright's "still" wait: keep motion off under the robot and test it on purpose |
+| 92 | 2026-10-28 01:55 | Carousel pace | 27 px a second is "a bit faster" and changes nothing else | `npm run check`; carousel tests ×3; Chromium and WebKit by script | success (Samuel's eye to come) | state a pace as seconds per book, which Samuel can judge |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2291,4 +2292,13 @@ tests that pin it, in a small PR.
 **Result.** `Test Files 130 passed | 1 skipped (131)`, `Tests 1186 passed | 2 skipped (1188)`, exit 0. Carousel tests `15 passed (10.0s)`. Script: WebKit desktop "drift 600->626 | mouse on Walden 628->628 (scale 1.060) | mouse away 628->682"; WebKit phone "drift 480->506 | finger held 506->506 | 4 s after lifting 533"; Chromium the same. First screenshot showed the hovered cover's top cut off by the strip's edge (it was also lifted 8 px); the lift was removed and the picture rechecked.
 **Lesson.** Playwright's hover() and click() wait for an element to hold still across frames, and a slowly drifting cover rarely does: the first drift test took 27.4 s of a 30 s limit, 26 s of it in one hover(). Keep motion off under the robot, and in the test that checks motion, stop it the way a person would (mouse onto the strip) before hovering.
 **Next experiment.** CI: expect no reference-picture change on Home, Library or the design page (the robot sees no drift). Then Samuel's eye on the live site: is 18 px a second the right pace?
+
+### Iteration 92 · 2026-10-27 21:53 (laptop clock) · Carousel pace · success
+
+**Hypothesis.** Samuel asked for the drift "a bit faster" after seeing 18 px a second (a new book about every 11 s on a computer, 9 s on a phone). Half as fast again, 27 px a second (about 7 s and 6 s), is "a bit"; nothing else changes.
+**Action.** `DRIFT` 18 → 27 in `components/home/BookCarousel.tsx`.
+**Evaluation.** `npm run check`; the carousel tests three times each; the Chromium and WebKit script.
+**Result.** `Tests 1186 passed | 2 skipped (1188)`, exit 0; `15 passed (10.1s)`. Script, over 1.5 s: WebKit desktop "drift 600->640 | mouse on Walden 642->642 (scale 1.060)"; WebKit phone "drift 480->519 | finger held 519->519 | 4 s after lifting 560" (was 600->626 and 480->506 at 18).
+**Lesson.** Give Samuel a pace as seconds per book; pixels a second mean nothing on their own.
+**Next experiment.** Samuel's eye on the live site.
 

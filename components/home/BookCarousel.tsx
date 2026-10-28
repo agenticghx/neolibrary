@@ -12,8 +12,11 @@ import { marksText, progressLabel } from "./Library";
 /** How far a cover may tilt (degrees) and shrink at the strip's edges: the inside of a curved wall. */
 const TILT = 14;
 const SHRINK = 0.1;
-/** How fast the strip drifts on its own, in pixels a second: a book passes in about ten seconds. */
-const DRIFT = 18;
+/**
+ * How fast the strip drifts on its own, in pixels a second: a new book reaches the middle about every 7 s on a
+ * computer and 6 s on a phone. Samuel 2026-10-27: 18 (11 s and 9 s) was to be "a bit faster".
+ */
+const DRIFT = 27;
 /** How long the strip waits after a touch, an arrow or a drag before it drifts again (ms). */
 const RESUME = 2500;
 
