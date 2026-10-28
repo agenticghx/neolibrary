@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries full-screen reading (button before Aa, or F; keep still 3 s); then M34 (public showcase) at his go.
+next_action: Merge the Where-were-we fade PR and deploy it (Samuel said deploy); then wait for his go on M34.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-28
 shared_copy: none
@@ -338,6 +338,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-28 09:18 · Claude Opus 5.5 · "Where were we?" fades in full screen
+- **Done:** The "Where were we?" strip (and the whole-book focus line, which shares its row) now fades with the bars after 3 s still in full screen, and comes back with the mouse. It keeps its room, so the page does not move. Carries the 5b636c6 deploy record.
+- **Key paths:** app/(reader)/books/[id]/read/reader.module.css (.recallSlot transition; the [data-idle] fade rule); e2e/review.spec.ts (whereWereWe: the full-screen check)
+- **Commands that worked:** npx playwright test --project=review --ignore-snapshots → 284 passed (5.8m); eslint, stylelint, tsc clean
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. CI, merge. 2. Deploy at Samuel's word (given: "deploy"); no migration, so no backup. 3. Samuel's go on M34 (public showcase).
 
 ### 2026-10-28 01:08 · Claude (laptop) · Deployed 5b636c6 (full-screen reading)
 - **Done:** #246 merged by the auto-merge Action. Its second push passed all four checks. The first push failed `e2e/ai.spec.ts:992`: a 12 px sideways scroll on a phone, caused by the new button; fixed by hiding the button at 48rem and narrower. Deployed at Samuel's word from a clean detached checkout of 5b636c6. No migration, so no backup.

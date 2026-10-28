@@ -2331,3 +2331,12 @@ tests that pin it, in a small PR.
 **Lesson.** A bar that "still fits" in my screenshot is one state of it. Check the widest state (counts, long labels) before adding a control to a full bar. Another project's layout test caught what mine did not.
 **Next experiment.** CI on the new push; deploy at Samuel's word ("deploy when it merges").
 
+
+### Iteration 96 · 2026-10-28 09:18 (laptop clock) · "Where were we?" fades in full screen · success
+
+**Hypothesis.** Giving the strip's row (`.recallSlot`, which also holds the whole-book focus line) the same idle fade as the bars hides it in full screen without moving the page, since the row keeps its height.
+**Action.** Added `.recallSlot` to the `[data-idle]` fade rule and gave it the bars' opacity transition. Writing in the strip keeps it (a text box being typed in is `:focus-visible`). The "Where were we?" browser test now enters full screen, keeps still, checks the row's opacity goes to 0, moves the mouse and checks it is back at 1.
+**Evaluation.** `npx playwright test --project=review --ignore-snapshots` (review and every project it depends on); screenshot `screenshots/where-were-we-fullscreen-faded.png` looked at.
+**Result.** `284 passed (5.8m)`. In the screenshot the top bar, the strip and the footer are all gone and the page has not moved.
+**Lesson.** none new: the room-keeping fade from iteration 94 extends to any row by adding its class to one rule.
+**Next experiment.** CI, merge, deploy (Samuel: "yes fade the where were we strip too, deploy").

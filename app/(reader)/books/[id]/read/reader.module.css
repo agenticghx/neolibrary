@@ -389,6 +389,7 @@
   display: flex;
   justify-content: center;
   min-width: 0;
+  transition: opacity var(--dur-slow) var(--ease-out); /* full screen's fade, at the end of this file */
 }
 
 /* A row of the reader's grid (not floating over the page), so the book's
@@ -1544,12 +1545,15 @@
 
 /* Full screen (Samuel 2026-10-28): once the reader is still, the bars fade and the pointer hides, as a film's
    controls do. They keep their room, so the page does not lay itself out again. A hovered bar stays, and so does one
-   the keyboard is in (:focus-visible: a button clicked with the mouse keeps focus, and its bar must still fade). */
+   the keyboard is in (:focus-visible: a button clicked with the mouse keeps focus, and its bar must still fade).
+   "Where were we?" (and the whole-book focus line) fades with them (Samuel 2026-10-28); writing in it keeps it, as a
+   text box being typed in is :focus-visible. */
 .reader[data-idle] {
   cursor: none;
 }
 
 .reader[data-idle] .bar:not(:hover, :has(:focus-visible)),
-.reader[data-idle] .foot:not(:hover, :has(:focus-visible)) {
+.reader[data-idle] .foot:not(:hover, :has(:focus-visible)),
+.reader[data-idle] .recallSlot:not(:hover, :has(:focus-visible)) {
   opacity: 0;
 }
