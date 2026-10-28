@@ -1,5 +1,5 @@
-/* The book carousel (M24; components/home/BookCarousel.tsx): a strip that moves only when swiped, dragged
-   or stepped, and settles with one book in the middle. The middle book's pill is a glass card. */
+/* The book carousel (M24; components/home/BookCarousel.tsx): a strip that drifts slowly on its own, stops under
+   the mouse or a finger, and can be swiped, dragged or stepped. The middle book's pill is a glass card. */
 
 /* Never wider than its column: the strip scrolls inside it (a phone page must not scroll sideways). */
 .carousel {
@@ -34,12 +34,32 @@
   user-select: none;
 }
 
+/* A drifting strip stops wherever it is, so it must not snap to a book (snapping would jump it, and fight
+   the drift). Without the drift (less motion asked for) it settles on a book as before. */
+.strip[data-drifting] {
+  scroll-snap-type: none;
+}
+
 .card {
   flex: none;
   width: var(--carousel-card);
   transform: rotateY(var(--tilt, 0deg)) scale(var(--shrink, 1));
   transform-origin: center 40%;
   scroll-snap-align: center;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+/* The book under the mouse straightens and comes forward a little, with its pill (Samuel 2026-10-27). Only
+   where there is a mouse: on a phone a tapped cover would stay picked out. */
+@media (hover: hover) {
+  .card:hover {
+    z-index: var(--z-raised);
+    transform: scale(1.06); /* no lift: the strip's scroll box would clip the cover's top */
+  }
+
+  .card:hover .pill {
+    opacity: 1;
+  }
 }
 
 .link {
