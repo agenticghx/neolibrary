@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge full-screen reading (#PR on m21-fullscreen-reader) when green; deploy only at Samuel's explicit word; then M34 at his go.
+next_action: Samuel tries full-screen reading (button before Aa, or F; keep still 3 s); then M34 (public showcase) at his go.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-28
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-28 01:08 (laptop clock, from `date`). **Live: 5b636c6** (#246, full-screen reading; no migration since 34a45ca, so no backup), deployed at Samuel's word ("deploy when it merges"). Checked signed in on Jekyll and Hyde: full screen on, bars fade when still, back with the mouse; reading place unchanged. Next: 1. Samuel tries it. 2. M34 at his go. This entry sits on local branch `m21-deploy-5b636c6-record` (not pushed): commit it with the next real pull request.
 
 Written 2026-10-28 00:16 (laptop clock). **Full-screen reading is built and passes the reader tests** (branch `m21-fullscreen-reader`, Samuel 2026-10-28: "do it"). Next: 1. PR; merge when the four checks are green. 2. Deploy only at Samuel's explicit word (his "do it" answered "build now or record"); no migration, no backup. 3. Samuel tries it: Full screen button or F, keep still 3 s.
 
@@ -336,6 +338,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-28 01:08 · Claude (laptop) · Deployed 5b636c6 (full-screen reading)
+- **Done:** #246 merged by the auto-merge Action. Its second push passed all four checks. The first push failed `e2e/ai.spec.ts:992`: a 12 px sideways scroll on a phone, caused by the new button; fixed by hiding the button at 48rem and narrower. Deployed at Samuel's word from a clean detached checkout of 5b636c6. No migration, so no backup.
+- **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx`, `reader.module.css`, `ShortcutsDialog.tsx`, `e2e/reader.spec.ts`.
+- **Commands that worked:** `railway variable set NEOLIBRARY_COMMIT=5b636c655fcfea2e069224633425f115012fa32d ... --skip-deploys`; `railway up --service web --environment production --ci` → "Deploy complete". `/api/health` on both addresses → `"commit":"5b636c6"`; `/sign-in` 200 on both; log "Page pictures: ready.". Signed in once (Keychain NEOLIBRARY_PASSWORD, never printed) and opened Jekyll and Hyde in installed Chrome: "full screen on; still → header opacity 0; mouse moved → idle false, opacity 1; left full screen: yes"; reading place `epubcfi(/6/8!/4/2[chapter-2],/2,/4/19:66)` progress 0.116 before and after.
+- **Known issues / blockers:** The "Where were we?" strip (M28 S3) stays visible in full screen; it is its own row, not a bar. Not tried in real Safari, on an iPad or on Android.
+- **Exact next steps:** Samuel tries it; M34 at his go.
 
 ### 2026-10-28 00:07 · Claude (laptop) · Full-screen reading mode, built and tested
 - **Done:** Samuel asked for full-screen reading ("if I can enjoy Netflix in full screen then I should also enjoy reading in full screen"), and said "do it" to building it now. The reader has a Full screen button (four corners, before Aa) and the F key; Esc, F or the button leave it. The whole page goes full screen, so panels and dialogs come along. In full screen, the top and bottom bars fade after 3 s without a mouse move, a tap or a key, in the page or around it, and the pointer hides. They keep their room, so the page does not lay itself out again. They stay while a panel is open or while hovered or focused. The button shows only where the browser allows full screen (not iPhone Safari). F is listed in Keyboard shortcuts.
