@@ -353,6 +353,21 @@ async function whereWereWe(reader: Page, bookId: string) {
   // book's row and left the book a few lines).
   expect(rows.bookShare).toBeGreaterThan(0.5);
 
+  // In full screen it fades with the bars once the reader is still, and a mouse move brings it back (Samuel 2026-10-28).
+  const shown = () => strip.evaluate((el) => getComputedStyle(el.parentElement!).opacity);
+  const r = reader.getByTestId("reader");
+  await reader.getByRole("button", { name: "Full screen" }).click();
+  const box = (await r.boundingBox())!;
+  await reader.mouse.move(box.width / 2, box.height * 0.7);
+  await expect(r).toHaveAttribute("data-idle", "", { timeout: 6_000 });
+  await expect.poll(shown).toBe("0");
+  await reader.screenshot({ path: "screenshots/where-were-we-fullscreen-faded.png" });
+  await reader.mouse.move(box.width / 2 + 40, box.height * 0.7 + 20);
+  await expect(r).not.toHaveAttribute("data-idle");
+  await expect.poll(shown).toBe("1");
+  await reader.getByRole("button", { name: "Leave full screen" }).click();
+  await expect(r).not.toHaveAttribute("data-fullscreen");
+
   // The four looks, with the strip open for writing.
   await fourLooks(reader, "where-were-we", async () => {
     await expect(reader.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
