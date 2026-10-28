@@ -1168,6 +1168,61 @@ owner's own tasks that only the owner sees. Samuel's words: "time to have a
 `Get Help` under the name settings that spells out how to conduct the
 important functionalities on the web app". Built and live in 924f98ff (#229).
 
+### M34 · A public showcase: three free books for anyone (Samuel, 2026-10-27)
+
+Written for Samuel and for the session that builds it. Samuel's words: "make
+the web app public but turn on only the 3 free books. let there be login to
+access the rest of the library, which in this case is me. I need to show the
+world what I built." Recorded, not started: build it only when Samuel says go.
+
+**What a visitor gets.** Anyone who opens the site, without signing in,
+lands in the library and sees exactly three books: *The Time Machine*,
+*The Strange Case of Dr. Jekyll and Mr. Hyde* and *Frankenstein*. All three
+are Standard Ebooks editions, which are public domain (nobody owns the
+rights). A visitor can open them and use the reader as Samuel does: read,
+listen along, the carousel, the reading themes. A "Sign in" link stays for
+Samuel. *Meditations on First Philosophy* was the first pick; it stays
+private, because the file is the Oxford World's Classics edition, whose
+English translation is still under copyright. Samuel chose *Frankenstein*
+in its place.
+
+**What stays private.** Every other title, and all of Samuel's own notes,
+highlights, reading places and stats, including the ones he made in the three
+free books. A visitor sees a clean copy. Exports, the agent access (`/api/agent`), uploads,
+settings and every other API stay sign-in only, exactly as now. Invited
+readers keep working as before.
+
+**Defaults (Samuel may change any of them):**
+1. **AI help.** Visitors see stored answers (rewrites, Need to know, Test
+   yourself) that already exist for the three books, but cannot ask for new
+   ones. Ask and Explain it back are hidden. A visitor must never cause a
+   paid call (ground rules 5 and 8).
+2. **Listening.** Only audio that already exists, or the browser's own voice.
+   A visitor never starts a paid voice (ElevenLabs).
+3. **Visitors' own notes and place.** Kept in their own browser only, never on
+   the server. A note made by a visitor disappears if they clear their browser.
+4. **Which books are public** is a switch per book that only the owner can
+   turn on, and only for a public-domain edition (ground rules 1 and 6).
+   Nothing becomes public by default.
+
+**Steps (one pull request each):**
+- S1. A "public" switch per book (migration: a script that changes the
+  database layout, with a reverse step; production backup before it runs).
+  Turn it on for the three books.
+- S2. The signed-out library: Home shows only public books. Any other book's
+  address, or its file, returns "not found" to a visitor (not "sign in", which
+  would reveal that it exists).
+- S3. The reader for visitors: no server saves; place and notes in the
+  browser; AI and paid voices as in the defaults.
+- S4. Guard rails: a limit on requests per visitor, and a check that no page a
+  visitor can reach reveals a private title, note or count.
+
+**Done when.** Browser tests, signed out: Home lists exactly the three
+books; each opens, reads and plays; a private book's page, file and API all
+answer "not found"; no paid call is possible (the fake AI and fake voice
+record zero calls); signed in, Samuel sees his whole library as today.
+Screenshots on phone and desktop, light and dark, of the signed-out Home.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
