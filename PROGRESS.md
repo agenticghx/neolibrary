@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel says go for M34 (a public showcase with three free books, docs/plan.md) or changes its defaults; meanwhile he looks at the faster carousel on Home.
+next_action: Merge full-screen reading (#PR on m21-fullscreen-reader) when green; deploy only at Samuel's explicit word; then M34 at his go.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-27
+updated: 2026-10-28
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-28 00:16 (laptop clock). **Full-screen reading is built and passes the reader tests** (branch `m21-fullscreen-reader`, Samuel 2026-10-28: "do it"). Next: 1. PR; merge when the four checks are green. 2. Deploy only at Samuel's explicit word (his "do it" answered "build now or record"); no migration, no backup. 3. Samuel tries it: Full screen button or F, keep still 3 s.
 
 Written 2026-10-27 22:44 (laptop clock, from `date`). **Live: 395091b** (#244, the carousel drifts at 27 px a second, was 18; no migration, so no backup), deployed at Samuel's word ("make it a bit faster, deploy"). **M34 is recorded, not started** (`docs/plan.md`, branch `m34-public-showcase-plan`): the site opens to anyone with three public-domain books (The Time Machine, Jekyll and Hyde, Frankenstein); the rest stays behind Samuel's sign-in. Next: 1. PR for the record; merge when green. 2. Build M34 S1 to S4 only when Samuel says go; S1 has a migration, so a production backup before its deploy.
 
@@ -334,6 +336,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-28 00:07 · Claude (laptop) · Full-screen reading mode, built and tested
+- **Done:** Samuel asked for full-screen reading ("if I can enjoy Netflix in full screen then I should also enjoy reading in full screen"), and said "do it" to building it now. The reader has a Full screen button (four corners, before Aa) and the F key; Esc, F or the button leave it. The whole page goes full screen, so panels and dialogs come along. In full screen, the top and bottom bars fade after 3 s without a mouse move, a tap or a key, in the page or around it, and the pointer hides. They keep their room, so the page does not lay itself out again. They stay while a panel is open or while hovered or focused. The button shows only where the browser allows full screen (not iPhone Safari). F is listed in Keyboard shortcuts.
+- **Key paths:** `app/(reader)/books/[id]/read/Reader.tsx` (canFull and full via useSyncExternalStore, toggleFull, the idle effect, wake from the book frames), `reader.module.css` (end of file), `ShortcutsDialog.tsx`, `e2e/reader.spec.ts` (test "full screen: …").
+- **Commands that worked:** `npm run lint` and `npm run typecheck` clean; `npm run check` → `Tests 1186 passed | 2 skipped (1188)`, exit 0; `npm run build` exit 0; `npx playwright test --project=reader --ignore-snapshots` → `225 passed (3.3m)` (after two fixes below). Screenshots `screenshots/reader-fullscreen-{shown,faded}-{desktop,phone}-{light,dark}.png` looked at.
+- **Known issues / blockers:** The first run failed the new test: a button clicked with the mouse keeps focus, and the bar was kept for any focus inside it, so it never faded. Now only keyboard focus (`:has(:focus-visible)`) keeps it. The shortcuts test's exact list gained the F line. Not tried in real Safari or on Android.
+- **Exact next steps:** As in Exact next steps above.
 
 ### 2026-10-27 22:44 · Claude (laptop) · Deployed 395091b (faster carousel); M34 public showcase recorded
 - **Done:** #244 merged on its second CI attempt. Attempt 1 had two problems. First, one browser test failed: `e2e/agents.spec.ts:318`, a note not drawn on the scan within 15 s. It passed on attempt 2, so it is logged in `docs/ci-flakes.md`. Second, the PR-hygiene job hung for 27 min in `actions/checkout`; the run was cancelled and the failed jobs re-run. Deployed 395091b at Samuel's word. Then Samuel asked for a public showcase, and it is recorded as M34 in `docs/plan.md`. The three free books are The Time Machine, Jekyll and Hyde and Frankenstein, all Standard Ebooks editions per the live export. Meditations stays private: the file is the Oxford World's Classics edition, whose translation is under copyright. Samuel chose Frankenstein in its place.

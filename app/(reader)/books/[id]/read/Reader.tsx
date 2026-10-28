@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { usePlayer } from "@/components/player/PlayerProvider";
 import type { Annotation, Color, Kind } from "@/lib/library/annotations";
@@ -274,6 +274,14 @@ const OPEN_TIMEOUT_MS = 30_000;
 /** Fired once a book's notes have loaded: send what waits in the outbox (M12). */
 const SYNC_EVENT = "neolibrary:sync-notes";
 
+/** In full screen, the top and bottom bars fade after this long without a mouse move, a tap or a key (ms). */
+const FULL_IDLE_MS = 3000;
+const noSubscribe = () => () => {};
+const onFullscreenChange = (changed: () => void) => {
+  document.addEventListener("fullscreenchange", changed);
+  return () => document.removeEventListener("fullscreenchange", changed);
+};
+
 export function Reader(props: {
   bookId: string;
   title: string;
@@ -497,6 +505,17 @@ export function Reader(props: {
   useEffect(() => {
     shortcutsOpen.current = shortcuts;
   }, [shortcuts]);
+  // Full screen (Samuel 2026-10-28: "if I can enjoy Netflix in full screen then I should also enjoy reading in full
+  // screen"): the whole page, so the panels and dialogs come along. The button shows only where the browser allows
+  // it (not on an iPhone, where Safari keeps full screen for videos). Esc, F or the button leave it.
+  const canFull = useSyncExternalStore(noSubscribe, () => document.fullscreenEnabled === true, () => false);
+  const full = useSyncExternalStore(onFullscreenChange, () => document.fullscreenElement !== null, () => false);
+  const [idle, setIdle] = useState(false);
+  const wake = useRef(() => {});
+  const toggleFull = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else if (document.fullscreenEnabled) void document.documentElement.requestFullscreen().catch(() => {});
+  }, []);
   const pending = useRef<Relocate | null>(null);
   // M27 Q2 (like Kindle's Whispersync): the places this tab saved itself, the one it opened at and the one saved
   // when it opened (a search result or a shared link opens elsewhere, and the page has not been saved yet). A saved place
@@ -586,6 +605,7 @@ export function Reader(props: {
     if (target?.tagName === "BUTTON" && e.key !== "Escape") return;
     if (e.key === "ArrowRight" || e.key === "PageDown") turnRef.current("next");
     else if (e.key === "ArrowLeft" || e.key === "PageUp") turnRef.current("prev");
+    else if (e.key === "f" || e.key === "F") toggleFull();
     else if (e.key === "Escape") {
       // The selected-text bar first (M27 Q1), then the panel.
       if (!dismissSelection()) {
@@ -593,7 +613,29 @@ export function Reader(props: {
         setPanel("none");
       }
     }
-  }, [dismissSelection]);
+  }, [dismissSelection, toggleFull]);
+
+  // In full screen the bars fade once the reader is still, as a film's controls do, and come back with a mouse move,
+  // a tap or a key, in the page or around it. They keep their room, so the page never lays itself out again. Not
+  // while a panel is open: its controls stay.
+  useEffect(() => {
+    if (!full || panel !== "none") return;
+    let timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
+    const wakeUp = () => {
+      setIdle(false);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
+    };
+    wake.current = wakeUp;
+    const events = ["pointermove", "pointerdown", "keydown"] as const;
+    for (const name of events) window.addEventListener(name, wakeUp, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      wake.current = () => {};
+      for (const name of events) window.removeEventListener(name, wakeUp);
+      setIdle(false);
+    };
+  }, [full, panel]);
 
   // A sideways swipe on a trackpad turns the page (#235), in Pages and in Scroll; in Pages (and a PDF), so does
   // scrolling up and down. One turner serves the book's frames and the margins around them, so a swipe that crosses
@@ -975,6 +1017,8 @@ export function Reader(props: {
             if (dir) turnRef.current(dir);
           });
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
+          // Movement in the page wakes full screen's bars (the page is a frame of its own: its events stay in it).
+          for (const name of ["pointermove", "pointerdown", "keydown"]) doc.addEventListener(name, () => wake.current(), { passive: true });
           doc.addEventListener("pointerdown", () => {
             trackerRef.current.onActivity();
             // A tap or click on the page closes the selected-text bar (M27 Q1); a new selection opens it again.
@@ -1801,6 +1845,8 @@ export function Reader(props: {
       data-cfi={where.cfi ?? ""}
       data-status={status}
       data-focus-session={focusSession ? "" : undefined}
+      data-fullscreen={full ? "" : undefined}
+      data-idle={full && idle ? "" : undefined}
     >
       {focusSession ? (
         <FocusStrip session={focusSession} onLeave={() => setFocusLeaving(true)} onStay={() => focusWait("DELETE")} />
@@ -1906,6 +1952,27 @@ export function Reader(props: {
           >
             Notes{notes.length ? ` (${notes.length})` : ""}
           </button>
+          {canFull ? (
+            <button
+              type="button"
+              className={`${styles.tool} ${styles.leadTool}`}
+              aria-pressed={full}
+              aria-label={full ? "Leave full screen" : "Full screen"}
+              title={full ? "Leave full screen (F or Esc)" : "Full screen (F)"}
+              onClick={toggleFull}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d={full ? "M6 2v4H2M10 2v4h4M6 14v-4H2M10 14v-4h4" : "M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ) : null}
           <button
             type="button"
             className={styles.tool}

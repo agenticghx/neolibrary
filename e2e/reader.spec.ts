@@ -485,6 +485,68 @@ test("the keyboard follows a panel: focus moves in when it opens, and Escape bri
   await expect(panel).toBeHidden();
 });
 
+// Samuel 2026-10-28: "if I can enjoy Netflix in full screen then I should also enjoy reading in full screen".
+test("full screen: the button and F fill the screen; the bars fade when still and come back with the mouse", async ({ page }) => {
+  await openJekyll(page);
+  const r = reader(page);
+  const opacity = (selector: string) => r.locator(selector).first().evaluate((el) => getComputedStyle(el).opacity);
+  await page.getByRole("button", { name: "Full screen" }).click();
+  await expect(r).toHaveAttribute("data-fullscreen", "");
+  expect(await page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+
+  // Still for three seconds, away from the bars: they fade and the pointer hides.
+  const box = (await r.boundingBox())!;
+  await page.mouse.move(box.width / 2, box.height / 2);
+  await expect(r).toHaveAttribute("data-idle", "", { timeout: 6_000 });
+  await expect.poll(() => opacity("header")).toBe("0");
+  await expect.poll(() => opacity("footer")).toBe("0");
+  expect(await r.evaluate((el) => getComputedStyle(el).cursor)).toBe("none");
+  // A mouse move brings them back.
+  await page.mouse.move(box.width / 2 + 40, box.height / 2 + 20);
+  await expect(r).not.toHaveAttribute("data-idle");
+  await expect.poll(() => opacity("header")).toBe("1");
+
+  // An open panel keeps the bars.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.waitForTimeout(3_500);
+  await expect(r).not.toHaveAttribute("data-idle");
+  await page.keyboard.press("Escape");
+
+  // F leaves full screen and F comes back; the button says which.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("f");
+  await expect(r).not.toHaveAttribute("data-fullscreen");
+  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
+  await page.keyboard.press("f");
+  await expect(r).toHaveAttribute("data-fullscreen", "");
+  await page.getByRole("button", { name: "Leave full screen" }).click();
+  await expect(r).not.toHaveAttribute("data-fullscreen");
+
+  // The Keyboard shortcuts list names F.
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toContainText("Full screen, or leave it");
+  await page.keyboard.press("Escape");
+
+  // Screenshots for the PR: bars shown, then faded, on phone and desktop, light and dark.
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(r).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+      await page.getByRole("button", { name: "Full screen" }).click();
+      await page.mouse.move(w / 2, h / 2);
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `screenshots/reader-fullscreen-shown-${name}-${scheme}.png` });
+      await expect(r).toHaveAttribute("data-idle", "", { timeout: 6_000 });
+      await expect.poll(() => opacity("header")).toBe("0");
+      await page.screenshot({ path: `screenshots/reader-fullscreen-faded-${name}-${scheme}.png` });
+      await page.evaluate(() => document.exitFullscreen());
+    }
+  }
+});
+
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
   await openJekyll(page);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
@@ -1966,6 +2028,7 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
     "Next page",
     "Previous page",
     "Close the selected-text bar, the open panel, or this list",
+    "Full screen, or leave it (Esc leaves it too)",
     "Show this list",
     "In Study, move between Need to know and Test yourself",
   ]);

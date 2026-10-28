@@ -14,6 +14,7 @@
   gap: var(--space-4);
   padding: var(--space-3) var(--space-5);
   border-bottom: var(--border-hair) solid var(--rule);
+  transition: opacity var(--dur-slow) var(--ease-out); /* full screen's fade, at the end of this file */
 }
 
 .lead {
@@ -282,6 +283,7 @@
   border-top: var(--border-hair) solid var(--rule);
   color: var(--ink-500);
   font-size: var(--text-sm);
+  transition: opacity var(--dur-slow) var(--ease-out); /* full screen's fade, at the end of this file */
 }
 
 .chapter {
@@ -1533,4 +1535,16 @@
   font-size: var(--text-sm);
   text-align: center;
   white-space: nowrap;
+}
+
+/* Full screen (Samuel 2026-10-28): once the reader is still, the bars fade and the pointer hides, as a film's
+   controls do. They keep their room, so the page does not lay itself out again. A hovered bar stays, and so does one
+   the keyboard is in (:focus-visible: a button clicked with the mouse keeps focus, and its bar must still fade). */
+.reader[data-idle] {
+  cursor: none;
+}
+
+.reader[data-idle] .bar:not(:hover, :has(:focus-visible)),
+.reader[data-idle] .foot:not(:hover, :has(:focus-visible)) {
+  opacity: 0;
 }
