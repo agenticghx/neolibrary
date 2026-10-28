@@ -72,6 +72,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 91 | 2026-10-28 01:15 | Carousel drift | The book strip can drift slowly, stop under a mouse or finger, and bring the pointed-at book forward, without making any cover-clicking test or reference picture unsteady | `npm run check`; carousel tests ×3; Chromium and WebKit by script; screenshots | success (CI to come) | a moving element never passes Playwright's "still" wait: keep motion off under the robot and test it on purpose |
 | 92 | 2026-10-28 01:55 | Carousel pace | 27 px a second is "a bit faster" and changes nothing else | `npm run check`; carousel tests ×3; Chromium and WebKit by script | success (Samuel's eye to come) | state a pace as seconds per book, which Samuel can judge |
 | 93 | 2026-10-28 02:44 | #244 CI | A red browser job on a speed-only change is a flake, and a stuck job is the runner, not the code | the failed test's log; the stuck job's steps; attempt 2 | success | a wait loop must also end on failure; read a stuck job's steps before waiting longer |
+| 94 | 2026-10-28 04:16 | Full-screen reading | A Full screen button and F fill the screen, and the bars fade when the reader is still and come back with the mouse | reader Playwright project; 8 screenshots | success (after one real bug) | a mouse click leaves focus on the button: "keep the bar while focused" must mean keyboard focus |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2311,4 +2312,22 @@ tests that pin it, in a small PR.
 **Result.** One failure: `e2e/agents.spec.ts:318` (notes between a scan and its text edition), `data-placed` stayed "no" for 15 s. 303 passed. The hygiene job was "Run actions/checkout@v5: in_progress" 27 min after it started (1 min on #243). Attempt 2: all four checks success, and auto-merge merged 395091b.
 **Lesson.** My first wait loop ("until the PR is no longer open") would have waited forever on a red check, because auto-merge never merges one. Every wait must end on failure too. A check that is still pending long after its usual time: read its steps before waiting longer.
 **Next experiment.** If `agents.spec.ts:318` fails again, investigate it as real (`docs/ci-flakes.md`).
+
+### Iteration 94 · 2026-10-28 00:16 (laptop clock) · Full-screen reading · success
+
+**Hypothesis.** Samuel's "if I can enjoy Netflix in full screen then I should also enjoy reading in full screen" can be: a button and the F key that put the whole page in full screen (so panels and dialogs come along), with the top and bottom bars fading after 3 s still and returning on a mouse move, tap or key, without the page laying itself out again.
+**Action.** `Reader.tsx`: `useSyncExternalStore` for whether full screen is allowed and on, `toggleFull`, an idle timer woken from the window and from each book frame. `reader.module.css`: the bars fade to opacity 0 (keeping their room) and the pointer hides under `data-idle`. F in the Keyboard shortcuts list. A browser test.
+**Evaluation.** `npx playwright test --project=reader --ignore-snapshots` (with its dependencies), and the eight screenshots the test saves.
+**Result.** First run: the new test failed, `Expected: "0" Received: "1"` for the header's opacity: the clicked Full screen button kept focus, and the bar stayed for any focus inside it. After keeping it only for `:has(:focus-visible)`, the next run failed only the shortcuts test's exact list (the new F line, expected). Third run: `225 passed (3.3m)`. Screenshots: bars gone when still on desktop and phone, light and dark; the phone's bar still fits at 390 px.
+**Lesson.** A mouse click leaves focus on the button it clicked. A rule meant for keyboard users ("keep it while focused") must say keyboard focus (`:focus-visible`), or it also holds for every mouse user.
+**Next experiment.** CI; then Samuel tries it in his own browser.
+
+### Iteration 95 · 2026-10-28 00:38 (laptop clock) · Full screen on a phone · success
+
+**Hypothesis.** CI's failure on #246 (`ai.spec.ts:992`, "phone light: sideways scroll", `Received: 12`) is caused by the new button: the reader's bar on a 390 px phone fits without a note count (my screenshot) but not with "Notes (n)".
+**Action.** Hid the Full screen button at 48rem (768 px) and narrower (`.fullTool`); F still works there. In the test, the phone part checks the button is hidden and uses F.
+**Evaluation.** `npx playwright test --project=ai --ignore-snapshots` (every project up to and including ai).
+**Result.** `254 passed (4.5m)`, including `ai.spec.ts:992`.
+**Lesson.** A bar that "still fits" in my screenshot is one state of it. Check the widest state (counts, long labels) before adding a control to a full bar. Another project's layout test caught what mine did not.
+**Next experiment.** CI on the new push; deploy at Samuel's word ("deploy when it merges").
 
