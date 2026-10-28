@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel looks at the drifting book carousel on Home (is 18 px a second the right pace? the hovered book?); then the three themes in Aa and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
+next_action: Samuel looks at the faster carousel drift on Home (27 px a second, a book about every 7 s); then the three themes in Aa and Listen on The Pay Off's scan; rows 31 and 27 by 2026-10-29.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-27
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-10-27 21:53 (laptop clock, from `date`). **The carousel drifts a bit faster** (branch `m24-carousel-faster`, Samuel: "make it a bit faster, deploy"): 27 px a second, was 18. Next: 1. PR; merge when the four checks are green. 2. Deploy (Samuel's word given; no migration, no backup). 3. Samuel's eye on the pace.
 
 Written 2026-10-27 21:33 (laptop clock, from `date`). **Live: f3e7eae** (#243, the book carousel drifts slowly and stops under the mouse; no migration since 987e941, so no backup), deployed at Samuel's word ("go ahead build, verify, push, deploy"). /api/health on both addresses says f3e7eae; /sign-in 200; log "Page pictures: ready.". Next: Samuel looks at Home on a computer and a phone: the pace (18 px a second), the hovered book (1.06 times, straight), the turn at each end. Not checked on a real iPhone. This entry sits on local branch `m24-deploy-f3e7eae-record` (not pushed): commit it with the next real pull request.
 
@@ -330,6 +332,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-27 21:53 · Claude (laptop) · The carousel drifts a bit faster
+- **Done:** Samuel asked for the drift "a bit faster". `DRIFT` is now 27 px a second, was 18: a new book reaches the middle about every 7 s on a computer (was 11 s) and every 6 s on a phone (was 9 s). This branch also carries the f3e7eae deploy record.
+- **Key paths:** `components/home/BookCarousel.tsx`, `LEARNING_LOG.md` iteration 92.
+- **Commands that worked:** `npm run check` → `Tests 1186 passed | 2 skipped (1188)`, exit 0. With one test server started by hand: `npx playwright test --project=shell --no-deps -g "book carousel" --repeat-each 3` → `15 passed (10.1s)`. Script, over 1.5 s: WebKit desktop drift 600->640, phone 480->519 (was 600->626, 480->506).
+- **Known issues / blockers:** none new. Not checked on a real iPhone.
+- **Exact next steps:** PR, merge when green, deploy, check live.
 
 ### 2026-10-27 21:33 · Claude (laptop) · Deployed f3e7eae (the drifting book carousel)
 - **Done:** #243 merged by the auto-merge Action once the four checks were green (run 40613447991; the browser job passed with no picture changes). Deployed at Samuel's word from a clean detached checkout of f3e7eae in `../neolibrary-deploy`. No migration, so no backup.
