@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the Where-were-we fade PR and deploy it (Samuel said deploy); then wait for his go on M34.
+next_action: Merge #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-28
+updated: 2026-10-29
 shared_copy: none
 ---
 
@@ -338,6 +338,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-29 01:09 · Claude Opus 5.5 (laptop) · Books menu: PR #248 open
+- **Done:** PR #248 (branch m14-books-menu, commit c41c491): Books, Want to Read, Finished; 'Books: All | Has audio' row; old ?show=books/pdfs/audiobooks redirect. Also fixed a bug already on main: the phone-only Show chips showed on desktop (.filters display:none came before .chips display:flex in page.module.css). LEARNING_LOG iteration 97.
+- **Key paths:** lib/library/shelf.ts; app/(app)/library/page.tsx; app/(app)/library/page.module.css; components/shell/Sidebar.tsx; e2e/home.spec.ts (saves screenshots/library-books-*.png); e2e/shell.spec.ts; e2e/readalong.spec.ts; lib/library/shelf.test.ts
+- **Commands that worked:** npm run check -> 1186 passed, 2 skipped; npx playwright test --ignore-snapshots -> 392 passed (15.6m), before the CSS fix; npx playwright test --project=home --ignore-snapshots -> 289 passed (5.7m), after it
+- **Known issues / blockers:** The four e2e/__screenshots__/library-* references will differ on CI (desktop sidebar changed); refresh them from CI with the merge train.
+- **Exact next steps:** 1. Merge train for #248: wait for the four checks, refresh library-* references from CI, merge. 2. Deploy at Samuel's word (no migration, no backup). 3. Want to Read redesign waits on Samuel's ideas.
+
+### 2026-10-29 00:41 · Claude Opus 5.5 (laptop) · Library menu: Books, Want to Read, Finished; Has audio inside Books
+- **Done:** Samuel (2026-10-29): read-and-listen is one thing, so the library has no separate Audiobooks and PDFs. The six filters (All, Want to Read, Finished, Books, Audiobooks, PDFs) are now three: Books (every title, ebook or PDF; was All, at /library), Want to Read (unchanged; to be reimagined later), Finished. Inside Books, a row 'All | Has audio' (?audio=1: a ready uploaded audiobook only, never narration alone, rule D1), shown on phone and desktop. Old addresses redirect: ?show=books and ?show=pdfs to /library, ?show=audiobooks to /library?audio=1. Branch m14-books-menu, worktree .claude/worktrees/books-menu; not committed yet, no PR yet.
+- **Key paths:** lib/library/shelf.ts (SHOWS, OLD_SHOWS, listShelf audio); app/(app)/library/page.tsx (libraryHref, Books row, redirect); components/shell/Sidebar.tsx (LIBRARY_LINKS); lib/library/shelf.test.ts; e2e/home.spec.ts; e2e/shell.spec.ts; e2e/readalong.spec.ts
+- **Commands that worked:** npm run check -> 130 files passed, 1186 tests passed, 2 skipped; npx vitest run lib/library/shelf.test.ts -> 5 passed; eslint + tsc on the changed files clean after a tidy move
+- **Known issues / blockers:** Full browser suite (npx playwright test --ignore-snapshots) still running at 00:40; result not yet known. The four library reference screenshots (e2e/__screenshots__/library-*) will differ; the merge train refreshes them from CI. The ledger has 143 pre-existing lint errors (not from this entry).
+- **Exact next steps:** 1. Read the browser suite result; fix any failure. 2. Screenshots of /library (phone and desktop, light and dark) for the PR. 3. LEARNING_LOG.md iteration 97. 4. Commit, open the PR, merge with the merge train. 5. Deploy only at Samuel's word (no migration).
 
 ### 2026-10-28 09:18 · Claude Opus 5.5 · "Where were we?" fades in full screen
 - **Done:** The "Where were we?" strip (and the whole-book focus line, which shares its row) now fades with the bars after 3 s still in full screen, and comes back with the mouse. It keeps its room, so the page does not move. Carries the 5b636c6 deploy record.

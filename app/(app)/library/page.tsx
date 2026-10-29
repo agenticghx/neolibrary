@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BookCarousel } from "@/components/home/BookCarousel";
 import { LibrarySpines, NotYetGroup } from "@/components/home/Library";
@@ -8,7 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { libraryItems, notYetAvailable } from "@/lib/library/home";
-import { listCollections, listShelf, parseShow, parseSort, SHOWS } from "@/lib/library/shelf";
+import { listCollections, listShelf, OLD_SHOWS, parseShow, parseSort, SHOWS } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
 import { NewCollection } from "./NewCollection";
@@ -21,35 +22,44 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 export const dynamic = "force-dynamic";
 
+/** /library with these settings (Has audio, collection, sort, search), so a chip changes one and keeps the rest. */
+function libraryHref(v: { show?: string; audio?: boolean; c?: string; sort?: string; q?: string }) {
+  const p = new URLSearchParams();
+  if (v.show && v.show !== "all") p.set("show", v.show);
+  if (v.audio) p.set("audio", "1");
+  if (v.c) p.set("c", v.c);
+  if (v.sort) p.set("sort", v.sort);
+  if (v.q) p.set("q", v.q);
+  const s = p.toString();
+  return s ? `/library?${s}` : "/library";
+}
+
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string; show?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string; show?: string; audio?: string }>;
 }) {
   const user = await requireUser();
-  const db = await getDb();
   const sp = await searchParams;
+  // Books, Audiobooks and PDFs were three filters until 2026-10-29; their old addresses open Books.
+  if (sp.show && Object.hasOwn(OLD_SHOWS, sp.show)) redirect(libraryHref({ ...sp, show: "all", audio: OLD_SHOWS[sp.show].audio }));
+  const db = await getDb();
   const sort = parseSort(sp.sort);
   const show = parseShow(sp.show);
+  // Has audio is a filter inside Books only.
+  const audio = show === "all" && sp.audio === "1";
   const collectionList = await listCollections(db, user.id);
   const active = collectionList.find((c) => c.id === sp.c) ?? null;
   const [shelf, everything] = await Promise.all([
-    listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show }),
+    listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show, audio }),
     listShelf(db, user.id),
   ]);
   const sign = await coverSigner();
   const items = await libraryItems(db, user.id, shelf, sign);
-  // All and Want to Read (no search, no collection) end with the titles not available yet (D3, D5).
-  const waiting = !sp.q && !active && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id), sign) : [];
-  const chipHref = (c?: string) => {
-    const p = new URLSearchParams();
-    if (show !== "all") p.set("show", show);
-    if (c) p.set("c", c);
-    if (sp.sort) p.set("sort", sp.sort);
-    if (sp.q) p.set("q", sp.q);
-    const s = p.toString();
-    return s ? `/library?${s}` : "/library";
-  };
+  // Books (without Has audio) and Want to Read, with no search and no collection, end with the titles not available yet (D3, D5).
+  const waiting = !sp.q && !active && !audio && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id), sign) : [];
+  const chipHref = (c?: string) => libraryHref({ show, audio, c, sort: sp.sort, q: sp.q });
+  const filtered = show !== "all" || audio;
 
   return (
     <main className={styles.main}>
@@ -57,9 +67,9 @@ export default async function LibraryPage({
         <p className={styles.eyebrow}>Library</p>
         <h1 className={styles.title}>{show === "all" ? "Your library" : SHOWS[show]}</h1>
         <p className={styles.lede}>
-          {show !== "all"
+          {filtered
             ? <>
-                <span>{`${items.length} ${items.length === 1 ? "title" : "titles"}${waiting.length ? `, and ${waiting.length} not available yet` : ""}.`}</span>{" "}
+                <span>{`${items.length} ${items.length === 1 ? "title" : "titles"}${audio ? " with audio" : ""}${waiting.length ? `, and ${waiting.length} not available yet` : ""}.`}</span>{" "}
                 <Link href="/library">Show the whole library</Link>
               </>
             : everything.length === 0
@@ -103,6 +113,18 @@ export default async function LibraryPage({
               </Link>
             ))}
           </nav>
+          {/* Inside Books: everything, or only the titles you can also listen to (an uploaded audiobook). */}
+          {show === "all" ? (
+            <nav className={styles.chips} aria-label="Books">
+              <span className={styles.chipsLabel}>Books</span>
+              <Link href={libraryHref({ c: active?.id, sort: sp.sort, q: sp.q })} className={styles.chip} aria-current={audio ? undefined : "page"}>
+                All
+              </Link>
+              <Link href={libraryHref({ audio: true, c: active?.id, sort: sp.sort, q: sp.q })} className={styles.chip} aria-current={audio ? "page" : undefined}>
+                Has audio
+              </Link>
+            </nav>
+          ) : null}
           <nav className={styles.chips} aria-label="Collections">
             <span className={styles.chipsLabel}>Collections</span>
             <Link href={chipHref()} className={styles.chip} aria-current={active ? undefined : "page"}>
@@ -141,10 +163,12 @@ export default async function LibraryPage({
           ) : (
             <p className={styles.empty}>
               {sp.q
-                ? `Nothing matches “${sp.q}”${show !== "all" ? ` in ${SHOWS[show]}` : ""}.`
+                ? `Nothing matches “${sp.q}”${audio ? " among the titles with audio" : show !== "all" ? ` in ${SHOWS[show]}` : ""}.`
                 : active
-                  ? `No books in this collection${show !== "all" ? ` under ${SHOWS[show]}` : ""} yet.`
-                  : `No books here yet${waiting.length ? "; the titles not available yet are below" : ""}.`}
+                  ? `No books in this collection${audio ? " with audio" : show !== "all" ? ` under ${SHOWS[show]}` : ""} yet.`
+                  : audio
+                    ? "No titles with audio yet. Add an audiobook to a book on the Import page."
+                    : `No books here yet${waiting.length ? "; the titles not available yet are below" : ""}.`}
             </p>
           )}
         </section>

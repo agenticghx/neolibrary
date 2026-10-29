@@ -60,7 +60,7 @@ describe("shelf", () => {
 });
 
 describe("filters (M14 D5)", () => {
-  it("show exactly their titles; All is unchanged", async () => {
+  it("show exactly their titles; Books is every title, and Has audio is inside it", async () => {
     const add = async (title: string, values: Partial<typeof books.$inferInsert>) =>
       (await database.db.insert(books).values({ ownerId, title, author: "", fileKey: `books/x/${title}`, fileType: "epub", ...values }).returning())[0].id;
     // Beside the fixtures above (Frankenstein 0.5, the Time Machine 0.1, Dracula 1, a title with no file):
@@ -75,17 +75,17 @@ describe("filters (M14 D5)", () => {
     await database.db.insert(readalongImports).values({ ownerId, bookId: uploading, status: "uploading", manifest: {}, report: { chapters: [], paragraphs: 0 }, audio: [] });
     await database.db.insert(audioTracks).values({ ownerId, bookId: narratedOnly, sectionId: "s1", source: "tts", voice: "v", cacheKey: "k", inputHash: "h", audioKey: "a", mime: "audio/mpeg", durationMs: 1, words: [] });
 
-    const shown = async (show: string) => (await titles({ show: parseShow(show), sort: "title" })).sort();
+    const shown = async (show: string, audio = false) => (await titles({ show: parseShow(show), audio, sort: "title" })).sort();
     expect(await shown("want")).toEqual(["A PDF", "Never opened"]);
     expect(await shown("finished")).toEqual(["Dracula"]);
-    expect(await shown("books")).toEqual(
-      ["Almost done", "Audiobook still uploading", "Dracula", "Frankenstein", "Narrated only", "Never opened", "Opened, still at 0%", "With an audiobook", "the Time Machine"].sort(),
+    // Books: every title with a file, ebook or PDF, with an audiobook or not (one thing, Samuel 2026-10-29).
+    expect(await shown("all")).toEqual(
+      ["A PDF", "Almost done", "Audiobook still uploading", "Dracula", "Frankenstein", "Narrated only", "Never opened", "Opened, still at 0%", "With an audiobook", "the Time Machine"].sort(),
     );
-    expect(await shown("pdfs")).toEqual(["A PDF"]);
-    expect(await shown("audiobooks")).toEqual(["With an audiobook"]);
-    // All: every book with a file, as before the filters existed.
-    expect((await shown("all")).length).toBe(3 + 7);
-    expect(await shown("nonsense")).toEqual(await shown("all"));
+    // Has audio: a ready uploaded audiobook only; not one still uploading, not narration alone.
+    expect(await shown("all", true)).toEqual(["With an audiobook"]);
+    // The old format filters are not filters any more: they show Books (the page redirects their addresses).
+    for (const old of ["books", "pdfs", "audiobooks", "nonsense"]) expect(await shown(old)).toEqual(await shown("all"));
     expect(parseShow("want")).toBe("want");
     for (const inherited of ["constructor", "toString", "__proto__", "hasOwnProperty"]) expect(parseShow(inherited)).toBe("all");
   });

@@ -17,19 +17,23 @@ export function parseSort(value: unknown): Sort {
 
 /**
  * The library's filters (M14 D5, Samuel 2026-10-05), as the sidebar names them.
- * Want to Read is automatic: everything not started (never opened, no
- * progress); its titles not available yet are listed beside it by the page.
- * Audiobooks counts an uploaded audiobook only, never narration (D1).
+ * Books is every title, in whatever forms it came (ebook, PDF, audiobook): a
+ * title you read and listen to is one thing, not two (Samuel 2026-10-29), so
+ * there are no separate Audiobooks and PDFs filters any more. Inside Books,
+ * Has audio (`audio`) keeps the titles with an uploaded audiobook, never
+ * narration alone (D1). Want to Read is automatic: everything not started
+ * (never opened, no progress); its titles not available yet are listed beside
+ * it by the page.
  */
 export const SHOWS = {
-  all: "All",
+  all: "Books",
   want: "Want to Read",
   finished: "Finished",
-  books: "Books",
-  audiobooks: "Audiobooks",
-  pdfs: "PDFs",
 } as const;
 export type Show = keyof typeof SHOWS;
+
+/** The old format filters' addresses, kept so a bookmark still opens Books (and Audiobooks its Has audio). */
+export const OLD_SHOWS: Record<string, { audio: boolean }> = { books: { audio: false }, pdfs: { audio: false }, audiobooks: { audio: true } };
 
 export function parseShow(value: unknown): Show {
   return typeof value === "string" && Object.hasOwn(SHOWS, value) ? (value as Show) : "all";
@@ -38,7 +42,7 @@ export function parseShow(value: unknown): Show {
 export async function listShelf(
   db: Db,
   ownerId: string,
-  opts: { sort?: Sort; q?: string; collectionId?: string | null; show?: Show } = {},
+  opts: { sort?: Sort; q?: string; collectionId?: string | null; show?: Show; audio?: boolean } = {},
 ) {
   const q = opts.q?.trim().slice(0, 100);
   const filters = [eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)];
@@ -61,20 +65,13 @@ export async function listShelf(
     case "finished":
       filters.push(gte(books.progress, 1));
       break;
-    case "books":
-      filters.push(eq(books.fileType, "epub"));
-      break;
-    case "pdfs":
-      filters.push(eq(books.fileType, "pdf"));
-      break;
-    case "audiobooks": {
-      const ready = db
-        .select({ id: readalongImports.bookId })
-        .from(readalongImports)
-        .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.status, "ready")));
-      filters.push(inArray(books.id, ready));
-      break;
-    }
+  }
+  if (opts.audio) {
+    const ready = db
+      .select({ id: readalongImports.bookId })
+      .from(readalongImports)
+      .where(and(eq(readalongImports.ownerId, ownerId), eq(readalongImports.status, "ready")));
+    filters.push(inArray(books.id, ready));
   }
   return db
     .select()

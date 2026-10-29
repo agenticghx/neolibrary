@@ -222,32 +222,57 @@ test("each library filter shows exactly its titles, with the right count", async
   const titleOnly = shelved.filter((b) => !b.file);
   const audio = new Set((data.readalongImports ?? []).filter((i) => i.status === "ready").map((i) => i.bookId));
   const expected: Record<string, { grid: B[]; waiting: number; heading: string }> = {
-    want: { grid: withFile.filter((b) => b.progress === 0 && !b.lastOpenedAt), waiting: titleOnly.length, heading: "Want to Read" },
-    finished: { grid: withFile.filter((b) => b.progress >= 1), waiting: 0, heading: "Finished" },
-    books: { grid: withFile.filter((b) => b.file!.type === "epub"), waiting: 0, heading: "Books" },
-    pdfs: { grid: withFile.filter((b) => b.file!.type === "pdf"), waiting: 0, heading: "PDFs" },
-    audiobooks: { grid: withFile.filter((b) => audio.has(b.id)), waiting: 0, heading: "Audiobooks" },
+    "show=want": { grid: withFile.filter((b) => b.progress === 0 && !b.lastOpenedAt), waiting: titleOnly.length, heading: "Want to Read" },
+    "show=finished": { grid: withFile.filter((b) => b.progress >= 1), waiting: 0, heading: "Finished" },
+    // Books' Has audio: titles with an uploaded audiobook, whatever their text is (ebook or PDF).
+    "audio=1": { grid: withFile.filter((b) => audio.has(b.id)), waiting: 0, heading: "Your library" },
   };
-  expect(expected.finished.grid.length, "a finished book exists by now (Trap Book)").toBeGreaterThan(0);
-  expect(expected.pdfs.grid.length, "a PDF exists by now (Discourse on the Method)").toBeGreaterThan(0);
-  for (const [show, want] of Object.entries(expected)) {
-    await page.goto(`/library?show=${show}`);
+  expect(expected["show=finished"].grid.length, "a finished book exists by now (Trap Book)").toBeGreaterThan(0);
+  for (const [query, want] of Object.entries(expected)) {
+    await page.goto(`/library?${query}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(want.heading);
     const titles = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();
-    expect(titles.sort(), show).toEqual(want.grid.map((b) => b.title).sort());
+    expect(titles.sort(), query).toEqual(want.grid.map((b) => b.title).sort());
     const n = want.grid.length;
-    const line = `${n} ${n === 1 ? "title" : "titles"}${want.waiting ? `, and ${want.waiting} not available yet` : ""}.`;
+    const line = `${n} ${n === 1 ? "title" : "titles"}${query === "audio=1" ? " with audio" : ""}${want.waiting ? `, and ${want.waiting} not available yet` : ""}.`;
     await expect(page.getByText(line, { exact: true })).toBeVisible();
     await expect(page.getByText(/^Not available yet \(\d+\)$/)).toHaveCount(want.waiting ? 1 : 0);
   }
-  // On a phone, the Library tab offers the same filters as chips.
+  // Books holds ebooks and PDFs together (a PDF exists by now: Discourse on the Method).
+  expect(withFile.some((b) => b.file!.type === "pdf"), "a PDF exists by now").toBe(true);
+  await page.goto("/library");
+  const all = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();
+  expect(all.sort()).toEqual(withFile.map((b) => b.title).sort());
+  // The old Books, PDFs and Audiobooks addresses open Books (Audiobooks with Has audio on).
+  for (const [old, now] of [["books", /\/library$/], ["pdfs", /\/library$/], ["audiobooks", /\/library\?audio=1$/]] as const) {
+    await page.goto(`/library?show=${old}`);
+    await expect(page).toHaveURL(now);
+  }
+  // On a phone, the Library tab offers the same filters as chips; inside Books, All or Has audio.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/library");
   const chips = page.getByRole("navigation", { name: "Filters" });
-  await expect(chips.getByRole("link")).toHaveText(["All", "Want to Read", "Finished", "Books", "Audiobooks", "PDFs"]);
-  await chips.getByRole("link", { name: "PDFs" }).click();
-  await expect(page).toHaveURL(/\/library\?show=pdfs$/);
-  await expect(chips.getByRole("link", { name: "PDFs" })).toHaveAttribute("aria-current", "page");
+  await expect(chips.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished"]);
+  const inBooks = page.getByRole("navigation", { name: "Books", exact: true });
+  await expect(inBooks.getByRole("link")).toHaveText(["All", "Has audio"]);
+  await inBooks.getByRole("link", { name: "Has audio" }).click();
+  await expect(page).toHaveURL(/\/library\?audio=1$/);
+  await expect(inBooks.getByRole("link", { name: "Has audio" })).toHaveAttribute("aria-current", "page");
+  await expect(chips.getByRole("link", { name: "Books" })).toHaveAttribute("aria-current", "page");
+  // Has audio belongs to Books: Want to Read shows no such row.
+  await chips.getByRole("link", { name: "Want to Read" }).click();
+  await expect(page).toHaveURL(/\/library\?show=want$/);
+  await expect(inBooks).toHaveCount(0);
+  // For the pull request: Books (All, Has audio), phone and desktop, light and dark.
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, width, height] of [["phone", 390, 844], ["desktop", 1280, 800]] as const) {
+    await page.setViewportSize({ width, height });
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto("/library");
+      await page.screenshot({ path: `screenshots/library-books-${name}-${scheme}.png` });
+    }
+  }
 });
 
 test("Home is accessible, fits a phone, and looks right in light and dark", async ({ page }) => {

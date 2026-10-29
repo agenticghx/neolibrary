@@ -26,12 +26,9 @@ test.describe("desktop sidebar", () => {
     await expect(page.getByTestId("tab-bar")).toBeHidden();
     const cases: [string | RegExp, RegExp, string][] = [
       ["Home", /:\d+\/$/, "Home"],
-      ["All", /\/library$/, "Your library"],
+      ["Books", /\/library$/, "Your library"],
       ["Want to Read", /\/library\?show=want$/, "Want to Read"],
       ["Finished", /\/library\?show=finished$/, "Finished"],
-      ["Books", /\/library\?show=books$/, "Books"],
-      ["Audiobooks", /\/library\?show=audiobooks$/, "Audiobooks"],
-      ["PDFs", /\/library\?show=pdfs$/, "PDFs"],
       // M14 follow-up V3b (Samuel, #90): the Import page, from the Library list.
       ["Import", /\/import$/, "Import"],
       // A Path shows how many of its numbered pillars are started.
@@ -47,9 +44,9 @@ test.describe("desktop sidebar", () => {
       await expect(sidebar(page).locator('[aria-current="page"]')).toHaveCount(1);
     }
 
-    // Import is the last item of the Library list, after PDFs (M14 follow-up V3b).
+    // Import is the last item of the Library list, after Finished (M14 follow-up V3b).
     const libraryList = sidebar(page).getByRole("list", { name: "Library", exact: true });
-    await expect(libraryList.getByRole("link")).toHaveText(["All", "Want to Read", "Finished", "Books", "Audiobooks", "PDFs", "Import"]);
+    await expect(libraryList.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished", "Import"]);
     // With a book chosen for its audiobook (/import?book=…#audio-h), Import is still the current page.
     const importItem = libraryList.getByRole("link", { name: "Import", exact: true });
     await importItem.click();

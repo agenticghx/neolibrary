@@ -76,11 +76,6 @@
   width: auto;
 }
 
-/* The filters as chips: phone only (the sidebar has them on desktop). */
-.filters {
-  display: none;
-}
-
 .chipsLabel {
   color: var(--ink-700);
   font-size: var(--text-xs);
@@ -94,6 +89,11 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* The filters as chips: phone only (the sidebar has them on desktop). After .chips, which would show them. */
+.filters {
+  display: none;
 }
 
 .chip,
