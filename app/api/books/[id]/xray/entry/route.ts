@@ -1,5 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
-import { aiIsFake, getTextModel } from "@/lib/ai/index";
+import { aiIsFake } from "@/lib/ai/index";
+import { textModel } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -39,7 +40,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const world = await storedWorld(db, user.id, bookId, entry);
     let estimate: number | null = null;
     try {
-      estimate = await estimateWorld(db, getTextModel("xray-world"), user.id, bookId, entry);
+      estimate = await estimateWorld(db, await textModel(db, "xray-world"), user.id, bookId, entry);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -60,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const db = await getDb();
   try {
     const entry = await entryOf(db, user.id, bookId, entryId);
-    const { world, reused } = await askWorld(db, getTextModel("xray-world"), user.id, bookId, entry, { fresh: body.fresh === true });
+    const { world, reused } = await askWorld(db, await textModel(db, "xray-world"), user.id, bookId, entry, { fresh: body.fresh === true });
     return Response.json({ world, reused }, { status: reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);

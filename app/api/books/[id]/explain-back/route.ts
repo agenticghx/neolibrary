@@ -1,5 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake, getTextModel } from "@/lib/ai/index";
+import { getModelPicks, textModel } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -46,7 +47,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const anchor = await partAnchor(db, bookId, chapter);
     let estimate: number | null = null;
     try {
-      estimate = await estimateExplainBack(db, getTextModel("explain-back"), user.id, bookId, chapter);
+      estimate = await estimateExplainBack(db, await textModel(db, "explain-back"), user.id, bookId, chapter);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -67,7 +68,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
   const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; summary?: unknown };
   try {
-    const out = await explainBack(await getDb(), () => getTextModel("explain-back"), user.id, { bookId, chapterId: body.chapterId, summary: body.summary });
+    const db = await getDb();
+    const picks = await getModelPicks(db);
+    const out = await explainBack(db, () => getTextModel("explain-back", process.env, picks), user.id, { bookId, chapterId: body.chapterId, summary: body.summary });
     if (out.error) {
       const f = failure(out.error);
       return Response.json({ note: out.note, attempt: null, reused: false, error: f.error }, { status: f.status });

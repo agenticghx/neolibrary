@@ -147,6 +147,10 @@ describe("costs and choosing a model", () => {
     // A misspelt or unpriced model is ignored, so the spending cap always knows the price.
     expect(model("ask", { AI_MODEL_ASK: "claude-opus-9" })).toBe("claude-opus-5-5");
     expect(modelFor("questions", { AI_MODEL_QUESTIONS: " claude-opus-5-5 " })).toBe("claude-opus-5-5");
+    // M35: the owner's pick on the Spending page wins over the server setting; an unpriced pick is ignored.
+    expect(modelFor("explain-back", { AI_MODEL_EXPLAIN_BACK: "claude-haiku-5-5" }, { "explain-back": "claude-sonnet-5-5" })).toBe("claude-sonnet-5-5");
+    expect(modelFor("explain-back", {}, { "explain-back": "claude-opus-9" })).toBe("claude-opus-5-5");
+    expect(getTextModel("questions", { ANTHROPIC_API_KEY: KEY }, { questions: "claude-opus-5-5" }).model).toBe("claude-opus-5-5");
   });
 
   it("sends Haiku no server-side fallback, which it does not have", async () => {

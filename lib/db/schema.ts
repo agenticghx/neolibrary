@@ -58,6 +58,14 @@ export const appSecrets = pgTable("app_secrets", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Library-wide settings the owner changes on screen (M35, migration 0034), e.g. "ai-models". */
+export const appSettings = pgTable("app_settings", {
+  name: text("name").primaryKey(),
+  value: jsonb("value").$type<Record<string, string>>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
 export type User = typeof users.$inferSelect;
 export type Role = User["role"];
 

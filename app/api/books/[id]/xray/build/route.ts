@@ -1,5 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
-import { aiIsFake, getTextModel } from "@/lib/ai/index";
+import { aiIsFake } from "@/lib/ai/index";
+import { textModel } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -32,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     let model;
     try {
-      model = getTextModel("xray");
+      model = await textModel(db, "xray");
     } catch (e) {
       if (e instanceof AiNotConfigured) return Response.json({ configured: false });
       throw e;
@@ -51,7 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { confirm?: unknown };
   const db = await getDb();
   try {
-    const model = getTextModel("xray");
+    const model = await textModel(db, "xray");
     const { started } = await startXray({ db, model }, user.id, bookId, body.confirm);
     return Response.json({ started, ...(await xraySummary(db, model, user.id, bookId)) }, { status: started ? 202 : 200 });
   } catch (e) {

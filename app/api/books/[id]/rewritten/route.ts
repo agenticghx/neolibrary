@@ -1,5 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
-import { aiIsFake, getTextModel } from "@/lib/ai/index";
+import { aiIsFake } from "@/lib/ai/index";
+import { textModel } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused, type TextModel } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -38,7 +39,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!isCfi(from) || !isCfi(to)) return Response.json({ error: "Give the place on screen (from and to)." }, { status: 400 });
   let model: TextModel | null = null;
   try {
-    model = getTextModel("rewrite");
+    model = await textModel(await getDb(), "rewrite");
   } catch (e) {
     if (!(e instanceof AiNotConfigured)) throw e;
   }
@@ -59,7 +60,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { sectionId?: unknown; fresh?: unknown };
   if (typeof body.sectionId !== "string") return Response.json({ error: "Choose a paragraph." }, { status: 400 });
   try {
-    const out = await rewriteInStyle(await getDb(), getTextModel("rewrite"), user.id, { bookId, sectionId: body.sectionId, fresh: body.fresh === true });
+    const out = await rewriteInStyle(await getDb(), await textModel(await getDb(), "rewrite"), user.id, { bookId, sectionId: body.sectionId, fresh: body.fresh === true });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return aiErrorResponse(e);
