@@ -1379,12 +1379,12 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   expect([last1.w, expected[first2].word]).toEqual(["in", "most"]);
   expect(expected[first2].startMs - last1.end * 1000).toBeLessThan(50);
   // On the shelf this PDF says Read and listen (the AI voice reads PDFs too since Part A2, so the label alone no
-  // longer shows the audiobook; the Audiobooks filter below does).
+  // longer shows the audiobook; Books' Has audio filter below does).
   await page.goto("/library");
   const onShelf = page.getByTestId("shelf").getByRole("listitem").filter({ hasText: "Read-Along Test Pages" });
   await expect(onShelf.getByText("Read and listen", { exact: true })).toBeVisible();
-  // The Audiobooks filter lists it (an uploaded audiobook), and no book that only has narration.
-  await page.goto("/library?show=audiobooks");
+  // Has audio lists it (an uploaded audiobook), and no book that only has narration.
+  await page.goto("/library?audio=1");
   const withAudio = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();
   expect(withAudio).toContain("Read-Along Test Pages");
   expect(withAudio).not.toContain("Frankenstein");

@@ -11,14 +11,11 @@ import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
 import styles from "./Shell.module.css";
 
-/** The library's filters (M14 D5; /library?show=…, lib/library/shelf.ts SHOWS). */
+/** The library's filters (M14 D5; /library?show=…, lib/library/shelf.ts SHOWS). Books is every title; Has audio is inside it, on the page. */
 export const LIBRARY_LINKS: { label: string; href: string; icon: IconName }[] = [
-  { label: "All", href: "/library", icon: "library" },
+  { label: "Books", href: "/library", icon: "book" },
   { label: "Want to Read", href: "/library?show=want", icon: "want" },
   { label: "Finished", href: "/library?show=finished", icon: "finished" },
-  { label: "Books", href: "/library?show=books", icon: "book" },
-  { label: "Audiobooks", href: "/library?show=audiobooks", icon: "audio" },
-  { label: "PDFs", href: "/library?show=pdfs", icon: "pdf" },
 ];
 
 type Props = {

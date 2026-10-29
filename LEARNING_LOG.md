@@ -73,6 +73,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 92 | 2026-10-28 01:55 | Carousel pace | 27 px a second is "a bit faster" and changes nothing else | `npm run check`; carousel tests ×3; Chromium and WebKit by script | success (Samuel's eye to come) | state a pace as seconds per book, which Samuel can judge |
 | 93 | 2026-10-28 02:44 | #244 CI | A red browser job on a speed-only change is a flake, and a stuck job is the runner, not the code | the failed test's log; the stuck job's steps; attempt 2 | success | a wait loop must also end on failure; read a stuck job's steps before waiting longer |
 | 94 | 2026-10-28 04:16 | Full-screen reading | A Full screen button and F fill the screen, and the bars fade when the reader is still and come back with the mouse | reader Playwright project; 8 screenshots | success (after one real bug) | a mouse click leaves focus on the button: "keep the bar while focused" must mean keyboard focus |
+| 97 | 2026-10-29 01:10 | Books menu | Books, Audiobooks and PDFs fold into one Books filter with Has audio inside it, old addresses still work | full browser suite; home project; 4 screenshots | success (and a bug found on main) | a CSS rule that hides something must come after the rule that shows it |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2340,3 +2341,12 @@ tests that pin it, in a small PR.
 **Result.** `284 passed (5.8m)`. In the screenshot the top bar, the strip and the footer are all gone and the page has not moved.
 **Lesson.** none new: the room-keeping fade from iteration 94 extends to any row by adding its class to one rule.
 **Next experiment.** CI, merge, deploy (Samuel: "yes fade the where were we strip too, deploy").
+
+### Iteration 97 · 2026-10-29 01:10 (laptop clock) · Books menu · success
+
+**Hypothesis.** Samuel (2026-10-29): read-and-listen is one thing, so the library's six filters (All, Want to Read, Finished, Books, Audiobooks, PDFs) can become three (Books, Want to Read, Finished), with a Has audio filter inside Books, without losing any title and without breaking an old bookmark.
+**Action.** `lib/library/shelf.ts`: SHOWS is Books (the old All), Want to Read, Finished; `listShelf` takes `audio` (a ready uploaded audiobook, rule D1); OLD_SHOWS names the old addresses. `app/(app)/library/page.tsx`: a "Books: All | Has audio" row (?audio=1), and the old ?show=books / pdfs / audiobooks addresses redirect. Sidebar: Books, Want to Read, Finished, Import. Tests: shelf.test, home.spec (from the export, plus the redirects and the phone chips), shell.spec, readalong.spec.
+**Evaluation.** `npm run check`; `npx playwright test --ignore-snapshots` (whole suite); `--project=home` twice for screenshots, looked at.
+**Result.** `npm run check`: 1186 passed, 2 skipped. Whole suite: `392 passed (15.6m)`. The first desktop screenshot showed the phone-only "Show" chips beside the sidebar: on `main` too, since `.filters { display: none }` came before `.chips { display: flex }` in the file, so the later rule won. Moved it after; the home project then `289 passed (5.7m)` and the desktop screenshot has only the sidebar menu.
+**Lesson.** Two one-class rules on the same element: the later one in the file wins. A rule that hides something must come after the rule that shows it, and only a screenshot of a full library (not the empty one the reference pictures use) showed it.
+**Next experiment.** CI and the merge train (it refreshes the library reference screenshots); deploy at Samuel's word.
