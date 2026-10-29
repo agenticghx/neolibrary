@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Merge #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-29
 shared_copy: none
@@ -338,6 +338,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-29 18:50 · Claude (laptop) · Claude key on the live site; AI features switched on
+- **Done:** At Samuel's word ('load the ant api to the library', he has $100/month of Max API credit that expires unused each billing cycle, per platform.claude.com/docs/en/about-claude/api-credits-for-subscribers). Keychain ANTHROPIC_KEY_SCRIPTS (length 106) piped to Railway web production as ANTHROPIC_API_KEY with --skip-deploys, never printed; Railway reads back length 106. Key accepted by api.anthropic.com/v1/models (HTTP 200). Redeployed the live build (same commit 2300956, no new code, no migration): deployment 4e265c56 SUCCESS; /api/health on both addresses says 2300956; /sign-in 200; log 'Page pictures: ready.'. scripts/check-prompt-cache.ts with the key: first call wrote 6433 tokens to cache ($0.00086), second read 6433 from cache ($0.00011): prompt caching proven.
+- **Key paths:** none in git (Railway variable ANTHROPIC_API_KEY on service web)
+- **Commands that worked:** security find-generic-password -a "$USER" -s ANTHROPIC_KEY_SCRIPTS -w | tr -d '\n' | railway variable set ANTHROPIC_API_KEY --stdin --service web --environment production --skip-deploys > /dev/null; railway redeploy --service web --environment production --yes; ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s ANTHROPIC_KEY_SCRIPTS -w) npx tsx scripts/check-prompt-cache.ts
+- **Known issues / blockers:** No AI_CAP_PER_BOOK_USD / AI_CAP_PER_MONTH_USD on Railway, so the app's caps are the defaults ($5 per book, $20 per month across readers); raising them is Samuel's call. Not yet seen: one AI answer on the live site itself (needs a signed-in reader).
+- **Exact next steps:** Samuel (or a session he signs in for) asks one rewrite on a real book on the live site and checks it answers; a second identical-style rewrite should cost less in the generations table (cache read). Decide whether to raise AI_CAP_PER_MONTH_USD toward the $100 monthly credit.
 
 ### 2026-10-29 01:09 · Claude Opus 5.5 (laptop) · Books menu: PR #248 open
 - **Done:** PR #248 (branch m14-books-menu, commit c41c491): Books, Want to Read, Finished; 'Books: All | Has audio' row; old ?show=books/pdfs/audiobooks redirect. Also fixed a bug already on main: the phone-only Show chips showed on desktop (.filters display:none came before .chips display:flex in page.module.css). LEARNING_LOG iteration 97.
