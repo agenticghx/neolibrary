@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge PR m39-reader-font-ready when green, then deploy it (Samuel said deploy when green; no migration).   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Carry the 25b19de deploy record into the next real PR; M36 waits on Open unknowns row 32.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-30
 shared_copy: none
@@ -341,6 +341,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-30 09:29 · Claude Opus 5.5 (laptop) · Live: 25b19de (#252 security fixes, #253 reader waits for its typeface); no migration
+- **Done:** Deployed at Samuel's word ('yes build the fix, then deploy when green'). #253 merged as 25b19de with four checks green. No migration since 29bbe3b (git diff --name-only 29bbe3b 25b19de -- db/migrations: 0 files), so no backup. From ../neolibrary-deploy (clean detached checkout of 25b19de): railway up exit 0. /api/health on both addresses says 25b19de; /sign-in 200 on both; log 'Page pictures: ready.'. The live site now runs Next.js 16.4.1 and zod 4.6.6 (Dependabot: 16 fixed, 0 open).
+- **Key paths:** none changed in git by the deploy
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=25b19deb4e79d1337ea3d2aff3530bbebdb01b5a --service web --environment production --skip-deploys; railway up --service web --environment production --ci; curl -s https://library.samuelahuno.com/api/health
+- **Known issues / blockers:** Main's CI run on 25b19de was still running at deploy time (its PR run was green). Samuel's dotfiles commit ca89f30 not pushed.
+- **Exact next steps:** 1. Check main's CI on 25b19de is green (the run that failed on e97bc8f). 2. Carry this entry into the next real PR (branch m39-deploy-25b19de-record, local). 3. Remove worktrees agent-a98c0eb2d919e3392, deploy-29bbe3b (its entry is carried) and m39-font-ready. 4. M36 waits on Open unknowns row 32 (decide by 2026-11-12).
 
 ### 2026-10-30 08:52 · Claude Opus 5.5 (laptop) · The reader waits for the book's typeface before 'ready' (fixes main's red shell.spec.ts:469 after #252)
 - **Done:** Verified #252: merged as e97bc8f, four checks green on its PR head (same tree), Dependabot 16 fixed / 0 open, npm audit on main's lockfile 0 (runtime and all). Main's CI run after the merge (40999261936) failed shell.spec.ts:469 on attempts 1 and 2 with the same places; the trace showed a blank book page at 'ready' and the frame's font landing 21 ms later, moving the page's start a paragraph back. Reproduced on the Mac (font held 300 ms, place read after it lands): unfixed 3 of 3 failed with CI's place, fixed 3 of 3 passed; the hold is kept in the test (without the fix 3 of 3 fail). Fix: Reader.tsx waits for the shown frames' fonts (max 3 s) and two frames before setStatus('ready'). Carried the 29bbe3b deploy record (cherry-pick of 4eaa4aa8). Samuel: 'yes build the fix, then deploy when green'.
