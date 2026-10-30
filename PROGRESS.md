@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M36 waits on Open unknowns row 32; optional: fix the agents.spec.ts:318 flake. Carry m37-skills-record's ledger entry into the next PR.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Finish the agents.spec.ts:318 fix PR (control run pending), then merge the security PR; deploy at Samuel's word. M36 waits on Open unknowns row 32.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-29
 shared_copy: none
@@ -339,6 +339,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-29 22:09 · Claude (laptop) · agents.spec.ts:318 flake: cause found (a refresh overwrote a just-placed note), fixed; control run going
+- **Done:** Reproduced locally under CPU load (6 x yes): 3 failures in 12 runs of the agents project, same step and symptom as CI (line 411, data-placed 'no'). Temporary console logging showed the order: the refresh's GET began (3883 ms), the note was placed (3886), the refresh then set the list from a copy made before the placing (cfi null), and placing skips a note it already placed. Fix in Reader.tsx reload(): attach the places (withCrossed) after the last await (the outbox read), not before it. With the fix: 20 of 20 runs passed under load. A control run of the unfixed code under today's load is going, to make the comparison fair. Logging removed.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (reload, ~l.1289); playwright.config.ts (temporary: agents depends on uploads, uploads on setup; restore from scratchpad pw-config.bak before commit); CLAUDE.md
+- **Commands that worked:** for k in 1..6: yes > /dev/null & ; npx playwright test --project=agents --ignore-snapshots (with the temporary config: about 45 s a run)
+- **Known issues / blockers:** playwright.config.ts must be restored before committing. Control result pending.
+- **Exact next steps:** 1. Read the control (unfixed, 12 runs); restore playwright.config.ts; npm run check; the full browser suite once. 2. Commit (fix, CLAUDE.md line, ci-flakes note, learning log), PR, merge when green. 3. The helper's security PR after it, one at a time; deploy both at Samuel's word.
+
+### 2026-10-29 21:38 · Claude (laptop) · In progress: fix the agents.spec.ts:318 flake; CLAUDE.md lists every project skill; security PR by a helper
+- **Done:** Branch m37-flaky-notes-cross (worktree .claude/worktrees/flaky-318), not pushed. CLAUDE.md: the skills line now names every project skill and points to .claude/skills/README.md (Samuel's working CLAUDE.md is identical to origin/main, so no edit of his is in the way). Investigating agents.spec.ts:318: CI's trace (run 40977462921 attempt 1, artifact 12944270871) shows the scan's notes were fetched; the note from the text edition was listed but never placed (data-placed=no). Reading Reader.tsx placeCrossed/placeShown: a late note and a late text layer are both handled, so the cause is narrower. A local reproduction loop (agents project x6) is running with a temporary, uncommitted playwright.config.ts change (agents depends on setup only). A helper agent is fixing the 16 Dependabot alerts on branch m38-security-updates in its own worktree (PORT=3200) and writing docs/security-updates.md.
+- **Key paths:** CLAUDE.md; e2e/agents.spec.ts:318; app/(reader)/books/[id]/read/Reader.tsx (placeCrossed ~l.953, placeShown ~l.975); lib/reader/pdf-book.ts (TEXT_LAYER_EVENT l.219); playwright.config.ts (temporary, must be restored from scratchpad pw-config.bak before commit)
+- **Commands that worked:** gh api repos/agenticghx/neolibrary/actions/artifacts/12944270871/zip > report.zip (the failed attempt's Playwright report and trace)
+- **Known issues / blockers:** playwright.config.ts is temporarily changed for the reproduction: restore before committing. Root cause of the flake not found yet.
+- **Exact next steps:** 1. Read the six reproduction runs; if it fails, read its trace for the order of nl:frame-load / nl:textlayer-ready and the notes fetch. 2. Fix the cause in the app or the test (never loosen the assertion), restore playwright.config.ts, npm run check, the agents project several times, PR. 3. Merge the security PR and this one one at a time; deploy at Samuel's word.
 
 ### 2026-10-29 21:08 · Claude (laptop) · M37 merged (12ceccd); laptop copies removed; a fresh session sees the repo's skills
 - **Done:** #250 merged as 12ceccd (four checks green on the first CI run). In Samuel's dotfiles (~/.local/share/chezmoi), local commit ca89f30 (not pushed) removes dot_claude/skills/symlink_{readalong-audio,book-chapters}.tmpl and claude/skills/{readalong-audio,book-chapters}; the two ~/.claude/skills links deleted; chezmoi managed no longer lists them. A fresh claude -p in a clean detached checkout of origin/main (12ceccd) listed book-chapters, readalong-audio, merge-train, scan-to-text and xray-on-subscription as project skills; plain-english and simplified-technical-english as both (repo and Samuel's own copy, kept on purpose for his other projects). Nothing deployed (no app change since d4ae864).

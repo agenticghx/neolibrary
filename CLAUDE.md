@@ -50,9 +50,11 @@ engineer.
   screenshots from CI, decide whether a red check is a flake, or deploy
   (its step 6), use the `merge-train` skill
   (`.claude/skills/merge-train/SKILL.md`); `docs/ci-flakes.md` lists the
-  known flaky tests. Two more skills sit beside it: `scan-to-text` (a
-  scanned PDF into a text edition) and `xray-on-subscription` (the X-ray,
-  a who-and-what index, for one book). Load the one that fits first.
+  known flaky tests. Every other skill this project uses sits beside it in
+  `.claude/skills/` (index and rules: `.claude/skills/README.md`):
+  `scan-to-text`, `xray-on-subscription`, `readalong-audio`,
+  `book-chapters`, `plain-english` and `simplified-technical-english`.
+  Load the one that fits first.
 - Before a PR: `npm run check` (lint, types, unit tests); `npm run
   test:postgres` when SQL or a migration changes; on a Mac, browser tests
   with `npx playwright test --ignore-snapshots` (reference images are Linux
