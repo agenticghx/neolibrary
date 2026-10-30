@@ -15,14 +15,20 @@ export function FindCovers({ found, none }: { found: number; none: number }) {
   const check = useRef<(ms: number) => void>(() => {});
   // Whether this page saw a lookup running, so its end is announced and the lists reloaded once.
   const sawRun = useRef(false);
+  // Counted up when "Find covers now" is pressed and again when the server has taken the lookup. An answer to a check
+  // sent before that says nothing about the new lookup: the check made on opening the page, answered just after the
+  // press, said "nothing running", which read as the new lookup's end ("Done. 0 titles…"), and the lists were never
+  // reloaded when it really ended (nightly run 41076346065, 2026-10-30).
+  const starts = useRef(0);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let stopped = false;
     async function poll() {
+      const asked = starts.current;
       const res = await fetch("/api/covers", { cache: "no-store" }).catch(() => null);
       const s = (res?.ok ? await res.json() : null) as Status | null;
-      if (stopped) return;
+      if (stopped || asked !== starts.current) return;
       if (!s) {
         setLooking(false);
         setLine("Could not tell how the lookup is going. Reload the page in a minute.");
@@ -55,6 +61,7 @@ export function FindCovers({ found, none }: { found: number; none: number }) {
   }, [router]);
 
   async function start() {
+    starts.current++;
     sawRun.current = true;
     setLooking(true);
     setLine("Looking up covers…");
@@ -66,6 +73,7 @@ export function FindCovers({ found, none }: { found: number; none: number }) {
       setLine(body.error ?? "The lookup could not start. Try again in a moment.");
       return;
     }
+    starts.current++;
     check.current(800);
   }
 
