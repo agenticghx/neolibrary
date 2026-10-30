@@ -469,6 +469,12 @@ test.describe("command palette", () => {
   test("works in the reader, and its keys do not turn the page", async ({ page }) => {
     // Nothing the reader saves reaches the server here: the reader tests that follow expect the book unopened.
     await page.route(/\/api\/books\/[0-9a-f-]{36}\/(position|reading)$/, (route) => route.fulfill({ status: 200, json: {} }));
+    // The book's typeface arrives late on purpose: the page is laid out again when it lands, so the reader may say
+    // "ready" only after that, or the place recorded first is not the place shown (main's CI run on e97bc8f).
+    await page.route(/\/fonts\/source-serif-4-/, async (route) => {
+      await new Promise((r) => setTimeout(r, 300));
+      await route.continue();
+    });
     const book = await bookNamed(page, /^The Strange Case/);
     await page.goto(`/books/${book.id}/read`);
     const reader = page.getByTestId("reader");
@@ -480,6 +486,7 @@ test.describe("command palette", () => {
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Escape");
     await expect(palette(page)).toBeHidden();
+    for (const frame of page.frames()) await frame.evaluate(() => document.fonts.ready.then(() => new Promise(requestAnimationFrame)));
     expect(await reader.getAttribute("data-cfi")).toBe(before);
     // With focus inside the book's own page (a frame, in foliate's closed shadow root), the keys still open it,
     // and Escape puts focus back in the book.

@@ -1088,6 +1088,15 @@ export function Reader(props: {
         // M25: from the scan's page n to the same page in the text edition (its page marker, in the page list).
         const opening = props.openPage ? v.book.pageList?.find((item) => item.label === String(props.openPage)) : undefined;
         if (opening) await v.goTo(opening.href);
+        // The book's own typeface (NL Serif, fetched by the book's frame) can arrive after the first page is laid
+        // out; the text is blank until then, and foliate lays the page out again when it lands, which moves the
+        // page's start by a paragraph or more. "Ready" waits for it (at most 3 s, the browser's own wait for a
+        // font), and then a frame for foliate's new layout, so the page a reader sees first is the one recorded
+        // (docs/ci-flakes.md, shell.spec.ts:469 on e97bc8f).
+        const fonts = (v.renderer?.getContents() ?? []).map(({ doc }) => doc.fonts?.ready);
+        await Promise.race([Promise.all(fonts), new Promise((r) => setTimeout(r, 3000))]);
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        if (cancelled) return;
         clearTimeout(giveUp);
         setStatus("ready");
       } catch (err) {
