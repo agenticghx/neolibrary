@@ -1223,6 +1223,89 @@ answer "not found"; no paid call is possible (the fake AI and fake voice
 record zero calls); signed in, Samuel sees his whole library as today.
 Screenshots on phone and desktop, light and dark, of the signed-out Home.
 
+### M35 · Pick the model for each AI feature (Samuel, 2026-10-29)
+
+Written for Samuel and the session that builds the next step. Samuel's
+words: "build the owner-only version and model fingerprints". On the
+Spending page (`/admin/costs`), the owner picks which Claude model answers
+each AI feature (Rewrites, Need to know, Test yourself, Explain it back,
+Ask, the two X-ray parts): Default, Haiku 5.5, Sonnet 5.5 or Opus 5.5, with
+their prices. Only the owner, because today one key pays for every reader.
+A pick wins over the server setting `AI_MODEL_<FEATURE>`, which wins over
+the built-in default.
+
+**Saved answers are kept (Samuel's choice, 2026-10-29).** Putting the model
+into the saved-answer fingerprint would have hidden every answer made by
+another model: on the live site, 13,583 rewrites made with Opus on the
+subscription, which readers would then pay Sonnet to make again. So a saved
+answer is still served free after a switch, labelled with the model that
+made it; a new question and "ask again" use the new pick.
+
+**Done when.** `npm run check` and `npm run test:postgres` green; a unit
+test proves a saved answer is still served after a switch and "ask again"
+uses the new model; a browser test picks a model, reloads, sees it, and puts
+it back; screenshots of the Spending page on phone and desktop, light and
+dark. Migration 0034 (an `app_settings` table) has a reverse step; back up
+production before it runs.
+
+### M36 · Bring your own AI key (Samuel, 2026-10-29)
+
+Written for Samuel and for the session that builds it. Samuel's words: "this
+app should be bring your own AI API keys until we find cheap api keys for
+public use or from donations." Recorded, not started: build it only when
+Samuel says go.
+
+**The intent.** Each person who uses the AI help pays for it with their own
+Anthropic key, rather than Samuel's key paying for everyone. Samuel's key
+pays only for Samuel. Later, if cheap keys for public use or donations
+appear, a shared "house key" with a monthly allowance per reader can be
+added on top; until then, there is none.
+
+**What a reader gets.**
+1. **Account → AI key.** A reader pastes their own Anthropic API key. The
+   app checks it once with Anthropic's free model list call, stores it
+   encrypted, and from then on shows only its last four characters. Remove
+   it at any time.
+2. **Their own models and caps.** With their own key, a reader picks their
+   own model per feature (M35's menus, moved to their account) and sets their
+   own monthly and per-book caps. The owner's picks and caps apply only to
+   the owner's key.
+3. **Without a key,** a reader still sees every saved answer, free, but
+   cannot ask for a new one; the button says "Add your AI key in Account to
+   ask for new answers."
+
+**Defaults (Samuel may change any of them):**
+1. **Saved answers are still shared.** A rewrite, Need to know or Test
+   yourself answer one reader paid for is served free to any other reader of
+   the same text, as today (it holds only the book's text, nothing personal).
+   Ask and Explain it back stay private.
+2. **Keys are encrypted** with a server key held in a Railway variable, not
+   in the database, so a copy of the database alone does not reveal anyone's
+   key. Adding that variable is Samuel's step.
+3. **Invited readers keep using Samuel's key until M36 ships.** After it,
+   only Samuel's own requests use his key.
+4. **Voices (ElevenLabs) and pictures (OpenAI)** stay on Samuel's keys and
+   his caps for now. Bring-your-own for them is a later step.
+5. **Visitors to the public showcase (M34)** cannot ask for new answers,
+   with or without a key.
+
+**Steps (one pull request each):**
+- S1. Encrypted key storage per reader (migration with a reverse step;
+  production backup before it runs) and the Account → AI key form, checked
+  with the free model list call. Tests use a fake key and a fake Anthropic.
+- S2. Each AI request uses the asking reader's key, their model picks and
+  their caps; with no key, saved answers only. The Spending page shows the
+  owner's own spending; each reader sees their own on their Account page.
+- S3. Guard rails: a key Anthropic refuses is shown as "not working" and
+  never retried in a loop; no page, log or export ever shows a key.
+
+**Done when.** A reader with their own (fake) key gets new answers and their
+spending counts only against their own caps; a reader without one sees saved
+answers and the "add your key" line; Samuel's spending does not move when a
+reader asks; no response, log line or export contains a key (a test greps
+for it). Screenshots of the Account → AI key form on phone and desktop, light
+and dark.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

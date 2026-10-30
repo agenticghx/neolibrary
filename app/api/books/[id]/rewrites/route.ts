@@ -1,5 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
-import { aiIsFake, getTextModel } from "@/lib/ai/index";
+import { aiIsFake } from "@/lib/ai/index";
+import { textModel } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -48,7 +49,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const versions = await listRewrites(db, user.id, bookId, paragraph.id);
     let estimates: Record<string, number> | null = null;
     try {
-      const model = getTextModel("rewrite");
+      const model = await textModel(db, "rewrite");
       estimates = {};
       for (const level of Object.keys(LEVELS)) {
         if (isLevel(level)) estimates[level] = await estimateRewrite(db, model, user.id, bookId, paragraph.id, level);
@@ -79,7 +80,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const strictness = body.strictness === undefined ? "standard" : strictnessFrom(body.strictness);
   if (!strictness) return Response.json({ error: "STE strictness is Light, Standard, Strict or a percentage." }, { status: 400 });
   try {
-    const out = await rewriteParagraph(await getDb(), getTextModel("rewrite"), user.id, {
+    const out = await rewriteParagraph(await getDb(), await textModel(await getDb(), "rewrite"), user.id, {
       bookId,
       sectionId: body.sectionId,
       level: body.level,

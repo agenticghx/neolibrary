@@ -85,7 +85,8 @@ export function costUsd(model: string, inputTokens: number, outputTokens: number
  * paragraph, so they go to Sonnet 5.5 (half Opus's price; Opus follows strict
  * STE a little more closely). Judging what a reader wrote or asked stays on
  * Opus. Each can be changed on the server with AI_MODEL_<FEATURE>, e.g.
- * AI_MODEL_REWRITE=claude-opus-5-5.
+ * AI_MODEL_REWRITE=claude-opus-5-5, and by the owner on the Spending page
+ * (M35, lib/ai/model-picks.ts), which wins over both.
  */
 export const FEATURE_MODELS = {
   rewrite: "claude-sonnet-5-5",
@@ -100,10 +101,23 @@ export const FEATURE_MODELS = {
 } as const;
 export type AiFeature = keyof typeof FEATURE_MODELS;
 
-/** The model for a feature: its AI_MODEL_<FEATURE> setting if it names a model we have a price for, else the default above. */
-export function modelFor(feature: AiFeature, env: Record<string, string | undefined> = process.env): string {
-  const set = env[`AI_MODEL_${feature.toUpperCase().replace(/-/g, "_")}`]?.trim();
-  return set && set !== "fake" && PRICES[set] ? set : FEATURE_MODELS[feature];
+/** Which model answers each feature, as the owner picked on the Spending page (M35); a feature left out uses the default. */
+export type ModelPicks = Partial<Record<AiFeature, string>>;
+
+/** The models the owner can pick from, cheapest first. */
+export const MODEL_CHOICES = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"] as const;
+
+/** A model the app can use for a feature: one we have a price for, so the spending cap always knows the cost. */
+export const usableModel = (m: string | undefined) => (m && m !== "fake" && PRICES[m] ? m : null);
+
+/** The default for a feature: its AI_MODEL_<FEATURE> server setting if it names a model we have a price for, else FEATURE_MODELS. */
+export function defaultModelFor(feature: AiFeature, env: Record<string, string | undefined> = process.env): string {
+  return usableModel(env[`AI_MODEL_${feature.toUpperCase().replace(/-/g, "_")}`]?.trim()) ?? FEATURE_MODELS[feature];
+}
+
+/** The model for a feature: the owner's pick, else the default. */
+export function modelFor(feature: AiFeature, env: Record<string, string | undefined> = process.env, picks: ModelPicks = {}): string {
+  return usableModel(picks[feature]) ?? defaultModelFor(feature, env);
 }
 
 /** A rough token count: about four characters per token for English. */

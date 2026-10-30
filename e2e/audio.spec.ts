@@ -341,6 +341,35 @@ test("the admin's cost counter shows this month's text and voice spending, by bo
   await expect(jekyll).not.toContainText("$0.00");
 });
 
+// M35: the owner picks which Claude model answers each AI feature; the pick survives a reload and can be put back.
+test("the owner picks a model per AI feature on the Spending page, and can put it back to the default", async ({ page }) => {
+  await page.goto("/admin/costs");
+  const explain = page.getByTestId("model-explain-back");
+  await expect(explain).toHaveValue("default");
+  await expect(explain.locator("option").first()).toHaveText("Default (Opus 5.5)");
+  await expect(page.getByTestId("model-questions").locator("option").first()).toHaveText("Default (Haiku 5.5)");
+  await explain.selectOption("claude-sonnet-5-5");
+  await page.getByRole("button", { name: "Save models" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved. New answers");
+  await page.reload();
+  await expect(page.getByTestId("model-explain-back")).toHaveValue("claude-sonnet-5-5");
+  await page.getByTestId("model-explain-back").selectOption("default");
+  await page.getByRole("button", { name: "Save models" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved.");
+  await page.reload();
+  await expect(page.getByTestId("model-explain-back")).toHaveValue("default");
+  // The section in four looks, for the pull request (it sits below the first screen, where the reference image stops).
+  for (const [name, size] of [["desktop", { width: 1280, height: 800 }], ["phone", { width: 390, height: 844 }]] as const) {
+    await page.setViewportSize(size);
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.getByRole("heading", { name: "Which Claude model answers" }).scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `screenshots/costs-models-${name}-${scheme}.png` });
+    }
+  }
+});
+
 test("M14 (6b): with a made voice, the mini-player shows where it was paused, and a skip while paused stays paused", async ({ page }) => {
   await openAtLover(page);
   await page.getByRole("button", { name: "Listen" }).click();

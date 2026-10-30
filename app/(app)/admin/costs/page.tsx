@@ -2,12 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { modelTable } from "@/lib/ai/model-picks";
+import { MODEL_CHOICES, PRICES } from "@/lib/ai/model";
 import { costReport, SERVICES } from "@/lib/library/costs";
+import { ModelForm } from "./ModelForm";
 import styles from "../invites/page.module.css";
 import own from "./page.module.css";
 
 export const metadata: Metadata = { title: "Spending" };
 export const dynamic = "force-dynamic";
+
+/** "Haiku 5.5" for "claude-haiku-5-5". */
+const modelName = (id: string) =>
+  id.replace(/^claude-/, "").replace(/^(\w)(\w*)-(\d+)-(\d+)$/, (_, a: string, b: string, x: string, y: string) => `${a.toUpperCase()}${b} ${x}.${y}`);
+const perMillion = (n: number) => `$${n < 1 ? n.toFixed(2) : n}`;
 
 const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(2)}`;
 /** "Claude $0.012 · ElevenLabs $0.030" for the services a book used. */
@@ -19,7 +27,14 @@ const split = (byProvider: Record<string, number>) =>
 /** The running cost counter for paid services (M7, ground rule 8). */
 export default async function CostsPage() {
   const admin = await requireAdmin();
-  const report = await costReport(await getDb(), admin.id);
+  const db = await getDb();
+  const report = await costReport(db, admin.id);
+  const models = await modelTable(db);
+  const choices = MODEL_CHOICES.map((id) => ({
+    id,
+    name: modelName(id),
+    price: `${perMillion(PRICES[id].input)} in, ${perMillion(PRICES[id].output)} out`,
+  }));
   return (
     <main className={styles.main}>
       <p className={styles.eyebrow}>Admin</p>
@@ -45,6 +60,17 @@ export default async function CostsPage() {
             </p>
           </div>
         ))}
+      </section>
+      <section aria-labelledby="models" className={styles.list}>
+        <h2 id="models" className={styles.listTitle}>
+          Which Claude model answers
+        </h2>
+        <p className={own.meta}>
+          Only you can change these: one key pays for every reader. Prices are per million tokens (about 750,000 words)
+          read in and written out. Saved answers stay free and keep their model&apos;s name; a new question or “ask again”
+          uses the model chosen here.
+        </p>
+        <ModelForm rows={models.map((m) => ({ feature: m.feature, label: m.label, fallback: m.fallback, picked: m.picked }))} choices={choices} />
       </section>
       <section aria-labelledby="books" className={styles.list}>
         <h2 id="books" className={styles.listTitle}>

@@ -14,6 +14,7 @@ import { getStorage } from "@/lib/storage";
 import { createApiToken, revokeApiToken, TokenError } from "@/lib/auth/tokens";
 import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
+import { ModelPickError, setModelPicks } from "@/lib/ai/model-picks";
 
 export async function signOutAction() {
   await stopSession();
@@ -64,6 +65,22 @@ export async function createInviteAction(_: InviteState, data: FormData): Promis
   const { token } = await createInvite(await getDb(), admin, String(data.get("note") ?? ""));
   revalidatePath("/admin/invites");
   return { error: null, link: `/invite/${token}` };
+}
+
+export type ModelPickState = { error: string | null; done: string | null };
+
+/** The owner picks which Claude model answers each AI feature (M35). Saved answers stay; new ones use the pick. */
+export async function setModelPicksAction(_: ModelPickState, data: FormData): Promise<ModelPickState> {
+  const admin = await requireAdmin();
+  const wanted = Object.fromEntries([...data.entries()].map(([k, v]) => [k, String(v)]));
+  try {
+    await setModelPicks(await getDb(), admin.id, wanted);
+  } catch (e) {
+    if (e instanceof ModelPickError) return { error: e.message, done: null };
+    throw e;
+  }
+  revalidatePath("/admin/costs");
+  return { error: null, done: "Saved. New answers and “ask again” use these models; saved answers stay as they are." };
 }
 
 export async function revokeInviteAction(data: FormData) {
