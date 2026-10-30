@@ -13,7 +13,8 @@ turn by themselves, and you can jump, change speed and resume.
 ## How it works (decided)
 
 1. **A reusable skill makes a "read-along package"** on the laptop:
-   `~/.claude/skills/readalong-audio/` (call it as `readalong-audio`). The
+   `.claude/skills/readalong-audio/` in this repo (call it as `readalong-audio`;
+   on Samuel's laptop until M37, 2026-10-29). The
    package is a folder with the audio, the scripts that were read aloud, the
    word timings and a map of where each paragraph is in the book. Format:
    `references/package-format.md` in the skill (`neolibrary-readalong/1`).
@@ -186,7 +187,7 @@ the skill, the results viewer for Samuel's comments, a second round):
 
 ## Where things are
 
-- Skill: `~/.claude/skills/readalong-audio/` (SKILL.md, scripts/, references/)
+- Skill: `.claude/skills/readalong-audio/` in this repo (SKILL.md, scripts/, references/)
 - Tools and caches: `~/.local/share/readalong/` (venv, voices/, spend.jsonl, work/)
 - Kyutai: `~/.local/share/kyutai/`
 - Kuhn inputs: `~/projects/sandbox/` (private; never commit)

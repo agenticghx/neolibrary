@@ -1306,6 +1306,29 @@ reader asks; no response, log line or export contains a key (a test greps
 for it). Screenshots of the Account → AI key form on phone and desktop, light
 and dark.
 
+### M37 · The project's skills live in the repo (Samuel, 2026-10-29)
+
+Written for Samuel and for any session or teammate. Samuel's words: "make the
+skills and workflows for neolibrary self contained ... It doesn't need to be
+tied to me." Every skill Neolibrary needs is in `.claude/skills/` (index:
+`.claude/skills/README.md`): the three already there, plus
+`readalong-audio` and `book-chapters` (moved from Samuel's dotfiles) and
+`plain-english` and `simplified-technical-english` (copied; Samuel keeps his
+own for other projects). A folder in the repo rather than a plugin, because
+Claude Code's docs say a plugin switched on by a repository's settings does
+not load in cloud sessions, while the repository's own `.claude/skills/` does.
+The tests that compare the app's copies (`prompts/plain`, `prompts/ste`,
+`tools/readalong`) with the skills now read the repo's copies, so they run on
+GitHub too instead of being skipped there. Personal skills (the cluster, the
+other computers, cross-project note-keeping) stay on Samuel's laptop.
+
+**Done when.** `npm run check` green with the sync tests running (not
+skipped), and a test that fails when a copy drifts; the moved skills' own
+tests pass from the repo; no personal path, key or address in
+`.claude/skills` (a search for them finds nothing); after the merge, a fresh
+Claude session in the repo lists the moved skills with the laptop copies of
+`readalong-audio` and `book-chapters` removed.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:

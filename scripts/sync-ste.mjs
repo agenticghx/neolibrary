@@ -1,8 +1,8 @@
-// Copies Samuel's STE skill files (the original) into prompts/ste/ (the app's copy)
+// Copies the STE skill files (the original, .claude/skills/simplified-technical-english
+// in this repository) into prompts/ste/ (the app's copy)
 // and prints which files changed. Override the original's folder with STE_SKILL_DIR.
 // Usage: node scripts/sync-ste.mjs
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,10 +13,9 @@ const STE_FILES = [
   ["scripts/ste_check.py", "ste_check.py"],
 ];
 
-const src =
-  process.env.STE_SKILL_DIR ||
-  join(homedir(), "projects/llm_configs/plugins/bio-skills/skills/simplified-technical-english");
-const dest = join(dirname(fileURLToPath(import.meta.url)), "..", "prompts", "ste");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const src = process.env.STE_SKILL_DIR || join(root, ".claude", "skills", "simplified-technical-english");
+const dest = join(root, "prompts", "ste");
 
 if (!existsSync(src)) {
   console.error(`Original STE skill not found at ${src} (set STE_SKILL_DIR).`);

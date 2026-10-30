@@ -168,8 +168,8 @@ the PDF side. Good tools exist; use them:
 - Here: `scripts/pdf-paragraphs.mjs BOOK.pdf OUT.json` writes the app's own
   paragraphs of a PDF (`toolParagraphs` in `lib/library/pdf-sections.ts`:
   each paragraph's id, its page counted from 1, its text).
-- In the skills (on the laptop, `~/.claude/skills`, kept in Samuel's
-  dotfiles, not in this repo): `book-chapters/scripts/split_pdf.py` (steps
+- In the skills (in this repo since M37, 2026-10-29: `.claude/skills`; on
+  Samuel's laptop before): `book-chapters/scripts/split_pdf.py` (steps
   1–2; the name became `split_pdf.py`, next to `split_epub.py`), its tests
   in `book-chapters/tests/` (a made-up PDF with each case), and
   `map_to_book.py --app-text` (step 3; `build_package.py --app-text` passes
