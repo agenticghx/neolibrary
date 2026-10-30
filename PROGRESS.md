@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M38 security updates PR: merge when green, deploy at Samuel's word; then the open-alert list should be empty.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Merge PR m39-reader-font-ready when green, then deploy it (Samuel said deploy when green; no migration).   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-29
+updated: 2026-10-30
 shared_copy: none
 ---
 
@@ -341,6 +341,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-30 08:52 · Claude Opus 5.5 (laptop) · The reader waits for the book's typeface before 'ready' (fixes main's red shell.spec.ts:469 after #252)
+- **Done:** Verified #252: merged as e97bc8f, four checks green on its PR head (same tree), Dependabot 16 fixed / 0 open, npm audit on main's lockfile 0 (runtime and all). Main's CI run after the merge (40999261936) failed shell.spec.ts:469 on attempts 1 and 2 with the same places; the trace showed a blank book page at 'ready' and the frame's font landing 21 ms later, moving the page's start a paragraph back. Reproduced on the Mac (font held 300 ms, place read after it lands): unfixed 3 of 3 failed with CI's place, fixed 3 of 3 passed; the hold is kept in the test (without the fix 3 of 3 fail). Fix: Reader.tsx waits for the shown frames' fonts (max 3 s) and two frames before setStatus('ready'). Carried the 29bbe3b deploy record (cherry-pick of 4eaa4aa8). Samuel: 'yes build the fix, then deploy when green'.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; e2e/shell.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md (Iteration 102)
+- **Commands that worked:** npx playwright test --project shell --ignore-snapshots -g 'its keys do not turn the page' --repeat-each 3; gh run download 40999261936; gh run rerun 40999261936 --failed
+- **Known issues / blockers:** Local npm run check and full browser suite running when this was written; results go in the PR. e97bc8f (security fixes) not yet deployed.
+- **Exact next steps:** 1. PR m39-reader-font-ready; merge when the four checks are green. 2. Deploy the merge commit at Samuel's word already given ('deploy when green'); no migration since d4ae864, so no backup; check /api/health on both addresses, /sign-in, 'Page pictures: ready.'. 3. Main's CI run after the merge should be green. 4. M36 waits on Open unknowns row 32.
 
 ### 2026-10-29 23:03 · Claude (laptop) · M38 security updates: all 16 Dependabot alerts fixed on branch m38-security-updates (Next.js 16.4.1, zod 4.6.6, five indirect packages); how-to in docs/security-updates.md
 - **Done:** Re-derived the 16 open Dependabot alerts (gh api) and read each advisory. Direct: next and eslint-config-next 16.3.8 -> 16.4.1 (2 critical, 1 high; no 16.3.x fix, so a minor step), zod 4.6.5 -> 4.6.6 (1 high). Indirect, lockfile only (each parent's range already allowed the fix, so no overrides): body-parser 2.3.0 -> 2.4.0, fast-uri 3.1.8 -> 3.1.9, ip-address 10.7.3 -> 10.7.5, vite 8.3.2 -> 8.3.5 (dev only), and qs 6.16.0 -> 6.17.1 (npm found it; Dependabot had not). npm audit before: 7 packages (1 critical, 3 high, 3 moderate), runtime only 6 (1 critical, 2 high, 3 moderate); after: 'found 0 vulnerabilities' for both. npm run check: 1192 passed, 2 skipped. npm run build: passed. Browser suite on PORT=3200, on the head rebased onto #251: 393 passed (15.4m), no retry used. Before the rebase, all 251 test locations of the 393-test list passed across runs 3, 4 and 6 (run 6: 382 passed (13.6m), narration included); details in LEARNING_LOG iteration 101. Wrote docs/security-updates.md for Samuel: the terms, copy-paste commands, when to dismiss an alert, and today's table.
