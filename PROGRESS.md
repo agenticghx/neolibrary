@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M37 PR (skills in the repo): merge when green, then remove the two skills from Samuel's dotfiles and check a fresh session sees the repo's. M36 waits on Open unknowns row 32.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: M36 waits on Open unknowns row 32; optional: fix the agents.spec.ts:318 flake. Carry m37-skills-record's ledger entry into the next PR.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-29
 shared_copy: none
@@ -339,6 +339,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-29 21:08 · Claude (laptop) · M37 merged (12ceccd); laptop copies removed; a fresh session sees the repo's skills
+- **Done:** #250 merged as 12ceccd (four checks green on the first CI run). In Samuel's dotfiles (~/.local/share/chezmoi), local commit ca89f30 (not pushed) removes dot_claude/skills/symlink_{readalong-audio,book-chapters}.tmpl and claude/skills/{readalong-audio,book-chapters}; the two ~/.claude/skills links deleted; chezmoi managed no longer lists them. A fresh claude -p in a clean detached checkout of origin/main (12ceccd) listed book-chapters, readalong-audio, merge-train, scan-to-text and xray-on-subscription as project skills; plain-english and simplified-technical-english as both (repo and Samuel's own copy, kept on purpose for his other projects). Nothing deployed (no app change since d4ae864).
+- **Key paths:** ~/.local/share/chezmoi (commit ca89f30, outside this repo); ~/Documents/neolibrary-skill-evals/readalong-audio-evals.json (the evals left out of the public repo)
+- **Commands that worked:** git -C ~/.local/share/chezmoi rm -r dot_claude/skills/symlink_readalong-audio.tmpl dot_claude/skills/symlink_book-chapters.tmpl claude/skills/readalong-audio claude/skills/book-chapters; rm ~/.claude/skills/{readalong-audio,book-chapters}; git worktree add --detach .claude/worktrees/verify-main origin/main && claude -p 'List the exact names of every skill available ...'
+- **Known issues / blockers:** Samuel's dotfiles commit ca89f30 is local only: push it if he keeps that repo on a remote. CLAUDE.md still names only scan-to-text and xray-on-subscription beside merge-train (left alone: Samuel's uncommitted edits there). agents.spec.ts:318 flake: 3 failures on 2 PRs, worth its own fix.
+- **Exact next steps:** 1. M36 (bring your own AI key) waits on Samuel's answers to Open unknowns row 32. 2. A small PR to fix the agents.spec.ts:318 race. 3. Carry this entry into the next real PR (branch m37-skills-record, not pushed).
 
 ### 2026-10-29 20:48 · Claude (laptop) · Deployed d4ae864 (M35 model picker, migration 0034); M37 skills moved into the repo
 - **Done:** Deploy at Samuel's word ('merge it and deploy when green'): #249 merged as d4ae864 after CI was green (browser job attempt 2; attempt 1 hit the known flake agents.spec.ts:318). Backup ~/Backups/neolibrary/prod-before-0034-20261030T0041Z.sql (30,923,646 bytes, 'dump complete' footer; restored into postgres:18 with exit 0: 33 migrations, 14,371 generations). Deployed from ../neolibrary-deploy (clean detached checkout of d4ae864): /api/health on both addresses says d4ae864; /sign-in 200; /admin/costs 307 to sign-in; log 'Page pictures: ready.'; production _migrations 34, app_settings exists, generations 14,371. Then M37 on branch m37-repo-skills: readalong-audio, book-chapters, plain-english, simplified-technical-english copied into .claude/skills with repo paths; sync tests read the repo copies and run everywhere; new lib/readalong/skill-sync.test.ts; .claude/skills/README.md; evals.json left out (personal paths), saved to ~/Documents/neolibrary-skill-evals/.
