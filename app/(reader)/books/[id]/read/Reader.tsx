@@ -1287,13 +1287,17 @@ export function Reader(props: {
 
   /** The book's notes from the server (or the offline copy), plus any still waiting in the outbox. */
   const reload = async () => {
-    let server: Annotation[] | null = null;
+    let body: Parameters<typeof withCrossed>[0] | null = null;
     try {
-      server = withCrossed(await api(`/api/books/${props.bookId}/annotations`, "GET"), crossedAt.current);
+      body = await api(`/api/books/${props.bookId}/annotations`, "GET");
     } catch (e) {
       if (!isOffline(e)) throw e;
     }
     const waiting = await outboxFor(props.bookId).catch(() => []);
+    // The other version's notes get their places here, after the last wait: one placed while the outbox was read
+    // would otherwise come back without its place, and stay so, as placing skips a note already placed (the
+    // flaky agents.spec.ts:318, 2026-10-29).
+    const server = body ? withCrossed(body, crossedAt.current) : null;
     setAll(withOutbox(server ?? notesRef.current, waiting));
     setRefused(waiting.filter((w) => w.refused));
     placeShown.current();
