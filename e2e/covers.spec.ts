@@ -70,6 +70,22 @@ test("Covers: Find covers now, a cover turned down for the next and then for goo
   await reader.getByRole("button", { name: "Add this path" }).click();
   await expect(reader).toHaveURL(/\/paths\/hidden-machinery$/);
 
+  // The check the page makes on opening is answered only after "Find covers now" was pressed and the server took the
+  // lookup (a slow connection, or a quick press): its old "nothing running" must not read as the new lookup's end.
+  let taken = () => {};
+  const lookupTaken = new Promise<void>((resolve) => (taken = resolve));
+  let opening = true;
+  await reader.route("**/api/covers", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({ response: await route.fetch() });
+      taken();
+    } else if (opening) {
+      opening = false;
+      const answer = await route.fetch();
+      await lookupTaken;
+      await route.fulfill({ response: answer });
+    } else await route.continue();
+  });
   await reader.goto("/covers");
   await expect(reader.getByRole("heading", { name: "Covers", level: 1 })).toBeVisible();
   await expect(reader.getByRole("heading", { name: "Found (0)" })).toBeVisible();
@@ -77,6 +93,8 @@ test("Covers: Find covers now, a cover turned down for the next and then for goo
 
   await reader.getByRole("button", { name: "Find covers now" }).click();
   await expect(reader.getByTestId("find-status")).toContainText("Done.", { timeout: 120_000 });
+  // Read once, as it first says "Done.": the end of this lookup, not an old answer from before it.
+  expect(await reader.getByTestId("find-status").textContent()).not.toMatch(/^Done\. 0 titles/);
   const found = reader.getByTestId("found-covers").getByRole("listitem");
   await expect.poll(() => found.count()).toBeGreaterThan(90);
   // The fake catalogue has nothing for Oil 101: it keeps its drawn cover, listed with the titles without one.

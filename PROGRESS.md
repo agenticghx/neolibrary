@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Carry the 25b19de deploy record into the next real PR; M36 waits on Open unknowns row 32.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Merge PR m22-covers-find-race when green; deploy at Samuel's word.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-10-30
 shared_copy: none
@@ -341,6 +341,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-10-30 12:30 · Claude Opus 5.5 (laptop) · Covers: an old status answer no longer reads as 'Done. 0' (fixes the nightly's covers.spec.ts:66 on 25b19de)
+- **Done:** Nightly run 41076346065 on 25b19de failed covers.spec.ts:66 (0 found covers, >90 expected). Samuel: 'rerun the failed parts... find the root cause'. Re-run started. Trace: the page's opening GET /api/covers was answered after the Find press and read as the new lookup's end ('Done. 0 titles have a found cover; 126 without one.'), so the lists were never reloaded. Fix in FindCovers.tsx: ignore answers to checks sent before the press or before the server took the lookup. Test holds the opening check back and reads the first 'Done.' once: unfixed 1 failed with the nightly's line, fixed passed.
+- **Key paths:** app/(app)/covers/FindCovers.tsx; e2e/covers.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md (Iteration 103)
+- **Commands that worked:** gh run rerun 41076346065 --failed; gh run download 41076346065; npx playwright test --project covers --ignore-snapshots
+- **Known issues / blockers:** Local npm run check and full browser suite running when written. Not deployed: 25b19de is live; this fix needs Samuel's word to deploy.
+- **Exact next steps:** 1. PR m22-covers-find-race (also carries the 25b19de deploy record); merge when the four checks are green. 2. Deploy only at Samuel's word (no migration). 3. Next nightly should be green. 4. M36 waits on Open unknowns row 32.
+
+### 2026-10-30 10:27 · Claude Opus 5.5 (laptop) · Checkpoint: security fixes and reader font fix live (25b19de)
+- **Done:** #252 verified (Dependabot 16 fixed/0 open, npm audit 0); main's red shell.spec.ts:469 traced to the reader saying ready before its typeface arrived; fixed in #253 (25b19de), deployed; main CI on 25b19de green (315 passed).
+- **Key paths:** docs/handoffs/2026-10-30-1027-security-live-font-fix.md (worktree m39-font-ready, gitignored); app/(reader)/books/[id]/read/Reader.tsx; e2e/shell.spec.ts
+- **Commands that worked:** curl -s https://library.samuelahuno.com/api/health (25b19de); gh run list --branch main --workflow CI --limit 1 (success)
+- **Known issues / blockers:** none encountered; deploy record on local branch m39-deploy-25b19de-record not yet in a PR
+- **Exact next steps:** 1. Carry m39-deploy-25b19de-record into the next real PR. 2. Check the next nightly run (with WebKit) is green. 3. Remove worktree m39-font-ready after. 4. M36 waits on Open unknowns row 32 (by 2026-11-12).
 
 ### 2026-10-30 09:29 · Claude Opus 5.5 (laptop) · Live: 25b19de (#252 security fixes, #253 reader waits for its typeface); no migration
 - **Done:** Deployed at Samuel's word ('yes build the fix, then deploy when green'). #253 merged as 25b19de with four checks green. No migration since 29bbe3b (git diff --name-only 29bbe3b 25b19de -- db/migrations: 0 files), so no backup. From ../neolibrary-deploy (clean detached checkout of 25b19de): railway up exit 0. /api/health on both addresses says 25b19de; /sign-in 200 on both; log 'Page pictures: ready.'. The live site now runs Next.js 16.4.1 and zod 4.6.6 (Dependabot: 16 fixed, 0 open).
