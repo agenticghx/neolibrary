@@ -169,11 +169,15 @@ Next.js) so that, if something breaks, you know which one did it.
 
 ### 6. Open the pull request
 
+Branch names start with the milestone number: use the next free one in
+`docs/plan.md` (38 was this round), or reuse `m38-` for a later round.
+Make the branch before step 4:
+
 ```bash
-git switch -c m38-security-updates origin/main   # before step 4
+git fetch origin && git switch -c m38-security-updates-2 origin/main   # before step 4
 git add package.json package-lock.json docs/security-updates.md PROGRESS.md LEARNING_LOG.md
 git commit -m "Security: ..."
-git push -u origin m38-security-updates
+git push -u origin m38-security-updates-2
 gh pr create --base main --title "Security: ..." --body-file /tmp/pr-body.md
 ```
 
