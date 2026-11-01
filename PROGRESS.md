@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M40: S2 auto-deploy merging, then its token, variables and a first manual run; S3 issue-to-PR next.
+next_action: M40: S2 auto-deploy merging (#261), then RAILWAY_TOKEN, AUTO_DEPLOY, DEPLOY_SITES and a first manual run; S3 #262, S4 #263 open; S5, S6 next.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
