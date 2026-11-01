@@ -85,6 +85,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 107 | 2026-11-01 14:50 | Issue #257, Up and Down turn pages | In Pages, Down and Up turn the page like Right and Left, in one page and two | `npm run check`; `linux-run.sh -- --project reader` | failure then success | a test turning pages fast must wait for each turn to finish |
 | 109 | 2026-11-01 17:30 | M40 S1 working rules | Rules that let sessions close stale defaults and decide small design choices remove most "waiting on Samuel" without touching money or taste | ledger count of open rows before and after | success | a default nobody answers for a week is already the decision |
 | 110 | 2026-11-01 18:10 | M40 S2 deploys on their own | A workflow can deploy main safely after CI if it refuses migrations and checks the site | actionlint; the gate run on the real history | success (first live run to come) | let the deploy tool's own health check be the rollback |
+| 111 | 2026-11-01 18:40 | M40 S3 issues become pull requests | An issue Samuel files can start a Claude session on GitHub on his subscription that opens a tested PR | actionlint; author_association of his issues | success (first live run to come) | only writers start it, and the issue text never reaches a shell |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2477,4 +2478,11 @@ tests that pin it, in a small PR.
 **Result.** actionlint clean (after an unused loop variable). Gate: ledger-only change skipped; a newer commit on main skipped; 2300956..d4ae864 refused for `0034_app_settings`; an unreadable live commit refused; 63fe478..4918cee deploys. main's CI runs come as `workflow_dispatch` after the auto-merge (it starts them) and `push` after a direct push; the nightly is `schedule` and is left out.
 **Lesson.** Read how the pieces are triggered before filtering on them: a filter on `push` alone would never have fired after a merge.
 **Next experiment.** The token and variables, then a manual run on main.
+### Iteration 111 · 2026-11-01 (laptop clock) · M40 S3: issues become pull requests · success (first live run to come)
+
+**Hypothesis.** Samuel files issues (like #257) and then has to start a session for each. Anthropic's GitHub action runs Claude Code on GitHub's machine, signed in with a subscription token instead of an API key, so an issue can start the session itself and end in a pull request the auto-merge and the Deploy workflow carry the rest of the way.
+**Action.** `.github/workflows/claude-issue.yml`: starts on an issue opened by OWNER, MEMBER or COLLABORATOR (Samuel's issues are MEMBER: the repository belongs to the agenticghx organization), or labelled "build"; a prompt that sends Claude to CLAUDE.md, the ledger and the plan, with the tests to run and the things never to do.
+**Result.** actionlint clean. The repository is public, so two guards: only writers start it, and the issue's words reach Claude through `gh issue view`, never through a `${{ }}` in a shell line. A pull request needs the Claude GitHub App's token to start CI (one made with GitHub's own workflow token does not), which `/install-github-app` sets up.
+**Lesson.** Check who a trigger lets in on a public repository before what it does.
+**Next experiment.** A test issue once the app is installed.
 
