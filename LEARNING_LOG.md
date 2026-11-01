@@ -84,6 +84,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 106 | 2026-11-01 14:30 | Reader sidebar, CI round 1 | The sidebar PR is ready once CI's failure is reproduced and explained on the laptop | `linux-run.sh` (Playwright's Linux image) on the branch and on main; logged runs | failure then success | a Mac failure on main hid four real breakages that only a Linux run showed |
 | 107 | 2026-11-01 14:50 | Issue #257, Up and Down turn pages | In Pages, Down and Up turn the page like Right and Left, in one page and two | `npm run check`; `linux-run.sh -- --project reader` | failure then success | a test turning pages fast must wait for each turn to finish |
 | 109 | 2026-11-01 17:30 | M40 S1 working rules | Rules that let sessions close stale defaults and decide small design choices remove most "waiting on Samuel" without touching money or taste | ledger count of open rows before and after | success | a default nobody answers for a week is already the decision |
+| 110 | 2026-11-01 18:10 | M40 S2 deploys on their own | A workflow can deploy main safely after CI if it refuses migrations and checks the site | actionlint; the gate run on the real history | success (first live run to come) | let the deploy tool's own health check be the rollback |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2468,4 +2469,12 @@ tests that pin it, in a small PR.
 **Result.** Rows closed: 6, 7, 8, 9, 10, 31 and 27 (1)(2)(4), each with a Decisions line. Kept open: 1, 12, 13, 32, 27 (3) (money or access) and 28, 29 (no default).
 **Lesson.** A question with a default that is already built is a decision waiting to be written down, not a decision waiting to be made.
 **Next experiment.** M40 S2, deploys on their own.
+### Iteration 110 · 2026-11-01 (laptop clock) · M40 S2: main deploys itself · success (first live run to come)
+
+**Hypothesis.** 19 deploys waited on Samuel's word, though each was the same recipe. A GitHub Action can run it after main's CI passes if it never deploys a migration (those need a backup), never deploys a commit that a newer one replaces (merges in a row go out together), and checks the live site afterwards.
+**Action.** `.github/workflows/deploy.yml`. No separate rollback step: Railway's health check (`/api/health`, 120 s, in `.railway/railway.ts`) only switches to a new deployment that answers, so a broken one leaves the old one serving.
+**Evaluation.** actionlint; the gate script extracted from the workflow and run on the real git history with a stand-in for `curl`.
+**Result.** actionlint clean (after an unused loop variable). Gate: ledger-only change skipped; a newer commit on main skipped; 2300956..d4ae864 refused for `0034_app_settings`; an unreadable live commit refused; 63fe478..4918cee deploys. main's CI runs come as `workflow_dispatch` after the auto-merge (it starts them) and `push` after a direct push; the nightly is `schedule` and is left out.
+**Lesson.** Read how the pieces are triggered before filtering on them: a filter on `push` alone would never have fired after a merge.
+**Next experiment.** The token and variables, then a manual run on main.
 

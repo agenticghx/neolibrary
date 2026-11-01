@@ -83,12 +83,17 @@ engineer.
   comparing models) runs with `claude -p` on Samuel's Claude subscription,
   not on an API key; when the subscription limit is hit, stop and wait for
   the reset rather than switching to a paid key.
-- Deploys happen from the laptop, only at Samuel's explicit word, after a
-  backup when a migration is included. Record a deploy by pushing its
-  ledger entry straight to `main` (Samuel, 2026-11-01): a commit that
-  changes only `PROGRESS.md`, on top of `origin/main` (a fast-forward, never
-  a force-push); the steps are in the laptop's `CLAUDE.local.md`. Never open
-  a PR only to record a deploy (each costs a CI round).
+- **Deploys happen on their own** (M40 S2, Samuel 2026-11-01):
+  `.github/workflows/deploy.yml` deploys `main` after `main`'s CI passes,
+  checks the live site, and writes each deploy on the open issue "Deploy
+  log" (read it to know what is live). It refuses a database migration:
+  that still needs a backup and Samuel's word, deployed from the laptop.
+  Switch it off with the repository variable `AUTO_DEPLOY` (anything but
+  "on"). A deploy made by hand from the laptop is recorded by pushing its
+  ledger entry straight to `main`: a commit that changes only
+  `PROGRESS.md`, on top of `origin/main` (a fast-forward, never a
+  force-push); the steps are in the laptop's `CLAUDE.local.md`. Never open a
+  PR only to record a deploy (each costs a CI round).
 - `docs/handoffs/` (session handoff notes) and `docs/ideasFeaturesSelf.md`
   (Samuel's own notes) are gitignored on purpose: write there, never
   force-add them.

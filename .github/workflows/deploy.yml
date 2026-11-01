@@ -1,0 +1,172 @@
+# Deploys main to Railway on its own once main's CI has passed (M40 S2, Samuel 2026-11-01: sessions take over
+# the gates). Written for Samuel and Claude sessions.
+#
+# What it does, for the commit CI just passed on main:
+#   1. Skips it when a newer commit is already on main (that one's CI run deploys it: merges in a row go out together),
+#      when it is already live, or when nothing that runs on the site changed (only the ledger, docs or skills).
+#   2. Refuses when a database migration (db/migrations) is included: that still needs a backup and Samuel's word,
+#      from the laptop (CLAUDE.local.md). The Deploy log issue says so.
+#   3. Sets NEOLIBRARY_COMMIT, uploads with `railway up`, then checks /api/health on every address shows the commit and
+#      /sign-in answers 200. Railway's own health check (.railway/railway.ts) keeps the old version serving if the new
+#      one never comes up, so a failed deploy leaves the site as it was.
+#   4. Writes what happened on the open issue titled "Deploy log".
+#
+# Needs: the RAILWAY_TOKEN secret (a Railway project token for the production environment), and two repository
+# variables: AUTO_DEPLOY ("on" to deploy after CI; anything else switches it off; a manual run still works) and
+# DEPLOY_SITES (the site's addresses, space-separated, first one checked first; kept out of this public file).
+#
+# Note: GitHub runs workflow_run workflows from the copy on main, so changes to this file take effect after they are
+# merged.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to deploy (empty: main's latest). A migration is still refused."
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.AUTO_DEPLOY == 'on' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SITES: ${{ vars.DEPLOY_SITES }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Decide whether to deploy
+        id: gate
+        env:
+          WANTED: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha || '' }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          note() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          [ -n "${SITES}" ] || { note "DEPLOY_SITES is not set: nothing to check against."; exit 1; }
+          [ -n "${RAILWAY_TOKEN}" ] || { note "The RAILWAY_TOKEN secret is not set."; exit 1; }
+          main=$(git rev-parse origin/main)
+          sha=$(git rev-parse "${WANTED:-$main}")
+          first=${SITES%% *}
+          live=$(curl -fsS --max-time 20 "https://${first}/api/health" | jq -r '.commit // empty' || true)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "live=$live" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = "workflow_run" ] && [ "$sha" != "$main" ]; then
+            note "Skipped ${sha:0:7}: main has moved on to ${main:0:7}, whose CI run deploys it."
+            echo "go=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "$live" ] || ! git cat-file -e "${live}^{commit}" 2>/dev/null; then
+            note "Refused: the live site's commit (${live:-unknown}) could not be read or is not in main's history, so the changes since it cannot be checked for a migration. Deploy from the laptop."
+            echo "go=no" >> "$GITHUB_OUTPUT"; echo "why=unknown-live" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "${sha:0:7}" = "$live" ]; then
+            note "Skipped: ${sha:0:7} is already live."
+            echo "go=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -n "$(git diff --name-only "$live" "$sha" -- db/migrations)" ]; then
+            note "Refused: ${live}..${sha:0:7} includes a database migration ($(git diff --name-only "$live" "$sha" -- db/migrations | tr '\n' ' ')). It needs a backup first and Samuel's word, from the laptop."
+            echo "go=no" >> "$GITHUB_OUTPUT"; echo "why=migration" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          runs=$(git diff --name-only "$live" "$sha" | grep -vE '^(PROGRESS\.md|LEARNING_LOG\.md|docs/|\.claude/|\.github/|e2e/|[^/]+\.md$)' || true)
+          if [ -z "$runs" ]; then
+            note "Skipped ${sha:0:7}: since ${live}, only the ledger, docs, skills, tests or workflows changed; nothing on the site would change."
+            echo "go=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          note "Deploying ${sha:0:7} (live: ${live}). Commits:"
+          git log --oneline --no-merges "${live}..${sha}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "go=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the commit to deploy
+        if: steps.gate.outputs.go == 'yes'
+        env:
+          SHA: ${{ steps.gate.outputs.sha }}
+        run: git checkout --detach "$SHA" && test -z "$(git status --porcelain)"
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.go == 'yes'
+        with:
+          node-version: 22
+
+      - name: Upload to Railway
+        if: steps.gate.outputs.go == 'yes'
+        env:
+          SHA: ${{ steps.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          npm install -g @railway/cli@5.71.0 >/dev/null
+          railway variable set "NEOLIBRARY_COMMIT=${SHA}" --service web --environment production --skip-deploys
+          railway up --service web --environment production --ci
+
+      - name: Check the live site
+        if: steps.gate.outputs.go == 'yes'
+        env:
+          SHA: ${{ steps.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          short=${SHA:0:7}
+          # Addresses are numbered in the log, not named: this repository's logs are public.
+          n=0
+          for site in ${SITES}; do
+            n=$((n + 1))
+            ok=no
+            for _ in $(seq 1 60); do
+              got=$(curl -fsS --max-time 15 "https://${site}/api/health" | jq -r '.commit // empty' || true)
+              if [ "$got" = "$short" ]; then ok=yes; break; fi
+              sleep 10
+            done
+            [ "$ok" = yes ] || { echo "Address ${n}: /api/health still says ${got:-nothing}, not ${short}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${site}/sign-in")
+            [ "$code" = 200 ] || { echo "Address ${n}: /sign-in answered ${code}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+            echo "Address ${n}: commit ${short}, /sign-in 200" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Write it on the Deploy log issue
+        if: always() && (steps.gate.outputs.go == 'yes' || steps.gate.outputs.why != '')
+        env:
+          GO: ${{ steps.gate.outputs.go }}
+          WHY: ${{ steps.gate.outputs.why }}
+          SHA: ${{ steps.gate.outputs.sha }}
+          LIVE: ${{ steps.gate.outputs.live }}
+          STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          issue=$(gh issue list --state open --search 'in:title "Deploy log"' --json number,title --jq '.[] | select(.title == "Deploy log") | .number' | head -1)
+          if [ -z "$issue" ]; then
+            issue=$(gh issue create --title "Deploy log" --body "Every deploy of main to the live site, written by the Deploy workflow (.github/workflows/deploy.yml, M40 S2). Newest last. Keep this issue open." | grep -oE '[0-9]+$')
+          fi
+          short=${SHA:0:7}
+          run="[Run](${RUN_URL})"
+          if [ "$GO" = yes ] && [ "$STATUS" = success ]; then
+            body=$(printf '**Live: %s** (was %s). /api/health on every address shows %s; /sign-in 200. No migration.\n\n%s\n\n%s\n' \
+              "$short" "$LIVE" "$short" "$(git log --oneline --no-merges "${LIVE}..${SHA}" | sed 's/^/- /')" "$run")
+          elif [ "$GO" = yes ]; then
+            body=$(printf '**Deploy of %s failed** (live was %s; Railway keeps the old version serving if the new one did not come up). %s\n' "$short" "$LIVE" "$run")
+          elif [ "$WHY" = migration ]; then
+            body=$(printf "**Waiting: %s includes a database migration.** It needs a backup and Samuel's word, deployed from the laptop. Live stays %s. %s\n" "$short" "$LIVE" "$run")
+          else
+            body=$(printf "**Not deployed: %s.** The live site's commit (%s) could not be read, so the changes could not be checked for a migration. %s\n" "$short" "${LIVE:-unknown}" "$run")
+          fi
+          gh issue comment "$issue" --body "$body"
