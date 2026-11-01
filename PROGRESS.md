@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M40 (sessions take over the gates): S1 rules merging; S2 auto-deploy next (needs RAILWAY_TOKEN secret from Samuel), then S3-S6.
+next_action: M40: S2 auto-deploy merging, then its token, variables and a first manual run; S3 issue-to-PR next.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -350,6 +350,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 18:10 · Claude Opus 5.5 (laptop) · M40 S2: main deploys itself after its CI passes (not on yet)
+- **Done:** .github/workflows/deploy.yml: after CI passes on main (merge or push, not the nightly), it skips a commit a newer one replaces, one already live, or one that changes only the ledger, docs, skills, tests or workflows; refuses a database migration or an unreadable live commit; otherwise sets NEOLIBRARY_COMMIT, runs railway up, checks /api/health on every address and /sign-in, and comments on the open "Deploy log" issue. Railway's own health check keeps the old version serving if the new one does not come up. CLAUDE.md's deploy rule rewritten.
+- **Key paths:** .github/workflows/deploy.yml; CLAUDE.md
+- **Commands that worked:** docker run rhysd/actionlint:1.7.7 (clean); the gate script on the real history with a stand-in for curl: ledger-only skip, newer-commit skip, migration refused (2300956..d4ae864, 0034_app_settings), unreadable live refused, code change deploys (63fe478..4918cee)
+- **Known issues / blockers:** Off until set up after merging: the RAILWAY_TOKEN secret (a project token for production) and the repository variables AUTO_DEPLOY=on and DEPLOY_SITES. Whether a project token may set NEOLIBRARY_COMMIT shows on the first run (a manual run first).
+- **Exact next steps:** 1. Merge. 2. Make the token and variables; a manual run (workflow_dispatch) on main to prove it. 3. M40 S3.
 ### 2026-11-01 20:15 · Claude Opus 5.5 (laptop) · Merge train: a rebase no longer doubles the ledger's header lines
 - **Done:** .claude/skills/merge-train/scripts/unwind.py keeps both sides of a conflict, as before, but afterwards keeps one line per field in a file's "---" header (the side named first). Every rebase today left two next_action lines in PROGRESS.md, each fixed by hand.
 - **Key paths:** .claude/skills/merge-train/scripts/unwind.py
