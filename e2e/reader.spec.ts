@@ -6,6 +6,22 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { readableEpub } from "../lib/library/test-epub";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }, info) => {
+  // The sidebar's own test starts as a reader does, with it closed. So do the page-count tests: with the sidebar and a
+  // panel both open, a 1280 px window leaves the book 644 px of text, under the 680 px two pages need (measured
+  // 2026-11-01), so they would test the window's width, not the setting.
+  if (info.title.startsWith("sidebar:") || info.titlePath.includes("page count")) return;
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M4 "Done when" (part): open a book, change font size, reload: it reopens at
 // the same spot.
 
@@ -295,22 +311,36 @@ test.describe("a layout switch marks the place", () => {
       await page.waitForTimeout(300);
     }
   }
+  /**
+   * Picks settings in Reading settings, and returns the words at the top of the screen just before the first pick: the
+   * place the switch must mark. They are read once the open panel has narrowed the book and the text has settled, as
+   * the narrowing re-wraps the lines (the top line can start with another word, with the sidebar open or with the
+   * Mac's own text rendering; found 2026-11-01).
+   */
   async function choose(page: Page, ...names: string[]) {
     await page.getByRole("button", { name: "Reading settings" }).click();
+    let before = "";
+    await expect
+      .poll(async () => {
+        const now = await wordsOnTop(page);
+        const settled = now !== "" && now === before;
+        before = now;
+        return settled;
+      }, { intervals: [300] })
+      .toBe(true);
     for (const name of names) await page.getByRole("button", { name, exact: true }).click();
     await page.keyboard.press("Escape");
+    return before.slice(0, 12);
   }
 
   test("Pages to Scroll, and back", async ({ page }) => {
     await openJekyll(page);
     await turnTo(page, "Story of the Door", 3);
-    const words = (await wordsOnTop(page)).slice(0, 12);
-    await choose(page, "Scroll");
+    const words = await choose(page, "Scroll");
     await expect.poll(() => placeMark(page, words)).toEqual({ shown: true, over: true });
     // Gone after a moment, so it never stays over the text.
     await expect.poll(async () => (await placeMark(page, words)).shown, { timeout: 5000 }).toBe(false);
-    const back = (await wordsOnTop(page)).slice(0, 12);
-    await choose(page, "Pages");
+    const back = await choose(page, "Pages");
     await expect.poll(() => placeMark(page, back)).toEqual({ shown: true, over: true });
     // A setting that does not move the text (the theme) marks nothing.
     await expect.poll(async () => (await placeMark(page, back)).shown, { timeout: 5000 }).toBe(false);
@@ -327,8 +357,7 @@ test.describe("a layout switch marks the place", () => {
     const page = await context.newPage();
     await openJekyll(page);
     await turnTo(page, "Search for Mr. Hyde", 3);
-    const words = (await wordsOnTop(page)).slice(0, 12);
-    await choose(page, "Scroll", "Two pages");
+    const words = await choose(page, "Scroll", "Two pages");
     await expect.poll(() => placeMark(page, words)).toEqual({ shown: true, over: true });
     await mkdir("screenshots", { recursive: true });
     for (const scheme of ["light", "dark"] as const) {
@@ -347,8 +376,7 @@ test.describe("a layout switch marks the place", () => {
     await turnTo(page, "Story of the Door", 3);
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
-      const words = (await wordsOnTop(page)).slice(0, 12);
-      await choose(page, scheme === "light" ? "Scroll" : "Pages");
+      const words = await choose(page, scheme === "light" ? "Scroll" : "Pages");
       await expect.poll(() => placeMark(page, words)).toEqual({ shown: true, over: true });
       await page.waitForTimeout(150);
       await page.screenshot({ path: `screenshots/layout-switch-mark-phone-${scheme}.png` });
@@ -582,6 +610,75 @@ test("full screen: only the book; the controls come back at the screen's edges a
       await page.evaluate(() => document.exitFullscreen());
     }
   }
+});
+
+// Samuel 2026-11-01: "create a side toggle side bar (like right menu feature in claude desktop app or obsidian
+// desktop app) to put the menu items aside", Full screen and Aa staying in the top bar.
+test("sidebar: the top bar keeps Back, Contents, Full screen and Aa; the reading tools are in a sidebar it shows and hides", async ({ page }) => {
+  await openJekyll(page);
+  const r = reader(page);
+  const bar = r.locator("header");
+  const rail = page.getByRole("navigation", { name: "Reading tools" });
+  const toggle = bar.getByRole("button", { name: "Sidebar" });
+  // Closed at first: the top bar holds only these, and none of the tools.
+  await expect(rail).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const names = await bar.locator("a, button").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim()));
+  expect(names).toEqual(["Back to your library", "Contents", "Full screen", "Reading settings", "Sidebar"]);
+  const bookWidth = (await r.locator("[class*=host]").first().boundingBox())!.width;
+
+  // Open: the tools, each a word under its icon, in a column at the right edge.
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(rail).toBeVisible();
+  for (const name of [/^Notes/, "Study", "Rewritten view", "Bookmark this page", "Focus session"]) {
+    await expect(rail.getByRole("button", { name })).toBeVisible();
+  }
+  const box = (await rail.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(Math.round(box.x + box.width)).toBe(viewport.width);
+  // The book makes room for it and is not covered.
+  expect((await r.locator("[class*=host]").first().boundingBox())!.width).toBeLessThan(bookWidth);
+
+  // A tool opens its panel beside the rail; the rail stays.
+  await rail.getByRole("button", { name: /^Notes/ }).click();
+  const notes = page.getByRole("navigation", { name: "Notes" });
+  await expect(notes).toBeVisible();
+  const notesBox = (await notes.boundingBox())!;
+  expect(notesBox.x + notesBox.width).toBeLessThanOrEqual(box.x + 1);
+  await expect(rail).toBeVisible();
+  // (Bookmarking from the rail is checked by the bookmark tests, which run with it open. Not here: a removed bookmark
+  // stays in "Removed notes" on Your data and is found by annotations.spec's search for its words.)
+
+  // The choice is kept: after a reload the sidebar is still open.
+  await page.reload();
+  await expect(r).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(rail).toBeVisible();
+
+  // Screenshots for the PR: open, on phone and desktop, light and dark; on a phone the tools are a row under the book.
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(r).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+      await expect(rail).toBeVisible();
+      // Nothing scrolls sideways, and the tools cover no text: on a phone the rail lies under the book.
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(w);
+      if (name === "phone") {
+        const book = (await r.locator("[class*=host]").first().boundingBox())!;
+        expect((await rail.boundingBox())!.y).toBeGreaterThanOrEqual(book.y + book.height - 1);
+      }
+      await page.screenshot({ path: `screenshots/reader-sidebar-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  // Closed again: gone, and the book has its width back.
+  await toggle.click();
+  await expect(rail).toHaveCount(0);
+  await expect.poll(async () => (await r.locator("[class*=host]").first().boundingBox())!.width).toBe(bookWidth);
 });
 
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {
@@ -1195,6 +1292,7 @@ test("two pages is a reading setting for every book", async ({ page }, testInfo)
   await page.getByRole("button", { name: "Reading settings" }).click();
   await page.getByRole("button", { name: "Scroll", exact: true }).click();
   await expect.poll(() => sidesShowing(page)).toBe(1);
+  await page.getByRole("button", { name: "Pages", exact: true }).click();
   await page.getByRole("button", { name: "Pages", exact: true }).click();
   await expect.poll(() => sidesShowing(page)).toBe(2);
   await page.keyboard.press("Escape");

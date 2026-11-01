@@ -1,5 +1,7 @@
 /* Rows: top bar, book, the read-aloud bar while it is open, foot. */
 .reader {
+  --rail-width: 4.75rem; /* the sidebar's rail, below */
+
   display: grid;
   grid-template-rows: auto 1fr auto auto;
   height: 100dvh;
@@ -167,6 +169,88 @@
   .stageSide.stagePanel > .panel:not(.panelLeft) {
     grid-column: 5;
   }
+
+  /* The sidebar's rail (sidebar.ts) takes the last column, after the book, the rewrite and the panel. */
+  .stageRail {
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) var(--rail-width);
+  }
+
+  .stageRail.stagePanel {
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) 22rem var(--rail-width);
+  }
+
+  .stageSide.stageRail {
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(20rem, 42%) var(--rail-width);
+  }
+
+  .stageSide.stageRail.stagePanel {
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(0, 1fr) 22rem var(--rail-width);
+  }
+
+  .stage.stageRail {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .stage > .rail {
+    flex-direction: column;
+    grid-row: 1;
+    grid-column: -2 / -1;
+    justify-content: flex-start;
+    padding: var(--space-3) var(--space-1);
+    border-top: 0;
+    border-left: var(--border-hair) solid var(--rule);
+  }
+}
+
+/* The rail: each tool an icon over its word, as in Obsidian's or Claude's side panel. On a computer it is the stage's
+   last column, top to bottom (above); on a phone, a row of its own under the book, so it covers no text and no page
+   arrow. */
+.stageRail {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.rail {
+  display: flex;
+  grid-row: -2 / -1; /* the stage's last row: under the rewrite too, when it sits under the page on a phone */
+  grid-column: 1 / -1;
+  justify-content: space-around;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-top: var(--border-hair) solid var(--rule);
+  background-color: var(--paper);
+}
+
+.railTool {
+  display: grid;
+  flex: 0 1 var(--rail-width);
+  justify-items: center;
+  gap: var(--space-0);
+  padding: var(--space-2) var(--space-0);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  text-align: center;
+  cursor: pointer;
+}
+
+.railTool:hover {
+  border-color: var(--rule);
+  color: var(--ink-900);
+}
+
+.railTool[aria-expanded="true"],
+.railTool[aria-pressed="true"] {
+  border-color: var(--rule);
+  background-color: var(--paper-sunken);
+  color: var(--accent);
+}
+
+.railWord {
+  display: grid;
 }
 
 .rewrittenHead {
@@ -1087,16 +1171,6 @@
   box-shadow: var(--shadow-raised);
 }
 
-/* The Study button: the word on a computer, an open book on a phone. */
-.studyButton {
-  display: inline-flex;
-  align-items: center;
-}
-
-.studyIcon {
-  display: none;
-}
-
 .strictRow .segment {
   flex: 1;
 }
@@ -1415,14 +1489,6 @@
     padding: var(--space-1) var(--space-2);
   }
 
-  .studyIcon {
-    display: block;
-  }
-
-  .studyWord {
-    display: none;
-  }
-
   /* The bar is full on a phone held upright: full screen is for wider screens (F still works with a keyboard). */
   .fullTool {
     display: none;
@@ -1443,6 +1509,16 @@
     grid-column: 1 / -1;
     border-top: var(--border-hair) solid var(--rule);
     border-left: 0;
+  }
+
+  /* A panel's card ends above the sidebar's row (--below-rail, set by Reader.tsx), so the tools stay in reach. */
+  .stageRail > .panel:not(.panelLeft) {
+    max-height: calc(100dvh - var(--space-8) - var(--below-rail, 0px) - var(--space-2));
+  }
+
+  /* With the sidebar open, its row comes third, under the rewrite (sharing a row, it took the rewrite's taps). */
+  .stageSide.stageRail {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
   .rewrittenHead,

@@ -4,6 +4,18 @@ import { mkdir } from "node:fs/promises";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M26 R3 "Done when": a browser test starts a session with a question and a short timer, sees only the page while
 // it runs, answers at the end, and then finds the answer as a note, as a card in Daily review, and as a sitting
 // with the question on the Reading stats page; the session survives a reload part-way through. A reader of its
@@ -47,6 +59,14 @@ async function newReader(page: Page, browser: Browser, email = `focus-${Date.now
   await page.getByRole("button", { name: "Make an invitation link" }).click();
   const link = await page.getByTestId("invite-link").inputValue();
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } });
+  // A context of its own: the beforeEach above opens the sidebar only on `page`, so open it here too.
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Fola Focus");

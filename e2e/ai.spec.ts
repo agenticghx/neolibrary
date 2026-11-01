@@ -3,6 +3,18 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M6 (b): rewrite a paragraph in the reader, with the fake AI (AI_FAKE=1 in
 // the test server). Versions are stored and re-served, never re-bought.
 
@@ -401,12 +413,18 @@ async function turnBack(page: Page, to: string | RegExp) {
   }).toPass({ timeout: 15_000 });
 }
 
-/** Turns on one page, and waits until the rewritten view has asked about the new page. */
+/**
+ * Turns on one page, and waits until the rewritten view has asked about the new page. As in turnBack, the click is
+ * repeated only while the page has not moved: a turn asked for while the book is laid out again (switching to the
+ * rewrite alone widens it) is dropped (CI run 41340351516, #256, the click 30 ms after the switch).
+ */
 async function turnOn(page: Page) {
   const from = (await reader(page).getAttribute("data-cfi"))!;
   const asked = page.waitForResponse((r) => r.url().includes("/rewritten?") && r.request().method() === "GET");
-  await page.getByRole("button", { name: "Next page" }).click();
-  await expect(reader(page)).not.toHaveAttribute("data-cfi", from);
+  await expect(async () => {
+    if ((await reader(page).getAttribute("data-cfi")) === from) await page.getByRole("button", { name: "Next page" }).click();
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", from, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   await asked;
 }
 
