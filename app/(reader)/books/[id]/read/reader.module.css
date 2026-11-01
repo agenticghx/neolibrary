@@ -211,7 +211,7 @@
 
 .rail {
   display: flex;
-  grid-row: 2;
+  grid-row: -2 / -1; /* the stage's last row: under the rewrite too, when it sits under the page on a phone */
   grid-column: 1 / -1;
   justify-content: space-around;
   gap: var(--space-1);
@@ -251,10 +251,6 @@
 
 .railWord {
   display: grid;
-}
-
-.railCount {
-  color: var(--ink-500);
 }
 
 .rewrittenHead {
@@ -1513,6 +1509,16 @@
     grid-column: 1 / -1;
     border-top: var(--border-hair) solid var(--rule);
     border-left: 0;
+  }
+
+  /* A panel's card ends above the sidebar's row (--below-rail, set by Reader.tsx), so the tools stay in reach. */
+  .stageRail > .panel:not(.panelLeft) {
+    max-height: calc(100dvh - var(--space-8) - var(--below-rail, 0px) - var(--space-2));
+  }
+
+  /* With the sidebar open, its row comes third, under the rewrite (sharing a row, it took the rewrite's taps). */
+  .stageSide.stageRail {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
   .rewrittenHead,

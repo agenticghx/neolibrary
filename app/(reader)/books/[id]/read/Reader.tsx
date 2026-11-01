@@ -512,7 +512,10 @@ export function Reader(props: {
   const canFull = useSyncExternalStore(noSubscribe, () => document.fullscreenEnabled === true, () => false);
   const full = useSyncExternalStore(onFullscreenChange, () => document.fullscreenElement !== null, () => false);
   const [idle, setIdle] = useState(false);
-  const sidebar = useSyncExternalStore(onSidebarChange, sidebarOpen, () => false);
+  const sidebarChosen = useSyncExternalStore(onSidebarChange, sidebarOpen, () => false);
+  // A focus session shows only the page (M26 R3): the rail goes with the bars, and comes back after.
+  const sidebar = sidebarChosen && !focusSession;
+  const rail = useRef<HTMLElement | null>(null);
   const wake = useRef<(e: Event, top?: number) => void>(() => {});
   const toggleFull = useCallback(() => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
@@ -1773,6 +1776,28 @@ export function Reader(props: {
   });
   const { attach, stop } = player;
   const showsBar = listening && !!where.cfi;
+  // On a phone the sidebar's rail is a row under the book, and a panel is a card over the page: the card must end
+  // above the rail, or it covers the tools (a tap on Study with Rewrite open did nothing, 2026-11-01). --below-rail is
+  // how far the rail's top is from the bottom of the screen.
+  useEffect(() => {
+    const el = root.current;
+    if (!sidebar || !el) return;
+    const measure = () => {
+      const top = rail.current?.getBoundingClientRect().top;
+      if (top === undefined) el.style.removeProperty("--below-rail");
+      else el.style.setProperty("--below-rail", `${Math.max(0, window.innerHeight - top)}px`);
+    };
+    measure();
+    const sizes = new ResizeObserver(measure);
+    if (host.current) sizes.observe(host.current);
+    if (rail.current) sizes.observe(rail.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      sizes.disconnect();
+      window.removeEventListener("resize", measure);
+      el.style.removeProperty("--below-rail");
+    };
+  }, [sidebar]);
   // A tap or click outside the selected-text bar closes it (M27 Q1); taps inside the book are caught in its frames.
   // While the Read aloud bar shows (a note open in the selected-text bar, or text selected while listening), the
   // selected-text bar sits above it instead of over it.
@@ -2054,7 +2079,7 @@ export function Reader(props: {
 
         {/* The sidebar (sidebar.ts): the reading tools in a rail on the right; a panel opens beside it. */}
         {sidebar ? (
-          <nav id="reader-sidebar" className={styles.rail} aria-label="Reading tools">
+          <nav ref={rail} id="reader-sidebar" className={styles.rail} aria-label="Reading tools">
             <button
               type="button"
               className={styles.railTool}
@@ -2065,7 +2090,7 @@ export function Reader(props: {
                 <path d="M4 2.5h7l3 3v10H4z M11 2.5v3h3 M6.5 9h5 M6.5 12h4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" />
               </svg>
               <span className={styles.railWord}>
-                Notes{notes.length ? <span className={styles.railCount}> ({notes.length})</span> : null}
+                Notes{notes.length ? <span> ({notes.length})</span> : null}
               </span>
             </button>
             {/* Study (M19 P5): "What do I need to know?", Test yourself, Ask and Explain it back, as tabs. */}

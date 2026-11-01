@@ -343,6 +343,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 14:40 · Claude Opus 5.5 (laptop) · Sidebar PR #256: CI's failure reproduced on the laptop; five real fixes
+- **Done:** CI round 1 on #256 failed "Pages to Scroll, and back". Earlier this session it was called Mac-only because it failed on main's code on the Mac too: wrong. In Playwright's Linux image on the laptop (new browser-test-triage skill), branch failed and main passed. Fixed: the place-mark test reads the top words after the settings panel opens; page-count tests start with the sidebar closed (sidebar + panel leave 644 px of text, under 680 px for two pages); the sidebar test no longer leaves a removed bookmark; on a phone the rail takes its own last row (it took the rewrite's taps) and panels end above it (--below-rail); note count contrast; focus tests open the sidebar in their own context; a focus session hides the rail.
+- **Key paths:** app/(reader)/books/[id]/read/{Reader.tsx,reader.module.css}; e2e/{reader,focus}.spec.ts; LEARNING_LOG.md (Iteration 106)
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh (from branch m21-browser-test-triage): full suite 353 passed + 1 focus failure, then -- --project focus 287 passed; -- --project ai 255 passed
+- **Known issues / blockers:** A full-suite run overlapping npm ci gave a false "page did not turn" failure; run one heavy job at a time.
+- **Exact next steps:** 1. CI on #256, merge when green. 2. Skill PR (m21-browser-test-triage). 3. #257 PR (m21-arrow-keys-turn). 4. Deploy #255-#257 together at Samuel's word.
+
 ### 2026-11-01 12:02 · Claude Opus 5.5 (laptop) · Reader sidebar: the reading tools leave the top bar; PR opened
 - **Done:** #255 (full screen shows only the book) merged as 5801675 by the auto-merge Action, all four checks green; not deployed (batched). Then, at Samuel's ask: a sidebar the top bar shows and hides (like Obsidian's or Claude desktop's right panel). Top bar now: Back, Contents, title, Full screen, Aa, Sidebar. The sidebar is a rail of Notes (count), Study, Rewritten, Bookmark, Focus, each an icon over its word; a panel opens beside it; open or closed is kept per browser; on a phone the rail is a row under the book; full screen closes it. Eight browser test files start with it open.
 - **Key paths:** app/(reader)/books/[id]/read/sidebar.ts; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader.module.css; e2e/reader.spec.ts (new "sidebar:" test) and e2e/{agents,ai,annotations,focus,images,notes,offline}.spec.ts (beforeEach)
