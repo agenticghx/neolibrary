@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Full screen (only the book) PR merges when green; deploy in the next batch at Samuel's word. Merge PR m22-covers-find-race when green; deploy at Samuel's word.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Sidebar #256: full Linux-image run, push, merge. Then browser-test-triage skill PR, then #257 (Up/Down keys) PR. Deploy #255, #256, #257 together at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -341,6 +341,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 13:48 · Claude Opus 5.5 (laptop) · A skill for browser tests that fail on the laptop (browser-test-triage)
+- **Done:** Samuel noticed sessions keep writing "fails on this Mac with main's code too, CI will judge". Confirmed from the ledger (column wrapping 2026-10-25, drag selection 2026-10-11, the palette race #164, today's two reader tests) and today's case proved it costly: CI failed a test on Linux that the change had broken. New skill `.claude/skills/browser-test-triage/` with `scripts/linux-run.sh` (runs Playwright's own Linux image on the laptop, on the branch or `--ref origin/main`, `--env` switches); the rule "no Mac-only / fails-on-main claim without both Linux runs"; pointers from CLAUDE.md, merge-train and the skills README; a Mac-only section in docs/ci-flakes.md.
+- **Key paths:** .claude/skills/browser-test-triage/SKILL.md; .claude/skills/browser-test-triage/scripts/linux-run.sh; CLAUDE.md; .claude/skills/merge-train/SKILL.md; .claude/skills/README.md; docs/ci-flakes.md
+- **Commands that worked:** linux-run.sh -- --project annotations -g "a removed note comes back" (branch: 1 failed) and --ref origin/main (226 passed); linux-run.sh -- --project ai (255 passed); several full runs on the sidebar branch (4-18 min each)
+- **Known issues / blockers:** `git worktree add` prints "Preparing worktree" for a new --ref folder; harmless. The --ref folders stay in ~/.cache/neolibrary-linux-runs/ (remove with git worktree remove --force).
+- **Exact next steps:** 1. PR, merge when green. 2. Later sessions load it whenever a browser test fails locally.
 
 ### 2026-11-01 11:45 · Claude Opus 5.5 (laptop) · Full screen shows only the book; controls come back at the screen's edges
 - **Done:** Samuel's screenshot of full screen showed Notes, both bars, the "On this page" names and the arrows ("is this how you would watch Netflix?"). Rebuilt: entering full screen closes any panel; the book fills the whole screen with the bars lying over it; every control fades 2 s after the reader last reached for it; the mouse at the top or bottom 96 px, a tap, or a key that is not a page turn brings them back (a mouse over the text or the arrow keys do not). A panel opened in full screen keeps the bars until it closes. A first try put the book in a narrow column (caught in the screenshot, not the test); fixed and the test now checks width too. Not deployed: Samuel wants deploys batched (2026-11-01).

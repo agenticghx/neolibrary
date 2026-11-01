@@ -58,7 +58,11 @@ engineer.
 - Before a PR: `npm run check` (lint, types, unit tests); `npm run
   test:postgres` when SQL or a migration changes; on a Mac, browser tests
   with `npx playwright test --ignore-snapshots` (reference images are Linux
-  renders; the merge train refreshes them from CI).
+  renders; the merge train refreshes them from CI). A browser test that
+  fails on the Mac: load the `browser-test-triage` skill and run it in
+  Playwright's Linux image on the branch and on main before calling it
+  "Mac-only" or "fails on main too" (a Mac failure on main hid a real
+  regression on 2026-11-01).
 - Model work outside the app (reading scanned pages, building an X-ray,
   comparing models) runs with `claude -p` on Samuel's Claude subscription,
   not on an API key; when the subscription limit is hit, stop and wait for

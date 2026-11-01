@@ -38,6 +38,17 @@ number when its cause is removed; drop its pattern from `flaky-tests.txt` once i
 | `e2e/readalong.spec.ts:1990` "the part before never comes: after the wait's limit, Back lands 15 s back…" | WebKit | `page.waitForRequest: Timeout 10000ms exceeded` in `asksBefore`: Back pressed, no request for the part before; with #110's diagnostic: `The player: {"currentTime":36.53,"paused":false,"seeking":false,"readyState":4}` | 37638918531 attempts 2 and 4 (#104), 37643052389 attempt 1 (#110): three; passed on #103's run and on the laptop | the test's own margin: it pressed Back 15 s from 14.5 s into paragraph 69, which must land *before* 69 to ask for the part before (0.5 s of slack); on a slow runner the press came later and the skip stayed inside 69. #110: the test starts 10 s into the paragraph (5 s of slack) and the error carries the player's state |
 | `lib/library/markdown-epub.test.ts` "makes an EPUB the app reads: title, author from front matter, nested contents, one chapter per file" | unit (Vitest) | `expected Uint8Array[ 80, 75, 3, 4, … ] to deeply equal Uint8Array[ … ]`: the same Markdown built twice gave two EPUBs 12 bytes apart | 39907837623 attempt 1 (main, 2026-10-23, after #230) | Not a flake in the test: the zip writer (fflate `zipSync`) stamped every entry with the clock, so two builds across a 2-second boundary differed in the entries' times. Fixed 2026-10-23 (branch `m29-epub-fixed-time`): both EPUB writers pass the EPUB's own modified date as the entries' time. |
 
+## Not flakes: fails on the Mac only
+
+A test that fails on the laptop but passes in Playwright's Linux image on the same code (run with
+`.claude/skills/browser-test-triage/scripts/linux-run.sh`, on the branch and with `--ref origin/main`). Write a row
+only after both Linux runs passed; "fails on main too" on the Mac alone is not evidence (2026-11-01: it hid a real
+regression).
+
+| Test | What differs on the Mac | Seen | Cause |
+|---|---|---|---|
+| `e2e/reader.spec.ts` "a layout switch marks the place › Pages to Scroll, and back" | the place mark lay over other words than the test expected | 2026-11-01, on main's code too | the test read the top words before opening Reading settings; the panel's narrowing re-wraps the lines, and the Mac's text rendering wraps them differently. Fixed in the test (#256): it reads them after the panel opens |
+
 ## Not flakes: a crash inside Playwright's own copy of WebKit (resolved 2026-10-19 by Playwright 1.64.1)
 
 **Resolved.** Playwright 1.64.1 (WebKit 27.2, folder `webkit-2370`) no longer crashes: the check below now prints
