@@ -3,6 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Sidebar #256: full Linux-image run, push, merge. Then browser-test-triage skill PR, then #257 (Up/Down keys) PR. Deploy #255, #256, #257 together at Samuel's word.
 next_action: #256 (sidebar) merges when green; #258 (Up/Down keys, issue #257) rebases and merges after it. #259 (browser-test-triage skill) merged as 4af2620. Deploy #255, #256, #258 together at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
@@ -342,6 +343,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 13:48 · Claude Opus 5.5 (laptop) · Issue #257: Up and Down arrow keys turn pages in Pages; PR opened
+- **Done:** In Pages (one or two) and on a PDF's pages, Down turns to the next page and Up to the previous, as Right and Left do; in Scroll they still scroll. The Keyboard shortcuts list shows the new keys (drawn arrows). New browser test "in Pages, the Down and Up arrow keys turn the page, in one page and in two".
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (onKey); app/(reader)/books/[id]/read/ShortcutsDialog.tsx; e2e/reader.spec.ts
+- **Commands that worked:** npm ci (worktree); npx tsc --noEmit; npx eslint on the changed files (0 errors; 2 warnings already on main, fixed by #256)
+- **Known issues / blockers:** npm run check 1195 passed; Linux image --project reader 226 passed (after two test fixes: keyboard focus after Escape, and 300 ms between turns). After a panel closes with Escape the keyboard stays on its button, so arrows do not turn until the page is clicked (unchanged, as for Left and Right).
+- **Exact next steps:** 1. CI; merge when green (rebase after #256 if it merges first). 3. Deploy with #255 and #256 at Samuel's word.
 ### 2026-11-01 14:40 · Claude Opus 5.5 (laptop) · Sidebar PR #256: CI's failure reproduced on the laptop; five real fixes
 - **Done:** CI round 1 on #256 failed "Pages to Scroll, and back". Earlier this session it was called Mac-only because it failed on main's code on the Mac too: wrong. In Playwright's Linux image on the laptop (new browser-test-triage skill), branch failed and main passed. Fixed: the place-mark test reads the top words after the settings panel opens; page-count tests start with the sidebar closed (sidebar + panel leave 644 px of text, under 680 px for two pages); the sidebar test no longer leaves a removed bookmark; on a phone the rail takes its own last row (it took the rewrite's taps) and panels end above it (--below-rail); note count contrast; focus tests open the sidebar in their own context; a focus session hides the rail.
 - **Key paths:** app/(reader)/books/[id]/read/{Reader.tsx,reader.module.css}; e2e/{reader,focus}.spec.ts; LEARNING_LOG.md (Iteration 106)
