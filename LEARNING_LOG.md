@@ -83,6 +83,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 105 | 2026-11-01 12:40 | Reader sidebar | The reading tools move from the top bar into a sidebar it shows and hides, and every existing test still passes with it open | `npm run check`; full browser suite (Mac); screenshots by eye | partial | a failing test must be tried on main before blaming the change |
 | 106 | 2026-11-01 14:30 | Reader sidebar, CI round 1 | The sidebar PR is ready once CI's failure is reproduced and explained on the laptop | `linux-run.sh` (Playwright's Linux image) on the branch and on main; logged runs | failure then success | a Mac failure on main hid four real breakages that only a Linux run showed |
 | 107 | 2026-11-01 14:50 | Issue #257, Up and Down turn pages | In Pages, Down and Up turn the page like Right and Left, in one page and two | `npm run check`; `linux-run.sh -- --project reader` | failure then success | a test turning pages fast must wait for each turn to finish |
+| 109 | 2026-11-01 17:30 | M40 S1 working rules | Rules that let sessions close stale defaults and decide small design choices remove most "waiting on Samuel" without touching money or taste | ledger count of open rows before and after | success | a default nobody answers for a week is already the decision |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2459,4 +2460,12 @@ tests that pin it, in a small PR.
 **Result.** `npm run check`: 1195 passed. Linux, first run: the first Down did nothing: Escape had given the keyboard back to the Reading settings button, which keeps arrow keys (as for Left and Right); the test now hands the keyboard to the page. Second run: the second Down was dropped: a turn asked for while the last one is under way is dropped for every key; the test waits 300 ms after each turn, as `turnTo` does. Third run: `226 passed (3.7m)`.
 **Lesson.** Turn pages in a test one finished turn at a time, and check where the keyboard is after closing a panel.
 **Next experiment.** CI; merge; deploy with #255 and #256 at Samuel's word.
+
+### Iteration 109 · 2026-11-01 (laptop clock) · M40 S1: working rules · success
+
+**Hypothesis.** The ledger's Open unknowns table had 13 rows marked "open (default applies)", some from early October; the work had gone ahead on each default, so the rows only added reading for every session and a feeling of things owed for Samuel. A seven-day rule closes the stale ones without deciding anything new, if money, keys, privacy and access are kept out of it.
+**Action.** CLAUDE.md 3a and 3b, the deploy record rule, merge-train step 6; the first sweep.
+**Result.** Rows closed: 6, 7, 8, 9, 10, 31 and 27 (1)(2)(4), each with a Decisions line. Kept open: 1, 12, 13, 32, 27 (3) (money or access) and 28, 29 (no default).
+**Lesson.** A question with a default that is already built is a decision waiting to be written down, not a decision waiting to be made.
+**Next experiment.** M40 S2, deploys on their own.
 

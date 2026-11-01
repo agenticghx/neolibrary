@@ -1329,6 +1329,39 @@ tests pass from the repo; no personal path, key or address in
 Claude session in the repo lists the moved skills with the laptop copies of
 `readalong-audio` and `book-chapters` removed.
 
+
+### M40 · Samuel out of the loop: sessions take over the gates (Samuel, 2026-11-01)
+
+Samuel asked where he is the bottleneck and said "do #1-6". The ledger showed 19 deploys made "at Samuel's word",
+13 open questions waiting on a default he never needed to confirm, and a "Waiting on Samuel" list of checks an agent
+can run. Each step below is one pull request. What stays his: keys and spending caps, paid whole-book narration,
+taste ("is this voice good?"), real-device checks on his iPhone and iPad, and who is invited.
+
+- **S1 Working rules.** Seven-day defaults: an Open unknowns row with a default in force that he has not answered
+  in 7 days is closed as "default stands" (never for money, keys, privacy or access). Small design choices: build the
+  recommended option and show it; options pages only for big visual direction. Deploy records go straight to `main`.
+  *Done when:* the rules are in CLAUDE.md and merge-train; the first sweep closed every eligible row with a Decisions
+  line.
+- **S2 Deploys on their own.** A GitHub Action deploys `main` to Railway after `main`'s CI passes, only when no
+  database migration is included (a migration still waits for a backup and Samuel's word), skips a commit that a newer
+  one replaces, checks `/api/health` on both addresses and `/sign-in`, and records each deploy on the "Deploy log"
+  issue. Railway's health check keeps the old version serving if a new one does not come up. A repository variable
+  `AUTO_DEPLOY` switches it off. Needs from Samuel once: a Railway project token stored as the `RAILWAY_TOKEN` secret.
+  *Done when:* a merge to `main` goes live with no one asking, and a migration does not.
+- **S3 Issues become pull requests.** An issue Samuel files starts Claude Code on GitHub (anthropics/claude-code-action,
+  on his Claude subscription, not an API key), which builds it under CLAUDE.md's rules and opens a pull request that
+  fixes it. A label `no-build` keeps an issue for discussion. Needs from Samuel once: `/install-github-app`.
+  *Done when:* a test issue becomes a pull request with green checks.
+- **S4 The agent API reads what checks need.** Read-only owner-token endpoints for a book's details (kind, scan or
+  text edition, cover, X-ray, narration) and its file, so S5 and S6 can work from the laptop without signing in.
+  *Done when:* each endpoint has tests, and a reader's token cannot see another reader's books.
+- **S5 Live-site checks.** A script run on the laptop on Samuel's subscription checks the live site the way the
+  "Waiting on Samuel" list asks him to (X-ray entries against the book's own pages, covers against titles, every book
+  opens) and writes a short report of what looks wrong only. *Done when:* one run's report is in the ledger.
+- **S6 Scanned books read overnight.** A laptop job (launchd) finds scanned books with no text edition, reads them on
+  the subscription with the scan-to-text skill's checks, stopping at the subscription's limit, and leaves each as a
+  draft with its check report for Samuel's "send". *Done when:* one book goes through unattended.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
