@@ -350,6 +350,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 22:40 · Claude Opus 5.5 (laptop) · The Claude GitHub App's two workflows: @claude in comments, and a review of every pull request
+- **Done:** Samuel ran /install-github-app (Claude app installed on the agenticghx organization; CLAUDE_CODE_OAUTH_TOKEN stored) and set RAILWAY_TOKEN. The installer pushed its two workflows on a branch from an older main without a PR; brought here: claude.yml (answers "@claude" in issue and PR comments and reviews) and claude-code-review.yml (Claude reviews every PR with the code-review plugin, inline comments). claude.yml's "new issue mentioning @claude" trigger removed: claude-issue.yml (M40 S3) already builds every issue Samuel files. Repository variables AUTO_DEPLOY=on and CLAUDE_ISSUES=on set.
+- **Key paths:** .github/workflows/claude.yml; .github/workflows/claude-code-review.yml
+- **Commands that worked:** gh secret list (CLAUDE_CODE_OAUTH_TOKEN 22:16Z, RAILWAY_TOKEN 22:13Z); gh api orgs/agenticghx/installations (claude, all repos); actionlint
+- **Known issues / blockers:** Every review and every @claude answer uses Samuel's Claude subscription. The installer's branch add-claude-github-actions-1793571372845 can be deleted after this merges.
+- **Exact next steps:** merge after #261-#263; then a test issue (S3) and the first automatic deploy (S2).
+
 ### 2026-11-01 19:30 · Claude Opus 5.5 (laptop) · M40 S4: the owner's token reads a book's details, its file and its whole X-ray
 - **Done:** Three read-only agent routes, each limited to the token's own books (another reader's, a malformed id or one in the bin is 404): GET /api/agent/books/<id> (kind, pages, size, scan or not, its text edition or the scan it came from, cover source, ISBN), GET /api/agent/books/<id>/file (the stored file, with byte ranges, through serveStoredFile), GET /api/agent/books/<id>/xray/entries (every entry, most mentioned first, with each fact and its quote). "Scan" reuses the book page's own rule, now pdfHasOwnText in text-edition.ts (fewer than half the pages with over 200 characters).
 - **Key paths:** lib/agent/library.ts (agentBook, agentBookFile, agentXray); lib/library/text-edition.ts (pdfHasOwnText); app/api/agent/books/[id]/route.ts; app/api/agent/books/[id]/file/route.ts; app/api/agent/books/[id]/xray/entries/route.ts; lib/agent/details.test.ts; e2e/agents.spec.ts
