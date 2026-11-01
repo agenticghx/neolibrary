@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge PR m22-covers-find-race when green; deploy at Samuel's word.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
+next_action: Full screen (only the book) PR merges when green; deploy in the next batch at Samuel's word. Merge PR m22-covers-find-race when green; deploy at Samuel's word.   #248 (Books menu) with the merge train; deploy at Samuel's word. Claude key is live (2026-10-29): try one rewrite on the live site.   #248 (Books menu) with the merge train; deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-10-30
+updated: 2026-11-01
 shared_copy: none
 ---
 
@@ -341,6 +341,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 11:45 · Claude Opus 5.5 (laptop) · Full screen shows only the book; controls come back at the screen's edges
+- **Done:** Samuel's screenshot of full screen showed Notes, both bars, the "On this page" names and the arrows ("is this how you would watch Netflix?"). Rebuilt: entering full screen closes any panel; the book fills the whole screen with the bars lying over it; every control fades 2 s after the reader last reached for it; the mouse at the top or bottom 96 px, a tap, or a key that is not a page turn brings them back (a mouse over the text or the arrow keys do not). A panel opened in full screen keeps the bars until it closes. A first try put the book in a narrow column (caught in the screenshot, not the test); fixed and the test now checks width too. Not deployed: Samuel wants deploys batched (2026-11-01).
+- **Key paths:** app/(reader)/books/[id]/read/fullscreen.ts (+ .test.ts); app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader.module.css (end); e2e/reader.spec.ts; e2e/review.spec.ts; LEARNING_LOG.md (Iteration 104)
+- **Commands that worked:** npm ci in the worktree (it had borrowed the old branch's packages: 15 unrelated unit failures until then); npm run check (1195 passed); npx playwright test --ignore-snapshots e2e/reader.spec.ts e2e/review.spec.ts -g "full screen|Where were we" (283 passed)
+- **Known issues / blockers:** Side by side rewriting stays on screen in full screen (it is a reading mode, not a panel). Not tried in real Safari or on an iPad. Reference screenshots for the fullscreen shots refresh from CI.
+- **Exact next steps:** 1. Merge this PR when the four checks are green. 2. Deploy in the next batch, at Samuel's word (no migration). 3. Samuel tries full screen on The Pay Off.
 
 ### 2026-10-30 12:30 · Claude Opus 5.5 (laptop) · Covers: an old status answer no longer reads as 'Done. 0' (fixes the nightly's covers.spec.ts:66 on 25b19de)
 - **Done:** Nightly run 41076346065 on 25b19de failed covers.spec.ts:66 (0 found covers, >90 expected). Samuel: 'rerun the failed parts... find the root cause'. Re-run started. Trace: the page's opening GET /api/covers was answered after the Find press and read as the new lookup's end ('Done. 0 titles have a found cover; 126 without one.'), so the lists were never reloaded. Fix in FindCovers.tsx: ignore answers to checks sent before the press or before the server took the lookup. Test holds the opening check back and reads the first 'Done.' once: unfixed 1 failed with the nightly's line, fixed passed.

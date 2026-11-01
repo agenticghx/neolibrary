@@ -485,32 +485,63 @@ test("the keyboard follows a panel: focus moves in when it opens, and Escape bri
   await expect(panel).toBeHidden();
 });
 
-// Samuel 2026-10-28: "if I can enjoy Netflix in full screen then I should also enjoy reading in full screen".
-test("full screen: the button and F fill the screen; the bars fade when still and come back with the mouse", async ({ page }) => {
+// Samuel 2026-10-28: "if I can enjoy Netflix in full screen then I should also enjoy reading in full screen"; and
+// 2026-11-01, of a full screen with Notes, the bars and the X-ray names all showing: "is this how you would watch
+// Netflix?". Only the book is on screen; the controls come back when the reader reaches for them.
+test("full screen: only the book; the controls come back at the screen's edges and fade again", async ({ page }) => {
   await openJekyll(page);
   const r = reader(page);
   const opacity = (selector: string) => r.locator(selector).first().evaluate((el) => getComputedStyle(el).opacity);
+  // A panel open before full screen closes on the way in.
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  await expect(page.getByRole("navigation", { name: "Notes" })).toBeVisible();
   await page.getByRole("button", { name: "Full screen" }).click();
   await expect(r).toHaveAttribute("data-fullscreen", "");
   expect(await page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+  await expect(r).toHaveAttribute("data-bare", "");
+  await expect(page.getByRole("navigation", { name: "Notes" })).toHaveCount(0);
 
-  // Still for three seconds, away from the bars: they fade and the pointer hides.
+  // The book takes the whole screen, top to bottom.
   const box = (await r.boundingBox())!;
+  const stage = await r.locator("> div").filter({ has: page.getByRole("button", { name: "Next page" }) }).boundingBox();
+  expect(stage!.y).toBeLessThanOrEqual(1);
+  expect(stage!.height).toBeGreaterThanOrEqual(box.height - 1);
+  // And side to side (a first try put the book in a narrow column beside the bars).
+  expect(stage!.x).toBeLessThanOrEqual(1);
+  expect(stage!.width).toBeGreaterThanOrEqual(box.width - 1);
+
+  // The mouse moving over the text, and the arrow keys turning pages, do not bring the controls back: they fade.
   await page.mouse.move(box.width / 2, box.height / 2);
   await expect(r).toHaveAttribute("data-idle", "", { timeout: 6_000 });
-  await expect.poll(() => opacity("header")).toBe("0");
-  await expect.poll(() => opacity("footer")).toBe("0");
+  for (const sel of ["header", "footer", 'button[aria-label="Next page"]', 'button[aria-label="Previous page"]']) {
+    await expect.poll(() => opacity(sel), { message: sel }).toBe("0");
+  }
   expect(await r.evaluate((el) => getComputedStyle(el).cursor)).toBe("none");
-  // A mouse move brings them back.
-  await page.mouse.move(box.width / 2 + 40, box.height / 2 + 20);
+  await page.mouse.move(box.width / 2 + 60, box.height / 2 + 40);
+  await page.mouse.move(box.width / 2 - 60, box.height / 2 - 40);
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(300);
+  await expect(r).toHaveAttribute("data-idle", "");
+
+  // The mouse at the top edge brings them back; away again, they fade again.
+  await page.mouse.move(box.width / 2, 4);
   await expect(r).not.toHaveAttribute("data-idle");
   await expect.poll(() => opacity("header")).toBe("1");
+  await page.mouse.move(box.width / 2, box.height / 2);
+  await expect(r).toHaveAttribute("data-idle", "", { timeout: 6_000 });
+  // So does the bottom edge.
+  await page.mouse.move(box.width / 2, box.height - 4);
+  await expect(r).not.toHaveAttribute("data-idle");
+  await expect.poll(() => opacity("footer")).toBe("1");
 
-  // An open panel keeps the bars.
+  // A panel opened in full screen keeps the bars until it closes.
+  await page.mouse.move(box.width / 2, 4);
   await page.getByRole("button", { name: "Reading settings" }).click();
-  await page.waitForTimeout(3_500);
+  await expect(r).not.toHaveAttribute("data-bare");
+  await page.waitForTimeout(2_500);
   await expect(r).not.toHaveAttribute("data-idle");
   await page.keyboard.press("Escape");
+  await expect(r).toHaveAttribute("data-bare", "");
 
   // F leaves full screen and F comes back; the button says which.
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -541,9 +572,10 @@ test("full screen: the button and F fill the screen; the bars fade when still an
         await page.keyboard.press("f");
       } else await page.getByRole("button", { name: "Full screen" }).click();
       await expect(r).toHaveAttribute("data-fullscreen", "");
-      await page.mouse.move(w / 2, h / 2);
+      await page.mouse.move(w / 2, 4);
       await page.waitForTimeout(500);
       await page.screenshot({ path: `screenshots/reader-fullscreen-shown-${name}-${scheme}.png` });
+      await page.mouse.move(w / 2, h / 2);
       await expect(r).toHaveAttribute("data-idle", "", { timeout: 6_000 });
       await expect.poll(() => opacity("header")).toBe("0");
       await page.screenshot({ path: `screenshots/reader-fullscreen-faded-${name}-${scheme}.png` });

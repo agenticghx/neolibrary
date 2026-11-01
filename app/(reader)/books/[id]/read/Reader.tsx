@@ -46,6 +46,7 @@ import { XrayPanel } from "./XrayPanel";
 import { XrayCard } from "./XrayCard";
 import { drawMarks, entryOfKey, namesOnScreen, type DrawnMark } from "./xray-marks";
 import xrayStyles from "./XrayCard.module.css";
+import { FULL_IDLE_MS, fullEvent, wakesBars } from "./fullscreen";
 import type { XrayMark } from "@/lib/library/xray";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -274,8 +275,6 @@ const OPEN_TIMEOUT_MS = 30_000;
 /** Fired once a book's notes have loaded: send what waits in the outbox (M12). */
 const SYNC_EVENT = "neolibrary:sync-notes";
 
-/** In full screen, the top and bottom bars fade after this long without a mouse move, a tap or a key (ms). */
-const FULL_IDLE_MS = 3000;
 const noSubscribe = () => () => {};
 const onFullscreenChange = (changed: () => void) => {
   document.addEventListener("fullscreenchange", changed);
@@ -512,10 +511,15 @@ export function Reader(props: {
   const canFull = useSyncExternalStore(noSubscribe, () => document.fullscreenEnabled === true, () => false);
   const full = useSyncExternalStore(onFullscreenChange, () => document.fullscreenElement !== null, () => false);
   const [idle, setIdle] = useState(false);
-  const wake = useRef(() => {});
+  const wake = useRef((_e: Event, _top?: number) => {});
   const toggleFull = useCallback(() => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    else if (document.fullscreenEnabled) void document.documentElement.requestFullscreen().catch(() => {});
+    else if (document.fullscreenEnabled) {
+      // Only the book (Samuel 2026-11-01, "is this how you would watch Netflix?"): an open panel or card closes.
+      setPanel("none");
+      setXrayCard(null);
+      void document.documentElement.requestFullscreen().catch(() => {});
+    }
   }, []);
   const pending = useRef<Relocate | null>(null);
   // M27 Q2 (like Kindle's Whispersync): the places this tab saved itself, the one it opened at and the one saved
@@ -616,24 +620,27 @@ export function Reader(props: {
     }
   }, [dismissSelection, toggleFull]);
 
-  // In full screen the bars fade once the reader is still, as a film's controls do, and come back with a mouse move,
-  // a tap or a key, in the page or around it. They keep their room, so the page never lays itself out again. Not
-  // while a panel is open: its controls stay.
+  // In full screen only the book is on screen (fullscreen.ts): the bars lie over the page and fade, and come back
+  // when the reader reaches for them (the mouse at the top or bottom edge, a tap, a key that is not a page turn), in
+  // the page or around it. A panel opened in full screen brings the bars back into their rows until it closes.
   useEffect(() => {
     if (!full || panel !== "none") return;
     let timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
-    const wakeUp = () => {
+    const wakeUp = (e: Event, top = 0) => {
+      const ev = fullEvent(e, top);
+      if (!ev || !wakesBars(ev, window.innerHeight)) return;
       setIdle(false);
       window.clearTimeout(timer);
       timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
     };
     wake.current = wakeUp;
     const events = ["pointermove", "pointerdown", "keydown"] as const;
-    for (const name of events) window.addEventListener(name, wakeUp, { passive: true });
+    const onEvent = (e: Event) => wakeUp(e);
+    for (const name of events) window.addEventListener(name, onEvent, { passive: true });
     return () => {
       window.clearTimeout(timer);
       wake.current = () => {};
-      for (const name of events) window.removeEventListener(name, wakeUp);
+      for (const name of events) window.removeEventListener(name, onEvent);
       setIdle(false);
     };
   }, [full, panel]);
@@ -1019,7 +1026,9 @@ export function Reader(props: {
           });
           doc.addEventListener("keydown", () => trackerRef.current.onActivity());
           // Movement in the page wakes full screen's bars (the page is a frame of its own: its events stay in it).
-          for (const name of ["pointermove", "pointerdown", "keydown"]) doc.addEventListener(name, () => wake.current(), { passive: true });
+          // Its pointer is measured from the frame's top, so the frame's own top is added (the edges are the screen's).
+          for (const name of ["pointermove", "pointerdown", "keydown"])
+            doc.addEventListener(name, (e) => wake.current(e, doc.defaultView?.frameElement?.getBoundingClientRect().top ?? 0), { passive: true });
           doc.addEventListener("pointerdown", () => {
             trackerRef.current.onActivity();
             // A tap or click on the page closes the selected-text bar (M27 Q1); a new selection opens it again.
@@ -1843,6 +1852,8 @@ export function Reader(props: {
     (panel === "rewrite" && Boolean(rewriteAt)) ||
     (panel === "settings" && Boolean(settings));
   const recallRow = Boolean(withRecall);
+  // Full screen with nothing open: the book fills the screen and the bars lie over it (reader.module.css, the end).
+  const bare = full && panel === "none" && !focusSession;
   // Answering a whole-book focus saves a note: show it (M26 R5).
   useEffect(() => {
     bookAnswered.current = () => void reload();
@@ -1860,7 +1871,8 @@ export function Reader(props: {
       data-status={status}
       data-focus-session={focusSession ? "" : undefined}
       data-fullscreen={full ? "" : undefined}
-      data-idle={full && idle ? "" : undefined}
+      data-bare={bare ? "" : undefined}
+      data-idle={bare && idle ? "" : undefined}
     >
       {focusSession ? (
         <FocusStrip session={focusSession} onLeave={() => setFocusLeaving(true)} onStay={() => focusWait("DELETE")} />

@@ -1543,17 +1543,76 @@
   white-space: nowrap;
 }
 
-/* Full screen (Samuel 2026-10-28): once the reader is still, the bars fade and the pointer hides, as a film's
-   controls do. They keep their room, so the page does not lay itself out again. A hovered bar stays, and so does one
-   the keyboard is in (:focus-visible: a button clicked with the mouse keeps focus, and its bar must still fade).
-   "Where were we?" (and the whole-book focus line) fades with them (Samuel 2026-10-28); writing in it keeps it, as a
-   text box being typed in is :focus-visible. */
+/* Full screen (Samuel 2026-10-28, and 2026-11-01: "is this how you would watch Netflix?"). With nothing open
+   (data-bare) the book takes the whole screen: it spans every row, and the bars lie over it in their own rows, on the
+   paper, so showing or hiding them never lays the page out again. Every one is put in the one column by name: a
+   row given without a column would send the book into a new column beside the bars. Once the reader is still (data-idle) the bars,
+   "Where were we?", the read-aloud bar, the page arrows and the "On this page" names fade and the pointer hides; they
+   come back when the reader reaches for them (fullscreen.ts). A hovered bar stays, and so does one the keyboard is in
+   (:focus-visible: a button clicked with the mouse keeps focus, and its bar must still fade); writing in "Where were
+   we?" keeps it, as a text box being typed in is :focus-visible. */
+.reader[data-bare] > .bar,
+.reader[data-bare] > .recallSlot,
+.reader[data-bare] > .stage,
+.reader[data-bare] .listenSlot > *,
+.reader[data-bare] > .foot {
+  grid-column: 1;
+}
+
+.reader[data-bare] > .bar {
+  grid-row: 1;
+}
+
+.reader[data-bare] > .recallSlot {
+  grid-row: 2;
+}
+
+.reader[data-bare] > .stage {
+  grid-row: 1 / -1;
+}
+
+.reader[data-bare] .listenSlot > * {
+  grid-row: -3;
+}
+
+.reader[data-bare] > .foot {
+  grid-row: -2;
+}
+
+.reader[data-bare] > .bar,
+.reader[data-bare] > .recallSlot,
+.reader[data-bare] .listenSlot > *,
+.reader[data-bare] > .foot {
+  position: relative;
+  z-index: calc(var(--z-raised) + 1);
+  background-color: var(--paper);
+}
+
+.reader[data-bare] .listenSlot > *,
+.reader[data-bare] .stage > [role="region"] {
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+
+.reader[data-bare] .stage > .turn {
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-slow) var(--ease-out);
+}
+
 .reader[data-idle] {
   cursor: none;
 }
 
 .reader[data-idle] .bar:not(:hover, :has(:focus-visible)),
 .reader[data-idle] .foot:not(:hover, :has(:focus-visible)),
-.reader[data-idle] .recallSlot:not(:hover, :has(:focus-visible)) {
+.reader[data-idle] .recallSlot:not(:hover, :has(:focus-visible)),
+.reader[data-idle] .listenSlot > :not(:hover, :has(:focus-visible)),
+.reader[data-idle] .stage > .turn:not(:hover, :focus-visible),
+.reader[data-idle] .stage > [role="region"]:not(:has(:focus-visible)) {
   opacity: 0;
+}
+
+/* A faded name cannot be clicked by chance. */
+.reader[data-idle] .stage > [role="region"]:not(:has(:focus-visible)) {
+  pointer-events: none;
 }
