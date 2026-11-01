@@ -3,8 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Sidebar #256: full Linux-image run, push, merge. Then browser-test-triage skill PR, then #257 (Up/Down keys) PR. Deploy #255, #256, #257 together at Samuel's word.
-next_action: #256 (sidebar) merges when green; #258 (Up/Down keys, issue #257) rebases and merges after it. #259 (browser-test-triage skill) merged as 4af2620. Deploy #255, #256, #258 together at Samuel's word.
+next_action: #258 (Up/Down keys, issue #257) merges when green. #255, #256 (db00206) and #259 (4af2620) are merged. Deploy #255, #256, #258 together at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
