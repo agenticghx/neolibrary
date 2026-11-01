@@ -350,6 +350,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 20:15 · Claude Opus 5.5 (laptop) · Merge train: a rebase no longer doubles the ledger's header lines
+- **Done:** .claude/skills/merge-train/scripts/unwind.py keeps both sides of a conflict, as before, but afterwards keeps one line per field in a file's "---" header (the side named first). Every rebase today left two next_action lines in PROGRESS.md, each fixed by hand.
+- **Key paths:** .claude/skills/merge-train/scripts/unwind.py
+- **Commands that worked:** a made-up conflicted file through `unwind.py <file> theirs-first`: header kept next_action: new and updated: 2026-11-01 once; both Log lines kept
+- **Known issues / blockers:** none.
+- **Exact next steps:** merge; the M40 rebases after it use it.
+
 ### 2026-11-01 17:30 · Claude Opus 5.5 (laptop) · M40 S1: working rules (seven-day defaults, small design choices, deploy records to main)
 - **Done:** Samuel asked where he is the bottleneck, then "do #1-6". M40 recorded in docs/plan.md (S1-S6). S1: CLAUDE.md 3a (an Open unknowns row with a default in force, unanswered 7 days, closes as "default stands"; never money, keys, privacy or access; sweep each session), 3b (small design choices: build the recommendation, show it; options pages only for big visual direction), and the deploy record rule (push the PROGRESS.md-only commit straight to main); merge-train step 6 to match. First sweep: rows 6, 7, 8, 9, 10, 31 closed, row 27 (1)(2)(4) closed, each with a Decisions line; rows 1, 12, 13, 32 and 27 (3) stay (money or access), 28 and 29 stay (no default).
 - **Key paths:** CLAUDE.md; .claude/skills/merge-train/SKILL.md; docs/plan.md (M40); PROGRESS.md (Open unknowns, Decisions)
