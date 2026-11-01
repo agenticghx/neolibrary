@@ -3,6 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
+next_action: Reader sidebar (branch m21-reader-sidebar) to finish checks, PR and merge; then deploy #255 and the sidebar together at Samuel's word.
 next_action: Sidebar #256: full Linux-image run, push, merge. Then browser-test-triage skill PR, then #257 (Up/Down keys) PR. Deploy #255, #256, #257 together at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
@@ -342,6 +343,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 12:02 · Claude Opus 5.5 (laptop) · Reader sidebar: the reading tools leave the top bar; PR opened
+- **Done:** #255 (full screen shows only the book) merged as 5801675 by the auto-merge Action, all four checks green; not deployed (batched). Then, at Samuel's ask: a sidebar the top bar shows and hides (like Obsidian's or Claude desktop's right panel). Top bar now: Back, Contents, title, Full screen, Aa, Sidebar. The sidebar is a rail of Notes (count), Study, Rewritten, Bookmark, Focus, each an icon over its word; a panel opens beside it; open or closed is kept per browser; on a phone the rail is a row under the book; full screen closes it. Eight browser test files start with it open.
+- **Key paths:** app/(reader)/books/[id]/read/sidebar.ts; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader.module.css; e2e/reader.spec.ts (new "sidebar:" test) and e2e/{agents,ai,annotations,focus,images,notes,offline}.spec.ts (beforeEach)
+- **Commands that worked:** gh pr checks 255 (4 pass); gh pr view 255 --json state,mergeCommit (MERGED 5801675); npx tsc --noEmit; npx stylelint on reader.module.css
+- **Known issues / blockers:** npm run check: 1195 passed. Two reader layout tests (Pages to Scroll and back; two pages is a reading setting) fail on this Mac with main's own code too; CI passed the first on main (run 41327807710). The projects after reader did not run locally; CI runs them. Sidebar screenshots looked at. Samuel's item 1 ("notes at the top and the pop-up menu duplicated") read as the top bar's Notes/Study overlapping the selection pop-up; unconfirmed.
+- **Exact next steps:** 1. CI on the sidebar PR; if the two layout tests fail on Linux, check whether the open rail made the book too narrow for two pages. 2. Merge when green. 3. Deploy #255 and the sidebar together in the next batch, at Samuel's word.
 ### 2026-11-01 13:48 · Claude Opus 5.5 (laptop) · A skill for browser tests that fail on the laptop (browser-test-triage)
 - **Done:** Samuel noticed sessions keep writing "fails on this Mac with main's code too, CI will judge". Confirmed from the ledger (column wrapping 2026-10-25, drag selection 2026-10-11, the palette race #164, today's two reader tests) and today's case proved it costly: CI failed a test on Linux that the change had broken. New skill `.claude/skills/browser-test-triage/` with `scripts/linux-run.sh` (runs Playwright's own Linux image on the laptop, on the branch or `--ref origin/main`, `--env` switches); the rule "no Mac-only / fails-on-main claim without both Linux runs"; pointers from CLAUDE.md, merge-train and the skills README; a Mac-only section in docs/ci-flakes.md.
 - **Key paths:** .claude/skills/browser-test-triage/SKILL.md; .claude/skills/browser-test-triage/scripts/linux-run.sh; CLAUDE.md; .claude/skills/merge-train/SKILL.md; .claude/skills/README.md; docs/ci-flakes.md

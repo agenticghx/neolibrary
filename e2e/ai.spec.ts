@@ -3,6 +3,18 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M6 (b): rewrite a paragraph in the reader, with the fake AI (AI_FAKE=1 in
 // the test server). Versions are stored and re-served, never re-bought.
 

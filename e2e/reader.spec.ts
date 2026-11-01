@@ -6,6 +6,19 @@ import * as CFI from "foliate-js/epubcfi.js";
 import { readableEpub } from "../lib/library/test-epub";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }, info) => {
+  if (info.title.startsWith("sidebar:")) return; // the sidebar's own test starts as a reader does, with it closed
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M4 "Done when" (part): open a book, change font size, reload: it reopens at
 // the same spot.
 
@@ -582,6 +595,78 @@ test("full screen: only the book; the controls come back at the screen's edges a
       await page.evaluate(() => document.exitFullscreen());
     }
   }
+});
+
+// Samuel 2026-11-01: "create a side toggle side bar (like right menu feature in claude desktop app or obsidian
+// desktop app) to put the menu items aside", Full screen and Aa staying in the top bar.
+test("sidebar: the top bar keeps Back, Contents, Full screen and Aa; the reading tools are in a sidebar it shows and hides", async ({ page }) => {
+  await openJekyll(page);
+  const r = reader(page);
+  const bar = r.locator("header");
+  const rail = page.getByRole("navigation", { name: "Reading tools" });
+  const toggle = bar.getByRole("button", { name: "Sidebar" });
+  // Closed at first: the top bar holds only these, and none of the tools.
+  await expect(rail).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const names = await bar.locator("a, button").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent?.trim()));
+  expect(names).toEqual(["Back to your library", "Contents", "Full screen", "Reading settings", "Sidebar"]);
+  const bookWidth = (await r.locator("[class*=host]").first().boundingBox())!.width;
+
+  // Open: the tools, each a word under its icon, in a column at the right edge.
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(rail).toBeVisible();
+  for (const name of [/^Notes/, "Study", "Rewritten view", "Bookmark this page", "Focus session"]) {
+    await expect(rail.getByRole("button", { name })).toBeVisible();
+  }
+  const box = (await rail.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(Math.round(box.x + box.width)).toBe(viewport.width);
+  // The book makes room for it and is not covered.
+  expect((await r.locator("[class*=host]").first().boundingBox())!.width).toBeLessThan(bookWidth);
+
+  // A tool opens its panel beside the rail; the rail stays.
+  await rail.getByRole("button", { name: /^Notes/ }).click();
+  const notes = page.getByRole("navigation", { name: "Notes" });
+  await expect(notes).toBeVisible();
+  const notesBox = (await notes.boundingBox())!;
+  expect(notesBox.x + notesBox.width).toBeLessThanOrEqual(box.x + 1);
+  await expect(rail).toBeVisible();
+  // Bookmark from the rail.
+  await rail.getByRole("button", { name: "Bookmark this page" }).click();
+  await expect(rail.getByRole("button", { name: "Remove bookmark" })).toHaveAttribute("aria-pressed", "true");
+  await rail.getByRole("button", { name: "Remove bookmark" }).click();
+  await expect(rail.getByRole("button", { name: "Bookmark this page" })).toBeVisible();
+
+  // The choice is kept: after a reload the sidebar is still open.
+  await page.reload();
+  await expect(r).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(rail).toBeVisible();
+
+  // Screenshots for the PR: open, on phone and desktop, light and dark; on a phone the tools are a row under the book.
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.reload();
+      await expect(r).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+      await expect(rail).toBeVisible();
+      // Nothing scrolls sideways, and the tools cover no text: on a phone the rail lies under the book.
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(w);
+      if (name === "phone") {
+        const book = (await r.locator("[class*=host]").first().boundingBox())!;
+        expect((await rail.boundingBox())!.y).toBeGreaterThanOrEqual(book.y + book.height - 1);
+      }
+      await page.screenshot({ path: `screenshots/reader-sidebar-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  // Closed again: gone, and the book has its width back.
+  await toggle.click();
+  await expect(rail).toHaveCount(0);
+  await expect.poll(async () => (await r.locator("[class*=host]").first().boundingBox())!.width).toBe(bookWidth);
 });
 
 test("the reader is accessible, and looks right on phone and desktop, light and dark", async ({ page }) => {

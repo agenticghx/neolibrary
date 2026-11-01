@@ -2,6 +2,18 @@ import { expect, test } from "@playwright/test";
 import * as CFI from "foliate-js/epubcfi.js";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M8 "Done when" (part): a voice note on a passage survives a reload. The
 // browser uses Chromium's fake microphone (a test tone), and the server the
 // fake transcriber (AI_FAKE=1).

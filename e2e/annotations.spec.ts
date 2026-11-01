@@ -3,6 +3,18 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M5 "Done when" (part): Playwright makes a highlight + note, reloads, and finds both.
 
 test.use({ storageState: ADMIN_STATE });

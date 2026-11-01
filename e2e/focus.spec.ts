@@ -4,6 +4,18 @@ import { mkdir } from "node:fs/promises";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { ADMIN_STATE } from "./pages";
 
+// The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
+// (app/(reader)/books/[id]/read/sidebar.ts, Samuel 2026-11-01); these tests start with it open.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("neolibrary:reader-sidebar", "open");
+    } catch {
+      // A page that keeps nothing starts with the sidebar closed.
+    }
+  });
+});
+
 // M26 R3 "Done when": a browser test starts a session with a question and a short timer, sees only the page while
 // it runs, answers at the end, and then finds the answer as a note, as a card in Daily review, and as a sitting
 // with the question on the Reading stats page; the session survives a reload part-way through. A reader of its

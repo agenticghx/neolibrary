@@ -47,6 +47,7 @@ import { XrayCard } from "./XrayCard";
 import { drawMarks, entryOfKey, namesOnScreen, type DrawnMark } from "./xray-marks";
 import xrayStyles from "./XrayCard.module.css";
 import { FULL_IDLE_MS, fullEvent, wakesBars } from "./fullscreen";
+import { onSidebarChange, setSidebarOpen, sidebarOpen } from "./sidebar";
 import type { XrayMark } from "@/lib/library/xray";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -511,13 +512,15 @@ export function Reader(props: {
   const canFull = useSyncExternalStore(noSubscribe, () => document.fullscreenEnabled === true, () => false);
   const full = useSyncExternalStore(onFullscreenChange, () => document.fullscreenElement !== null, () => false);
   const [idle, setIdle] = useState(false);
-  const wake = useRef((_e: Event, _top?: number) => {});
+  const sidebar = useSyncExternalStore(onSidebarChange, sidebarOpen, () => false);
+  const wake = useRef<(e: Event, top?: number) => void>(() => {});
   const toggleFull = useCallback(() => {
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     else if (document.fullscreenEnabled) {
       // Only the book (Samuel 2026-11-01, "is this how you would watch Netflix?"): an open panel or card closes.
       setPanel("none");
       setXrayCard(null);
+      setSidebarOpen(false);
       void document.documentElement.requestFullscreen().catch(() => {});
     }
   }, []);
@@ -624,7 +627,7 @@ export function Reader(props: {
   // when the reader reaches for them (the mouse at the top or bottom edge, a tap, a key that is not a page turn), in
   // the page or around it. A panel opened in full screen brings the bars back into their rows until it closes.
   useEffect(() => {
-    if (!full || panel !== "none") return;
+    if (!full || panel !== "none" || sidebar) return;
     let timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
     const wakeUp = (e: Event, top = 0) => {
       const ev = fullEvent(e, top);
@@ -643,7 +646,7 @@ export function Reader(props: {
       for (const name of events) window.removeEventListener(name, onEvent);
       setIdle(false);
     };
-  }, [full, panel]);
+  }, [full, panel, sidebar]);
 
   // A sideways swipe on a trackpad turns the page (#235), in Pages and in Scroll; in Pages (and a PDF), so does
   // scrolling up and down. One turner serves the book's frames and the margins around them, so a swipe that crosses
@@ -1853,12 +1856,17 @@ export function Reader(props: {
     (panel === "settings" && Boolean(settings));
   const recallRow = Boolean(withRecall);
   // Full screen with nothing open: the book fills the screen and the bars lie over it (reader.module.css, the end).
-  const bare = full && panel === "none" && !focusSession;
+  const bare = full && panel === "none" && !sidebar && !focusSession;
   // Answering a whole-book focus saves a note: show it (M26 R5).
   useEffect(() => {
     bookAnswered.current = () => void reload();
   });
-  const stageClass = [styles.stage, paneMode === "side" ? styles.stageSide : "", panelBeside ? styles.stagePanel : ""]
+  const stageClass = [
+    styles.stage,
+    paneMode === "side" ? styles.stageSide : "",
+    panelBeside ? styles.stagePanel : "",
+    sidebar ? styles.stageRail : "",
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -1906,78 +1914,6 @@ export function Reader(props: {
           {props.author ? <span className={styles.author}> · {props.author}</span> : null}
         </p>
         <div className={styles.tools}>
-          <button
-            type="button"
-            className={styles.tool}
-            aria-pressed={Boolean(bookmarkHere)}
-            aria-label={bookmarkHere ? "Remove bookmark" : "Bookmark this page"}
-            onClick={() => void toggleBookmark()}
-          >
-            <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true">
-              <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {/* A focus session with a question (M26 R3): a question, a timer, and only the page. Not during a whole-book
-              focus (M26 R5): one session at a time. */}
-          {bookFocus.focus ? null : (
-          <button
-            type="button"
-            className={styles.tool}
-            aria-label="Focus session"
-            title="Focus session: write the question you are reading to answer, set a timer, and see only the page"
-            aria-haspopup="dialog"
-            onClick={() => setFocusStart(true)}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M8 6v3l2 1.5M6 1.5h4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          )}
-          {/* Study (M19 P5): "What do I need to know?" and Test yourself, as tabs. The word on a computer; an open book on a
-              phone, where the bar is full. It was a "?" in a circle, which reads as Help. */}
-          <button
-            type="button"
-            className={`${styles.tool} ${styles.studyButton}`}
-            aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain"}
-            aria-label="Study"
-            title="Study: what this chapter takes for granted, questions on it, and your own summary of it"
-            onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" ? "none" : "know")}
-          >
-            <svg className={styles.studyIcon} width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <path
-                d="M8 4.3C6.4 3.1 4.2 2.8 1.8 3.3v9.4c2.4-.5 4.6-.2 6.2 1 1.6-1.2 3.8-1.5 6.2-1V3.3c-2.4-.5-4.6-.2-6.2 1zM8 4.3v9.4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className={styles.studyWord}>Study</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.tool} ${styles.leadTool}`}
-            aria-pressed={rewritten.mode !== "original"}
-            aria-label="Rewritten view"
-            title="Read it rewritten, in your AI explanations style"
-            onClick={() => showRewritten(rewritten.mode !== "original" ? "original" : rewritten.last)}
-          >
-            <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
-              <rect x="1" y="2" width="7" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M3 5h3M3 7.5h3M3 10h2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-              <path d="M10.5 2.5h5.5v11h-5.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeDasharray="1.6 1.4" />
-              <path d="M12.5 5.5h2M12.5 8h2M12.5 10.5h1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={styles.tool}
-            aria-expanded={panel === "notes"}
-            onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
-          >
-            Notes{notes.length ? ` (${notes.length})` : ""}
-          </button>
           {canFull ? (
             <button
               type="button"
@@ -2007,6 +1943,23 @@ export function Reader(props: {
             onClick={() => setPanel(panel === "settings" ? "none" : "settings")}
           >
             Aa
+          </button>
+          <button
+            type="button"
+            className={`${styles.tool} ${styles.leadTool}`}
+            aria-expanded={sidebar}
+            aria-label="Sidebar"
+            title={sidebar ? "Hide the sidebar: Notes, Study, Rewritten, Bookmark, Focus" : "Show the sidebar: Notes, Study, Rewritten, Bookmark, Focus"}
+            onClick={() => {
+              if (sidebar && panel !== "settings" && panel !== "contents") setPanel("none");
+              setSidebarOpen(!sidebar);
+            }}
+          >
+            <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
+              <rect x="1.5" y="2" width="15" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M11.5 2v12" stroke="currentColor" strokeWidth="1.4" />
+              {sidebar ? <path d="M11.5 2.7h3.3a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1h-3.3z" fill="currentColor" /> : null}
+            </svg>
           </button>
         </div>
       </header>
@@ -2097,6 +2050,90 @@ export function Reader(props: {
         ) : null}
         {paneMode && screen ? (
           <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} turn={turn} setTurn={setTurn} />
+        ) : null}
+
+        {/* The sidebar (sidebar.ts): the reading tools in a rail on the right; a panel opens beside it. */}
+        {sidebar ? (
+          <nav id="reader-sidebar" className={styles.rail} aria-label="Reading tools">
+            <button
+              type="button"
+              className={styles.railTool}
+              aria-expanded={panel === "notes"}
+              onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <path d="M4 2.5h7l3 3v10H4z M11 2.5v3h3 M6.5 9h5 M6.5 12h4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+              <span className={styles.railWord}>
+                Notes{notes.length ? <span className={styles.railCount}> ({notes.length})</span> : null}
+              </span>
+            </button>
+            {/* Study (M19 P5): "What do I need to know?", Test yourself, Ask and Explain it back, as tabs. */}
+            <button
+              type="button"
+              className={styles.railTool}
+              aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain"}
+              aria-label="Study"
+              title="Study: what this chapter takes for granted, questions on it, and your own summary of it"
+              onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" ? "none" : "know")}
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M8 4.3C6.4 3.1 4.2 2.8 1.8 3.3v9.4c2.4-.5 4.6-.2 6.2 1 1.6-1.2 3.8-1.5 6.2-1V3.3c-2.4-.5-4.6-.2-6.2 1zM8 4.3v9.4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className={styles.railWord}>Study</span>
+            </button>
+            <button
+              type="button"
+              className={styles.railTool}
+              aria-pressed={rewritten.mode !== "original"}
+              aria-label="Rewritten view"
+              title="Read it rewritten, in your AI explanations style"
+              onClick={() => showRewritten(rewritten.mode !== "original" ? "original" : rewritten.last)}
+            >
+              <svg width="20" height="18" viewBox="0 0 18 16" aria-hidden="true">
+                <rect x="1" y="2" width="7" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M3 5h3M3 7.5h3M3 10h2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                <path d="M10.5 2.5h5.5v11h-5.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="1.6 1.4" />
+                <path d="M12.5 5.5h2M12.5 8h2M12.5 10.5h1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+              </svg>
+              <span className={styles.railWord}>Rewritten</span>
+            </button>
+            <button
+              type="button"
+              className={styles.railTool}
+              aria-pressed={Boolean(bookmarkHere)}
+              aria-label={bookmarkHere ? "Remove bookmark" : "Bookmark this page"}
+              onClick={() => void toggleBookmark()}
+            >
+              <svg width="16" height="18" viewBox="0 0 14 16" aria-hidden="true">
+                <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+              </svg>
+              <span className={styles.railWord}>Bookmark</span>
+            </button>
+            {/* A focus session with a question (M26 R3). Not during a whole-book focus (M26 R5): one at a time. */}
+            {bookFocus.focus ? null : (
+              <button
+                type="button"
+                className={styles.railTool}
+                aria-label="Focus session"
+                title="Focus session: write the question you are reading to answer, set a timer, and see only the page"
+                aria-haspopup="dialog"
+                onClick={() => setFocusStart(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+                  <circle cx="8" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                  <path d="M8 6v3l2 1.5M6 1.5h4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className={styles.railWord}>Focus</span>
+              </button>
+            )}
+          </nav>
         ) : null}
 
         {/* One panel at a time. On a computer it sits in a column beside the book (M19), never over it. */}
