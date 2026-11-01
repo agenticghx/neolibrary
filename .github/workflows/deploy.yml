@@ -127,17 +127,20 @@ jobs:
         run: |
           set -euo pipefail
           short=${SHA:0:7}
+          # Addresses are numbered in the log, not named: this repository's logs are public.
+          n=0
           for site in ${SITES}; do
+            n=$((n + 1))
             ok=no
             for _ in $(seq 1 60); do
               got=$(curl -fsS --max-time 15 "https://${site}/api/health" | jq -r '.commit // empty' || true)
               if [ "$got" = "$short" ]; then ok=yes; break; fi
               sleep 10
             done
-            [ "$ok" = yes ] || { echo "${site}: /api/health still says ${got:-nothing}, not ${short}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+            [ "$ok" = yes ] || { echo "Address ${n}: /api/health still says ${got:-nothing}, not ${short}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${site}/sign-in")
-            [ "$code" = 200 ] || { echo "${site}: /sign-in answered ${code}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
-            echo "${site}: commit ${short}, /sign-in 200" | tee -a "$GITHUB_STEP_SUMMARY"
+            [ "$code" = 200 ] || { echo "Address ${n}: /sign-in answered ${code}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+            echo "Address ${n}: commit ${short}, /sign-in 200" | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
       - name: Write it on the Deploy log issue
