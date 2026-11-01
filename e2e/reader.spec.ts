@@ -44,6 +44,38 @@ async function savedPosition(page: Page, title: RegExp) {
   return data.books.find((b: { title: string }) => title.test(b.title))?.position ?? null;
 }
 
+// Issue #257 (Samuel 2026-11-01): Up and Down turn pages like Left and Right, in one page and in two.
+test("in Pages, the Down and Up arrow keys turn the page, in one page and in two", async ({ page }) => {
+  await openJekyll(page);
+  const r = reader(page);
+  const cfi = async () => (await r.getAttribute("data-cfi")) ?? "";
+  const turns = async (key: string) => {
+    const at = await cfi();
+    await page.keyboard.press(key);
+    await expect.poll(cfi, { message: `${key} turns the page` }).not.toBe(at);
+    // A turn asked for while the last one is still under way is dropped (for every key): let it finish, as turnTo does.
+    await page.waitForTimeout(300);
+    return at;
+  };
+  for (const pages of ["One page", "Two pages"] as const) {
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await page.getByRole("button", { name: pages, exact: true }).click();
+    await page.keyboard.press("Escape");
+    // The keyboard goes back to the Reading settings button, which keeps the arrow keys (as for Left and Right).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.waitForTimeout(500);
+    const start = await turns("ArrowDown");
+    await turns("ArrowDown");
+    await turns("ArrowUp");
+    await turns("ArrowUp");
+    // Two pages down and two back: where it began.
+    await expect.poll(cfi).toBe(start);
+  }
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByRole("button", { name: "One page", exact: true }).click();
+  await page.keyboard.press("Escape");
+});
+
 test("open a book, turn pages, change the text size, reload: same spot", async ({ page }) => {
   await openJekyll(page);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next page" }).click();
@@ -2160,14 +2192,14 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
   await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
   // Every key the reader answers to, and nothing else.
   await expect(dialog.locator("dd")).toHaveText([
-    "Next page",
-    "Previous page",
+    "Next page (Down arrow: in Pages)",
+    "Previous page (Up arrow: in Pages)",
     "Close the selected-text bar, the open panel, or this list",
     "Full screen, or leave it (Esc leaves it too)",
     "Show this list",
     "In Study, move between Need to know and Test yourself",
   ]);
-  await expect(dialog.locator("dt").first()).toHaveText("Right arrow or Page Down");
+  await expect(dialog.locator("dt").first()).toHaveText("Right arrow or Down arrow or Page Down");
   // The keyboard stays in the dialog, and the page does not turn behind it.
   const at = (await reader(page).getAttribute("data-cfi")) ?? "";
   for (const key of ["Tab", "Shift+Tab", "Tab"]) {

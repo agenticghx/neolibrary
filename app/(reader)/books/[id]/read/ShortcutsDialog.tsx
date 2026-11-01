@@ -9,8 +9,8 @@ import styles from "./reader.module.css";
  * between Study's two tabs with the arrow keys. Change this list when those change.
  */
 export const SHORTCUTS: { keys: string[]; what: string }[] = [
-  { keys: ["Right arrow", "Page Down"], what: "Next page" },
-  { keys: ["Left arrow", "Page Up"], what: "Previous page" },
+  { keys: ["Right arrow", "Down arrow", "Page Down"], what: "Next page (Down arrow: in Pages)" },
+  { keys: ["Left arrow", "Up arrow", "Page Up"], what: "Previous page (Up arrow: in Pages)" },
   { keys: ["Esc"], what: "Close the selected-text bar, the open panel, or this list" },
   { keys: ["F"], what: "Full screen, or leave it (Esc leaves it too)" },
   { keys: ["?"], what: "Show this list" },
@@ -18,7 +18,12 @@ export const SHORTCUTS: { keys: string[]; what: string }[] = [
 ];
 
 /** The arrow keys are drawn (the bundled fonts have no arrow characters), and named for screen readers. */
-const ARROWS: Record<string, string> = { "Right arrow": "M1 5h11M8.5 1.5 12 5 8.5 8.5", "Left arrow": "M13 5H2M5.5 1.5 2 5l3.5 3.5" };
+const ARROWS: Record<string, string> = {
+  "Right arrow": "M1 5h11M8.5 1.5 12 5 8.5 8.5",
+  "Left arrow": "M13 5H2M5.5 1.5 2 5l3.5 3.5",
+  "Down arrow": "M7 0.5v9M3.5 6 7 9.5 10.5 6",
+  "Up arrow": "M7 9.5v-9M3.5 4 7 0.5 10.5 4",
+};
 
 function Key({ name }: { name: string }) {
   const arrow = ARROWS[name];
