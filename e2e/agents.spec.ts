@@ -125,6 +125,20 @@ test("an agent with a token lists books, searches, adds a note, and the reader s
   // Bad input is explained, and another book id is "not found".
   expect((await agent.post(`/api/agent/books/${jekyll.id}/notes`, { data: { text: "" } })).status()).toBe(400);
   expect((await agent.get("/api/agent/books/00000000-0000-4000-8000-000000000000/notes")).status()).toBe(404);
+
+  // M40 S4: what checks on the laptop read with the token: a book in detail, its file, its whole X-ray.
+  const detail = await agent.get(`/api/agent/books/${jekyll.id}`);
+  expect(detail.status()).toBe(200);
+  expect((await detail.json()).book).toMatchObject({ id: jekyll.id, kind: "epub", scan: false, textEdition: null });
+  const file = await agent.get(`/api/agent/books/${jekyll.id}/file`);
+  expect(file.status()).toBe(200);
+  expect((await file.body()).subarray(0, 2).toString()).toBe("PK"); // an EPUB is a zip
+  const xray = await agent.get(`/api/agent/books/${jekyll.id}/xray/entries`);
+  expect(xray.status()).toBe(200);
+  expect(((await xray.json()).entries as { name: string }[]).map((e) => e.name)).toContain("Mr. Utterson");
+  for (const end of ["", "/file", "/xray/entries"]) {
+    expect((await agent.get(`/api/agent/books/00000000-0000-4000-8000-000000000000${end}`)).status(), end || "detail").toBe(404);
+  }
   await agent.dispose();
 
   // The reader sees it, marked as the agent's, and "Go to" opens its paragraph.

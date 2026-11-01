@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the deploy-trigger fix and confirm Deploy runs and skips, then rebase #263.
+next_action: M40: S1 #260, S2 #261, S3 #262, S4 merging; S5 live checks and S6 overnight scans next. Samuel once: RAILWAY_TOKEN (S2), /install-github-app (S3).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -350,6 +350,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 19:30 · Claude Opus 5.5 (laptop) · M40 S4: the owner's token reads a book's details, its file and its whole X-ray
+- **Done:** Three read-only agent routes, each limited to the token's own books (another reader's, a malformed id or one in the bin is 404): GET /api/agent/books/<id> (kind, pages, size, scan or not, its text edition or the scan it came from, cover source, ISBN), GET /api/agent/books/<id>/file (the stored file, with byte ranges, through serveStoredFile), GET /api/agent/books/<id>/xray/entries (every entry, most mentioned first, with each fact and its quote). "Scan" reuses the book page's own rule, now pdfHasOwnText in text-edition.ts (fewer than half the pages with over 200 characters).
+- **Key paths:** lib/agent/library.ts (agentBook, agentBookFile, agentXray); lib/library/text-edition.ts (pdfHasOwnText); app/api/agent/books/[id]/route.ts; app/api/agent/books/[id]/file/route.ts; app/api/agent/books/[id]/xray/entries/route.ts; lib/agent/details.test.ts; e2e/agents.spec.ts
+- **Commands that worked:** npx vitest run lib/agent/details.test.ts (5 passed); npm run check (1200 passed); linux-run.sh -- --project agents (300 passed)
+- **Known issues / blockers:** none. Not deployed (with S2 on, it goes out by itself after merging).
+- **Exact next steps:** 1. Merge. 2. M40 S5 (live-site checks script) using these routes.
 ### 2026-11-01 19:26 · Claude Opus 5.5 (laptop) · M40 S2 fix: CI on main starts the Deploy workflow (the workflow_run trigger never fired)
 - **Done:** Found Deploy had never run after #261 and #262 merged (gh run list --workflow Deploy: empty; CI on main 265f85f workflow_dispatch success). Cause: main's CI is started by the auto-merge workflow's own token, and GitHub starts no follow-on workflow (workflow_run) from that token's work. Fix: ci.yml job 'Start the deploy' (needs checks, postgres, e2e; main only; push or dispatch; AUTO_DEPLOY on) runs gh workflow run deploy.yml -f sha -f after_ci=yes; deploy.yml drops workflow_run and keeps the 'main moved on' skip via after_ci.
 - **Key paths:** .github/workflows/ci.yml; .github/workflows/deploy.yml; LEARNING_LOG.md (Iteration 112)

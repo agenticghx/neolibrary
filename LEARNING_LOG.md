@@ -86,6 +86,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 109 | 2026-11-01 17:30 | M40 S1 working rules | Rules that let sessions close stale defaults and decide small design choices remove most "waiting on Samuel" without touching money or taste | ledger count of open rows before and after | success | a default nobody answers for a week is already the decision |
 | 110 | 2026-11-01 18:10 | M40 S2 deploys on their own | A workflow can deploy main safely after CI if it refuses migrations and checks the site | actionlint; the gate run on the real history | success (first live run to come) | let the deploy tool's own health check be the rollback |
 | 111 | 2026-11-01 18:40 | M40 S3 issues become pull requests | An issue Samuel files can start a Claude session on GitHub on his subscription that opens a tested PR | actionlint; author_association of his issues | success (first live run to come) | only writers start it, and the issue text never reaches a shell |
+| 112 | 2026-11-01 19:30 | M40 S4 agent reads | Three read-only routes give laptop checks what they need without signing in | vitest; Linux image, agents project | success | reuse the app's own rule rather than write a second one |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2494,3 +2495,11 @@ tests that pin it, in a small PR.
 **Result.** actionlint: deploy.yml clean; ci.yml only its earlier warnings (the Blacksmith runner label, SC2129 at line 114).
 **Lesson.** Prove a trigger fires once before trusting the logic behind it: the gate was tested offline, the trigger never was.
 **Next experiment.** This merge: the main CI run should start Deploy, which should print "Skipped" (only workflows and the ledger changed since 4918cee).
+### Iteration 112 · 2026-11-01 (laptop clock) · M40 S4: what the owner's token can read · success
+
+**Hypothesis.** S5 (live checks) and S6 (overnight scans) need to know each book's kind, whether it is a scan with a text edition, its cover's source, its whole X-ray, and the file itself; the agent API had only books, search, notes and two X-ray/text-edition writing routes. Three read-only routes, limited to the token's own books, are enough.
+**Action.** `agentBook`, `agentBookFile`, `agentXray` and their routes; the "is it a scan" rule moved out of `pdfTextEditionForPage` into `pdfHasOwnText` so the book page and the API use the same one.
+**Result.** `lib/agent/details.test.ts` 5 passed (the scanned and the text PDF fixtures told apart; a text edition found both ways though the shelf hides it; another reader, a bad id and a title with no file all 404; X-ray sorted by mentions). One test was wrong at first: the X-ray calls him "Mr. Utterson". `npm run check` 1200 passed; the agents project in the Linux image 300 passed, with the routes checked over HTTP with a real token.
+**Lesson.** When a rule exists in the app (what counts as a scan), lift it out and share it; a second copy would drift.
+**Next experiment.** S5, the checks themselves.
+
