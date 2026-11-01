@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: #258 (Up/Down keys, issue #257) merges when green. #255, #256 (db00206) and #259 (4af2620) are merged. Deploy #255, #256, #258 together at Samuel's word.
+next_action: Samuel tries full screen, the sidebar and Up/Down page turns on the live site (4918cee); his call on the sidebar-plus-panel one-page trade-off.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -341,6 +341,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 16:10 · Claude Opus 5.5 (laptop) · Deployed 4918cee: full screen, the reader sidebar, Up/Down page turns
+- **Done:** Merged today, each with four green checks: #255 full screen shows only the book (5801675), #259 browser-test-triage skill (4af2620), #256 reader sidebar (db00206), #258 Up/Down arrow keys turn pages (4918cee; issue #257 closed by hand with a note). Deployed 4918cee at Samuel's word ("once all three merge, deploy them together"). No migration since 63fe478, so no backup. Main's CI on 4918cee: success (WebKit included).
+- **Key paths:** ../neolibrary-deploy (detached at 4918cee, git status --porcelain empty); Railway deployment 8932d380 (SUCCESS)
+- **Commands that worked:** railway variable set NEOLIBRARY_COMMIT=4918cee4ae0017456a4e803e15ed58eec902b1e6 --service web --environment production --skip-deploys; railway up --service web --environment production --ci (Deploy complete); curl /api/health on both addresses -> commit 4918cee; /sign-in -> 200 on both; log "Page pictures: ready."
+- **Known issues / blockers:** Not tried by Samuel yet. With the sidebar and a panel both open, a 1280 px window shows one page instead of two (measured; his call whether the sidebar should step aside while a panel is open). Not tried in real Safari or on an iPad.
+- **Exact next steps:** 1. Samuel tries full screen, the sidebar and Up/Down on the live site. 2. This entry sits on local branch m21-deploy-4918cee-record (not pushed): carry it into the next real PR.
 
 ### 2026-11-01 13:48 · Claude Opus 5.5 (laptop) · Issue #257: Up and Down arrow keys turn pages in Pages; PR opened
 - **Done:** In Pages (one or two) and on a PDF's pages, Down turns to the next page and Up to the previous, as Right and Left do; in Scroll they still scroll. The Keyboard shortcuts list shows the new keys (drawn arrows). New browser test "in Pages, the Down and Up arrow keys turn the page, in one page and in two".
