@@ -21,8 +21,24 @@ engineer.
    hypothesis, the signal, the result as measured, and the lesson. Commit it
    with each PR.
 3. If a step is blocked on a decision only Samuel can make, add it to
-   `## Open unknowns` with a decide-by date, then pick the next step that is
-   not blocked.
+   `## Open unknowns` with a decide-by date and a default, then pick the next
+   step that is not blocked.
+3a. **Seven-day defaults** (Samuel, 2026-11-01). An Open unknowns row whose
+   default is in force, and that Samuel has not answered 7 days after it was
+   written, is closed: set its status to "closed <date>: default stands (no
+   answer in 7 days)" and add a line to `## Decisions` ending "· default
+   stands". He can still overrule it later; that is a new decision. Never
+   closed this way: questions about money (spending, prices, caps, who pays),
+   keys, readers' privacy, or who gets access. Sweep the table at the start
+   of every session that edits `PROGRESS.md`.
+3b. **Small design choices: build the recommended option** (Samuel,
+   2026-11-01). For a small choice (a label, an icon, where a button sits, a
+   spacing or colour within the design tokens, the order of items in a
+   menu), build the option you recommend, show it in the PR's screenshots,
+   and say what the other options were in one line. Samuel overrules after,
+   if he wants. Keep an options page (2-3 prototypes, desktop and phone, light and dark, as for M34's public showcase)
+   only for big visual direction: a new page, the layout of Home or the
+   reader, or the look of the whole site.
 
 ## While working
 
@@ -68,9 +84,11 @@ engineer.
   not on an API key; when the subscription limit is hit, stop and wait for
   the reset rather than switching to a paid key.
 - Deploys happen from the laptop, only at Samuel's explicit word, after a
-  backup when a migration is included. Never open a PR only to record a
-  deploy (each costs a CI round): write its ledger entry on your next
-  working branch so it rides in with the next real PR.
+  backup when a migration is included. Record a deploy by pushing its
+  ledger entry straight to `main` (Samuel, 2026-11-01): a commit that
+  changes only `PROGRESS.md`, on top of `origin/main` (a fast-forward, never
+  a force-push); the steps are in the laptop's `CLAUDE.local.md`. Never open
+  a PR only to record a deploy (each costs a CI round).
 - `docs/handoffs/` (session handoff notes) and `docs/ideasFeaturesSelf.md`
   (Samuel's own notes) are gitignored on purpose: write there, never
   force-add them.
