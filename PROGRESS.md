@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M40: S2 auto-deploy merging (#261), then RAILWAY_TOKEN, AUTO_DEPLOY, DEPLOY_SITES and a first manual run; S3 #262, S4 #263 open; S5, S6 next.
+next_action: M40: S1 #260, S2 #261, S3 merging; S2 needs RAILWAY_TOKEN, S3 needs /install-github-app (Samuel, once); S4-S6 next.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -350,6 +350,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 18:40 · Claude Opus 5.5 (laptop) · M40 S3: an issue Samuel files becomes a pull request (not on yet)
+- **Done:** .github/workflows/claude-issue.yml: an issue opened by someone with write access (or labelled "build") starts Claude Code on GitHub (anthropics/claude-code-action@v1, Opus 5.5, signed in with Samuel's subscription token, not an API key). It reads the issue with gh, follows CLAUDE.md, builds on a branch m<N>-issue-<n>-<topic>, runs npm run check and the touched browser projects (Linux, like CI), and opens a PR "Fixes #n"; or, for a question or a decision only Samuel can make, comments on the issue instead. Label "no-build" at opening keeps an issue for discussion. Never deploys, merges, touches secrets or calls paid services. The issue's words never reach a shell command.
+- **Key paths:** .github/workflows/claude-issue.yml
+- **Commands that worked:** docker run rhysd/actionlint:1.7.7 (clean); gh api .../issues/257 --jq .author_association (MEMBER: Samuel's issues qualify); auto-merge.yml merges branches starting with "m"
+- **Known issues / blockers:** Off until Samuel runs /install-github-app in Claude Code once (installs the Claude GitHub App and stores CLAUDE_CODE_OAUTH_TOKEN; the app's token is what lets the PR start CI), and the repository variable CLAUDE_ISSUES=on. Runs count against his Claude subscription.
+- **Exact next steps:** 1. Merge. 2. After the app and token: a small test issue to prove it. 3. M40 S4.
 ### 2026-11-01 18:10 · Claude Opus 5.5 (laptop) · M40 S2: main deploys itself after its CI passes (not on yet)
 - **Done:** .github/workflows/deploy.yml: after CI passes on main (merge or push, not the nightly), it skips a commit a newer one replaces, one already live, or one that changes only the ledger, docs, skills, tests or workflows; refuses a database migration or an unreadable live commit; otherwise sets NEOLIBRARY_COMMIT, runs railway up, checks /api/health on every address and /sign-in, and comments on the open "Deploy log" issue. Railway's own health check keeps the old version serving if the new one does not come up. CLAUDE.md's deploy rule rewritten.
 - **Key paths:** .github/workflows/deploy.yml; CLAUDE.md
