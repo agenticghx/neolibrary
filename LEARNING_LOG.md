@@ -79,6 +79,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 100 | 2026-10-29 22:20 | Flake agents.spec.ts:318 | The flake is a real race, findable by repeating the test under load and logging the order of events | 10 + 12 loaded runs unfixed; console logging; 20 loaded runs fixed; full suite | success | repeat a flaky test under load until it fails, then log the order of events: the second fetch overwrote a placed note |
 | 101 | 2026-10-29 22:40 | M38 security updates | The 16 open Dependabot alerts close with patch or minor steps only, and nothing breaks | `npm audit` before and after; lockfile diff; `npm run check`; `npm run build`; full browser suite (8 runs, one a control on main's packages; last: 393 passed) | success (two flakes, one older than this change) | a test that fails the same way on the old packages is not caused by the upgrade: run that control before blaming it |
 | 104 | 2026-11-01 11:40 | Full screen, only the book | In full screen with nothing open, the book fills the screen and every control hides until the reader reaches for it | `fullscreen.test.ts`; reader + review browser tests; screenshots by eye | failure then success | a grid row given without a column puts the item in a new column |
+| 108 | 2026-11-01 14:55 | A skill for browser tests that fail on the laptop | Running a failing test in Playwright's Linux image, on the branch and on main, tells "my change" from "main" from "Mac-only" in minutes | ledger history; `linux-run.sh` on #256 and #258 | success | a Mac failure on main is not evidence |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2418,4 +2419,13 @@ tests that pin it, in a small PR.
 **Result.** First run: 283 passed, yet the desktop screenshot showed the book in a 200 px column on the right: the bars had a row but no column, and the grid put the book in a new column beside them. The test checked only the book's height. With `grid-column: 1` on each and the test checking x and width too: `283 passed (5.7m)`; screenshots show only the text when still, the bars over the page at the top edge. `npm run check`: 1195 unit tests passed.
 **Lesson.** Look at the screenshot even when the test is green, and measure a layout in both directions. In CSS grid, an item given a row but no column that overlaps another is moved to a new column, not stacked.
 **Next experiment.** CI; merge. Deploy with the next batch, at Samuel's word.
+
+### Iteration 108 · 2026-11-01 (laptop clock) · browser-test-triage: CI's Linux on the laptop, on the branch and on main · success
+
+**Hypothesis.** Samuel: "this has been happening a lot" (sessions writing "fails on this Mac with main's code too; CI will judge"). The ledger agrees: CSS column wrapping (2026-10-25), mouse drag selection (2026-10-11), the palette race (#164), and #256's two reader tests. The fix existed (Playwright's Linux image on the laptop, merge-train's gotchas) but only loaded when merging. If a skill that loads whenever a browser test fails locally gives one command for the branch and for main in that image, sessions stop guessing and stop spending CI rounds on it.
+**Action.** `.claude/skills/browser-test-triage/` (SKILL.md, `scripts/linux-run.sh`: colima, the image matching `@playwright/test`, Linux packages in a Docker volume named after the lockfile, `--ref` for a control folder, `--env` switches, CI's flags); pointers from CLAUDE.md, merge-train and the skills README; a Mac-only section in docs/ci-flakes.md.
+**Evaluation.** Used on #256 and #258 the same day.
+**Result.** On #256: "Pages to Scroll, and back" failed on Linux on the branch and passed on main (226 passed): the change, not the Mac. The image then found five more real problems in #256 (each run 4-18 minutes on the laptop), and on #258 two test faults before CI saw them. Two lessons went into the skill the same day: `-g` changes a test's result in a project whose tests share state, and a second heavy job alongside a run makes timing tests fail.
+**Lesson.** Put the fix where the failure is met: a gotcha in a merge skill is not read when a test fails on the laptop.
+**Next experiment.** The next session that meets a local failure loads the skill; check in its ledger entry that both Linux runs are quoted.
 
