@@ -413,12 +413,18 @@ async function turnBack(page: Page, to: string | RegExp) {
   }).toPass({ timeout: 15_000 });
 }
 
-/** Turns on one page, and waits until the rewritten view has asked about the new page. */
+/**
+ * Turns on one page, and waits until the rewritten view has asked about the new page. As in turnBack, the click is
+ * repeated only while the page has not moved: a turn asked for while the book is laid out again (switching to the
+ * rewrite alone widens it) is dropped (CI run 41340351516, #256, the click 30 ms after the switch).
+ */
 async function turnOn(page: Page) {
   const from = (await reader(page).getAttribute("data-cfi"))!;
   const asked = page.waitForResponse((r) => r.url().includes("/rewritten?") && r.request().method() === "GET");
-  await page.getByRole("button", { name: "Next page" }).click();
-  await expect(reader(page)).not.toHaveAttribute("data-cfi", from);
+  await expect(async () => {
+    if ((await reader(page).getAttribute("data-cfi")) === from) await page.getByRole("button", { name: "Next page" }).click();
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", from, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   await asked;
 }
 
