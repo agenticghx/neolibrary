@@ -28,9 +28,10 @@ export function LibraryGrid({ items, testId = "shelf", compact = false }: { item
               size={compact ? "fillSmall" : "fill"}
               imageUrl={b.coverUrl}
               marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }}
+              paper={b.paper}
             />
             <span className={styles.itemTitle}>{b.title}</span>
-            {b.author ? <span className={styles.itemAuthor}>{b.author}</span> : null}
+            {b.paper ? <span className={styles.itemAuthor}>{b.paper}</span> : b.author ? <span className={styles.itemAuthor}>{b.author}</span> : null}
             <span className={styles.itemAvailable}>{availabilityLabel(b.available)}</span>
             {marksText(b) ? <span className="visually-hidden">{`, ${marksText(b)}`}</span> : null}
             {b.available.read || b.available.listen ? (

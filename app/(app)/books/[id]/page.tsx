@@ -22,6 +22,8 @@ import { collectionsForBook } from "@/lib/library/shelf";
 import { listImports } from "@/lib/readalong/importer";
 import { AudiobookUpload } from "./AudiobookUpload";
 import { isPublicDomainEdition } from "@/lib/library/open-shelf";
+import { PaperDetails } from "./PaperDetails";
+import { byline } from "@/lib/papers/model";
 import { removeBookAction, setShelfSwitchAction, toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
 
@@ -55,6 +57,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const fromText = hasFile && book.fileType === "pdf" && mayMakeTextEditions(user) ? await pdfTextEditionForPage(await getDb(), user.id, book.id) : null;
   // The cover's N or E letter comes from a reading list only (your own Paths say the words instead).
   const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
+  // M41 R3: a research paper's line under its title and on its card.
+  const paper = book.kind === "paper" ? { byline: byline(book), doi: book.doi, pmid: book.pmid } : null;
 
   return (
     <main className={styles.main}>
@@ -73,10 +77,11 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
           caption={false}
           progress={book.progress}
           imageUrl={(await coverSigner())(book.coverKey)}
+          paper={paper?.byline}
         />
         <div className={styles.info}>
           <h1 className={styles.title}>{book.title}</h1>
-          {book.author ? <p className={styles.author}>{book.author}</p> : null}
+          {paper ? <p className={styles.author}>{paper.byline}</p> : book.author ? <p className={styles.author}>{book.author}</p> : null}
           {hasFile && book.fileType ? (
             <Link id="read-book" href={`/books/${book.id}/read`} className={styles.read}>
               {book.progress > 0 ? "Continue reading" : "Read"}
@@ -226,6 +231,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
           </p>
           {/* Always here, so its message outlives the refresh that brings the file (it draws nothing for a book that had one). */}
           <AttachFile bookId={book.id} hasFile={hasFile} readLinkId="read-book" />
+          {/* M41 R3: a paper's details; on a book, the quiet question "Is this a research paper?" at the foot. */}
+          <PaperDetails bookId={book.id} paper={paper} />
           {/* M19 P3b: a book can leave the library, behind a confirmation, and come back from Your data. A book that fills a
               title on a Path (listed above) stays: it is part of that Path. */}
           {hasFile && !places.length ? (

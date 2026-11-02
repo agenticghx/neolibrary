@@ -112,7 +112,20 @@ export const books = pgTable("books", {
   onShelf: boolean("on_shelf").notNull().default(true),
   /** M34: anyone may read it. Only ever on for a public-domain edition (lib/library/open-shelf.ts). */
   freeToRead: boolean("free_to_read").notNull().default(false),
+  /** M41 R3: a research paper, marked by its DOI or PubMed ID, or a book (everything else) (0037; M34 took 0036). */
+  kind: text("kind", { enum: ["book", "paper"] }).notNull().default("book"),
+  /** A paper's authors in order, as Crossref or PubMed give them. */
+  authors: jsonb("authors").$type<PaperAuthor[]>().notNull().default([]),
+  journal: text("journal"),
+  year: integer("year"),
+  /** The paper's DOI (lower case, without "https://doi.org/"). */
+  doi: text("doi"),
+  /** Its PubMed ID (digits). */
+  pmid: text("pmid"),
 });
+
+/** One of a paper's authors: family name (always) and given names or initials (may be ""). */
+export type PaperAuthor = { family: string; given: string };
 
 export const paths = pgTable("paths", {
   id: uuid("id").primaryKey().defaultRandom(),

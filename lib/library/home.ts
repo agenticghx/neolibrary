@@ -1,3 +1,4 @@
+import { byline } from "@/lib/papers/model";
 import { and, asc, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, type Book } from "@/lib/db/schema";
@@ -96,6 +97,8 @@ export type LibraryItem = {
   notes: boolean;
   /** It has a finished uploaded audiobook (headphones; narration alone does not count, D1). */
   audiobook: boolean;
+  /** M41 R3: a research paper's card line ("Greco, Bravo and Parsons · 1995 · Pharmacol Rev"); null for a book. */
+  paper?: string | null;
 };
 
 /** Adds availability and marks to books, with one query each for audiobooks and notes. */
@@ -126,6 +129,7 @@ export async function libraryItems(
     available: availabilityOf(b, audio.has(b.id), narration),
     notes: noted.has(b.id),
     audiobook: audio.has(b.id),
+    paper: b.kind === "paper" ? byline(b) : null,
   }));
 }
 

@@ -99,6 +99,8 @@ export async function findMissingCovers(
         isNull(books.coverKey),
         isNull(books.deletedAt),
         isNull(books.editionOf),
+        // M41 R3: a paper has no cover in a book catalogue (a search by its title finds the wrong books); its card is drawn.
+        eq(books.kind, "book"),
         opts.ownerId ? eq(books.ownerId, opts.ownerId) : undefined,
         opts.force ? undefined : or(isNull(books.coverCheckedAt), lt(books.coverCheckedAt, stale)),
       ),

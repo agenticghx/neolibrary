@@ -25,6 +25,7 @@ export function Cover({
   current = false,
   imageUrl,
   marks,
+  paper,
 }: {
   title: string;
   slot?: Slot;
@@ -52,6 +53,11 @@ export function Cover({
    * the book has the reader's notes, headphones when it has an uploaded audiobook, a tick when finished.
    */
   marks?: { notes?: boolean; audiobook?: boolean; finished?: boolean };
+  /**
+   * M41 R3: a research paper's line ("Greco, Bravo and Parsons · 1995 · Pharmacol Rev"). Without a picture of its own,
+   * a paper is drawn as a printed page (journal, title, authors) instead of cloth.
+   */
+  paper?: string | null;
 }) {
   const any = isAvailable(available);
   const className = [
@@ -96,6 +102,13 @@ export function Cover({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl} alt="" className={styles.image} />
         {slot === "N" || slot === "E" ? <span className={[styles.slot, styles.slotOnImage].join(" ")}>{slot}</span> : null}
+        {drawn}
+      </div>
+    ) : paper && any ? (
+      <div className={[className, styles.paper].join(" ")} aria-hidden={decorative || undefined} data-cover="paper">
+        <span className={styles.paperRule} />
+        <span className={styles.paperTitle}>{title}</span>
+        <span className={styles.paperLine}>{paper}</span>
         {drawn}
       </div>
     ) : (

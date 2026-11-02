@@ -29,6 +29,8 @@ test.describe("desktop sidebar", () => {
       ["Books", /\/library$/, "Your library"],
       ["Want to Read", /\/library\?show=want$/, "Want to Read"],
       ["Finished", /\/library\?show=finished$/, "Finished"],
+      // M41 R3: research papers, after Finished and before Import.
+      ["Papers", /\/library\?show=papers$/, "Papers"],
       // M14 follow-up V3b (Samuel, #90): the Import page, from the Library list.
       ["Import", /\/import$/, "Import"],
       // A Path shows how many of its numbered pillars are started.
@@ -46,7 +48,7 @@ test.describe("desktop sidebar", () => {
 
     // Import is the last item of the Library list, after Finished (M14 follow-up V3b).
     const libraryList = sidebar(page).getByRole("list", { name: "Library", exact: true });
-    await expect(libraryList.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished", "Import"]);
+    await expect(libraryList.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished", "Papers", "Import"]);
     // With a book chosen for its audiobook (/import?book=…#audio-h), Import is still the current page.
     const importItem = libraryList.getByRole("link", { name: "Import", exact: true });
     await importItem.click();

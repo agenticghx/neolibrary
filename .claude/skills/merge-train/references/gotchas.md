@@ -40,3 +40,5 @@ Each cost at least one wasted step. Read this the first time something behaves o
 ## Reading a stuck train
 
 The train waits silently while CI runs (15–20 minutes a round). If its log has not changed for 25 minutes, check `gh run list --branch <branch>`: a queued run on the shared runners can wait; a run that finished without the train noticing means the head sha it waits for differs from the run's (a push happened behind its back).
+
+- **`refresh-screenshots.sh` writes into the checkout it is run from** (since 2026-11-02). Before that it wrote into the checkout that holds the script, so a run from a worktree changed the main folder's images. Run it from the PR's worktree. `train.sh` still works in the main working tree on purpose (it checks the branch out there).

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
-import { migrateDown, migrateUp } from "@/lib/db/migrate";
+import { loadMigrations, migrateDown, migrateUp } from "@/lib/db/migrate";
 import { testDatabase } from "@/lib/db/test-db";
 import { freeBookToRead, getOpenBook, goodreadsUrl, isPublicDomainEdition, listOpenShelf, OpenShelfError, setShelfSwitch, visitorMayHave } from "./open-shelf";
 
@@ -77,7 +77,9 @@ describe("migration 0036", () => {
     const database = await testDatabase();
     try {
       const ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
-      await migrateDown(database.raw, 1);
+      // Back to just before 0036, however many migrations came after it (M41's 0037 did).
+      const since = (await loadMigrations()).filter((m) => m.id >= "0036").length;
+      await migrateDown(database.raw, since);
       const add = (title: string, publisher: string) =>
         database.raw.query(
           `INSERT INTO books (owner_id, title, file_key, file_type, publisher) VALUES ($1, $2, 'books/x.epub', 'epub', $3)`,
@@ -99,7 +101,7 @@ describe("migration 0036", () => {
         "The Time Machine",
       ]);
       expect(rows.every((r) => r.onShelf)).toBe(true);
-      await migrateDown(database.raw, 1);
+      await migrateDown(database.raw, since);
       const cols = await database.raw.query(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'books' AND column_name IN ('on_shelf', 'free_to_read')`,
       );

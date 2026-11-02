@@ -234,10 +234,10 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
                 if (i !== current) go(i);
               }}
             >
-              <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} />
+              <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} paper={b.paper} />
               <span className={styles.pill}>
                 <span className={styles.itemTitle}>{b.title}</span>
-                {b.author ? <span className={styles.author}>{b.author}</span> : null}
+                {b.paper ? <span className={styles.author}>{b.paper}</span> : b.author ? <span className={styles.author}>{b.author}</span> : null}
                 <span className={styles.meta}>
                   <span>{availabilityLabel(b.available)}</span>
                   {b.available.read || b.available.listen ? <span>{progressLabel(b.progress)}</span> : null}
