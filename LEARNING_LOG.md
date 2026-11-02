@@ -2614,7 +2614,15 @@ tests that pin it, in a small PR.
 **Result.** 4 passed; uploads 181 passed; mutation failed as it should ("getByRole('dialog', { name: 'Figure 1' })" not found). On the real paper the first look showed two faults the test could not: a small picture would never grow (CSS `max-width` only shrinks), fixed by sizing it from its own width and height and the space; and the page behind showed through the 0.86 backdrop and competed with the figure, fixed with a near-opaque ground (0.96). Greco Figure 1 (1000 × 1088) is drawn 650 × 708 on a laptop, 358 × 389 on a phone, legend under it, closed by Escape.
 **Lesson.** Look at the real thing on a real screen: both faults were visible in one screenshot and invisible to every assertion.
 
-### Iteration 125 · 2026-11-02 08:05 (laptop clock) · M34 S1: two switches per book for the open shelf · success
+### Iteration 128 · 2026-11-02 09:35 (laptop clock) · M41 R1d: Listen passes over equations and tables · success
+
+**Hypothesis.** Listen's next and previous all come from one list (`passageFor`'s paragraphs in `lib/library/audio.ts`), so filtering that list, the starting paragraph and whole-book narration's list to prose is enough for the player never to stop on an equation or a table cell; nothing in the player itself has to change.
+**Action.** `form = 'prose'` added to the three paragraph queries in `passageFor` (a start on an equation or cell reads on to the next prose), to `paragraphsOf` in `narration.ts`, and to the "audiobook begins further on" count in `listen.ts`. PDF page placement (`placeOnPage`, `pageOffsets`) left as it was: a PDF's paragraphs are all prose, and it needs every paragraph on the page to place words.
+**Evaluation.** A unit test on the invented paper (one prose paragraph, an equation, six cells, "The end."); the same test with the change reverted; `npm run check`; the full browser suite.
+**Result.** Passed; reverted, it failed ("Expected p-5ec2f3c5e1cf, Received p-71436bf7749c": the next paragraph was the equation). `npm run check`: 1227 passed, 2 skipped.
+**Lesson.** When one list feeds a whole chain, filter the list, not each step; R1c's worry ("skip them everywhere at once or the player stalls") came down to one query.
+
+### Iteration 129 · 2026-11-02 08:05 (laptop clock) · M34 S1: two switches per book for the open shelf · success
 
 **Hypothesis.** Two columns on `books` (on the open shelf, default on; free to read, default off) are enough to say what a visitor may see and read, and the app can refuse "free to read" for a copyrighted book by trusting only the book file's own publisher field (Standard Ebooks, Project Gutenberg).
 **Action.** Migration 0036 (with its reverse step; numbered 0035 until M41 took that number) adds the columns and turns on "free to read" for the owner's three Standard Ebooks editions, matched by title and publisher, never by id. `lib/library/open-shelf.ts` sets one switch on the owner's own book; the owner sees an "Open shelf" pair of buttons on each book's page.
@@ -2623,7 +2631,7 @@ tests that pin it, in a small PR.
 **Lesson.** Matching by title alone would have handed out a copyrighted edition with the same name; match on the publisher as well.
 **Next experiment.** S2: the signed-out Library and book page.
 
-### Iteration 126 · 2026-11-02 08:22 (laptop clock) · M34 S2: the open shelf for visitors · failure then success
+### Iteration 130 · 2026-11-02 08:22 (laptop clock) · M34 S2: the open shelf for visitors · failure then success
 
 **Hypothesis.** A visitor's pages can live beside the signed-in app, in their own route group, if every query goes through one module (`lib/library/open-shelf.ts`) that picks only the fields a visitor may see, and covers go through their own signed route with their own secret.
 **Action.** `/browse` and `/browse/<id>` (route group `app/(open)`); `/api/open/files/<key>`, signed with "visitor-file-links" and checked again when used; the proxy lets those through and sends a visitor who opens `/` to `/browse`.
@@ -2632,7 +2640,7 @@ tests that pin it, in a small PR.
 **Lesson.** Before naming a new public address, search the app's folders for it; route groups hide clashes until the build.
 **Next experiment.** S3: the reader for visitors on the free books.
 
-### Iteration 127 · 2026-11-02 08:38 (laptop clock) · M34 S3: visitors read the free books · failure then success
+### Iteration 131 · 2026-11-02 08:38 (laptop clock) · M34 S3: visitors read the free books · failure then success
 
 **Hypothesis.** The signed-in reader can serve a visitor if a `visitor` prop turns off every call to the signed-in API and keeps the place in the browser, without a second reader.
 **Action.** Guards in `Reader.tsx` on the place save and check, notes, reading stats, focus, cross-links, X-ray marks and preferences; account-only tools hidden; `/browse/<id>/read` in its own route group.
@@ -2641,7 +2649,7 @@ tests that pin it, in a small PR.
 **Lesson.** List a component's server calls by recording the requests in a browser test, not by reading the code: the second call came from an effect several hundred lines away.
 **Next experiment.** S4: bring your own key.
 
-### Iteration 128 · 2026-11-02 09:08 (laptop clock) · M34 S4: bring your own key · failure then success
+### Iteration 132 · 2026-11-02 09:08 (laptop clock) · M34 S4: bring your own key · failure then success
 
 **Hypothesis.** One function per paid service (`textModelFor`, `speechModelFor`, `transcriberFor`) can decide who pays: the owner's key for the owner, otherwise only the key the request carries; and marking such a model's provider "-own-key" keeps it out of the owner's caps and spending without a migration.
 **Action.** The eight AI routes, passage audio and voice-note transcripts ask for the model "for this person"; `reserveSpend` and `checkCaps` let an own-key provider through; AI pictures are the owner's only. In the browser, `aiFetch` and `voiceFetch` add the key from localStorage to those requests only; Reading settings and Account offer the key form.
@@ -2650,10 +2658,3 @@ tests that pin it, in a small PR.
 **Lesson.** A rule that takes something away from readers shows up first in the tests that quietly relied on it; run the whole browser suite, not the new test alone.
 **Then.** CI run 41476467866 failed focus.spec's whole-book focus: its reader's join answered "Too many attempts. Wait 15 minutes." The new own-keys reader was the eleventh join from the test machine's address within 15 minutes (the limit is 10, `app/(public)/actions.ts`). It now joins from an address of its own (x-forwarded-for). A new test that signs someone up spends from a budget every other test shares.
 **Next experiment.** AI for visitors on the free books, then S5 guard rails.
-### Iteration 128 · 2026-11-02 09:35 (laptop clock) · M41 R1d: Listen passes over equations and tables · success
-
-**Hypothesis.** Listen's next and previous all come from one list (`passageFor`'s paragraphs in `lib/library/audio.ts`), so filtering that list, the starting paragraph and whole-book narration's list to prose is enough for the player never to stop on an equation or a table cell; nothing in the player itself has to change.
-**Action.** `form = 'prose'` added to the three paragraph queries in `passageFor` (a start on an equation or cell reads on to the next prose), to `paragraphsOf` in `narration.ts`, and to the "audiobook begins further on" count in `listen.ts`. PDF page placement (`placeOnPage`, `pageOffsets`) left as it was: a PDF's paragraphs are all prose, and it needs every paragraph on the page to place words.
-**Evaluation.** A unit test on the invented paper (one prose paragraph, an equation, six cells, "The end."); the same test with the change reverted; `npm run check`; the full browser suite.
-**Result.** Passed; reverted, it failed ("Expected p-5ec2f3c5e1cf, Received p-71436bf7749c": the next paragraph was the equation). `npm run check`: 1227 passed, 2 skipped.
-**Lesson.** When one list feeds a whole chain, filter the list, not each step; R1c's worry ("skip them everywhere at once or the player stalls") came down to one query.
