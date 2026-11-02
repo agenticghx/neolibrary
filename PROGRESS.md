@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries the Greco paper as a paper (PMID 7568331), an equation explanation and a summary card on the live site.
+next_action: Samuel looks at /browse signed out on his phone; hide any title he does not want shown.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 16:02 · Claude Opus 5.5 · M34 open shelf checked live from outside (f9f1290); M34 worktrees removed
+- **Done:** After the M41 session's deploy of f9f1290 (0036 and 0037), checked as a visitor, signed out, on both addresses: /api/health f9f1290; / redirects to /browse; 132 books, no email address in the page; the three free books' pages and readers 200; a free book's file downloads (271,904 bytes, epub) and the same signed link on another file is 403; a non-free book's reader 404 and its Goodreads link right; annotations, /api/me, /api/export and a non-free book's AI route 401; a cover 200, a forged one 403. Removed the seven M34 worktrees and local branches (all clean, nothing unpushed). M34 is done.
+- **Key paths:** docs/plan.md (M34); e2e/open-shelf.spec.ts; lib/library/open-shelf.ts
+- **Commands that worked:** curl -s https://<address>/api/health; curl -s https://<address>/browse | grep -o 'href="/browse/[0-9a-f-]\{36\}"'; curl -o /dev/null -w '%{http_code}' on each route (addresses in CLAUDE.local.md)
+- **Known issues / blockers:** none encountered. The visitor request limit lives in the one server process; a restart forgets the counts. A free book's file link in the reading page is JSON-escaped (\u0026 for &): a script reading it must unescape it.
+- **Exact next steps:** 1. Samuel: open /browse signed out on his phone and look at it by eye; hide any title with 'Anyone can see it' on its page. 2. Watch the visitor limit's 429s in the Railway log over the first days. 3. Fix the /design page's 2 px screenshot wobble (docs/ci-flakes.md, three sightings).
 
 ### 2026-11-02 16:01 · Claude (laptop) · Deployed f9f1290: M41 Papers R1d-R4a and M34 open shelf S1-S5 live (migrations 0036 and 0037)
 - **Done:** Deploy at Samuel's word ('deploy', 2026-11-02), coordinated with the M34 session (one deploy, one backup). Live: #283 tap a figure (already live as 01dae19), #284 Listen passes over equations and tables, #286 Paper as a kind of item (migration 0037), #288 explain an equation, #289 a paper's summary card; M34 #278 S1 (migration 0036, not 0035 as its earlier entries say), #280 S2, #281 S3, #282 S4, #285 S4b, #287 S5. The library's shelf is now visible to visitors signed out (/browse); the three Standard Ebooks classics are free to read.
