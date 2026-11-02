@@ -90,3 +90,32 @@ describe("tap a figure to see it full screen (M41)", () => {
     expect(figureAt({})).toBeNull();
   });
 });
+
+describe("tap an equation to have it explained (M41 R4b)", () => {
+  const math = (alttext: string | null, display = "block") => {
+    const p = el("P");
+    const m = child(p, el("MATH"));
+    const mi = child(m, el("MI", { text: "E" }));
+    const w = wrap(mi) as { closest(s: string): unknown };
+    const closest = w.closest.bind(w);
+    // The fake's closest() knows tag names only; teach it the attribute selector the code uses.
+    w.closest = (sel: string) =>
+      sel === 'math[display="block"]'
+        ? display === "block"
+          ? Object.assign(wrap(m) as object, { getAttribute: (n: string) => (n === "alttext" ? alttext : null), closest: (s: string) => (s === "a" ? null : wrap(p)) })
+          : null
+        : closest(sel);
+    return w;
+  };
+  it("finds the LaTeX and the equation's number", async () => {
+    const { equationAt } = await import("./figure");
+    expect(equationAt(math("E = \\frac{a}{b} \\tag{3}"))).toMatchObject({ latex: "E = \\frac{a}{b} \\tag{3}", number: "3" });
+    expect(equationAt(math("x^2"))).toMatchObject({ latex: "x^2", number: null });
+  });
+  it("offers nothing without LaTeX, for an inline formula, or for text", async () => {
+    const { equationAt } = await import("./figure");
+    expect(equationAt(math(null))).toBeNull();
+    expect(equationAt(math("x", "inline"))).toBeNull();
+    expect(equationAt(wrap(el("P", { text: "words" })))).toBeNull();
+  });
+});

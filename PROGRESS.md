@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Open the M34 S4b pull request, then build S5 (visitor request limit and leak check).
+next_action: Merge M41 #288 (R4b), then M34 #287 (S5), then M41 R4a; then ask Samuel to deploy (one backup for 0036 and 0037).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -355,6 +355,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-02 09:55 · Claude (laptop) · M41 R4b: explain an equation (branch m41-explain-math)
+- **Done:** Built R4b: a tap on a displayed equation opens 'Equation (N)' with its LaTeX and an AI explanation (what it says, each symbol, how to read it) from the LaTeX and the prose around it; stored once, served again free, 'Ask again' on purpose; provenance and caps as every AI answer. New AI feature 'Explain an equation' (Sonnet default). Not merged, not deployed; no migration.
+- **Key paths:** prompts/explain-math.md; lib/library/explain-math.ts, explain-math.test.ts; app/api/books/[id]/explain-math/route.ts; lib/ai/model.ts, model-picks.ts; app/(reader)/books/[id]/read/{figure.ts,figure.test.ts,EquationView.tsx,Reader.tsx,reader.module.css,settings.ts}; app/tokens.css (--font-mono); e2e/uploads.spec.ts; docs/plan.md M41 R4b
+- **Commands that worked:** npx vitest run lib/library/explain-math.test.ts 'app/(reader)/books/[id]/read/figure.test.ts' -> 8 passed. PORT=3600 npx playwright test --project=uploads --ignore-snapshots -g 'equations are drawn' -> passed; with equation taps ignored it fails (dialog not found). Greco equation (1) on a local build (port 3700, test AI): panel, LaTeX, answer, provenance; desktop light, phone dark.
+- **Known issues / blockers:** Not tried with the real AI (no paid call made in testing). Figures are not explained yet (needs the picture sent to the model).
+- **Exact next steps:** 1. PR after #284 merges; merge when green. 2. Deploy with R3 (#286, migration 0036, backup first). 3. Samuel: tap an equation in the Greco paper and press Explain it (about $0.04 on Sonnet).
 ### 2026-11-02 09:43 · Claude Opus 5.5 · M34 S4b: AI help for visitors on the free books
 - **Done:** Visitors on a free book: Need to know, Test yourself and the Rewritten view, as the owner's copy (lib/auth/asker.ts); saved answers free, new ones only with their own key; never the owner's marks; a visitor never forces a fresh answer. savedOrNewModelFor: without a key a saved answer is still served and only a new one refused (for readers too). Slim sidebar for visitors; key form in their settings; panels' wording says how to add your own key.
 - **Key paths:** lib/auth/asker.ts; lib/ai/own-key.ts (MissingKeyModel); lib/ai/model-picks.ts (savedOrNewModelFor); app/api/books/[id]/{rewritten,prerequisites,questions,rewrites,ask,xray/entry}/route.ts; proxy.ts; app/(reader)/books/[id]/read/*; lib/player/session.ts; e2e/open-shelf.spec.ts

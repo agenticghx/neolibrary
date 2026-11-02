@@ -62,7 +62,8 @@ import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FocusMo
 import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
-import { figureAt, type Figure } from "./figure";
+import { equationAt, figureAt, type Figure } from "./figure";
+import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
 
@@ -532,6 +533,8 @@ export function Reader(props: {
   const [shortcuts, setShortcuts] = useState(false);
   // M41: the picture a tap on the page opened full screen.
   const [figure, setFigure] = useState<Figure | null>(null);
+  // M41 R4b: the equation a tap asked to have explained.
+  const [equation, setEquation] = useState<EquationAsk | null>(null);
   const shortcutsOpen = useRef(false);
   useEffect(() => {
     shortcutsOpen.current = shortcuts;
@@ -1094,6 +1097,15 @@ export function Reader(props: {
             doc.addEventListener("click", (e) => {
               const selected = doc.getSelection();
               if (selected && !selected.isCollapsed) return;
+              // M41 R4b: a displayed equation (with its LaTeX) opens Explain this equation.
+              const m = equationAt(e.target);
+              if (m) {
+                const range = doc.createRange();
+                range.selectNodeContents(m.paragraph as Node);
+                e.preventDefault();
+                setEquation({ cfi: v.getCFI(index, range), latex: m.latex, number: m.number });
+                return;
+              }
               const f = figureAt(e.target);
               if (!f) return;
               e.preventDefault();
@@ -2556,6 +2568,7 @@ export function Reader(props: {
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
       <FigureView figure={figure} onClose={() => setFigure(null)} />
+      <EquationView bookId={props.bookId} equation={equation} onClose={() => setEquation(null)} />
       <StartFocusDialog
         open={focusStart}
         onStart={beginFocus}

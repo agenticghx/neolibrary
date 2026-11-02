@@ -25,6 +25,7 @@ export const FEATURE_LABELS: Record<AiFeature, string> = {
   ask: "Ask the book",
   xray: "X-ray: reading a chapter",
   "xray-world": "X-ray: about a name",
+  "explain-math": "Explain an equation",
 };
 
 export const FEATURES = Object.keys(FEATURE_LABELS) as AiFeature[];
