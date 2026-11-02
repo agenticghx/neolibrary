@@ -5,13 +5,14 @@
 import { execFileSync } from "node:child_process";
 
 const base = process.argv[2] ?? "origin/main";
-const diff = execFileSync("git", ["diff", "--unified=0", `${base}...HEAD`, "--", "PROGRESS.md"], {
-  encoding: "utf8",
-});
+// The ledger passed 1 MB on 2026-11-02 (40 entries copied to main), past execFileSync's default 1 MB output limit:
+// the check then crashed with "spawnSync git ENOBUFS". 64 MB leaves room for years of entries.
+const big = { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 };
+const diff = execFileSync("git", ["diff", "--unified=0", `${base}...HEAD`, "--", "PROGRESS.md"], big);
 const added = diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
 // A ledger committed with git's conflict markers still "has a new entry"; it happened once (2026-10-07) and was merged.
 for (const file of ["PROGRESS.md", "LEARNING_LOG.md"]) {
-  const text = execFileSync("git", ["show", `HEAD:${file}`], { encoding: "utf8" });
+  const text = execFileSync("git", ["show", `HEAD:${file}`], big);
   const marker = text.split("\n").findIndex((l) => /^(<<<<<<< |=======$|>>>>>>> )/.test(l));
   if (marker >= 0) {
     console.error(`PR hygiene: ${file} line ${marker + 1} is a git conflict marker. Resolve it (keep both sides) before merging.`);
