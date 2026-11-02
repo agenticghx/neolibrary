@@ -99,6 +99,6 @@ export function report(date: string, site: string, found: BookFindings[]) {
   if (!files.length && !xray.length && !scans.length && !covers.length) lines.push("Nothing looks wrong.", "");
   const checked = found.filter((f) => f.xrayChecked).length;
   const entries = found.reduce((n, f) => n + f.xrayChecked, 0);
-  lines.push(`Checked on ${site}: ${found.length} books' files; ${entries} X-ray entries in ${checked} books.`);
+  lines.push(`Checked on ${site}: ${found.length} ${found.length === 1 ? "book's file" : "books' files"}; ${entries} X-ray ${entries === 1 ? "entry" : "entries"} in ${checked} ${checked === 1 ? "book" : "books"}.`);
   return lines.join("\n") + "\n";
 }

@@ -59,7 +59,7 @@ describe("the live-site check (M40 S5)", () => {
     expect(all).toContain("## Books with no cover picture\n\n- No cover\n");
     expect(all).toContain('- **Poole** (fact: "a doctor"): He is a butler.');
     expect(all).not.toContain("- Fine");
-    expect(all).toContain("Checked on site: 6 books' files; 20 X-ray entries in 1 books.");
+    expect(all).toContain("Checked on site: 6 books' files; 20 X-ray entries in 1 book.");
     expect(report("2026-11-01", "site", [base("Fine")])).toContain("Nothing looks wrong.");
   });
 });

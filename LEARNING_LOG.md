@@ -2504,3 +2504,11 @@ tests that pin it, in a small PR.
 **Next experiment.** S5, the checks themselves.
 **Also (same PR).** The first issue run (#267) ended "success" after 29 turns and 18 minutes with no branch, pull request or comment, and the log does not show what Claude said. claude-issue.yml now shows Claude's report on the run's summary (`display_report`), and a last step comments on the issue when a run leaves neither a pull request nor a comment. Lesson: a run that can end silently will; make silence say something.
 
+### Iteration 113 · 2026-11-02 (laptop clock) · M40 S5: an agent checks the live site · success
+
+**Hypothesis.** The ledger's "Waiting on Samuel" list asked him to look at the live site by eye: does every book open, does every scan have its text, are the X-ray's names and facts right. With S4's reads (a book's details, its file, its whole X-ray) a script can do the mechanical checks, and Claude on the subscription (`claude -p`) can judge each X-ray fact against its own quote.
+**Action.** `lib/live-check.ts` (sample, question, answer reader, report), `scripts/live-check.ts`; the report goes to ~/Documents/neolibrary-live-check/ (it quotes book text; the repository is public).
+**Evaluation.** One run against the live site the moment S4 was live (827adfb, the first automatic deploy).
+**Result.** 8 books: every file opens; no scan without its text edition; no missing cover. 20 X-ray entries judged in the one book with a Claude-built X-ray: 2 flagged, both a fact that says a little more than its quote (a detail the quote does not name). The summary line said "1 books": fixed, and the test's expected line with it.
+**Lesson.** A judge that reads the quote catches facts that drift past their evidence, which a person skimming would pass.
+**Next experiment.** S6, overnight scan reading; later, run this after each deploy.
