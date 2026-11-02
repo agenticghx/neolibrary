@@ -648,17 +648,25 @@ export async function pdfTextEditionForPage(db: Db, ownerId: string, bookId: str
     .from(books)
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book || book.fileType !== "pdf") return null;
+  if (!(await pdfHasOwnText(db, bookId, book.pageCount))) return null;
+  const edition = await editionOf(db, ownerId, bookId);
+  return { editionId: edition?.id ?? null };
+}
+
+/**
+ * Whether a PDF carries text of its own (M31), or is a scan whose pages are pictures (M25): at least half its pages
+ * hold more than 200 characters of text. Shared by the book page and the agent API (M40 S4).
+ */
+export async function pdfHasOwnText(db: Db, bookId: string, pageCount: number | null) {
   const rows = await db
     .select({ chapterIndex: sections.chapterIndex, text: sections.text })
     .from(sections)
     .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")));
   const perPage = new Map<number, number>();
   for (const r of rows) perPage.set(r.chapterIndex, (perPage.get(r.chapterIndex) ?? 0) + r.text.trim().length);
-  const pages = Math.max(book.pageCount ?? 0, perPage.size, 1);
+  const pages = Math.max(pageCount ?? 0, perPage.size, 1);
   const withText = [...perPage.values()].filter((n) => n > 200).length;
-  if (withText / pages < 0.5) return null;
-  const edition = await editionOf(db, ownerId, bookId);
-  return { editionId: edition?.id ?? null };
+  return withText / pages >= 0.5;
 }
 
 /** How pages read elsewhere are marked: `provider` on their rows and job, so the generations table tells them from pages read through the API. */

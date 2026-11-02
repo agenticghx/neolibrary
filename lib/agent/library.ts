@@ -5,6 +5,8 @@ import { createAnnotation, listAnnotations, readingOrder, type Annotation } from
 import { searchLibrary } from "@/lib/library/search";
 import { listShelf } from "@/lib/library/shelf";
 import { STICKERS } from "@/lib/library/stickers";
+import { editionOf, pdfHasOwnText } from "@/lib/library/text-edition";
+import { listXray, XrayError } from "@/lib/library/xray";
 
 /**
  * What an AI agent can do in a reader's library (M11), shared by the HTTP
@@ -144,4 +146,82 @@ export async function agentAddNote(db: Db, userId: string, agent: string, input:
       agent,
     ),
   );
+}
+
+export type AgentBookDetails = {
+  id: string;
+  title: string;
+  author: string;
+  /** "epub" or "pdf"; null for a title still waiting for its file. */
+  kind: "epub" | "pdf" | null;
+  pages: number | null;
+  bytes: number | null;
+  /** A PDF whose pages are pictures (fewer than half its pages carry text of their own): it needs a text edition (M25). */
+  scan: boolean;
+  /** The text edition made from this scan, if any (its own book id). */
+  textEdition: string | null;
+  /** On a text edition: the scan it was made from. */
+  editionOf: string | null;
+  cover: { has: boolean; source: string | null; catalogue: string | null; checkedAt: string | null };
+  isbn: string | null;
+};
+
+/**
+ * One of the reader's own books in detail (M40 S4), for checks run with the owner's token: what kind of file it has,
+ * whether it is a scan and has its text edition, and where its cover came from. Finds a text edition too (hidden from
+ * the shelf). Another reader's book, or one in the bin, is "not found".
+ */
+export async function agentBook(db: Db, userId: string, bookId: string): Promise<AgentBookDetails> {
+  if (!UUID.test(bookId)) throw new AgentError("Book not found.", 404);
+  const [b] = await db
+    .select()
+    .from(books)
+    .where(and(eq(books.id, bookId), eq(books.ownerId, userId), isNull(books.deletedAt)));
+  if (!b) throw new AgentError("Book not found.", 404);
+  const scan = b.fileType === "pdf" && !b.editionOf && !(await pdfHasOwnText(db, b.id, b.pageCount));
+  const edition = b.fileType === "pdf" ? await editionOf(db, userId, b.id) : null;
+  return {
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    kind: b.fileKey ? b.fileType : null,
+    pages: b.pageCount,
+    bytes: b.fileSize,
+    scan,
+    textEdition: edition?.id ?? null,
+    editionOf: b.editionOf,
+    cover: { has: Boolean(b.coverKey), source: b.coverSource, catalogue: b.coverPage, checkedAt: b.coverCheckedAt?.toISOString() ?? null },
+    isbn: b.isbn,
+  };
+}
+
+/** The storage key and type of one of the reader's own book files (M40 S4), or "not found". */
+export async function agentBookFile(db: Db, userId: string, bookId: string) {
+  if (!UUID.test(bookId)) throw new AgentError("Book not found.", 404);
+  const [b] = await db
+    .select({ fileKey: books.fileKey, fileType: books.fileType, fileName: books.fileName, title: books.title })
+    .from(books)
+    .where(and(eq(books.id, bookId), eq(books.ownerId, userId), isNull(books.deletedAt)));
+  if (!b?.fileKey || !b.fileType) throw new AgentError("Book not found, or it has no file yet.", 404);
+  return { key: b.fileKey, type: b.fileType, name: b.fileName ?? `${b.title}.${b.fileType}` };
+}
+
+export type AgentXrayEntry = { name: string; kind: string; aliases: string[]; mentions: number; facts: { chapter: number; fact: string; quote: string; cfi: string }[] };
+
+/** A book's whole X-ray (M40 S4): every entry, most mentioned first, with each fact and the book's own words for it. */
+export async function agentXray(db: Db, userId: string, bookId: string): Promise<AgentXrayEntry[]> {
+  if (!UUID.test(bookId)) throw new AgentError("Book not found.", 404);
+  try {
+    const list = await listXray(db, userId, bookId, null);
+    return [...list.entries].sort((a, b) => b.total - a.total).map((e) => ({
+      name: e.name,
+      kind: e.kind,
+      aliases: e.aliases,
+      mentions: e.total,
+      facts: e.facts.map((f) => ({ chapter: f.chapterIndex, fact: f.fact, quote: f.quote, cfi: f.cfi })),
+    }));
+  } catch (e) {
+    if (e instanceof XrayError) throw new AgentError("Book not found.", 404);
+    throw e;
+  }
 }
