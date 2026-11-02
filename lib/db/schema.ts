@@ -108,7 +108,7 @@ export const books = pgTable("books", {
   aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }),
   /** M25: set on a text edition (an EPUB made from a scanned PDF's pages): the scan it was made from. Hidden from the library's lists (migration 0027). */
   editionOf: uuid("edition_of").references((): AnyPgColumn => books.id, { onDelete: "cascade" }),
-  /** M34 (migration 0035): the owner's book is on the open shelf: anyone may see its title, cover, author and description. */
+  /** M34 (migration 0036): the owner's book is on the open shelf: anyone may see its title, cover, author and description. */
   onShelf: boolean("on_shelf").notNull().default(true),
   /** M34: anyone may read it. Only ever on for a public-domain edition (lib/library/open-shelf.ts). */
   freeToRead: boolean("free_to_read").notNull().default(false),

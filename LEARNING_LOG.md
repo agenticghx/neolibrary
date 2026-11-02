@@ -1639,6 +1639,7 @@ picker because of a fault: missing from the list, or adding failing.
 - **"It did not show up" can mean "I could not see it".** Reproduce before
   fixing: here the fix was findability, not a missing row.
 - **A follow-up may need only a test:** V2's behaviour was right.
+
 ### Iteration 67 · 2026-10-07 05:22 · Fix from `main`: the Paths list fits a phone with a long one-word Path name (draft #102) · success (CI to come: CI is still not starting jobs)
 
 *Iterations 57 to 65 are on the M14 stack's branches (#97 to #100) and 66 on #101, none on `main` yet.*
@@ -1654,6 +1655,7 @@ picker because of a fault: missing from the list, or adding failing.
 **Lesson.**
 - **Under phone emulation, `window.innerWidth` grows with a page that is too wide** (`scrollWidth 735, innerWidth 735` on `main`), so `scrollWidth <= innerWidth` cannot see sideways scroll there; `clientWidth` stayed 390. The 15 older checks written that way run in ordinary desktop browsers, where it works; new checks use `clientWidth`, as `shell.spec.ts` does.
 - **A test that makes unusual data should check every page that shows it.** The long name was checked on its own two pages, not on the list; the shell tests, which do open the list on a phone, run before the name exists.
+
 ### Iteration 66 · 2026-10-07 04:57 · Fix from `main`: EPUB uploads unpacked within limits (draft #101) · success (CI to come: CI is still not starting jobs)
 
 *Iterations 57 to 65 are on the M14 stack's branches (#97 to #100), not yet on `main`.*
@@ -2080,6 +2082,7 @@ tests that pin it, in a small PR.
 - **Hook the setter, record both times.** Recording `[currentTime before, value set]` on every `currentTime` set made the assertion exact (15.00 s) instead of a tolerance on a polled reading.
 - **A claim about a failure path needs a failing run after the change, not before.** The `finally` "fix" for the 30 s was written into both ledgers from the failing run before it; one timed run after it (and one of a test that could not have the suspected cause) showed the cause was elsewhere.
 **Next experiment.** When CI runs: #103 after #100, its four checks green; the new test on CI's WebKit (it plays on for 8 s with no seek: not the stall pattern seen so far).
+
 ### Iteration 69 · 2026-10-07 07:32 · WebKit stall on CI: the log says which audio requests were made and answered (draft PR from `m14-flake-s4-diag`) · success (shown on forced failures; CI to come: CI is still not starting jobs)
 
 (Iteration 66 is on #101's branch, 67 on #102's, 68 on #103's (`m14-back-into-chapter`). This branch starts from #100's head, f83fd83, which has none of them.)
@@ -2352,7 +2355,6 @@ tests that pin it, in a small PR.
 **Lesson.** A bar that "still fits" in my screenshot is one state of it. Check the widest state (counts, long labels) before adding a control to a full bar. Another project's layout test caught what mine did not.
 **Next experiment.** CI on the new push; deploy at Samuel's word ("deploy when it merges").
 
-
 ### Iteration 96 · 2026-10-28 09:18 (laptop clock) · "Where were we?" fades in full screen · success
 
 **Hypothesis.** Giving the strip's row (`.recallSlot`, which also holds the whole-book focus line) the same idle fade as the bars hides it in full screen without moving the page, since the row keeps its height.
@@ -2397,6 +2399,7 @@ tests that pin it, in a small PR.
 **Result.** Unfixed: 2 of 10, then 1 of 2, then 4 of 12 runs failed (the last as a control at the same load as the fixed runs). The log of a failing run: the refresh's request began at 3883 ms, the note was placed at 3886 ms, and at 3887 ms the refresh set the list from a copy made before the placing (`many false opinions|null`); placing then skipped the note as already placed. In the passing run the refresh answered after the placing. Fixed: 20 of 20 loaded runs passed. `npm run check`: 1192 passed, 2 skipped. Full browser suite: `393 passed (15.7m)`.
 **Lesson.** A flaky test that fails on unrelated PRs is worth chasing: here it was the app, and a reader on a slow phone would have met it ("Go to" missing for a note from the other version). Repeat the test under load until it fails, then log the order of events; the gap between two awaits was the whole bug.
 **Next experiment.** CI; then the security PR from the helper session, one at a time.
+
 ### Iteration 101 · 2026-10-29 22:40 (laptop clock) · M38 security updates · success
 
 **Hypothesis.** The 16 open Dependabot alerts (6 packages: next, zod, body-parser, fast-uri, ip-address, vite) can all be closed with patch or minor version steps, without `npm audit fix --force` and without npm overrides, and nothing in the app changes.
@@ -2405,7 +2408,6 @@ tests that pin it, in a small PR.
 **Result.** Audit before: 7 packages (1 critical, 3 high, 3 moderate); runtime only, 6 (1 critical, 2 high, 3 moderate). After: "found 0 vulnerabilities" for both. Lockfile: only the named packages moved, plus Next.js's own `@next/*` pieces and what vite 8.3.5 asks for (`rolldown ~1.2.14` → 1.2.16 with its `@oxc-project/types`; `postcss ^8.5.30` → 8.5.32 with `nanoid` 3.3.20). `npm run check`: 1192 passed, 2 skipped. Build passed, with one new warning from Next.js 16.4.1 (whole-project tracing from `lib/db/migrate.ts`; matters only for the standalone output, which is not used). Browser suite: runs 1 and 2 each `308 passed`, 1 failed (`agents.spec.ts:318`, `data-placed` stayed "no"; listed in `docs/ci-flakes.md`), 84 did not run. Because it failed twice, a control run of the agents project with main's packages (Next 16.3.8, zod 4.6.5): the same test failed the same way (`297 passed`, 1 failed). Run 3 (with `--grep-invert` meant to leave that test out; the filter did not apply to it, and it ran and passed): `369 passed`, 1 failed (`readalong.spec.ts:1032` in WebKit, the page check after Pause; sound on the MacBook speakers, not Bluetooth), 23 did not run. Run 4, the `readalong-safari` project with its dependencies: `381 passed (12.8m)`, including `agents.spec.ts:318` and `readalong.spec.ts:1032` in both engines. A key-by-key comparison with `npx playwright test --list` (393 tests) showed one test that had not yet run at all, `narration.spec.ts:75` (the last project, after WebKit). Run 5, `--project=narration`: `agents.spec.ts:318` failed again first, `297 passed`, 84 did not run. Run 6, the same with `--retries=1`: `382 passed (13.6m)`, no retries needed, `narration.spec.ts:75` passed. Runs 3, 4 and 6 together pass all 251 test locations of the 393-test list. `agents.spec.ts:318` locally today: failed 4 times (one on main's packages), passed 3. Main then took #251 (the cause of that flake fixed); rebased onto it: `npm run check` 1192 passed, 2 skipped; full suite once `260 passed`, 1 failed (`audio.spec.ts:174`, the audio never passed 3 s: the Mac's sound had switched to AirPods, which stalls local audio tests), 132 did not run; re-run with `--retries=1`, sound back on the MacBook speakers: `393 passed (15.4m)`, no retry used.
 **Lesson.** When a test fails twice after an upgrade, run it once on the old packages before blaming the upgrade: here the old packages failed it too, which settled the question in 7 minutes. When a flaky early test keeps blocking the projects behind it, compare the passing tests with `npx playwright test --list` before saying "all passed": the last project had not run at all. And `npm update <name>` moves an indirect package to the newest version its parent allows, which can drag that package's own dependencies along; diff the lockfile to see it.
 **Next experiment.** CI on the pull request (the screenshot comparison shows whether Next.js 16.4.1 changed any page); the merge train; deploy at Samuel's word, after which Dependabot closes the alerts itself.
-
 
 ### Iteration 102 · 2026-10-30 (laptop clock) · The reader said "ready" before its typeface arrived · success
 
@@ -2442,6 +2444,7 @@ tests that pin it, in a small PR.
 **Result.** On #256: "Pages to Scroll, and back" failed on Linux on the branch and passed on main (226 passed): the change, not the Mac. The image then found five more real problems in #256 (each run 4-18 minutes on the laptop), and on #258 two test faults before CI saw them. Two lessons went into the skill the same day: `-g` changes a test's result in a project whose tests share state, and a second heavy job alongside a run makes timing tests fail.
 **Lesson.** Put the fix where the failure is met: a gotcha in a merge skill is not read when a test fails on the laptop.
 **Next experiment.** The next session that meets a local failure loads the skill; check in its ledger entry that both Linux runs are quoted.
+
 ### Iteration 105 · 2026-11-01 (laptop clock) · The reading tools move into a sidebar · partial
 
 **Hypothesis.** Samuel (2026-11-01) asked for a sidebar the top bar shows and hides, "like the right menu in the Claude desktop app or Obsidian", holding the reading tools, with only Full screen and Aa left in the top bar. If Notes, Study, Rewritten view, Bookmark and Focus session move into a rail on the right (a panel opening beside it), and the eight browser test files that use them start with it open, the tools keep their names and every test still passes.
@@ -2462,6 +2465,7 @@ tests that pin it, in a small PR.
 4. *Phone:* the rail shared the rewrite's row under the page and took its taps; and a panel's card covered the rail, so Study could not be reached with Rewrite open. The rail now takes the stage's last row, and a phone panel ends above it (`--below-rail`). Also a contrast failure (4.49:1) of the note count, now in the button's own colour, and the focus tests' second browser context opened with the sidebar closed. 5. *Focus session:* the rail stayed on screen in a focus session (only the page): it now hides with the bars. 6. *A dropped page turn:* "read it rewritten" failed on the laptop (once, called contention) and on CI round 2 (run 41340351516) at the same place: the trace shows Next page clicked 30 ms after switching to the rewrite alone, which lays the book out again, and foliate drops a turn asked for then. `turnOn` now repeats the click only while the page has not moved, as `turnBack` already did; `--project ai` 255 passed twice in the Linux image. Lesson: a failure first blamed on load and then seen on CI is real until a trace says otherwise.
 **Lesson.** "Fails on main too" on the Mac is not evidence: run the Linux image on the branch and on main before writing it. Each round there took 4-18 minutes on the laptop instead of a CI round, and the trace's "intercepts pointer events" line named the covering element directly.
 **Next experiment.** CI; merge. (Linux image: 353 passed with only the focus failure, then the focus chain 287 passed after its fix.)
+
 ### Iteration 107 · 2026-11-01 (laptop clock) · Up and Down arrow keys turn pages (issue #257) · failure then success
 
 **Hypothesis.** Samuel (issue #257): Up and Down should turn pages like Left and Right, also in two pages. If the reader's key handler turns on Down and back on Up whenever the book is laid out in Pages (or is a PDF), and leaves them to scroll in Scroll, both page counts turn with them.
@@ -2478,6 +2482,7 @@ tests that pin it, in a small PR.
 **Result.** Rows closed: 6, 7, 8, 9, 10, 31 and 27 (1)(2)(4), each with a Decisions line. Kept open: 1, 12, 13, 32, 27 (3) (money or access) and 28, 29 (no default).
 **Lesson.** A question with a default that is already built is a decision waiting to be written down, not a decision waiting to be made.
 **Next experiment.** M40 S2, deploys on their own.
+
 ### Iteration 110 · 2026-11-01 (laptop clock) · M40 S2: main deploys itself · success (first live run to come)
 
 **Hypothesis.** 19 deploys waited on Samuel's word, though each was the same recipe. A GitHub Action can run it after main's CI passes if it never deploys a migration (those need a backup), never deploys a commit that a newer one replaces (merges in a row go out together), and checks the live site afterwards.
@@ -2486,6 +2491,7 @@ tests that pin it, in a small PR.
 **Result.** actionlint clean (after an unused loop variable). Gate: ledger-only change skipped; a newer commit on main skipped; 2300956..d4ae864 refused for `0034_app_settings`; an unreadable live commit refused; 63fe478..4918cee deploys. main's CI runs come as `workflow_dispatch` after the auto-merge (it starts them) and `push` after a direct push; the nightly is `schedule` and is left out.
 **Lesson.** Read how the pieces are triggered before filtering on them: a filter on `push` alone would never have fired after a merge.
 **Next experiment.** The token and variables, then a manual run on main.
+
 ### Iteration 111 · 2026-11-01 (laptop clock) · M40 S3: issues become pull requests · success (first live run to come)
 
 **Hypothesis.** Samuel files issues (like #257) and then has to start a session for each. Anthropic's GitHub action runs Claude Code on GitHub's machine, signed in with a subscription token instead of an API key, so an issue can start the session itself and end in a pull request the auto-merge and the Deploy workflow carry the rest of the way.
@@ -2502,6 +2508,7 @@ tests that pin it, in a small PR.
 **Result.** actionlint: deploy.yml clean; ci.yml only its earlier warnings (the Blacksmith runner label, SC2129 at line 114).
 **Lesson.** Prove a trigger fires once before trusting the logic behind it: the gate was tested offline, the trigger never was.
 **Next experiment.** This merge: the main CI run should start Deploy, which should print "Skipped" (only workflows and the ledger changed since 4918cee).
+
 ### Iteration 112 · 2026-11-01 (laptop clock) · M40 S4: what the owner's token can read · success
 
 **Hypothesis.** S5 (live checks) and S6 (overnight scans) need to know each book's kind, whether it is a scan with a text edition, its cover's source, its whole X-ray, and the file itself; the agent API had only books, search, notes and two X-ray/text-edition writing routes. Three read-only routes, limited to the token's own books, are enough.
@@ -2519,6 +2526,7 @@ tests that pin it, in a small PR.
 **Result.** 8 books: every file opens; no scan without its text edition; no missing cover. 20 X-ray entries judged in the one book with a Claude-built X-ray: 2 flagged, both a fact that says a little more than its quote (a detail the quote does not name). The summary line said "1 books": fixed, and the test's expected line with it.
 **Lesson.** A judge that reads the quote catches facts that drift past their evidence, which a person skimming would pass.
 **Next experiment.** S6, overnight scan reading; later, run this after each deploy.
+
 ### Iteration 114 · 2026-11-02 (laptop clock) · M40 S6: scans read overnight, left as drafts · success
 
 **Hypothesis.** Turning a scan into a text edition waited on a session being started for it. The reading is already a script on the subscription (`text-edition-on-subscription.ts read, check, preview`); a nightly job on the laptop can run it for every scan without a text edition and stop short of "send", which stays Samuel's word.
@@ -2527,6 +2535,7 @@ tests that pin it, in a small PR.
 **Result.** Live: "No scanned book is waiting to be read." (every scan there has its text already). Local: "A Scanned Meditation: read; a draft waits for your send"; "Done: 2 pages read now, 0 blank, 0 not read", $0 on the subscription; DRAFT.md says Status: ready and nothing sent; the book still had no text edition afterwards (`textEdition: None`, `scan: True`). Snag: `zsh -ic` loads the Keychain's token over one set before it, so a test token must be exported inside the login shell (the nightly job wants the Keychain's, so it is right there).
 **Lesson.** Prove the path that does the work on a copy that has work for it; the live run alone proved only the empty night.
 **Next experiment.** Install the job; its first night will have nothing to read until a new scan is added.
+
 ### Iteration 115 · 2026-11-02 (laptop clock) · M40 first runs: the nightly job and the issue bot · partial
 
 **Hypothesis.** The pieces each passed their own checks; their first real runs would show what the checks could not.
@@ -2542,6 +2551,7 @@ tests that pin it, in a small PR.
 **Evaluation.** `npm run check`: 1207 passed, 2 skipped. `npx playwright test --project reader --ignore-snapshots` on this Linux runner (numbers in the PR).
 **Lesson.** A new key belongs where the other page-turn keys are decided, so it gets their exceptions for free. Also the first pull request from the issue bot (M40 S3).
 **Next experiment.** CI on the PR.
+
 ### Iteration 117 · 2026-11-02 (laptop clock) · M40 S3 proven; the review lets the bot's pull requests in · success
 
 **Hypothesis.** With the report visible, the issue bot's third run on #267 would show why the first two built nothing.
@@ -2580,15 +2590,6 @@ tests that pin it, in a small PR.
 **Result.** With the rule: passed (uploads project, 165). Without it (mutation): "Expected: > 19.5, Received: 13", the stretched bracket the same 13 px as the plain one.
 **Lesson.** A font package can be cut down to save space; read its tables before relying on it.
 
-
-### Iteration 122 · 2026-11-02 08:05 (laptop clock) · M34 S1: two switches per book for the open shelf · success
-
-**Hypothesis.** Two columns on `books` (on the open shelf, default on; free to read, default off) are enough to say what a visitor may see and read, and the app can refuse "free to read" for a copyrighted book by trusting only the book file's own publisher field (Standard Ebooks, Project Gutenberg).
-**Action.** Migration 0035 (with its reverse step) adds the columns and turns on "free to read" for the owner's three Standard Ebooks editions, matched by title and publisher, never by id. `lib/library/open-shelf.ts` sets one switch on the owner's own book; the owner sees an "Open shelf" pair of buttons on each book's page.
-**Evaluation.** `npx vitest run lib/library/open-shelf.test.ts`: the publisher rule, the refusal for an Oxford edition, the two switches kept consistent, another reader's book untouched, and the migration on five books (the three, a Penguin *Frankenstein*, an Oxford *Meditations*) followed by its reverse.
-**Result.** 7 passed. Only the three Standard Ebooks rows were turned on; the Penguin *Frankenstein* with the same title was not.
-**Lesson.** Matching by title alone would have handed out a copyrighted edition with the same name; match on the publisher as well.
-**Next experiment.** S2: the signed-out Library and book page.
 ### Iteration 122 · 2026-11-02 07:15 (laptop clock) · M41 R2: figures from a paper's .zip · success
 
 **Hypothesis.** The Markdown importer can take a .zip holding one .md and its pictures, put the pictures in the book, and keep refusing audiobook zips on the Import page without uploading them, by reading only the zip's table of contents in the browser.
@@ -2605,7 +2606,6 @@ tests that pin it, in a small PR.
 **Result.** 4 passed; Postgres 2 passed (every migration up, down, up); uploads 181 passed after the test opened the reader's sidebar first (the rail with "Rewritten view" starts closed: first run timed out on the button). Mutation: the new test failed ("Expected - 4, Received + 1"). `npm run check`: 1226 passed, 2 skipped.
 **Lesson.** Add a column beside an old meaning rather than changing the meaning: fifteen queries filter `kind = 'paragraph'`, and none of them had to change.
 
-
 ### Iteration 124 · 2026-11-02 09:25 (laptop clock) · M41 R2b: tap a figure to see it full screen · success after one fix
 
 **Hypothesis.** A click listener in each book frame can open the picture in a modal dialog in the reader's own page, using the same `blob:` address the book viewer made, with no change to the book file.
@@ -2613,3 +2613,12 @@ tests that pin it, in a small PR.
 **Evaluation.** `npx vitest run app/(reader)/books/[id]/read/figure.test.ts`; `PORT=3200 npx playwright test --project=uploads --ignore-snapshots`; a mutation that never opens the view; the Greco zip on a local production build, by eye, desktop light and phone dark.
 **Result.** 4 passed; uploads 181 passed; mutation failed as it should ("getByRole('dialog', { name: 'Figure 1' })" not found). On the real paper the first look showed two faults the test could not: a small picture would never grow (CSS `max-width` only shrinks), fixed by sizing it from its own width and height and the space; and the page behind showed through the 0.86 backdrop and competed with the figure, fixed with a near-opaque ground (0.96). Greco Figure 1 (1000 × 1088) is drawn 650 × 708 on a laptop, 358 × 389 on a phone, legend under it, closed by Escape.
 **Lesson.** Look at the real thing on a real screen: both faults were visible in one screenshot and invisible to every assertion.
+
+### Iteration 125 · 2026-11-02 08:05 (laptop clock) · M34 S1: two switches per book for the open shelf · success
+
+**Hypothesis.** Two columns on `books` (on the open shelf, default on; free to read, default off) are enough to say what a visitor may see and read, and the app can refuse "free to read" for a copyrighted book by trusting only the book file's own publisher field (Standard Ebooks, Project Gutenberg).
+**Action.** Migration 0036 (with its reverse step; numbered 0035 until M41 took that number) adds the columns and turns on "free to read" for the owner's three Standard Ebooks editions, matched by title and publisher, never by id. `lib/library/open-shelf.ts` sets one switch on the owner's own book; the owner sees an "Open shelf" pair of buttons on each book's page.
+**Evaluation.** `npx vitest run lib/library/open-shelf.test.ts`: the publisher rule, the refusal for an Oxford edition, the two switches kept consistent, another reader's book untouched, and the migration on five books (the three, a Penguin *Frankenstein*, an Oxford *Meditations*) followed by its reverse.
+**Result.** 7 passed. Only the three Standard Ebooks rows were turned on; the Penguin *Frankenstein* with the same title was not.
+**Lesson.** Matching by title alone would have handed out a copyrighted edition with the same name; match on the publisher as well.
+**Next experiment.** S2: the signed-out Library and book page.

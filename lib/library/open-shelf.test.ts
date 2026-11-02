@@ -72,7 +72,7 @@ describe("setShelfSwitch", () => {
   });
 });
 
-describe("migration 0035", () => {
+describe("migration 0036", () => {
   it("turns on only the owner's three Standard Ebooks editions, and reverses cleanly", async () => {
     const database = await testDatabase();
     try {
