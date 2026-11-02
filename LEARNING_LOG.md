@@ -2632,7 +2632,7 @@ tests that pin it, in a small PR.
 **Lesson.** Before naming a new public address, search the app's folders for it; route groups hide clashes until the build.
 **Next experiment.** S3: the reader for visitors on the free books.
 
-### Iteration 124 · 2026-11-02 08:38 (laptop clock) · M34 S3: visitors read the free books · failure then success
+### Iteration 127 · 2026-11-02 08:38 (laptop clock) · M34 S3: visitors read the free books · failure then success
 
 **Hypothesis.** The signed-in reader can serve a visitor if a `visitor` prop turns off every call to the signed-in API and keeps the place in the browser, without a second reader.
 **Action.** Guards in `Reader.tsx` on the place save and check, notes, reading stats, focus, cross-links, X-ray marks and preferences; account-only tools hidden; `/browse/<id>/read` in its own route group.
