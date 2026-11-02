@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Watch the first real automatic deploy (827adfb), then merge #265 and re-run issue #267.
+next_action: Merge the S5 PR #269, then the S6 PR, install the overnight job, and re-run issue #267.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -350,6 +350,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 20:46 · Claude Opus 5.5 (laptop) · M40 S5: a live-site check an agent runs instead of Samuel; first run on the live site
+- **Done:** First automatic deploy: 827adfb (#263) live on both addresses via the Deploy workflow (Deploy log issue #268; railway variable set worked with the project token). S5: lib/live-check.ts + scripts/live-check.ts check every book's file, scan text editions, covers, and judge each Claude-built X-ray's 20 most-mentioned entries on the subscription. Live run 2026-11-02: 8 books, files all open, no scan without text, no cover missing; 20 X-ray entries in 1 book, 2 flagged (a fact going past its quote). Report (book text, not in git): ~/Documents/neolibrary-live-check/2026-11-02.md. Fixed the summary's '1 books' wording.
+- **Key paths:** lib/live-check.ts; lib/live-check.test.ts; scripts/live-check.ts; LEARNING_LOG.md (Iteration 113)
+- **Commands that worked:** zsh -ic 'npx tsx scripts/live-check.ts https://<live address>'; npx vitest run lib/live-check.test.ts (3 passed)
+- **Known issues / blockers:** None for S5. The 2 flagged X-ray facts are Samuel's to read in the report; nothing changed on the site.
+- **Exact next steps:** 1. Merge #265, label #267 build, read the bot's report. 2. S6 PR (rebase m40-overnight-scans --onto main eae7053b), install the launchd job, 3-page test. 3. Tell Samuel all merged.
 ### 2026-11-01 20:08 · Claude Opus 5.5 (laptop) · M40: #266 merged (CI starts Deploy; first Deploy run skipped correctly); the issue-bot report fix rides on #265
 - **Done:** #266 merged 0b678f8. main's CI started Deploy (workflow_dispatch, success): 'Skipped 0b678f8: since 4918cee, only the ledger, docs, skills, tests or workflows changed; nothing on the site would change.' The issue bot's first run (#267, run 41367224843) ended success after 29 turns and 18 min with no branch, PR or comment; claude-issue.yml now shows Claude's report (display_report) and comments on the issue when a run leaves nothing. That commit missed #266 (auto-merge merged its first commit as the second was pushed), so it is on this branch.
 - **Key paths:** .github/workflows/claude-issue.yml; .github/workflows/claude.yml; .github/workflows/claude-code-review.yml
