@@ -2693,3 +2693,10 @@ tests that pin it, in a small PR.
 **Evaluation.** `lib/visitor-limit.test.ts` (3: window, per address and kind, the proxy's 429 on the 121st page); the open-shelf browser test with the owner's private note in the free book, read by the visitor through seven addresses.
 **Result.** 3 passed; 298 passed (6.0m). No visitor address returned the note, the owner's email or full name; the owner's notes, place, reading, account and export routes answered 401.
 **Lesson.** Count a visitor where the server knows it is a visitor; a check on the cookie's presence is a check anyone can pass.
+### Iteration 135 · 2026-11-02 11:15 (laptop clock) · M41 R4a: a paper's summary card · success
+
+**Hypothesis.** A paper says what it asks and finds at its start and end, so reading those whole and the middle by its section titles gives a good card for a known, small cost, even for a 55-page review.
+**Action.** `prompts/paper-summary.md`, `lib/library/paper-summary.ts` (`paperText`: start, middle titles, end), the feature "paper-summary", `GET/POST /api/books/[id]/paper-summary`, `PaperSummary.tsx` on a paper's page; a test-AI answer for the task.
+**Evaluation.** 3 unit tests; R3's browser test extended; Greco's page on a local build with the test AI.
+**Result.** 3 passed (first run: the test expected more words than the fake quotes); browser passed after the same fix. Greco: the card under the title, about $0.08 at Sonnet's price for "Make it again".
+**Lesson.** A stand-in AI's answer should quote a fixed number of words, and the test should match that, not a sentence.

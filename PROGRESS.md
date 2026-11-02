@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Rebase the M34 stack, refresh its reference images, and merge S1 to S5 in order; then ask Samuel for the deploy.
+next_action: Merge M41 R4a (M34 S1-S5 and M41 R1-R4b merged); then Samuel decides the deploy of main (opens the shelf to visitors; one backup for 0036 and 0037).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -355,6 +355,16 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-02 10:03 · Claude (laptop) · M41 R4a: a paper's summary card (branch m41-paper-summary, on top of R3)
+- **Done:** Built R4a: on a paper's page, a summary card (question, method, main finding, limits) written by AI from the paper's start and end and its middle section titles; made on purpose with its cost shown, stored, free after; new AI feature 'Paper summary card' (Sonnet). Built on R3 (#286), so its PR waits for #286. No migration.
+- **Key paths:** prompts/paper-summary.md; lib/library/paper-summary.ts, paper-summary.test.ts; app/api/books/[id]/paper-summary/route.ts; app/(app)/books/[id]/PaperSummary.tsx, page.tsx, page.module.css; lib/ai/{model,model-picks,fake}.ts; e2e/uploads.spec.ts; docs/plan.md M41 R4a
+- **Commands that worked:** npx vitest run lib/library/paper-summary.test.ts -> 3 passed. PORT=3800 npx playwright test --project=uploads --ignore-snapshots -g 'research paper' -> passed. Greco on a local build (port 3900, test AI): the card on the paper's page.
+- **Known issues / blockers:** Not tried with the real AI. Its PR is stacked on #286 (rebase --onto main after #286 squash-merges).
+- **Exact next steps:** 1. After #286 merges: rebase onto main, PR, merge when green. 2. Deploy. 3. Samuel: on the Greco paper's page, Make a summary card (about $0.08).
+
+### 2026-11-02 09:45 · Claude (laptop) · M41 R3: Paper as a kind of item, by DOI or PubMed ID (branch m41-paper-kind, migration 0036)
+- **Done:** Built R3 (Samuel 2026-11-02 'what are you waiting for'; Open unknowns row 33 default recorded: papers are the reader's own, like books). A title's page asks 'Is this a research paper?'; a DOI or PubMed ID fills the real title, authors, year, journal and ids from Crossref or PubMed (fake in tests). Card and page read 'Greco, Bravo and Parsons · 1995 · Pharmacol Rev'; drawn paper card; Papers filter in the sidebar; papers left out of the cover lookup; 'This is not a paper' undoes it. Migration 0036 (kind, authors, journal, year, doi, pmid) with its reverse. Not merged, not deployed.
+- **Key paths:** db/migrations/0036_paper_details.{up,down}.sql; lib/db/schema.ts; lib/papers/{model,catalogues,fake,index}.ts, papers.test.ts; lib/library/papers.ts, papers.test.ts; app/api/books/[id]/paper/route.ts; app/(app)/books/[id]/PaperDetails.tsx, page.tsx, page.module.css; components/Cover.tsx, Cover.module.css; components/home/{Library,BookCarousel}.tsx; components/shell/{Sidebar,icons}.tsx; lib/library/{shelf,home,cover-lookup}.ts; e2e/uploads.spec.ts; docs/plan.md M41 R3
 ### 2026-11-02 09:52 · Claude Opus 5.5 · M34 S5: guard rails for visitors (request limit, leak check)
 - **Done:** lib/visitor-limit.ts: a fixed window per address and kind (pages 120, files 1200, AI 30 a minute), 429 with Retry-After. Pages counted in proxy.ts, files in /api/open/files, AI in askerOr (where a visitor is known). Leak check in the open-shelf browser test: the owner's private note, email and name appear in none of seven visitor addresses; the owner's private routes answer 401. Plan status updated (/browse, S4b).
 - **Key paths:** lib/visitor-limit.ts; lib/visitor-limit.test.ts; lib/auth/asker.ts; proxy.ts; app/api/open/files/[...key]/route.ts; app/api/books/[id]/{rewritten,prerequisites,questions}/route.ts; e2e/open-shelf.spec.ts; docs/plan.md

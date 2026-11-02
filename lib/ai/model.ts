@@ -100,6 +100,8 @@ export const FEATURE_MODELS = {
   "xray-world": "claude-haiku-5-5",
   // M41 R4b: one equation, read with the text around it; reading notation right needs more than Haiku.
   "explain-math": "claude-sonnet-5-5",
+  // M41 R4a: a whole paper's start and end, read once into four short fields: worth Sonnet's care.
+  "paper-summary": "claude-sonnet-5-5",
 } as const;
 export type AiFeature = keyof typeof FEATURE_MODELS;
 
