@@ -87,6 +87,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 110 | 2026-11-01 18:10 | M40 S2 deploys on their own | A workflow can deploy main safely after CI if it refuses migrations and checks the site | actionlint; the gate run on the real history | success (first live run to come) | let the deploy tool's own health check be the rollback |
 | 111 | 2026-11-01 18:40 | M40 S3 issues become pull requests | An issue Samuel files can start a Claude session on GitHub on his subscription that opens a tested PR | actionlint; author_association of his issues | success (first live run to come) | only writers start it, and the issue text never reaches a shell |
 | 112 | 2026-11-01 19:30 | M40 S4 agent reads | Three read-only routes give laptop checks what they need without signing in | vitest; Linux image, agents project | success | reuse the app's own rule rather than write a second one |
+| 116 | 2026-11-02 03:10 | M21 issue #267 (issue bot) | Space and Shift+Space can turn pages in Pages through the one key handler, without taking Space from buttons, links or Scroll | `npm run check`; reader project in the browser | success | add a key where the other page-turn keys are decided, so its exceptions are the same ones |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2527,3 +2528,11 @@ tests that pin it, in a small PR.
 **Result.** Nightly job, three runs: (1) `zsh -ic`: "command not found: npm" (launchd's bare PATH; Homebrew's comes from ~/.zprofile, read by login shells only); (2) `zsh -lic`: hung 10 minutes on `op completion zsh` in ~/.zshrc (1Password's tool waits with no terminal); (3) `zsh -lc` with ~/.local/bin and the Keychain token added by the job: exit 0, "No scanned book is waiting to be read." Issue bot: both runs ended "success" with no pull request and no comment; the step meant to say so stayed quiet because its search matched #265, which mentions #267. It now counts only a branch named `-issue-<n>-` or "Fixes #<n>", and posts Claude's own last message from the run.
 **Lesson.** A scheduler or a bot runs without a terminal and without Samuel's shell: test it the way it is started, not the way a session runs it.
 **Next experiment.** Re-run #267 once this is merged and read Claude's last message on the issue.
+
+### Iteration 116 · 2026-11-02 03:10 UTC · M21 issue #267: Space turns the page in Pages · success
+
+**Hypothesis.** The reader's one key handler (`onKey` in Reader.tsx) already decides when Up and Down turn a page (Pages only) and already leaves buttons and text boxes alone; Space and Shift+Space can join that same rule, adding only links, button-like elements and the selected-text bar (role "toolbar") as places that keep Space.
+**Action.** Space added to the "paged" rule in `onKey`; Shift picks the direction. The shortcuts list (ShortcutsDialog.tsx) names Space and Shift+Space. A browser test presses Space twice and Shift+Space twice and expects to be back where it began, then focuses a link and expects Space not to turn the page. The dialog test's expected rows were updated to the new list.
+**Evaluation.** `npm run check`: 1207 passed, 2 skipped. `npx playwright test --project reader --ignore-snapshots` on this Linux runner (numbers in the PR).
+**Lesson.** A new key belongs where the other page-turn keys are decided, so it gets their exceptions for free. Also the first pull request from the issue bot (M40 S3).
+**Next experiment.** CI on the PR.

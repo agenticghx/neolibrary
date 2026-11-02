@@ -9,8 +9,8 @@ import styles from "./reader.module.css";
  * between Study's two tabs with the arrow keys. Change this list when those change.
  */
 export const SHORTCUTS: { keys: string[]; what: string }[] = [
-  { keys: ["Right arrow", "Down arrow", "Page Down"], what: "Next page (Down arrow: in Pages)" },
-  { keys: ["Left arrow", "Up arrow", "Page Up"], what: "Previous page (Up arrow: in Pages)" },
+  { keys: ["Right arrow", "Down arrow", "Page Down", "Space"], what: "Next page (Down arrow and Space: in Pages)" },
+  { keys: ["Left arrow", "Up arrow", "Page Up", "Shift+Space"], what: "Previous page (Up arrow and Shift+Space: in Pages)" },
   { keys: ["Esc"], what: "Close the selected-text bar, the open panel, or this list" },
   { keys: ["F"], what: "Full screen, or leave it (Esc leaves it too)" },
   { keys: ["?"], what: "Show this list" },

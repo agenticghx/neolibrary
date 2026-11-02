@@ -616,10 +616,18 @@ export function Reader(props: {
     if (target?.tagName === "BUTTON" && e.key !== "Escape") return;
     // In Pages, and on a PDF's pages, Up and Down turn the page too (issue #257, in one page or two); in Scroll they
     // scroll the text a little, as the browser does.
-    const paged = (e.key === "ArrowDown" || e.key === "ArrowUp") && view.current?.renderer?.getAttribute("flow") !== "scrolled";
+    // Space turns to the next page and Shift+Space back, in Pages only (issue #267), as most e-book readers do; in
+    // Scroll it scrolls, as the browser does. A focused link, anything acting as a button, and the selected-text bar
+    // (role "toolbar") keep Space. (Buttons, text boxes and the shortcuts dialog have already returned above.)
+    const space =
+      e.key === " " && !target?.closest?.("a, [role='button'], [role='link'], [role='menuitem'], [role='toolbar'], summary");
+    const paged =
+      (e.key === "ArrowDown" || e.key === "ArrowUp" || space) && view.current?.renderer?.getAttribute("flow") !== "scrolled";
     if (paged) e.preventDefault();
-    if (e.key === "ArrowRight" || e.key === "PageDown" || (paged && e.key === "ArrowDown")) turnRef.current("next");
-    else if (e.key === "ArrowLeft" || e.key === "PageUp" || (paged && e.key === "ArrowUp")) turnRef.current("prev");
+    if (e.key === "ArrowRight" || e.key === "PageDown" || (paged && (e.key === "ArrowDown" || (space && !e.shiftKey))))
+      turnRef.current("next");
+    else if (e.key === "ArrowLeft" || e.key === "PageUp" || (paged && (e.key === "ArrowUp" || (space && e.shiftKey))))
+      turnRef.current("prev");
     else if (e.key === "f" || e.key === "F") toggleFull();
     else if (e.key === "Escape") {
       // The selected-text bar first (M27 Q1), then the panel.
