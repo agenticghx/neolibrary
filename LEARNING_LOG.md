@@ -2520,3 +2520,10 @@ tests that pin it, in a small PR.
 **Result.** Live: "No scanned book is waiting to be read." (every scan there has its text already). Local: "A Scanned Meditation: read; a draft waits for your send"; "Done: 2 pages read now, 0 blank, 0 not read", $0 on the subscription; DRAFT.md says Status: ready and nothing sent; the book still had no text edition afterwards (`textEdition: None`, `scan: True`). Snag: `zsh -ic` loads the Keychain's token over one set before it, so a test token must be exported inside the login shell (the nightly job wants the Keychain's, so it is right there).
 **Lesson.** Prove the path that does the work on a copy that has work for it; the live run alone proved only the empty night.
 **Next experiment.** Install the job; its first night will have nothing to read until a new scan is added.
+### Iteration 115 · 2026-11-02 (laptop clock) · M40 first runs: the nightly job and the issue bot · partial
+
+**Hypothesis.** The pieces each passed their own checks; their first real runs would show what the checks could not.
+**Evaluation.** The nightly job installed and started by launchd itself (`launchctl kickstart`); issue #267 run twice by the bot.
+**Result.** Nightly job, three runs: (1) `zsh -ic`: "command not found: npm" (launchd's bare PATH; Homebrew's comes from ~/.zprofile, read by login shells only); (2) `zsh -lic`: hung 10 minutes on `op completion zsh` in ~/.zshrc (1Password's tool waits with no terminal); (3) `zsh -lc` with ~/.local/bin and the Keychain token added by the job: exit 0, "No scanned book is waiting to be read." Issue bot: both runs ended "success" with no pull request and no comment; the step meant to say so stayed quiet because its search matched #265, which mentions #267. It now counts only a branch named `-issue-<n>-` or "Fixes #<n>", and posts Claude's own last message from the run.
+**Lesson.** A scheduler or a bot runs without a terminal and without Samuel's shell: test it the way it is started, not the way a session runs it.
+**Next experiment.** Re-run #267 once this is merged and read Claude's last message on the issue.

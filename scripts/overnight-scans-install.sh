@@ -9,7 +9,10 @@
 # The job keeps its own checkout of main (~/neolibrary-jobs, a git worktree), brings it up to date before each run
 # (and installs packages when the lockfile changed), so it never runs a half-finished branch. Its log:
 # ~/Library/Logs/neolibrary-overnight-scans.log. It needs the Mac awake at that hour, and NEOLIBRARY_AGENT_TOKEN in the
-# Keychain (loaded by the login shell the job starts).
+# Keychain, which the job reads itself. It starts a login shell (`zsh -lc`): launchd starts with a bare PATH, and
+# Homebrew's node and npm come from ~/.zprofile, which only a login shell reads (first run 2026-11-02: "command not
+# found: npm"). Not an interactive one (`-i`): ~/.zshrc then ran `op completion zsh` (1Password), which waits forever
+# with no terminal (second run). So the job adds ~/.local/bin (where `claude` is) and the token itself.
 set -eu
 label=com.neolibrary.overnight-scans
 plist="$HOME/Library/LaunchAgents/$label.plist"
@@ -37,8 +40,8 @@ cat > "$plist" <<PLIST
   <key>Label</key><string>$label</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string><string>-ic</string>
-    <string>cd "$jobs" &amp;&amp; git fetch -q origin &amp;&amp; git checkout -q --detach origin/main &amp;&amp; { cmp -s package-lock.json .installed-lock || { npm ci --no-audit --no-fund &amp;&amp; cp package-lock.json .installed-lock; }; } &amp;&amp; npx tsx scripts/overnight-scans.ts "$site"</string>
+    <string>/bin/zsh</string><string>-lc</string>
+    <string>export PATH="$HOME/.local/bin:\$PATH" NEOLIBRARY_AGENT_TOKEN="\$(security find-generic-password -a "\$USER" -s NEOLIBRARY_AGENT_TOKEN -w)" &amp;&amp; cd "$jobs" &amp;&amp; git fetch -q origin &amp;&amp; git checkout -q --detach origin/main &amp;&amp; { cmp -s package-lock.json .installed-lock || { npm ci --no-audit --no-fund &amp;&amp; cp package-lock.json .installed-lock; }; } &amp;&amp; npx tsx scripts/overnight-scans.ts "$site"</string>
   </array>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>$hour</integer><key>Minute</key><integer>0</integer></dict>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/neolibrary-overnight-scans.log</string>
