@@ -252,7 +252,7 @@ test("each library filter shows exactly its titles, with the right count", async
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/library");
   const chips = page.getByRole("navigation", { name: "Filters" });
-  await expect(chips.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished"]);
+  await expect(chips.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished", "Papers"]);
   const inBooks = page.getByRole("navigation", { name: "Books", exact: true });
   await expect(inBooks.getByRole("link")).toHaveText(["All", "Has audio"]);
   await inBooks.getByRole("link", { name: "Has audio" }).click();
