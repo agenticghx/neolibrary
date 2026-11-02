@@ -27,7 +27,8 @@ type ChapterTally = { label: string; position: number; activeMs: number; pages: 
  * `focus` (M26 R3): the focus session the sitting is part of, if any, sent with each report so the sitting keeps
  * its question; a change (the session starts, or its answer is saved) is sent at once.
  */
-export function useReadingTracker(bookId: string, listening: boolean, focus: FocusReport | null = null) {
+/** `enabled` false (M34: a visitor) records nothing and sends nothing. */
+export function useReadingTracker(bookId: string, listening: boolean, focus: FocusReport | null = null, enabled = true) {
   const state = useRef({
     id: "",
     startedAt: "",
@@ -52,7 +53,7 @@ export function useReadingTracker(bookId: string, listening: boolean, focus: Foc
   const flush = useCallback(
     (keepalive = false) => {
       const s = state.current;
-      if (!s.id) return;
+      if (!enabled || !s.id) return;
       const words = [...s.pages.values()].reduce((a, b) => a + b, 0);
       const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
       const chapters = [...s.chapters].map(([key, c]) => ({
@@ -79,7 +80,7 @@ export function useReadingTracker(bookId: string, listening: boolean, focus: Foc
         s.sent = "";
       });
     },
-    [bookId],
+    [bookId, enabled],
   );
 
   useEffect(() => {

@@ -9,7 +9,7 @@ export async function coverSigner(): Promise<(key: string | null) => string | nu
   return (key) => (key ? signFileUrl(secret, key, now) : null);
 }
 
-/** M34: the same for a visitor's page, with the visitor links' own secret and route (lib/signed-url.ts). */
+/** M34: the same for a visitor's page (a cover, or a free book's file), with the visitor links' own secret and route (lib/signed-url.ts). */
 export async function visitorCoverSigner(): Promise<(key: string | null) => string | null> {
   const secret = await serverSecret(await getDb(), "visitor-file-links");
   const now = Date.now();

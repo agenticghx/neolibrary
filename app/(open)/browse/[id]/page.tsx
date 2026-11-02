@@ -36,7 +36,14 @@ export default async function OpenBookPage({ params }: { params: Promise<{ id: s
           <h1 className={styles.title}>{book.title}</h1>
           {book.author ? <p className={styles.author}>{book.author}</p> : null}
           {book.freeToRead ? (
-            <p className={styles.freeNote}>In the public domain: free to read here (the reader opens for visitors in the next step).</p>
+            <>
+              <p>
+                <Link id="read-free-book" className={styles.action} href={`/browse/${book.id}/read`}>
+                  Read it free
+                </Link>
+              </p>
+              <p className={styles.freeNote}>In the public domain, so anyone may read it here. Your place is kept in this browser.</p>
+            </>
           ) : (
             <p>
               <a className={styles.action} href={goodreadsUrl(book.title, book.author)} rel="noopener noreferrer" target="_blank">

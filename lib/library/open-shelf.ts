@@ -116,16 +116,24 @@ export async function getOpenBook(db: Db, id: string) {
 }
 export type OpenBook = NonNullable<Awaited<ReturnType<typeof getOpenBook>>>;
 
-/** May a visitor have this stored file? Only the cover of a book on the open shelf (S3 adds the free books' files). */
+/** May a visitor have this stored file? The cover of a book on the open shelf, or the file of a book free to read. */
 export async function visitorMayHave(db: Db, key: string): Promise<boolean> {
   const ownerId = await shelfOwnerId(db);
   if (!ownerId) return false;
   const [hit] = await db
     .select({ id: books.id })
     .from(books)
-    .where(and(onShelf(ownerId), eq(books.coverKey, key)))
+    .where(and(onShelf(ownerId), or(eq(books.coverKey, key), and(eq(books.fileKey, key), eq(books.freeToRead, true)))))
     .limit(1);
   return Boolean(hit);
+}
+
+/** S3: a book a visitor may read (on the shelf and free to read, with a file), with its stored file's key; else null. */
+export async function freeBookToRead(db: Db, id: string) {
+  const book = await getOpenBook(db, id);
+  if (!book?.freeToRead || !book.fileType) return null;
+  const [file] = await db.select({ fileKey: books.fileKey }).from(books).where(eq(books.id, book.id));
+  return file?.fileKey ? { ...book, fileType: book.fileType, fileKey: file.fileKey } : null;
 }
 
 /** Where a visitor can find a book that is not free to read: a Goodreads search for its title and author (Samuel, 2026-11-02). */
