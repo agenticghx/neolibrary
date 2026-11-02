@@ -21,7 +21,8 @@ import { needsReread } from "@/lib/library/questions";
 import { collectionsForBook } from "@/lib/library/shelf";
 import { listImports } from "@/lib/readalong/importer";
 import { AudiobookUpload } from "./AudiobookUpload";
-import { removeBookAction, toggleCollectionAction } from "../../actions";
+import { isPublicDomainEdition } from "@/lib/library/open-shelf";
+import { removeBookAction, setShelfSwitchAction, toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Book" };
@@ -143,6 +144,42 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
                   </li>
                 ))}
               </ul>
+            </div>
+          ) : null}
+          {user.role === "admin" ? (
+            <div className={styles.collections} data-testid="open-shelf">
+              <p className={styles.collectionsTitle}>Open shelf</p>
+              <ul>
+                {(
+                  [
+                    ["onShelf", "Anyone can see it", book.onShelf, true],
+                    ["freeToRead", "Anyone can read it", book.freeToRead, book.freeToRead || isPublicDomainEdition(book)],
+                  ] as const
+                ).map(([which, label, on, allowed]) =>
+                  allowed ? (
+                    <li key={which}>
+                      <form action={setShelfSwitchAction}>
+                        <input type="hidden" name="bookId" value={book.id} />
+                        <input type="hidden" name="which" value={which} />
+                        <input type="hidden" name="on" value={on ? "0" : "1"} />
+                        <button type="submit" className={styles.collection} aria-pressed={on}>
+                          {label}
+                        </button>
+                      </form>
+                    </li>
+                  ) : null,
+                )}
+              </ul>
+              <p className={styles.notesSummary}>
+                {book.freeToRead
+                  ? "Visitors who are not signed in can open and read this book."
+                  : book.onShelf
+                    ? "Visitors see the title, cover, author and description, and a link to find it on Goodreads."
+                    : "Hidden from visitors."}
+                {!book.freeToRead && !isPublicDomainEdition(book)
+                  ? " Only a public-domain edition (Standard Ebooks, Project Gutenberg) can be free to read."
+                  : ""}
+              </p>
             </div>
           ) : null}
           {hasFile || marks.length ? (
