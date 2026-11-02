@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Watch #272 merge and deploy itself, then merge the review fix.
+next_action: After 02:00, read the overnight scan job's log for its first scheduled run.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -351,6 +351,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 05:23 · Claude Opus 5.5 (laptop) · One ledger: entries outside a PR go straight to main; 40 stuck entries copied over; 19 old worktrees removed
+- **Done:** Samuel asked (2026-11-02) whether keeping one ledger in the main folder was a good design; answer: no, the real ledger is GitHub's main copy (the main folder sits on the old branch m25-scan-compare and the PR hygiene check needs each entry in its PR). Then, at his word ('yes do 1, 3 and 4'): (1) the Decision Queue page in singularity now reads one ledger per project, the newest copy (local main when level with or ahead of GitHub, else GitHub's main); 10 Neolibrary questions settled on main left the page, 3 partly-open rows came back, 47 questions now, none points to two ledgers. (3) New laptop tool ledger-to-main writes an entry on a throwaway copy of origin/main and pushes it as a fast-forward; CLAUDE.local.md and the checkpoint skill use it for deploy and checkpoint entries. 40 entries that never reached GitHub (19 in the main folder, 21 in old worktrees, 2026-10-19 to 11-02) copied onto main in date order (1c97ede0, 5b25a267), site addresses and book ids replaced. ledger-append no longer keeps '#262'-style issue numbers as a header comment. (4) 19 old worktrees and ../neolibrary-ledger-f346 removed; their branches kept; stray commit 62745712 kept as branch m27-flake-note-62745712.
+- **Key paths:** ~/projects/personal/singularity/ledger/ledger-to-main; ~/projects/personal/singularity/ledger/ledger-append; ~/projects/personal/singularity/decision-queue/extract.py; CLAUDE.local.md (laptop only)
+- **Commands that worked:** ledger-to-main --trailer '...' -- <ledger-append args>; python3 -I decision-queue/extract.py out.json -> kept 47; python3 -m pytest -q ledger/tests -> 105 passed; git worktree list -> 3
+- **Known issues / blockers:** Singularity changes are uncommitted (its rule: commit only when Samuel asks). The old *-record branches (about 38) still exist; their entries in removed worktrees are now on main, others not checked. The main folder's PROGRESS.md keeps its old uncommitted copy; read origin/main instead.
+- **Exact next steps:** 1. After 02:00, read ~/Library/Logs/neolibrary-overnight-scans.log (first scheduled run). 2. Next checkpoint here: confirm the skill uses ledger-to-main and the entry lands on main. 3. Samuel: delete the old *-record branches now that their entries are on main?
 
 ### 2026-11-02 00:00 · Claude Opus 5.5 (laptop) · Checkpoint: M40 all six steps merged and proven; live d27bc9a
 - **Done:** M40 merged: #260, #261, #262, #263, #264, #265, #266, #269, #270, #271, #273. Auto-deploy proven (827adfb, d27bc9a; Deploy log #268). Issue bot proven (#267 -> #272 -> live). Live check run (8 books ok, 2 of 20 X-ray facts flagged). Nightly scan job installed and run once (exit 0).
