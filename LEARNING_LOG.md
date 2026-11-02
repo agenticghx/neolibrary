@@ -2658,7 +2658,7 @@ tests that pin it, in a small PR.
 **Then.** CI run 41476467866 failed focus.spec's whole-book focus: its reader's join answered "Too many attempts. Wait 15 minutes." The new own-keys reader was the eleventh join from the test machine's address within 15 minutes (the limit is 10, `app/(public)/actions.ts`). It now joins from an address of its own (x-forwarded-for). A new test that signs someone up spends from a budget every other test shares.
 **Next experiment.** AI for visitors on the free books, then S5 guard rails.
 
-### Iteration 126 · 2026-11-02 09:43 (laptop clock) · M34 S4b: AI help for visitors on the free books · failure then success
+### Iteration 129 · 2026-11-02 09:43 (laptop clock) · M34 S4b: AI help for visitors on the free books · failure then success
 
 **Hypothesis.** A visitor can use the existing Need to know, Test yourself and Rewritten routes on a free book if the route treats them as the shelf owner's copy with a non-owner role (`lib/auth/asker.ts`): saved answers free, new ones only with their own key, the owner's marks left out.
 **Evaluation.** The open-shelf browser test: the owner makes a Need to know and a question bank and marks one question; the visitor, with no cookie, reads them, asks again, asks for a new rewrite without and with a key, and asks about a book that is not free.
