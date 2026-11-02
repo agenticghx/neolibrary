@@ -144,6 +144,34 @@ test("M34: a visitor sees the owner's shelf, the free book marked free, and Good
     expect((await ctx.request.get(`/api/books/${timeMachine}/prerequisites?${at}`)).status()).toBe(401);
     expect((await ctx.request.get(`/api/books/${frankenstein}/ask`)).status()).toBe(401);
 
+    // S5, the leak check: the owner's own note in the free book, and the owner's email and name, appear in nothing a
+    // visitor can reach: the shelf, the book's page, the reader, the files' route and the three AI routes.
+    const SECRET = `PRIVATE-NOTE-${Date.now()}`;
+    const { hits } = await (await page.request.get(`/api/books/${frankenstein}/search?q=${encodeURIComponent("creature")}`)).json();
+    const noted = await page.request.post(`/api/books/${frankenstein}/annotations`, {
+      data: { kind: "highlight", cfi: hits[0].cfi, quote: { exact: "creature" }, color: "sage", body: SECRET },
+    });
+    expect(noted.ok(), "the owner notes a passage").toBe(true);
+    const reachable = [
+      `/browse`,
+      `/browse?free=1`,
+      `/browse/${frankenstein}`,
+      `/browse/${frankenstein}/read`,
+      `/api/books/${frankenstein}/prerequisites?${at}`,
+      `/api/books/${frankenstein}/questions?${at}`,
+      `/api/books/${frankenstein}/rewritten?${new URLSearchParams({ from: kept!, to: kept! })}`,
+    ];
+    for (const path of reachable) {
+      const res = await ctx.request.get(path);
+      expect(res.status(), path).toBe(200);
+      const body = await res.text();
+      for (const secret of [SECRET, "owner@example.com", "Samuel Example"]) expect(body.includes(secret), `${path} shows ${secret}`).toBe(false);
+    }
+    // The owner's notes, places and stats routes stay closed.
+    for (const path of [`/api/books/${frankenstein}/annotations`, `/api/books/${frankenstein}/position`, `/api/books/${frankenstein}/reading`, "/api/me", "/api/export"]) {
+      expect((await ctx.request.get(path)).status(), path).toBe(401);
+    }
+
     // In the reader: a slim sidebar (Study and Rewritten), Study with two tabs, and the owner's saved answer shown.
     await visitor.getByRole("button", { name: "Sidebar" }).click();
     const rail = visitor.getByRole("navigation", { name: "Reading tools" });

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { agentUnauthorised } from "@/lib/auth/agent-401";
+import { takeVisitorRequest, visitorAddress } from "@/lib/visitor-limit";
 
 // First gate in front of every request (Next.js "proxy").
 //
@@ -97,6 +98,17 @@ function gate(req: NextRequest) {
     url.pathname = pathname === "/" ? "/browse" : "/sign-in";
     url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
     return NextResponse.redirect(url);
+  }
+  // M34 S5: the open shelf's pages, for anyone, within a limit per address (lib/visitor-limit.ts). Counted for the
+  // signed-in too: a cookie here proves nothing, and 120 pages a minute is far more than a person reads.
+  if (/^\/browse(\/|$)/.test(pathname)) {
+    const taken = takeVisitorRequest("page", visitorAddress(req.headers));
+    if (!taken.ok) {
+      return new NextResponse(`Too many pages for now. Try again in ${taken.retryAfterSeconds} seconds.`, {
+        status: 429,
+        headers: { "retry-after": String(taken.retryAfterSeconds), "content-type": "text/plain; charset=utf-8" },
+      });
+    }
   }
   return isApi ? NextResponse.next() : withPolicy(req);
 }

@@ -2,7 +2,7 @@ import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
 import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
-import { askerFor } from "@/lib/auth/asker";
+import { askerOr } from "@/lib/auth/asker";
 import { getDb } from "@/lib/db";
 import { getStyles } from "@/lib/library/ai-style";
 import { chapterFor, estimateNeedToKnow, listNeedToKnow, needToKnow, PrerequisitesError } from "@/lib/library/prerequisites";
@@ -25,9 +25,9 @@ function errorResponse(e: unknown) {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  // M34: a visitor, for a free book only (lib/auth/asker.ts).
-  const user = await askerFor(await getDb(), bookId);
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  // M34: a visitor, for a free book only, within their request limit (lib/auth/asker.ts).
+  const user = await askerOr(await getDb(), bookId, req);
+  if (user instanceof Response) return user;
   const cfi = new URL(req.url).searchParams.get("cfi") ?? "";
   if (!isCfi(cfi)) return Response.json({ error: "Open a chapter first." }, { status: 400 });
   const db = await getDb();
@@ -51,9 +51,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  // M34: a visitor, for a free book only (lib/auth/asker.ts).
-  const user = await askerFor(await getDb(), bookId);
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  // M34: a visitor, for a free book only, within their request limit (lib/auth/asker.ts).
+  const user = await askerOr(await getDb(), bookId, req);
+  if (user instanceof Response) return user;
   const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; fresh?: unknown };
   if (typeof body.chapterId !== "string") return Response.json({ error: "Choose a chapter." }, { status: 400 });
   try {

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M41 #288 (R4b), then M34 #287 (S5), then M41 R4a; then ask Samuel to deploy (one backup for 0036 and 0037).
+next_action: Rebase the M34 stack, refresh its reference images, and merge S1 to S5 in order; then ask Samuel for the deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 09:52 · Claude Opus 5.5 · M34 S5: guard rails for visitors (request limit, leak check)
+- **Done:** lib/visitor-limit.ts: a fixed window per address and kind (pages 120, files 1200, AI 30 a minute), 429 with Retry-After. Pages counted in proxy.ts, files in /api/open/files, AI in askerOr (where a visitor is known). Leak check in the open-shelf browser test: the owner's private note, email and name appear in none of seven visitor addresses; the owner's private routes answer 401. Plan status updated (/browse, S4b).
+- **Key paths:** lib/visitor-limit.ts; lib/visitor-limit.test.ts; lib/auth/asker.ts; proxy.ts; app/api/open/files/[...key]/route.ts; app/api/books/[id]/{rewritten,prerequisites,questions}/route.ts; e2e/open-shelf.spec.ts; docs/plan.md
+- **Commands that worked:** npx vitest run lib/visitor-limit.test.ts -> 3 passed; npm run check -> 1236 passed; PORT=3171 npx playwright test --project=open-shelf --project=own-keys --project=flows --ignore-snapshots -> 298 passed
+- **Known issues / blockers:** The limit lives in the one server process: a restart forgets the counts (fine for one server). M34 is a stack of six PRs (#278, #280, #281, #282, #285, S5); S1's migration holds every automatic deploy until Samuel's backup and deploy.
+- **Exact next steps:** 1. Rebase the stack so each branch has the approved images, refresh the rest from CI, look at them. 2. Merge #278, #280, #281, #282, #285 and S5 in order with the merge train. 3. Ask Samuel to approve the backup and deploy (migration 0035); after the deploy, check /browse and the three free books on the live site.
 
 ### 2026-11-02 09:55 · Claude (laptop) · M41 R4b: explain an equation (branch m41-explain-math)
 - **Done:** Built R4b: a tap on a displayed equation opens 'Equation (N)' with its LaTeX and an AI explanation (what it says, each symbol, how to read it) from the LaTeX and the prose around it; stored once, served again free, 'Ask again' on purpose; provenance and caps as every AI answer. New AI feature 'Explain an equation' (Sonnet default). Not merged, not deployed; no migration.
