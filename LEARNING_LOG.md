@@ -2592,6 +2592,7 @@ tests that pin it, in a small PR.
 
 ### Iteration 122 · 2026-11-02 07:15 (laptop clock) · M41 R2: figures from a paper's .zip · success
 
+### Iteration 122 · 2026-11-02 07:56 (laptop clock) · M34 S1: two switches per book for the open shelf · success
 **Hypothesis.** The Markdown importer can take a .zip holding one .md and its pictures, put the pictures in the book, and keep refusing audiobook zips on the Import page without uploading them, by reading only the zip's table of contents in the browser.
 **Action.** `lib/library/markdown-pictures.ts` (paths from the Markdown file's folder, nothing outside the zip, PNG/JPEG/GIF/WebP by their bytes, no SVG); `lib/library/zip-names.ts` (a zip's names from its central directory, read with `Blob.slice`); `importBook` takes a `.zip` and returns a note ("With 33 pictures."); the Import page shows it.
 **Evaluation.** `npx vitest run lib/library/markdown-pictures.test.ts lib/library/markdown-epub.test.ts`; `npx playwright test e2e/uploads.spec.ts --ignore-snapshots`; a mutation that stops pictures being read; the Greco Markdown with its 33 figures zipped (6.8 MB) and imported on a local production build, looked at in Chrome and WebKit, desktop and phone.
@@ -2623,7 +2624,7 @@ tests that pin it, in a small PR.
 **Lesson.** Matching by title alone would have handed out a copyrighted edition with the same name; match on the publisher as well.
 **Next experiment.** S2: the signed-out Library and book page.
 
-### Iteration 123 · 2026-11-02 08:40 (laptop clock) · M34 S2: the open shelf for visitors · failure then success
+### Iteration 123 · 2026-11-02 08:22 (laptop clock) · M34 S2: the open shelf for visitors · failure then success
 
 **Hypothesis.** A visitor's pages can live beside the signed-in app, in their own route group, if every query goes through one module (`lib/library/open-shelf.ts`) that picks only the fields a visitor may see, and covers go through their own signed route with their own secret.
 **Action.** `/browse` and `/browse/<id>` (route group `app/(open)`); `/api/open/files/<key>`, signed with "visitor-file-links" and checked again when used; the proxy lets those through and sends a visitor who opens `/` to `/browse`.
