@@ -6,6 +6,7 @@ import type { Attempt, Item } from "@/lib/library/explain-back";
 import { StudyTabs, type StudyTab } from "./StudyTabs";
 import own from "./ExplainPanel.module.css";
 import styles from "./reader.module.css";
+import { aiFetch, voiceFetch } from "@/lib/own-keys";
 
 type Anchor = { cfi: string; quote: { exact: string; prefix: string; suffix: string } };
 type Data = {
@@ -56,7 +57,7 @@ export function ExplainPanel({
 
   useEffect(() => {
     let live = true;
-    fetch(`/api/books/${bookId}/explain-back?cfi=${encodeURIComponent(cfi)}`)
+    aiFetch(`/api/books/${bookId}/explain-back?cfi=${encodeURIComponent(cfi)}`)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (!live) return;
@@ -75,7 +76,7 @@ export function ExplainPanel({
     setError(null);
     setSavedOnly(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/explain-back`, {
+      const res = await aiFetch(`/api/books/${bookId}/explain-back`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chapterId: data.chapter.id, summary }),
@@ -110,7 +111,7 @@ export function ExplainPanel({
     form.set("cfi", data.anchor.cfi);
     form.set("quote", JSON.stringify(data.anchor.quote));
     form.set("durationMs", String(Math.round(durationMs)));
-    const res = await fetch(`/api/books/${bookId}/voice-notes`, { method: "POST", body: form });
+    const res = await voiceFetch(`/api/books/${bookId}/voice-notes`, { method: "POST", body: form });
     const body = (await res.json().catch(() => ({}))) as { annotation?: { voice?: { transcript?: string } }; error?: string };
     if (!res.ok) throw new Error(body.error ?? "The recording was not saved.");
     onSaved();

@@ -5,6 +5,7 @@ import type { XrayList } from "@/lib/library/xray";
 import { XrayEntryCard } from "./XrayEntryCard";
 import styles from "./reader.module.css";
 import own from "./XrayCard.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 /**
  * The card that opens from a name on the page (M32 X2, Samuel's pick A): over
@@ -20,7 +21,7 @@ export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookI
   useEffect(() => {
     let live = true;
     const load = () =>
-      fetch(`/api/books/${bookId}/xray?${new URLSearchParams(cfi ? { cfi } : {})}`)
+      aiFetch(`/api/books/${bookId}/xray?${new URLSearchParams(cfi ? { cfi } : {})}`)
         .then(async (res) => (res.ok ? ((await res.json()) as XrayList & { fake?: boolean }) : null))
         .then((body) => live && body && setData(body))
         .catch(() => undefined);

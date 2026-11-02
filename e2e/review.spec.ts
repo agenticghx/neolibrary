@@ -44,7 +44,13 @@ async function newReader(page: Page, browser: Browser) {
   await page.getByLabel(/Who is it for/).fill("Rhea, daily review");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
   const link = await page.getByTestId("invite-link").inputValue();
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } });
+  // M34 S4: a reader's AI answers are paid with their own key (the owner's pays only for the owner). This reader has one:
+  // every request of this context carries it (the browser itself sends it only with AI requests; e2e/own-keys.spec.ts).
+  const ctx = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "x-neolibrary-anthropic-key": "sk-ant-e2e-review-reader" },
+  });
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Rhea Reviewer");

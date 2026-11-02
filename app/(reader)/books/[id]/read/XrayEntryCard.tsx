@@ -6,6 +6,7 @@ import { KIND_LABELS, type XrayChapter, type XrayFact, type XrayListEntry } from
 import type { LibraryLink, WorldView } from "@/lib/library/xray-layers";
 import styles from "./reader.module.css";
 import own from "./XrayEntryCard.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 type Layers = { library: LibraryLink[]; world: WorldView | null; estimate: number | null; fake: boolean; for: string };
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
@@ -66,7 +67,7 @@ export function XrayEntryCard({
   const [askError, setAskError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    fetch(`/api/books/${bookId}/xray/entry?${new URLSearchParams({ entry: entry.id })}`)
+    aiFetch(`/api/books/${bookId}/xray/entry?${new URLSearchParams({ entry: entry.id })}`)
       .then(async (res) => (res.ok ? ((await res.json()) as Omit<Layers, "for">) : null))
       .then((l) => live && l && setLoaded({ ...l, for: entry.id }))
       .catch(() => undefined);
@@ -80,7 +81,7 @@ export function XrayEntryCard({
     setAsking(true);
     setAskError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/xray/entry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entry: entry.id }) });
+      const res = await aiFetch(`/api/books/${bookId}/xray/entry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entry: entry.id }) });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "That did not work. Try again.");
       setLoaded((l) => (l && l.for === entry.id ? { ...l, world: body.world } : l));

@@ -6,6 +6,7 @@ import { chapterName } from "@/lib/library/chapter-name";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import own from "./WhereWereWe.module.css";
 import styles from "./reader.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 // The server's rule, repeated so Save waits for enough words (the server checks again).
 const MIN_WORDS = 8;
@@ -48,7 +49,7 @@ export function WhereWereWeStrip({ bookId, recall, onSeeMissed, onSaved }: { boo
   const save = async () => {
     setState("saving");
     setError(null);
-    const res = await fetch(`/api/books/${bookId}/explain-back`, {
+    const res = await aiFetch(`/api/books/${bookId}/explain-back`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ chapterId: recall.chapterId, summary: text }),

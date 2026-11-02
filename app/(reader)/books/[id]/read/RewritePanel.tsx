@@ -5,6 +5,7 @@ import { LEVELS, rewriteFor, STYLE_NAMES, strictnessFrom, type Strictness, type 
 import type { RewriteView } from "@/lib/library/rewrite";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import styles from "./reader.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 type Data = {
   paragraph: { id: string; text: string; cfi: string; chapter: string };
@@ -44,14 +45,14 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
   }, []);
 
   const load = async (query: string, pick?: string) => {
-    const res = await fetch(`/api/books/${bookId}/rewrites?${query}`);
+    const res = await aiFetch(`/api/books/${bookId}/rewrites?${query}`);
     show(res, await res.json().catch(() => ({})), pick);
   };
 
   // The reader remounts this panel (key) for each new paragraph.
   useEffect(() => {
     let live = true;
-    fetch(`/api/books/${bookId}/rewrites?${new URLSearchParams({ cfi })}`)
+    aiFetch(`/api/books/${bookId}/rewrites?${new URLSearchParams({ cfi })}`)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (live) show(res, body);
@@ -67,7 +68,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
     setBusy(fresh ? "again" : key);
     setError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/rewrites`, {
+      const res = await aiFetch(`/api/books/${bookId}/rewrites`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sectionId: data.paragraph.id, level, fresh, ...(level === "ste" ? { strictness: strict } : {}) }),

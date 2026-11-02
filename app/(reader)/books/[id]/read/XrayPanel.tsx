@@ -7,6 +7,7 @@ import { StudyTabs, type StudyTab } from "./StudyTabs";
 import { Trail, XrayEntryCard } from "./XrayEntryCard";
 import styles from "./reader.module.css";
 import own from "./XrayPanel.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 /**
  * Who & what (M32 X1): the people, places and terms the book names, most
@@ -38,7 +39,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
   useEffect(() => {
     let live = true;
     const load = () =>
-      fetch(`/api/books/${bookId}/xray?${new URLSearchParams({ cfi })}`)
+      aiFetch(`/api/books/${bookId}/xray?${new URLSearchParams({ cfi })}`)
         .then(async (res) => {
           const body = await res.json().catch(() => ({}));
           if (!live) return;
@@ -59,7 +60,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
   // list fetched again when it ends (kinds and facts have arrived).
   const loadBuild = useCallback(
     () =>
-      fetch(`/api/books/${bookId}/xray/build`)
+      aiFetch(`/api/books/${bookId}/xray/build`)
         .then(async (res) => (res.ok ? ((await res.json()) as Build) : null))
         .then((b) => b && setBuild(b))
         .catch(() => undefined),
@@ -82,7 +83,7 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
     setBusy(true);
     setBuildError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/xray/build`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: agree }) });
+      const res = await aiFetch(`/api/books/${bookId}/xray/build`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: agree }) });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "That did not start. Try again.");
       setBuild({ configured: true, fake: build?.fake, ...body });

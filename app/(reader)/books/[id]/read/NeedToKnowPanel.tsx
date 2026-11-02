@@ -5,6 +5,7 @@ import { STYLE_NAMES, type Style } from "@/lib/library/levels";
 import { StudyTabs, type StudyTab } from "./StudyTabs";
 import type { PrerequisitesView } from "@/lib/library/prerequisites";
 import styles from "./reader.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 type Data = {
   chapter: { id: string; label: string };
@@ -38,7 +39,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab }: { bookId: string; cfi: s
   // The reader remounts this panel (key) when the chapter changes.
   useEffect(() => {
     let live = true;
-    fetch(`/api/books/${bookId}/prerequisites?${new URLSearchParams({ cfi: at })}`)
+    aiFetch(`/api/books/${bookId}/prerequisites?${new URLSearchParams({ cfi: at })}`)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (live) show(res, body);
@@ -54,7 +55,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab }: { bookId: string; cfi: s
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/prerequisites`, {
+      const res = await aiFetch(`/api/books/${bookId}/prerequisites`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chapterId: data.chapter.id, fresh }),

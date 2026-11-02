@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { AudioError, placeOnPage, speakPassage, trackAudioUrl, type Track } from "@/lib/library/audio";
 import { listenInfo } from "@/lib/library/listen";
 import { isCfi } from "@/lib/library/reading";
-import { getSpeechModel } from "@/lib/speech";
+import { speechModelFor } from "@/lib/speech";
 import { SpeechError, SpeechNotConfigured } from "@/lib/speech/model";
 import { getStorage } from "@/lib/storage";
 
@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   try {
     const db = await getDb();
-    const out = await speakPassage(db, await getStorage(), getSpeechModel(), user.id, {
+    const out = await speakPassage(db, await getStorage(), speechModelFor(user, req), user.id, {
       bookId,
       sectionId: body.sectionId,
       voice: body.voice,

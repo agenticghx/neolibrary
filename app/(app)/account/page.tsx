@@ -7,6 +7,7 @@ import { runningFocus } from "@/lib/library/focus-lock";
 import { getBook } from "@/lib/library/paths";
 import { getPreferences } from "@/lib/library/preferences";
 import { signOutAction } from "../actions";
+import { OwnKeysSetting } from "@/components/own-keys/OwnKeysSetting";
 import { AccountForms } from "./AccountForms";
 import { ReadingPreferences } from "./ReadingPreferences";
 import styles from "./page.module.css";
@@ -54,6 +55,12 @@ export default async function AccountPage() {
         </section>
       ) : null}
       <ReadingPreferences initial={preferences} />
+      {/* M34 S4: the owner's keys pay only for the owner; everyone else brings their own, kept in their browser. */}
+      {user.role === "admin" ? null : (
+        <section className={styles.card} aria-label="Your own keys">
+          <OwnKeysSetting />
+        </section>
+      )}
       <AccountForms />
     </main>
   );

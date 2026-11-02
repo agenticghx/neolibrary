@@ -5,6 +5,7 @@ import type { AskResult, AskView, PassageView } from "@/lib/library/ask";
 import { StudyTabs, type StudyTab } from "./StudyTabs";
 import own from "./AskPanel.module.css";
 import styles from "./reader.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 type Data = { estimate: number | null; latest: AskView | null; fake: boolean };
 
@@ -29,7 +30,7 @@ export function AskPanel({ bookId, onTab, onGo }: { bookId: string; onTab: (tab:
 
   useEffect(() => {
     let live = true;
-    fetch(`/api/books/${bookId}/ask`)
+    aiFetch(`/api/books/${bookId}/ask`)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (!live) return;
@@ -50,7 +51,7 @@ export function AskPanel({ bookId, onTab, onGo }: { bookId: string; onTab: (tab:
     setError(null);
     setMissing(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/ask`, {
+      const res = await aiFetch(`/api/books/${bookId}/ask`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ question: q }),

@@ -10,6 +10,7 @@ import { downloadBook, downloadedWords } from "@/lib/reader/download";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
+import { OwnKeysSetting } from "@/components/own-keys/OwnKeysSetting";
 import { AiStyleSetting } from "./AiStyleSetting";
 import { OfflineSetting } from "./OfflineSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
@@ -63,6 +64,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
 import { figureAt, type Figure } from "./figure";
 import styles from "./reader.module.css";
+import { voiceFetch } from "@/lib/own-keys";
 
 type TocItem = { label: string; href: string; subitems?: TocItem[] };
 type FoliateView = HTMLElement & {
@@ -327,6 +329,8 @@ export function Reader(props: {
    * listening, focus, search, offline) are not offered. `backHref` is the book's page on the open shelf.
    */
   visitor?: { backHref: string };
+  /** M34 S4: this reader pays for AI and voices with their own keys (anyone but the owner): the settings offer them. */
+  ownKeys?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -1548,7 +1552,7 @@ export function Reader(props: {
     form.set("cfi", picked.cfi);
     form.set("quote", JSON.stringify({ exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix }));
     form.set("durationMs", String(Math.round(durationMs)));
-    const res = await fetch(`/api/books/${props.bookId}/voice-notes`, { method: "POST", body: form });
+    const res = await voiceFetch(`/api/books/${props.bookId}/voice-notes`, { method: "POST", body: form });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "The voice note was not saved.");
     clearSelection();
@@ -2447,6 +2451,7 @@ export function Reader(props: {
             <button type="button" className={styles.linkButton} onClick={() => setShortcuts(true)}>
               Keyboard shortcuts
             </button>
+            {props.ownKeys && !props.visitor ? <OwnKeysSetting /> : null}
             {props.visitor ? null : (
               <>
                 <AiStyleSetting bookId={props.bookId} />

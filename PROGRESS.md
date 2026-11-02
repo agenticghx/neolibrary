@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #284 (R1d), #286 (R3, migration 0037), #288 (R4b), R4a, taking turns with M34; deploy only after M34 is fully merged and Samuel says "deploy" (one backup for 0036 and 0037).
+next_action: Build visitor AI on the free books (saved answers free, new ones with their own key), then M34 S5 guard rails.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 09:09 · Claude Opus 5.5 · M34 S4: bring your own key (readers pay for new AI answers and voices with their own keys)
+- **Done:** textModelFor / speechModelFor / transcriberFor: the owner uses the library's keys; anyone else only the key in their request header (x-neolibrary-anthropic-key, x-neolibrary-elevenlabs-key), else a message saying how to add one. Own-key models have provider '<p>-own-key': saved like any answer, no owner caps, not in the owner's spending. AI pictures owner-only. Browser: lib/own-keys.ts (localStorage, aiFetch, voiceFetch) on every AI and voice call in the reader; OwnKeysSetting in Reading settings and on Account (not for the owner). Help page paragraph. Review tests' reader carries a key.
+- **Key paths:** lib/own-key-names.ts; lib/ai/own-key.ts; lib/ai/own-key.test.ts; lib/ai/model-picks.ts; lib/ai/generate.ts; lib/speech/index.ts; lib/own-keys.ts; components/own-keys/; app/api/books/[id]/*/route.ts (ask, explain-back, prerequisites, questions, rewrites, rewritten, xray/build, xray/entry, audio, voice-notes, pictures); app/(reader)/books/[id]/read/*Panel.tsx; components/player/ListenSession.tsx; app/(app)/account/page.tsx; app/(app)/help/page.tsx; e2e/own-keys.spec.ts; e2e/review.spec.ts
+- **Commands that worked:** npx vitest run lib/ai/own-key.test.ts -> 6 passed; npm run check -> 1232 passed; PORT=3171 npx playwright test --ignore-snapshots -> 406 passed, 2 failed (review, fixed); --project=review --project=own-keys -> 299 passed
+- **Known issues / blockers:** Visitors still have no AI on the free books (next step). Help and Account reference images will change (merge train). Whole M34 merges as one batch after S1's migration (#278 held).
+- **Exact next steps:** 1. Visitor AI on the free books: saved answers free, new ones with the visitor's own key. 2. S5: request limit per visitor; check no visitor page shows a note, place, count or key. 3. Merge S1 to S5 in order with the merge train; deploy at Samuel's word after a backup (migration 0035).
 
 ### 2026-11-02 09:29 · Claude (laptop) · M41 R1d: Listen and whole-book narration pass over equations and table cells (branch m41-listen-skip)
 - **Done:** Built R1d at Samuel's word (2026-11-02, 'what are you waiting for'): Listen's paragraph chain (passageFor) holds prose only, so next and previous never stop on an equation or table cell; starting Listen on one reads on from the next prose; whole-book narration's list and price leave them out. Nothing is announced in their place. Uploaded audiobooks unchanged. Not merged, not deployed; no migration.

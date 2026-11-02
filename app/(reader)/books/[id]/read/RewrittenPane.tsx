@@ -11,6 +11,7 @@ import { STYLE_EVENT } from "./AiStyleSetting";
 import { ReadabilityBadge } from "./ReadabilityBadge";
 import type { RewrittenMode } from "./settings";
 import styles from "./reader.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 type Data = { style: Style; pieces: Piece[]; fake: boolean };
 
@@ -73,7 +74,7 @@ export function RewrittenPane(props: {
   useEffect(() => {
     let live = true;
     const t = setTimeout(() => {
-      fetch(`/api/books/${bookId}/rewritten?${new URLSearchParams({ from, to })}`)
+      aiFetch(`/api/books/${bookId}/rewritten?${new URLSearchParams({ from, to })}`)
         .then(async (res) => {
           const b = await res.json().catch(() => ({}));
           if (!live) return;
@@ -122,7 +123,7 @@ export function RewrittenPane(props: {
     try {
       for (const [i, sectionId] of todo.entries()) {
         if (placeRef.current !== at || !turnRef.current.on || mustAskAgain(sinceOk)) break;
-        const res = await fetch(`/api/books/${bookId}/rewritten`, {
+        const res = await aiFetch(`/api/books/${bookId}/rewritten`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ sectionId }),

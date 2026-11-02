@@ -1,0 +1,82 @@
+/* M34 S4: your own keys, in the reader's settings and on the Account page. */
+.group {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.group legend {
+  margin-bottom: var(--space-2);
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.hint {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}
+
+.row {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.for {
+  color: var(--ink-500);
+  font-weight: normal;
+}
+
+.inputRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.saved {
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}
+
+.button {
+  justify-self: start;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-pill);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

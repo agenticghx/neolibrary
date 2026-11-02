@@ -2647,3 +2647,13 @@ tests that pin it, in a small PR.
 **Evaluation.** A unit test on the invented paper (one prose paragraph, an equation, six cells, "The end."); the same test with the change reverted; `npm run check`; the full browser suite.
 **Result.** Passed; reverted, it failed ("Expected p-5ec2f3c5e1cf, Received p-71436bf7749c": the next paragraph was the equation). `npm run check`: 1227 passed, 2 skipped.
 **Lesson.** When one list feeds a whole chain, filter the list, not each step; R1c's worry ("skip them everywhere at once or the player stalls") came down to one query.
+
+### Iteration 129 · 2026-11-02 09:08 (laptop clock) · M34 S4: bring your own key · failure then success
+
+**Hypothesis.** One function per paid service (`textModelFor`, `speechModelFor`, `transcriberFor`) can decide who pays: the owner's key for the owner, otherwise only the key the request carries; and marking such a model's provider "-own-key" keeps it out of the owner's caps and spending without a migration.
+**Action.** The eight AI routes, passage audio and voice-note transcripts ask for the model "for this person"; `reserveSpend` and `checkCaps` let an own-key provider through; AI pictures are the owner's only. In the browser, `aiFetch` and `voiceFetch` add the key from localStorage to those requests only; Reading settings and Account offer the key form.
+**Evaluation.** `lib/ai/own-key.test.ts` (6): a reader without a key is refused, with one the answer is saved as "anthropic-own-key" with caps of $0 and the owner's spending stays $0. The whole browser suite, then `e2e/own-keys.spec.ts`.
+**Result.** Whole suite: 406 passed, 2 failed: the daily-review tests, whose invited reader asked for Test yourself and Explain it back with no key (the new rule working). Their reader now carries a key: 299 passed, including the own-keys test (the Study panel sends the key; other requests do not).
+**Lesson.** A rule that takes something away from readers shows up first in the tests that quietly relied on it; run the whole browser suite, not the new test alone.
+**Then.** CI run 41476467866 failed focus.spec's whole-book focus: its reader's join answered "Too many attempts. Wait 15 minutes." The new own-keys reader was the eleventh join from the test machine's address within 15 minutes (the limit is 10, `app/(public)/actions.ts`). It now joins from an address of its own (x-forwarded-for). A new test that signs someone up spends from a budget every other test shares.
+**Next experiment.** AI for visitors on the free books, then S5 guard rails.

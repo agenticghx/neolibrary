@@ -11,6 +11,7 @@ import { sentenceAt } from "@/lib/player/sentence";
 import { skipAcross, skipInClip, type SkipStep } from "@/lib/player/skip";
 import { MiniPlayer, type MiniView } from "./MiniPlayer";
 import type { ListenView, PlayerPage } from "./PlayerProvider";
+import { voiceFetch } from "@/lib/own-keys";
 
 type Passage = Info["passage"];
 const offline = () => typeof navigator !== "undefined" && navigator.onLine === false;
@@ -184,7 +185,7 @@ export function ListenSession({
   useEffect(() => {
     if (prepared) return;
     let live = true;
-    fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: at })}`)
+    voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: at })}`)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (!live) return;
@@ -203,7 +204,7 @@ export function ListenSession({
 
   /** The stored track for a paragraph in the chosen voice, made now if needed. */
   const trackFor = async (sectionId: string, v: string, opts?: { ahead?: boolean }) => {
-    const res = await fetch(`/api/books/${bookId}/audio`, {
+    const res = await voiceFetch(`/api/books/${bookId}/audio`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sectionId, voice: v }),
@@ -240,7 +241,7 @@ export function ListenSession({
     const sectionId = nextId;
     const promise = (async (): Promise<AheadReady | null> => {
       try {
-        const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice: v })}`);
+        const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice: v })}`);
         const body = (await res.json().catch(() => null)) as Info | null;
         if (!res.ok || !body?.passage || generation.current !== g) return null;
         if (body.track) return { passage: body.passage, track: body.track };
@@ -339,7 +340,7 @@ export function ListenSession({
         await playTrack(ready.passage, ready.track, 0, resume);
         return;
       }
-      const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: info.passage.nextId, voice })}`);
+      const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: info.passage.nextId, voice })}`);
       const body = (await res.json()) as Info;
       if (!res.ok) throw new Error("The next paragraph could not be found.");
       if (auto && !body.track && mustAsk(sinceOk.current)) {
@@ -647,7 +648,7 @@ export function ListenSession({
     // The paragraph to read in this voice, and any audio saved for it earlier (it plays for free).
     const g = generation.current;
     if (fromBook) setBusy(true);
-    void fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: id, voice: v })}`)
+    void voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: id, voice: v })}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((b: Info | null) => {
         if (!b || generation.current !== g) return;
@@ -665,7 +666,7 @@ export function ListenSession({
     setAsk(null);
     setBusy(true);
     try {
-      const res = await fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice })}`);
+      const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice })}`);
       const body = (await res.json()) as Info;
       if (!res.ok) throw new Error("The paragraph before could not be found.");
       const track = body.track ?? (await trackFor(body.passage.id, voice));
@@ -856,7 +857,7 @@ export function ListenSession({
       form.set("cfi", place.cfi);
       form.set("quote", JSON.stringify({ exact: place.quote }));
       form.set("durationMs", String(Math.round(durationMs)));
-      const res = await fetch(`/api/books/${bookId}/voice-notes`, { method: "POST", body: form });
+      const res = await voiceFetch(`/api/books/${bookId}/voice-notes`, { method: "POST", body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "The voice note was not saved.");
     },
