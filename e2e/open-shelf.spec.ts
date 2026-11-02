@@ -79,6 +79,35 @@ test("M34: a visitor sees the owner's shelf, the free book marked free, and Good
     await expect(visitor.getByText("In the public domain", { exact: false })).toBeVisible();
     await expect(visitor.getByRole("link", { name: "Find it on Goodreads" })).toHaveCount(0);
 
+    // S3: the visitor reads it. Nothing goes to the signed-in API; the place is kept in this browser.
+    const calls: string[] = [];
+    visitor.on("request", (r) => {
+      const path = new URL(r.url()).pathname;
+      if (path.startsWith("/api/") && !path.startsWith("/api/open/files/")) calls.push(`${r.method()} ${path}`);
+    });
+    await visitor.getByRole("link", { name: "Read it free" }).click();
+    await expect(visitor).toHaveURL(new RegExp(`/browse/${frankenstein}/read$`));
+    const reader = visitor.getByTestId("reader");
+    await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    // Only reading tools: no sidebar (notes, study, AI), no Listen.
+    await expect(visitor.getByRole("button", { name: "Sidebar" })).toHaveCount(0);
+    await expect(visitor.getByRole("button", { name: "Listen" })).toHaveCount(0);
+    await expect(visitor.getByRole("button", { name: "Reading settings" })).toBeVisible();
+    const start = await reader.getAttribute("data-cfi");
+    for (let i = 0; i < 3; i++) await visitor.getByRole("button", { name: "Next page" }).click();
+    await expect.poll(() => reader.getAttribute("data-cfi")).not.toBe(start);
+    await expect.poll(() => visitor.evaluate((id) => localStorage.getItem(`neolibrary:visitor-place:${id}`), frankenstein)).toBeTruthy();
+    const kept = await visitor.evaluate((id) => localStorage.getItem(`neolibrary:visitor-place:${id}`), frankenstein);
+    await visitor.reload();
+    await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await expect(reader).toHaveAttribute("data-cfi", kept!);
+    expect(calls).toEqual([]);
+    await visitor.getByRole("link", { name: "Back to the shelf" }).click();
+    await expect(visitor).toHaveURL(new RegExp(`/browse/${frankenstein}$`));
+
+    // A book that is not free to read has no reader for visitors.
+    expect((await visitor.goto(`/browse/${timeMachine}/read`))?.status()).toBe(404);
+
     // The owner takes a book off the shelf: it leaves the list, and its page is not found (not "sign in").
     await setSwitch(page, timeMachine, "Anyone can see it", false);
     await visitor.goto("/browse");

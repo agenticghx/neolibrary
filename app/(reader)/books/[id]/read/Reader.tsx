@@ -278,6 +278,23 @@ const OPEN_TIMEOUT_MS = 30_000;
 /** Fired once a book's notes have loaded: send what waits in the outbox (M12). */
 const SYNC_EVENT = "neolibrary:sync-notes";
 
+/** M34 S3: a visitor's place in a free book, kept in this browser only (never on the server). */
+const visitorPlaceKey = (bookId: string) => `neolibrary:visitor-place:${bookId}`;
+function visitorPlace(bookId: string): string | null {
+  try {
+    return localStorage.getItem(visitorPlaceKey(bookId));
+  } catch {
+    return null; // storage blocked (a private window): open at the start
+  }
+}
+function saveVisitorPlace(bookId: string, cfi: string) {
+  try {
+    localStorage.setItem(visitorPlaceKey(bookId), cfi);
+  } catch {
+    // storage blocked: the place is not kept
+  }
+}
+
 const noSubscribe = () => () => {};
 const onFullscreenChange = (changed: () => void) => {
   document.addEventListener("fullscreenchange", changed);
@@ -304,6 +321,12 @@ export function Reader(props: {
   openPage?: number;
   /** M28 S3: back on a later day, ask what the reader remembers of this chapter (lib/library/where-were-we.ts). */
   recall?: WhereWereWe | null;
+  /**
+   * M34 S3: a visitor (not signed in) reading a book that is free to read. Nothing is saved on the server: the
+   * place is kept in this browser (visitorPlace), and the tools that need an account (notes, AI help, X-ray,
+   * listening, focus, search, offline) are not offered. `backHref` is the book's page on the open shelf.
+   */
+  visitor?: { backHref: string };
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -418,7 +441,7 @@ export function Reader(props: {
     () => (focusSession ? { id: focusSession.id, question: focusSession.question, answerAnnotationId: null } : focusDone),
     [focusSession, focusDone],
   );
-  const tracker = useReadingTracker(props.bookId, listening, focusReport);
+  const tracker = useReadingTracker(props.bookId, listening, focusReport, !props.visitor);
   const trackerRef = useRef(tracker);
   useEffect(() => {
     trackerRef.current = tracker;
@@ -482,7 +505,7 @@ export function Reader(props: {
   });
   // Whole-book focus (M26 R5): one book only, for days; a line above the page. Answering it reloads the notes.
   const bookAnswered = useRef<() => void>(() => {});
-  const bookFocus = useBookFocus(props.bookId, where, () => bookAnswered.current());
+  const bookFocus = useBookFocus(props.bookId, where, () => bookAnswered.current(), !props.visitor);
   // M28 S3: "Where were we?" has a row of its own (not in a focus session), shared with the whole-book focus line. The
   // theme class is also set on the element directly (when the book opens, when settings change), so those places add
   // this class too, or the strip would take the book's row.
@@ -546,6 +569,10 @@ export function Reader(props: {
       if (!loc) return;
       pending.current = null;
       ownPlaces.current.add(loc.cfi);
+      if (props.visitor) {
+        saveVisitorPlace(props.bookId, loc.cfi);
+        return;
+      }
       void fetch(`/api/books/${props.bookId}/position`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -553,11 +580,12 @@ export function Reader(props: {
         keepalive,
       }).catch(() => {});
     },
-    [props.bookId],
+    [props.bookId, props.visitor],
   );
 
   // Coming back to this tab or window (M27 Q2): has the place moved elsewhere?
   useEffect(() => {
+    if (props.visitor) return;
     let asking = false;
     const check = async () => {
       if (document.visibilityState !== "visible" || asking) return;
@@ -582,12 +610,12 @@ export function Reader(props: {
       window.removeEventListener("focus", onVisible);
       window.removeEventListener("pageshow", onVisible);
     };
-  }, [props.bookId]);
+  }, [props.bookId, props.visitor]);
 
   // Highlights in other books that share this page's ideas (cross-book links).
   const lookForLinks = useCallback(
     (text: string) => {
-      if (!text || text === linkedText.current) return;
+      if (props.visitor || !text || text === linkedText.current) return;
       linkedText.current = text;
       void fetch(`/api/books/${props.bookId}/crosslinks`, {
         method: "POST",
@@ -600,7 +628,7 @@ export function Reader(props: {
         })
         .catch(() => {});
     },
-    [props.bookId],
+    [props.bookId, props.visitor],
   );
 
   // Every key here is listed in the Keyboard shortcuts dialog (ShortcutsDialog.tsx): change both together.
@@ -773,6 +801,7 @@ export function Reader(props: {
   // A focus session on this book picks up where it was, with the time that is left (M26 R4a), and again each time
   // this tab comes back to the front.
   useEffect(() => {
+    if (props.visitor) return; // a visitor has no focus sessions
     let cancelled = false;
     const sync = async () => {
       if (document.visibilityState !== "visible") return;
@@ -786,7 +815,7 @@ export function Reader(props: {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [syncFocus, showFocus]);
+  }, [syncFocus, showFocus, props.visitor]);
 
   // Open the book once. Settings live on this device (localStorage).
   useEffect(() => {
@@ -824,7 +853,7 @@ export function Reader(props: {
         await v.open(book);
         // Highlights: load them, and draw each one when its page is rendered.
         const { Overlayer } = (await import("foliate-js/overlayer.js")) as { Overlayer: { highlight: DrawFn } };
-        const loaded = withCrossed(await (await fetch(`/api/books/${props.bookId}/annotations`)).json(), crossedAt.current);
+        const loaded = props.visitor ? [] : withCrossed(await (await fetch(`/api/books/${props.bookId}/annotations`)).json(), crossedAt.current);
         notesRef.current = loaded;
         setNotes(loaded);
         // Send anything made offline earlier, and show what is still waiting (see the sync effect below).
@@ -850,7 +879,7 @@ export function Reader(props: {
           for (const a of notesRef.current) if (["highlight", "sticker", "drawing", "image"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
           // The chapter's names, underlined (EPUBs: a PDF's pages have no overlay).
           const { index } = (e as CustomEvent<{ index: number }>).detail;
-          if (props.fileType === "pdf" || !Number.isInteger(index)) return;
+          if (props.visitor || props.fileType === "pdf" || !Number.isInteger(index)) return;
           void marksOf(index).then((marks) => {
             if (!root.current) return;
             const color = getComputedStyle(root.current).getPropertyValue("--accent").trim();
@@ -1124,7 +1153,8 @@ export function Reader(props: {
         setToc(v.book.toc ?? []);
         placeShown.current();
         setPageCount(props.fileType === "pdf" ? (v.book.sections?.length ?? 0) : 0);
-        await v.init({ lastLocation: props.initialCfi, showTextStart: !props.initialCfi && !props.openPage });
+        const opensAt = props.visitor ? visitorPlace(props.bookId) : props.initialCfi;
+        await v.init({ lastLocation: opensAt, showTextStart: !opensAt && !props.openPage });
         // M25: from the scan's page n to the same page in the text edition (its page marker, in the page list).
         const opening = props.openPage ? v.book.pageList?.find((item) => item.label === String(props.openPage)) : undefined;
         if (opening) await v.goTo(opening.href);
@@ -1150,7 +1180,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection]);
 
   // Two pages in Scroll: a spread is one screen tall, so a new window size lays the spreads out again (or goes to
   // one column, in a window taller than wide).
@@ -1336,6 +1366,7 @@ export function Reader(props: {
 
   /** The book's notes from the server (or the offline copy), plus any still waiting in the outbox. */
   const reload = async () => {
+    if (props.visitor) return; // a visitor has no notes on the server
     let body: Parameters<typeof withCrossed>[0] | null = null;
     try {
       body = await api(`/api/books/${props.bookId}/annotations`, "GET");
@@ -1425,6 +1456,7 @@ export function Reader(props: {
 
   // Send notes made offline: when the page opens, when the network returns, and every 30 s while any wait.
   useEffect(() => {
+    if (props.visitor) return; // nothing of a visitor's waits to be sent
     const sync = async () => {
       await flushOutbox().catch(() => ({ sent: 0 }));
       await reloadRef.current().catch(() => {});
@@ -1440,7 +1472,7 @@ export function Reader(props: {
       window.removeEventListener(SYNC_EVENT, online);
       clearInterval(timer);
     };
-  }, []);
+  }, [props.visitor]);
 
   const clearSelection = () => {
     selectionDoc.current?.getSelection()?.removeAllRanges();
@@ -1885,6 +1917,7 @@ export function Reader(props: {
   // book and device opens in it. Shown at once; if it cannot be saved, it still holds in this reader.
   const showRewritten = (mode: RewrittenMode) => {
     setRewritten((r) => ({ mode, last: mode === "original" ? r.last : mode }));
+    if (props.visitor) return;
     void fetch("/api/account/preferences", {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -1938,7 +1971,12 @@ export function Reader(props: {
       <header className={styles.bar}>
         {/* Left, as in Kindle: leave the book, and the table of contents. */}
         <div className={styles.lead}>
-          <Link href="/" className={`${styles.tool} ${styles.leadTool}`} aria-label="Back to your library" title="Back to your library">
+          <Link
+            href={props.visitor?.backHref ?? "/"}
+            className={`${styles.tool} ${styles.leadTool}`}
+            aria-label={props.visitor ? "Back to the shelf" : "Back to your library"}
+            title={props.visitor ? "Back to the shelf" : "Back to your library"}
+          >
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M10 2.5 4.5 8l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -1994,23 +2032,25 @@ export function Reader(props: {
           >
             Aa
           </button>
-          <button
-            type="button"
-            className={`${styles.tool} ${styles.leadTool}`}
-            aria-expanded={sidebar}
-            aria-label="Sidebar"
-            title={sidebar ? "Hide the sidebar: Notes, Study, Rewritten, Bookmark, Focus" : "Show the sidebar: Notes, Study, Rewritten, Bookmark, Focus"}
-            onClick={() => {
-              if (sidebar && panel !== "settings" && panel !== "contents") setPanel("none");
-              setSidebarOpen(!sidebar);
-            }}
-          >
-            <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
-              <rect x="1.5" y="2" width="15" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M11.5 2v12" stroke="currentColor" strokeWidth="1.4" />
-              {sidebar ? <path d="M11.5 2.7h3.3a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1h-3.3z" fill="currentColor" /> : null}
-            </svg>
-          </button>
+          {props.visitor ? null : (
+            <button
+              type="button"
+              className={`${styles.tool} ${styles.leadTool}`}
+              aria-expanded={sidebar}
+              aria-label="Sidebar"
+              title={sidebar ? "Hide the sidebar: Notes, Study, Rewritten, Bookmark, Focus" : "Show the sidebar: Notes, Study, Rewritten, Bookmark, Focus"}
+              onClick={() => {
+                if (sidebar && panel !== "settings" && panel !== "contents") setPanel("none");
+                setSidebarOpen(!sidebar);
+              }}
+            >
+              <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
+                <rect x="1.5" y="2" width="15" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M11.5 2v12" stroke="currentColor" strokeWidth="1.4" />
+                {sidebar ? <path d="M11.5 2.7h3.3a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1h-3.3z" fill="currentColor" /> : null}
+              </svg>
+            </button>
+          )}
         </div>
       </header>
       )}
@@ -2274,13 +2314,15 @@ export function Reader(props: {
                 setPanel("none");
               }}
             />
-            <FindInBook
-              bookId={props.bookId}
-              onGo={(cfi) => {
-                void view.current?.goTo(cfi);
-                setPanel("none");
-              }}
-            />
+            {props.visitor ? null : (
+              <FindInBook
+                bookId={props.bookId}
+                onGo={(cfi) => {
+                  void view.current?.goTo(cfi);
+                  setPanel("none");
+                }}
+              />
+            )}
             <TocList
               items={toc}
               current={where.chapter}
@@ -2405,12 +2447,16 @@ export function Reader(props: {
             <button type="button" className={styles.linkButton} onClick={() => setShortcuts(true)}>
               Keyboard shortcuts
             </button>
-            <AiStyleSetting bookId={props.bookId} />
-            <p className={styles.hint}>
-              STE is Simplified Technical English: one meaning per word, short sentences. The style is used by the rewritten view,
-              Study and Rewrite; the Account page sets it for every book.
-            </p>
-            <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
+            {props.visitor ? null : (
+              <>
+                <AiStyleSetting bookId={props.bookId} />
+                <p className={styles.hint}>
+                  STE is Simplified Technical English: one meaning per word, short sentences. The style is used by the rewritten view,
+                  Study and Rewrite; the Account page sets it for every book.
+                </p>
+                <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
+              </>
+            )}
           </section>
         ) : null}
       </div>
@@ -2437,32 +2483,34 @@ export function Reader(props: {
         </span>
         <span className={styles.footRight}>
           {props.edition ? <EditionSwitch edition={props.edition} scanPage={scanPage} /> : null}
-          <button
-            type="button"
-            className={styles.listenButton}
-            aria-pressed={listening}
-            disabled={!where.cfi}
-            title="Read aloud"
-            onClick={() => {
-              // The Read aloud bar opens where the selected-text bar sits (M27 Q1): one at a time.
-              if (!listening) dismissSelection();
-              if (listening) stopListening();
-              else setListening(true);
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-              <path d="M2 5h2.5L8 2v10L4.5 9H2z" fill="currentColor" />
-              <path d="M10 4.5a3.5 3.5 0 0 1 0 5M11.5 3a5.5 5.5 0 0 1 0 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
-            Listen
-          </button>
+          {props.visitor ? null : (
+            <button
+              type="button"
+              className={styles.listenButton}
+              aria-pressed={listening}
+              disabled={!where.cfi}
+              title="Read aloud"
+              onClick={() => {
+                // The Read aloud bar opens where the selected-text bar sits (M27 Q1): one at a time.
+                if (!listening) dismissSelection();
+                if (listening) stopListening();
+                else setListening(true);
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <path d="M2 5h2.5L8 2v10L4.5 9H2z" fill="currentColor" />
+                <path d="M10 4.5a3.5 3.5 0 0 1 0 5M11.5 3a5.5 5.5 0 0 1 0 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+              Listen
+            </button>
+          )}
           <span className={styles.percent} aria-label={`${percent}% read`}>
             {percent}%
           </span>
         </span>
       </footer>
 
-      {selection ? (
+      {selection && !props.visitor ? (
         <SelectionBar
           ref={selectionBar}
           bookId={props.bookId}

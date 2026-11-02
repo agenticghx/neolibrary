@@ -5,7 +5,7 @@ import type { Database } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import { migrateDown, migrateUp } from "@/lib/db/migrate";
 import { testDatabase } from "@/lib/db/test-db";
-import { getOpenBook, goodreadsUrl, isPublicDomainEdition, listOpenShelf, OpenShelfError, setShelfSwitch, visitorMayHave } from "./open-shelf";
+import { freeBookToRead, getOpenBook, goodreadsUrl, isPublicDomainEdition, listOpenShelf, OpenShelfError, setShelfSwitch, visitorMayHave } from "./open-shelf";
 
 describe("isPublicDomainEdition", () => {
   const file = { fileKey: "books/a.epub", fileType: "epub" };
@@ -180,5 +180,17 @@ describe("the open shelf, as a visitor sees it (S2)", () => {
       "https://www.goodreads.com/search?q=G%C3%B6del%2C%20Escher%2C%20Bach%20Douglas%20Hofstadter",
     );
     expect(goodreadsUrl("Untitled", "")).toBe("https://www.goodreads.com/search?q=Untitled");
+  });
+
+  it("lets a visitor have the file of a free book only (S3), and says which book may be read", async () => {
+    const free = await add(ownerId, "Frankenstein", { publisher: "Standard Ebooks", freeToRead: true });
+    const paid = await add(ownerId, "Dune");
+    const hiddenFree = await add(ownerId, "Emma", { publisher: "Standard Ebooks", freeToRead: true, onShelf: false });
+    expect(await visitorMayHave(database.db, "books/Frankenstein.epub")).toBe(true);
+    expect(await visitorMayHave(database.db, "books/Dune.epub")).toBe(false);
+    expect(await visitorMayHave(database.db, "books/Emma.epub")).toBe(false);
+    expect(await freeBookToRead(database.db, free.id)).toMatchObject({ title: "Frankenstein", fileKey: "books/Frankenstein.epub", fileType: "epub" });
+    expect(await freeBookToRead(database.db, paid.id)).toBeNull();
+    expect(await freeBookToRead(database.db, hiddenFree.id)).toBeNull();
   });
 });

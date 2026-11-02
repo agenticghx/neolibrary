@@ -2631,3 +2631,12 @@ tests that pin it, in a small PR.
 **Result.** First build failed: "You cannot have two parallel pages that resolve to the same path. Please check /(app)/shelf and /(open)": `/shelf` is already the old address that sends a reader to `/library` (M14). Moved to `/browse`. Then 297 passed (5.9m), including the visitor test: a forged cover link answers 403, the visitor link on the signed-in route 401, a book taken off the shelf 404.
 **Lesson.** Before naming a new public address, search the app's folders for it; route groups hide clashes until the build.
 **Next experiment.** S3: the reader for visitors on the free books.
+
+### Iteration 124 · 2026-11-02 08:38 (laptop clock) · M34 S3: visitors read the free books · failure then success
+
+**Hypothesis.** The signed-in reader can serve a visitor if a `visitor` prop turns off every call to the signed-in API and keeps the place in the browser, without a second reader.
+**Action.** Guards in `Reader.tsx` on the place save and check, notes, reading stats, focus, cross-links, X-ray marks and preferences; account-only tools hidden; `/browse/<id>/read` in its own route group.
+**Evaluation.** The open-shelf browser test records every request the visitor's page makes to `/api/` other than `/api/open/files/` and expects none, after turning pages and reloading.
+**Result.** First run: two `GET /api/books/<id>/annotations` left, from the notes outbox sync that runs when the book opens (not the load guarded first). Guarded `reload` and the sync effect: 297 passed (5.8m); the place came back after a reload from localStorage.
+**Lesson.** List a component's server calls by recording the requests in a browser test, not by reading the code: the second call came from an effect several hundred lines away.
+**Next experiment.** S4: bring your own key.

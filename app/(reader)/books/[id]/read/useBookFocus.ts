@@ -29,7 +29,8 @@ async function send(url: string, method: string, body?: unknown) {
  * when an early answer is long enough (150 words), and when the reader has reached the last page (the place this
  * reader saves; it is saved here first, so the server sees it).
  */
-export function useBookFocus(bookId: string, where: { cfi: string | null; fraction: number }, onAnswered: () => void) {
+/** `enabled` false (M34: a visitor, who has no focus sessions) never asks the server. */
+export function useBookFocus(bookId: string, where: { cfi: string | null; fraction: number }, onAnswered: () => void, enabled = true) {
   const [focus, setFocus] = useState<FocusSession | null>(null);
   const [finished, setFinished] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -72,6 +73,7 @@ export function useBookFocus(bookId: string, where: { cfi: string | null; fracti
 
   // On opening the book, and each time this tab comes back to the front (it may have changed on another device).
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const check = async () => {
       if (document.visibilityState !== "visible") return;
@@ -89,7 +91,7 @@ export function useBookFocus(bookId: string, where: { cfi: string | null; fracti
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [show]);
+  }, [show, enabled]);
 
   // The days have run out, or the wait to leave early: ask the server (checked once a second).
   useEffect(() => {

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M34 S1 (#278), then open the S2 pull request (the open shelf at /browse).
+next_action: Commit M34 S3 when the open-shelf browser test passes, then build S4 (bring your own key).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 08:33 · Claude Opus 5.5 · M34 S3: visitors read the free books (in progress)
+- **Done:** Reader gains visitor mode: place kept in the visitor's browser (localStorage), no calls to the signed-in API (position, notes, reading stats, focus, cross-links, X-ray marks, preferences), and no account-only tools (sidebar, Listen, selection menu, search, AI style, offline). /browse/<id>/read (route group app/(open-reader)) opens a free book; a book not free answers 404. /api/open/files now also serves a free book's file. 'Read it free' button on the free book's page. The first browser run caught two notes reloads still calling /api/books/<id>/annotations; both now skip for visitors.
+- **Key paths:** app/(open-reader)/browse/[id]/read/page.tsx; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/useBookFocus.ts; app/(reader)/books/[id]/read/useReadingTracker.ts; app/(open)/browse/[id]/page.tsx; lib/library/open-shelf.ts; lib/library/covers.ts; proxy.ts; e2e/open-shelf.spec.ts
+- **Commands that worked:** npx vitest run lib/library/open-shelf.test.ts -> 13 passed; PORT=3171 npx playwright test --project=open-shelf --project=flows --project=reader --ignore-snapshots -> 296 passed, 1 failed (the two notes calls, since fixed); re-run in progress
+- **Known issues / blockers:** S1 (#278) is green but held: merging its migration would pause auto-deploys of everything after it (including another session's m41 work) until Samuel's backup and deploy, so M34 merges as one batch. Do not run prettier on Reader.tsx (it rewrote 1,600 lines; the repo does not format it).
+- **Exact next steps:** 1. Confirm the open-shelf browser test passes, commit S3. 2. S4: bring your own key: textModel uses the reader's key from a request header for anyone but the owner, provider marked own-key (no caps, not in Samuel's spending); aiFetch and voiceFetch helpers in the reader; key form in reader settings and Account. 3. Visitor AI on free books (saved answers free; new ones with their key). 4. S5 guard rails. 5. Merge S1 to S5 in a row; deploy at Samuel's word after a backup.
 
 ### 2026-11-02 08:22 · Claude Opus 5.5 · M34 S2: the open shelf for visitors at /browse
 - **Done:** Visitors (not signed in) land on /browse: every book of the owner's that is on the shelf, with cover, author, description; search, Free to read filter, sort by title or author. /browse/<id>: the book, with Find it on Goodreads unless free to read. Books off the shelf answer 404. Covers through /api/open/files with their own secret, checked again when used. Sign-in page links to the shelf. lib/library/open-shelf.ts picks only visible fields (never note, progress, place).

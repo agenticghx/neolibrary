@@ -23,7 +23,7 @@ import { agentUnauthorised } from "@/lib/auth/agent-401";
 //    book (M26 R4a), and a layout is not told its path any other way. Set
 //    here, so a header the browser sends with that name is replaced.
 export const HSTS = "max-age=31536000";
-// M34: the open shelf (/browse, /browse/<id>) and its visitor file links (/api/open/files/...) are open to
+// M34: the open shelf (/browse, /browse/<id>, and /browse/<id>/read for a free book) and its visitor file links (/api/open/files/...) are open to
 // anyone; those pages and that route show only what lib/library/open-shelf.ts allows.
 const PUBLIC = [
   /^\/sign-in$/,
@@ -34,6 +34,7 @@ const PUBLIC = [
   /^\/manifest\.webmanifest$/,
   /^\/browse$/,
   /^\/browse\/[^/]+$/,
+  /^\/browse\/[^/]+\/read$/,
   /^\/api\/open\/files\/.+$/,
 ];
 
