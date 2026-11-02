@@ -5,11 +5,14 @@ import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { appSettings, sections } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
+import { FakeSpeech } from "@/lib/speech/fake";
 import { MemoryStorage } from "@/lib/storage";
 import { readBook } from "./ebook";
 import { importBook } from "./import";
 import { keptRuns } from "./kept-runs";
 import { markdownToEpub } from "./markdown-epub";
+import { passageFor } from "./audio";
+import { narrationSummary } from "./narration";
 import { paragraphFor, RewriteError } from "./rewrite";
 import { backfillSectionForms, SECTION_FORMS } from "./section-forms";
 import { extractSections } from "./sections";
@@ -92,5 +95,29 @@ describe("labelling books already in the library (M41 R1c)", () => {
     // It runs once.
     await database.db.update(sections).set({ form: "prose" }).where(eq(sections.bookId, bookId));
     expect(await backfillSectionForms(database.db, storage)).toBeNull();
+  });
+
+  it("Listen and whole-book narration pass over equations and table cells (M41 R1d)", async () => {
+    const { bookId } = await importBook(database.db, storage, ownerId, { name: "paper.md", bytes: strToU8(PAPER) });
+    const rows = await database.db
+      .select({ id: sections.id, form: sections.form, text: sections.text, position: sections.position })
+      .from(sections)
+      .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")));
+    rows.sort((a, b) => a.position - b.position);
+    const [first, equation] = rows;
+    const end = rows.at(-1)!;
+    expect(equation.form).toBe("equation");
+    // Read on from the first paragraph: the next one read is "The end.", and back from there is the first again.
+    const p = await passageFor(database.db, ownerId, bookId, { sectionId: first.id });
+    expect(p.nextId).toBe(end.id);
+    expect(p.nextText).toBe("The end.");
+    expect((await passageFor(database.db, ownerId, bookId, { sectionId: end.id })).prevId).toBe(first.id);
+    // Starting on the equation, or on a cell, reads on from the next paragraph of prose.
+    expect((await passageFor(database.db, ownerId, bookId, { sectionId: equation.id })).id).toBe(end.id);
+    expect((await passageFor(database.db, ownerId, bookId, { sectionId: rows.find((r) => r.form === "cell")!.id })).id).toBe(end.id);
+    // The whole book, narrated: the two paragraphs of prose only (fake voice; never a paid one for a whole book).
+    const s = await narrationSummary(database.db, new FakeSpeech(), ownerId, bookId, null);
+    expect(s.paragraphs).toBe(2);
+    expect(s.characters).toBe(first.text.length + end.text.length);
   });
 });
