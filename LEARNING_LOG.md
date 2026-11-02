@@ -2494,3 +2494,5 @@ tests that pin it, in a small PR.
 **Result.** actionlint: deploy.yml clean; ci.yml only its earlier warnings (the Blacksmith runner label, SC2129 at line 114).
 **Lesson.** Prove a trigger fires once before trusting the logic behind it: the gate was tested offline, the trigger never was.
 **Next experiment.** This merge: the main CI run should start Deploy, which should print "Skipped" (only workflows and the ledger changed since 4918cee).
+**Also (same PR).** The first issue run (#267) ended "success" after 29 turns and 18 minutes with no branch, pull request or comment, and the log does not show what Claude said. claude-issue.yml now shows Claude's report on the run's summary (`display_report`), and a last step comments on the issue when a run leaves neither a pull request nor a comment. Lesson: a run that can end silently will; make silence say something.
+
