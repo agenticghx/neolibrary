@@ -295,7 +295,8 @@ export async function paragraphsOf(db: Db, bookId: string): Promise<Paragraph[]>
   const rows = await db
     .select({ id: sections.id, chapterIndex: sections.chapterIndex, position: sections.position, text: sections.text })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
+    // M41 R1c: prose only: an equation's symbols ("Emax") and a table's codes ("BANT") are not who or what a book is about.
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
     .orderBy(asc(sections.position));
   return rows.filter((r) => !skipped.has(r.chapterIndex));
 }

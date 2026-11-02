@@ -20,8 +20,10 @@ export type Piece = {
   text: string;
   /** The newest rewrite in the style, or null. */
   rewrite: RewriteView | null;
-  /** Without a rewrite: its rough cost in US dollars (null when Claude is not set up). */
+  /** Without a rewrite: its rough cost in US dollars (null when Claude is not set up, or not prose). */
   estimate: number | null;
+  /** M41 R1c: an equation or a table cell is kept as in the book: never rewritten, never priced. */
+  form: "prose" | "equation" | "cell";
 };
 
 /** Whether a stored rewrite is in a style: Plain English, or STE at the style's strictness. */
@@ -39,9 +41,13 @@ export async function rewrittenView(db: Db, model: TextModel | null, ownerId: st
   const strictness = want.level === "ste" ? want.strictness : undefined;
   const pieces: Piece[] = [];
   for (const p of await paragraphsBetween(db, bookId, at.from, at.to)) {
+    if (p.form !== "prose") {
+      pieces.push({ id: p.id, cfi: p.cfi, text: p.text, rewrite: null, estimate: null, form: p.form });
+      continue;
+    }
     const rewrite = (await listRewrites(db, ownerId, bookId, p.id)).filter((g) => inStyle(g, style)).at(-1) ?? null;
     const estimate = !rewrite && model ? await estimateRewrite(db, model, ownerId, bookId, p.id, want.level, strictness) : null;
-    pieces.push({ id: p.id, cfi: p.cfi, text: p.text, rewrite, estimate });
+    pieces.push({ id: p.id, cfi: p.cfi, text: p.text, rewrite, estimate, form: "prose" });
   }
   return { style, pieces };
 }

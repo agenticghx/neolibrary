@@ -1454,15 +1454,32 @@ Open unknowns row 33; it decides how much of R2 is built.
   around a fraction at more than 1.5 times a plain bracket, and fails
   without the rule.
 - **R1c · Equations and table cells are not prose.** Each paragraph records
-  its form: prose, an equation (a paragraph that is one display formula) or
-  a table cell. Rewrites, Need to know and Test yourself use prose only (and
-  their cost estimates count prose only); the rewrite panel shows an
-  equation or a table as it is, "Kept as in the book"; Listen says "An
-  equation." or "A table." once instead of reading symbols or cells one by
-  one. Highlights, notes and search still work on them. A migration adds
-  the column (with its reverse step); a one-off script labels the
-  paragraphs of books already in the library (paragraph ids do not change);
-  a backup comes before the deploy.
+  its form (migration 0035: a `form` column, `prose`, `equation` or `cell`,
+  with its reverse step): a table cell is a `cell`; a paragraph that is one
+  display formula and nothing else is an `equation`. Rewrites, Need to know,
+  Test yourself, Explain it back and X-ray use prose only; a rewrite of an
+  equation or a cell is refused ("Equations and tables are kept as in the
+  book, not rewritten."), and is never priced. The rewrite panel folds each
+  run of them into one line: "An equation, kept as in the book.", "A table
+  (24 cells), kept as in the book." Highlights, notes, search, text-edition
+  checks, read-along and the library export are unchanged. Books already in
+  the library are labelled once, at start-up (`lib/library/section-forms.ts`,
+  marked done in `app_settings`); paragraph ids come from the file, so no
+  note's anchor moves, and a book not reached yet stays prose, as before.
+  Not changed, on purpose: Listen and whole-book narration still read
+  equations and table cells. Its passage, next and previous chain would
+  have to skip them everywhere at once or the player stalls; that is a step
+  of its own (R1d, not yet planned in detail). *Built 2026-11-02 (branch
+  `m41-not-prose`).*
+  Done when: unit tests find an equation and six cells in an invented paper
+  (an inline formula stays prose), store the forms at import, refuse to
+  rewrite a cell, fold runs into kept lines, and label a book stored before
+  forms existed once, keeping every id; real Postgres runs every migration
+  up, down and up again; a browser test opens the rewrite panel on a page
+  with an equation and a table, sees two kept lines and two paragraphs to
+  rewrite, rewrites the page, and gets two rewrites and no error; it fails
+  when every paragraph is labelled prose. Real-library check: the backup's
+  restore copy, labelled by the start-up pass.
 - **R2 · Figures.** A Markdown file and its pictures, uploaded together as
   one `.zip` (the `.md` plus, say, a `figures/` folder), become an EPUB with
   the pictures in it (`lib/library/markdown-pictures.ts`). A picture is

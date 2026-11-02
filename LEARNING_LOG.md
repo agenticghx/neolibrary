@@ -93,6 +93,7 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 120 | 2026-11-02 06:50 | CI: PR hygiene | The hygiene check passes on a rebased PR | `node scripts/check-pr-hygiene.mjs origin/main` | failure then success | a ledger past 1 MB breaks any script that reads it through execFileSync's default buffer |
 | 121 | 2026-11-02 07:05 | M41 R1b brackets | A bundled math font makes Chrome stretch brackets as WebKit does | bundled font's tables (fontTools); browser test with a mutation | success | check a packaged font still has its MATH table before relying on it |
 | 122 | 2026-11-02 07:15 | M41 R2 figures | A .zip of a paper's .md and pictures becomes a book with its figures, without uploading audiobook zips | vitest; uploads browser project with a mutation; the Greco zip by eye | success | a mutation the type checker rejects tests nothing: keep the types when breaking code |
+| 123 | 2026-11-02 07:50 | M41 R1c not prose | A `form` column, not a new `kind`, keeps equations and cells out of rewrites without touching highlights, search or Listen | vitest; real Postgres; uploads browser project with a mutation | success | a client component may import only browser-safe modules: a value from a server file pulls the server into the bundle |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2586,4 +2587,12 @@ tests that pin it, in a small PR.
 **Evaluation.** `npx vitest run lib/library/markdown-pictures.test.ts lib/library/markdown-epub.test.ts`; `npx playwright test e2e/uploads.spec.ts --ignore-snapshots`; a mutation that stops pictures being read; the Greco Markdown with its 33 figures zipped (6.8 MB) and imported on a local production build, looked at in Chrome and WebKit, desktop and phone.
 **Result.** 22 passed; 180 passed. The first mutation (`kind = bytes ? null : null`) stopped the build at its type check, so it tested nothing; the second (`pictureKind(new Uint8Array(0))`) failed the new test as it should ("Received: … 1 picture not found in the .zip"). Greco: "Added to your library. With 33 pictures."; the figures load and fit the column (629 px on desktop, 280 px on a phone) in both engines. `npm run check`: 1222 passed, 2 skipped.
 **Lesson.** A mutation must still build; check that the mutated run reached the test before reading its result.
+
+### Iteration 123 · 2026-11-02 07:50 (laptop clock) · M41 R1c: equations and table cells are not prose · success
+
+**Hypothesis.** A separate `form` column (default prose) lets the rewrite, study and X-ray features skip equations and table cells while every other user of `kind = 'paragraph'` (highlights, search, text-edition checks, read-along, Listen) stays exactly as it was; books already stored can be labelled once from their files because paragraph ids come from the file's content.
+**Action.** Migration 0035 (with its reverse step); `extractSections` sets the form; `backfillSectionForms` at start-up, marked in `app_settings`; prose-only filters in `prerequisites.ts`, `explain-back.ts`, `xray.ts`, `xray-read.ts`; `paragraphFor` refuses non-prose; the rewrite panel folds runs into "kept" lines (`lib/library/kept-runs.ts`, its own file: importing a value from `rewritten.ts` into the browser panel would have pulled server code into the browser bundle). Listen left unchanged on purpose (its passage, next and previous chain must change together).
+**Evaluation.** `npx vitest run lib/library/section-forms.test.ts` (4); `npm run test:postgres` against Postgres 18 in Docker; `npx playwright test e2e/uploads.spec.ts --ignore-snapshots`; a mutation that labels everything prose.
+**Result.** 4 passed; Postgres 2 passed (every migration up, down, up); uploads 181 passed after the test opened the reader's sidebar first (the rail with "Rewritten view" starts closed: first run timed out on the button). Mutation: the new test failed ("Expected - 4, Received + 1"). `npm run check`: 1226 passed, 2 skipped.
+**Lesson.** Add a column beside an old meaning rather than changing the meaning: fifteen queries filter `kind = 'paragraph'`, and none of them had to change.
 

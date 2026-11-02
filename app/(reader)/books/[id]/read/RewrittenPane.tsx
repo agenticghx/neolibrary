@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Style } from "@/lib/library/levels";
 import type { RewriteView } from "@/lib/library/rewrite";
+import { keptRuns } from "@/lib/library/kept-runs";
 import type { Piece } from "@/lib/library/rewritten";
 import { goAhead, mustAskAgain, paidFor, soFar, usd, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { STYLE_NAMES } from "@/lib/library/levels";
@@ -97,7 +98,8 @@ export function RewrittenPane(props: {
     };
   }, [bookId, from, to, reload]);
 
-  const missing = data?.pieces.filter((p) => !p.rewrite) ?? [];
+  // M41 R1c: equations and table cells are kept as in the book: never missing, priced or written.
+  const missing = data?.pieces.filter((p) => !p.rewrite && p.form === "prose") ?? [];
   const priced = missing.filter((p) => p.estimate !== null);
   const price = priced.reduce((sum, p) => sum + (p.estimate ?? 0), 0);
   const name = data ? STYLE_NAMES[data.style] : "";
@@ -231,8 +233,13 @@ export function RewrittenPane(props: {
               {error}
             </p>
           ) : null}
-          {data?.pieces.map((p) =>
-            p.rewrite ? (
+          {data
+            ? keptRuns(data.pieces).map((p) =>
+                "kept" in p ? (
+                  <p key={p.id} className={styles.hint} data-testid="rewritten-kept">
+                    {p.kept}
+                  </p>
+                ) : p.rewrite ? (
               <aside key={p.id} className={styles.machine} aria-label="Machine-written rewrite" data-testid="rewritten-piece">
                 <p className={styles.machineLabel}>
                   {name} · written by {data.fake ? "the test AI" : "AI"}
@@ -276,7 +283,8 @@ export function RewrittenPane(props: {
                 Not rewritten yet: &ldquo;{p.text.slice(0, 60).trim()}…&rdquo;
               </p>
             ),
-          )}
+              )
+            : null}
         </div>
       </div>
     </section>

@@ -40,6 +40,7 @@ export async function getSections(db: Db, ownerId: string, bookId: string) {
       cfi: sections.cfi,
       label: sections.label,
       text: sections.text,
+      form: sections.form,
     })
     .from(sections)
     .innerJoin(books, eq(books.id, sections.bookId))

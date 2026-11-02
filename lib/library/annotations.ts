@@ -110,7 +110,7 @@ export async function paragraphsBetween(db: Db, bookId: string, from: string, to
   const start = atStart(CFI.collapse(from));
   const end = atStart(CFI.collapse(to, true));
   const rows = await db
-    .select({ id: sections.id, cfi: sections.cfi, text: sections.text, chapterIndex: sections.chapterIndex })
+    .select({ id: sections.id, cfi: sections.cfi, text: sections.text, chapterIndex: sections.chapterIndex, form: sections.form })
     .from(sections)
     .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
     .orderBy(asc(sections.position));

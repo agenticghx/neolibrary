@@ -79,7 +79,8 @@ export async function chapterText(db: Db, bookId: string, chapter: Chapter) {
   const parts = await db
     .select({ kind: sections.kind, label: sections.label, text: sections.text })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapter.chapterIndex), inArray(sections.kind, ["section", "paragraph"])))
+    // M41 R1c: prose only; a paper's equations and table cells are not text to explain or ask about.
+    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapter.chapterIndex), inArray(sections.kind, ["section", "paragraph"]), eq(sections.form, "prose")))
     .orderBy(asc(sections.position));
   const text = parts
     .map((p) => (p.kind === "section" ? p.label : p.text))
