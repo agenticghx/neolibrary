@@ -1464,9 +1464,30 @@ Open unknowns row 33; it decides how much of R2 is built.
   paragraphs of books already in the library (paragraph ids do not change);
   a backup comes before the deploy.
 - **R2 · Figures.** A Markdown file and its pictures, uploaded together as
-  one `.zip` (the `.md` plus a `figures/` folder), become an EPUB with the
-  pictures in it, each with its legend. Pictures only from inside the zip;
-  nothing is fetched from an address in the file.
+  one `.zip` (the `.md` plus, say, a `figures/` folder), become an EPUB with
+  the pictures in it (`lib/library/markdown-pictures.ts`). A picture is
+  found from the Markdown file's folder in the zip, as on disk; one standing
+  alone in its paragraph is a centred figure as wide as the column allows,
+  and the legend under it stays text (searchable, highlightable, read aloud).
+  Pictures only from inside the zip: an address (`https://`, `data:`), a
+  path from the root, or one that climbs out of the zip is never followed.
+  Only PNG, JPEG, GIF and WebP, known by their first bytes; no SVG (an SVG
+  file can carry code). The Import page reads only a zip's table of
+  contents (`lib/library/zip-names.ts`) and sends it only when it names a
+  Markdown file, so an audiobook's package (often hundreds of MB) is still
+  never uploaded there and is told where it goes. The result line says
+  "With 33 pictures.", or which pictures were not found; a lone `.md` says
+  how many pictures it lacks and to add them as one `.zip`. *Built
+  2026-11-02 (branch `m41-figures`).*
+  Done when: unit tests find picture paths from the Markdown file's folder
+  and refuse paths outside the zip and addresses, know the four picture
+  kinds by their bytes and refuse SVG, store a picture once, list the
+  missing ones, read a zip's names from its table of contents, and import a
+  zip (and refuse one with no Markdown file, two, or a broken one); a
+  browser test adds a paper's `.zip` on the Import page, reads "With 1
+  picture." and finds the figure loaded on the reader's page; it fails when
+  pictures are not read. Real-paper check: the Greco zip (33 figures).
+  Later: tap a figure to see it full screen.
 - **R3 · "Paper" as a kind of item.** Authors, year, journal and DOI (the
   permanent identifier every journal article has); a Papers filter in the
   sidebar beside Books, Audiobooks and PDFs; a card that reads "Greco, Bravo
