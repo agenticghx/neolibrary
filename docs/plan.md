@@ -1168,60 +1168,93 @@ owner's own tasks that only the owner sees. Samuel's words: "time to have a
 `Get Help` under the name settings that spells out how to conduct the
 important functionalities on the web app". Built and live in 924f98ff (#229).
 
-### M34 · A public showcase: three free books for anyone (Samuel, 2026-10-27)
+### M34 · An open shelf: anyone sees every title, reads the three free books (Samuel, 2026-10-27; changed 2026-11-02)
 
-Written for Samuel and for the session that builds it. Samuel's words: "make
-the web app public but turn on only the 3 free books. let there be login to
-access the rest of the library, which in this case is me. I need to show the
-world what I built." Recorded, not started: build it only when Samuel says go.
+Written for Samuel and for the sessions that build it. Samuel's words,
+2026-11-02: "you should be able to see all books and titles, just that public
+can only read the free ones and decided where to buy the paid versions. users
+have to bring their own key to use AI help and Voices. users can't use
+mine!" Where a visitor goes to find a book: "just send to good reads". Saved
+AI answers: "yes they cost nothing, give it to them". A visitor's key: "their
+own browser". His example of a shelf worth sharing: Hacker Books
+(hackerbooks.org), a public shelf of the books people recommend on Hacker
+News. This replaces the first M34 plan (2026-10-27), which showed visitors
+only the three free books. Samuel settled the open choices on
+2026-11-02 and building started that day.
 
-**What a visitor gets.** Anyone who opens the site, without signing in,
-lands in the library and sees exactly three books: *The Time Machine*,
-*The Strange Case of Dr. Jekyll and Mr. Hyde* and *Frankenstein*. All three
-are Standard Ebooks editions, which are public domain (nobody owns the
-rights). A visitor can open them and use the reader as Samuel does: read,
-listen along, the carousel, the reading themes. A "Sign in" link stays for
-Samuel. *Meditations on First Philosophy* was the first pick; it stays
-private, because the file is the Oxford World's Classics edition, whose
-English translation is still under copyright. Samuel chose *Frankenstein*
-in its place.
+**What a visitor gets, without signing in.**
+1. **The whole shelf.** Every title in Samuel's library, with its cover,
+   author and description, and the Library page's search and sorting.
+2. **Three books to read:** *The Time Machine*, *The Strange Case of Dr.
+   Jekyll and Mr. Hyde* and *Frankenstein*, all Standard Ebooks editions,
+   which are public domain (nobody owns the rights). The reader works as it
+   does for Samuel: reading, listening along, the carousel, the themes.
+   *Meditations on First Philosophy* stays unreadable: the file is the
+   Oxford World's Classics edition, whose translation is still under
+   copyright.
+3. **Every other title** shows its page (cover, author, description) and
+   "Find it on Goodreads", a link to a Goodreads search for the title and
+   author. There is no Read button and no file.
+4. **Saved AI answers for the three books, free.** Rewrites, Need to know,
+   Test yourself and the X-ray that already exist cost nothing to show again.
+5. **New AI answers and paid voices only with the visitor's own key** (next
+   section).
+6. A "Sign in" link, for Samuel and invited readers.
 
-**What stays private.** Every other title, and all of Samuel's own notes,
-highlights, reading places and stats, including the ones he made in the three
-free books. A visitor sees a clean copy. Exports, the agent access (`/api/agent`), uploads,
-settings and every other API stay sign-in only, exactly as now. Invited
-readers keep working as before.
+**Bring your own key.** Samuel's keys pay only for Samuel. A visitor (and,
+from this milestone, an invited reader too) who wants a new AI answer pastes
+their own Anthropic key; for an ElevenLabs voice, their own ElevenLabs key.
+- The key stays **in their own browser** (its local storage), never saved
+  on the server. The browser sends it with each request that needs it, over
+  https; the server uses it for that one call and never writes it to the
+  database, a log line, an error message or an export (a test searches for
+  it).
+- Without a key, a person gets saved answers, audio that already exists and
+  the browser's own voice. The button says what to add: "Add your own
+  Anthropic key to ask for new answers."
+- A new answer someone paid for with their own key is saved and shared like
+  any other saved answer (rewrites, Need to know, Test yourself), because it
+  holds only the book's text. Ask and Explain it back stay private to the
+  person who asked, and a visitor's are not kept on the server at all.
 
-**Defaults (Samuel may change any of them):**
-1. **AI help.** Visitors see stored answers (rewrites, Need to know, Test
-   yourself) that already exist for the three books, but cannot ask for new
-   ones. Ask and Explain it back are hidden. A visitor must never cause a
-   paid call (ground rules 5 and 8).
-2. **Listening.** Only audio that already exists, or the browser's own voice.
-   A visitor never starts a paid voice (ElevenLabs).
-3. **Visitors' own notes and place.** Kept in their own browser only, never on
-   the server. A note made by a visitor disappears if they clear their browser.
-4. **Which books are public** is a switch per book that only the owner can
-   turn on, and only for a public-domain edition (ground rules 1 and 6).
-   Nothing becomes public by default.
+**What stays private.** Samuel's notes, highlights, bookmarks, reading
+places, progress, stats, Review cards, Paths, voice notes and his own note on
+each book, including the ones he made in the three free books. A visitor sees
+a clean copy. The files of every other book, uploads, settings, exports, the
+agent access (`/api/agent`), the admin and Spending pages and every other API
+stay sign-in only. A visitor's own place and notes in the three books are kept
+in their browser only.
+
+**Two switches per book, owner only:**
+- **On the open shelf** (title, cover, author, description visible to
+  anyone). On for every book of Samuel's when this ships, because he wants the
+  whole shelf seen; he can turn it off for any one.
+- **Free to read.** Off for every book; Samuel turns it on, and only for a
+  public-domain edition (ground rules 1 and 6). On for the three books above.
 
 **Steps (one pull request each):**
-- S1. A "public" switch per book (migration: a script that changes the
-  database layout, with a reverse step; production backup before it runs).
-  Turn it on for the three books.
-- S2. The signed-out library: Home shows only public books. Any other book's
-  address, or its file, returns "not found" to a visitor (not "sign in", which
-  would reveal that it exists).
-- S3. The reader for visitors: no server saves; place and notes in the
-  browser; AI and paid voices as in the defaults.
-- S4. Guard rails: a limit on requests per visitor, and a check that no page a
-  visitor can reach reveals a private title, note or count.
+- S1. The two switches (migration: a script that changes the database
+  layout, with a reverse step; production backup before it runs), shown to
+  the owner on each book's page. The three books turned on.
+- S2. The open shelf, signed out: the Library and each book's page for
+  visitors, with the Goodreads link; a book that is not on the shelf answers
+  "not found", and so does the file of any book that is not free to read.
+- S3. The reader for visitors on the three books: reading, existing audio,
+  saved answers; place and notes in the browser.
+- S4. Bring your own key: a Key form (browser storage) for visitors and
+  readers; AI and voice requests carry it; for anyone but Samuel the server
+  uses only the caller's key, never his.
+- S5. Guard rails: a limit on requests per visitor; a check that no page a
+  visitor can reach shows a note, highlight, place, count or key.
 
-**Done when.** Browser tests, signed out: Home lists exactly the three
-books; each opens, reads and plays; a private book's page, file and API all
-answer "not found"; no paid call is possible (the fake AI and fake voice
-record zero calls); signed in, Samuel sees his whole library as today.
-Screenshots on phone and desktop, light and dark, of the signed-out Home.
+**Done when.** Browser tests, signed out: the Library lists every book on the
+shelf; each of the three opens, reads and plays; another book's page shows
+the Goodreads link and its file answers "not found"; without a key the fake AI
+and fake voice record zero calls; with a fake visitor key a new answer is made
+on that key and no log line contains it; signed in as an invited reader, a new
+answer needs their own key; signed in, Samuel sees and uses his library as
+today. Screenshots on phone and desktop, light and dark, of the signed-out
+Library, a free book open, and a book's page with the Goodreads link.
 
 ### M35 · Pick the model for each AI feature (Samuel, 2026-10-29)
 
@@ -1249,6 +1282,13 @@ dark. Migration 0034 (an `app_settings` table) has a reverse step; back up
 production before it runs.
 
 ### M36 · Bring your own AI key (Samuel, 2026-10-29)
+
+**Changed 2026-11-02 and folded into M34 (S4).** Samuel: "users have to bring
+their own key to use AI help and Voices. users can't use mine!" and the key
+stays in "their own browser". So keys are not stored on the server (the
+encrypted storage below is dropped), voices are bring-your-own too, and
+visitors with their own key can ask for new answers. The rest below is the
+first plan, kept for its reasoning.
 
 Written for Samuel and for the session that builds it. Samuel's words: "this
 app should be bring your own AI API keys until we find cheap api keys for
