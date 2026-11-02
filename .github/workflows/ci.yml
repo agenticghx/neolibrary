@@ -279,3 +279,23 @@ jobs:
             const mine = comments.find((c) => c.body?.startsWith("<!-- screenshot-grid -->"));
             if (mine) await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
             else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+
+  # Starts the Deploy workflow (.github/workflows/deploy.yml, M40 S2) once every check has passed on main.
+  # Deploy cannot simply wait for CI to finish (a workflow_run trigger): main's run is started by the
+  # auto-merge workflow's own token, and GitHub sends no follow-on events for work that token starts,
+  # except a direct start like this one. Found 2026-11-01: after #261 and #262 merged, Deploy never ran.
+  # AUTO_DEPLOY (a repository variable) set to anything but "on" switches this off.
+  deploy:
+    name: Start the deploy
+    needs: [checks, postgres, e2e]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      vars.AUTO_DEPLOY == 'on'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main -f sha="$GITHUB_SHA" -f after_ci=yes

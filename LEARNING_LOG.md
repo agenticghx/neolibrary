@@ -2486,3 +2486,11 @@ tests that pin it, in a small PR.
 **Lesson.** Check who a trigger lets in on a public repository before what it does.
 **Next experiment.** A test issue once the app is installed.
 
+### Iteration 112 · 2026-11-01 (laptop clock) · M40 S2 fix: CI starts the deploy · success (first live run to come)
+
+**Hypothesis.** The Deploy workflow never ran after #261 and #262 merged, though main's CI passed on 265f85f. main's CI run is started by the auto-merge workflow with GitHub's own workflow token, and GitHub starts no further workflow from that token's work (a `workflow_run` trigger included), except a direct start (`workflow_dispatch`). So the last CI job on main can start Deploy directly.
+**Action.** ci.yml: a job "Start the deploy" after the three main checks, on main only (push or dispatch, not the nightly), when AUTO_DEPLOY is "on"; it runs `gh workflow run deploy.yml` with the commit. deploy.yml: the dead `workflow_run` trigger removed; a new `after_ci` input keeps the "main moved on, skip" rule for those starts.
+**Evaluation.** `gh run list --workflow Deploy` printed nothing at all after two merges (not even a skipped run); CI on main 265f85f: workflow_dispatch, success.
+**Result.** actionlint: deploy.yml clean; ci.yml only its earlier warnings (the Blacksmith runner label, SC2129 at line 114).
+**Lesson.** Prove a trigger fires once before trusting the logic behind it: the gate was tested offline, the trigger never was.
+**Next experiment.** This merge: the main CI run should start Deploy, which should print "Skipped" (only workflows and the ledger changed since 4918cee).

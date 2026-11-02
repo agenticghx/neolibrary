@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M40: S1 #260, S2 #261, S3 merging; S2 needs RAILWAY_TOKEN, S3 needs /install-github-app (Samuel, once); S4-S6 next.
+next_action: Merge the deploy-trigger fix and confirm Deploy runs and skips, then rebase #263.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -349,6 +349,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 19:26 · Claude Opus 5.5 (laptop) · M40 S2 fix: CI on main starts the Deploy workflow (the workflow_run trigger never fired)
+- **Done:** Found Deploy had never run after #261 and #262 merged (gh run list --workflow Deploy: empty; CI on main 265f85f workflow_dispatch success). Cause: main's CI is started by the auto-merge workflow's own token, and GitHub starts no follow-on workflow (workflow_run) from that token's work. Fix: ci.yml job 'Start the deploy' (needs checks, postgres, e2e; main only; push or dispatch; AUTO_DEPLOY on) runs gh workflow run deploy.yml -f sha -f after_ci=yes; deploy.yml drops workflow_run and keeps the 'main moved on' skip via after_ci.
+- **Key paths:** .github/workflows/ci.yml; .github/workflows/deploy.yml; LEARNING_LOG.md (Iteration 112)
+- **Commands that worked:** gh run list --workflow Deploy --limit 3 (empty); docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -no-color .github/workflows/ci.yml .github/workflows/deploy.yml (deploy.yml clean; ci.yml only old warnings)
+- **Known issues / blockers:** Unproven until this merges: the main CI run must start Deploy and Deploy must print Skipped. #263 and #265 wait behind this; S5 and S6 not yet PRs.
+- **Exact next steps:** 1. Merge this; check gh run list --workflow Deploy shows a run that says Skipped. 2. Rebase #263; on merge the first real auto-deploy (watch railway variable set with a project token). 3. Test issue for S3. 4. Rebase #265. 5. S5 and S6 PRs, live check run, launchd install and 3-page test.
 
 ### 2026-11-01 18:40 · Claude Opus 5.5 (laptop) · M40 S3: an issue Samuel files becomes a pull request (not on yet)
 - **Done:** .github/workflows/claude-issue.yml: an issue opened by someone with write access (or labelled "build") starts Claude Code on GitHub (anthropics/claude-code-action@v1, Opus 5.5, signed in with Samuel's subscription token, not an API key). It reads the issue with gh, follows CLAUDE.md, builds on a branch m<N>-issue-<n>-<topic>, runs npm run check and the touched browser projects (Linux, like CI), and opens a PR "Fixes #n"; or, for a question or a decision only Samuel can make, comments on the issue instead. Label "no-build" at opening keeps an issue for discussion. Never deploys, merges, touches secrets or calls paid services. The issue's words never reach a shell command.
