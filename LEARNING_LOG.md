@@ -2536,3 +2536,9 @@ tests that pin it, in a small PR.
 **Evaluation.** `npm run check`: 1207 passed, 2 skipped. `npx playwright test --project reader --ignore-snapshots` on this Linux runner (numbers in the PR).
 **Lesson.** A new key belongs where the other page-turn keys are decided, so it gets their exceptions for free. Also the first pull request from the issue bot (M40 S3).
 **Next experiment.** CI on the PR.
+### Iteration 117 · 2026-11-02 (laptop clock) · M40 S3 proven; the review lets the bot's pull requests in · success
+
+**Hypothesis.** With the report visible, the issue bot's third run on #267 would show why the first two built nothing.
+**Result.** The third run built it: pull request #272 (`m21-issue-267-space-turns-page`, author app/claude), Space and Shift+Space in Pages, a browser test, the ledger and learning log, and a comment on the issue with the link and "reader project: 228 passed". Why runs one and two stopped is not known (neither left a word, and the step that would have said so matched the wrong pull request). On #272 the Claude review check failed: "Workflow initiated by non-human actor: claude (type: Bot). Add bot to allowed_bots list". `allowed_bots: "claude"` now lets only that bot in.
+**Lesson.** A bot's first success can come without an explanation of its earlier failures; keep the means to see the next one.
+**Next experiment.** Watch the next issue's run for a silent end.

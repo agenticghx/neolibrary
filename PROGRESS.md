@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the issue #267 pull request (Space turns the page in Pages) once CI is green; the issue bot's first PR.
+next_action: Watch #272 merge and deploy itself, then merge the review fix.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -352,6 +352,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-01 22:19 · Claude Opus 5.5 (laptop) · M40 S3 proven: the issue bot opened #272 for #267; the review now accepts the bot's pull requests
+- **Done:** #271 merged fe0688a (nightly job shell; bot says why it stopped). Issue #267's third bot run (41380099567) opened #272 (app/claude, branch m21-issue-267-space-turns-page) and commented on the issue. Claude review failed on #272 (non-human actor); claude-code-review.yml now has allowed_bots: claude.
+- **Key paths:** .github/workflows/claude-code-review.yml; LEARNING_LOG.md (Iteration 117)
+- **Commands that worked:** gh issue view 267 --json comments; gh pr view 272 --json author,files
+- **Known issues / blockers:** Why the first two bot runs on #267 built nothing is unknown.
+- **Exact next steps:** 1. #272 auto-merges when green and deploys itself; check /api/health. 2. Merge this. 3. Next issue: watch for a silent end.
 ### 2026-11-02 · Claude Opus 5.5 (GitHub issue bot, issue #267) · M21: Space turns to the next page and Shift+Space back, in Pages
 - **Done:** In the reader, in Pages (and on a PDF's pages), Space turns to the next page and Shift+Space to the previous one; in Scroll Space keeps scrolling. A focused button, text box (both already kept their keys), link, anything with a button, link or menu-item role, or the selected-text bar (role toolbar) keeps Space. Listed in the Keyboard shortcuts dialog. New browser test: two Spaces forward and two Shift+Spaces back land where they began, and a focused link keeps Space. The shortcuts dialog test's expected rows changed with the list. Open unknowns swept: nothing to close (rows still open are money, keys or access, or have no default).
 - **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (onKey); app/(reader)/books/[id]/read/ShortcutsDialog.tsx; e2e/reader.spec.ts; LEARNING_LOG.md (Iteration 116)
