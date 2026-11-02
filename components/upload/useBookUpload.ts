@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { UploadOutcome } from "@/app/api/books/route";
+import { markdownIn, ZIP_NOT_A_BOOK, zipNames } from "@/lib/library/zip-names";
 
 /** What each upload outcome says to the reader. */
 export const UPLOAD_MESSAGES = {
@@ -12,11 +13,7 @@ export const UPLOAD_MESSAGES = {
   restored: "You had removed this book: it is back, with your notes",
 } as const;
 
-export const ACCEPT = ".epub,.pdf,.md,.markdown,application/epub+zip,application/pdf,text/markdown";
-
-/** What a .zip dropped on the Import page is told: it is your own audiobook's package, which goes with a book. */
-export const ZIP_NOT_A_BOOK =
-  "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.";
+export const ACCEPT = ".epub,.pdf,.md,.markdown,.zip,application/epub+zip,application/pdf,text/markdown,application/zip";
 
 /**
  * Sends EPUB, PDF and Markdown files to /api/books, one request per file, and refreshes
@@ -35,12 +32,14 @@ export function useBookUpload() {
   async function upload(files: FileList | File[]) {
     const all = [...files];
     if (!all.length) return;
-    // A .zip is a read-along package (your own audiobook), not a book: a drop
-    // anywhere on the Import page lands here, even on the audiobook section,
-    // and the server would call the .zip a broken EPUB. Say where it goes.
+    // A .zip is a book only when it holds a Markdown file (a paper and its pictures, M41 R2). Any other .zip is most
+    // likely a read-along package (your own audiobook), often hundreds of MB: a drop anywhere on the Import page lands
+    // here, even on the audiobook section. Only the zip's table of contents is read to tell; the other is not sent.
     const isZip = (f: File) => /\.zip$/i.test(f.name);
-    const refused: UploadOutcome[] = all.filter(isZip).map((f) => ({ file: f.name, status: "error", message: ZIP_NOT_A_BOOK }));
-    const list = all.filter((f) => !isZip(f));
+    const paperZip = new Set<File>();
+    for (const f of all.filter(isZip)) if (markdownIn((await zipNames(f).catch(() => null)) ?? []).length) paperZip.add(f);
+    const refused: UploadOutcome[] = all.filter((f) => isZip(f) && !paperZip.has(f)).map((f) => ({ file: f.name, status: "error", message: ZIP_NOT_A_BOOK }));
+    const list = all.filter((f) => !isZip(f) || paperZip.has(f));
     setError(null);
     if (!list.length) {
       setResults(refused);

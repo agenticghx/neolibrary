@@ -287,7 +287,7 @@ test("M14 follow-up V3a: Import is the one place to add books and your own audio
   });
   for (const type of ["dragenter", "dragover", "drop"]) await section.dispatchEvent(type, { dataTransfer: zipDrop });
   await expect(page.getByTestId("upload-results")).toContainText(
-    "A .zip is not a book. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.",
+    "A .zip is added as a book only when it holds a Markdown (.md) file and its pictures. If it is your own audiobook, choose its book under “Add your audiobook to a book”, then choose the .zip there.",
   );
   expect(posted).toEqual([]);
   // How books are heard: the words Samuel approved, whole and unchanged (toHaveText with strings ignores line breaks only),
@@ -441,6 +441,31 @@ test("a Markdown paper's equations are drawn as formulas and its tables are tabl
   expect(s.numeratorSize).toBeGreaterThanOrEqual(s.textSize * 0.95);
 });
 
+
+// M41 R2 "Done when": a paper's .md and its pictures, added together as one .zip on the Import page, become a book whose
+// figure is on the reader's page, loaded from inside the book; the result line says how many pictures came.
+test("a paper's .zip with its pictures is added, and its figure shows in the reader", async ({ page }) => {
+  test.setTimeout(90_000);
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const md = ["---", "title: A Paper With a Figure", "---", "# Results", "", "The effect falls as the dose rises.", "", "![Figure 1](figures/fig-01.png)", "", "**Figure 1.** Effect against dose."].join("\n");
+  const zip = Buffer.from(zipSync({ "paper/paper.md": strToU8(md), "paper/figures/fig-01.png": new Uint8Array(png) }));
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "a-paper-with-a-figure.zip", mimeType: "application/zip", buffer: zip });
+  await expect(page.getByTestId("upload-results")).toContainText("Added to your library. With 1 picture.");
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^A Paper With a Figure/ }).click();
+  await expect(page.getByRole("heading", { name: "A Paper With a Figure", level: 1 })).toBeVisible();
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const figure = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const img = view.renderer.getContents()[0]?.doc.querySelector("p.figure img") as HTMLImageElement | null;
+      return img ? { alt: img.alt, loaded: img.complete && img.naturalWidth === 1 } : null;
+    });
+  await expect.poll(figure).toEqual({ alt: "Figure 1", loaded: true });
+});
 
 // M29 "Done when": a Markdown (.md) book is added on the Import page and opens in the reader as a book with chapters
 // (its parts and chapters in Contents; italics and the rest are checked in lib/library/markdown-epub.test.ts); a script with the reader's token can add one too

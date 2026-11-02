@@ -2,17 +2,26 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
-import { ImportError, readBook } from "./ebook";
-import { isMarkdownName, markdownToEpub } from "./markdown-epub";
+import { safeUnzip } from "@/lib/readalong/zipread";
+import { EPUB_ZIP_LIMITS, ImportError, readBook } from "./ebook";
+import { isMarkdownName, markdownToEpub, type MarkdownBook } from "./markdown-epub";
+import { Pictures } from "./markdown-pictures";
+import { markdownIn, ZIP_NOT_A_BOOK } from "./zip-names";
 import { pickBook, sameBook, UUID } from "./paths";
 import { buildSections } from "./sections-store";
 import { buildXray } from "./xray";
 
-export type ImportResult =
+export type ImportResult = (
   | { status: "added" | "attached"; bookId: string; title: string }
   | { status: "duplicate"; bookId: string; title: string }
   /** The reader had removed this book (M19): it comes back, with its notes, rather than as a second copy. */
-  | { status: "restored"; bookId: string; title: string };
+  | { status: "restored"; bookId: string; title: string }
+) & {
+  /** M41 R2: a Markdown book's pictures, in a sentence ("With 33 pictures.", or which ones were not found). */
+  note?: string;
+};
+
+
 
 /**
  * Adds an uploaded file to the owner's library:
@@ -35,7 +44,23 @@ export async function importBook(
   opts: { attachTo?: string | null } = {},
 ): Promise<ImportResult> {
   // M29: a Markdown book becomes an EPUB here, and is an ordinary EPUB from then on (its file name stays the .md's).
-  if (isMarkdownName(file.name)) file = { name: file.name, bytes: markdownBook(file.bytes, file.name) };
+  // M41 R2: so does a .zip holding one Markdown file and its pictures (a paper and its figures).
+  let book: MarkdownBook | null = null;
+  if (isMarkdownName(file.name)) book = markdownBook(file.bytes, file.name);
+  else if (/\.zip$/i.test(file.name)) book = markdownZip(file.bytes);
+  if (book) file = { name: file.name, bytes: book.bytes };
+  const result = await importFile(db, storage, ownerId, file, opts);
+  const note = book && result.status !== "duplicate" ? picturesNote(book.pictures, /\.zip$/i.test(file.name)) : null;
+  return note ? { ...result, note } : result;
+}
+
+async function importFile(
+  db: Db,
+  storage: Storage,
+  ownerId: string,
+  file: { name: string; bytes: Uint8Array },
+  opts: { attachTo?: string | null },
+): Promise<ImportResult> {
   const info = await readBook(file.bytes, file.name);
   let wanted: { id: string; title: string; author: string } | undefined;
   if (opts.attachTo) {
@@ -119,8 +144,8 @@ export async function importBook(
   return { status: wanted ? "attached" : "added", bookId, title: wanted?.title ?? info.title };
 }
 
-/** A Markdown file's bytes as an EPUB; refuses text that is not UTF-8, or has no text. */
-function markdownBook(bytes: Uint8Array, name: string) {
+/** Markdown bytes as text; refuses text that is not UTF-8. */
+function markdownText(bytes: Uint8Array): string {
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -128,11 +153,46 @@ function markdownBook(bytes: Uint8Array, name: string) {
     throw new ImportError("This Markdown file is not plain text (UTF-8).");
   }
   if (text.includes("\u0000")) throw new ImportError("This Markdown file is not plain text (UTF-8).");
+  return text;
+}
+
+/** A Markdown file's bytes as an EPUB; refuses text that is not UTF-8, or has no text. */
+function markdownBook(bytes: Uint8Array, name: string, pictures?: Pictures): MarkdownBook {
+  const text = markdownText(bytes);
   try {
-    return markdownToEpub(text, name).bytes;
+    return markdownToEpub(text, name, undefined, pictures);
   } catch {
     throw new ImportError("This Markdown file has no text.");
   }
+}
+
+/**
+ * M41 R2: a .zip holding one Markdown file and its pictures as an EPUB. Pictures are found relative to the Markdown
+ * file's folder in the zip, as on disk; a zip with no Markdown file (an audiobook's package, say) or several is refused.
+ */
+function markdownZip(bytes: Uint8Array): MarkdownBook {
+  let files: Record<string, Uint8Array>;
+  try {
+    files = safeUnzip(bytes, EPUB_ZIP_LIMITS);
+  } catch {
+    throw new ImportError("This .zip could not be opened.");
+  }
+  const mds = markdownIn(Object.keys(files));
+  if (!mds.length) throw new ImportError(ZIP_NOT_A_BOOK);
+  if (mds.length > 1) throw new ImportError(`This .zip holds ${mds.length} Markdown files. A .zip is added as one book: put one Markdown file, with its pictures, in each .zip.`);
+  const path = mds[0];
+  const slash = path.lastIndexOf("/");
+  return markdownBook(files[path], path.slice(slash + 1), new Pictures(files, slash < 0 ? "" : path.slice(0, slash)));
+}
+
+/** "With 33 pictures.", or which pictures were not found, and (for a lone .md) how to bring them. */
+export function picturesNote(pictures: MarkdownBook["pictures"], fromZip: boolean): string | null {
+  const { used, missing } = pictures;
+  const count = (n: number) => `${n} picture${n === 1 ? "" : "s"}`;
+  if (!missing.length) return used ? `With ${count(used)}.` : null;
+  const names = missing.slice(0, 3).join(", ") + (missing.length > 3 ? ", …" : "");
+  if (!fromZip) return `${count(missing.length)} not in this file (${names}). To include them, add the .md and its pictures together as one .zip.`;
+  return `${used ? `With ${count(used)}; ` : ""}${count(missing.length)} not found in the .zip (${names}).`;
 }
 
 /** Owner of a stored file, from its key (books/<owner>/…, covers/<owner>/…). */

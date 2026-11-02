@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M34 open-shelf plan PR, then build M34 S1 (two switches per book).
+next_action: M41: merge R2 (figures) and R1c; deploy R1c with a backup (Samuel's word given 2026-11-02). M34: build S1 (two switches per book).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -361,6 +361,12 @@ Never blocks the loop. Newest first.
 - **Commands that worked:** none beyond git; plan text only
 - **Known issues / blockers:** none encountered
 - **Exact next steps:** Merge this plan PR. Then S1: two switches per book (on the open shelf, free to read), migration with a reverse step; backup before it runs in production.
+### 2026-11-02 07:17 · Claude (laptop session) · M41 R2: figures from a .zip of a paper's Markdown and pictures (built, not yet PR'd)
+- **Done:** R2 built on branch m41-figures (stacked on m41-math-font, PR #275): a .zip holding one .md and its pictures becomes an EPUB with the pictures (PNG/JPEG/GIF/WebP by first bytes; no SVG; nothing outside the zip). The Import page reads only a zip's table of contents and sends it only when it names a .md, so audiobook zips are still never uploaded there. The result line says 'With N pictures.' or which were not found. A lone .md lists the pictures it lacks.
+- **Key paths:** lib/library/markdown-pictures.ts, lib/library/zip-names.ts (new), lib/library/markdown-pictures.test.ts (new); lib/library/markdown-epub.ts; lib/library/import.ts; components/upload/useBookUpload.ts, HomeImport.tsx; e2e/uploads.spec.ts
+- **Commands that worked:** npx vitest run lib/library/markdown-pictures.test.ts lib/library/markdown-epub.test.ts -> 22 passed. npx playwright test e2e/uploads.spec.ts --ignore-snapshots -> 180 passed; with picture reading broken the new test fails (Received '1 picture not found in the .zip').
+- **Known issues / blockers:** Usage limit reached mid-step. Not done: npm run check on this branch, the by-eye check of the Greco zip (scratchpad greco.zip, 6.8 MB, 33 figures), the PR for R2, docs/plan.md R2 text and LEARNING_LOG entries for R2. R1c (equations/cells not prose; needs a migration + backup) not started. Nothing deployed.
+- **Exact next steps:** 1. Merge #275 (R1b) when green. 2. Rebase m41-figures --onto main from the R1b commit, run npm run check, import the Greco zip locally and look at figures, then PR and merge. 3. Build R1c. 4. Deploy (Samuel said deploy, 2026-11-02): backup first because R1c has a migration.
 
 ### 2026-11-02 07:07 · Claude (laptop session) · M41 R1b: brackets stretch in Chrome (bundled math font)
 - **Done:** Samuel, 2026-11-02: 'do them, verify, deploy' (figures, brackets, equations and cells offered for rewriting). R1b built on branch m41-math-font (stacked on #274): book pages get STIX Two Math (OpenType MATH table, checked with fontTools) for every formula, so Chrome stretches \left[ ... \right] as WebKit does. docs/plan.md: R1b and R1c written.
