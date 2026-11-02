@@ -2614,7 +2614,7 @@ tests that pin it, in a small PR.
 **Result.** 4 passed; uploads 181 passed; mutation failed as it should ("getByRole('dialog', { name: 'Figure 1' })" not found). On the real paper the first look showed two faults the test could not: a small picture would never grow (CSS `max-width` only shrinks), fixed by sizing it from its own width and height and the space; and the page behind showed through the 0.86 backdrop and competed with the figure, fixed with a near-opaque ground (0.96). Greco Figure 1 (1000 × 1088) is drawn 650 × 708 on a laptop, 358 × 389 on a phone, legend under it, closed by Escape.
 **Lesson.** Look at the real thing on a real screen: both faults were visible in one screenshot and invisible to every assertion.
 
-### Iteration 125 · 2026-11-02 07:56 (laptop clock) · M34 S1: two switches per book for the open shelf · success
+### Iteration 125 · 2026-11-02 08:05 (laptop clock) · M34 S1: two switches per book for the open shelf · success
 
 **Hypothesis.** Two columns on `books` (on the open shelf, default on; free to read, default off) are enough to say what a visitor may see and read, and the app can refuse "free to read" for a copyrighted book by trusting only the book file's own publisher field (Standard Ebooks, Project Gutenberg).
 **Action.** Migration 0036 (with its reverse step; numbered 0035 until M41 took that number) adds the columns and turns on "free to read" for the owner's three Standard Ebooks editions, matched by title and publisher, never by id. `lib/library/open-shelf.ts` sets one switch on the owner's own book; the owner sees an "Open shelf" pair of buttons on each book's page.
