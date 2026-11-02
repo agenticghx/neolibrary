@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M41 R4a (M34 S1-S5 and M41 R1-R4b merged); then Samuel decides the deploy of main (opens the shelf to visitors; one backup for 0036 and 0037).
+next_action: Samuel tries the Greco paper as a paper (PMID 7568331), an equation explanation and a summary card on the live site.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 16:01 · Claude (laptop) · Deployed f9f1290: M41 Papers R1d-R4a and M34 open shelf S1-S5 live (migrations 0036 and 0037)
+- **Done:** Deploy at Samuel's word ('deploy', 2026-11-02), coordinated with the M34 session (one deploy, one backup). Live: #283 tap a figure (already live as 01dae19), #284 Listen passes over equations and tables, #286 Paper as a kind of item (migration 0037), #288 explain an equation, #289 a paper's summary card; M34 #278 S1 (migration 0036, not 0035 as its earlier entries say), #280 S2, #281 S3, #282 S4, #285 S4b, #287 S5. The library's shelf is now visible to visitors signed out (/browse); the three Standard Ebooks classics are free to read.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0036-0037-20261102T2052Z.sql; ../neolibrary-deploy (detached at f9f1290a, clean)
+- **Commands that worked:** railway ssh Postgres pg_dump -> 31,926,098 bytes, 'dump complete' footer; restored into postgres:18 with psql -v ON_ERROR_STOP=1: exit 0, 35 migrations, 260 books, 12,093 sections. railway variable set NEOLIBRARY_COMMIT=f9f1290a59f05f0ce14ee25237f5a51acdea671a --skip-deploys; railway up --ci -> Deploy complete. /api/health on library.samuelahuno.com and (from inside Railway) web-production-f27a0e.up.railway.app: commit f9f1290; /sign-in 200; log 'Page pictures: ready.'; production _migrations 37 (0037_paper_details); books kind book 260; on_shelf 260, free_to_read 3. Signed out: /browse 200 (132 title links); Frankenstein /browse/<id> 'Read it free', /read 200; Hard Landing 'Find it on Goodreads', /read 404.
+- **Known issues / blockers:** Paper features not tried with real AI yet (no paid call made). No title is marked a paper yet: Samuel marks Greco himself (PMID 7568331). Papers sit on the open shelf like books (on_shelf defaults on), so visitors see a paper's title and authors.
+- **Exact next steps:** 1. Samuel: on the Greco paper's page, 'Is this a research paper?' -> PMID 7568331; then tap an equation (Explain it, about $0.04) and Make a summary card (about $0.08). 2. Samuel: is a paper's listing on the open shelf wanted (switch per title on its page)? 3. Later M41: add a paper by DOI before its file, PubMed Central full text, explain a figure (needs the picture sent to the model), linked references.
 
 ### 2026-11-02 10:03 · Claude (laptop) · M41 R4a: a paper's summary card (branch m41-paper-summary, on top of R3)
 - **Done:** Built R4a: on a paper's page, a summary card (question, method, main finding, limits) written by AI from the paper's start and end and its middle section titles; made on purpose with its cost shown, stored, free after; new AI feature 'Paper summary card' (Sonnet). Built on R3 (#286), so its PR waits for #286. No migration.
