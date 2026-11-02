@@ -1,9 +1,11 @@
+import { tooMany } from "@/lib/auth/asker";
 import { getDb } from "@/lib/db";
 import { visitorMayHave } from "@/lib/library/open-shelf";
 import { serverSecret } from "@/lib/secrets";
 import { serveStoredFile } from "@/lib/serve-file";
 import { verifyFileSignature } from "@/lib/signed-url";
 import { getStorage } from "@/lib/storage";
+import { takeVisitorRequest, visitorAddress } from "@/lib/visitor-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,9 @@ export const dynamic = "force-dynamic";
  * a private file from one that does not exist.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ key: string[] }> }) {
+  // M34 S5: a limit per visitor address (lib/visitor-limit.ts); generous, as a shelf page shows every cover.
+  const taken = takeVisitorRequest("file", visitorAddress(req.headers));
+  if (!taken.ok) return tooMany(taken.retryAfterSeconds);
   const key = (await params).key.map(decodeURIComponent).join("/");
   const url = new URL(req.url);
   const db = await getDb();

@@ -1232,6 +1232,11 @@ in their browser only.
 - **Free to read.** Off for every book; Samuel turns it on, and only for a
   public-domain edition (ground rules 1 and 6). On for the three books above.
 
+**Status (2026-11-02):** built as S1 #278, S2 #280, S3 #281, S4 #282, S4b #285 (AI for visitors on the free
+books, added while building) and S5; merged as one batch because S1's migration holds every automatic deploy
+until it is backed up and deployed at Samuel's word. The shelf is at `/browse`, not `/shelf`: `/shelf` is the old
+address that sends a signed-in reader to `/library` (M14).
+
 **Steps (one pull request each):**
 - S1. The two switches (migration: a script that changes the database
   layout, with a reverse step; production backup before it runs), shown to
