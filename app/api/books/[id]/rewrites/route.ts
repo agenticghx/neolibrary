@@ -1,6 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModelFor } from "@/lib/ai/model-picks";
+import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -80,7 +80,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const strictness = body.strictness === undefined ? "standard" : strictnessFrom(body.strictness);
   if (!strictness) return Response.json({ error: "STE strictness is Light, Standard, Strict or a percentage." }, { status: 400 });
   try {
-    const out = await rewriteParagraph(await getDb(), await textModelFor(await getDb(), "rewrite", user, req), user.id, {
+    const out = await rewriteParagraph(await getDb(), await savedOrNewModelFor(await getDb(), "rewrite", user, req), user.id, {
       bookId,
       sectionId: body.sectionId,
       level: body.level,

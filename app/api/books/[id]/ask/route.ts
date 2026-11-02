@@ -1,6 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModelFor } from "@/lib/ai/model-picks";
+import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!isId(bookId)) return Response.json({ error: "Book not found." }, { status: 404 });
   const body = (await req.json().catch(() => ({}))) as { question?: unknown };
   try {
-    const out = await askBook(await getDb(), await textModelFor(await getDb(), "ask", user, req), user.id, { bookId, question: body.question });
+    const out = await askBook(await getDb(), await savedOrNewModelFor(await getDb(), "ask", user, req), user.id, { bookId, question: body.question });
     return Response.json(out, { status: out.found && !out.reused ? 201 : 200 });
   } catch (e) {
     return errorResponse(e);

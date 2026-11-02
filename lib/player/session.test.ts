@@ -92,8 +92,8 @@ describe("noteFor", () => {
     // A PDF book is read aloud in a made voice as an EPUB is (docs/pdf-narration-plan.md, Part A): the same words.
     expect(note({ info: info({ fileType: "pdf" }) })).toBe("This paragraph costs about $0.04 to read aloud; then it is saved.");
     expect(note({ info: info({ fileType: "pdf", track }) })).toBe("Saved audio: free to play.");
-    expect(note({ info: info({ fileType: "pdf", estimate: null }) })).toBe("Reading aloud is not set up yet: the owner needs to add an ElevenLabs key.");
-    expect(note({ info: info({ estimate: null }) })).toBe("Reading aloud is not set up yet: the owner needs to add an ElevenLabs key.");
+    expect(note({ info: info({ fileType: "pdf", estimate: null }) })).toBe("No AI voice key here: add your own ElevenLabs key in Reading settings (Aa).");
+    expect(note({ info: info({ estimate: null }) })).toBe("No AI voice key here: add your own ElevenLabs key in Reading settings (Aa).");
   });
 
   // Samuel (2026-10-09, "both"): a running total, and a question before paying on past $1.

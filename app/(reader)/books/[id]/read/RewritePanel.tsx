@@ -171,7 +171,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
           </fieldset>
           <p className={styles.hint}>
             {estimate === null
-              ? "AI is not set up yet: the owner needs to add an Anthropic API key. Saved rewrites still show."
+              ? "No AI key for new rewrites here: add your own Anthropic key in Reading settings (Aa). Saved rewrites still show."
               : `A new rewrite costs ${usd(estimate)}. Saved rewrites are free.`}
           </p>
         </>

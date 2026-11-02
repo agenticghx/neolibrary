@@ -195,7 +195,7 @@ export function RewrittenPane(props: {
           {!data && !error ? <p className={styles.hint}>Finding the page…</p> : null}
           {data && data.pieces.length === 0 ? <p className={styles.hint}>There is no text to rewrite on this page.</p> : null}
           {data && missing.length > 0 && priced.length === 0 ? (
-            <p className={styles.hint}>AI is not set up yet: the owner needs to add an Anthropic API key. Saved rewrites still show.</p>
+            <p className={styles.hint}>No AI key for new rewrites here: add your own Anthropic key in Reading settings (Aa). Saved rewrites still show.</p>
           ) : null}
           {data && !props.turn.on && priced.length > 0 ? (
             <div className={styles.rewrittenAsk}>

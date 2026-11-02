@@ -4,7 +4,7 @@ import { appSettings } from "@/lib/db/schema";
 import { OWN_KEY_NEEDED } from "@/lib/own-key-names";
 import { ClaudeModel } from "./claude";
 import { aiIsFake, getTextModel } from "./index";
-import { OwnKeyTextModel, ownKeyFrom } from "./own-key";
+import { MissingKeyModel, OwnKeyTextModel, ownKeyFrom } from "./own-key";
 import { AiNotConfigured, FEATURE_MODELS, MODEL_CHOICES, defaultModelFor, modelFor, type AiFeature, type ModelPicks, type TextModel } from "./model";
 
 /**
@@ -88,4 +88,17 @@ export async function textModelFor(
   const key = ownKeyFrom(req, "ai");
   if (!key) throw new AiNotConfigured(OWN_KEY_NEEDED.ai);
   return new OwnKeyTextModel(aiIsFake(env) ? getTextModel(feature, env) : new ClaudeModel(key, modelFor(feature, env, {})));
+}
+
+/**
+ * For a request that may be answered from what is saved: like textModelFor, but with no key it gives a model that
+ * serves saved answers and refuses only a new one (MissingKeyModel), instead of refusing at once.
+ */
+export async function savedOrNewModelFor(db: Db, feature: AiFeature, who: { role: string }, req: Request, env: Record<string, string | undefined> = process.env) {
+  try {
+    return await textModelFor(db, feature, who, req, env);
+  } catch (e) {
+    if (!(e instanceof AiNotConfigured)) throw e;
+    return new MissingKeyModel(modelFor(feature, env, {}), e.message);
+  }
 }

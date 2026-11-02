@@ -180,7 +180,7 @@ export function ImagesPanel({
         <div className={styles.makePicture}>
           <p className={styles.hint}>No good picture? Make one with AI. It is labelled as generated wherever it appears.</p>
           {picture.estimate === null ? (
-            <p className={styles.hint}>Making pictures is not set up yet: the owner needs to add an OpenAI API key.</p>
+            <p className={styles.hint}>Making a picture with AI is for the library&apos;s owner. Searching for pictures is free.</p>
           ) : (
             <div className={styles.noteActions}>
               <button type="button" className={styles.primaryTool} disabled={making} onClick={() => void make()}>

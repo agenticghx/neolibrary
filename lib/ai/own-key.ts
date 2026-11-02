@@ -1,5 +1,5 @@
 import { OWN_KEY_HEADERS, type OwnKeyKind } from "@/lib/own-key-names";
-import type { TextModel, TextRequest } from "./model";
+import { AiNotConfigured, type TextModel, type TextRequest } from "./model";
 
 /*
  * M34 S4: a request paid with the asker's own key. Its model's provider gets OWN_KEY_SUFFIX ("anthropic-own-key"),
@@ -27,5 +27,21 @@ export class OwnKeyTextModel implements TextModel {
   }
   generate(req: TextRequest) {
     return this.inner.generate(req);
+  }
+}
+
+/**
+ * Stands in for a model when the asker has no key: a saved answer is still served (the generator looks for one
+ * before it calls the model), and only a new one is refused, with how to add a key. Its provider is an own-key one,
+ * so no cap of the owner's is checked on the way.
+ */
+export class MissingKeyModel implements TextModel {
+  readonly provider = "none" + OWN_KEY_SUFFIX;
+  constructor(
+    readonly model: string,
+    private readonly message: string,
+  ) {}
+  generate(): never {
+    throw new AiNotConfigured(this.message);
   }
 }
