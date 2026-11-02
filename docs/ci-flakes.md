@@ -146,3 +146,5 @@ On 2026-10-07 (the first day on GitHub's shared runners for a public repository)
 about one run in three; on 4 to 6 October it passed far more often. The `TIMING_JSON` lines the read-along tests
 print (`cpu`, phase timings) are in every browser log: the first step before touching any of these tests is to
 compare them between the two periods.
+
+- **`narration.spec.ts:75` "continuing pays only for the rest"** (run 41465860440, attempt 1, on #284, 2026-11-02): "Expected … costs about $4.18", page said $4.19. Not timing as such: Stop lands at a different paragraph each run, and at 175 saved the rest costs exactly $4.185, which the page (`toLocaleString`) rounds up and the test (`toFixed`) rounded down. Fixed in #284: the test formats money as the page does.

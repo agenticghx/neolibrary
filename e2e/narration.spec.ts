@@ -38,7 +38,9 @@ const TITLE = "Lamps Along the Quay";
 const AUTHOR = "Iris Wick";
 /** The app's default price (US dollars per 1,000 characters); the test server sets no ELEVENLABS_USD_PER_1K_CHARS. */
 const cost = (characters: number) => (characters / 1000) * 0.3;
-const dollars = (x: number) => `$${x.toFixed(2)}`;
+// The page's own rounding (WholeBookNarration.tsx): toLocaleString rounds 4.185 up to 4.19, toFixed gives 4.18 (4.185 is
+// stored a hair below), so where Stop landed decided whether this test passed (run 41465860440: 175 paragraphs saved).
+const dollars = (x: number) => `$${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 type Summary = {
   voice: string;
