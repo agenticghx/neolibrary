@@ -89,8 +89,9 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 112 | 2026-11-01 19:30 | M40 S4 agent reads | Three read-only routes give laptop checks what they need without signing in | vitest; Linux image, agents project | success | reuse the app's own rule rather than write a second one |
 | 116 | 2026-11-02 03:10 | M21 issue #267 (issue bot) | Space and Shift+Space can turn pages in Pages through the one key handler, without taking Space from buttons, links or Scroll | `npm run check`; reader project in the browser | success | add a key where the other page-turn keys are decided, so its exceptions are the same ones |
 | 118 | 2026-11-02 06:10 | M41 R1 equations and tables | KaTeX's MathML in the Markdown importer draws a paper's equations; Pandoc's dollar rule keeps prices as text | vitest on an invented paper | failure then success | a price and a code span can pair into one long formula: stop a formula at code, and a formula that starts with a digit holds no space |
-| 120 | 2026-11-02 06:50 | CI: PR hygiene | The hygiene check passes on a rebased PR | `node scripts/check-pr-hygiene.mjs origin/main` | failure then success | a ledger past 1 MB breaks any script that reads it through execFileSync's default buffer |
 | 119 | 2026-11-02 06:40 | M41 R1 by eye | The Greco paper and an invented one look right in the reader | screenshots, Chrome and WebKit, light and dark, phone and desktop; a browser test with a mutation | failure then success | Chrome draws a numbered equation (KaTeX puts it in a MathML table) at small size; `math-style: normal` on its cells fixes it, and only a screenshot showed it |
+| 120 | 2026-11-02 06:50 | CI: PR hygiene | The hygiene check passes on a rebased PR | `node scripts/check-pr-hygiene.mjs origin/main` | failure then success | a ledger past 1 MB breaks any script that reads it through execFileSync's default buffer |
+| 121 | 2026-11-02 07:05 | M41 R1b brackets | A bundled math font makes Chrome stretch brackets as WebKit does | bundled font's tables (fontTools); browser test with a mutation | success | check a packaged font still has its MATH table before relying on it |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2568,4 +2569,12 @@ tests that pin it, in a small PR.
 **Hypothesis.** After rebasing #274 onto main, the PR hygiene check (`scripts/check-pr-hygiene.mjs`) finds the new Log entry.
 **Result.** It crashed: "spawnSync git ENOBUFS". `wc -c PROGRESS.md`: 1095400 bytes; main's ledger passed 1 MB when 40 entries were copied to it (2026-11-02), and `execFileSync` returns at most 1 MB unless told otherwise. Every PR's hygiene check would fail the same way. With `maxBuffer` at 64 MB: "PR hygiene: found 1 new Log entry", exit 0.
 **Lesson.** A file that only grows will cross a tool's default limit one day; give any script that reads the whole ledger a generous buffer.
+
+### Iteration 121 · 2026-11-02 07:05 (laptop clock) · M41 R1b: brackets stretch in Chrome · success
+
+**Hypothesis.** Chrome drew `\left[ … \right]` at text size because it found no font with an OpenType MATH table (the data that says how to build a tall bracket); giving book pages STIX Two Math fixes it.
+**Action.** Checked `@fontsource/stix-two-math` 5.3.0 with fontTools before using it: its woff2 keeps the `MATH` table and maps 4605 characters (Greek, ∑, ∫, ±, ∣ present). Copied to `public/fonts/stix-two-math.woff2` with its licence; `bookCss` declares "NL Math" and sets `math { font-family: "NL Math", math !important; }`.
+**Evaluation.** Unit test on `bookCss` for the three reading faces (8 passed); the Markdown-paper browser test measures a bracket around a fraction against a plain one.
+**Result.** With the rule: passed (uploads project, 165). Without it (mutation): "Expected: > 19.5, Received: 13", the stretched bracket the same 13 px as the plain one.
+**Lesson.** A font package can be cut down to save space; read its tables before relying on it.
 

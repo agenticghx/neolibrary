@@ -82,7 +82,8 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
   const fonts = `
     @font-face { font-family: "NL Serif"; src: url("${origin}/fonts/source-serif-4-latin-opsz-normal.woff2") format("woff2"); font-weight: 200 900; font-style: normal; }
     @font-face { font-family: "NL Serif"; src: url("${origin}/fonts/source-serif-4-latin-opsz-italic.woff2") format("woff2"); font-weight: 200 900; font-style: italic; }
-    @font-face { font-family: "NL Sans"; src: url("${origin}/fonts/source-sans-3-latin-wght-normal.woff2") format("woff2"); font-weight: 200 900; font-style: normal; }`;
+    @font-face { font-family: "NL Sans"; src: url("${origin}/fonts/source-sans-3-latin-wght-normal.woff2") format("woff2"); font-weight: 200 900; font-style: normal; }
+    @font-face { font-family: "NL Math"; src: url("${origin}/fonts/stix-two-math.woff2") format("woff2"); font-weight: 400; font-style: normal; }`;
   const family = s.face === "serif" ? '"NL Serif", Georgia, serif' : s.face === "sans" ? '"NL Sans", Arial, sans-serif' : null;
   return `
     ${fonts}
@@ -90,6 +91,9 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     html { color-scheme: ${colors.scheme}; font-size: ${s.size}% !important; --theme-bg-color: ${colors.paper}; }
     html, body { background: ${colors.paper} !important; color: ${colors.ink} !important; }
     ${family ? `body, p, li, blockquote, dd, div, span, h1, h2, h3, h4, h5, h6 { font-family: ${family} !important; }` : ""}
+    /* M41: formulas in a font made for mathematics, so brackets and roots stretch to fit (Chrome uses no system math
+       font; Android and Windows have none). The browser downloads it only for a page that has a formula. */
+    math { font-family: "NL Math", math !important; }
     p, li, blockquote, dd {
       line-height: ${SPACING[s.spacing]} !important;
       ${s.focus === "off" ? "hyphens: auto;" : "hyphens: manual !important; /* Focus dims text, not the hyphens a browser adds at line ends */"}

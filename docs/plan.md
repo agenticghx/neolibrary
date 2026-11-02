@@ -1396,10 +1396,33 @@ Open unknowns row 33; it decides how much of R2 is built.
   inline one, and the table's cells.
   Real-paper check: the Greco Markdown, by eye in Chrome and WebKit, light
   and dark.
-  Known limits (for later steps): Chrome draws large brackets `\left[ … \right]`
-  at text size (WebKit stretches them), a math font in the book would fix it;
-  the rewrite panel offers each equation and table cell as a paragraph to
-  rewrite; X-ray lists "Eq" and "Eqn" as names.
+  Known limits, each planned below (Samuel, 2026-11-02: "do them, verify,
+  deploy"): Chrome drew large brackets at text size (R1b); the rewrite panel
+  offered each equation and table cell as a paragraph to rewrite (R1c);
+  figures showed only their description (R2). X-ray lists "Eq" and "Eqn" as
+  names (not planned yet).
+- **R1b · Brackets stretch in every browser.** To stretch a bracket around a
+  tall fraction a browser needs a font made for mathematics (one with an
+  OpenType MATH table). Safari on a Mac has one; Chrome uses no system math
+  font, and Android and Windows have none. The reader now gives book pages
+  STIX Two Math (`public/fonts/stix-two-math.woff2`, 403 KB, from
+  `@fontsource/stix-two-math` 5.3.0, which keeps the MATH table; SIL Open
+  Font License) for every `<math>`, whatever the reading face; the browser
+  downloads it only for a page with a formula.
+  Done when: a unit test finds the font and the rule in the book-page CSS for
+  each reading face; the browser test measures a `\left[ … \right]` bracket
+  around a fraction at more than 1.5 times a plain bracket, and fails
+  without the rule.
+- **R1c · Equations and table cells are not prose.** Each paragraph records
+  its form: prose, an equation (a paragraph that is one display formula) or
+  a table cell. Rewrites, Need to know and Test yourself use prose only (and
+  their cost estimates count prose only); the rewrite panel shows an
+  equation or a table as it is, "Kept as in the book"; Listen says "An
+  equation." or "A table." once instead of reading symbols or cells one by
+  one. Highlights, notes and search still work on them. A migration adds
+  the column (with its reverse step); a one-off script labels the
+  paragraphs of books already in the library (paragraph ids do not change);
+  a backup comes before the deploy.
 - **R2 · Figures.** A Markdown file and its pictures, uploaded together as
   one `.zip` (the `.md` plus a `figures/` folder), become an EPUB with the
   pictures in it, each with its legend. Pictures only from inside the zip;
