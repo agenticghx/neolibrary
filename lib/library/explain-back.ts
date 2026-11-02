@@ -84,7 +84,8 @@ export async function partPassages(db: Db, bookId: string, chapter: Chapter): Pr
   const rows = await db
     .select({ id: sections.id, cfi: sections.cfi, text: sections.text })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapter.chapterIndex), eq(sections.kind, "paragraph")))
+    // M41 R1c: prose only (no equations or table cells).
+    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapter.chapterIndex), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
     .orderBy(asc(sections.position));
   const out: Passage[] = [];
   let total = 0;

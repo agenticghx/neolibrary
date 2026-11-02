@@ -81,7 +81,8 @@ export async function chapterPassages(db: Db, bookId: string, chapterIndex: numb
   const rows = await db
     .select({ id: sections.id, position: sections.position, chapterIndex: sections.chapterIndex, cfi: sections.cfi, text: sections.text })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapterIndex), eq(sections.kind, "paragraph")))
+    // M41 R1c: prose only, as in the index (lib/library/xray.ts).
+    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapterIndex), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
     .orderBy(asc(sections.position));
   const out: Passage[] = [];
   let chars = 0;

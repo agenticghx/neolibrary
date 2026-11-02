@@ -17,6 +17,12 @@ export async function register() {
     return 0;
   });
   if (built) console.log(`  Built sections for ${built} book(s).`);
+  // M41 R1c: label equations and table cells in books already in the library, once (not awaited: until it reaches a
+  // book, its paragraphs stay prose, as before).
+  const { backfillSectionForms } = await import("./lib/library/section-forms");
+  void backfillSectionForms(db, await getStorage())
+    .then((r) => r && console.log(`  Section forms: ${r.labelled} paragraph(s) labelled in ${r.books} book(s).`))
+    .catch((e) => console.error("Section forms backfill failed", e));
   // M22: covers for titles without one, looked up in the background (COVER_LOOKUP=off switches it off).
   const { scheduleCoverLookups } = await import("./lib/library/cover-job");
   scheduleCoverLookups(getDb, getStorage);

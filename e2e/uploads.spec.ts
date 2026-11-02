@@ -442,6 +442,58 @@ test("a Markdown paper's equations are drawn as formulas and its tables are tabl
 });
 
 
+// M41 R1c "Done when": in the rewrite panel, a page's equation and table are each one line that says they are kept as
+// in the book; only the prose is offered for rewriting, and "Rewrite this page" writes the prose alone.
+test("the rewrite panel keeps a paper's equation and table as in the book", async ({ page }) => {
+  test.setTimeout(90_000);
+  const prefs = await (await page.request.get("/api/account/preferences")).json();
+  const md = [
+    "---",
+    "title: A Paper Kept As It Is",
+    "---",
+    "# Results",
+    "",
+    "The effect falls as the dose rises, as the equation below says.",
+    "",
+    "$$",
+    "E = \\frac{E_{\\max}\\,D}{D_{50}+D} \\tag{1}",
+    "$$",
+    "",
+    "| Dose | Effect |",
+    "|---:|---:|",
+    "| 0.5 | 70.1 |",
+    "| 1 | 49.0 |",
+    "",
+    "The table shows the same fall in numbers.",
+  ].join("\n");
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "a-paper-kept.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^A Paper Kept As It Is/ }).click();
+  await expect(page.getByRole("heading", { name: "A Paper Kept As It Is", level: 1 })).toBeVisible();
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const pane = page.getByRole("region", { name: "Rewritten" });
+  const sidebar = page.getByRole("button", { name: "Sidebar" });
+  if ((await sidebar.getAttribute("aria-expanded")) !== "true") await sidebar.click();
+  const button = page.getByRole("button", { name: "Rewritten view" });
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  await pane.getByRole("group", { name: "Show" }).getByRole("button", { name: "Side by side" }).click();
+  const kept = pane.getByTestId("rewritten-kept");
+  await expect(kept).toHaveText(["An equation, kept as in the book.", "A table (6 cells), kept as in the book."]);
+  await expect(pane.getByTestId("rewritten-missing")).toHaveCount(2);
+  await pane.getByRole("button", { name: /^Rewrite this page in / }).click();
+  await expect(pane.getByTestId("rewritten-piece")).toHaveCount(2);
+  await expect(pane.getByTestId("rewritten-missing")).toHaveCount(0);
+  await expect(kept).toHaveCount(2);
+  await expect(pane.getByRole("alert")).toHaveCount(0);
+  // Leave the account as it was found: later projects read its view and style.
+  const back = await page.request.put("/api/account/preferences", { data: prefs });
+  expect(back.ok()).toBe(true);
+});
+
 // M41 R2 "Done when": a paper's .md and its pictures, added together as one .zip on the Import page, become a book whose
 // figure is on the reader's page, loaded from inside the book; the result line says how many pictures came.
 test("a paper's .zip with its pictures is added, and its figure shows in the reader", async ({ page }) => {

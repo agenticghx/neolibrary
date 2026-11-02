@@ -38,12 +38,14 @@ export async function paragraphFor(
   const sectionId = "cfi" in at ? await sectionForCfi(db, bookId, at.cfi) : at.sectionId;
   const [row] = sectionId
     ? await db
-        .select({ id: sections.id, text: sections.text, cfi: sections.cfi, kind: sections.kind, chapterIndex: sections.chapterIndex })
+        .select({ id: sections.id, text: sections.text, cfi: sections.cfi, kind: sections.kind, chapterIndex: sections.chapterIndex, form: sections.form })
         .from(sections)
         .where(and(eq(sections.bookId, bookId), eq(sections.id, sectionId)))
     : [];
   if (!row) throw new RewriteError("That paragraph was not found.");
   if (row.kind !== "paragraph" || !row.text.trim()) throw new RewriteError("Only paragraphs of text can be rewritten.");
+  // M41 R1c: an equation or a table cell is kept as in the book; nothing is paid to rewrite it.
+  if (row.form !== "prose") throw new RewriteError("Equations and tables are kept as in the book, not rewritten.");
   const [chapter] = await db
     .select({ label: sections.label })
     .from(sections)

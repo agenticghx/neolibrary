@@ -15,6 +15,12 @@ import { unzipEpub } from "./ebook";
  */
 export type SectionKind = "chapter" | "section" | "paragraph";
 
+/**
+ * M41 R1c: what form a paragraph takes. An `equation` is a paragraph that is one display formula (MathML); a `cell` is
+ * a table cell. Only prose is rewritten or asked about; highlights, notes, search and Listen treat all three alike.
+ */
+export type SectionForm = "prose" | "equation" | "cell";
+
 export type Section = {
   id: string;
   kind: SectionKind;
@@ -25,6 +31,8 @@ export type Section = {
   cfi: string;
   label: string;
   text: string;
+  /** Paragraphs only; absent means prose. Not part of the id, so labelling never moves a note's anchor. */
+  form?: SectionForm;
 };
 
 const xml = new XMLParser({
@@ -51,6 +59,20 @@ function resolve(base: string, href: string): string {
 const BLOCKS = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "pre", "blockquote", "dd", "dt", "figcaption", "td", "th"]);
 const HEADINGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
 type El = { tagName: string; localName?: string; id?: string; children: ArrayLike<El>; parentElement: El | null; textContent: string | null; getAttribute(n: string): string | null };
+/**
+ * M41 R1c: a table cell is a `cell`; a paragraph holding one display formula and no other words is an `equation`
+ * (the Markdown importer's `<p class="equation">`, or any EPUB's `<math display="block">` alone in its paragraph).
+ */
+function formOf(el: El, t: string): SectionForm {
+  if (t === "td" || t === "th") return "cell";
+  const kids = Array.from(el.children);
+  if (kids.length !== 1 || tag(kids[0]) !== "math") return "prose";
+  const math = kids[0];
+  const block = math.getAttribute("display") === "block" || (el.getAttribute("class") ?? "").split(/\s+/).includes("equation");
+  const outside = (el.textContent ?? "").replace(math.textContent ?? "", "").trim();
+  return block && !outside ? "equation" : "prose";
+}
+
 const tag = (el: El) => (el.localName ?? el.tagName).toLowerCase().replace(/^.*:/, "");
 
 /** CFI steps for an element, from the document root, the way foliate-js writes them. */
@@ -138,7 +160,7 @@ export function extractSections(bytes: Uint8Array, toc: { label: string; href: s
         parent = id;
       } else if (!isTitle) {
         const id = `p-${hash(`${chapterId}|${n}|${b.text}`)}`;
-        out.push({ id, kind: "paragraph", parentId: parent, position: position++, chapterIndex: spineIndex, href, cfi: cfiOf(b.el), label: "", text: b.text });
+        out.push({ id, kind: "paragraph", parentId: parent, position: position++, chapterIndex: spineIndex, href, cfi: cfiOf(b.el), label: "", text: b.text, form: formOf(b.el, b.t) });
       }
     }
   });
