@@ -11,6 +11,7 @@
   /* Type faces */
   --font-serif: "Source Serif 4 Variable", "Iowan Old Style", "Palatino Linotype", georgia, serif;
   --font-sans: "Source Sans 3 Variable", "Segoe UI", "Helvetica Neue", arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", menlo, consolas, monospace; /* M41: an equation's LaTeX */
 
   /* Type scale: ratio 1.25 (major third) around a 20px reading size */
   --text-xs: 0.8125rem;   /* 13px  tiny labels, letter-spaced caps */

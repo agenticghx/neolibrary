@@ -1576,6 +1576,27 @@ Open unknowns row 33; it decides how much of R2 is built.
   have it explained (the equation's LaTeX is in its `alttext`); the
   reference list linked, so a cited paper already in the library opens and
   one that is not can be added by its DOI.
+- **R4b · Explain an equation.** A tap on a displayed equation (one set on
+  its own line, with its LaTeX in `alttext`) opens a panel named after it
+  ("Equation (1)"): its LaTeX, then the stored explanation (free) or what
+  asking costs. "Explain it" asks AI what the equation says, each symbol's
+  meaning here, and how to read it, from the LaTeX and the two paragraphs
+  of prose before it and the one after (`prompts/explain-math.md`,
+  `lib/library/explain-math.ts`, a new AI feature "Explain an equation",
+  Sonnet by default, its model picked on the Spending page like the rest).
+  Stored once per equation, LaTeX and style; "Ask again" asks on purpose.
+  Every answer says it was written by AI, by which model, when, at what
+  cost; the spending caps apply. Equations show a help pointer. Not for
+  figures yet: explaining a figure needs the picture itself sent to the
+  model (later). *Built 2026-11-02 (branch `m41-explain-math`).*
+  Done when: unit tests ask with the LaTeX, its number and the prose around
+  it (not further), store the answer, serve it again with no second call,
+  ask again on purpose, and refuse prose, a missing or overlong LaTeX and
+  another reader's book; the browser test taps equation (1) of the
+  Markdown paper, gets the test AI's explanation, and finds it served again
+  on a second tap; it fails when taps on equations are ignored. Real-paper
+  check: Greco's equation (1) on a local build (test AI), desktop light and
+  phone dark.
 
 ## How a cloud session works on this repo
 

@@ -439,6 +439,33 @@ test("a Markdown paper's equations are drawn as formulas and its tables are tabl
   expect(s.latexAsText).toBe(false);
   expect(s.blockHeight).toBeGreaterThan(Math.max(s.lineHeight, 20));
   expect(s.numeratorSize).toBeGreaterThanOrEqual(s.textSize * 0.95);
+
+  // M41 R4b: a tap on equation (1) opens Explain this equation; the test AI explains it, and the stored answer is
+  // served again (free) when the equation is tapped a second time.
+  const tapEquation = async () => {
+    const point = await page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents()[0].doc;
+      const box = doc.querySelector("math[display=block]")!.getBoundingClientRect();
+      const frame = (doc.defaultView!.frameElement as HTMLElement).getBoundingClientRect();
+      return { x: frame.left + box.left + box.width / 3, y: frame.top + box.top + box.height / 2 };
+    });
+    await page.mouse.click(point.x, point.y);
+  };
+  await tapEquation();
+  const view = page.getByRole("dialog", { name: "Equation (1)" });
+  await expect(view).toBeVisible();
+  await expect(view.getByLabel("The equation, as LaTeX")).toContainText("\\tag{1}");
+  await view.getByRole("button", { name: "Explain it (test AI, free)" }).click();
+  await expect(view.getByTestId("equation-answer")).toContainText("Fake explain an equation:");
+  await expect(view.getByText("Explained by the test AI")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(view).toBeHidden();
+  await tapEquation();
+  await expect(view.getByTestId("equation-answer")).toContainText("Fake explain an equation:");
+  await expect(view.getByRole("button", { name: /^Ask again/ })).toBeVisible();
+  await view.getByRole("button", { name: "Close" }).click();
+  await expect(view).toBeHidden();
 });
 
 

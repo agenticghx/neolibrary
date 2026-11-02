@@ -107,6 +107,8 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     img, svg { max-width: 100%; height: auto; }
     /* M41: a tap on a picture shows it full screen (FigureView.tsx); a linked picture is the link's. */
     img { cursor: zoom-in; }
+    /* M41 R4b: a tap on a displayed equation opens Explain this equation (EquationView.tsx). */
+    math[display="block"][alttext] { cursor: help; }
     a img { cursor: pointer; }
     /* A table wider than the column (The Pay Off's 9-column table, 2026-10-17) spilled over the text beside it: it now
        stays within the column and scrolls sideways. */

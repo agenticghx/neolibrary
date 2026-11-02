@@ -36,3 +36,16 @@ function legendOf(img: El): string {
 }
 
 const tidy = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/** A displayed equation a tap asks to have explained (M41 R4b): its LaTeX (kept in `alttext` at import) and its paragraph. */
+export type TappedEquation = { latex: string; number: string | null; paragraph: unknown };
+
+/** The displayed equation under a tap, if it carries its LaTeX; null for anything else (an inline formula too). */
+export function equationAt(target: unknown): TappedEquation | null {
+  const el = target as Partial<El> | null;
+  if (!el || typeof el.closest !== "function") return null;
+  const math = el.closest('math[display="block"]') as (El & { getAttribute(n: string): string | null }) | null;
+  const latex = math?.getAttribute("alttext")?.trim();
+  if (!math || !latex || math.closest("a")) return null;
+  return { latex, number: /\\tag\*?\{([^}]{1,12})\}/.exec(latex)?.[1] ?? null, paragraph: math.closest("p, div") ?? math };
+}
