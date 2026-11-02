@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M40: S1 #260, S2 #261, S3 #262, S4 merging; S5 live checks and S6 overnight scans next. Samuel once: RAILWAY_TOKEN (S2), /install-github-app (S3).
+next_action: Watch the first real automatic deploy (827adfb), then merge #265 and re-run issue #267.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -349,6 +349,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 20:08 · Claude Opus 5.5 (laptop) · M40: #266 merged (CI starts Deploy; first Deploy run skipped correctly); the issue-bot report fix rides on #265
+- **Done:** #266 merged 0b678f8. main's CI started Deploy (workflow_dispatch, success): 'Skipped 0b678f8: since 4918cee, only the ledger, docs, skills, tests or workflows changed; nothing on the site would change.' The issue bot's first run (#267, run 41367224843) ended success after 29 turns and 18 min with no branch, PR or comment; claude-issue.yml now shows Claude's report (display_report) and comments on the issue when a run leaves nothing. That commit missed #266 (auto-merge merged its first commit as the second was pushed), so it is on this branch.
+- **Key paths:** .github/workflows/claude-issue.yml; .github/workflows/claude.yml; .github/workflows/claude-code-review.yml
+- **Commands that worked:** gh run list --workflow Deploy --limit 1 (workflow_dispatch success 0b678f8); gh run view <id> --log | grep Skipped
+- **Known issues / blockers:** Why #267's run produced nothing is unknown until the report is visible; re-run by adding the label build after this merges.
+- **Exact next steps:** 1. #263 merges: the first real auto-deploy (check the Deploy log issue and /api/health). 2. Merge this; label #267 build; read the report. 3. S5 and S6 PRs.
 
 ### 2026-11-01 22:40 · Claude Opus 5.5 (laptop) · The Claude GitHub App's two workflows: @claude in comments, and a review of every pull request
 - **Done:** Samuel ran /install-github-app (Claude app installed on the agenticghx organization; CLAUDE_CODE_OAUTH_TOKEN stored) and set RAILWAY_TOKEN. The installer pushed its two workflows on a branch from an older main without a PR; brought here: claude.yml (answers "@claude" in issue and PR comments and reviews) and claude-code-review.yml (Claude reviews every PR with the code-review plugin, inline comments). claude.yml's "new issue mentioning @claude" trigger removed: claude-issue.yml (M40 S3) already builds every issue Samuel files. Repository variables AUTO_DEPLOY=on and CLAUDE_ISSUES=on set.
