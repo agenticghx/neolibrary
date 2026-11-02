@@ -4,8 +4,9 @@
 # files in the run's playwright-report artifact. Nothing is committed: look at the images first.
 # usage: refresh-screenshots.sh <run-id> [--dry]      (--dry: list what would be copied)
 set -u
-HERE=${0:A:h}
-REPO=$(git -C "$HERE" rev-parse --show-toplevel) || exit 1
+# The checkout it is run from (a worktree too), not the one the script lives in: on 2026-11-02 the script, run from a
+# worktree, copied 35 images into the main folder, which holds the owner's uncommitted notes.
+REPO=$(git rev-parse --show-toplevel) || exit 1
 cd "$REPO" || exit 1
 RUN=$1 DRY=${2:-}
 DIR=${TMPDIR:-/tmp}/neolibrary-train/report-$RUN
