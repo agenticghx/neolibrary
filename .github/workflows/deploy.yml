@@ -15,20 +15,23 @@
 # variables: AUTO_DEPLOY ("on" to deploy after CI; anything else switches it off; a manual run still works) and
 # DEPLOY_SITES (the site's addresses, space-separated, first one checked first; kept out of this public file).
 #
-# Note: GitHub runs workflow_run workflows from the copy on main, so changes to this file take effect after they are
-# merged.
+# How it starts: the last job of CI on main ("Start the deploy" in ci.yml) starts it with the commit CI just passed,
+# because a workflow_run trigger never fired here (main's CI run is started by the auto-merge workflow's own token,
+# and GitHub sends no follow-on events for that token's work; found 2026-11-01). It can also be started by hand from
+# the Actions tab, with or without a commit.
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  # Started by the last job of CI on main ("Start the deploy", with after_ci=yes), or by hand.
   workflow_dispatch:
     inputs:
       sha:
         description: "Commit to deploy (empty: main's latest). A migration is still refused."
         required: false
+      after_ci:
+        description: "yes when CI started it: then a commit main has already moved past is skipped."
+        required: false
+        default: "no"
 
 permissions:
   contents: read
@@ -40,11 +43,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (vars.AUTO_DEPLOY == 'on' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -61,8 +59,8 @@ jobs:
       - name: Decide whether to deploy
         id: gate
         env:
-          WANTED: ${{ github.event.inputs.sha || github.event.workflow_run.head_sha || '' }}
-          EVENT: ${{ github.event_name }}
+          WANTED: ${{ github.event.inputs.sha || '' }}
+          AFTER_CI: ${{ github.event.inputs.after_ci || 'no' }}
         run: |
           set -euo pipefail
           note() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
@@ -74,7 +72,7 @@ jobs:
           live=$(curl -fsS --max-time 20 "https://${first}/api/health" | jq -r '.commit // empty' || true)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "live=$live" >> "$GITHUB_OUTPUT"
-          if [ "$EVENT" = "workflow_run" ] && [ "$sha" != "$main" ]; then
+          if [ "$AFTER_CI" = "yes" ] && [ "$sha" != "$main" ]; then
             note "Skipped ${sha:0:7}: main has moved on to ${main:0:7}, whose CI run deploys it."
             echo "go=no" >> "$GITHUB_OUTPUT"; exit 0
           fi
