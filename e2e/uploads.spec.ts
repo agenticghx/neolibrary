@@ -498,7 +498,11 @@ test("the rewrite panel keeps a paper's equation and table as in the book", asyn
 // figure is on the reader's page, loaded from inside the book; the result line says how many pictures came.
 test("a paper's .zip with its pictures is added, and its figure shows in the reader", async ({ page }) => {
   test.setTimeout(90_000);
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  // A 120 by 80 picture: large enough on the page to be offered full screen.
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAHgAAABQCAIAAABd+SbeAAAAg0lEQVR42u3QQQ0AAAgEoItjJtMZ1RbOBxsJSPVwIApEi0a0aNEWRItGtGjRFkSLRrRo0YgWjWjRohEtGtGiRSNaNKJFi0a0aESLFo1o0YgWLRrRohEtWjSiRSNatGhEi0a0aNGIFo1o0aIRLRrRokUjWjSiRYtGtGhEixaNaNGI/mMBQnt9dxwXBx8AAAAASUVORK5CYII=",
+    "base64",
+  );
   const md = ["---", "title: A Paper With a Figure", "---", "# Results", "", "The effect falls as the dose rises.", "", "![Figure 1](figures/fig-01.png)", "", "**Figure 1.** Effect against dose."].join("\n");
   const zip = Buffer.from(zipSync({ "paper/paper.md": strToU8(md), "paper/figures/fig-01.png": new Uint8Array(png) }));
   await page.goto("/import");
@@ -514,9 +518,30 @@ test("a paper's .zip with its pictures is added, and its figure shows in the rea
     page.evaluate(() => {
       const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
       const img = view.renderer.getContents()[0]?.doc.querySelector("p.figure img") as HTMLImageElement | null;
-      return img ? { alt: img.alt, loaded: img.complete && img.naturalWidth === 1 } : null;
+      return img ? { alt: img.alt, loaded: img.complete && img.naturalWidth === 120 } : null;
     });
   await expect.poll(figure).toEqual({ alt: "Figure 1", loaded: true });
+
+  // M41: a tap on the figure shows it full screen, with its legend; Escape shuts it.
+  const point = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    const doc = view.renderer.getContents()[0].doc;
+    const box = doc.querySelector("p.figure img")!.getBoundingClientRect();
+    const frame = (doc.defaultView!.frameElement as HTMLElement).getBoundingClientRect();
+    return { x: frame.left + box.left + box.width / 2, y: frame.top + box.top + box.height / 2 };
+  });
+  await page.mouse.click(point.x, point.y);
+  const view = page.getByRole("dialog", { name: "Figure 1" });
+  await expect(view).toBeVisible();
+  await expect(view.getByText("Figure 1. Effect against dose.")).toBeVisible();
+  const shown = view.getByTestId("figure-view-img");
+  await expect.poll(() => shown.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(120);
+  // Fitted to the screen, the picture is drawn larger than on the page.
+  expect((await shown.boundingBox())!.width).toBeGreaterThan(240);
+  await view.getByRole("button", { name: "Actual size" }).click();
+  await expect.poll(async () => Math.round((await shown.boundingBox())!.width)).toBe(120);
+  await page.keyboard.press("Escape");
+  await expect(view).toBeHidden();
 });
 
 // M29 "Done when": a Markdown (.md) book is added on the Import page and opens in the reader as a book with chapters

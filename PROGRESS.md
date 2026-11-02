@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M41: R1-R2 and R1c are live (6b74aab). Next: R1d or R3 after Samuel answers Open unknowns row 33.
+next_action: Merge R1d (m41-listen-skip) and R2b (m41-figure-zoom), deploy; then R3 papers.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 09:24 · Claude (laptop) · M41 R2b: tap a figure to see it full screen (branch m41-figure-zoom)
+- **Done:** Built R2b at Samuel's word (2026-11-02, 'what are you waiting for'): a tap on a picture in a book's page opens it full screen with its legend (figcaption, or the next paragraph when it begins Figure/Fig./Table/Plate); Actual size to move around; Escape, Close or a tap beside it closes. Every book, not only papers. Not merged, not deployed; no migration.
+- **Key paths:** app/(reader)/books/[id]/read/figure.ts, figure.test.ts, FigureView.tsx, Reader.tsx, reader.module.css, settings.ts; e2e/uploads.spec.ts; docs/plan.md (M41 R2b); LEARNING_LOG.md iteration 124
+- **Commands that worked:** npx vitest run 'app/(reader)/books/[id]/read/figure.test.ts' -> 4 passed. PORT=3200 npx playwright test --project=uploads --ignore-snapshots -> 181 passed; with the tap broken the figure test fails (dialog 'Figure 1' not found). Greco zip on a local production build (port 3300): Figure 1 1000x1088 drawn 650x708 (desktop), 358x389 (phone), legend shown, Escape closes.
+- **Known issues / blockers:** None known. Pinch-zoom inside the view is the phone's own (Actual size is the reliable way to enlarge).
+- **Exact next steps:** 1. PR; merge when the four checks are green. 2. Deploy with R1d (no migration). 3. R3 (Paper kind) with the default that a paper is the importer's own, like a book (Open unknowns row 33).
 
 ### 2026-11-02 08:47 · Claude (laptop session) · Deployed 6b74aab: M41 Papers R1, R1b, R2, R1c live (migration 0035)
 - **Done:** Samuel, 2026-11-02: 'do them, verify, deploy'. Live now: equations and tables in Markdown books (#274), brackets stretch in Chrome (#275), figures from a .zip of a paper and its pictures (#276), equations and table cells are not prose (#279, migration 0035). #274, #275 and #276 went out by the auto-deploy; #279 (a migration) from the laptop: railway up from ../neolibrary-deploy at 6b74aab (clean checkout). The start-up pass labelled 118 table cells in The Pay Off's text edition.

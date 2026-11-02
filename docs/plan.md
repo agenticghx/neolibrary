@@ -1504,7 +1504,23 @@ Open unknowns row 33; it decides how much of R2 is built.
   browser test adds a paper's `.zip` on the Import page, reads "With 1
   picture." and finds the figure loaded on the reader's page; it fails when
   pictures are not read. Real-paper check: the Greco zip (33 figures).
-  Later: tap a figure to see it full screen.
+- **R2b · Tap a figure to see it full screen.** A paper's figure is often
+  too small to read in the column. A tap or click on a picture in a book's
+  page (not a linked one, not one under 48 px, not while text is selected)
+  opens it over the reader on a dark ground, as large as the screen allows
+  (a small picture is enlarged too), with its legend under it: a
+  `<figure>`'s caption, or the paragraph after it when that begins
+  "Figure 3", "Fig. 3", "Table 2" or "Plate 1". "Actual size" (or a tap on
+  the picture) shows it at its own size, to move around; Escape, Close or a
+  tap beside it shuts it and the keyboard goes back to the page
+  (`FigureView.tsx`, `figure.ts`). Pictures show a magnifier pointer. Every
+  book gets it, not only papers. *Built 2026-11-02 (branch
+  `m41-figure-zoom`).*
+  Done when: unit tests find the legend after a paper's figure and a
+  `<figure>`'s caption, and offer nothing for a linked picture, a tiny one
+  or text; the browser test taps the paper's figure, finds the view named
+  "Figure 1" with its legend, the picture loaded and drawn wider than 240 px
+  (it is 120 px), 120 px at "Actual size", and closed by Escape.
 - **R3 · "Paper" as a kind of item.** Authors, year, journal and DOI (the
   permanent identifier every journal article has); a Papers filter in the
   sidebar beside Books, Audiobooks and PDFs; a card that reads "Greco, Bravo

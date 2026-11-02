@@ -105,6 +105,9 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
     ${focusCss(colors)}
     img, svg { max-width: 100%; height: auto; }
+    /* M41: a tap on a picture shows it full screen (FigureView.tsx); a linked picture is the link's. */
+    img { cursor: zoom-in; }
+    a img { cursor: pointer; }
     /* A table wider than the column (The Pay Off's 9-column table, 2026-10-17) spilled over the text beside it: it now
        stays within the column and scrolls sideways. */
     table { display: block; width: max-content; max-width: 100%; overflow-x: auto; }

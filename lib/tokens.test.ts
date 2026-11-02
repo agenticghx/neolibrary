@@ -86,8 +86,9 @@ describe("prototype palette", () => {
 });
 
 describe("explicit reader themes", () => {
-  // Highlight colours (--mark-*) are shared by every theme, so themes do not repeat them.
-  const themed = (t: Record<string, string>) => Object.fromEntries(Object.entries(t).filter(([k]) => !k.startsWith("mark-")));
+  // Highlight colours (--mark-*) and a figure full screen's (--figure-*, M41: dark as a photo viewer in any theme) are
+  // shared by every theme, so themes do not repeat them.
+  const themed = (t: Record<string, string>) => Object.fromEntries(Object.entries(t).filter(([k]) => !k.startsWith("mark-") && !k.startsWith("figure-")));
 
   it("Paper and Night repeat the light and dark values exactly", () => {
     expect(themes.paper).toEqual(themed(light));
