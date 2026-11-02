@@ -2679,7 +2679,7 @@ tests that pin it, in a small PR.
 **Lesson.** "Needs a key" must be checked at the moment a new answer is made, not at the door, or a saved answer is charged for in effort if not in money.
 **Next experiment.** S5: a request limit per visitor and a leak check.
 
-### Iteration 130 · 2026-11-02 09:52 (laptop clock) · M34 S5: guard rails for visitors · success
+### Iteration 131 · 2026-11-02 09:52 (laptop clock) · M34 S5: guard rails for visitors · success
 
 **Hypothesis.** A fixed window per address and kind (pages 120, files 1,200, AI 30 a minute) stops a script hammering the open shelf without touching people, and a leak check over every visitor-reachable address catches anything private.
 **Action.** `lib/visitor-limit.ts`; pages counted in `proxy.ts`, files in `/api/open/files`, AI where a visitor is known for sure (`askerOr`), because a cookie in the proxy proves nothing (a forged one would skip the count). 429 with Retry-After.
