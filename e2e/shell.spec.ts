@@ -341,7 +341,10 @@ test.describe("phone", () => {
             if (a.closest(`[id="${id}"]`)) continue;
             const r = a.getBoundingClientRect();
             const y = r.top + r.height / 2;
-            if (y > 120 && y < top - 8) return { x: r.left + r.width / 2, y };
+            const x = r.left + r.width / 2;
+            // On screen, too: with seven books (2026-11-02, #276) the carousel's first book sat off the left edge
+            // (x -126), and a tap there touched nothing at all.
+            if (y > 120 && y < top - 8 && x > 8 && x < window.innerWidth - 8) return { x, y };
           }
           return null;
         },
