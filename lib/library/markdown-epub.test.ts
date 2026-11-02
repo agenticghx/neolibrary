@@ -1,4 +1,5 @@
-import { strToU8 } from "fflate";
+import { XMLValidator } from "fast-xml-parser";
+import { strFromU8, strToU8, unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import { books } from "@/lib/db/schema";
@@ -160,5 +161,79 @@ describe("importing a Markdown book (M29)", () => {
     await expect(importBook(database.db, storage, ownerId, { name: "x.md", bytes: notText })).rejects.toThrow(new ImportError("This Markdown file is not plain text (UTF-8)."));
     await expect(importBook(database.db, storage, ownerId, { name: "x.md", bytes: strToU8("  \n\n") })).rejects.toThrow("This Markdown file has no text.");
     expect(await database.db.select().from(books)).toEqual([]);
+  });
+});
+
+// M41 R1: equations, tables and HTML comments, for papers. The formulas below are textbook ones, not from any paper.
+describe("equations and tables in a Markdown book (M41)", () => {
+  const PAPER = `# A Short Paper
+
+The Hill equation, $E = \\frac{E_{\\max} D^{m}}{D_{50}^{m} + D^{m}}$, relates <!-- page 2 (pdf 2) --> dose to effect.
+
+$$
+E = \\frac{E_{\\max}\\,(D/D_{50})^{m}}{1+(D/D_{50})^{m}} \\tag{1}
+$$
+
+<!-- check: a note for the editor -->
+
+**TABLE 1.** *Doses*
+
+| Dose $D_1$ | Effect | Note |
+|---:|:---:|---|
+| 0.5 | 70.1 | $a \\| b$ and a\\|b |
+| 1 | 49.0 | **bold** |
+
+1\\. Not a list. It cost $100 million and $200 more; \\$5 is a price; \`$x$\` is code.
+
+$$ \\frac{1}{ $$
+
+The end.
+`;
+
+  it("turns inline and display LaTeX into MathML, keeping the source only where Listen and search do not look", () => {
+    const html = chaptersOf(PAPER)[0].html.join("\n");
+    expect(html).toMatch(/<p>The Hill equation, <math alttext="E = \\frac\{E_\{\\max\} D\^\{m\}\}\{D_\{50\}\^\{m\} \+ D\^\{m\}\}" xmlns="http:\/\/www.w3.org\/1998\/Math\/MathML">/);
+    expect(html).toContain('<p class="equation"><math alttext="E = \\frac{E_{\\max}\\,(D/D_{50})^{m}}{1+(D/D_{50})^{m}} \\tag{1}"');
+    expect(html).toContain('display="block"');
+    expect(html).toContain("<mtext>(1)</mtext>");
+    expect(html).not.toContain("<annotation");
+  });
+
+  it("drops HTML comments, including one inside a sentence", () => {
+    const html = chaptersOf(PAPER)[0].html.join("\n");
+    expect(html).not.toMatch(/page 2|check:|&lt;!--/);
+    expect(html).toContain("</math>, relates dose to effect.</p>");
+  });
+
+  it("makes a pipe table a table, with its alignment, and a | inside an equation or after a backslash stays in its cell", () => {
+    const html = chaptersOf(PAPER)[0].html.join("\n");
+    expect(html).toContain('<table><thead><tr><th class="right">Dose <math');
+    expect(html).toContain('<th class="center">Effect</th><th>Note</th></tr></thead><tbody><tr><td class="right">0.5</td><td class="center">70.1</td><td><math');
+    expect(html).toContain(" and a|b</td></tr>");
+    expect(html).toContain('<tr><td class="right">1</td><td class="center">49.0</td><td><strong>bold</strong></td></tr></tbody></table>');
+  });
+
+  it("keeps prices, escaped dollars and code as text, reads backslash escapes, and leaves LaTeX KaTeX cannot read as it was", () => {
+    const html = chaptersOf(PAPER)[0].html.join("\n");
+    expect(html).toContain("<p>1. Not a list. It cost $100 million and $200 more; $5 is a price; <code>$x$</code> is code.</p>");
+    expect(html).toContain('<p class="equation"><code>$$ \\frac{1}{ $$</code></p>');
+    expect(html).toContain("<p>The end.</p>");
+  });
+
+  it("makes an EPUB whose MathML pages say so and parse as XML, and whose equations and cells are paragraphs", async () => {
+    const out = markdownToEpub(PAPER, "a_short_paper.md", new Date("2026-11-02T12:00:00Z"));
+    const files = unzipSync(out.bytes);
+    expect(strFromU8(files["OEBPS/content.opf"])).toContain('<item id="c1" href="c1.xhtml" media-type="application/xhtml+xml" properties="mathml"/>');
+    const page = strFromU8(files["OEBPS/c1.xhtml"]);
+    expect(XMLValidator.validate(page)).toBe(true);
+    const info = await readBook(out.bytes, "x.epub");
+    const texts = extractSections(out.bytes, info.toc)
+      .filter((s) => s.kind === "paragraph")
+      .map((s) => s.text);
+    expect(texts).toContain("0.5");
+    expect(texts).toContain("49.0");
+    expect(texts.some((t) => t.startsWith("E=") && !t.includes("\\frac"))).toBe(true);
+    // Only the LaTeX KaTeX could not read is left as text.
+    expect(texts.filter((t) => t.includes("\\frac"))).toEqual(["$$ \\frac{1}{ $$"]);
   });
 });

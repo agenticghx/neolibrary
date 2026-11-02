@@ -367,6 +367,62 @@ test("a book can be removed from the library and brought back, with its notes", 
   await expect(shelf.getByRole("link", { name: /^A Spare Book/ })).toHaveCount(0);
 });
 
+// M41 R1 "Done when": a paper in Markdown keeps its equations and tables. The reader's page holds MathML that the
+// browser draws as a formula (taller than a line of text) and a real table, and the LaTeX is not on the page as text.
+test("a Markdown paper's equations are drawn as formulas and its tables are tables", async ({ page }) => {
+  test.setTimeout(90_000);
+  const md = [
+    "---",
+    "title: A Short Paper on Doses",
+    "author: Ann Example",
+    "---",
+    "# Results",
+    "",
+    "The Hill equation relates dose $D$ to effect:",
+    "",
+    "$$",
+    "E = \\frac{E_{\\max}\\,(D/D_{50})^{m}}{1+(D/D_{50})^{m}} \\tag{1}",
+    "$$",
+    "",
+    "| Dose | Effect |",
+    "|---:|---:|",
+    "| 0.5 | 70.1 |",
+    "| 1 | 49.0 |",
+  ].join("\n");
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "a-short-paper.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^A Short Paper on Doses/ }).click();
+  await expect(page.getByRole("heading", { name: "A Short Paper on Doses", level: 1 })).toBeVisible();
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const shown = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents()[0]?.doc;
+      const block = doc?.querySelector("math[display=block]");
+      return {
+        blockHeight: Math.round(block?.getBoundingClientRect().height ?? 0),
+        // A numbered equation sits in a MathML table, whose cells Chrome sets small; the book's style keeps it display size.
+        numeratorSize: parseFloat(doc?.defaultView?.getComputedStyle(block?.querySelector("mfrac > :first-child") as Element).fontSize ?? "0"),
+        textSize: parseFloat(doc?.defaultView?.getComputedStyle(doc.querySelector("p") as Element).fontSize ?? "0"),
+        lineHeight: Math.round(parseFloat(doc?.defaultView?.getComputedStyle(doc.body).lineHeight ?? "0") || 0),
+        inlineMath: doc?.querySelectorAll("p math:not([display=block])").length ?? 0,
+        cells: Array.from(doc?.querySelectorAll("table td") ?? []).map((td) => td.textContent),
+        latexAsText: (doc?.body.innerText ?? "").includes("\\frac"),
+      };
+    });
+  await expect.poll(async () => (await shown()).cells).toEqual(["0.5", "70.1", "1", "49.0"]);
+  const s = await shown();
+  expect(s.inlineMath).toBe(1);
+  expect(s.latexAsText).toBe(false);
+  expect(s.blockHeight).toBeGreaterThan(Math.max(s.lineHeight, 20));
+  expect(s.numeratorSize).toBeGreaterThanOrEqual(s.textSize * 0.95);
+});
+
+
 // M29 "Done when": a Markdown (.md) book is added on the Import page and opens in the reader as a book with chapters
 // (its parts and chapters in Contents; italics and the rest are checked in lib/library/markdown-epub.test.ts); a script with the reader's token can add one too
 // (POST /api/agent/books). Both are removed again at the end, so the later tests find the shelves as before.

@@ -1362,6 +1362,61 @@ taste ("is this voice good?"), real-device checks on his iPhone and iPad, and wh
   the subscription with the scan-to-text skill's checks, stopping at the subscription's limit, and leaves each as a
   draft with its check report for Samuel's "send". *Done when:* one book goes through unattended.
 
+### M41 · Papers: research papers in the library (Samuel, 2026-11-02)
+
+Written for Samuel and for the sessions that build it. Samuel converted a
+scanned 1995 review paper (Greco, Bravo and Parsons, *The Search for
+Synergy*, Pharmacological Reviews 47:331-385) to Markdown with 33 figures,
+7 tables and about 70 numbered equations, and said "looks like i will have
+papers section in my neolibrary". He agreed ("yes", 2026-11-02) to this
+plan: a paper is an item in the same library (reader, notes, Listen, Ask,
+rewrites), not a separate app, and four steps add what papers need that
+books do not. Paper files, like books, stay out of git (the repository is
+public). Who papers are for (Samuel alone, or his invited readers too) is
+Open unknowns row 33; it decides how much of R2 is built.
+
+- **R1 · Equations and tables in a Markdown book.** LaTeX between `$…$`
+  (inline) and `$$…$$` (display) becomes MathML at import (MathML: the
+  standard markup for mathematics, which browsers draw themselves), with
+  KaTeX (`lib/library/markdown-math.ts`). Prices stay text by Pandoc's
+  rule plus one more: a formula that starts with a digit holds no space.
+  LaTeX KaTeX cannot read stays as written. Pipe tables become tables, with
+  their column alignment. HTML comments (a transcription's page markers and
+  notes) are dropped. Backslash escapes (`\.`, `\$`) are read. A page with
+  MathML says so in the EPUB's manifest. A numbered equation (`\tag`) sits
+  in a MathML table, whose cells Chrome draws at small size; the book's
+  style keeps it display size. *Built 2026-11-02 (branch
+  `m41-paper-math-tables`).*
+  Done when: unit tests turn an invented paper's inline and display
+  equations into MathML (no LaTeX left in a paragraph's words), keep prices,
+  escaped dollars and code as text, make a pipe table a table with its
+  alignment, drop comments, and the EPUB's pages parse as XML; a browser
+  test adds one on the Import page and finds, on the reader's page, a
+  display formula taller than a line whose fraction is at text size, an
+  inline one, and the table's cells.
+  Real-paper check: the Greco Markdown, by eye in Chrome and WebKit, light
+  and dark.
+  Known limits (for later steps): Chrome draws large brackets `\left[ … \right]`
+  at text size (WebKit stretches them), a math font in the book would fix it;
+  the rewrite panel offers each equation and table cell as a paragraph to
+  rewrite; X-ray lists "Eq" and "Eqn" as names.
+- **R2 · Figures.** A Markdown file and its pictures, uploaded together as
+  one `.zip` (the `.md` plus a `figures/` folder), become an EPUB with the
+  pictures in it, each with its legend. Pictures only from inside the zip;
+  nothing is fetched from an address in the file.
+- **R3 · "Paper" as a kind of item.** Authors, year, journal and DOI (the
+  permanent identifier every journal article has); a Papers filter in the
+  sidebar beside Books, Audiobooks and PDFs; a card that reads "Greco, Bravo
+  and Parsons · 1995 · Pharmacol Rev" instead of a cloth cover. Add a paper
+  by DOI or PubMed ID: details from Crossref or PubMed (free, no key, behind
+  an interface with a fake in tests); the full text too when PubMed Central
+  has it as open access (its XML already holds the equations as MathML).
+- **R4 · Study tools for papers.** A one-screen summary card (the question,
+  the method, the main finding, the limits); tap an equation or a figure to
+  have it explained (the equation's LaTeX is in its `alttext`); the
+  reference list linked, so a cited paper already in the library opens and
+  one that is not can be added by its DOI.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
