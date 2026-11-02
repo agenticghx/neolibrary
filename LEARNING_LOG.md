@@ -2678,14 +2678,6 @@ tests that pin it, in a small PR.
 **Result.** Three failures, each a real finding. (1) The owner's mark used question index 0; the bank's first index is not 0 (the test now reads it). (2) A visitor's second request for an answer already saved was refused "Add your own Anthropic key": the routes asked for a key before looking for the saved answer. `savedOrNewModelFor` now gives a stand-in model that serves saved answers and refuses only a new one (unit test: saved answer reused, new one refused). (3) The book's start and the reading place were in the same chapter, so the "new chapter" step tested nothing; it now rewrites a paragraph on screen that has no saved rewrite. Then 297 passed; the visitor's questions came with `marks: {}` although the owner had marked one.
 **Lesson.** "Needs a key" must be checked at the moment a new answer is made, not at the door, or a saved answer is charged for in effort if not in money.
 **Next experiment.** S5: a request limit per visitor and a leak check.
-
-### Iteration 131 · 2026-11-02 09:52 (laptop clock) · M34 S5: guard rails for visitors · success
-
-**Hypothesis.** A fixed window per address and kind (pages 120, files 1,200, AI 30 a minute) stops a script hammering the open shelf without touching people, and a leak check over every visitor-reachable address catches anything private.
-**Action.** `lib/visitor-limit.ts`; pages counted in `proxy.ts`, files in `/api/open/files`, AI where a visitor is known for sure (`askerOr`), because a cookie in the proxy proves nothing (a forged one would skip the count). 429 with Retry-After.
-**Evaluation.** `lib/visitor-limit.test.ts` (3: window, per address and kind, the proxy's 429 on the 121st page); the open-shelf browser test with the owner's private note in the free book, read by the visitor through seven addresses.
-**Result.** 3 passed; 298 passed (6.0m). No visitor address returned the note, the owner's email or full name; the owner's notes, place, reading, account and export routes answered 401.
-**Lesson.** Count a visitor where the server knows it is a visitor; a check on the cookie's presence is a check anyone can pass.
 ### Iteration 133 · 2026-11-02 10:40 (laptop clock) · M41 R4b: explain an equation · success
 
 **Hypothesis.** The equation's LaTeX, already in each formula's `alttext` (R1), plus the prose around it in the stored sections, is enough context for an explanation; a tap handler beside R2b's figure tap can find the equation and its paragraph's place (CFI), and the server can check that place really is an equation.
@@ -2693,3 +2685,11 @@ tests that pin it, in a small PR.
 **Evaluation.** Unit tests with the fake model; the equations browser test extended; a mutation that ignores equation taps; Greco's equation (1) on a local build with the test AI.
 **Result.** 2 + 6 unit tests passed; browser 165 passed; mutation failed as it should (dialog not found). The lint rule against setting state inside an effect forced the answer to be kept with the equation it was fetched for, which also stops one equation's answer flashing under another. Greco: "Equation (1)", the LaTeX, the test answer, its provenance, on desktop and phone. The paragraph before Greco's equation (1) is Figure 1's legend (R2 moved figures after the paragraph they interrupt), so real answers will see a legend as context there.
 **Lesson.** Keep fetched data with the key it was fetched for; deriving "is it current" removes a whole class of stale-state bugs.
+
+### Iteration 134 · 2026-11-02 09:52 (laptop clock) · M34 S5: guard rails for visitors · success
+
+**Hypothesis.** A fixed window per address and kind (pages 120, files 1,200, AI 30 a minute) stops a script hammering the open shelf without touching people, and a leak check over every visitor-reachable address catches anything private.
+**Action.** `lib/visitor-limit.ts`; pages counted in `proxy.ts`, files in `/api/open/files`, AI where a visitor is known for sure (`askerOr`), because a cookie in the proxy proves nothing (a forged one would skip the count). 429 with Retry-After.
+**Evaluation.** `lib/visitor-limit.test.ts` (3: window, per address and kind, the proxy's 429 on the 121st page); the open-shelf browser test with the owner's private note in the free book, read by the visitor through seven addresses.
+**Result.** 3 passed; 298 passed (6.0m). No visitor address returned the note, the owner's email or full name; the owner's notes, place, reading, account and export routes answered 401.
+**Lesson.** Count a visitor where the server knows it is a visitor; a check on the cookie's presence is a check anyone can pass.
