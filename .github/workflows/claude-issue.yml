@@ -55,8 +55,13 @@ jobs:
           npx playwright install --with-deps chromium
 
       - uses: anthropics/claude-code-action@v1
+        id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Claude's own account of the run, on the run's summary page. Only people with write access start this
+          # workflow, so its input is trusted (the action's condition for this). Without it a run that ends without a
+          # pull request says nothing about why (issue #267's first run, 2026-11-02).
+          display_report: "true"
           claude_args: >-
             --model claude-opus-5-5
             --max-turns 300
@@ -89,3 +94,21 @@ jobs:
             Never: deploy; touch secrets, keys or Railway; call a paid service (ElevenLabs, a paid voice, the Anthropic
             API) outside the tests' fakes; push to main; merge; change .github/workflows/ unless the issue asks for
             exactly that.
+
+      # A run that ended with neither a pull request nor a comment on the issue says so on the issue, with the link
+      # to the run (its summary holds Claude's report), so a silent run is never mistaken for one still working.
+      - name: Say so on the issue when nothing came of it
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+          STARTED: ${{ github.event.issue.updated_at }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OUTCOME: ${{ steps.claude.outcome }}
+        run: |
+          set -euo pipefail
+          prs=$(gh pr list --state all --search "${ISSUE} in:body" --json number,body --jq "[.[] | select(.body | test(\"#${ISSUE}\\\\b\"))] | length")
+          says=$(gh issue view "$ISSUE" --json comments --jq "[.comments[] | select(.createdAt > \"${STARTED}\")] | length")
+          if [ "$prs" = 0 ] && [ "$says" = 0 ]; then
+            gh issue comment "$ISSUE" --body "Claude's run ended (${OUTCOME}) without a pull request or a comment here. Its report is on the run's summary page: ${RUN_URL}. Add the label \`build\` to try again."
+          fi

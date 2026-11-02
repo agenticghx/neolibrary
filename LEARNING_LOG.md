@@ -2502,4 +2502,5 @@ tests that pin it, in a small PR.
 **Result.** `lib/agent/details.test.ts` 5 passed (the scanned and the text PDF fixtures told apart; a text edition found both ways though the shelf hides it; another reader, a bad id and a title with no file all 404; X-ray sorted by mentions). One test was wrong at first: the X-ray calls him "Mr. Utterson". `npm run check` 1200 passed; the agents project in the Linux image 300 passed, with the routes checked over HTTP with a real token.
 **Lesson.** When a rule exists in the app (what counts as a scan), lift it out and share it; a second copy would drift.
 **Next experiment.** S5, the checks themselves.
+**Also (same PR).** The first issue run (#267) ended "success" after 29 turns and 18 minutes with no branch, pull request or comment, and the log does not show what Claude said. claude-issue.yml now shows Claude's report on the run's summary (`display_report`), and a last step comments on the issue when a run leaves neither a pull request nor a comment. Lesson: a run that can end silently will; make silence say something.
 
