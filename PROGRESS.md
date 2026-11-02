@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After 02:00, read the overnight scan job's log for its first scheduled run.
+next_action: M41 R1 (equations and tables) PR: merge when green; then R2 figures. Samuel: Open unknowns row 33 (who papers are for).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-11-02 06:45 (laptop clock, from `date`). **M41 Papers is planned and R1 is built** (`docs/plan.md` M41; branch `m41-paper-math-tables`, Samuel 2026-11-02: "yes"): a Markdown book's LaTeX equations become MathML and its pipe tables become tables. Not merged, not deployed; no migration. Next: 1. PR; merge when the four checks are green. 2. Deploy at Samuel's word. 3. R2: figures from a `.zip` of the `.md` and its `figures/` folder. 4. Samuel answers Open unknowns row 33 (who papers are for) before R3.
 
 Written 2026-11-02 (GitHub runner clock, UTC), by the issue bot's session for issue #267. **Space turns the page in Pages** (branch `m21-issue-267-space-turns-page`): Space goes to the next page and Shift+Space back, as the Right and Left arrows do, in Pages only; in Scroll Space still scrolls. A focused button, link, text box or the selected-text bar keeps Space. The keyboard shortcuts dialog lists it. Next: 1. CI on the PR; merge with the merge train when green (no reference image shows the shortcuts dialog, so none should change). 2. It deploys on its own after main's CI (no migration). 3. This is the issue bot's (M40 S3) first pull request: the workflow works end to end.
 
@@ -301,6 +303,7 @@ Never blocks the loop. Newest first.
 | 30 | **After switching to Two pages in Scroll, your words can sit in the right column** (the view lines up on the start of a two-column spread, so the left column shows the text just before your place; nothing is lost). Mark the line you were on for a moment after a layout switch (a brief highlight), or leave it? Default: leave it. | Samuel | none (no deadline) | **decided 2026-10-26: mark it** ("yeah, should be hilighted"); built in branch m21-switch-mark |
 | 31 | **On a scan's pages, highlights are saved and listed in Notes but never drawn on the page** (found 2026-10-26 while building notes across the scan and its text edition): the PDF page renderer (foliate's fixed layout) has no drawing layer, so this was true before for every note made on a scan, and stays true for a note from the text edition. Such a note's "Go to" lands on its words, unmarked. Build a highlight layer for scan pages (the browser's text highlights over the page's hidden text, as the read-aloud word is lit)? Default: as now. | Samuel | none (no deadline) | closed 2026-11-01: default stands (no answer in 7 days) |
 | 32 | **Bring your own AI key (M36, `docs/plan.md`)** (Samuel, 2026-10-29: "this app should be bring your own AI API keys until we find cheap api keys for public use or from donations"). Five defaults to confirm before it is built: (1) answers one reader paid for (rewrites, Need to know, Test yourself) stay shared free with other readers of the same text; (2) keys stored encrypted with a server key held in a Railway variable, shown only as their last four characters; (3) invited readers keep using your key until M36 ships, then only your requests use it; (4) voices and pictures stay on your keys for now; (5) showcase visitors (M34) never ask for new answers. And: build it now, or after M34? Default until you say: recorded, not built. | Samuel | 2026-11-12 | open (default applies) |
+| 33 | **Papers (M41): who are they for?** Samuel alone, or also the people he invites? Asked 2026-11-02 when he agreed to the plan in `docs/plan.md` M41. It decides R3: a paper shared with invited readers needs the same sharing rules as books and a check that its file may be shared; papers for Samuel alone need neither. R1 (equations and tables) and R2 (figures) do not depend on it. | Samuel | before R3 (2026-11-16) | open |
 
 ## Decisions
 
@@ -352,6 +355,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-02 06:42 · Claude (laptop session) · M41 R1: equations and tables in a Markdown book (papers)
+- **Done:** Samuel agreed (2026-11-02, "yes") to M41 Papers in docs/plan.md: a paper is an item in the same library; four steps R1-R4. Built R1 on branch m41-paper-math-tables: LaTeX between $...$ and $$...$$ becomes MathML at Markdown import (KaTeX 0.18.11, trust off; 0.16.11 was first tried and is inside two KaTeX advisories, GHSA-cg87-wmx4-v546 and GHSA-238p-pmpm-9mq7), prices stay text, pipe tables become tables with alignment, HTML comments dropped, backslash escapes read, numbered equations kept display size in Chrome. Also fixed the PR hygiene check: PROGRESS.md passed 1 MB (1,095,400 bytes) when 40 entries were copied to main, past execFileSync's default 1 MB output limit, so scripts/check-pr-hygiene.mjs crashed with "spawnSync git ENOBUFS" for every PR; it now allows 64 MB. Checked by eye on Samuel's Greco 1995 paper (Markdown made this session, not in git) in Chrome and WebKit, light and dark, and on an invented paper on phone and desktop. Not merged, not deployed; no migration.
+- **Key paths:** lib/library/markdown-math.ts (new); lib/library/markdown-epub.ts; lib/library/markdown-epub.test.ts; e2e/uploads.spec.ts; docs/plan.md (M41); LEARNING_LOG.md (iterations 118, 119); package.json (katex, @types/katex). Greco Markdown: ~/Downloads/papers/greco1995_search_for_synergy/ (not in git). Screenshots of the invented paper: the session scratchpad, pr-{desktop,phone}-{light,dark}.png
+- **Commands that worked:** npm run check -> Tests 1212 passed | 2 skipped. npx playwright test --ignore-snapshots -> 397 passed (15.7m) (before the display-size rule). npx playwright test e2e/uploads.spec.ts --ignore-snapshots -> 179 passed (after it); with the rule removed the new test fails: Expected >= 15.2, Received 11.36.
+- **Known issues / blockers:** Chrome draws \left[ ... \right] brackets at text size (WebKit stretches them); a math font in the book would fix it. The rewrite panel offers each equation and table cell as a paragraph to rewrite. X-ray lists Eq, Eqn, Emax as names. Figures in a Markdown book still show only their description (R2). Open unknowns row 33: who papers are for.
+- **Exact next steps:** 1. Push, open the PR, merge when the four checks are green (merge-train skill). 2. Deploy at Samuel's word (no migration). 3. R2: figures from a .zip of the .md and its figures/ folder. 4. Samuel answers Open unknowns row 33 before R3.
 ### 2026-11-02 06:20 · Claude Opus 5.5 (laptop) · Checkpoint: one ledger on main, 40 stuck entries copied, old worktrees and record branches removed
 - **Done:** ledger-to-main built and used; 40 stuck entries copied to main (1c97ede0, 5b25a267); Decision Queue reads one ledger per project (47 items); singularity committed 47a2074 (not pushed); 22 worktrees down to 3; 38 local + 4 GitHub *-record branches deleted after a bundle backup
 - **Key paths:** docs/handoffs/2026-11-02-0620-one-ledger-cleanup.md (laptop, gitignored); ~/projects/personal/singularity/ledger/ledger-to-main; ~/projects/personal/singularity/decision-queue/extract.py

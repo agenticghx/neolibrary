@@ -88,6 +88,9 @@ Outcomes: **success** (the hypothesis held), **failure** (it did not),
 | 111 | 2026-11-01 18:40 | M40 S3 issues become pull requests | An issue Samuel files can start a Claude session on GitHub on his subscription that opens a tested PR | actionlint; author_association of his issues | success (first live run to come) | only writers start it, and the issue text never reaches a shell |
 | 112 | 2026-11-01 19:30 | M40 S4 agent reads | Three read-only routes give laptop checks what they need without signing in | vitest; Linux image, agents project | success | reuse the app's own rule rather than write a second one |
 | 116 | 2026-11-02 03:10 | M21 issue #267 (issue bot) | Space and Shift+Space can turn pages in Pages through the one key handler, without taking Space from buttons, links or Scroll | `npm run check`; reader project in the browser | success | add a key where the other page-turn keys are decided, so its exceptions are the same ones |
+| 118 | 2026-11-02 06:10 | M41 R1 equations and tables | KaTeX's MathML in the Markdown importer draws a paper's equations; Pandoc's dollar rule keeps prices as text | vitest on an invented paper | failure then success | a price and a code span can pair into one long formula: stop a formula at code, and a formula that starts with a digit holds no space |
+| 120 | 2026-11-02 06:50 | CI: PR hygiene | The hygiene check passes on a rebased PR | `node scripts/check-pr-hygiene.mjs origin/main` | failure then success | a ledger past 1 MB breaks any script that reads it through execFileSync's default buffer |
+| 119 | 2026-11-02 06:40 | M41 R1 by eye | The Greco paper and an invented one look right in the reader | screenshots, Chrome and WebKit, light and dark, phone and desktop; a browser test with a mutation | failure then success | Chrome draws a numbered equation (KaTeX puts it in a MathML table) at small size; `math-style: normal` on its cells fixes it, and only a screenshot showed it |
 
 Iterations 38 to 59 have no row in this index (the sessions that wrote them did not add one); they are in full below.
 
@@ -2542,3 +2545,27 @@ tests that pin it, in a small PR.
 **Result.** The third run built it: pull request #272 (`m21-issue-267-space-turns-page`, author app/claude), Space and Shift+Space in Pages, a browser test, the ledger and learning log, and a comment on the issue with the link and "reader project: 228 passed". Why runs one and two stopped is not known (neither left a word, and the step that would have said so matched the wrong pull request). On #272 the Claude review check failed: "Workflow initiated by non-human actor: claude (type: Bot). Add bot to allowed_bots list". `allowed_bots: "claude"` now lets only that bot in.
 **Lesson.** A bot's first success can come without an explanation of its earlier failures; keep the means to see the next one.
 **Next experiment.** Watch the next issue's run for a silent end.
+
+### Iteration 118 · 2026-11-02 06:10 (laptop clock) · M41 R1: equations and tables in a Markdown book · failure then success
+
+**Hypothesis.** A paper in Markdown (LaTeX between dollar signs, pipe tables) reads as a paper if the importer (`lib/library/markdown-epub.ts`) turns LaTeX into MathML with KaTeX and pipe tables into tables; Pandoc's rule for dollar signs keeps prices in books as text.
+**Action.** `lib/library/markdown-math.ts` (KaTeX, `trust: false`; its LaTeX copy moved from the `annotation` element, which Listen and search would read, to `alttext`); display `$$…$$` blocks, pipe tables with alignment, HTML comments dropped, backslash escapes read; `properties="mathml"` on pages that hold MathML.
+**Evaluation.** `npx vitest run lib/library/markdown-epub.test.ts` on an invented paper.
+**Result.** First run: 2 failed of 13. "It cost $100 million and $200 more; \$5 is a price; `$x$` is code" became one formula from "$200" to the dollar inside the code span (Pandoc's rule alone allows it). After two more rules (a formula stops at a backtick; one that starts with a digit holds no space): 13 passed. `npm run check`: 1212 passed, 2 skipped. Full browser suite on the Mac: 397 passed (15.7m).
+**Lesson.** Test the rule that keeps prices as text on a sentence with a price, an escaped dollar and code together; each alone passed.
+**Next experiment.** Look at a real paper in the reader.
+
+### Iteration 119 · 2026-11-02 06:40 (laptop clock) · M41 R1 by eye: the Greco paper and an invented one · failure then success
+
+**Hypothesis.** The equations look right in the reader in both browser engines.
+**Evaluation.** The Greco Markdown (33 figures, 7 tables, 71 display equations; not in git) imported on a local server, screenshots in Chrome and WebKit, light and dark; an invented paper (two numbered equations, a table, prices) on phone and desktop, light and dark.
+**Result.** Greco: equations and tables drawn in both engines; Chrome draws `\left[ … \right]` brackets at text size where WebKit stretches them (left as a known limit). Invented paper: in Chrome a numbered equation's fraction was small, as if inline: KaTeX puts a `\tag` equation in a MathML table, and Chrome sets table cells to compact style. `math[display="block"] mtd { math-style: normal; }` in the book's style fixed it. The browser test now compares the fraction's numerator to the text size: without the rule it failed ("Expected: >= 15.2, Received: 11.36"); with it, the uploads project passed (179).
+**Lesson.** A test that a formula is "taller than a line" passed while the formula was visibly wrong; measure the thing the eye saw (here, the numerator's size).
+**Next experiment.** R2: figures, from a `.zip` of the Markdown and its pictures.
+
+### Iteration 120 · 2026-11-02 06:50 (laptop clock) · CI: the PR hygiene check and a 1 MB ledger · failure then success
+
+**Hypothesis.** After rebasing #274 onto main, the PR hygiene check (`scripts/check-pr-hygiene.mjs`) finds the new Log entry.
+**Result.** It crashed: "spawnSync git ENOBUFS". `wc -c PROGRESS.md`: 1095400 bytes; main's ledger passed 1 MB when 40 entries were copied to it (2026-11-02), and `execFileSync` returns at most 1 MB unless told otherwise. Every PR's hygiene check would fail the same way. With `maxBuffer` at 64 MB: "PR hygiene: found 1 new Log entry", exit 0.
+**Lesson.** A file that only grows will cross a tool's default limit one day; give any script that reads the whole ledger a generous buffer.
+

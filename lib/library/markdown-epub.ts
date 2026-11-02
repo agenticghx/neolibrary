@@ -15,6 +15,7 @@
  *   starts with it, else the title from the file name ("chip_war.md" is "Chip War") and no author.
  */
 import { strToU8, zipSync } from "fflate";
+import { inlineMathSpans, mathMl } from "./markdown-math";
 
 export type MarkdownBook = { bytes: Uint8Array; title: string; author: string; chapters: number };
 
@@ -23,8 +24,29 @@ export const isMarkdownName = (name: string) => /\.(md|markdown)$/i.test(name.tr
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** Inline Markdown to XHTML. Escaped first, so only the marks below become tags. */
-export function inline(text: string) {
+/**
+ * Inline Markdown to XHTML. Escaped first, so only the marks below become tags. Inline equations (`$…$`, M41) are set
+ * aside before the marks are read, so a star or an underscore inside one is LaTeX, not italics, and put back as
+ * MathML at the end; so are backslash escapes.
+ */
+export function inline(raw: string) {
+  const text = raw.replace(/\u0000/g, "");
+  const kept: string[] = [];
+  const keep = (html: string) => `\u0000${kept.push(html) - 1}\u0000`;
+  let rest = "";
+  let at = 0;
+  for (const span of inlineMathSpans(text)) {
+    const math = mathMl(span.tex, false);
+    rest += text.slice(at, span.start) + (math ? keep(math) : text.slice(span.start, span.end));
+    at = span.end;
+  }
+  rest += text.slice(at);
+  // A backslash escape outside code is the character itself.
+  rest = rest.replace(/(`[^`]*`)|\\([!-/:-@[-`{-~])/g, (_, code: string | undefined, ch: string) => code ?? keep(esc(ch)));
+  return marks(rest).replace(/\u0000(\d+)\u0000/g, (_, n: string) => kept[Number(n)]);
+}
+
+function marks(text: string) {
   return (
     esc(text)
       // A picture keeps its description; a link keeps its text (no addresses from the file in the book).
@@ -70,6 +92,40 @@ function frontMatter(md: string): { meta: FrontMatter; body: string } {
   return { meta, body: md.slice(m[0].length) };
 }
 
+/** The cells of a table row: `| a | b |` is ["a", "b"]; a `|` inside an equation or after a backslash is not a border. */
+function cells(row: string): string[] {
+  const out: string[] = [];
+  let cell = "";
+  let math = false;
+  const line = row.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "");
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === "\\" && line[i + 1] === "|") {
+      cell += "|";
+      i += 1;
+    } else if (c === "\\") {
+      cell += c + (line[i + 1] ?? "");
+      i += 1;
+    } else if (c === "$") {
+      math = !math;
+      cell += c;
+    } else if (c === "|" && !math) {
+      out.push(cell.trim());
+      cell = "";
+    } else cell += c;
+  }
+  out.push(cell.trim());
+  return out;
+}
+
+function tableHtml(rows: string[], align: string[]) {
+  const td = (tag: "th" | "td", text: string, i: number) => `<${tag}${align[i] ? ` class="${align[i]}"` : ""}>${inline(text)}</${tag}>`;
+  const [head, ...body] = rows;
+  const th = cells(head).map((c, i) => td("th", c, i)).join("");
+  const trs = body.map((r) => `<tr>${cells(r).map((c, i) => td("td", c, i)).join("")}</tr>`).join("");
+  return `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
 type Chapter = { level: 1 | 2 | 0; title: string; html: string[] };
 
 /** The chapters of a Markdown text (exported for tests). */
@@ -77,7 +133,11 @@ export function chaptersOf(body: string): Chapter[] {
   const chapters: Chapter[] = [];
   let current: Chapter | null = null;
   const here = () => (current ??= (chapters.push({ level: 0, title: "Opening pages", html: [] }), chapters[chapters.length - 1]));
-  const lines = body.replace(/\r\n?/g, "\n").split("\n");
+  // HTML comments are notes for whoever edits the file (M41: a transcription's page markers); readers never see them.
+  const lines = body
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]*<!--[\s\S]*?-->/g, "")
+    .split("\n");
   let para: string[] = [];
   let quote: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
@@ -92,8 +152,29 @@ export function chaptersOf(body: string): Chapter[] {
     quote = [];
     list = null;
   };
-  for (const raw of lines) {
+  for (let n = 0; n < lines.length; n++) {
+    const raw = lines[n];
     const line = raw.trimEnd();
+    // A display equation (M41): `$$` … `$$`, on one line or several.
+    if (/^\s*\$\$/.test(line)) {
+      flush();
+      const block = [line.trim().slice(2)];
+      while (!/\$\$\s*$/.test(block[block.length - 1]) && n + 1 < lines.length) block.push(lines[++n].trimEnd());
+      const tex = block.join("\n").replace(/\$\$\s*$/, "");
+      const math = mathMl(tex, true);
+      here().html.push(`<p class="equation">${math ?? `<code>${esc(`$$${tex}$$`)}</code>`}</p>`);
+      continue;
+    }
+    // A table (M41): a row of cells, a line of dashes under it, then the rows.
+    if (/^\s*\|/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[n + 1] ?? "")) {
+      flush();
+      const rows = [line];
+      n += 1;
+      const align = cells(lines[n]).map((c) => (/^:-+:$/.test(c) ? "center" : /-:$/.test(c) ? "right" : ""));
+      while (n + 1 < lines.length && /^\s*\|/.test(lines[n + 1])) rows.push(lines[++n].trimEnd());
+      here().html.push(tableHtml(rows, align));
+      continue;
+    }
     const heading = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
     if (heading) {
       flush();
@@ -145,6 +226,12 @@ p { margin: 0 0 0.8em; }
 h1, h2 { margin: 1.5em 0 1em; }
 blockquote { margin: 1em 1.5em; }
 code { font-family: monospace; font-size: 0.9em; }
+p.equation { margin: 1em 0; overflow-x: auto; overflow-y: hidden; }
+math[display="block"] mtd { math-style: normal; }
+table { border-collapse: collapse; margin: 1em 0; font-size: 0.85em; display: block; width: max-content; max-width: 100%; overflow-x: auto; }
+th, td { border-bottom: 1px solid rgba(128, 128, 128, 0.4); padding: 0.25em 0.5em; text-align: left; vertical-align: top; }
+th.right, td.right { text-align: right; }
+th.center, td.center { text-align: center; }
 `;
 
 const xhtml = (title: string, body: string, lang: string) =>
@@ -194,7 +281,8 @@ export function markdownToEpub(md: string, fileName: string, now = new Date()): 
   const manifest = [
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
     '<item id="css" href="style.css" media-type="text/css"/>',
-    ...chapters.map((_, i) => `<item id="c${i + 1}" href="c${i + 1}.xhtml" media-type="application/xhtml+xml"/>`),
+    // EPUB 3 asks a page holding MathML to say so (M41).
+    ...chapters.map((c, i) => `<item id="c${i + 1}" href="c${i + 1}.xhtml" media-type="application/xhtml+xml"${c.html.some((h) => h.includes("<math")) ? ' properties="mathml"' : ""}/>`),
   ].join("");
   const spine = chapters.map((_, i) => `<itemref idref="c${i + 1}"/>`).join("");
   const modified = now.toISOString().replace(/\.\d{3}Z$/, "Z");
