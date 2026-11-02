@@ -29,6 +29,8 @@ export const SHOWS = {
   all: "Books",
   want: "Want to Read",
   finished: "Finished",
+  /** M41 R3: titles marked as research papers (by DOI or PubMed ID); they are in Books too. */
+  papers: "Papers",
 } as const;
 export type Show = keyof typeof SHOWS;
 
@@ -64,6 +66,9 @@ export async function listShelf(
       break;
     case "finished":
       filters.push(gte(books.progress, 1));
+      break;
+    case "papers":
+      filters.push(eq(books.kind, "paper"));
       break;
   }
   if (opts.audio) {

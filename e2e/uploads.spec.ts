@@ -544,6 +544,58 @@ test("a paper's .zip with its pictures is added, and its figure shows in the rea
   await expect(view).toBeHidden();
 });
 
+// M41 R3 "Done when": a title is marked as a research paper by its DOI on its own page; it takes the paper's real title
+// and details (the fake catalogue in tests), shows a paper's card under Papers, and is a book again after "This is not a
+// paper". It is removed at the end, so the later tests find the shelves as before.
+test("a title becomes a research paper by its DOI, is listed under Papers with its card, and can be a book again", async ({ page }) => {
+  test.setTimeout(90_000);
+  const md = ["---", "title: lamplight_2021_preprint", "---", "# Results", "", "Small print is read faster under a warm lamp."].join("\n");
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "lamplight_2021_preprint.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
+  await expect(page.getByTestId("upload-results")).toContainText("Added to your library");
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^lamplight_2021_preprint/ }).click();
+  await expect(page.getByRole("heading", { name: "lamplight_2021_preprint", level: 1 })).toBeVisible();
+
+  // Not a DOI: said so, and nothing changes.
+  await page.getByText("Is this a research paper?").click();
+  await page.getByLabel("Its DOI or PubMed ID").fill("lamplight");
+  await page.getByRole("button", { name: "Find its details" }).click();
+  await expect(page.getByTestId("paper-ask").getByRole("alert")).toHaveText("That is not a DOI (10.…) or a PubMed ID (digits).");
+
+  await page.getByLabel("Its DOI or PubMed ID").fill("https://doi.org/10.5555/12345678");
+  await page.getByRole("button", { name: "Find its details" }).click();
+  await expect(page.getByRole("heading", { name: "Lamplight and the reading of small print", level: 1 })).toBeVisible();
+  const details = page.getByTestId("paper-details");
+  await expect(details).toContainText("Wick and Keeper · 2021 · J Example Stud");
+  await expect(details.getByRole("link", { name: "DOI 10.5555/12345678" })).toHaveAttribute("href", "https://doi.org/10.5555/12345678");
+
+  // Papers lists it, drawn as a printed page with its line; Books still lists it too.
+  await page.goto("/library?show=papers");
+  await expect(page.getByRole("heading", { name: "Papers", level: 1 })).toBeVisible();
+  const card = page.getByTestId("shelf").getByRole("link", { name: /^Lamplight and the reading of small print/ });
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText("Wick and Keeper · 2021 · J Example Stud");
+  await expect(card.locator('[data-cover="paper"]')).toBeVisible();
+  await expect(page.getByTestId("shelf").getByRole("listitem")).toHaveCount(1);
+  await page.goto("/library");
+  await expect(page.getByTestId("shelf").getByRole("link", { name: /^Lamplight and the reading of small print/ })).toHaveCount(1);
+
+  // A book again: Papers is empty, the title it was given stays.
+  await page.getByTestId("shelf").getByRole("link", { name: /^Lamplight and the reading of small print/ }).click();
+  await page.getByRole("button", { name: "This is not a paper" }).click();
+  await expect(page.getByTestId("paper-ask")).toBeVisible();
+  await page.goto("/library?show=papers");
+  await expect(page.getByTestId("shelf").getByRole("listitem")).toHaveCount(0);
+
+  // Leave the shelves as the later tests expect them.
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^Lamplight and the reading of small print/ }).click();
+  await page.locator("summary", { hasText: "Remove from library" }).click();
+  await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
+  await expect(page).toHaveURL(/\/library$/);
+});
+
 // M29 "Done when": a Markdown (.md) book is added on the Import page and opens in the reader as a book with chapters
 // (its parts and chapters in Contents; italics and the rest are checked in lib/library/markdown-epub.test.ts); a script with the reader's token can add one too
 // (POST /api/agent/books). Both are removed again at the end, so the later tests find the shelves as before.

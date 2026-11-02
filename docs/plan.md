@@ -1534,13 +1534,43 @@ Open unknowns row 33; it decides how much of R2 is built.
   or text; the browser test taps the paper's figure, finds the view named
   "Figure 1" with its legend, the picture loaded and drawn wider than 240 px
   (it is 120 px), 120 px at "Actual size", and closed by Escape.
-- **R3 · "Paper" as a kind of item.** Authors, year, journal and DOI (the
-  permanent identifier every journal article has); a Papers filter in the
-  sidebar beside Books, Audiobooks and PDFs; a card that reads "Greco, Bravo
-  and Parsons · 1995 · Pharmacol Rev" instead of a cloth cover. Add a paper
-  by DOI or PubMed ID: details from Crossref or PubMed (free, no key, behind
-  an interface with a fake in tests); the full text too when PubMed Central
-  has it as open access (its XML already holds the equations as MathML).
+- **R3 · "Paper" as a kind of item.** A title in the library can be marked
+  a research paper by its DOI (the permanent identifier every journal
+  article has) or its PubMed ID, on its own page ("Is this a research
+  paper?", at the foot). Its details come from Crossref (a DOI) or PubMed (a
+  PubMed ID), free and keyless, behind an interface with a fake in tests
+  (`lib/papers/`): the real title (so a file named
+  "greco1995_search_for_synergy" becomes *The search for synergy: …*), the
+  authors in order, the year, the journal (PubMed's short form, "Pharmacol
+  Rev", when PubMed has the paper) and both ids, kept in five new columns
+  and a `kind` (`book` or `paper`; migration 0037, with its reverse step).
+  Its page and card read "Greco, Bravo and Parsons · 1995 · Pharmacol Rev",
+  with links to doi.org and PubMed; without a picture of its own the card
+  is drawn as a printed page (a rule, the title, that line), not cloth.
+  Papers is a filter in the sidebar beside Books, Want to Read and Finished
+  (Audiobooks and PDFs stopped being filters on 2026-10-29); Books still
+  lists every title, papers too. A paper is never looked up in the
+  book-cover catalogues. "This is not a paper" makes it a book again (the
+  title it was given stays). Who papers are for is still Open unknowns row
+  33; as built, a paper is its reader's own, exactly like a book, and
+  nothing is shared. *Built 2026-11-02 (branch `m41-paper-kind`).*
+  Done when: unit tests read a DOI and a PubMed ID in their pasted forms and
+  refuse other text, write the card line (one to three authors, then "et
+  al."), read Crossref's and PubMed's real records for Greco, ask the
+  catalogues through a stand-in fetch (PubMed's id and journal joined to
+  Crossref's answer; Crossref alone when PubMed has nothing or is down; a
+  missing paper; an unreachable catalogue), mark a title as a paper and back,
+  list it under Papers and in Books, refuse a bad id, a missing paper and
+  another reader's book, and keep papers out of the cover lookup (fails
+  without that filter); real Postgres runs every migration up, down and up;
+  a browser test marks a Markdown title a paper by its DOI, finds the new
+  title, the line and the DOI link, the drawn card under Papers, and Papers
+  empty again after "This is not a paper". Real-paper check: the Greco zip
+  marked by PMID 7568331 on a local build, desktop light and phone dark.
+  Later (R3b): add a paper by DOI or PubMed ID before its file (it waits as
+  "not available yet"); its full text from PubMed Central when open access
+  (JATS XML, which holds the equations as MathML); a Markdown file's own
+  `doi:` in its front matter.
 - **R4 · Study tools for papers.** A one-screen summary card (the question,
   the method, the main finding, the limits); tap an equation or a figure to
   have it explained (the equation's LaTeX is in its `alttext`); the

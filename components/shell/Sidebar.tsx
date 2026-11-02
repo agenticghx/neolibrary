@@ -16,6 +16,8 @@ export const LIBRARY_LINKS: { label: string; href: string; icon: IconName }[] = 
   { label: "Books", href: "/library", icon: "book" },
   { label: "Want to Read", href: "/library?show=want", icon: "want" },
   { label: "Finished", href: "/library?show=finished", icon: "finished" },
+  // M41 R3: research papers only (Books still lists them too: a paper is a title like any other).
+  { label: "Papers", href: "/library?show=papers", icon: "paper" },
 ];
 
 type Props = {

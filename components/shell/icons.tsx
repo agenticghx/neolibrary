@@ -4,6 +4,8 @@ const PATHS = {
   library: "M4 5h3v14H4zM9 5h3v14H9zM14.5 5.6l2.9-.8 3.6 13.6-2.9.8z",
   want: "M7 4h10v16l-5-3.5L7 20z",
   finished: "M12 3a9 9 0 1 1 0 18a9 9 0 0 1 0-18zM8 12.5l2.6 2.6L16 9.5",
+  /* M41: a sheet with a folded corner and lines of text (a paper). */
+  paper: "M6 3h8l4 4v14H6zM14 3v4h4M9 11h6M9 14.5h6M9 18h4",
   book: "M12 6.5C9.8 5 7.3 4.6 4 5v13c3.3-.4 5.8 0 8 1.5 2.2-1.5 4.7-1.9 8-1.5V5c-3.3-.4-5.8 0-8 1.5zM12 6.5V19",
   audio: "M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z",
   pdf: "M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5",

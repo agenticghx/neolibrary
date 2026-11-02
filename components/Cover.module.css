@@ -325,3 +325,66 @@
     padding: var(--space-1);
   }
 }
+
+/* M41 R3: a research paper, drawn as a printed page: a rule across the top, the title set left, the authors, year and
+   journal under it. No cloth and no spine edge: a paper is a sheet, not a bound book. */
+.cover.paper {
+  /* A column: the rule, the title (cut short with "…" when the card is small), and the line pinned to the foot. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-sm);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  text-align: left;
+}
+
+.cover.paper::before {
+  display: none;
+}
+
+.paperRule {
+  flex: none;
+  display: block;
+  height: var(--space-1);
+  background-color: var(--accent);
+}
+
+.paperTitle {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+.paperLine {
+  flex: none;
+  margin-top: auto;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-ui);
+  color: var(--ink-700);
+}
+
+/* A small card (a book's page on a phone, Continue): fewer lines of title, so the line under it still fits. */
+.cover.small.paper .paperTitle,
+.cover.mini.paper .paperTitle {
+  -webkit-line-clamp: 3;
+}
+
+@media (width <= 48rem) {
+  /* The book page's cover is narrow on a phone (6.75rem): three lines of title. */
+  .cover.paper:not(.fill) .paperTitle {
+    -webkit-line-clamp: 3;
+  }
+}
