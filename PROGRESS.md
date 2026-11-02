@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the S5 PR #269, then the S6 PR, install the overnight job, and re-run issue #267.
+next_action: Merge S6, install the nightly job and run it once, then read issue #267's second run.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -349,6 +349,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 20:49 · Claude Opus 5.5 (laptop) · M40 S6: scanned books read overnight on the subscription, left as drafts for Samuel's send
+- **Done:** scripts/overnight-scans.ts, lib/overnight-scans.ts (+4 tests), scripts/overnight-scans-install.sh. Live run: 'No scanned book is waiting to be read.' Local test copy (2-page scanned fixture, own token, --pages 1-3): read 2 pages, 0 blank, 0 not read, $0; DRAFT.md Status ready, nothing sent (book textEdition None afterwards). #265 merged b4938a6 (with the issue-bot report fix); issue #267 re-run with the label build.
+- **Key paths:** scripts/overnight-scans.ts; scripts/overnight-scans-install.sh; lib/overnight-scans.ts; lib/overnight-scans.test.ts; LEARNING_LOG.md (Iteration 114)
+- **Commands that worked:** zsh -ic 'npx tsx scripts/overnight-scans.ts https://<live address>'; zsh scripts/overnight-scans-install.sh https://<live address> (after merge); npx vitest run lib/overnight-scans.test.ts (4 passed)
+- **Known issues / blockers:** A test token must be exported inside zsh -ic (the login shell loads the Keychain's over it).
+- **Exact next steps:** 1. Merge this; install the nightly job and kickstart it once; read its log. 2. Read issue #267's second run. 3. Tell Samuel all merged.
 
 ### 2026-11-01 20:46 · Claude Opus 5.5 (laptop) · M40 S5: a live-site check an agent runs instead of Samuel; first run on the live site
 - **Done:** First automatic deploy: 827adfb (#263) live on both addresses via the Deploy workflow (Deploy log issue #268; railway variable set worked with the project token). S5: lib/live-check.ts + scripts/live-check.ts check every book's file, scan text editions, covers, and judge each Claude-built X-ray's 20 most-mentioned entries on the subscription. Live run 2026-11-02: 8 books, files all open, no scan without text, no cover missing; 20 X-ray entries in 1 book, 2 flagged (a fact going past its quote). Report (book text, not in git): ~/Documents/neolibrary-live-check/2026-11-02.md. Fixed the summary's '1 books' wording.

@@ -2512,3 +2512,11 @@ tests that pin it, in a small PR.
 **Result.** 8 books: every file opens; no scan without its text edition; no missing cover. 20 X-ray entries judged in the one book with a Claude-built X-ray: 2 flagged, both a fact that says a little more than its quote (a detail the quote does not name). The summary line said "1 books": fixed, and the test's expected line with it.
 **Lesson.** A judge that reads the quote catches facts that drift past their evidence, which a person skimming would pass.
 **Next experiment.** S6, overnight scan reading; later, run this after each deploy.
+### Iteration 114 · 2026-11-02 (laptop clock) · M40 S6: scans read overnight, left as drafts · success
+
+**Hypothesis.** Turning a scan into a text edition waited on a session being started for it. The reading is already a script on the subscription (`text-edition-on-subscription.ts read, check, preview`); a nightly job on the laptop can run it for every scan without a text edition and stop short of "send", which stays Samuel's word.
+**Action.** `scripts/overnight-scans.ts` (pick the scans, download each through S4's file route, read, check, preview, write DRAFT.md and a night summary, a Mac notification; stop for the night when pages could not be read, most often the subscription's limit), `lib/overnight-scans.ts` and its tests, `scripts/overnight-scans-install.sh` (a launchd job on its own checkout of main).
+**Evaluation.** Against the live site; then against a local test copy of the app with the 2-page scanned fixture and its own owner token, `--pages 1-3`.
+**Result.** Live: "No scanned book is waiting to be read." (every scan there has its text already). Local: "A Scanned Meditation: read; a draft waits for your send"; "Done: 2 pages read now, 0 blank, 0 not read", $0 on the subscription; DRAFT.md says Status: ready and nothing sent; the book still had no text edition afterwards (`textEdition: None`, `scan: True`). Snag: `zsh -ic` loads the Keychain's token over one set before it, so a test token must be exported inside the login shell (the nightly job wants the Keychain's, so it is right there).
+**Lesson.** Prove the path that does the work on a copy that has work for it; the live run alone proved only the empty night.
+**Next experiment.** Install the job; its first night will have nothing to read until a new scan is added.
