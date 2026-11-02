@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M41: merge #274 and R1b; build R2 figures and R1c; deploy (Samuel's word given 2026-11-02).
+next_action: Merge the M34 open-shelf plan PR, then build M34 S1 (two switches per book).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 07:55 · Claude Opus 5.5 · Plan: M34 becomes an open shelf (every title visible, three free to read, bring your own key)
+- **Done:** Rewrote M34 in docs/plan.md from Samuel's words of 2026-11-02: visitors see every title on his shelf, read only the three public-domain books, find the rest on Goodreads, get saved AI answers free, and need their own Anthropic or ElevenLabs key (kept in their own browser) for anything new. Invited readers stop using Samuel's key too. M36 marked as folded into M34 S4 (no server-side key storage). Five steps S1 to S5.
+- **Key paths:** docs/plan.md (M34, M36)
+- **Commands that worked:** none beyond git; plan text only
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** Merge this plan PR. Then S1: two switches per book (on the open shelf, free to read), migration with a reverse step; backup before it runs in production.
 
 ### 2026-11-02 07:07 · Claude (laptop session) · M41 R1b: brackets stretch in Chrome (bundled math font)
 - **Done:** Samuel, 2026-11-02: 'do them, verify, deploy' (figures, brackets, equations and cells offered for rewriting). R1b built on branch m41-math-font (stacked on #274): book pages get STIX Two Math (OpenType MATH table, checked with fontTools) for every formula, so Chrome stretches \left[ ... \right] as WebKit does. docs/plan.md: R1b and R1c written.
