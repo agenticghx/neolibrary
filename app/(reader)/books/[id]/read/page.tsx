@@ -83,6 +83,7 @@ export default async function ReadPage({
       startListening={sp.listen === "1" && found.available.listen}
       rewrittenView={rewrittenView}
       recall={recall}
+      ownKeys={user.role !== "admin"}
     />
   );
 }

@@ -2640,6 +2640,15 @@ tests that pin it, in a small PR.
 **Result.** First run: two `GET /api/books/<id>/annotations` left, from the notes outbox sync that runs when the book opens (not the load guarded first). Guarded `reload` and the sync effect: 297 passed (5.8m); the place came back after a reload from localStorage.
 **Lesson.** List a component's server calls by recording the requests in a browser test, not by reading the code: the second call came from an effect several hundred lines away.
 **Next experiment.** S4: bring your own key.
+
+### Iteration 125 · 2026-11-02 09:08 (laptop clock) · M34 S4: bring your own key · failure then success
+
+**Hypothesis.** One function per paid service (`textModelFor`, `speechModelFor`, `transcriberFor`) can decide who pays: the owner's key for the owner, otherwise only the key the request carries; and marking such a model's provider "-own-key" keeps it out of the owner's caps and spending without a migration.
+**Action.** The eight AI routes, passage audio and voice-note transcripts ask for the model "for this person"; `reserveSpend` and `checkCaps` let an own-key provider through; AI pictures are the owner's only. In the browser, `aiFetch` and `voiceFetch` add the key from localStorage to those requests only; Reading settings and Account offer the key form.
+**Evaluation.** `lib/ai/own-key.test.ts` (6): a reader without a key is refused, with one the answer is saved as "anthropic-own-key" with caps of $0 and the owner's spending stays $0. The whole browser suite, then `e2e/own-keys.spec.ts`.
+**Result.** Whole suite: 406 passed, 2 failed: the daily-review tests, whose invited reader asked for Test yourself and Explain it back with no key (the new rule working). Their reader now carries a key: 299 passed, including the own-keys test (the Study panel sends the key; other requests do not).
+**Lesson.** A rule that takes something away from readers shows up first in the tests that quietly relied on it; run the whole browser suite, not the new test alone.
+**Next experiment.** AI for visitors on the free books, then S5 guard rails.
 ### Iteration 128 · 2026-11-02 09:35 (laptop clock) · M41 R1d: Listen passes over equations and tables · success
 
 **Hypothesis.** Listen's next and previous all come from one list (`passageFor`'s paragraphs in `lib/library/audio.ts`), so filtering that list, the starting paragraph and whole-book narration's list to prose is enough for the player never to stop on an equation or a table cell; nothing in the player itself has to change.

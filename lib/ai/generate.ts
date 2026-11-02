@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { isOwnKeyProvider } from "./own-key";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, generations, textEditionJobs } from "@/lib/db/schema";
 import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel } from "./model";
@@ -200,6 +201,7 @@ export function assertRoom(spent: Spent, held: Spent, estimate: number, caps: Ca
 
 /** Throws if spending `estimate` more would pass a cap. */
 export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
+  if (isOwnKeyProvider(provider)) return; // M34 S4: the asker's own key; the owner's caps are not theirs
   assertRoom(await spendingWithJobs(db, provider, bookId, now), { month: 0, book: 0 }, estimate, caps, label, bookId);
 }
 
@@ -251,6 +253,8 @@ export async function reserveSpend(
   label: string,
   read: ReadSpend = spendingWithJobs,
 ): Promise<() => Promise<void>> {
+  // M34 S4: a call on the asker's own key spends nothing of the owner's, so no cap of the owner's applies to it.
+  if (isOwnKeyProvider(provider)) return () => Promise.resolve();
   await lockSpend(provider, async () => {
     const spent = await read(db, provider, bookId, now);
     const held = { month: holdOf(monthKey(provider)), book: bookId ? holdOf(bookKey(provider, bookId)) : 0 };

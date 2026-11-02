@@ -116,6 +116,8 @@ export default defineConfig({
     // 18b. The open shelf (M34): flips the owner's switches on the books uploads.spec added and looks as a visitor; a
     // branch off stats, and it puts every switch back.
     { name: "open-shelf", testMatch: /\/open-shelf\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
+    // 18c. Bring your own key (M34 S4): a reader of its own asks for AI answers with a key kept in its browser; a branch off stats.
+    { name: "own-keys", testMatch: /\/own-keys\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     // 19. A focus session with a question (M26 R3): a reader of its own, with the browser's clock controlled; a branch off stats.
     { name: "focus", testMatch: /\/focus\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     ],

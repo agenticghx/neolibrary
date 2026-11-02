@@ -4,7 +4,8 @@ import { cappedFormData } from "@/lib/http-body";
 import { AnnotationError } from "@/lib/library/annotations";
 import { createVoiceNote, MAX_BYTES, MAX_NOTE_REQUEST_BYTES } from "@/lib/library/voice-notes";
 import { SpeechNotConfigured } from "@/lib/speech/model";
-import { getTranscriber, type Transcriber } from "@/lib/speech/transcribe";
+import { transcriberFor } from "@/lib/speech";
+import type { Transcriber } from "@/lib/speech/transcribe";
 import { getStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   let transcriber: Transcriber | null = null;
   try {
-    transcriber = getTranscriber();
+    transcriber = transcriberFor(user, req);
   } catch (e) {
     if (!(e instanceof SpeechNotConfigured)) throw e;
   }

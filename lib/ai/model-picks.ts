@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { appSettings } from "@/lib/db/schema";
-import { getTextModel } from "./index";
-import { FEATURE_MODELS, MODEL_CHOICES, defaultModelFor, type AiFeature, type ModelPicks } from "./model";
+import { OWN_KEY_NEEDED } from "@/lib/own-key-names";
+import { ClaudeModel } from "./claude";
+import { aiIsFake, getTextModel } from "./index";
+import { OwnKeyTextModel, ownKeyFrom } from "./own-key";
+import { AiNotConfigured, FEATURE_MODELS, MODEL_CHOICES, defaultModelFor, modelFor, type AiFeature, type ModelPicks, type TextModel } from "./model";
 
 /**
  * Which Claude model answers each AI feature, picked by the owner on the
@@ -67,4 +70,22 @@ export async function modelTable(db: Db, env: Record<string, string | undefined>
 /** The model for a feature, with the owner's pick applied. Throws AiNotConfigured with no key, like getTextModel. */
 export async function textModel(db: Db, feature: AiFeature, env: Record<string, string | undefined> = process.env) {
   return getTextModel(feature, env, await getModelPicks(db));
+}
+
+/**
+ * M34 S4: the model for a feature, for whoever asks. The owner (the admin) uses the library's key and their own
+ * model picks, as before. Anyone else uses only the key their request carries (lib/ai/own-key.ts), with the
+ * built-in models; without one, AiNotConfigured says how to add it. The owner's key never pays for anyone else.
+ */
+export async function textModelFor(
+  db: Db,
+  feature: AiFeature,
+  who: { role: string },
+  req: Request,
+  env: Record<string, string | undefined> = process.env,
+): Promise<TextModel> {
+  if (who.role === "admin") return textModel(db, feature, env);
+  const key = ownKeyFrom(req, "ai");
+  if (!key) throw new AiNotConfigured(OWN_KEY_NEEDED.ai);
+  return new OwnKeyTextModel(aiIsFake(env) ? getTextModel(feature, env) : new ClaudeModel(key, modelFor(feature, env, {})));
 }

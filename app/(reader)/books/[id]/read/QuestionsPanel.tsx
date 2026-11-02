@@ -5,6 +5,7 @@ import { STYLE_NAMES, type Style } from "@/lib/library/levels";
 import { StudyTabs, type StudyTab } from "./StudyTabs";
 import type { QuestionsView } from "@/lib/library/questions";
 import styles from "./reader.module.css";
+import { aiFetch } from "@/lib/own-keys";
 
 type Data = {
   chapter: { id: string; label: string };
@@ -37,7 +38,7 @@ export function QuestionsPanel({ bookId, cfi, onTab }: { bookId: string; cfi: st
 
   useEffect(() => {
     let live = true;
-    fetch(`/api/books/${bookId}/questions?${new URLSearchParams({ cfi: at })}`)
+    aiFetch(`/api/books/${bookId}/questions?${new URLSearchParams({ cfi: at })}`)
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (live) show(res, body);
@@ -53,7 +54,7 @@ export function QuestionsPanel({ bookId, cfi, onTab }: { bookId: string; cfi: st
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/questions`, {
+      const res = await aiFetch(`/api/books/${bookId}/questions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chapterId: data.chapter.id, fresh }),

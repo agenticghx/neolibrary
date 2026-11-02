@@ -1,7 +1,7 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
-import { aiIsFake, getTextModel } from "@/lib/ai/index";
-import { getModelPicks, textModel } from "@/lib/ai/model-picks";
-import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
+import { aiIsFake } from "@/lib/ai/index";
+import { textModelFor } from "@/lib/ai/model-picks";
+import { AiError, AiNotConfigured, AiRefused, type TextModel } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { getStyles } from "@/lib/library/ai-style";
@@ -47,7 +47,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const anchor = await partAnchor(db, bookId, chapter);
     let estimate: number | null = null;
     try {
-      estimate = await estimateExplainBack(db, await textModel(db, "explain-back"), user.id, bookId, chapter);
+      estimate = await estimateExplainBack(db, await textModelFor(db, "explain-back", user, req), user.id, bookId, chapter);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -69,8 +69,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; summary?: unknown };
   try {
     const db = await getDb();
-    const picks = await getModelPicks(db);
-    const out = await explainBack(db, () => getTextModel("explain-back", process.env, picks), user.id, { bookId, chapterId: body.chapterId, summary: body.summary });
+    // The note is saved even when no model can answer (no key): explainBack asks for the model only after saving it.
+    let model: TextModel | (() => TextModel);
+    try {
+      model = await textModelFor(db, "explain-back", user, req);
+    } catch (e) {
+      if (!(e instanceof AiNotConfigured)) throw e;
+      model = () => {
+        throw e;
+      };
+    }
+    const out = await explainBack(db, model, user.id, { bookId, chapterId: body.chapterId, summary: body.summary });
     if (out.error) {
       const f = failure(out.error);
       return Response.json({ note: out.note, attempt: null, reused: false, error: f.error }, { status: f.status });

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePlayer } from "@/components/player/PlayerProvider";
 import { playsHere, type Info } from "@/lib/player/session";
+import { voiceFetch } from "@/lib/own-keys";
 
 /**
  * The Listen data fetched on Home, kept for a few minutes, so that coming
@@ -18,7 +19,7 @@ function listenData(bookId: string, cfi: string) {
   const key = `${bookId}|${cfi}`;
   const kept = ahead.get(key);
   if (kept && Date.now() - kept.at < KEEP_MS) return kept.info;
-  const info = fetch(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi })}`)
+  const info = voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi })}`)
     .then((res) => (res.ok ? (res.json() as Promise<Info>) : null))
     .catch(() => null)
     .then((v) => {

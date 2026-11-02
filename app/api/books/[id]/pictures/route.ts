@@ -9,6 +9,16 @@ import { getStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * M34 S4: a picture made with AI is paid with the owner's OpenAI key, and the owner's keys pay only for the owner
+ * (Samuel, 2026-11-02), so only the owner may make one. Anyone may still see pictures already made and search for
+ * pictures (free, from Wikimedia Commons).
+ */
+function generatorFor(user: { role: string }) {
+  if (user.role !== "admin") throw new ImageGenerationNotConfigured("Making a picture with AI is for the library's owner. Searching for a picture is free.");
+  return getImageGenerator();
+}
+
 async function view(g: Generation | null) {
   if (!g) return null;
   const secret = await serverSecret(await getDb(), "file-links");
@@ -40,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const stored = await storedPicture(await getDb(), user.id, (await params).id, subject);
     let configured = true;
     try {
-      getImageGenerator();
+      generatorFor(user);
     } catch (e) {
       if (!(e instanceof ImageGenerationNotConfigured)) throw e;
       configured = false;
@@ -57,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { subject?: unknown };
   try {
-    const out = await makePicture(await getDb(), await getStorage(), getImageGenerator(), user.id, { bookId: (await params).id, subject: body.subject });
+    const out = await makePicture(await getDb(), await getStorage(), generatorFor(user), user.id, { bookId: (await params).id, subject: body.subject });
     return Response.json({ picture: await view(out.generation), reused: out.reused }, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);

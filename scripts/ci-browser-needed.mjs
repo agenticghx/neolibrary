@@ -81,6 +81,8 @@ const PROJECT_SLICE = {
   focus: "behavior",
   // M34: the open shelf, as the owner and as a visitor; a branch off `stats` too.
   "open-shelf": "behavior",
+  // M34 S4: bring your own key; a branch off `stats` too.
+  "own-keys": "behavior",
 };
 
 const NARRATION_FILES = new Set([

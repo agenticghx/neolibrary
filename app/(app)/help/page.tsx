@@ -86,6 +86,12 @@ export default async function HelpPage() {
           sits on a tinted block with a dashed rule and says which model wrote it and when; the book&apos;s words and your own never
           look like that.
         </p>
+        <p className={styles.cardText}>
+          <strong>Your own keys.</strong> Answers already saved for a passage are free to read. A new answer, or an AI voice, is
+          paid with your own key: an Anthropic key for AI help, an ElevenLabs key for voices. Add them in Reading settings (Aa) or
+          on the <Link href="/account">Account</Link> page. They stay in this browser only and are never saved on the server.
+          The library&apos;s owner uses the library&apos;s own keys.
+        </p>
       </section>
 
       <section className={styles.card} aria-labelledby="help-xray">

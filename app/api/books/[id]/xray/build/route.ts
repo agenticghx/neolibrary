@@ -1,6 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModel } from "@/lib/ai/model-picks";
+import { textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -24,7 +24,7 @@ function errorResponse(e: unknown) {
  * read, what the rest would cost at most, the caps, and whether a run is
  * going on. POST { confirm: true }: start (or carry on). DELETE: stop.
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
@@ -33,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     let model;
     try {
-      model = await textModel(db, "xray");
+      model = await textModelFor(db, "xray", user, req);
     } catch (e) {
       if (e instanceof AiNotConfigured) return Response.json({ configured: false });
       throw e;
@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { confirm?: unknown };
   const db = await getDb();
   try {
-    const model = await textModel(db, "xray");
+    const model = await textModelFor(db, "xray", user, req);
     const { started } = await startXray({ db, model }, user.id, bookId, body.confirm);
     return Response.json({ started, ...(await xraySummary(db, model, user.id, bookId)) }, { status: started ? 202 : 200 });
   } catch (e) {
