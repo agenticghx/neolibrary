@@ -2596,3 +2596,11 @@ tests that pin it, in a small PR.
 **Result.** 4 passed; Postgres 2 passed (every migration up, down, up); uploads 181 passed after the test opened the reader's sidebar first (the rail with "Rewritten view" starts closed: first run timed out on the button). Mutation: the new test failed ("Expected - 4, Received + 1"). `npm run check`: 1226 passed, 2 skipped.
 **Lesson.** Add a column beside an old meaning rather than changing the meaning: fifteen queries filter `kind = 'paragraph'`, and none of them had to change.
 
+
+### Iteration 124 · 2026-11-02 09:25 (laptop clock) · M41 R2b: tap a figure to see it full screen · success after one fix
+
+**Hypothesis.** A click listener in each book frame can open the picture in a modal dialog in the reader's own page, using the same `blob:` address the book viewer made, with no change to the book file.
+**Action.** `figure.ts` (`figureAt`: the picture under a tap and its legend, duck-typed because the frame's elements come from another window, where `instanceof` fails); `FigureView.tsx` (a `<dialog>`, Fit / Actual size, Escape, Close, tap beside it); `img { cursor: zoom-in }` in the book CSS.
+**Evaluation.** `npx vitest run app/(reader)/books/[id]/read/figure.test.ts`; `PORT=3200 npx playwright test --project=uploads --ignore-snapshots`; a mutation that never opens the view; the Greco zip on a local production build, by eye, desktop light and phone dark.
+**Result.** 4 passed; uploads 181 passed; mutation failed as it should ("getByRole('dialog', { name: 'Figure 1' })" not found). On the real paper the first look showed two faults the test could not: a small picture would never grow (CSS `max-width` only shrinks), fixed by sizing it from its own width and height and the space; and the page behind showed through the 0.86 backdrop and competed with the figure, fixed with a near-opaque ground (0.96). Greco Figure 1 (1000 × 1088) is drawn 650 × 708 on a laptop, 358 × 389 on a phone, legend under it, closed by Escape.
+**Lesson.** Look at the real thing on a real screen: both faults were visible in one screenshot and invisible to every assertion.

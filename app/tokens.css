@@ -52,6 +52,11 @@
   --radius-pill: 999px;
   --border-hair: 1px;
 
+  /* A figure full screen (M41, FigureView.tsx): the same in every theme, as a photo viewer is. */
+  --figure-ground: #0e0e0ef5; /* nearly opaque, so the page behind does not compete with the figure */
+  --figure-dim: #0009;        /* the browser's own backdrop under it */
+  --figure-paper: #fff;       /* behind a figure: most are black lines on a transparent or white ground */
+
   /* Motion: quiet and short. Zeroed when the reader asks for reduced motion. */
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);

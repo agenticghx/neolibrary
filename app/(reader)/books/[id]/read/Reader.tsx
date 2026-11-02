@@ -60,6 +60,8 @@ import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
 import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
+import { FigureView } from "./FigureView";
+import { figureAt, type Figure } from "./figure";
 import styles from "./reader.module.css";
 
 type TocItem = { label: string; href: string; subitems?: TocItem[] };
@@ -501,6 +503,8 @@ export function Reader(props: {
   const placeToMark = useRef<Spot | null>(null);
   // The Keyboard shortcuts dialog (M21): "?" or the link in Reading settings.
   const [shortcuts, setShortcuts] = useState(false);
+  // M41: the picture a tap on the page opened full screen.
+  const [figure, setFigure] = useState<Figure | null>(null);
   const shortcutsOpen = useRef(false);
   useEffect(() => {
     shortcutsOpen.current = shortcuts;
@@ -1053,6 +1057,15 @@ export function Reader(props: {
             dismissSelection();
           });
           if (props.fileType !== "pdf") {
+            // M41: tap a picture (a paper's figure) to see it full screen; not while text is being selected.
+            doc.addEventListener("click", (e) => {
+              const selected = doc.getSelection();
+              if (selected && !selected.isCollapsed) return;
+              const f = figureAt(e.target);
+              if (!f) return;
+              e.preventDefault();
+              setFigure(f);
+            });
             // Focus (M21): the line or paragraph under the mouse as it moves (once a frame), or where a finger taps.
             setFocusMode(doc, focusRef.current);
             let frame = 0;
@@ -2478,6 +2491,7 @@ export function Reader(props: {
       ) : null}
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
+      <FigureView figure={figure} onClose={() => setFigure(null)} />
       <StartFocusDialog
         open={focusStart}
         onStart={beginFocus}
