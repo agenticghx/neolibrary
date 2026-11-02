@@ -2622,3 +2622,12 @@ tests that pin it, in a small PR.
 **Result.** 7 passed. Only the three Standard Ebooks rows were turned on; the Penguin *Frankenstein* with the same title was not.
 **Lesson.** Matching by title alone would have handed out a copyrighted edition with the same name; match on the publisher as well.
 **Next experiment.** S2: the signed-out Library and book page.
+
+### Iteration 123 · 2026-11-02 08:40 (laptop clock) · M34 S2: the open shelf for visitors · failure then success
+
+**Hypothesis.** A visitor's pages can live beside the signed-in app, in their own route group, if every query goes through one module (`lib/library/open-shelf.ts`) that picks only the fields a visitor may see, and covers go through their own signed route with their own secret.
+**Action.** `/browse` and `/browse/<id>` (route group `app/(open)`); `/api/open/files/<key>`, signed with "visitor-file-links" and checked again when used; the proxy lets those through and sends a visitor who opens `/` to `/browse`.
+**Evaluation.** Unit tests (12) on the visitor queries; `PORT=3171 npx playwright test --project=open-shelf --project=flows --ignore-snapshots`.
+**Result.** First build failed: "You cannot have two parallel pages that resolve to the same path. Please check /(app)/shelf and /(open)": `/shelf` is already the old address that sends a reader to `/library` (M14). Moved to `/browse`. Then 297 passed (5.9m), including the visitor test: a forged cover link answers 403, the visitor link on the signed-in route 401, a book taken off the shelf 404.
+**Lesson.** Before naming a new public address, search the app's folders for it; route groups hide clashes until the build.
+**Next experiment.** S3: the reader for visitors on the free books.

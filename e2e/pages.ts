@@ -13,6 +13,8 @@ export type PageCase = { name: string; path: string; signedIn: boolean; click?: 
 export const pages: PageCase[] = [
   { name: "sign-in", path: "/sign-in", signedIn: false },
   { name: "invite-closed", path: "/invite/not-a-real-invite", signedIn: false },
+  // M34: the open shelf, as a visitor sees it (the owner's titles; none free to read yet at this point).
+  { name: "open-shelf", path: "/browse", signedIn: false },
   { name: "home", path: "/", signedIn: true },
   { name: "path", path: "/paths/hidden-machinery", signedIn: true },
   { name: "book-not-available", path: "/paths/hidden-machinery", signedIn: true, click: "The Grid (not available yet)" },

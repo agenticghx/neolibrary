@@ -23,7 +23,19 @@ import { agentUnauthorised } from "@/lib/auth/agent-401";
 //    book (M26 R4a), and a layout is not told its path any other way. Set
 //    here, so a header the browser sends with that name is replaced.
 export const HSTS = "max-age=31536000";
-const PUBLIC = [/^\/sign-in$/, /^\/setup$/, /^\/invite\/[^/]+$/, /^\/api\/health$/, /^\/sw\.js$/, /^\/manifest\.webmanifest$/];
+// M34: the open shelf (/browse, /browse/<id>) and its visitor file links (/api/open/files/...) are open to
+// anyone; those pages and that route show only what lib/library/open-shelf.ts allows.
+const PUBLIC = [
+  /^\/sign-in$/,
+  /^\/setup$/,
+  /^\/invite\/[^/]+$/,
+  /^\/api\/health$/,
+  /^\/sw\.js$/,
+  /^\/manifest\.webmanifest$/,
+  /^\/browse$/,
+  /^\/browse\/[^/]+$/,
+  /^\/api\/open\/files\/.+$/,
+];
 
 export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV === "development") {
   return [
@@ -78,7 +90,8 @@ function gate(req: NextRequest) {
     if (pathname.startsWith("/api/agent/")) return agentUnauthorised();
     if (isApi) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
+    // M34: a visitor who opens the site lands on the open shelf; any other page still asks them to sign in.
+    url.pathname = pathname === "/" ? "/browse" : "/sign-in";
     url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
     return NextResponse.redirect(url);
   }
