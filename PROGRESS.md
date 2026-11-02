@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the first-run fixes, re-run issue #267 and read Claude's last message on it.
+next_action: Merge the issue #267 pull request (Space turns the page in Pages) once CI is green; the issue bot's first PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-11-01
+updated: 2026-11-02
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-11-02 (GitHub runner clock, UTC), by the issue bot's session for issue #267. **Space turns the page in Pages** (branch `m21-issue-267-space-turns-page`): Space goes to the next page and Shift+Space back, as the Right and Left arrows do, in Pages only; in Scroll Space still scrolls. A focused button, link, text box or the selected-text bar keeps Space. The keyboard shortcuts dialog lists it. Next: 1. CI on the PR; merge with the merge train when green (no reference image shows the shortcuts dialog, so none should change). 2. It deploys on its own after main's CI (no migration). 3. This is the issue bot's (M40 S3) first pull request: the workflow works end to end.
 
 Written 2026-10-29 23:03 (laptop clock, from `date`). **M38 security updates are built** (branch `m38-security-updates`): all 16 open Dependabot alerts fixed with patch or minor steps (Next.js 16.3.8 → 16.4.1, zod 4.6.6, body-parser, fast-uri, ip-address, vite, qs in the lockfile only); `npm audit` says 0 for both runtime and all. How to repeat it: `docs/security-updates.md`. Next: 1. CI on the PR; merge with the merge train when green (refresh reference images if Next.js 16.4.1 moved pixels). 2. Deploy at Samuel's word (no migration, no backup). 3. After the merge, the open-alert list should be empty.
 
@@ -349,6 +351,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 · Claude Opus 5.5 (GitHub issue bot, issue #267) · M21: Space turns to the next page and Shift+Space back, in Pages
+- **Done:** In the reader, in Pages (and on a PDF's pages), Space turns to the next page and Shift+Space to the previous one; in Scroll Space keeps scrolling. A focused button, text box (both already kept their keys), link, anything with a button, link or menu-item role, or the selected-text bar (role toolbar) keeps Space. Listed in the Keyboard shortcuts dialog. New browser test: two Spaces forward and two Shift+Spaces back land where they began, and a focused link keeps Space. The shortcuts dialog test's expected rows changed with the list. Open unknowns swept: nothing to close (rows still open are money, keys or access, or have no default).
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (onKey); app/(reader)/books/[id]/read/ShortcutsDialog.tsx; e2e/reader.spec.ts; LEARNING_LOG.md (Iteration 116)
+- **Commands that worked:** npm run check (1207 passed, 2 skipped); npx playwright test --project reader --ignore-snapshots (results in the PR)
+- **Known issues / blockers:** None known. The shortcuts dialog's screenshots (screenshots/reader-shortcuts-*) are for the PR, not reference images, so nothing to refresh.
+- **Exact next steps:** 1. CI on the PR; merge with the merge train. 2. The automatic deploy puts it live.
 
 ### 2026-11-01 21:32 · Claude Opus 5.5 (laptop) · M40: all six steps merged; first runs fixed (nightly job's shell, issue bot's silence)
 - **Done:** Merged: #260 S1, #261+#266 S2, #262 S3, #263 S4, #265 Claude app + bot report, #269 S5, #270 S6 (a48bdbc). First automatic deploy 827adfb (Deploy log #268). Nightly job installed (launchd com.neolibrary.overnight-scans, 02:00, ~/neolibrary-jobs); first two runs failed (npm not on PATH; then hung on op completion zsh in .zshrc); fixed to zsh -lc with ~/.local/bin and the Keychain token: exit 0, 'No scanned book is waiting to be read.' Issue bot: #267 ran twice, both 'success' with no PR or comment; fallback step now matches only -issue-<n>- branches or 'Fixes #<n>' and posts Claude's last message.

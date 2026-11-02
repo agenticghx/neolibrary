@@ -76,6 +76,36 @@ test("in Pages, the Down and Up arrow keys turn the page, in one page and in two
   await page.keyboard.press("Escape");
 });
 
+// Issue #267: in Pages, Space turns to the next page and Shift+Space back, as the Right and Left arrows do; a focused
+// link keeps Space.
+test("in Pages, Space turns to the next page and Shift+Space back", async ({ page }) => {
+  await openJekyll(page);
+  const r = reader(page);
+  const cfi = async () => (await r.getAttribute("data-cfi")) ?? "";
+  const turns = async (key: string) => {
+    const at = await cfi();
+    await page.keyboard.press(key);
+    await expect.poll(cfi, { message: `${key} turns the page` }).not.toBe(at);
+    await page.waitForTimeout(300);
+    return at;
+  };
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.waitForTimeout(500);
+  const start = await turns("Space");
+  const second = await turns("Space");
+  expect(second).not.toBe(start);
+  await turns("Shift+Space");
+  await turns("Shift+Space");
+  // Two pages forward and two back: where it began.
+  await expect.poll(cfi).toBe(start);
+  // A focused link keeps Space: the page does not turn.
+  const link = page.locator("a[href]").first();
+  await link.focus();
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(400);
+  expect(await cfi()).toBe(start);
+});
+
 test("open a book, turn pages, change the text size, reload: same spot", async ({ page }) => {
   await openJekyll(page);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next page" }).click();
@@ -2192,14 +2222,14 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
   await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
   // Every key the reader answers to, and nothing else.
   await expect(dialog.locator("dd")).toHaveText([
-    "Next page (Down arrow: in Pages)",
-    "Previous page (Up arrow: in Pages)",
+    "Next page (Down arrow and Space: in Pages)",
+    "Previous page (Up arrow and Shift+Space: in Pages)",
     "Close the selected-text bar, the open panel, or this list",
     "Full screen, or leave it (Esc leaves it too)",
     "Show this list",
     "In Study, move between Need to know and Test yourself",
   ]);
-  await expect(dialog.locator("dt").first()).toHaveText("Right arrow or Down arrow or Page Down");
+  await expect(dialog.locator("dt").first()).toHaveText("Right arrow or Down arrow or Page Down or Space");
   // The keyboard stays in the dialog, and the page does not turn behind it.
   const at = (await reader(page).getAttribute("data-cfi")) ?? "";
   for (const key of ["Tab", "Shift+Tab", "Tab"]) {
