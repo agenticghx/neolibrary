@@ -15,6 +15,7 @@ import { createApiToken, revokeApiToken, TokenError } from "@/lib/auth/tokens";
 import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
 import { ModelPickError, setModelPicks } from "@/lib/ai/model-picks";
+import { setShelfSwitch } from "@/lib/library/open-shelf";
 
 export async function signOutAction() {
   await stopSession();
@@ -124,6 +125,16 @@ export async function toggleCollectionAction(data: FormData) {
   const user = await requireUser();
   const bookId = String(data.get("bookId"));
   await setInCollection(await getDb(), user.id, String(data.get("collectionId")), bookId, data.get("inside") === "1");
+  revalidatePath(`/books/${bookId}`);
+  revalidatePath("/library");
+}
+
+/** M34: the owner turns "on the open shelf" or "free to read" on or off for one book (docs/plan.md). */
+export async function setShelfSwitchAction(data: FormData) {
+  const owner = await requireAdmin();
+  const bookId = String(data.get("bookId"));
+  const which = data.get("which") === "freeToRead" ? "freeToRead" : "onShelf";
+  await setShelfSwitch(await getDb(), owner.id, bookId, which, data.get("on") === "1");
   revalidatePath(`/books/${bookId}`);
   revalidatePath("/library");
 }

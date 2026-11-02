@@ -2580,6 +2580,15 @@ tests that pin it, in a small PR.
 **Result.** With the rule: passed (uploads project, 165). Without it (mutation): "Expected: > 19.5, Received: 13", the stretched bracket the same 13 px as the plain one.
 **Lesson.** A font package can be cut down to save space; read its tables before relying on it.
 
+
+### Iteration 122 · 2026-11-02 08:05 (laptop clock) · M34 S1: two switches per book for the open shelf · success
+
+**Hypothesis.** Two columns on `books` (on the open shelf, default on; free to read, default off) are enough to say what a visitor may see and read, and the app can refuse "free to read" for a copyrighted book by trusting only the book file's own publisher field (Standard Ebooks, Project Gutenberg).
+**Action.** Migration 0035 (with its reverse step) adds the columns and turns on "free to read" for the owner's three Standard Ebooks editions, matched by title and publisher, never by id. `lib/library/open-shelf.ts` sets one switch on the owner's own book; the owner sees an "Open shelf" pair of buttons on each book's page.
+**Evaluation.** `npx vitest run lib/library/open-shelf.test.ts`: the publisher rule, the refusal for an Oxford edition, the two switches kept consistent, another reader's book untouched, and the migration on five books (the three, a Penguin *Frankenstein*, an Oxford *Meditations*) followed by its reverse.
+**Result.** 7 passed. Only the three Standard Ebooks rows were turned on; the Penguin *Frankenstein* with the same title was not.
+**Lesson.** Matching by title alone would have handed out a copyrighted edition with the same name; match on the publisher as well.
+**Next experiment.** S2: the signed-out Library and book page.
 ### Iteration 122 · 2026-11-02 07:15 (laptop clock) · M41 R2: figures from a paper's .zip · success
 
 **Hypothesis.** The Markdown importer can take a .zip holding one .md and its pictures, put the pictures in the book, and keep refusing audiobook zips on the Import page without uploading them, by reading only the zip's table of contents in the browser.

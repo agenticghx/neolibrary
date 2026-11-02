@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge R1d (m41-listen-skip) and R2b (m41-figure-zoom), deploy; then R3 papers.
+next_action: Open the M34 S1 pull request when npm run check passes, then build S2 (the signed-out shelf).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -355,6 +355,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-02 07:58 · Claude Opus 5.5 · M34 S1: two switches per book for the open shelf (built, not yet a PR)
+- **Done:** Migration 0035 adds books.on_shelf (default on) and books.free_to_read (default off), with a reverse step; it turns free_to_read on for the owner's three Standard Ebooks editions, matched by title and publisher. lib/library/open-shelf.ts: free to read only for a public-domain publisher (Standard Ebooks, Project Gutenberg); the two switches kept consistent; owner's own books only. Owner-only Open shelf buttons on each book's page (setShelfSwitchAction). LEARNING_LOG iteration 122.
+- **Key paths:** db/migrations/0035_open_shelf.up.sql; db/migrations/0035_open_shelf.down.sql; lib/db/schema.ts; lib/library/open-shelf.ts; lib/library/open-shelf.test.ts; app/(app)/actions.ts; app/(app)/books/[id]/page.tsx
+- **Commands that worked:** npx vitest run lib/library/open-shelf.test.ts -> 7 passed; npx tsc --noEmit -> clean; eslint on the changed files -> clean
+- **Known issues / blockers:** npm run check still running at the time of writing. Book page reference screenshots will change for the owner (merge train refreshes them). The claude-review check fails in under a second with no model call since 12:36 UTC (not required). Deploy M34 as one batch: the switches do nothing for visitors until S2.
+- **Exact next steps:** 1. When npm run check passes, commit, push, open the S1 PR; merge with the merge train after plan PR #277. 2. S2: the signed-out Library and book page with the Goodreads link; private books and files answer not found. 3. S3 to S5 as in docs/plan.md M34. 4. Backup before the deploy (migration 0035); deploy only at Samuel's word.
 ### 2026-11-02 09:24 · Claude (laptop) · M41 R2b: tap a figure to see it full screen (branch m41-figure-zoom)
 - **Done:** Built R2b at Samuel's word (2026-11-02, 'what are you waiting for'): a tap on a picture in a book's page opens it full screen with its legend (figcaption, or the next paragraph when it begins Figure/Fig./Table/Plate); Actual size to move around; Escape, Close or a tap beside it closes. Every book, not only papers. Not merged, not deployed; no migration.
 - **Key paths:** app/(reader)/books/[id]/read/figure.ts, figure.test.ts, FigureView.tsx, Reader.tsx, reader.module.css, settings.ts; e2e/uploads.spec.ts; docs/plan.md (M41 R2b); LEARNING_LOG.md iteration 124
