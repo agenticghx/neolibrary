@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M41: merge R1c (equations and cells are not prose), then back up and deploy it from the laptop (Samuel's word given 2026-11-02). M34: build S1 (two switches per book).
+next_action: M41: R1-R2 and R1c are live (6b74aab). Next: R1d or R3 after Samuel answers Open unknowns row 33.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 08:47 · Claude (laptop session) · Deployed 6b74aab: M41 Papers R1, R1b, R2, R1c live (migration 0035)
+- **Done:** Samuel, 2026-11-02: 'do them, verify, deploy'. Live now: equations and tables in Markdown books (#274), brackets stretch in Chrome (#275), figures from a .zip of a paper and its pictures (#276), equations and table cells are not prose (#279, migration 0035). #274, #275 and #276 went out by the auto-deploy; #279 (a migration) from the laptop: railway up from ../neolibrary-deploy at 6b74aab (clean checkout). The start-up pass labelled 118 table cells in The Pay Off's text edition.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0035-20261102T134306Z.sql (31 MB, 'dump complete'); docs/plan.md M41; PRs #274 #275 #276 #279
+- **Commands that worked:** pg_dump over railway ssh -> backup; restore into postgres:18 with ON_ERROR_STOP -> exit 0 (34 migrations, 259 books, 10572 sections). railway variable set NEOLIBRARY_COMMIT=6b74aab4aa21880c2de01007ed09fa1b8459fc8c --skip-deploys; railway up --service web --environment production --ci -> Deploy complete. /api/health on library.samuelahuno.com and (from inside Railway) web-production-f27a0e.up.railway.app -> commit 6b74aab; /sign-in 200 on both. Log: 'Page pictures: ready.', 'Section forms: 118 paragraph(s) labelled in 1 book(s).' psql: _migrations 35; sections: cell 118, prose 10454; app_settings section-forms {books 1, labelled 118}.
+- **Known issues / blockers:** This laptop's network resets TLS to *.railway.app, so that address was checked from inside Railway. Listen and whole-book narration still read equations and table cells (R1d, not built). Open unknowns row 33 (who papers are for) is Samuel's, before R3.
+- **Exact next steps:** 1. Samuel: try a paper (zip the .md with its figures folder, drop it on Import). 2. M41 R1d (Listen skips or announces equations and tables) or R3 (Paper as a kind), after row 33. 3. M34 S1 is the other session's next step.
 
 ### 2026-11-02 07:55 · Claude Opus 5.5 · Plan: M34 becomes an open shelf (every title visible, three free to read, bring your own key)
 - **Done:** Rewrote M34 in docs/plan.md from Samuel's words of 2026-11-02: visitors see every title on his shelf, read only the three public-domain books, find the rest on Goodreads, get saved AI answers free, and need their own Anthropic or ElevenLabs key (kept in their own browser) for anything new. Invited readers stop using Samuel's key too. M36 marked as folded into M34 S4 (no server-side key storage). Five steps S1 to S5.
