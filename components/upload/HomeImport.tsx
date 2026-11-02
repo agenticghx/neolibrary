@@ -149,7 +149,7 @@ export function ImportZone() {
           {results.map((r, i) => (
             <li key={`${r.file}-${i}`} className={r.status === "error" ? styles.resultError : undefined}>
               <span className={styles.resultFile}>{r.status === "error" ? r.file : r.title}</span>
-              <span className={styles.resultNote}>{r.status === "error" ? r.message : UPLOAD_MESSAGES[r.status]}</span>
+              <span className={styles.resultNote}>{r.status === "error" ? r.message : r.note ? `${UPLOAD_MESSAGES[r.status]}. ${r.note}` : UPLOAD_MESSAGES[r.status]}</span>
             </li>
           ))}
         </ul>

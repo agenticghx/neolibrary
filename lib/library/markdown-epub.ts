@@ -16,8 +16,16 @@
  */
 import { strToU8, zipSync } from "fflate";
 import { inlineMathSpans, mathMl } from "./markdown-math";
+import { Pictures } from "./markdown-pictures";
 
-export type MarkdownBook = { bytes: Uint8Array; title: string; author: string; chapters: number };
+export type MarkdownBook = {
+  bytes: Uint8Array;
+  title: string;
+  author: string;
+  chapters: number;
+  /** M41 R2: pictures put in the book, and the addresses of pictures the text names but the upload lacks. */
+  pictures: { used: number; missing: string[] };
+};
 
 /** A file name that says Markdown. */
 export const isMarkdownName = (name: string) => /\.(md|markdown)$/i.test(name.trim());
@@ -29,10 +37,14 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
  * aside before the marks are read, so a star or an underscore inside one is LaTeX, not italics, and put back as
  * MathML at the end; so are backslash escapes.
  */
-export function inline(raw: string) {
-  const text = raw.replace(/\u0000/g, "");
+export function inline(raw: string, pictures?: Pictures) {
   const kept: string[] = [];
   const keep = (html: string) => `\u0000${kept.push(html) - 1}\u0000`;
+  // A picture the upload holds becomes the picture (M41 R2); one it lacks keeps its description, below.
+  const text = raw.replace(/\u0000/g, "").replace(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g, (all, alt: string, src: string) => {
+    const pic = pictures?.resolve(src);
+    return pic ? keep(`<img src="${esc(pic.href)}" alt="${esc(alt.replace(/[*_`]/g, ""))}"/>`) : all;
+  });
   let rest = "";
   let at = 0;
   for (const span of inlineMathSpans(text)) {
@@ -118,8 +130,8 @@ function cells(row: string): string[] {
   return out;
 }
 
-function tableHtml(rows: string[], align: string[]) {
-  const td = (tag: "th" | "td", text: string, i: number) => `<${tag}${align[i] ? ` class="${align[i]}"` : ""}>${inline(text)}</${tag}>`;
+function tableHtml(rows: string[], align: string[], pictures?: Pictures) {
+  const td = (tag: "th" | "td", text: string, i: number) => `<${tag}${align[i] ? ` class="${align[i]}"` : ""}>${inline(text, pictures)}</${tag}>`;
   const [head, ...body] = rows;
   const th = cells(head).map((c, i) => td("th", c, i)).join("");
   const trs = body.map((r) => `<tr>${cells(r).map((c, i) => td("td", c, i)).join("")}</tr>`).join("");
@@ -129,7 +141,7 @@ function tableHtml(rows: string[], align: string[]) {
 type Chapter = { level: 1 | 2 | 0; title: string; html: string[] };
 
 /** The chapters of a Markdown text (exported for tests). */
-export function chaptersOf(body: string): Chapter[] {
+export function chaptersOf(body: string, pictures?: Pictures): Chapter[] {
   const chapters: Chapter[] = [];
   let current: Chapter | null = null;
   const here = () => (current ??= (chapters.push({ level: 0, title: "Opening pages", html: [] }), chapters[chapters.length - 1]));
@@ -142,11 +154,15 @@ export function chaptersOf(body: string): Chapter[] {
   let quote: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
   const flush = () => {
-    if (para.length) here().html.push(`<p>${inline(para.join(" ").trim())}</p>`);
-    if (quote.length) here().html.push(`<blockquote><p>${inline(quote.join(" ").trim())}</p></blockquote>`);
+    if (para.length) {
+      const html = inline(para.join(" ").trim(), pictures);
+      // A paragraph that is one picture is a figure (M41 R2): centred, as wide as the column allows.
+      here().html.push(/^<img [^>]*\/>$/.test(html) ? `<p class="figure">${html}</p>` : `<p>${html}</p>`);
+    }
+    if (quote.length) here().html.push(`<blockquote><p>${inline(quote.join(" ").trim(), pictures)}</p></blockquote>`);
     if (list) {
       const tag = list.ordered ? "ol" : "ul";
-      here().html.push(`<${tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${tag}>`);
+      here().html.push(`<${tag}>${list.items.map((i) => `<li>${inline(i, pictures)}</li>`).join("")}</${tag}>`);
     }
     para = [];
     quote = [];
@@ -172,7 +188,7 @@ export function chaptersOf(body: string): Chapter[] {
       n += 1;
       const align = cells(lines[n]).map((c) => (/^:-+:$/.test(c) ? "center" : /-:$/.test(c) ? "right" : ""));
       while (n + 1 < lines.length && /^\s*\|/.test(lines[n + 1])) rows.push(lines[++n].trimEnd());
-      here().html.push(tableHtml(rows, align));
+      here().html.push(tableHtml(rows, align, pictures));
       continue;
     }
     const heading = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
@@ -184,7 +200,7 @@ export function chaptersOf(body: string): Chapter[] {
         current = { level: level as 1 | 2, title: text.replace(/[*_`]/g, ""), html: [] };
         chapters.push(current);
       }
-      here().html.push(`<h${level}>${inline(text)}</h${level}>`);
+      here().html.push(`<h${level}>${inline(text, pictures)}</h${level}>`);
       continue;
     }
     if (!line.trim()) {
@@ -232,6 +248,8 @@ table { border-collapse: collapse; margin: 1em 0; font-size: 0.85em; display: bl
 th, td { border-bottom: 1px solid rgba(128, 128, 128, 0.4); padding: 0.25em 0.5em; text-align: left; vertical-align: top; }
 th.right, td.right { text-align: right; }
 th.center, td.center { text-align: center; }
+p.figure { margin: 1em 0; text-align: center; }
+img { max-width: 100%; height: auto; }
 `;
 
 const xhtml = (title: string, body: string, lang: string) =>
@@ -245,12 +263,12 @@ function digest(text: string) {
 }
 
 /** The Markdown file as an EPUB 3. `now` is the modified date written into the EPUB. */
-export function markdownToEpub(md: string, fileName: string, now = new Date()): MarkdownBook {
+export function markdownToEpub(md: string, fileName: string, now = new Date(), pictures = new Pictures()): MarkdownBook {
   const { meta, body } = frontMatter(md.replace(/^﻿/, ""));
   const title = meta.title?.trim() || titleFromName(fileName);
   const author = meta.author?.trim() ?? "";
   const lang = meta.language?.trim() || "en";
-  const chapters = chaptersOf(body);
+  const chapters = chaptersOf(body, pictures);
   if (!chapters.length) throw new Error("empty");
   const files: Record<string, Uint8Array | [Uint8Array, { level: 0 }]> = {
     // The mimetype comes first and uncompressed (the EPUB rule).
@@ -260,6 +278,8 @@ export function markdownToEpub(md: string, fileName: string, now = new Date()): 
     ),
     "OEBPS/style.css": strToU8(CSS),
   };
+  // Pictures are already compressed: stored as they are.
+  for (const p of pictures.used) files[`OEBPS/${p.href}`] = [p.bytes, { level: 0 }];
   chapters.forEach((c, i) => {
     files[`OEBPS/c${i + 1}.xhtml`] = strToU8(xhtml(c.title, c.html.join("\n"), lang));
   });
@@ -282,6 +302,7 @@ export function markdownToEpub(md: string, fileName: string, now = new Date()): 
     '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
     '<item id="css" href="style.css" media-type="text/css"/>',
     // EPUB 3 asks a page holding MathML to say so (M41).
+    ...pictures.used.map((p, i) => `<item id="img${i + 1}" href="${p.href}" media-type="${p.mediaType}"/>`),
     ...chapters.map((c, i) => `<item id="c${i + 1}" href="c${i + 1}.xhtml" media-type="application/xhtml+xml"${c.html.some((h) => h.includes("<math")) ? ' properties="mathml"' : ""}/>`),
   ].join("");
   const spine = chapters.map((_, i) => `<itemref idref="c${i + 1}"/>`).join("");
@@ -292,5 +313,5 @@ export function markdownToEpub(md: string, fileName: string, now = new Date()): 
   );
   // Every entry in the zip is stamped with the EPUB's own modified date, not the clock: the same file makes the same bytes
   // (CI run 39907837623, 2026-10-23: two builds a second apart differed in the entries' times alone).
-  return { bytes: zipSync(files as Parameters<typeof zipSync>[0], { mtime: now }), title, author, chapters: chapters.length };
+  return { bytes: zipSync(files as Parameters<typeof zipSync>[0], { mtime: now }), title, author, chapters: chapters.length, pictures: { used: pictures.used.length, missing: [...pictures.missing] } };
 }
