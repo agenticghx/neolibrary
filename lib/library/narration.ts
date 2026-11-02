@@ -130,12 +130,12 @@ async function epubOf(db: Db, ownerId: string, bookId: string) {
   return book;
 }
 
-/** The book's paragraphs in reading order. */
+/** The book's paragraphs of prose in reading order (an equation or a table cell is not read aloud, M41 R1d). */
 async function paragraphsOf(db: Db, bookId: string) {
   const list = await db
     .select({ id: sections.id, text: sections.text })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
     .orderBy(asc(sections.position));
   if (!list.length) throw new NarrationError("There is nothing to read aloud in this book.");
   return list;

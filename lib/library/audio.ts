@@ -92,7 +92,7 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
   const id = "cfi" in at ? (at.cfi.includes("!") ? await sectionForCfi(db, bookId, at.cfi) : null) : at.sectionId;
   let [row] = id
     ? await db
-        .select({ id: sections.id, kind: sections.kind, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
+        .select({ id: sections.id, kind: sections.kind, form: sections.form, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
         .from(sections)
         .where(and(eq(sections.bookId, bookId), eq(sections.id, id)))
     : [];
@@ -102,18 +102,19 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
     const spine = /^epubcfi\(\/6\/(\d+)/.exec(at.cfi)?.[1];
     if (spine) {
       [row] = await db
-        .select({ id: sections.id, kind: sections.kind, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
+        .select({ id: sections.id, kind: sections.kind, form: sections.form, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
         .from(sections)
-        .where(and(eq(sections.bookId, bookId), gte(sections.chapterIndex, Number(spine) / 2 - 1), eq(sections.kind, "paragraph")))
+        .where(and(eq(sections.bookId, bookId), gte(sections.chapterIndex, Number(spine) / 2 - 1), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
         .orderBy(asc(sections.position))
         .limit(1);
     }
   }
-  if (row && row.kind !== "paragraph") {
+  // An equation or a table cell (M41 R1d) is not read aloud: read on from the next paragraph of prose.
+  if (row && (row.kind !== "paragraph" || row.form !== "prose")) {
     [row] = await db
-      .select({ id: sections.id, kind: sections.kind, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
+      .select({ id: sections.id, kind: sections.kind, form: sections.form, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
       .from(sections)
-      .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), gt(sections.position, row.position)))
+      .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), gt(sections.position, row.position), eq(sections.form, "prose")))
       .orderBy(asc(sections.position))
       .limit(1);
   }
@@ -121,7 +122,7 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
   const all = await db
     .select({ id: sections.id, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
     .orderBy(asc(sections.position));
   // A scan with a text edition (scan-speech.ts): a page read for it is read whole, from its first paragraph;
   // a page found blank is passed over; a page not read is read from its own paragraphs.

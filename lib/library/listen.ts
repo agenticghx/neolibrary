@@ -104,7 +104,7 @@ async function beginsAt(db: Db, bookId: string, at: { position: number; chapterI
   const [between] = await db
     .select({ n: count() })
     .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), gt(sections.position, at.position), lt(sections.position, first.position)));
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose"), gt(sections.position, at.position), lt(sections.position, first.position)));
   const [chapter] = await db
     .select({ label: sections.label })
     .from(sections)

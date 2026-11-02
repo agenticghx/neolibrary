@@ -1467,9 +1467,7 @@ Open unknowns row 33; it decides how much of R2 is built.
   marked done in `app_settings`); paragraph ids come from the file, so no
   note's anchor moves, and a book not reached yet stays prose, as before.
   Not changed, on purpose: Listen and whole-book narration still read
-  equations and table cells. Its passage, next and previous chain would
-  have to skip them everywhere at once or the player stalls; that is a step
-  of its own (R1d, not yet planned in detail). *Built 2026-11-02 (branch
+  equations and table cells (R1d, below). *Built 2026-11-02 (branch
   `m41-not-prose`).*
   Done when: unit tests find an equation and six cells in an invented paper
   (an inline formula stays prose), store the forms at import, refuse to
@@ -1480,6 +1478,21 @@ Open unknowns row 33; it decides how much of R2 is built.
   rewrite, rewrites the page, and gets two rewrites and no error; it fails
   when every paragraph is labelled prose. Real-library check: the backup's
   restore copy, labelled by the start-up pass.
+- **R1d · Listen passes over equations and tables.** A voice reading
+  LaTeX or a column of numbers aloud is noise, so Listen and whole-book
+  narration read prose only: the paragraph chain behind Listen's next and
+  previous (`passageFor` in `lib/library/audio.ts`) holds only prose, so
+  the player never stops on an equation; starting Listen on an equation or
+  a table cell reads on from the next paragraph of prose; whole-book
+  narration's list (and its price) leaves them out. Nothing is announced in
+  their place; the page on screen still shows them. An uploaded
+  audiobook's own matching is unchanged (it plays what its narrator read).
+  *Built 2026-11-02 (branch `m41-listen-skip`).*
+  Done when: a unit test on an invented paper finds the paragraph after the
+  first is "The end." (an equation and six cells passed over) and back
+  again, that Listen started on the equation or a cell begins at "The end.",
+  and that whole-book narration counts two paragraphs (fake voice); it fails
+  without the change.
 - **R2 · Figures.** A Markdown file and its pictures, uploaded together as
   one `.zip` (the `.md` plus, say, a `figures/` folder), become an EPUB with
   the pictures in it (`lib/library/markdown-pictures.ts`). A picture is

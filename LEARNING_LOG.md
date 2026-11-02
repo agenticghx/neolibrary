@@ -2640,3 +2640,10 @@ tests that pin it, in a small PR.
 **Result.** First run: two `GET /api/books/<id>/annotations` left, from the notes outbox sync that runs when the book opens (not the load guarded first). Guarded `reload` and the sync effect: 297 passed (5.8m); the place came back after a reload from localStorage.
 **Lesson.** List a component's server calls by recording the requests in a browser test, not by reading the code: the second call came from an effect several hundred lines away.
 **Next experiment.** S4: bring your own key.
+### Iteration 128 · 2026-11-02 09:35 (laptop clock) · M41 R1d: Listen passes over equations and tables · success
+
+**Hypothesis.** Listen's next and previous all come from one list (`passageFor`'s paragraphs in `lib/library/audio.ts`), so filtering that list, the starting paragraph and whole-book narration's list to prose is enough for the player never to stop on an equation or a table cell; nothing in the player itself has to change.
+**Action.** `form = 'prose'` added to the three paragraph queries in `passageFor` (a start on an equation or cell reads on to the next prose), to `paragraphsOf` in `narration.ts`, and to the "audiobook begins further on" count in `listen.ts`. PDF page placement (`placeOnPage`, `pageOffsets`) left as it was: a PDF's paragraphs are all prose, and it needs every paragraph on the page to place words.
+**Evaluation.** A unit test on the invented paper (one prose paragraph, an equation, six cells, "The end."); the same test with the change reverted; `npm run check`; the full browser suite.
+**Result.** Passed; reverted, it failed ("Expected p-5ec2f3c5e1cf, Received p-71436bf7749c": the next paragraph was the equation). `npm run check`: 1227 passed, 2 skipped.
+**Lesson.** When one list feeds a whole chain, filter the list, not each step; R1c's worry ("skip them everywhere at once or the player stalls") came down to one query.
