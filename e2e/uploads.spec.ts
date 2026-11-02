@@ -384,6 +384,12 @@ test("a Markdown paper's equations are drawn as formulas and its tables are tabl
     "E = \\frac{E_{\\max}\\,(D/D_{50})^{m}}{1+(D/D_{50})^{m}} \\tag{1}",
     "$$",
     "",
+    "Raised to its power, with brackets that must stretch: $[x]$ is a plain bracket.",
+    "",
+    "$$",
+    "\\left[\\frac{D}{D_{50}}\\right]^{m}",
+    "$$",
+    "",
     "| Dose | Effect |",
     "|---:|---:|",
     "| 0.5 | 70.1 |",
@@ -412,11 +418,24 @@ test("a Markdown paper's equations are drawn as formulas and its tables are tabl
         inlineMath: doc?.querySelectorAll("p math:not([display=block])").length ?? 0,
         cells: Array.from(doc?.querySelectorAll("table td") ?? []).map((td) => td.textContent),
         latexAsText: (doc?.body.innerText ?? "").includes("\\frac"),
+        // M41: a bracket around a fraction stretches (the bundled math font); a plain one is a line high.
+        stretched: Math.round(
+          Array.from(doc?.querySelectorAll("math[display=block]")[1]?.querySelectorAll("mo") ?? [])
+            .find((mo) => mo.textContent === "[")
+            ?.getBoundingClientRect().height ?? 0,
+        ),
+        plain: Math.round(
+          Array.from(doc?.querySelectorAll("p math:not([display=block]) mo") ?? [])
+            .find((mo) => mo.textContent === "[")
+            ?.getBoundingClientRect().height ?? 0,
+        ),
       };
     });
   await expect.poll(async () => (await shown()).cells).toEqual(["0.5", "70.1", "1", "49.0"]);
   const s = await shown();
-  expect(s.inlineMath).toBe(1);
+  expect(s.inlineMath).toBe(2);
+  expect(s.plain).toBeGreaterThan(0);
+  expect(s.stretched).toBeGreaterThan(s.plain * 1.5);
   expect(s.latexAsText).toBe(false);
   expect(s.blockHeight).toBeGreaterThan(Math.max(s.lineHeight, 20));
   expect(s.numeratorSize).toBeGreaterThanOrEqual(s.textSize * 0.95);

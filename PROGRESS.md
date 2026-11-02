@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M41 R1 (equations and tables) PR: merge when green; then R2 figures. Samuel: Open unknowns row 33 (who papers are for).
+next_action: M41: merge #274 and R1b; build R2 figures and R1c; deploy (Samuel's word given 2026-11-02).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 07:07 · Claude (laptop session) · M41 R1b: brackets stretch in Chrome (bundled math font)
+- **Done:** Samuel, 2026-11-02: 'do them, verify, deploy' (figures, brackets, equations and cells offered for rewriting). R1b built on branch m41-math-font (stacked on #274): book pages get STIX Two Math (OpenType MATH table, checked with fontTools) for every formula, so Chrome stretches \left[ ... \right] as WebKit does. docs/plan.md: R1b and R1c written.
+- **Key paths:** public/fonts/stix-two-math.woff2, public/fonts/LICENSE-stix-two-math.txt, public/fonts/README.md; app/(reader)/books/[id]/read/settings.ts (+ settings.test.ts); e2e/uploads.spec.ts; docs/plan.md; LEARNING_LOG.md (121)
+- **Commands that worked:** npx vitest run 'app/(reader)/books/[id]/read/settings.test.ts' -> 8 passed. npx playwright test e2e/uploads.spec.ts -g 'Markdown paper' --ignore-snapshots -> 165 passed; with the font rule removed: Expected > 19.5, Received 13.
+- **Known issues / blockers:** none new
+- **Exact next steps:** 1. Merge #274, then rebase this onto main, PR, merge. 2. R2 figures. 3. R1c (migration, backup before deploy). 4. Deploy all at Samuel's word (given 2026-11-02).
 
 ### 2026-11-02 06:42 · Claude (laptop session) · M41 R1: equations and tables in a Markdown book (papers)
 - **Done:** Samuel agreed (2026-11-02, "yes") to M41 Papers in docs/plan.md: a paper is an item in the same library; four steps R1-R4. Built R1 on branch m41-paper-math-tables: LaTeX between $...$ and $$...$$ becomes MathML at Markdown import (KaTeX 0.18.11, trust off; 0.16.11 was first tried and is inside two KaTeX advisories, GHSA-cg87-wmx4-v546 and GHSA-238p-pmpm-9mq7), prices stay text, pipe tables become tables with alignment, HTML comments dropped, backslash escapes read, numbered equations kept display size in Chrome. Also fixed the PR hygiene check: PROGRESS.md passed 1 MB (1,095,400 bytes) when 40 entries were copied to main, past execFileSync's default 1 MB output limit, so scripts/check-pr-hygiene.mjs crashed with "spawnSync git ENOBUFS" for every PR; it now allows 64 MB. Checked by eye on Samuel's Greco 1995 paper (Markdown made this session, not in git) in Chrome and WebKit, light and dark, and on an invented paper on phone and desktop. Not merged, not deployed; no migration.

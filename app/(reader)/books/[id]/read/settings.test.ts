@@ -85,6 +85,14 @@ describe("reading settings on this device", () => {
     expect(css).toContain("table { display: block; width: max-content; max-width: 100%; overflow-x: auto; }");
   });
 
+  it("sets formulas in the bundled math font whatever the reading face, so brackets stretch (M41)", () => {
+    for (const face of ["serif", "sans", "book"] as const) {
+      const css = bookCss({ ...DEFAULT_SETTINGS, face }, { paper: "#fff", ink: "#000", accent: "#00f", highlight: "#ff0", spoken: "#0f0", scheme: "light" }, "https://example.org");
+      expect(css).toContain('@font-face { font-family: "NL Math"; src: url("https://example.org/fonts/stix-two-math.woff2") format("woff2");');
+      expect(css).toContain('math { font-family: "NL Math", math !important; }');
+    }
+  });
+
   it("styles a book page for Focus: dimmed text in the theme's own ink, and no added hyphens while it is on (M21)", () => {
     const colors = { paper: "#f3ede1", ink: "#243239", accent: "#376963", highlight: "#cfe0d8", spoken: "#9cc4b6", scheme: "light" };
     const off = bookCss(DEFAULT_SETTINGS, colors, "https://example.org");
