@@ -352,6 +352,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-02 06:20 · Claude Opus 5.5 (laptop) · Checkpoint: one ledger on main, 40 stuck entries copied, old worktrees and record branches removed
+- **Done:** ledger-to-main built and used; 40 stuck entries copied to main (1c97ede0, 5b25a267); Decision Queue reads one ledger per project (47 items); singularity committed 47a2074 (not pushed); 22 worktrees down to 3; 38 local + 4 GitHub *-record branches deleted after a bundle backup
+- **Key paths:** docs/handoffs/2026-11-02-0620-one-ledger-cleanup.md (laptop, gitignored); ~/projects/personal/singularity/ledger/ledger-to-main; ~/projects/personal/singularity/decision-queue/extract.py
+- **Commands that worked:** ledger-to-main --trailer '...' -- <ledger-append args>; git bundle verify <bundle> -> okay
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. After 02:00, read ~/Library/Logs/neolibrary-overnight-scans.log (first scheduled run). 2. Next checkpoint: confirm its entry lands on main via ledger-to-main. 3. Optional: pytest for ledger-to-main in singularity.
+
 ### 2026-11-02 05:30 · Claude Opus 5.5 (laptop) · Old *-record branches deleted (backup kept); singularity ledger tools committed
 - **Done:** At Samuel's word ('Delete the old record branches'): 38 local *-record branches and the 4 on GitHub (m16-deploy-record, m24-carousel-deploy-record, m24-glass-dialogs-deploy-record, m32-xray-merge-record) deleted; all 38 saved first in one verified git bundle on the laptop's backups folder. Singularity: ledger-to-main, the ledger-append header fix, the Decision Queue page and its ledger committed locally as 47a2074 (not pushed); ledger-to-main added to its CI shellcheck list, shellcheck clean.
 - **Key paths:** ~/Backups/neolibrary/record-branches-2026-11-02.bundle (laptop); CLAUDE.local.md (laptop only)
