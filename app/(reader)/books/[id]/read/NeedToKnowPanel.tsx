@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { STYLE_NAMES, type Style } from "@/lib/library/levels";
-import { StudyTabs, type StudyTab } from "./StudyTabs";
+import { StudyTabs, VISITOR_TABS, type StudyTab } from "./StudyTabs";
 import type { PrerequisitesView } from "@/lib/library/prerequisites";
 import styles from "./reader.module.css";
 import { aiFetch } from "@/lib/own-keys";
@@ -24,7 +24,7 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
  * assumes, each in two lines with a link to read more. Machine-written, so it
  * uses the machine style and says where it came from.
  */
-export function NeedToKnowPanel({ bookId, cfi, onTab }: { bookId: string; cfi: string; onTab: (tab: StudyTab) => void }) {
+export function NeedToKnowPanel({ bookId, cfi, onTab, visitor = false }: { bookId: string; cfi: string; onTab: (tab: StudyTab) => void; visitor?: boolean }) {
   const [data, setData] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab }: { bookId: string; cfi: s
   return (
     <section className={styles.panel} aria-label="What do I need to know?">
       <p className={styles.panelTitle}>What do I need to know?</p>
-      <StudyTabs current="know" onPick={onTab} />
+      <StudyTabs current="know" onPick={onTab} only={visitor ? VISITOR_TABS : undefined} />
       {!data && !error ? <p className={styles.hint}>Finding the chapter…</p> : null}
       {data ? (
         <p className={styles.groupLabel}>
@@ -87,7 +87,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab }: { bookId: string; cfi: s
         <>
           <p className={styles.hint}>The ideas this chapter takes for granted, each explained in two lines, with a link to read more.</p>
           {data.estimate === null ? (
-            <p className={styles.hint}>AI is not set up yet: the owner needs to add an Anthropic API key.</p>
+            <p className={styles.hint}>No AI key for new answers here: add your own Anthropic key in Reading settings (Aa). Answers already saved stay free.</p>
           ) : (
             <div className={styles.noteActions}>
               <button type="button" className={styles.primaryTool} disabled={busy} onClick={() => void ask(false)}>

@@ -1,8 +1,8 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModelFor } from "@/lib/ai/model-picks";
+import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
-import { currentUser } from "@/lib/auth/session";
+import { askerFor } from "@/lib/auth/asker";
 import { getDb } from "@/lib/db";
 import { getStyles } from "@/lib/library/ai-style";
 import { chapterFor, PrerequisitesError } from "@/lib/library/prerequisites";
@@ -24,17 +24,19 @@ function errorResponse(e: unknown) {
 
 /** The chapter at `?cfi=`, its stored question banks (oldest first), the reader's marks and the cost of asking. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await currentUser();
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
+  // M34: a visitor, for a free book only (lib/auth/asker.ts).
+  const user = await askerFor(await getDb(), bookId);
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const cfi = new URL(req.url).searchParams.get("cfi") ?? "";
   if (!isCfi(cfi)) return Response.json({ error: "Open a chapter first." }, { status: 400 });
   const db = await getDb();
   try {
     const chapter = await chapterFor(db, user.id, bookId, { cfi });
     const versions = await listQuestionBanks(db, user.id, bookId, chapter.id);
-    const marks = await marksFor(db, user.id, bookId);
+    // The owner's marks are theirs: a visitor's own live only in their browser.
+    const marks = user.visitor ? {} : await marksFor(db, user.id, bookId);
     const { effective: style } = await getStyles(db, user.id, bookId);
     let estimate: number | null = null;
     try {
@@ -50,14 +52,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 /** Makes (or re-serves) the chapter's question bank: { chapterId, fresh? }. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await currentUser();
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
+  // M34: a visitor, for a free book only (lib/auth/asker.ts).
+  const user = await askerFor(await getDb(), bookId);
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; fresh?: unknown };
   if (typeof body.chapterId !== "string") return Response.json({ error: "Choose a chapter." }, { status: 400 });
   try {
-    const out = await questionBank(await getDb(), await textModelFor(await getDb(), "questions", user, req), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true });
+    const out = await questionBank(await getDb(), await savedOrNewModelFor(await getDb(), "questions", user, req), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true && !user.visitor });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);

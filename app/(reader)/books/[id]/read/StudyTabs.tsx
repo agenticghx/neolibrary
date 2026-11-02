@@ -5,6 +5,9 @@ import own from "./StudyTabs.module.css";
 
 export type StudyTab = "know" | "questions" | "ask" | "explain" | "xray";
 
+/** M34: the Study tabs a visitor (not signed in) may use on a free book. */
+export const VISITOR_TABS: StudyTab[] = ["know", "questions"];
+
 const TABS: [StudyTab, string][] = [
   ["know", "Need to know"],
   ["questions", "Test yourself"],
@@ -18,10 +21,12 @@ const TABS: [StudyTab, string][] = [
  * your own answered from the book, your own summary of the chapter, checked against it, and who and what the book
  * names (X-ray). Tabs at the top of each panel, so each is one press away. The arrow keys move between them.
  */
-export function StudyTabs({ current, onPick }: { current: StudyTab; onPick: (tab: StudyTab) => void }) {
+export function StudyTabs({ current, onPick, only }: { current: StudyTab; onPick: (tab: StudyTab) => void; only?: StudyTab[] }) {
+  // M34: a visitor gets only the tabs that need no account (Need to know, Test yourself).
+  const tabs = only ? TABS.filter(([tab]) => only.includes(tab)) : TABS;
   return (
     <div role="tablist" aria-label="Study" className={`${styles.studyTabs} ${own.tabs}`}>
-      {TABS.map(([tab, label], i) => (
+      {tabs.map(([tab, label], i) => (
         <button
           key={tab}
           type="button"
@@ -33,7 +38,7 @@ export function StudyTabs({ current, onPick }: { current: StudyTab; onPick: (tab
           onKeyDown={(e) => {
             if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
             e.preventDefault();
-            onPick(TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length][0]);
+            onPick(tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length][0]);
           }}
         >
           {label}

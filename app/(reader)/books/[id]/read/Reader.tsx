@@ -2036,25 +2036,31 @@ export function Reader(props: {
           >
             Aa
           </button>
-          {props.visitor ? null : (
-            <button
-              type="button"
-              className={`${styles.tool} ${styles.leadTool}`}
-              aria-expanded={sidebar}
-              aria-label="Sidebar"
-              title={sidebar ? "Hide the sidebar: Notes, Study, Rewritten, Bookmark, Focus" : "Show the sidebar: Notes, Study, Rewritten, Bookmark, Focus"}
-              onClick={() => {
-                if (sidebar && panel !== "settings" && panel !== "contents") setPanel("none");
-                setSidebarOpen(!sidebar);
-              }}
-            >
-              <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
-                <rect x="1.5" y="2" width="15" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-                <path d="M11.5 2v12" stroke="currentColor" strokeWidth="1.4" />
-                {sidebar ? <path d="M11.5 2.7h3.3a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1h-3.3z" fill="currentColor" /> : null}
-              </svg>
-            </button>
-          )}
+          <button
+            type="button"
+            className={`${styles.tool} ${styles.leadTool}`}
+            aria-expanded={sidebar}
+            aria-label="Sidebar"
+            title={
+              props.visitor
+                ? sidebar
+                  ? "Hide the sidebar: Study, Rewritten"
+                  : "Show the sidebar: Study, Rewritten"
+                : sidebar
+                  ? "Hide the sidebar: Notes, Study, Rewritten, Bookmark, Focus"
+                  : "Show the sidebar: Notes, Study, Rewritten, Bookmark, Focus"
+            }
+            onClick={() => {
+              if (sidebar && panel !== "settings" && panel !== "contents") setPanel("none");
+              setSidebarOpen(!sidebar);
+            }}
+          >
+            <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
+              <rect x="1.5" y="2" width="15" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M11.5 2v12" stroke="currentColor" strokeWidth="1.4" />
+              {sidebar ? <path d="M11.5 2.7h3.3a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1h-3.3z" fill="currentColor" /> : null}
+            </svg>
+          </button>
         </div>
       </header>
       )}
@@ -2149,6 +2155,8 @@ export function Reader(props: {
         {/* The sidebar (sidebar.ts): the reading tools in a rail on the right; a panel opens beside it. */}
         {sidebar ? (
           <nav ref={rail} id="reader-sidebar" className={styles.rail} aria-label="Reading tools">
+            {/* M34: a visitor gets Study and Rewritten only (no notes, bookmarks or focus: those need an account). */}
+            {props.visitor ? null : (
             <button
               type="button"
               className={styles.railTool}
@@ -2162,6 +2170,7 @@ export function Reader(props: {
                 Notes{notes.length ? <span> ({notes.length})</span> : null}
               </span>
             </button>
+            )}
             {/* Study (M19 P5): "What do I need to know?", Test yourself, Ask and Explain it back, as tabs. */}
             <button
               type="button"
@@ -2198,6 +2207,7 @@ export function Reader(props: {
               </svg>
               <span className={styles.railWord}>Rewritten</span>
             </button>
+            {props.visitor ? null : (
             <button
               type="button"
               className={styles.railTool}
@@ -2210,8 +2220,9 @@ export function Reader(props: {
               </svg>
               <span className={styles.railWord}>Bookmark</span>
             </button>
+            )}
             {/* A focus session with a question (M26 R3). Not during a whole-book focus (M26 R5): one at a time. */}
-            {bookFocus.focus ? null : (
+            {bookFocus.focus || props.visitor ? null : (
               <button
                 type="button"
                 className={styles.railTool}
@@ -2260,10 +2271,10 @@ export function Reader(props: {
         ) : null}
 
         {panel === "know" && where.cfi ? (
-          <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onTab={setPanel} />
+          <NeedToKnowPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onTab={setPanel} visitor={Boolean(props.visitor)} />
         ) : null}
         {panel === "questions" && where.cfi ? (
-          <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onTab={setPanel} />
+          <QuestionsPanel key={where.chapter} bookId={props.bookId} cfi={where.cfi} onTab={setPanel} visitor={Boolean(props.visitor)} />
         ) : null}
         {panel === "ask" ? (
           <AskPanel
@@ -2451,7 +2462,7 @@ export function Reader(props: {
             <button type="button" className={styles.linkButton} onClick={() => setShortcuts(true)}>
               Keyboard shortcuts
             </button>
-            {props.ownKeys && !props.visitor ? <OwnKeysSetting /> : null}
+            {props.ownKeys || props.visitor ? <OwnKeysSetting /> : null}
             {props.visitor ? null : (
               <>
                 <AiStyleSetting bookId={props.bookId} />

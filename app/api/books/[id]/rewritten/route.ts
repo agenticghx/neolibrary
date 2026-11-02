@@ -1,8 +1,8 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModelFor } from "@/lib/ai/model-picks";
+import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused, type TextModel } from "@/lib/ai/model";
-import { currentUser } from "@/lib/auth/session";
+import { askerFor } from "@/lib/auth/asker";
 import { getDb } from "@/lib/db";
 import { StyleError } from "@/lib/library/ai-style";
 import { isCfi } from "@/lib/library/reading";
@@ -29,10 +29,11 @@ function aiErrorResponse(e: unknown) {
  * or what one would cost: { style, pieces, fake }.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await currentUser();
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
+  // M34: a visitor, for a free book only (lib/auth/asker.ts).
+  const user = await askerFor(await getDb(), bookId);
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to") ?? from;
@@ -53,14 +54,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 /** Rewrites one paragraph in the book's style, or re-serves the stored one: { sectionId, fresh? }. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await currentUser();
-  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
+  // M34: a visitor, for a free book only (lib/auth/asker.ts).
+  const user = await askerFor(await getDb(), bookId);
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { sectionId?: unknown; fresh?: unknown };
   if (typeof body.sectionId !== "string") return Response.json({ error: "Choose a paragraph." }, { status: 400 });
   try {
-    const out = await rewriteInStyle(await getDb(), await textModelFor(await getDb(), "rewrite", user, req), user.id, { bookId, sectionId: body.sectionId, fresh: body.fresh === true });
+    const out = await rewriteInStyle(await getDb(), await savedOrNewModelFor(await getDb(), "rewrite", user, req), user.id, { bookId, sectionId: body.sectionId, fresh: body.fresh === true && !user.visitor });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return aiErrorResponse(e);

@@ -13,7 +13,7 @@ import { MemoryStorage } from "@/lib/storage";
 import { FakeModel } from "./fake";
 import { reserveSpend, resetSpendHoldsForTests, spending, SpendingCapReached } from "./generate";
 import { AiNotConfigured } from "./model";
-import { textModelFor } from "./model-picks";
+import { savedOrNewModelFor, textModelFor } from "./model-picks";
 import { isOwnKeyProvider, OwnKeyTextModel, ownKeyFrom } from "./own-key";
 
 // M34 S4, bring your own key: the owner's keys pay only for the owner; anyone else's request uses the key it carries.
@@ -94,6 +94,23 @@ describe("spending on your own key", () => {
       expect(out.generation.provenance.provider).toBe("anthropic-own-key");
       expect(out.generation.provenance.costUsd).toBeGreaterThan(0);
       expect((await spending(database.db, "anthropic", bookId)).month).toBe(0);
+    } finally {
+      await database.raw.close();
+    }
+  });
+
+  it("without a key, a saved answer is still served and only a new one is refused", async () => {
+    const database = await testDatabase();
+    try {
+      const ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
+      const file = new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url)));
+      const bookId = (await importBook(database.db, new MemoryStorage(), ownerId, { name: "jh.epub", bytes: file })).bookId;
+      const [p, q] = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph" && s.text.length > 200);
+      await rewriteParagraph(database.db, new FakeModel(), ownerId, { bookId, sectionId: p.id, level: "plain" });
+      const noKey = await savedOrNewModelFor(database.db, "rewrite", READER, asked(), { AI_FAKE: "1" });
+      const saved = await rewriteParagraph(database.db, noKey, ownerId, { bookId, sectionId: p.id, level: "plain" });
+      expect(saved.reused).toBe(true);
+      await expect(rewriteParagraph(database.db, noKey, ownerId, { bookId, sectionId: q.id, level: "plain" })).rejects.toThrow(OWN_KEY_NEEDED.ai);
     } finally {
       await database.raw.close();
     }

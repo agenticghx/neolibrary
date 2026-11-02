@@ -110,7 +110,7 @@ export function AskPanel({ bookId, onTab, onGo }: { bookId: string; onTab: (tab:
         </p>
         {!data && !error ? <p className={styles.hint}>Opening…</p> : null}
         {data && data.estimate === null ? (
-          <p className={styles.hint}>AI is not set up yet: the owner needs to add an Anthropic API key.</p>
+          <p className={styles.hint}>No AI key for new answers here: add your own Anthropic key in Reading settings (Aa). Answers already saved stay free.</p>
         ) : null}
         {data && data.estimate !== null ? (
           <div className={styles.noteActions}>

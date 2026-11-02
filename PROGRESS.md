@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #286 (M41 R3, migration 0037), then M34 #285 (S4b) and #287 (S5), with M41 #288 (R4b) and R4a in turns; then ask Samuel to deploy (one backup for 0036 and 0037).
+next_action: Open the M34 S4b pull request, then build S5 (visitor request limit and leak check).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -355,6 +355,19 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-02 09:43 · Claude Opus 5.5 · M34 S4b: AI help for visitors on the free books
+- **Done:** Visitors on a free book: Need to know, Test yourself and the Rewritten view, as the owner's copy (lib/auth/asker.ts); saved answers free, new ones only with their own key; never the owner's marks; a visitor never forces a fresh answer. savedOrNewModelFor: without a key a saved answer is still served and only a new one refused (for readers too). Slim sidebar for visitors; key form in their settings; panels' wording says how to add your own key.
+- **Key paths:** lib/auth/asker.ts; lib/ai/own-key.ts (MissingKeyModel); lib/ai/model-picks.ts (savedOrNewModelFor); app/api/books/[id]/{rewritten,prerequisites,questions,rewrites,ask,xray/entry}/route.ts; proxy.ts; app/(reader)/books/[id]/read/*; lib/player/session.ts; e2e/open-shelf.spec.ts
+- **Commands that worked:** npx vitest run lib/ai/own-key.test.ts -> 7 passed; npm run check -> 1233 passed; PORT=3171 npx playwright test --project=open-shelf --ignore-snapshots -> 297 passed
+- **Known issues / blockers:** Stacked PRs #278 (S1, held for the batch), #280 (S2, images refreshed), #281 (S3), #282 (S4) still need their reference images refreshed after rebasing on S1's and S2's.
+- **Exact next steps:** 1. Open the S4b PR (stacked on #282). 2. S5 guard rails: request limit for visitors in proxy.ts; leak check. 3. Rebase the stack, refresh images, merge S1 to S5 in order. 4. Deploy at Samuel's word after a backup (migration 0035).
+
+### 2026-11-02 09:21 · Claude Opus 5.5 · M34 S4b: AI help for visitors on the free books (in progress)
+- **Done:** lib/auth/asker.ts: a visitor counts as the shelf owner's copy, for a free book only, with role 'visitor' (so new answers need their own key). Need to know, Test yourself and the Rewritten view routes accept visitors; a visitor never forces a fresh answer and never sees the owner's marks. Proxy lets those three routes through without a cookie. Reader for visitors: slim sidebar (Study with Need to know and Test yourself, Rewritten), marks kept on the page only, own-keys form in settings. Panels' 'owner needs to add a key' wording replaced with how to add your own.
+- **Key paths:** lib/auth/asker.ts; app/api/books/[id]/{rewritten,prerequisites,questions}/route.ts; proxy.ts; app/(reader)/books/[id]/read/{Reader,StudyTabs,NeedToKnowPanel,QuestionsPanel,AskPanel,ExplainPanel,ImagesPanel,RewritePanel,RewrittenPane,XrayEntryCard}.tsx; lib/player/session.ts; e2e/open-shelf.spec.ts
+- **Commands that worked:** npx tsc --noEmit -> clean; eslint -> clean; PORT=3171 npx playwright test --project=open-shelf --project=own-keys --project=ai --ignore-snapshots -> 297 passed, 1 failed (owner's question mark used index 0; now read from the saved bank); re-run in progress
+- **Known issues / blockers:** Stacked PRs open: #278 S1 (held: its migration pauses auto-deploys until Samuel's backup and deploy), #280 S2, #281 S3, #282 S4. The claude-review check fails in under a second (not required).
+- **Exact next steps:** 1. Confirm the open-shelf test passes; commit S4b, open its stacked PR. 2. S5: per-visitor request limit in proxy.ts (pages 120/min, files 1200/min, AI 30/min, no-cookie requests only); leak check that no visitor page or AI response holds the owner's note or email. 3. Refresh reference images from CI on each PR; merge S1 to S5 in order with the merge train. 4. Deploy at Samuel's word after a backup (migration 0035).
 ### 2026-11-02 09:45 · Claude (laptop) · M41 R3: Paper as a kind of item, by DOI or PubMed ID (branch m41-paper-kind, migration 0037)
 - **Done:** Built R3 (Samuel 2026-11-02 'what are you waiting for'; Open unknowns row 33 default recorded: papers are the reader's own, like books). A title's page asks 'Is this a research paper?'; a DOI or PubMed ID fills the real title, authors, year, journal and ids from Crossref or PubMed (fake in tests). Card and page read 'Greco, Bravo and Parsons · 1995 · Pharmacol Rev'; drawn paper card; Papers filter in the sidebar; papers left out of the cover lookup; 'This is not a paper' undoes it. Migration 0037 (kind, authors, journal, year, doi, pmid) with its reverse. Not merged, not deployed.
 - **Key paths:** db/migrations/0037_paper_details.{up,down}.sql; lib/db/schema.ts; lib/papers/{model,catalogues,fake,index}.ts, papers.test.ts; lib/library/papers.ts, papers.test.ts; app/api/books/[id]/paper/route.ts; app/(app)/books/[id]/PaperDetails.tsx, page.tsx, page.module.css; components/Cover.tsx, Cover.module.css; components/home/{Library,BookCarousel}.tsx; components/shell/{Sidebar,icons}.tsx; lib/library/{shelf,home,cover-lookup}.ts; e2e/uploads.spec.ts; docs/plan.md M41 R3

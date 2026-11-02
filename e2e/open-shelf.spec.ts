@@ -89,8 +89,7 @@ test("M34: a visitor sees the owner's shelf, the free book marked free, and Good
     await expect(visitor).toHaveURL(new RegExp(`/browse/${frankenstein}/read$`));
     const reader = visitor.getByTestId("reader");
     await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-    // Only reading tools: no sidebar (notes, study, AI), no Listen.
-    await expect(visitor.getByRole("button", { name: "Sidebar" })).toHaveCount(0);
+    // No Listen, no selection menu: those need an account (S3).
     await expect(visitor.getByRole("button", { name: "Listen" })).toHaveCount(0);
     await expect(visitor.getByRole("button", { name: "Reading settings" })).toBeVisible();
     const start = await reader.getAttribute("data-cfi");
@@ -102,6 +101,60 @@ test("M34: a visitor sees the owner's shelf, the free book marked free, and Good
     await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
     await expect(reader).toHaveAttribute("data-cfi", kept!);
     expect(calls).toEqual([]);
+
+    // S4 for visitors: the owner's saved answers on a free book are free to see; anything new needs the visitor's own
+    // key; the owner's own marks never reach a visitor.
+    const at = new URLSearchParams({ cfi: kept! });
+    const owned = await (await page.request.get(`/api/books/${frankenstein}/prerequisites?${at}`)).json();
+    expect((await page.request.post(`/api/books/${frankenstein}/prerequisites`, { data: { chapterId: owned.chapter.id } })).ok(), "owner asks Need to know").toBe(true);
+    const qs = await (await page.request.get(`/api/books/${frankenstein}/questions?${at}`)).json();
+    expect((await page.request.post(`/api/books/${frankenstein}/questions`, { data: { chapterId: qs.chapter.id } })).ok(), "owner makes a question bank").toBe(true);
+    const banks = (await (await page.request.get(`/api/books/${frankenstein}/questions?${at}`)).json()) as { versions: { id: string; questions: { index: number }[] }[] };
+    const bank = banks.versions.at(-1)!;
+    const marked = await page.request.post(`/api/books/${frankenstein}/questions/marks`, { data: { generationId: bank.id, index: bank.questions[0].index, correct: false } });
+    expect(marked.ok(), `owner marks a question: ${await marked.text()}`).toBe(true);
+    const seen = await (await ctx.request.get(`/api/books/${frankenstein}/prerequisites?${at}`)).json();
+    expect(seen.versions.length).toBeGreaterThan(0);
+    expect(seen.estimate).toBeNull(); // no key: no price for a new answer
+    const theirQs = await (await ctx.request.get(`/api/books/${frankenstein}/questions?${at}`)).json();
+    expect(theirQs.versions.length).toBeGreaterThan(0);
+    expect(theirQs.marks).toEqual({});
+    const noKey = await ctx.request.post(`/api/books/${frankenstein}/prerequisites`, { data: { chapterId: seen.chapter.id, fresh: true } });
+    expect(noKey.ok(), `a visitor's fresh request returns the saved answer: ${noKey.status()}`).toBe(true); // never a new paid answer
+    expect((await noKey.json()).reused).toBe(true);
+    // A paragraph with nothing saved (the Rewritten view): refused without a key, made with one, and marked as paid
+    // with the visitor's own key; the answer never repeats the key.
+    const onScreen = (await (await ctx.request.get(`/api/books/${frankenstein}/rewritten?${new URLSearchParams({ from: kept!, to: kept! })}`)).json()) as {
+      pieces: { id: string; rewrite: unknown }[];
+    };
+    const fresh = onScreen.pieces.find((p) => !p.rewrite);
+    expect(fresh, "a paragraph on screen with no saved rewrite").toBeTruthy();
+    const without = await ctx.request.post(`/api/books/${frankenstein}/rewritten`, { data: { sectionId: fresh!.id } });
+    expect(without.status()).toBe(503);
+    expect((await without.json()).error).toContain("Add your own Anthropic key");
+    const withKey = await ctx.request.post(`/api/books/${frankenstein}/rewritten`, {
+      data: { sectionId: fresh!.id },
+      headers: { "x-neolibrary-anthropic-key": "sk-ant-e2e-visitor-0042" },
+    });
+    expect(withKey.status()).toBe(201);
+    const made = await withKey.text();
+    expect(made).toContain("anthropic-own-key");
+    expect(made).not.toContain("sk-ant-e2e-visitor-0042");
+    // Only free books: another book's AI routes are closed to visitors.
+    expect((await ctx.request.get(`/api/books/${timeMachine}/prerequisites?${at}`)).status()).toBe(401);
+    expect((await ctx.request.get(`/api/books/${frankenstein}/ask`)).status()).toBe(401);
+
+    // In the reader: a slim sidebar (Study and Rewritten), Study with two tabs, and the owner's saved answer shown.
+    await visitor.getByRole("button", { name: "Sidebar" }).click();
+    const rail = visitor.getByRole("navigation", { name: "Reading tools" });
+    await expect(rail.getByRole("button")).toHaveCount(2);
+    await rail.getByRole("button", { name: "Study" }).click();
+    await expect(visitor.getByRole("tablist", { name: "Study" }).getByRole("tab")).toHaveText(["Need to know", "Test yourself"]);
+    await expect(visitor.getByTestId("need-to-know")).toBeVisible();
+    // Reading settings offer the visitor's own keys.
+    await visitor.getByRole("button", { name: "Reading settings" }).click();
+    await expect(visitor.getByTestId("own-keys")).toBeVisible();
+
     await visitor.getByRole("link", { name: "Back to the shelf" }).click();
     await expect(visitor).toHaveURL(new RegExp(`/browse/${frankenstein}$`));
 

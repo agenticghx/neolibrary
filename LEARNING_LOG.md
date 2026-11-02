@@ -2657,6 +2657,14 @@ tests that pin it, in a small PR.
 **Lesson.** A rule that takes something away from readers shows up first in the tests that quietly relied on it; run the whole browser suite, not the new test alone.
 **Then.** CI run 41476467866 failed focus.spec's whole-book focus: its reader's join answered "Too many attempts. Wait 15 minutes." The new own-keys reader was the eleventh join from the test machine's address within 15 minutes (the limit is 10, `app/(public)/actions.ts`). It now joins from an address of its own (x-forwarded-for). A new test that signs someone up spends from a budget every other test shares.
 **Next experiment.** AI for visitors on the free books, then S5 guard rails.
+
+### Iteration 126 · 2026-11-02 09:43 (laptop clock) · M34 S4b: AI help for visitors on the free books · failure then success
+
+**Hypothesis.** A visitor can use the existing Need to know, Test yourself and Rewritten routes on a free book if the route treats them as the shelf owner's copy with a non-owner role (`lib/auth/asker.ts`): saved answers free, new ones only with their own key, the owner's marks left out.
+**Evaluation.** The open-shelf browser test: the owner makes a Need to know and a question bank and marks one question; the visitor, with no cookie, reads them, asks again, asks for a new rewrite without and with a key, and asks about a book that is not free.
+**Result.** Three failures, each a real finding. (1) The owner's mark used question index 0; the bank's first index is not 0 (the test now reads it). (2) A visitor's second request for an answer already saved was refused "Add your own Anthropic key": the routes asked for a key before looking for the saved answer. `savedOrNewModelFor` now gives a stand-in model that serves saved answers and refuses only a new one (unit test: saved answer reused, new one refused). (3) The book's start and the reading place were in the same chapter, so the "new chapter" step tested nothing; it now rewrites a paragraph on screen that has no saved rewrite. Then 297 passed; the visitor's questions came with `marks: {}` although the owner had marked one.
+**Lesson.** "Needs a key" must be checked at the moment a new answer is made, not at the door, or a saved answer is charged for in effort if not in money.
+**Next experiment.** S5: a request limit per visitor and a leak check.
 ### Iteration 130 · 2026-11-02 10:10 (laptop clock) · M41 R3: "Paper" as a kind of item · success after three fixes by eye
 
 **Hypothesis.** A `kind` column and five detail columns on `books`, filled from Crossref or PubMed by a DOI or PubMed ID typed on the book's page, give papers their real titles, a card line and a Papers filter without touching the reader; Open unknowns row 33 does not block this part (a paper stays its reader's own).

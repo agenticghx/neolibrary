@@ -36,6 +36,8 @@ const PUBLIC = [
   /^\/browse\/[^/]+$/,
   /^\/browse\/[^/]+\/read$/,
   /^\/api\/open\/files\/.+$/,
+  // M34: three AI routes also answer a visitor, for a free book only; each checks that itself (lib/auth/asker.ts).
+  /^\/api\/books\/[^/]+\/(rewritten|prerequisites|questions)$/,
 ];
 
 export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV === "development") {

@@ -167,7 +167,7 @@ export function ExplainPanel({
         ) : null}
         {!data && !error ? <p className={styles.hint}>Opening…</p> : null}
         {data && data.estimate === null ? (
-          <p className={styles.hint}>AI is not set up yet: your summary is still saved as a note, but nothing checks it.</p>
+          <p className={styles.hint}>No AI key here (add your own Anthropic key in Reading settings, Aa): your summary is still saved as a note, but nothing checks it.</p>
         ) : null}
         {data ? (
           <div className={styles.noteActions}>
