@@ -1581,6 +1581,26 @@ Open unknowns row 33; it decides how much of R2 is built.
   have it explained (the equation's LaTeX is in its `alttext`); the
   reference list linked, so a cited paper already in the library opens and
   one that is not can be added by its DOI.
+- **R4a · A paper's summary card.** On a paper's page, near the top: the
+  question it asks, its method, its main finding and its limits, one to
+  three sentences each, written by AI from the paper
+  (`prompts/paper-summary.md`, `lib/library/paper-summary.ts`, a new AI
+  feature "Paper summary card", Sonnet by default). A paper's abstract and
+  introduction open it and its discussion and conclusions close it, so the
+  card reads the start (about 22,000 characters) and the end (about 14,000)
+  whole and the middle by its section titles: a 55-page review costs about
+  $0.08 once, not the whole paper's tokens. Equations and table cells are
+  left out (R1c). Made on purpose (its cost shown first), stored, shown free
+  from then on with its model, date and cost; "Make it again" on purpose.
+  Only for a title marked as a paper (R3). *Built 2026-11-02 (branch
+  `m41-paper-summary`).*
+  Done when: unit tests make the card from an invented paper (its words in,
+  its equation out), store it and serve it again with no second call, make
+  it again on purpose, refuse a title not marked as a paper and another
+  reader's, and read a long paper's start and end whole and its middle by
+  titles only (under 40,000 characters); the R3 browser test makes the card
+  (test AI) and finds its four rows, and "Make it again" after a reload.
+  Real-paper check: Greco's page on a local build (test AI).
 - **R4b · Explain an equation.** A tap on a displayed equation (one set on
   its own line, with its LaTeX in `alttext`) opens a panel named after it
   ("Equation (1)"): its LaTeX, then the stored explanation (free) or what

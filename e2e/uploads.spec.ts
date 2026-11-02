@@ -597,6 +597,15 @@ test("a title becomes a research paper by its DOI, is listed under Papers with i
   await expect(details).toContainText("Wick and Keeper · 2021 · J Example Stud");
   await expect(details.getByRole("link", { name: "DOI 10.5555/12345678" })).toHaveAttribute("href", "https://doi.org/10.5555/12345678");
 
+  // M41 R4a: the paper's summary card, made by the test AI and shown with its four rows.
+  const summary = page.getByTestId("paper-summary");
+  await summary.getByRole("button", { name: "Make a summary card (test AI, free)" }).click();
+  await expect(summary.getByText("Written by the test AI from the paper")).toBeVisible();
+  for (const row of ["The question", "The method", "The main finding", "The limits"]) await expect(summary.getByText(row, { exact: true })).toBeVisible();
+  await expect(summary).toContainText("Small print is read faster under");
+  await page.reload();
+  await expect(summary.getByRole("button", { name: /^Make it again/ })).toBeVisible();
+
   // Papers lists it, drawn as a printed page with its line; Books still lists it too.
   await page.goto("/library?show=papers");
   await expect(page.getByRole("heading", { name: "Papers", level: 1 })).toBeVisible();

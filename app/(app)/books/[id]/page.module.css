@@ -422,3 +422,32 @@
   cursor: default;
   opacity: 0.6;
 }
+
+/* M41 R4a: a paper's summary card. */
+.machineLabel {
+  margin: 0;
+  color: var(--machine-ink);
+  font-size: var(--text-xs);
+}
+
+.summaryCard {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--machine-rule);
+  background-color: var(--machine-bg);
+  color: var(--machine-ink);
+}
+
+.summaryRow dt {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.summaryRow dd {
+  margin: var(--space-1) 0 0;
+  line-height: var(--leading-read);
+}

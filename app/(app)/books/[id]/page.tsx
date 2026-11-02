@@ -23,6 +23,7 @@ import { listImports } from "@/lib/readalong/importer";
 import { AudiobookUpload } from "./AudiobookUpload";
 import { isPublicDomainEdition } from "@/lib/library/open-shelf";
 import { PaperDetails } from "./PaperDetails";
+import { PaperSummary } from "./PaperSummary";
 import { byline } from "@/lib/papers/model";
 import { removeBookAction, setShelfSwitchAction, toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
@@ -116,6 +117,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
             </p>
           ) : null}
           {hasFile && book.description ? <p className={styles.description}>{book.description}</p> : null}
+          {/* M41 R4a: a paper's summary card, near the top: what to know before reading it. */}
+          {paper && hasFile ? <PaperSummary bookId={book.id} /> : null}
           {hasFile && book.toc.length ? (
             <details className={styles.toc}>
               <summary>Contents</summary>

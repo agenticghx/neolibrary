@@ -25,6 +25,17 @@ function fakeAnswer(req: TextRequest) {
   if (task === "Ask this book") return fakeAsk(req.prompt);
   if (task === "Explain it back") return JSON.stringify(fakeExplainBack(req.prompt));
   if (task === "Who and what") return JSON.stringify(fakeXray(req.prompt));
+  if (task === "Summary card") {
+    // M41 R4a: four short fields, each naming the paper's first words, so a test can see the paper was read.
+    const text = /<passage>\s*([\s\S]*?)\s*<\/passage>/.exec(req.prompt)?.[1] ?? "";
+    const first = text.split(/\s+/).slice(0, 8).join(" ");
+    return JSON.stringify({
+      question: `The test AI's question, from "${first}…".`,
+      method: "The test AI's method: a made-up line.",
+      finding: "The test AI's finding: a made-up line.",
+      limits: "The test AI's limits: a made-up line.",
+    });
+  }
   if (task === "From the world") {
     const name = /^Name: (.+?) \(/m.exec(req.prompt)?.[1] ?? "this name";
     return `The test AI's general knowledge of ${name}: a made-up note, labelled as from outside the book. The real one comes from Claude.`;
