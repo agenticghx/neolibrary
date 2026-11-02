@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import { authorLine, byline, parsePaperId, PaperLookupUnreachable, type PaperLookup } from "@/lib/papers";
+import { syncSharedPaper } from "./shared-papers";
 
 /**
  * M41 R3: a title in the library marked as a research paper, by its DOI or PubMed ID. Its details (title, authors,
@@ -32,10 +33,12 @@ export type PaperInfo = {
 
 async function ownBook(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
-    .select({ id: books.id })
+    .select({ id: books.id, sharedFrom: books.sharedFrom })
     .from(books)
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
   if (!book) throw new PaperError("Book not found", 404);
+  // M41 R3c: a paper shared with this reader keeps the owner's details.
+  if (book.sharedFrom) throw new PaperError("This paper is shared with you; only its owner can change its details.");
   return book;
 }
 
@@ -66,6 +69,8 @@ export async function setPaper(db: Db, lookup: PaperLookup, ownerId: string, boo
       updatedAt: new Date(),
     })
     .where(eq(books.id, bookId));
+  // M41 R3c: the owner's paper goes to every invited reader (a reader's own paper is shared with no one).
+  await syncSharedPaper(db, bookId);
   return { kind: "paper", title: found.title, byline: byline(found), doi: found.doi, pmid: found.pmid };
 }
 
@@ -77,5 +82,7 @@ export async function clearPaper(db: Db, ownerId: string, bookId: string): Promi
     .set({ kind: "book", authors: [], journal: null, year: null, doi: null, pmid: null, updatedAt: new Date() })
     .where(eq(books.id, bookId))
     .returning({ title: books.title });
+  // No longer a paper: the readers' copies are hidden.
+  await syncSharedPaper(db, bookId);
   return { kind: "book", title: b.title, byline: "", doi: null, pmid: null };
 }

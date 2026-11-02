@@ -1576,6 +1576,35 @@ Open unknowns row 33; it decides how much of R2 is built.
   "not available yet"); its full text from PubMed Central when open access
   (JATS XML, which holds the equations as MathML); a Markdown file's own
   `doi:` in its front matter.
+- **R3c · Papers shared with invited readers.** Samuel, 2026-11-02 (Open
+  unknowns row 33): "yes people invited should see papers". Ground rule 6
+  makes sharing a file the owner's deliberate choice; this is it, for papers
+  only. Every title the library's owner (the first admin) marks as a paper
+  is in each invited reader's library, under Papers, to read with their own
+  place, highlights, notes and AI answers (paid with their own key, M34 S4).
+  Each reader gets their own row for the paper (`shared_from`, migration
+  0038 with its reverse step), pointing at the same file, with a copy of its
+  sections, so every "is this your book" check stays as it was; the file
+  route also lets a reader fetch the file or cover their copy names
+  (`readerMayFetch`). A reader who joins later gets the papers already
+  shared (`shareAllWith`, on accepting the invite). The owner's paper page
+  says how many readers have it and has "Stop sharing" / "Share with invited
+  readers" (`share_papers`); stopping, unmarking or removing the paper hides
+  the copies (kept as removed books, with their notes; ground rule 9), and
+  sharing again brings them back. A reader's copy says "Shared with you by
+  …" and its details cannot be changed there. A reader's own papers are
+  shared with no one. Copies are not on the open shelf (it lists the
+  owner's books only). *Built 2026-11-02 (branch `m41-shared-papers`).*
+  Done when: unit tests give two invited readers a copy each when the owner
+  marks a paper (its sections and file, a highlight of the reader's own, no
+  second copy on marking again), hide and bring back the copies on Stop
+  sharing, removal and restore, hide them on unmarking, give a reader who
+  joins later the papers already shared, share no reader's own paper, and
+  refuse a reader changing a shared paper; they fail when marking does not
+  share; real Postgres runs every migration up, down and up; a browser test
+  marks a paper as the owner, finds it in a new reader's Papers with "Shared
+  with you by", opens it and reads its text, and finds it gone after "Stop
+  sharing"; it fails when the file route serves only the reader's own files.
 - **R4 · Study tools for papers.** A one-screen summary card (the question,
   the method, the main finding, the limits); tap an equation or a figure to
   have it explained (the equation's LaTeX is in its `alttext`); the

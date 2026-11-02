@@ -1,5 +1,6 @@
 "use server";
 
+import { shareAllWith } from "@/lib/library/shared-papers";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { FormState } from "@/components/ActionForm";
@@ -42,6 +43,8 @@ export async function signInAction(_: FormState, data: FormData): Promise<FormSt
   }
   const result = await attempt(async () => {
     const user = await authenticate(await getDb(), email, field(data, "password"));
+    // M41 R3c: the owner's shared papers are in the new reader's library from the start.
+    await shareAllWith(await getDb(), user.id);
     await startSession(user.id);
   });
   if (result.error) return result;
