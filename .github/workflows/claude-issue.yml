@@ -95,8 +95,11 @@ jobs:
             API) outside the tests' fakes; push to main; merge; change .github/workflows/ unless the issue asks for
             exactly that.
 
-      # A run that ended with neither a pull request nor a comment on the issue says so on the issue, with the link
-      # to the run (its summary holds Claude's report), so a silent run is never mistaken for one still working.
+      # A run that ended with neither a pull request for this issue nor a comment on it says so on the issue, with
+      # Claude's own last message from the run (its account of what it did and why it stopped) and the run's link, so
+      # a silent run is never mistaken for one still working. "A pull request for this issue" means its branch has
+      # "-issue-<n>-" in its name or its description says "Fixes #<n>"; a pull request that only mentions the issue
+      # does not count (the first version of this step matched #265, which talks about #267, and stayed quiet).
       - name: Say so on the issue when nothing came of it
         if: always()
         env:
@@ -105,10 +108,23 @@ jobs:
           STARTED: ${{ github.event.issue.updated_at }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           OUTCOME: ${{ steps.claude.outcome }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
           set -euo pipefail
-          prs=$(gh pr list --state all --search "${ISSUE} in:body" --json number,body --jq "[.[] | select(.body | test(\"#${ISSUE}\\\\b\"))] | length")
+          prs=$(gh pr list --state all --limit 100 --json headRefName,body --jq "[.[] | select((.headRefName | test(\"-issue-${ISSUE}-\")) or ((.body // \"\") | test(\"(?i)(fixes|closes|resolves) #${ISSUE}\\\\b\")))] | length")
           says=$(gh issue view "$ISSUE" --json comments --jq "[.comments[] | select(.createdAt > \"${STARTED}\")] | length")
+          echo "pull requests for #${ISSUE}: ${prs}; comments since the run started: ${says}"
           if [ "$prs" = 0 ] && [ "$says" = 0 ]; then
-            gh issue comment "$ISSUE" --body "Claude's run ended (${OUTCOME}) without a pull request or a comment here. Its report is on the run's summary page: ${RUN_URL}. Add the label \`build\` to try again."
+            last=""
+            if [ -n "${EXECUTION_FILE}" ] && [ -f "${EXECUTION_FILE}" ]; then
+              last=$(jq -r '[.[] | select(.type == "result")] | last | .result // empty' "${EXECUTION_FILE}" | head -c 6000)
+            fi
+            {
+              echo "Claude's run ended (${OUTCOME}) without a pull request or a comment here. Run: ${RUN_URL}"
+              echo
+              if [ -n "$last" ]; then echo "Claude's last message:"; echo; printf '%s\n' "$last" | awk '{ print "> " $0 }'; else echo "(Claude left no last message.)"; fi
+              echo
+              echo "Add the label \`build\` to try again."
+            } > /tmp/comment.md
+            gh issue comment "$ISSUE" --body-file /tmp/comment.md
           fi

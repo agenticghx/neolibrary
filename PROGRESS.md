@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge S6, install the nightly job and run it once, then read issue #267's second run.
+next_action: Merge the first-run fixes, re-run issue #267 and read Claude's last message on it.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-01
 shared_copy: none
@@ -349,6 +349,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-01 21:32 · Claude Opus 5.5 (laptop) · M40: all six steps merged; first runs fixed (nightly job's shell, issue bot's silence)
+- **Done:** Merged: #260 S1, #261+#266 S2, #262 S3, #263 S4, #265 Claude app + bot report, #269 S5, #270 S6 (a48bdbc). First automatic deploy 827adfb (Deploy log #268). Nightly job installed (launchd com.neolibrary.overnight-scans, 02:00, ~/neolibrary-jobs); first two runs failed (npm not on PATH; then hung on op completion zsh in .zshrc); fixed to zsh -lc with ~/.local/bin and the Keychain token: exit 0, 'No scanned book is waiting to be read.' Issue bot: #267 ran twice, both 'success' with no PR or comment; fallback step now matches only -issue-<n>- branches or 'Fixes #<n>' and posts Claude's last message.
+- **Key paths:** scripts/overnight-scans-install.sh; .github/workflows/claude-issue.yml; LEARNING_LOG.md (Iteration 115)
+- **Commands that worked:** zsh scripts/overnight-scans-install.sh https://<live address>; launchctl kickstart -k gui/$(id -u)/com.neolibrary.overnight-scans; tail ~/Library/Logs/neolibrary-overnight-scans.log
+- **Known issues / blockers:** Issue bot (S3) not yet proven: why #267 produced nothing is still unknown.
+- **Exact next steps:** 1. Merge this; remove and re-add the label build on #267; read Claude's last message there and fix what it says. 2. Remove merged worktrees (autodeploy, rules, unwind, issuebot, ghapp, agentreads, agentapi).
 
 ### 2026-11-01 20:49 · Claude Opus 5.5 (laptop) · M40 S6: scanned books read overnight on the subscription, left as drafts for Samuel's send
 - **Done:** scripts/overnight-scans.ts, lib/overnight-scans.ts (+4 tests), scripts/overnight-scans-install.sh. Live run: 'No scanned book is waiting to be read.' Local test copy (2-page scanned fixture, own token, --pages 1-3): read 2 pages, 0 blank, 0 not read, $0; DRAFT.md Status ready, nothing sent (book textEdition None afterwards). #265 merged b4938a6 (with the issue-bot report fix); issue #267 re-run with the label build.
