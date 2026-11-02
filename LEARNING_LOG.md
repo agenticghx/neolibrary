@@ -2641,7 +2641,7 @@ tests that pin it, in a small PR.
 **Lesson.** List a component's server calls by recording the requests in a browser test, not by reading the code: the second call came from an effect several hundred lines away.
 **Next experiment.** S4: bring your own key.
 
-### Iteration 125 · 2026-11-02 09:08 (laptop clock) · M34 S4: bring your own key · failure then success
+### Iteration 128 · 2026-11-02 09:08 (laptop clock) · M34 S4: bring your own key · failure then success
 
 **Hypothesis.** One function per paid service (`textModelFor`, `speechModelFor`, `transcriberFor`) can decide who pays: the owner's key for the owner, otherwise only the key the request carries; and marking such a model's provider "-own-key" keeps it out of the owner's caps and spending without a migration.
 **Action.** The eight AI routes, passage audio and voice-note transcripts ask for the model "for this person"; `reserveSpend` and `checkCaps` let an own-key provider through; AI pictures are the owner's only. In the browser, `aiFetch` and `voiceFetch` add the key from localStorage to those requests only; Reading settings and Account offer the key form.
