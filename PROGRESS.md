@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build visitor AI on the free books (saved answers free, new ones with their own key), then M34 S5 guard rails.
+next_action: Wait for M41's '286 merged', then restack and merge #285 (M34 S4b), then #287 (S5), then ask Samuel to deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 13:00 · Claude Opus 5.5 · Checkpoint: M34 open shelf, four of six PRs merged (#278, #280, #281, #282); #285 and #287 wait their turn with M41
+- **Done:** M34 built in six steps. Merged: #278 S1 (migration 0036, not 0035: M41 took 0035), #280 S2 /browse shelf, #281 S3 visitor reader, #282 S4 bring your own key. Open: #285 S4b AI for visitors, #287 S5 request limit and leak check. Taking turns merging with the M41 session; it agreed not to deploy until #287 is merged and Samuel says deploy. Not deployed.
+- **Key paths:** docs/handoffs/2026-11-02-1300-m34-open-shelf-merging.md (gitignored); docs/plan.md (M34); lib/library/open-shelf.ts; lib/auth/asker.ts; lib/ai/own-key.ts; lib/visitor-limit.ts; e2e/open-shelf.spec.ts; e2e/own-keys.spec.ts
+- **Commands that worked:** gh pr view 282 --json mergeCommit -> 5496189b; PORT=3171 npx playwright test --project=open-shelf --project=own-keys --project=flows --ignore-snapshots -> 298 passed (S5 branch)
+- **Known issues / blockers:** Main holds undeployed migration 0036 (and soon M41's 0037), so auto-deploy refuses main until Samuel's backup and deploy. Earlier ledger entries for S1 to S4 say 'migration 0035'; the real number is 0036.
+- **Exact next steps:** 1. Wait for M41's '286 merged'. 2. Restack #285 onto main (worktree .claude/worktrees/visitor-ai), retarget to main, CI, merge, message '285 merged'. 3. Same for #287 (.claude/worktrees/guard-s5). 4. Ask Samuel for 'deploy'; backup first; check /browse and the three free books live. 5. Deploy record via ledger-to-main; remove the M34 worktrees.
 
 ### 2026-11-02 09:09 · Claude Opus 5.5 · M34 S4: bring your own key (readers pay for new AI answers and voices with their own keys)
 - **Done:** textModelFor / speechModelFor / transcriberFor: the owner uses the library's keys; anyone else only the key in their request header (x-neolibrary-anthropic-key, x-neolibrary-elevenlabs-key), else a message saying how to add one. Own-key models have provider '<p>-own-key': saved like any answer, no owner caps, not in the owner's spending. AI pictures owner-only. Browser: lib/own-keys.ts (localStorage, aiFetch, voiceFetch) on every AI and voice call in the reader; OwnKeysSetting in Reading settings and on Account (not for the owner). Help page paragraph. Review tests' reader carries a key.
