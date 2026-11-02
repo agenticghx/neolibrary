@@ -13,7 +13,14 @@ async function newReader(page: Page, browser: Browser) {
   await page.getByLabel(/Who is it for/).fill("Kofi, own keys");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
   const link = await page.getByTestId("invite-link").inputValue();
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } });
+  // Its own address (the app reads x-forwarded-for): joining counts against the sign-in limit of 10 per address in
+  // 15 minutes (app/(public)/actions.ts), which the other projects' readers, joining from the test machine, already
+  // come close to. CI run 41476467866: with this reader on the shared address, focus.spec's join got "Too many attempts".
+  const ctx = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "x-forwarded-for": "198.51.100.34" },
+  });
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Kofi Keys");

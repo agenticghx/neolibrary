@@ -2648,6 +2648,7 @@ tests that pin it, in a small PR.
 **Evaluation.** `lib/ai/own-key.test.ts` (6): a reader without a key is refused, with one the answer is saved as "anthropic-own-key" with caps of $0 and the owner's spending stays $0. The whole browser suite, then `e2e/own-keys.spec.ts`.
 **Result.** Whole suite: 406 passed, 2 failed: the daily-review tests, whose invited reader asked for Test yourself and Explain it back with no key (the new rule working). Their reader now carries a key: 299 passed, including the own-keys test (the Study panel sends the key; other requests do not).
 **Lesson.** A rule that takes something away from readers shows up first in the tests that quietly relied on it; run the whole browser suite, not the new test alone.
+**Then.** CI run 41476467866 failed focus.spec's whole-book focus: its reader's join answered "Too many attempts. Wait 15 minutes." The new own-keys reader was the eleventh join from the test machine's address within 15 minutes (the limit is 10, `app/(public)/actions.ts`). It now joins from an address of its own (x-forwarded-for). A new test that signs someone up spends from a budget every other test shares.
 **Next experiment.** AI for visitors on the free books, then S5 guard rails.
 ### Iteration 128 · 2026-11-02 09:35 (laptop clock) · M41 R1d: Listen passes over equations and tables · success
 
