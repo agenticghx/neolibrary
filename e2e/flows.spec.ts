@@ -5,7 +5,8 @@ import { ADMIN, ADMIN_STATE, openAccountMenu } from "./pages";
 // M2 "Done when": a logged-out visitor gets nothing (pages, API, file URLs),
 // and an invited user can log in.
 
-const PROTECTED_PAGES = ["/", "/design", "/admin/invites", "/some/future/page"];
+// "/" is not here: since M34 a visitor who opens the site lands on the open shelf (open-shelf.spec.ts).
+const PROTECTED_PAGES = ["/design", "/admin/invites", "/some/future/page", "/library", "/books/00000000-0000-4000-8000-000000000000"];
 const PROTECTED_API = ["/api/me", "/api/files/books/x.epub", "/api/files/books/x.epub?exp=9999999999&sig=forged"];
 
 async function freshContext(browser: Browser) {

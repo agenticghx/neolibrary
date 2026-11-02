@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Open the M34 S1 pull request when npm run check passes, then build S2 (the signed-out shelf).
+next_action: Merge M34 S1 (#278), then open the S2 pull request (the open shelf at /browse).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 08:22 · Claude Opus 5.5 · M34 S2: the open shelf for visitors at /browse
+- **Done:** Visitors (not signed in) land on /browse: every book of the owner's that is on the shelf, with cover, author, description; search, Free to read filter, sort by title or author. /browse/<id>: the book, with Find it on Goodreads unless free to read. Books off the shelf answer 404. Covers through /api/open/files with their own secret, checked again when used. Sign-in page links to the shelf. lib/library/open-shelf.ts picks only visible fields (never note, progress, place).
+- **Key paths:** app/(open)/layout.tsx; app/(open)/browse/page.tsx; app/(open)/browse/[id]/page.tsx; app/(open)/open.module.css; app/api/open/files/[...key]/route.ts; lib/library/open-shelf.ts; lib/signed-url.ts; lib/library/covers.ts; proxy.ts; e2e/open-shelf.spec.ts; e2e/flows.spec.ts; e2e/pages.ts; playwright.config.ts; scripts/ci-browser-needed.mjs
+- **Commands that worked:** npm run check -> 1225 passed; PORT=3171 npx playwright test --project=open-shelf --project=flows --ignore-snapshots -> 297 passed (5.9m)
+- **Known issues / blockers:** Built on S1 (#278); open its PR after #278 merges. Port 3100 is another session's server: use PORT=3171. Reference images for the open-shelf page and the sign-in page come from CI.
+- **Exact next steps:** 1. Merge #278 (S1), rebase S2 onto main, open its PR, refresh the open-shelf and sign-in reference images from CI. 2. S3: the reader for visitors on the free books (place and notes in the browser). 3. S4 bring your own key; S5 guard rails. 4. Deploy M34 at Samuel's word, after a backup.
 
 ### 2026-11-02 07:58 · Claude Opus 5.5 · M34 S1: two switches per book for the open shelf (built, not yet a PR)
 - **Done:** Migration 0035 adds books.on_shelf (default on) and books.free_to_read (default off), with a reverse step; it turns free_to_read on for the owner's three Standard Ebooks editions, matched by title and publisher. lib/library/open-shelf.ts: free to read only for a public-domain publisher (Standard Ebooks, Project Gutenberg); the two switches kept consistent; owner's own books only. Owner-only Open shelf buttons on each book's page (setShelfSwitchAction). LEARNING_LOG iteration 122.

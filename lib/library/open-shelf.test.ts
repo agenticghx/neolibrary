@@ -5,7 +5,7 @@ import type { Database } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import { migrateDown, migrateUp } from "@/lib/db/migrate";
 import { testDatabase } from "@/lib/db/test-db";
-import { isPublicDomainEdition, OpenShelfError, setShelfSwitch } from "./open-shelf";
+import { getOpenBook, goodreadsUrl, isPublicDomainEdition, listOpenShelf, OpenShelfError, setShelfSwitch, visitorMayHave } from "./open-shelf";
 
 describe("isPublicDomainEdition", () => {
   const file = { fileKey: "books/a.epub", fileType: "epub" };
@@ -107,5 +107,78 @@ describe("migration 0036", () => {
     } finally {
       await database.raw.close();
     }
+  });
+});
+
+describe("the open shelf, as a visitor sees it (S2)", () => {
+  let database: Database;
+  let ownerId: string;
+  let readerId: string;
+  beforeEach(async () => {
+    database = await testDatabase();
+    ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
+    const admin = { id: ownerId, email: "o@example.com", name: "O", role: "admin" as const };
+    const { token } = await createInvite(database.db, admin);
+    readerId = (await acceptInvite(database.db, token, { email: "r@example.com", name: "R", password: "long enough pw" })).id;
+  });
+  afterEach(() => database.raw.close());
+
+  const add = async (owner: string, title: string, more: Partial<typeof books.$inferInsert> = {}) =>
+    (
+      await database.db
+        .insert(books)
+        .values({ ownerId: owner, title, author: "A. Writer", fileKey: `books/${title}.epub`, fileType: "epub", ...more })
+        .returning()
+    )[0];
+
+  it("lists only the owner's books on the shelf, and none of the owner's own reading", async () => {
+    await add(ownerId, "Zeta", { note: "my secret note", progress: 0.4, coverKey: "covers/zeta.jpg" });
+    await add(ownerId, "Alpha", { author: "B. Writer" });
+    await add(ownerId, "Hidden", { onShelf: false });
+    await add(ownerId, "Gone", { deletedAt: new Date() });
+    await add(readerId, "The reader's own");
+    const shelf = await listOpenShelf(database.db);
+    expect(shelf.map((b) => b.title)).toEqual(["Alpha", "Zeta"]);
+    expect(Object.keys(shelf[0]).sort()).toEqual(
+      ["author", "coverKey", "description", "fileType", "freeToRead", "id", "language", "pageCount", "publisher", "title"].sort(),
+    );
+    expect(JSON.stringify(shelf)).not.toContain("my secret note");
+  });
+
+  it("searches, keeps only the free books, and sorts by author", async () => {
+    await add(ownerId, "Frankenstein", { author: "Mary Shelley", publisher: "Standard Ebooks", freeToRead: true });
+    await add(ownerId, "Dune", { author: "Frank Herbert" });
+    await add(ownerId, "Emma", { author: "Jane Austen" });
+    expect((await listOpenShelf(database.db, { q: "frank" })).map((b) => b.title)).toEqual(["Dune", "Frankenstein"]);
+    expect((await listOpenShelf(database.db, { free: true })).map((b) => b.title)).toEqual(["Frankenstein"]);
+    expect((await listOpenShelf(database.db, { sort: "author" })).map((b) => b.author)).toEqual(["Frank Herbert", "Jane Austen", "Mary Shelley"]);
+    expect(await listOpenShelf(database.db, { q: "%" })).toEqual([]);
+  });
+
+  it("finds one book only when it is on the shelf", async () => {
+    const shown = await add(ownerId, "Shown");
+    const hidden = await add(ownerId, "Hidden", { onShelf: false });
+    const theirs = await add(readerId, "Theirs");
+    expect((await getOpenBook(database.db, shown.id))?.title).toBe("Shown");
+    expect(await getOpenBook(database.db, hidden.id)).toBeNull();
+    expect(await getOpenBook(database.db, theirs.id)).toBeNull();
+    expect(await getOpenBook(database.db, "not-a-uuid")).toBeNull();
+  });
+
+  it("lets a visitor have the cover of a book on the shelf, and nothing else", async () => {
+    await add(ownerId, "Shown", { coverKey: "covers/shown.jpg" });
+    await add(ownerId, "Hidden", { onShelf: false, coverKey: "covers/hidden.jpg" });
+    await add(readerId, "Theirs", { coverKey: "covers/theirs.jpg" });
+    expect(await visitorMayHave(database.db, "covers/shown.jpg")).toBe(true);
+    expect(await visitorMayHave(database.db, "books/Shown.epub")).toBe(false);
+    expect(await visitorMayHave(database.db, "covers/hidden.jpg")).toBe(false);
+    expect(await visitorMayHave(database.db, "covers/theirs.jpg")).toBe(false);
+  });
+
+  it("sends a visitor to a Goodreads search for the title and author", () => {
+    expect(goodreadsUrl("Gödel, Escher, Bach", "Douglas Hofstadter")).toBe(
+      "https://www.goodreads.com/search?q=G%C3%B6del%2C%20Escher%2C%20Bach%20Douglas%20Hofstadter",
+    );
+    expect(goodreadsUrl("Untitled", "")).toBe("https://www.goodreads.com/search?q=Untitled");
   });
 });

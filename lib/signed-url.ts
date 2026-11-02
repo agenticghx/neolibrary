@@ -12,11 +12,19 @@ function signature(secret: string, key: string, exp: number) {
   return createHmac("sha256", secret).update(`${key}\n${exp}`).digest("base64url");
 }
 
-export function signFileUrl(secret: string, key: string, now = Date.now(), ttl = FILE_LINK_SECONDS): string {
+export function signFileUrl(secret: string, key: string, now = Date.now(), ttl = FILE_LINK_SECONDS, base = "/api/files"): string {
   const exp = Math.floor(now / 1000) + ttl;
   const path = key.split("/").map(encodeURIComponent).join("/");
-  return `/api/files/${path}?exp=${exp}&sig=${signature(secret, key, exp)}`;
+  return `${base}/${path}?exp=${exp}&sig=${signature(secret, key, exp)}`;
 }
+
+/**
+ * M34: a link for a visitor who is not signed in, at /api/open/files/<key>. It is
+ * signed with its own secret ("visitor-file-links"), so a visitor link never
+ * opens the signed-in route, and the route checks again, when it is used, that
+ * the file is one a visitor may have (lib/library/open-shelf.ts).
+ */
+export const VISITOR_FILE_BASE = "/api/open/files";
 
 export function verifyFileSignature(
   secret: string,

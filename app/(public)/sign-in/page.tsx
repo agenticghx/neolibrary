@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm, Field } from "@/components/ActionForm";
 import { AuthShell } from "@/components/AuthShell";
@@ -20,6 +21,9 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         <Field label="Password" name="password" type="password" autoComplete="current-password" />
       </ActionForm>
       <p className={styles.note}>New here? Use the invitation link you were sent.</p>
+      <p className={styles.note}>
+        Or <Link href="/browse">browse the shelf</Link> without signing in.
+      </p>
       <ClearOffline />
     </AuthShell>
   );

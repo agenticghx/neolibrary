@@ -79,6 +79,8 @@ const PROJECT_SLICE = {
   covers: "behavior",
   // M26 R3: the focus session with a question; a branch off `stats` too.
   focus: "behavior",
+  // M34: the open shelf, as the owner and as a visitor; a branch off `stats` too.
+  "open-shelf": "behavior",
 };
 
 const NARRATION_FILES = new Set([
