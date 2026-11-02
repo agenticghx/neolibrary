@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel looks at /browse signed out on his phone; hide any title he does not want shown.
+next_action: Samuel marks the Greco paper by PMID 7568331 and tries Explain it and the summary card on the live site.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 16:53 · Claude Opus 5.5 (laptop) · Checkpoint: M41 Papers R1d to R4a live at f9f1290 with the M34 open shelf
+- **Done:** M41 #283, #284, #286 (migration 0037), #288, #289 merged and deployed at f9f1290 together with M34 S1 to S5 (migration 0036), after a restore-checked backup; worktrees removed. Handoff note docs/handoffs/2026-11-02-1653-m41-papers-live.md (gitignored, laptop only).
+- **Key paths:** docs/handoffs/2026-11-02-1653-m41-papers-live.md; ~/Backups/neolibrary/prod-before-0036-0037-20261102T2052Z.sql; lib/papers/; lib/library/{papers,explain-math,paper-summary}.ts
+- **Commands that worked:** curl https://library.samuelahuno.com/api/health -> commit f9f1290; production _migrations 37 (0037_paper_details)
+- **Known issues / blockers:** Paper AI features not tried with the real AI yet; no title marked as a paper yet; whether papers show on the open shelf is Samuel's call.
+- **Exact next steps:** 1. Samuel: Greco paper page, 'Is this a research paper?' -> PMID 7568331; tap an equation, Explain it; Make a summary card. 2. Ask whether papers should be on the open shelf. 3. Later M41: paper by DOI before its file, PMC full text, explain a figure, linked references.
 
 ### 2026-11-02 16:02 · Claude Opus 5.5 · M34 open shelf checked live from outside (f9f1290); M34 worktrees removed
 - **Done:** After the M41 session's deploy of f9f1290 (0036 and 0037), checked as a visitor, signed out, on both addresses: /api/health f9f1290; / redirects to /browse; 132 books, no email address in the page; the three free books' pages and readers 200; a free book's file downloads (271,904 bytes, epub) and the same signed link on another file is 403; a non-free book's reader 404 and its Goodreads link right; annotations, /api/me, /api/export and a non-free book's AI route 401; a cover 200, a forged one 403. Removed the seven M34 worktrees and local branches (all clean, nothing unpushed). M34 is done.
