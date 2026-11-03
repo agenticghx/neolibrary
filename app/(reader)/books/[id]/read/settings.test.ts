@@ -80,9 +80,13 @@ describe("reading settings on this device", () => {
     expect(loadSettings().theme).toBe("auto");
   });
 
-  it("keeps a table inside the reading column, scrolling sideways, so it never covers the text beside it", () => {
+  it("keeps a table inside the reading column, clipped (not scrolled, so it can run across pages), so it never covers the text beside it", () => {
     const css = bookCss(DEFAULT_SETTINGS, { paper: "#fff", ink: "#000", accent: "#00f", highlight: "#ff0", spoken: "#0f0", scheme: "light" }, "https://example.org");
-    expect(css).toContain("table { display: block; width: max-content; max-width: 100%; overflow-x: auto; }");
+    expect(css).toContain("table { display: block; width: max-content; max-width: 100%; overflow-x: clip; }");
+    // M41: a row is never split across pages, a caption keeps to its table, and a clipped table says so.
+    expect(css).toContain("tr { break-inside: avoid; }");
+    expect(css).toContain("p:has(+ table) { break-after: avoid; }");
+    expect(css).toMatch(/table\[data-nl-wide\]::before \{\s*content: "Wider than the page \\2014  tap to see the whole table";/);
   });
 
   it("sets formulas in the bundled math font whatever the reading face, so brackets stretch (M41)", () => {

@@ -205,6 +205,14 @@ The end.
     expect(html).toContain("</math>, relates dose to effect.</p>");
   });
 
+  it("keeps a comment written inside backticks as code: a note may show what a page marker looks like", () => {
+    const html = chaptersOf("Markers look like `<!-- page 345 -->` and ``<!-- check: x -->``.<!-- page 2 --> Then text.")[0].html.join("\n");
+    expect(html).toContain("<code>&lt;!-- page 345 --&gt;</code>");
+    expect(html).toContain("<code>&lt;!-- check: x --&gt;</code>");
+    expect(html).not.toContain("page 2");
+    expect(html).toContain(". Then text.</p>");
+  });
+
   it("makes a pipe table a table, with its alignment, and a | inside an equation or after a backslash stays in its cell", () => {
     const html = chaptersOf(PAPER)[0].html.join("\n");
     expect(html).toContain('<table><thead><tr><th class="right">Dose <math');

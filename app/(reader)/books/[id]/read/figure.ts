@@ -49,3 +49,90 @@ export function equationAt(target: unknown): TappedEquation | null {
   if (!math || !latex || math.closest("a")) return null;
   return { latex, number: /\\tag\*?\{([^}]{1,12})\}/.exec(latex)?.[1] ?? null, paragraph: math.closest("p, div") ?? math };
 }
+
+/**
+ * A table wider than its column (M41): the book's style clips it there (settings.ts), so the reader marks it to say so
+ * and to show it whole on a tap. Measured again whenever the page is laid out anew (a new size, a new type size).
+ * An attribute only: no element is added to the book's page, so no note's anchor moves.
+ */
+export function markWideTables(doc: { querySelectorAll(sel: string): ArrayLike<unknown> }): number {
+  let wide = 0;
+  for (const t of Array.from(doc.querySelectorAll("table")) as { scrollWidth: number; clientWidth: number; toggleAttribute(n: string, on: boolean): void }[]) {
+    const over = t.scrollWidth > t.clientWidth + 1;
+    t.toggleAttribute("data-nl-wide", over);
+    if (over) wide++;
+  }
+  return wide;
+}
+
+/** A table's content, copied out of the book's page as plain data (rendered by TableView.tsx): only the elements and
+ * attributes a table and its formulas need. Never markup: a book's page may hold anything, and the copy is shown in the
+ * reader's own page, where an `onerror` or a script would run. */
+export type TableNode = { tag: string; attrs: Record<string, string>; kids: (TableNode | string)[] };
+export type TappedTable = { caption: string; table: TableNode; cells: number };
+
+const MATHML = "http://www.w3.org/1998/Math/MathML";
+const HTML_TAGS = new Set(["table", "thead", "tbody", "tfoot", "tr", "th", "td", "p", "br", "span", "b", "strong", "i", "em", "sub", "sup", "small", "code", "abbr", "cite", "var", "s", "u", "mark"]);
+const MATH_TAGS = new Set([
+  "math", "semantics", "mrow", "mi", "mn", "mo", "ms", "mtext", "mspace", "msub", "msup", "msubsup", "mfrac", "msqrt", "mroot", "mstyle",
+  "mpadded", "mphantom", "menclose", "munder", "mover", "munderover", "mtable", "mtr", "mtd", "mlabeledtr", "mmultiscripts", "mprescripts", "none", "merror",
+]);
+/** Dropped with all they hold (a caption is shown above the table on its own). */
+const DROP = new Set(["caption", "script", "style", "annotation", "annotation-xml", "img", "svg", "iframe", "object", "embed", "template", "noscript"]);
+const CELL_ATTRS = new Set(["colspan", "rowspan"]);
+const MATH_ATTRS = new Set([
+  "display", "mathvariant", "stretchy", "fence", "separator", "lspace", "rspace", "accent", "accentunder", "linethickness", "scriptlevel",
+  "displaystyle", "columnalign", "rowalign", "columnspacing", "rowspacing", "columnlines", "rowlines", "frame", "width", "height", "depth",
+  "voffset", "minsize", "maxsize", "movablelimits", "symmetric", "largeop", "form", "notation", "alttext", "mathsize", "columnspan",
+]);
+const ALIGN = /^(left|right|center)$/;
+
+type DomNode = {
+  nodeType: number;
+  nodeValue: string | null;
+  childNodes: ArrayLike<DomNode>;
+  localName?: string;
+  namespaceURI?: string | null;
+  attributes?: ArrayLike<{ name: string; value: string }>;
+  getAttribute?(n: string): string | null;
+};
+
+/** The table's content as plain data; elements outside the list keep their text, scripts and pictures go. */
+export function cleanTable(table: unknown): TableNode {
+  const kids = (n: DomNode, inMath: boolean): (TableNode | string)[] => Array.from(n.childNodes).flatMap((c) => walk(c, inMath));
+  // Inside a formula, MathML's names hold (an XHTML page puts them in MathML's namespace; an HTML parser may not).
+  const walk = (n: DomNode, inMath = false): (TableNode | string)[] => {
+    if (n.nodeType === 3) return n.nodeValue ? [n.nodeValue] : [];
+    if (n.nodeType !== 1) return [];
+    const tag = (n.localName ?? "").toLowerCase();
+    if (DROP.has(tag)) return [];
+    const math = inMath || n.namespaceURI === MATHML || tag === "math";
+    if (!(math ? MATH_TAGS : HTML_TAGS).has(tag)) return kids(n, math);
+    const attrs: Record<string, string> = {};
+    for (const a of Array.from(n.attributes ?? [])) {
+      const name = a.name.toLowerCase();
+      if (math ? MATH_ATTRS.has(name) : CELL_ATTRS.has(name) && /^\d{1,3}$/.test(a.value)) attrs[name] = a.value;
+    }
+    if (!math && (tag === "td" || tag === "th")) {
+      // Column alignment: a Markdown table's class (markdown-epub.ts), or an older book's align attribute.
+      const way = [n.getAttribute?.("align") ?? "", ...(n.getAttribute?.("class") ?? "").split(/\s+/)].find((w) => ALIGN.test(w));
+      if (way) attrs["data-align"] = way;
+    }
+    return [{ tag, attrs, kids: kids(n, math) }];
+  };
+  const [root] = walk(table as DomNode);
+  return root && typeof root !== "string" && root.tag === "table" ? root : { tag: "table", attrs: {}, kids: [] };
+}
+
+/** The clipped table under a tap, with its caption (a `<caption>`, or the paragraph before it that begins "Table 2");
+ * null for anything else, a table that fits its column too (its cells are text to select like any other). */
+export function tableAt(target: unknown): TappedTable | null {
+  const el = target as Partial<El> | null;
+  if (!el || typeof el.closest !== "function") return null;
+  const table = el.closest("table[data-nl-wide]") as (El & { previousElementSibling: El | null; querySelectorAll(s: string): ArrayLike<unknown> }) | null;
+  if (!table || table.closest("a")) return null;
+  const own = table.querySelector("caption")?.textContent;
+  const before = table.previousElementSibling?.textContent ?? "";
+  const caption = own?.trim() ? tidy(own) : LEGEND.test(before) ? tidy(before) : "";
+  return { caption, table: cleanTable(table), cells: table.querySelectorAll("td, th").length };
+}
