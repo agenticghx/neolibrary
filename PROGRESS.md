@@ -355,6 +355,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-03 17:56 · Claude Opus 5.5 · Checkpoint: paper tables (#291) and X-ray junk names (#292) live at 8c5c68d
+- **Done:** #291 (every table row and column readable) and #292 (X-ray junk names; one-time pass removed 116 names from 5 books on production, Chip War's 890 entries and 2816 facts untouched) are live at 8c5c68d, deployed by deploy.yml. Worktrees removed.
+- **Key paths:** docs/handoffs/2026-11-03-1755-paper-tables-xray-live.md (gitignored, laptop only); lib/library/xray-prune.ts; app/(reader)/books/[id]/read/TableView.tsx
+- **Commands that worked:** curl /api/health -> 8c5c68d; railway logs -> 'X-ray names: 116 removed from 5 book(s).'; psql on production -> Greco 90 X-ray entries
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Samuel marks the Greco paper (PMID 7568331) and tries Explain it and the summary card. 2. Later M41: paper by DOI before its file; PubMed Central full text; explain a figure; linked references. 3. Possible X-ray follow-up: authors cited only in brackets are not listed.
+
 ### 2026-11-03 17:13 · Claude Opus 5.5 · Live: #291 (paper tables, f9607f9) and #292 (X-ray junk names, 8c5c68d), both by deploy.yml
 - **Done:** #291 M41 R1e (every row and column of a table readable) went live as f9607f9 after main's CI re-run (stats flake). #292 M41 R1f (X-ray junk names) merged as 8c5c68d9 and went live as 8c5c68d after a re-run (CI could not install browsers, exit 100). Its one-time start-up pass ran on production.
 - **Key paths:** lib/library/xray-prune.ts; lib/library/xray.ts; app/(reader)/books/[id]/read/TableView.tsx; app/(reader)/books/[id]/read/settings.ts
