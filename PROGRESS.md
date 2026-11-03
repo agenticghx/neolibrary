@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel marks the Greco paper (PMID 7568331) and tries Explain it and the summary card; invited readers should then see it under Papers.
+next_action: Samuel marks the Greco paper (PMID 7568331); then check an invited reader sees it under Papers.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-03
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-03 06:05 · Claude Opus 5.5 · Checkpoint: shared papers live at 15a82ef (migration 0038)
+- **Done:** 15a82ef4 deployed and checked: both addresses 15a82ef, _migrations 38, /sign-in 200, log 'Page pictures: ready.'; deploy record 6067f907 on main; no paper marked or shared yet.
+- **Key paths:** docs/handoffs/2026-11-03-0605-shared-papers-live.md (gitignored, laptop only); lib/library/shared-papers.ts; db/migrations/0038_shared_papers.up.sql
+- **Commands that worked:** curl /api/health; psql select count(*), max(id) from _migrations -> 38|0038_shared_papers; ledger-to-main
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Samuel marks the Greco paper (book page foot, 'Is this a research paper?', PMID 7568331) and checks an invited reader sees it under Papers. 2. Samuel tries Explain it (about $0.04) and the summary card (about $0.08). 3. Later M41: paper by DOI before its file; PubMed Central full text; explain a figure; linked references.
 
 ### 2026-11-03 05:15 · Claude Opus 5.5 · Deployed 15a82ef: M41 R3c, papers shared with invited readers (migration 0038)
 - **Done:** Deployed main tip 15a82ef4 at Samuel's word (#290, shared papers, migration 0038). Backup taken and restore-checked first. Coordinated with the other local session (deploying/deployed messages).
