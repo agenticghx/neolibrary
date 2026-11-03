@@ -1775,6 +1775,84 @@
   line-height: var(--leading-read);
 }
 
+/* M41: a table wider than its column, whole (TableView.tsx): on the page's own paper, scrolled both ways. */
+.tableView {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 0;
+  background-color: var(--figure-ground);
+  color: var(--ink-900);
+  display: none;
+}
+
+.tableView[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tableView::backdrop {
+  background-color: var(--figure-dim);
+}
+
+.tableWhole {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  line-height: var(--leading-ui);
+}
+
+.tableWhole:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tableCaption {
+  margin: 0 0 var(--space-3);
+  max-width: 46rem;
+  color: var(--ink-900);
+}
+
+.tableWhole table {
+  border-collapse: collapse;
+}
+
+.tableWhole th,
+.tableWhole td {
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  text-align: left;
+}
+
+.tableWhole th {
+  font-weight: 600;
+  vertical-align: bottom;
+  border-bottom-color: var(--ink-500);
+}
+
+.tableWhole [data-align="right"] {
+  text-align: right;
+}
+
+.tableWhole [data-align="center"] {
+  text-align: center;
+}
+
+.tableWhole math {
+  font-family: var(--font-math);
+}
+
 /* M41 R4b: an equation explained (EquationView.tsx), in the shortcuts dialog's frame. */
 .equationTex {
   margin: 0 0 var(--space-4);

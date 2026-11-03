@@ -146,9 +146,10 @@ export function chaptersOf(body: string, pictures?: Pictures): Chapter[] {
   let current: Chapter | null = null;
   const here = () => (current ??= (chapters.push({ level: 0, title: "Opening pages", html: [] }), chapters[chapters.length - 1]));
   // HTML comments are notes for whoever edits the file (M41: a transcription's page markers); readers never see them.
+  // One written inside backticks is shown, not hidden: Greco's note says its page markers look like `<!-- page 345 -->`.
   const lines = body
     .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]*<!--[\s\S]*?-->/g, "")
+    .replace(/(`+)[^`\n]*?\1|[ \t]*<!--[\s\S]*?-->/g, (m, ticks?: string) => (ticks ? m : ""))
     .split("\n");
   let para: string[] = [];
   let quote: string[] = [];

@@ -62,7 +62,8 @@ import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FocusMo
 import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
-import { equationAt, figureAt, type Figure } from "./figure";
+import { TableView } from "./TableView";
+import { equationAt, figureAt, markWideTables, tableAt, type Figure, type TappedTable } from "./figure";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
@@ -533,6 +534,7 @@ export function Reader(props: {
   const [shortcuts, setShortcuts] = useState(false);
   // M41: the picture a tap on the page opened full screen.
   const [figure, setFigure] = useState<Figure | null>(null);
+  const [wholeTable, setWholeTable] = useState<TappedTable | null>(null);
   // M41 R4b: the equation a tap asked to have explained.
   const [equation, setEquation] = useState<EquationAsk | null>(null);
   const shortcutsOpen = useRef(false);
@@ -1106,11 +1108,22 @@ export function Reader(props: {
                 setEquation({ cfi: v.getCFI(index, range), latex: m.latex, number: m.number });
                 return;
               }
+              // M41: a table wider than its column (clipped on the page) is shown whole.
+              const t = tableAt(e.target);
+              if (t) {
+                e.preventDefault();
+                setWholeTable(t);
+                return;
+              }
               const f = figureAt(e.target);
               if (!f) return;
               e.preventDefault();
               setFigure(f);
             });
+            // M41: mark the tables wider than the column, and again whenever the page is laid out anew.
+            markWideTables(doc);
+            const View = doc.defaultView as (Window & typeof globalThis) | null;
+            if (View?.ResizeObserver) new View.ResizeObserver(() => markWideTables(doc)).observe(doc.body);
             // Focus (M21): the line or paragraph under the mouse as it moves (once a frame), or where a finger taps.
             setFocusMode(doc, focusRef.current);
             let frame = 0;
@@ -2568,6 +2581,7 @@ export function Reader(props: {
 
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
       <FigureView figure={figure} onClose={() => setFigure(null)} />
+      <TableView table={wholeTable} onClose={() => setWholeTable(null)} />
       <EquationView bookId={props.bookId} equation={equation} onClose={() => setEquation(null)} />
       <StartFocusDialog
         open={focusStart}

@@ -571,6 +571,73 @@ test("a paper's .zip with its pictures is added, and its figure shows in the rea
   await expect(view).toBeHidden();
 });
 
+// M41 R1e "Done when": a table taller than a page runs on across pages with every row shown (a scrolling box could not
+// be split, so rows past a page's foot were never seen: Greco's Table 3 showed 21 of 40), and a table wider than the
+// column says so and is shown whole on a tap, with every column.
+test("a paper's long table runs across pages, and a wide one is shown whole on a tap", async ({ page }) => {
+  test.setTimeout(90_000);
+  const tall = ["| Dose | Effect |", "|---:|---:|", ...Array.from({ length: 60 }, (_, i) => `| ${i + 1} | ${(100 - i * 1.5).toFixed(1)} |`)];
+  const heads = Array.from({ length: 12 }, (_, i) => `Measured effect ${i + 1}`);
+  const wide = [`| ${heads.join(" | ")} |`, `|${heads.map(() => "---:").join("|")}|`, `| ${heads.map((_, i) => String(i * 10)).join(" | ")} |`];
+  const md = ["---", "title: A Paper With Long Tables", "---", "# Results", "", "**TABLE 1.** *Effect at sixty doses*", "", ...tall, "", "The effect falls as the dose rises.", "", "**TABLE 2.** *Twelve measures*", "", ...wide, "", "The end."].join("\n");
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "a-paper-with-long-tables.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^A Paper With Long Tables/ }).click();
+  await expect(page.getByRole("heading", { name: "A Paper With Long Tables", level: 1 })).toBeVisible();
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const tables = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents()[0]?.doc;
+      return Array.from(doc?.querySelectorAll("table") ?? []).map((t) => {
+        const rows = Array.from(t.rows).map((r) => r.getBoundingClientRect());
+        return {
+          rows: rows.length,
+          // A row below the page's foot is never on any page.
+          belowFoot: rows.filter((r) => r.bottom > doc!.defaultView!.innerHeight + 1).length,
+          pages: new Set(rows.map((r) => Math.round(r.left))).size,
+          wide: t.hasAttribute("data-nl-wide"),
+        };
+      });
+    });
+  await expect.poll(async () => (await tables()).map((t) => t.wide)).toEqual([false, true]);
+  const [long] = await tables();
+  expect(long.rows).toBe(61);
+  expect(long.belowFoot).toBe(0);
+  expect(long.pages).toBeGreaterThan(1);
+
+  // The wide table: to its page, and a tap on a cell shows it whole.
+  await page.evaluate(async () => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document; index: number }[] }; getCFI(i: number, r: Range): string; goTo(t: string): Promise<void> };
+    const { doc, index } = view.renderer.getContents()[0];
+    const range = doc.createRange();
+    range.selectNodeContents(doc.querySelectorAll("table")[1].rows[1]);
+    await view.goTo(view.getCFI(index, range));
+  });
+  const point = async () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents()[0].doc;
+      const box = doc.querySelectorAll("table")[1].rows[1].cells[0].getBoundingClientRect();
+      const frame = (doc.defaultView!.frameElement as HTMLElement).getBoundingClientRect();
+      return { x: frame.left + box.left + 4, y: frame.top + box.top + box.height / 2, onPage: box.left >= 0 && box.right <= doc.defaultView!.innerWidth };
+    });
+  await expect.poll(async () => (await point()).onPage).toBe(true);
+  const at = await point();
+  await page.mouse.click(at.x, at.y);
+  const view = page.getByRole("dialog", { name: "TABLE 2" });
+  await expect(view).toBeVisible();
+  await expect(view.getByText("TABLE 2. Twelve measures")).toBeVisible();
+  await expect(view.locator("th")).toHaveText(heads);
+  await expect(view.locator("td").last()).toHaveText("110");
+  await page.keyboard.press("Escape");
+  await expect(view).toBeHidden();
+});
+
 // M41 R3 "Done when": a title is marked as a research paper by its DOI on its own page; it takes the paper's real title
 // and details (the fake catalogue in tests), shows a paper's card under Papers, and is a book again after "This is not a
 // paper". It is removed at the end, so the later tests find the shelves as before.

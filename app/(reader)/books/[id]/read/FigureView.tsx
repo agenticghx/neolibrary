@@ -5,7 +5,7 @@ import type { Figure } from "./figure";
 import styles from "./reader.module.css";
 
 /** The element that has the keyboard, looking inside the book viewer (its frames sit in shadow roots). */
-function deepActive(): HTMLElement | null {
+export function deepActive(): HTMLElement | null {
   let el: Element | null = document.activeElement;
   while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
   return el instanceof HTMLElement && el !== document.body ? el : null;

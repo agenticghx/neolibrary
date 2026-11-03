@@ -287,7 +287,7 @@ test("pages read on the subscription, sent with a token, make the scan's text ed
     )
     .toContain("read from the scanned pages of the PDF by claude-sonnet-5-5");
 
-  // No text over text: the wide table stays inside the reading column (it scrolls sideways) and covers no line of
+  // No text over text: the wide table stays inside the reading column (clipped there; a tap shows it whole) and covers no line of
   // the paragraphs around it, on a phone and on a desktop.
   for (const [w, h] of [[390, 844], [1280, 800]] as const) {
     await page.setViewportSize({ width: w, height: h });

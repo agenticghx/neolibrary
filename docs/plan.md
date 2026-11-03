@@ -1498,6 +1498,41 @@ Open unknowns row 33; it decides how much of R2 is built.
   again, that Listen started on the equation or a cell begins at "The end.",
   and that whole-book narration counts two paragraphs (fake voice); it fails
   without the change.
+- **R1e · Every row and column of a table can be read.** Samuel,
+  2026-11-03: "more legible in the paper without sacrificing accuracy".
+  On the Greco paper, a table taller than a page lost every row past the
+  page's foot (Table 3 showed rows 1 to 21 of 40; Tables 2, 4 and 5 lost
+  rows too), and a table wider than the column hid its far columns; on a
+  phone they could not be scrolled at all, because the page's own swipe
+  turns pages. Both came from one rule (2026-10-17, for The Pay Off's wide
+  table): a table that scrolls sideways is a box that cannot be split
+  across pages. The table is now clipped at the column's edge instead
+  (`overflow-x: clip`), so it runs on across pages, a row is never split,
+  and a caption keeps to its table. The reader marks a table wider than its
+  column (`data-nl-wide`, measured again whenever the page is laid out
+  anew; an attribute, so no note's anchor moves): its cut edge fades, a
+  line above it says "Wider than the page — tap to see the whole table",
+  and a tap shows it whole over the reader, scrolled both ways, with its
+  caption (`TableView.tsx`). The table is copied there as plain data from a
+  fixed list of table and formula elements and attributes (`cleanTable` in
+  `figure.ts`): nothing from a book's page runs in the reader's own page.
+  Also: a Markdown file's HTML comment written inside backticks is shown
+  as code, not dropped (Greco's own note, "page markers look like
+  `<!-- page 345 -->`", lost its examples). Not changed: a table that fits
+  is text on the page like any other; its header row is not repeated on
+  the next page. *Built 2026-11-03 (branch `m41-paper-legible`).*
+  Done when: unit tests mark only tables wider than their box (and unmark
+  one that fits again), offer a marked table with its caption and not one
+  that fits, copy a formula but no script, handler, link, picture or
+  style, keep the CSS rules, and keep a comment in backticks as code while
+  dropping one outside; a browser test adds a paper with a 60-row table and
+  a 12-column one, finds every row of the first at or above the page's
+  foot and spread over more than one page, the second marked, and a tap on
+  it showing a dialog "TABLE 2" with all 12 headings and the last cell; it
+  fails with the old rule (40 rows below the foot). Real-paper check: the
+  Greco zip on a local build, every table measured in Chrome and WebKit,
+  desktop and phone (no row below a page's foot; the wide ones marked),
+  and Table 1 (phone) and Table 3 (desktop) shown whole in both engines.
 - **R2 · Figures.** A Markdown file and its pictures, uploaded together as
   one `.zip` (the `.md` plus, say, a `figures/` folder), become an EPUB with
   the pictures in it (`lib/library/markdown-pictures.ts`). A picture is

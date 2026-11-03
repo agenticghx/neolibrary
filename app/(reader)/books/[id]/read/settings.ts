@@ -110,9 +110,21 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     /* M41 R4b: a tap on a displayed equation opens Explain this equation (EquationView.tsx). */
     math[display="block"][alttext] { cursor: help; }
     a img { cursor: pointer; }
-    /* A table wider than the column (The Pay Off's 9-column table, 2026-10-17) spilled over the text beside it: it now
-       stays within the column and scrolls sideways. */
-    table { display: block; width: max-content; max-width: 100%; overflow-x: auto; }
+    /* A table wider than the column (The Pay Off's 9-column table, 2026-10-17) spilled over the text beside it: it
+       stays within the column. Clipped, not scrolled (M41): a box that scrolls cannot be split across pages, so a
+       table taller than a page lost every row past the page's foot (Greco's Table 3 showed 21 of its 40 rows), and on
+       a phone the page's own swipe left it no way to scroll anyway. A row is never split; a caption keeps to its table.
+       A table wider than the column is marked by the reader (data-nl-wide, markWideTables in figure.ts): its cut edge
+       fades, it says so, and a tap shows the whole table (TableView.tsx). */
+    table { display: block; width: max-content; max-width: 100%; overflow-x: clip; }
+    tr { break-inside: avoid; }
+    p:has(+ table) { break-after: avoid; }
+    table[data-nl-wide] { cursor: zoom-in; mask-image: linear-gradient(to left, transparent, #000 2.5em); }
+    table[data-nl-wide]::before {
+      content: "Wider than the page \\2014  tap to see the whole table";
+      display: block; margin: 0.3em 0 0.5em; font: 600 0.75rem/1.3 "NL Sans", Arial, sans-serif; letter-spacing: 0.02em;
+      color: ${colors.accent};
+    }
     pre { white-space: pre-wrap !important; }
     aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
   `;

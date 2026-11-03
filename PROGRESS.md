@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel marks the Greco paper (PMID 7568331); then check an invited reader sees it under Papers.
+next_action: Read the full browser suite result for m41-paper-legible, then open the PR and merge when green.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-03
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-03 13:07 · Claude Opus 5.5 · M41 R1e: every row and column of a paper's tables can be read (branch m41-paper-legible, not yet merged)
+- **Done:** Samuel asked for papers to be more legible without losing accuracy. Measured every Greco table: tables taller than a page lost rows (Table 3 showed 21 of 40) and wide tables hid columns, unscrollable on a phone. Tables are now clipped (overflow-x: clip), not scrolled, so they run across pages; rows never split; captions keep to tables; a wide table is marked, says 'Wider than the page - tap to see the whole table', and a tap shows it whole (TableView.tsx, safe copy via cleanTable). Also a Markdown comment inside backticks is kept as code (Greco's transcription note lost its examples).
+- **Key paths:** app/(reader)/books/[id]/read/settings.ts; app/(reader)/books/[id]/read/figure.ts; app/(reader)/books/[id]/read/TableView.tsx; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader.module.css; app/tokens.css; lib/library/markdown-epub.ts; e2e/uploads.spec.ts; docs/plan.md (M41 R1e)
+- **Commands that worked:** npm run check -> 1284 passed; PORT=3400 npx playwright test --project=uploads --ignore-snapshots -> 192 passed; same test with overflow-x: auto restored -> failed 'Expected: 0, Received: 40'; local Greco build: no row below a page's foot in any table, Chrome and WebKit, desktop and phone
+- **Known issues / blockers:** Full browser suite: PORT=3400 npx playwright test --ignore-snapshots -> 414 passed (16.0m). One Chrome phone page leaves Table 6's caption apart from its table (break-after: avoid is not guaranteed). The comment fix applies to new imports; the live Greco keeps its old text until re-imported.
+- **Exact next steps:** 1. Read the full browser suite result; fix anything red. 2. Open the PR (no migration), take turns with neolibrary-2f, merge with the merge train when the four checks are green. 3. No migration, so deploy.yml deploys the merge itself; confirm /api/health shows it. 4. Later: X-ray lists 'Eq' and Roman numerals as names in papers.
 
 ### 2026-11-03 06:05 · Claude Opus 5.5 · Checkpoint: shared papers live at 15a82ef (migration 0038)
 - **Done:** 15a82ef4 deployed and checked: both addresses 15a82ef, _migrations 38, /sign-in 200, log 'Page pictures: ready.'; deploy record 6067f907 on main; no paper marked or shared yet.
