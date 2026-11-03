@@ -1,3 +1,4 @@
+import { syncSharedPaper } from "./shared-papers";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots } from "@/lib/db/schema";
@@ -34,6 +35,8 @@ export async function removeBook(db: Db, ownerId: string, bookId: string, now = 
   const onPaths = await pathsOfBook(db, ownerId, bookId);
   if (onPaths.length) throw new RemoveBookError(`This book is part of ${onPaths.join(" and ")}, so it stays in your library.`);
   await db.update(books).set({ deletedAt: now }).where(eq(books.id, bookId));
+  // M41 R3c: an owner's shared paper leaves the readers' libraries too (nothing happens for any other book).
+  await syncSharedPaper(db, bookId);
 }
 
 export async function restoreBook(db: Db, ownerId: string, bookId: string) {
@@ -44,6 +47,7 @@ export async function restoreBook(db: Db, ownerId: string, bookId: string) {
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey)))
     .returning({ id: books.id });
   if (!done.length) throw new RemoveBookError("Book not found.");
+  await syncSharedPaper(db, bookId);
 }
 
 /** The reader's removed books, newest removal first. Titles taken off a Path (no file) are not listed: they were never on a shelf. */

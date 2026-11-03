@@ -122,6 +122,10 @@ export const books = pgTable("books", {
   doi: text("doi"),
   /** Its PubMed ID (digits). */
   pmid: text("pmid"),
+  /** M41 R3c (0038): on an invited reader's row, the owner's paper it is a shared copy of. */
+  sharedFrom: uuid("shared_from").references((): AnyPgColumn => books.id, { onDelete: "set null" }),
+  /** On the owner's paper: shared with invited readers (the default) or not. */
+  sharePapers: boolean("share_papers").notNull().default(true),
 });
 
 /** One of a paper's authors: family name (always) and given names or initials (may be ""). */

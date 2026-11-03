@@ -10,11 +10,38 @@ import styles from "./page.module.css";
  * PubMed pages; "This is not a paper" makes it a book again. A book offers "Is this a research paper?": its DOI or
  * PubMed ID fills in the real title, authors, year and journal from Crossref or PubMed.
  */
-export function PaperDetails({ bookId, paper }: { bookId: string; paper: { byline: string; doi: string | null; pmid: string | null } | null }) {
+export function PaperDetails({
+  bookId,
+  paper,
+  sharing,
+}: {
+  bookId: string;
+  paper: { byline: string; doi: string | null; pmid: string | null } | null;
+  /**
+   * M41 R3c: on the owner's paper, whether it is shared with invited readers and how many have it; on a reader's copy,
+   * who shared it (then its details cannot be changed here).
+   */
+  sharing?: { owner: { on: boolean; readers: number } } | { by: string };
+}) {
   const router = useRouter();
   const [id, setId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function share(on: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/paper`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ share: on }) });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) setError(body.error ?? "That did not work. Try again.");
+      else router.refresh();
+    } catch {
+      setError("The library could not be reached. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function send(method: "POST" | "DELETE") {
     setBusy(true);
@@ -59,9 +86,27 @@ export function PaperDetails({ bookId, paper }: { bookId: string; paper: { bylin
             </a>
           ) : null}
         </p>
-        <button type="button" className={styles.paperUndo} onClick={() => send("DELETE")} disabled={busy}>
-          This is not a paper
-        </button>
+        {sharing && "by" in sharing ? (
+          <p className={styles.notesSummary} data-testid="paper-shared-by">
+            Shared with you by {sharing.by}. Your place, highlights and notes in it are your own.
+          </p>
+        ) : (
+          <>
+            {sharing && "owner" in sharing ? (
+              <p className={styles.notesSummary} data-testid="paper-sharing">
+                {sharing.owner.on
+                  ? `Shared with the people you invite: ${sharing.owner.readers === 1 ? "1 reader has it" : `${sharing.owner.readers} readers have it`} in their library, with their own notes.`
+                  : "Not shared: only you see it."}{" "}
+                <button type="button" className={styles.paperUndo} aria-pressed={sharing.owner.on} onClick={() => share(!sharing.owner.on)} disabled={busy}>
+                  {sharing.owner.on ? "Stop sharing" : "Share with invited readers"}
+                </button>
+              </p>
+            ) : null}
+            <button type="button" className={styles.paperUndo} onClick={() => send("DELETE")} disabled={busy}>
+              This is not a paper
+            </button>
+          </>
+        )}
         {error ? (
           <p role="alert" className={forms.error}>
             {error}

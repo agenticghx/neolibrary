@@ -83,6 +83,8 @@ const PROJECT_SLICE = {
   "open-shelf": "behavior",
   // M34 S4: bring your own key; a branch off `stats` too.
   "own-keys": "behavior",
+  // M41 R3c: shared papers, as the owner and as an invited reader; a branch off `stats` too.
+  "shared-papers": "behavior",
 };
 
 const NARRATION_FILES = new Set([

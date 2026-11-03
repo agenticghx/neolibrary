@@ -23,6 +23,7 @@ import { listImports } from "@/lib/readalong/importer";
 import { AudiobookUpload } from "./AudiobookUpload";
 import { isPublicDomainEdition } from "@/lib/library/open-shelf";
 import { PaperDetails } from "./PaperDetails";
+import { copiesOf, sharedBy } from "@/lib/library/shared-papers";
 import { PaperSummary } from "./PaperSummary";
 import { byline } from "@/lib/papers/model";
 import { removeBookAction, setShelfSwitchAction, toggleCollectionAction } from "../../actions";
@@ -60,6 +61,15 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
   // M41 R3: a research paper's line under its title and on its card.
   const paper = book.kind === "paper" ? { byline: byline(book), doi: book.doi, pmid: book.pmid } : null;
+  // M41 R3c: a paper shared with this reader says by whom; the owner's paper says whether, and with how many, it is shared.
+  const by = paper ? await sharedBy(await getDb(), book) : null;
+  const sharing = !paper
+    ? undefined
+    : by
+      ? { by }
+      : user.role === "admin"
+        ? { owner: { on: book.sharePapers, readers: (await copiesOf(await getDb(), [book.id])).get(book.id) ?? 0 } }
+        : undefined;
 
   return (
     <main className={styles.main}>
@@ -235,7 +245,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
           {/* Always here, so its message outlives the refresh that brings the file (it draws nothing for a book that had one). */}
           <AttachFile bookId={book.id} hasFile={hasFile} readLinkId="read-book" />
           {/* M41 R3: a paper's details; on a book, the quiet question "Is this a research paper?" at the foot. */}
-          <PaperDetails bookId={book.id} paper={paper} />
+          <PaperDetails bookId={book.id} paper={paper} sharing={sharing} />
           {/* M19 P3b: a book can leave the library, behind a confirmation, and come back from Your data. A book that fills a
               title on a Path (listed above) stays: it is part of that Path. */}
           {hasFile && !places.length ? (

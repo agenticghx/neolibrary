@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel marks the Greco paper by PMID 7568331 and tries Explain it and the summary card on the live site.
+next_action: Merge R3c (shared papers, migration 0038), then back up and deploy at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -303,7 +303,7 @@ Never blocks the loop. Newest first.
 | 30 | **After switching to Two pages in Scroll, your words can sit in the right column** (the view lines up on the start of a two-column spread, so the left column shows the text just before your place; nothing is lost). Mark the line you were on for a moment after a layout switch (a brief highlight), or leave it? Default: leave it. | Samuel | none (no deadline) | **decided 2026-10-26: mark it** ("yeah, should be hilighted"); built in branch m21-switch-mark |
 | 31 | **On a scan's pages, highlights are saved and listed in Notes but never drawn on the page** (found 2026-10-26 while building notes across the scan and its text edition): the PDF page renderer (foliate's fixed layout) has no drawing layer, so this was true before for every note made on a scan, and stays true for a note from the text edition. Such a note's "Go to" lands on its words, unmarked. Build a highlight layer for scan pages (the browser's text highlights over the page's hidden text, as the read-aloud word is lit)? Default: as now. | Samuel | none (no deadline) | closed 2026-11-01: default stands (no answer in 7 days) |
 | 32 | **Bring your own AI key (M36, `docs/plan.md`)** (Samuel, 2026-10-29: "this app should be bring your own AI API keys until we find cheap api keys for public use or from donations"). Five defaults to confirm before it is built: (1) answers one reader paid for (rewrites, Need to know, Test yourself) stay shared free with other readers of the same text; (2) keys stored encrypted with a server key held in a Railway variable, shown only as their last four characters; (3) invited readers keep using your key until M36 ships, then only your requests use it; (4) voices and pictures stay on your keys for now; (5) showcase visitors (M34) never ask for new answers. And: build it now, or after M34? Default until you say: recorded, not built. | Samuel | 2026-11-12 | open (default applies) |
-| 33 | **Papers (M41): who are they for?** Samuel alone, or also the people he invites? Asked 2026-11-02 when he agreed to the plan in `docs/plan.md` M41. It decides R3: a paper shared with invited readers needs the same sharing rules as books and a check that its file may be shared; papers for Samuel alone need neither. R1 (equations and tables) and R2 (figures) do not depend on it. | Samuel | 2026-11-16 | open; default taken 2026-11-02 for R3: a paper is its reader's own, exactly like a book, nothing shared (to reverse: sharing would follow the books' rules, a later step) |
+| 33 | **Papers (M41): who are they for?** Samuel alone, or also the people he invites? Asked 2026-11-02 when he agreed to the plan in `docs/plan.md` M41. It decides R3: a paper shared with invited readers needs the same sharing rules as books and a check that its file may be shared; papers for Samuel alone need neither. R1 (equations and tables) and R2 (figures) do not depend on it. | Samuel | 2026-11-16 | answered 2026-11-02: Samuel, "yes people invited should see papers". Built as M41 R3c: every title marked a paper is readable by invited readers, each with their own notes; a switch per paper stops sharing it |
 
 ## Decisions
 
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 18:21 · Claude (laptop) · M41 R3c: papers shared with invited readers (branch m41-shared-papers, migration 0038)
+- **Done:** Samuel answered Open unknowns row 33 ('yes people invited should see papers'). Built: every paper the owner marks is in each invited reader's library (their own copy row, same file, copied sections; own place, notes and AI answers); readers who join later get them; the owner's paper page has Stop sharing / Share with invited readers and a reader count; a reader's copy says 'Shared with you by'; unmark, remove or stop sharing hides copies. Migration 0038 (shared_from, share_papers) with its reverse. Not merged, not deployed.
+- **Key paths:** db/migrations/0038_shared_papers.{up,down}.sql; lib/db/schema.ts; lib/library/shared-papers.ts, shared-papers.test.ts; lib/library/{papers,remove-book}.ts; app/api/files/[...key]/route.ts; app/api/books/[id]/paper/route.ts (PATCH share); app/(public)/actions.ts; app/(app)/books/[id]/{PaperDetails.tsx,page.tsx}; e2e/shared-papers.spec.ts; playwright.config.ts; scripts/ci-browser-needed.mjs; docs/plan.md M41 R3c
+- **Commands that worked:** npx vitest run lib/library/shared-papers.test.ts -> 3 passed (2 fail when marking does not share). TEST_DATABASE_URL=... npm run test:postgres -> 2 passed. PORT=3400 npx playwright test --project=shared-papers --ignore-snapshots -> 299 passed (fails with the old file rule). npm run check -> 1280 passed, 2 skipped.
+- **Known issues / blockers:** Deploy needs a production backup first (migration 0038).
+- **Exact next steps:** 1. PR, merge when the four checks are green. 2. Back up production, deploy, count _migrations = 38. 3. Samuel marks the Greco paper (PMID 7568331); his invited readers then find it under Papers.
 
 ### 2026-11-02 16:53 · Claude Opus 5.5 (laptop) · Checkpoint: M41 Papers R1d to R4a live at f9f1290 with the M34 open shelf
 - **Done:** M41 #283, #284, #286 (migration 0037), #288, #289 merged and deployed at f9f1290 together with M34 S1 to S5 (migration 0036), after a restore-checked backup; worktrees removed. Handoff note docs/handoffs/2026-11-02-1653-m41-papers-live.md (gitignored, laptop only).
