@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: At Samuel's 'deploy', back up production and deploy e072e714 (migration 0038, shared papers).
+next_action: Samuel marks the Greco paper (PMID 7568331) and tries Explain it and the summary card; invited readers should then see it under Papers.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-11-02
+updated: 2026-11-03
 shared_copy: none
 ---
 
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-03 05:15 · Claude Opus 5.5 · Deployed 15a82ef: M41 R3c, papers shared with invited readers (migration 0038)
+- **Done:** Deployed main tip 15a82ef4 at Samuel's word (#290, shared papers, migration 0038). Backup taken and restore-checked first. Coordinated with the other local session (deploying/deployed messages).
+- **Key paths:** db/migrations/0038_shared_papers.up.sql; lib/library/shared-papers.ts; backup kept on the laptop outside the repo
+- **Commands that worked:** pg_dump over railway ssh (dump complete footer present); restore into docker postgres:18 with ON_ERROR_STOP -> exit 0, 37 migrations, 260 books, 12093 sections; railway variable set NEOLIBRARY_COMMIT=15a82ef4... --skip-deploys; railway up --ci -> Deploy complete; /api/health on both addresses -> 15a82ef; /sign-in 200; /browse 200; log 'Page pictures: ready.'; _migrations -> 38 | 0038_shared_papers; books with shared_from -> 0; share_papers true on all 260
+- **Known issues / blockers:** none encountered. The first restore check failed only because psql connected during the container's start-up restart; rerun after the second 'ready to accept connections' passed.
+- **Exact next steps:** 1. Samuel marks the Greco paper (its book page, at the foot: 'Is this a research paper?' -> PMID 7568331); invited readers then find it under Papers. 2. Samuel tries 'Explain it' on an equation (about $0.04) and 'Make a summary card' (about $0.08). 3. Later M41: add a paper by DOI before its file; PubMed Central full text; explain a figure; linked references.
 
 ### 2026-11-02 20:13 · Claude Opus 5.5 (laptop) · Checkpoint: shared papers (#290, migration 0038) merged; deploy waits on Samuel
 - **Done:** M41 R3c merged as #290 (e072e714, four checks green): every paper the owner marks is in each invited reader's library (own copy row, same file), with Stop sharing on the owner's paper page. Not deployed: live is f9f1290. Handoff note docs/handoffs/2026-11-02-2012-shared-papers-merged.md (gitignored, laptop only).
