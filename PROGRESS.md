@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the full browser suite result for m41-paper-legible, then open the PR and merge when green.
+next_action: Confirm f9607f9 is live after main's CI re-run; then open and merge the m41-xray-names PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-03
 shared_copy: none
@@ -354,6 +354,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-03 14:51 · Claude Opus 5.5 · Main's CI for #291 (f9607f95) hit the known stats flake; re-run started
+- **Done:** The table fix (#291, f9607f95) did not deploy: main's CI failed on e2e/stats.spec.ts:72 (received 60, expected >= 90), a known flake listed in docs/ci-flakes.md. Re-ran the failed job (run 41702210706) and noted it in docs/ci-flakes.md on this branch.
+- **Key paths:** docs/ci-flakes.md
+- **Commands that worked:** gh run view 41702210706 --log-failed; gh run rerun 41702210706 --failed
+- **Known issues / blockers:** Live is still 15a82ef until the re-run passes and deploy.yml runs.
+- **Exact next steps:** 1. When main's re-run is green, confirm /api/health shows f9607f9. 2. Read the m41-xray-names browser suite result, open its PR, merge when green.
+
+### 2026-11-03 14:48 · Claude Opus 5.5 · M41 R1f: X-ray junk names in a paper (branch m41-xray-names, not yet merged)
+- **Done:** Samuel: 'fix the X-ray junk names too'. The name finder now leaves out a reference list, cross-reference and company words (Eq, Figs, Inc, Jr), a lone Roman numeral, letter-and-word terms (X-axis), and words that touch formula signs (Econ=100); 'Method of Steel' is Steel. Greco 184 names to 90. A one-time start-up pass (lib/library/xray-prune.ts) takes such names out of stored indexes without rebuilding them: only entries the finder made itself, with no facts, that it no longer finds.
+- **Key paths:** lib/library/xray.ts; lib/library/xray-prune.ts; instrumentation.ts; lib/library/xray-names.test.ts; lib/library/xray-prune.test.ts; docs/plan.md (M41 R1f)
+- **Commands that worked:** npm run check -> 1289 passed; old vs new finder on every book of the restored backup (docker postgres:18) -> only junk removed; the pass on the restored backup -> 5 books, 116 names out, Chip War 890 entries and 2816 facts untouched, second run null; mutation (facts not protected) -> test failed as it should
+- **Known issues / blockers:** In a paper, an author cited only inside brackets or after a semicolon is no longer listed (the finder treats ( and ; as sentence starts). Full browser suite still running when this was written.
+- **Exact next steps:** 1. Read the full browser suite result. 2. Open the PR (no migration), take turns with neolibrary-2f, merge when the four checks are green; deploy.yml deploys it. 3. After it is live, check the start-up log line 'X-ray names: ... removed from ... book(s).' and the Greco X-ray.
 
 ### 2026-11-03 13:07 · Claude Opus 5.5 · M41 R1e: every row and column of a paper's tables can be read (branch m41-paper-legible, not yet merged)
 - **Done:** Samuel asked for papers to be more legible without losing accuracy. Measured every Greco table: tables taller than a page lost rows (Table 3 showed 21 of 40) and wide tables hid columns, unscrollable on a phone. Tables are now clipped (overflow-x: clip), not scrolled, so they run across pages; rows never split; captions keep to tables; a wide table is marked, says 'Wider than the page - tap to see the whole table', and a tap shows it whole (TableView.tsx, safe copy via cleanTable). Also a Markdown comment inside backticks is kept as code (Greco's transcription note lost its examples).

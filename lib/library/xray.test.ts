@@ -165,6 +165,9 @@ describe("a publisher's pages (M32 X6)", () => {
   it("knows a praise page by its label, and only at the start of it", () => {
     for (const label of ["More Praise for CHIP WAR", "Praise for The Chip", "Advance Praise for Chip War", "Acclaim for Chip War", " praise for chip war"]) expect(BOILERPLATE.test(label)).toBe(true);
     for (const label of ["In Praise of Idleness", "Notes from Underground", "Chapter 3: Notes", "The Praise Singer", "Acclaim", "Uncopyright"]) expect(BOILERPLATE.test(label)).toBe(label === "Uncopyright");
+    // M41: a paper's reference list is apparatus too; a chapter about references is not.
+    for (const label of ["XII. References", "References", "Bibliography", "12. Works Cited", "Literature cited", "Reference list"]) expect(BOILERPLATE.test(label), label).toBe(true);
+    for (const label of ["References to God", "Cross-references", "Notes", "Sources of Light"]) expect(BOILERPLATE.test(label), label).toBe(false);
   });
 
   it("leaves a fact or a mention stored in a publisher's page out of the list and out of the marks", async () => {

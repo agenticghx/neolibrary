@@ -22,7 +22,15 @@ export async function register() {
   const { backfillSectionForms } = await import("./lib/library/section-forms");
   void backfillSectionForms(db, await getStorage())
     .then((r) => r && console.log(`  Section forms: ${r.labelled} paragraph(s) labelled in ${r.books} book(s).`))
-    .catch((e) => console.error("Section forms backfill failed", e));
+    .catch((e) => console.error("Section forms backfill failed", e))
+    // M41: then, once, the X-ray's names its finder no longer finds ("Eq", "III", a reference list's journals) leave
+    // each stored index; entries from AI reading and any with facts stay. After the forms: it reads prose only.
+    .then(async () => {
+      const { backfillXrayNames } = await import("./lib/library/xray-prune");
+      const r = await backfillXrayNames(db);
+      if (r) console.log(`  X-ray names: ${r.removed} removed from ${r.books} book(s).`);
+    })
+    .catch((e) => console.error("X-ray names pass failed", e));
   // M22: covers for titles without one, looked up in the background (COVER_LOOKUP=off switches it off).
   const { scheduleCoverLookups } = await import("./lib/library/cover-job");
   scheduleCoverLookups(getDb, getStorage);

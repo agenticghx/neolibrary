@@ -1533,6 +1533,45 @@ Open unknowns row 33; it decides how much of R2 is built.
   Greco zip on a local build, every table measured in Chrome and WebKit,
   desktop and phone (no row below a page's foot; the wide ones marked),
   and Table 1 (phone) and Table 3 (desktop) shown whole in both engines.
+- **R1f · X-ray names in a paper.** Samuel, 2026-11-03: "fix the X-ray
+  junk names too". On the Greco paper the X-ray (the who-and-what index,
+  M32) listed 184 names, about half of them not names: "Eq" (330
+  mentions), "Eqs", "Figs", the section numbers "III" and "IV", "Inc",
+  "Jr", a formula's symbols written in a sentence ("Econ", "Emax", "IDX"),
+  terms such as "X-axis" and "D-optimal", "Method of Steel", and the
+  reference list's journals, publishers and cities ("Cancer Res",
+  "Academic Press", "New York", "FL"). The finder now leaves out a
+  reference list as it leaves out a colophon (a chapter titled
+  References, Bibliography, Works Cited or Literature Cited); cross-
+  reference and company words; a Roman numeral standing alone (one inside
+  a name, "Mode II", "Henry VIII", stays); a capital-and-word term
+  ("X-axis"); and a word that touches a formula's signs (`=`, `+`, `<`, a
+  minus before a number) in a quarter of its uses. A slash is not such a
+  sign ("Maestro/Cirrus" are two names), nor a minus sign before a word
+  (one book sets "Nobel Prize−winning" with it). "Method of Steel" is
+  Steel's. Greco: 184 names to 90, the authors it discusses kept. A book's
+  stored index is not rebuilt (AI reading adds entries and paid facts to
+  it: Chip War holds 2,816 facts): once, at start-up, an entry the finder
+  made itself (its id still matches its spellings), with no facts, that
+  the finder no longer finds is taken out, a name found now in a new shape
+  that no stored entry writes is added, and the mentions are found again
+  (`lib/library/xray-prune.ts`). Known limit: in a paper, an author cited
+  only inside brackets or after a semicolon ("(Waud and Parker, 1971;
+  Waud et al., 1978)") is no longer listed: the finder counts those places
+  as the start of a sentence, and such authors were kept before only by
+  the reference list. *Built 2026-11-03 (branch `m41-xray-names`).*
+  Done when: unit tests leave out each kind of junk on invented paper
+  paragraphs and keep "Loewe", "Mode II", "Hill", "Maestro", "Cirrus" and
+  "Nobel Prize"; file "Method of Steel" under Steel and keep "Method of
+  Correctly Conducting"; know a reference list's labels and not "References
+  to God"; and take out of a stored index only found, unused entries (not
+  one with a fact, one from AI reading or one changed since), find the
+  mentions again, and run once; it fails when an entry with facts may go.
+  Real-library check: the restored backup (2026-11-03), old and new finder
+  on every book's text, then the pass itself: 5 books changed, 116 names
+  out (Greco 94; Kuhn's two copies 5 and 8 Roman numerals and "X-rays";
+  The Pay Off "PIN-debit", "V-pay", "Interview"); Chip War's 890 entries
+  and 2,816 facts untouched; a second run changes nothing.
 - **R2 · Figures.** A Markdown file and its pictures, uploaded together as
   one `.zip` (the `.md` plus, say, a `figures/` folder), become an EPUB with
   the pictures in it (`lib/library/markdown-pictures.ts`). A picture is
