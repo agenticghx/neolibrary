@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Confirm f9607f9 is live after main's CI re-run; then open and merge the m41-xray-names PR.
+next_action: Samuel marks the Greco paper (PMID 7568331) and tries Explain it and the summary card.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-03
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-03 17:13 · Claude Opus 5.5 · Live: #291 (paper tables, f9607f9) and #292 (X-ray junk names, 8c5c68d), both by deploy.yml
+- **Done:** #291 M41 R1e (every row and column of a table readable) went live as f9607f9 after main's CI re-run (stats flake). #292 M41 R1f (X-ray junk names) merged as 8c5c68d9 and went live as 8c5c68d after a re-run (CI could not install browsers, exit 100). Its one-time start-up pass ran on production.
+- **Key paths:** lib/library/xray-prune.ts; lib/library/xray.ts; app/(reader)/books/[id]/read/TableView.tsx; app/(reader)/books/[id]/read/settings.ts
+- **Commands that worked:** curl /api/health -> 8c5c68d; /sign-in 200; railway logs -> 'X-ray names: 116 removed from 5 book(s).' (same as on the restored backup); psql on production: Greco 90 X-ray entries (was 184), Eq/III/Inc/Econ gone, Steel present; Chip War 890 entries and 2816 facts unchanged
+- **Known issues / blockers:** Two CI re-runs needed on main: e2e/stats.spec.ts:72 flake (run 41702210706) and a browser install failure (run 41721886904). Paper authors cited only in brackets are no longer in a paper's X-ray (known limit, docs/plan.md R1f).
+- **Exact next steps:** 1. Samuel marks the Greco paper (PMID 7568331) and tries Explain it and the summary card. 2. Later M41: paper by DOI before its file; PubMed Central full text; explain a figure; linked references.
 
 ### 2026-11-03 14:51 · Claude Opus 5.5 · Main's CI for #291 (f9607f95) hit the known stats flake; re-run started
 - **Done:** The table fix (#291, f9607f95) did not deploy: main's CI failed on e2e/stats.spec.ts:72 (received 60, expected >= 90), a known flake listed in docs/ci-flakes.md. Re-ran the failed job (run 41702210706) and noted it in docs/ci-flakes.md on this branch.
