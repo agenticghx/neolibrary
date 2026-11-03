@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge R3c (shared papers, migration 0038), then back up and deploy at Samuel's word.
+next_action: At Samuel's 'deploy', back up production and deploy e072e714 (migration 0038, shared papers).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-02
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-02 20:13 · Claude Opus 5.5 (laptop) · Checkpoint: shared papers (#290, migration 0038) merged; deploy waits on Samuel
+- **Done:** M41 R3c merged as #290 (e072e714, four checks green): every paper the owner marks is in each invited reader's library (own copy row, same file), with Stop sharing on the owner's paper page. Not deployed: live is f9f1290. Handoff note docs/handoffs/2026-11-02-2012-shared-papers-merged.md (gitignored, laptop only).
+- **Key paths:** docs/handoffs/2026-11-02-2012-shared-papers-merged.md; lib/library/shared-papers.ts; db/migrations/0038_shared_papers.{up,down}.sql; e2e/shared-papers.spec.ts
+- **Commands that worked:** gh pr view 290 -> MERGED e072e714; curl https://library.samuelahuno.com/api/health -> commit f9f1290; laptop: npx playwright test --ignore-snapshots -> 413 passed
+- **Known issues / blockers:** Deploy needs Samuel's 'deploy' and a fresh production backup (migration 0038).
+- **Exact next steps:** 1. At Samuel's 'deploy': tell neolibrary-2f, back up and restore-check, deploy e072e714 from ../neolibrary-deploy, check health on both addresses, /sign-in, _migrations 38, record with ledger-to-main. 2. Samuel marks Greco (PMID 7568331) and tries Explain it and the summary card; invited readers find it under Papers. 3. Later M41: paper by DOI before its file, PMC full text, explain a figure, linked references.
 
 ### 2026-11-02 18:21 · Claude (laptop) · M41 R3c: papers shared with invited readers (branch m41-shared-papers, migration 0038)
 - **Done:** Samuel answered Open unknowns row 33 ('yes people invited should see papers'). Built: every paper the owner marks is in each invited reader's library (their own copy row, same file, copied sections; own place, notes and AI answers); readers who join later get them; the owner's paper page has Stop sharing / Share with invited readers and a reader count; a reader's copy says 'Shared with you by'; unmark, remove or stop sharing hides copies. Migration 0038 (shared_from, share_papers) with its reverse. Not merged, not deployed.
