@@ -90,3 +90,45 @@ describe("the name finder on nonfiction prose", () => {
     expect(mentions.filter((m) => m.entryId === "e").map((m) => m.sectionId)).toEqual(["p1"]);
   });
 });
+
+// M41: the name finder on a research paper. Run on the Greco review (2026-11-03), it listed "Eq" (330 mentions),
+// "III", "Inc", "Jr", a formula's "Econ" and "Emax", "X-axis", "Method of Steel", and the reference list's journals,
+// publishers and cities. Each paragraph below stands for one thing that paper showed; none is from it.
+describe("the name finder on a research paper", () => {
+  it("leaves out cross-references, section numbers, company and generation words, and letter-and-word terms", () => {
+    const entries = names([
+      "As Loewe showed, Eq. 5 follows from Eq. 4; Eqs. 6 and 7 are in Figs. 2 and 3, and Section III repeats it for Loewe.",
+      "The method of Loewe is in Section IV. Ref. 3 used Eq. 5 again, on the X-axis and the Y-axis of a D-optimal design.",
+      "Data from Acme Inc. and from Smith Jr. were plotted on the X-axis; the D-optimal design of Eqs. 6 and 7 again, as in Figs. 4 and 5.",
+      "Henry VIII is a name, and so is Mode II, which Loewe drew twice: Mode II again.",
+    ]);
+    for (const junk of ["Eq", "Eqs", "Figs", "Ref", "III", "IV", "Inc", "Jr", "X-axis", "Y-axis", "D-optimal"]) expect(byAlias(entries, junk), junk).toBeUndefined();
+    expect(byAlias(entries, "Loewe")).toBeTruthy();
+    expect(byAlias(entries, "Mode II")).toBeTruthy(); // a numeral inside a name stays
+  });
+
+  it("leaves out a formula's symbol written in a sentence, but not names beside a slash or a minus-sign hyphen", () => {
+    const entries = names([
+      "The parameter Econ is the control effect, and Econ=Emax+B when there is a baseline, so E/Econ is a fraction.",
+      "We set Econ=100 and Emax=100; the model of Hill then gives Econ in each well, and Hill fitted it too.",
+      "Cards ran on Maestro/Cirrus, and Maestro/Cirrus cards worked abroad; a Nobel Prize−winning economist used Maestro.",
+      "Later the Nobel Prize went elsewhere, and Cirrus faded.",
+    ]);
+    expect(byAlias(entries, "Econ")).toBeUndefined();
+    expect(byAlias(entries, "Emax")).toBeUndefined();
+    expect(byAlias(entries, "Hill")).toBeTruthy();
+    expect(byAlias(entries, "Maestro")).toBeTruthy();
+    expect(byAlias(entries, "Cirrus")).toBeTruthy();
+    expect(byAlias(entries, "Nobel Prize")).toBeTruthy();
+  });
+
+  it("files a method under its one author, and keeps a longer title as it is", () => {
+    const entries = names([
+      "The Method of Steel is older; Steel and Peckham drew it first, and the Method of Steel spread.",
+      "Steel also wrote on the Method of Correctly Conducting reason, and the Method of Correctly Conducting stayed.",
+    ]);
+    expect(byAlias(entries, "Method of Steel")).toBeUndefined();
+    expect(byAlias(entries, "Steel")).toBeTruthy();
+    expect(byAlias(entries, "Method of Correctly Conducting")).toBeTruthy();
+  });
+});

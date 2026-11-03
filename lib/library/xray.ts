@@ -56,7 +56,10 @@ const STOP = new Set(
     "Besides Finally However Thus Hence Moreover Nevertheless Therefore Meanwhile Otherwise Instead Rather Whether " +
     "Chapter Chapters Figure Figures Table Tables Section Sections Part Parts Page Pages Note Notes Index Introduction " +
     "Preface Appendix Bibliography Contents Reply Replies Objection Objections See Cf Ibid Op Loc St Prof Rev Ed Eds Vol " +
-    "Fourth Fifth Sixth Seventh Eighth Ninth Tenth Meditation Meditations"
+    "Fourth Fifth Sixth Seventh Eighth Ninth Tenth Meditation Meditations " +
+    // M41: a paper's cross-references and the words of a reference list ("Eq. 5", "Figs. 2 and 3", "Wiley & Sons, Inc."):
+    // never who or what it is about.
+    "Eq Eqs Eqn Eqns Fig Figs Ref Refs Inc Ltd Corp Co Jr Sr"
   ).split(" "),
 );
 /** A people's or a school's adjective is not a name on its own ("European", "Cartesian"); inside a name it stays. */
@@ -102,7 +105,10 @@ function startsSentence(text: string, at: number) {
   return i < 0 || /[.!?:;—]/u.test(text[i]);
 }
 
-type Form = { count: number; nonInitial: number };
+type Form = { count: number; nonInitial: number; math: number };
+
+/** A Roman numeral up to 39, two letters or more ("II", "XIV"): a section's number. "I" alone is a word. */
+const ROMAN = /^(?=[IVX]{2,}$)X{0,3}(?:IX|IV|V?I{0,3})$/;
 
 /** A heading or a title line: short, and most of its words capitalised. Title case is not evidence of a name. */
 export function looksLikeHeading(text: string) {
@@ -162,13 +168,27 @@ export function findNames(paragraphs: Paragraph[]): XrayEntry[] {
         form = form.replace(new RegExp(`^(?:${JOINERS.join("|")}|&)\\s|\\s(?:${JOINERS.join("|")}|&)$`, "gu"), "");
       }
       if (apparatus) continue;
+      // M41: "Method of Steel" (a paper's section title) is Steel's; a longer title ("Method of Correctly Conducting") stays.
+      const method = /^Methods? of (\p{Lu}[\p{L}’'-]*)$/u.exec(form);
+      if (method) {
+        form = method[1];
+        stripped = true;
+      }
       const words = tokens(form);
       if (!form || !words.length || !words[0] || words.every((w) => stopped(w) || JOINER_RE.test(w))) continue;
       if (JOINER_RE.test(words[0]) || words[0] === "&" || JOINER_RE.test(words[words.length - 1]) || words[words.length - 1] === "&") continue;
       if (words.some((w) => w.length < 2 && !JOINER_RE.test(w) && w !== "&")) continue;
       if (words.length === 1 && (stopped(words[0]) || ADJECTIVES.has(words[0]))) continue;
-      const f = forms.get(form) ?? { count: 0, nonInitial: 0 };
+      // M41: a section number on its own ("III", "IV"), and a term made of a letter or an abbreviation and a word ("X-axis",
+      // "D-optimal", "MSDOS-compatible"), are not names.
+      if (words.length === 1 && (ROMAN.test(words[0]) || /^\p{Lu}+-\p{Ll}/u.test(words[0]))) continue;
+      const f = forms.get(form) ?? { count: 0, nonInitial: 0, math: 0 };
       f.count += 1;
+      // M41: a symbol of a formula written inside a sentence ("Econ=100", "Econ=Emax+B", "IDX,1"; not a slash: "Maestro/Cirrus" are two names): touching a sign, not a word.
+      const end = (m.index ?? 0) + m[0].length;
+      // A minus sign before a word is a hyphen some books set that way ("Nobel Prize−winning").
+      const after = text.slice(end, end + 2);
+      if (/^[=+×<>≤≥]|^−(?!\p{Ll})|^,\p{N}/u.test(after) || /[=+−×<>≤≥]/u.test(text[(m.index ?? 0) - 1] ?? "")) f.math += 1;
       if (stripped || (!afterNumber && !startsSentence(text, m.index ?? 0))) f.nonInitial += 1;
       forms.set(form, f);
     }
@@ -180,7 +200,8 @@ export function findNames(paragraphs: Paragraph[]): XrayEntry[] {
     return n >= 2 && n >= (forms.get(form)?.count ?? 0) * 0.3;
   };
   const kept = [...forms.entries()]
-    .filter(([form, f]) => f.count >= 2 && f.nonInitial >= 1 && !commonNoun(form))
+    // A form that touches a formula's signs in a quarter of its uses or more is a symbol (M41).
+    .filter(([form, f]) => f.count >= 2 && f.nonInitial >= 1 && !commonNoun(form) && f.math * 4 < f.count)
     .map(([form, f]) => ({ form, ...f }));
   const known = new Set(kept.flatMap((k) => tokens(k.form)));
   for (const [form, f] of forms) {
@@ -283,7 +304,8 @@ export function findMentions(entries: XrayEntry[], paragraphs: Paragraph[]): Xra
 /** Chapters that are about the file, not the book: a publisher's pages at either end. */
 // A praise page ("More Praise for …", "Acclaim for …") only when the label starts so: "In Praise of Idleness" is a chapter.
 // (Chip War, 2026-10-23: read as a chapter, its praise page gave 20 facts about the book's reviewers.)
-export const BOILERPLATE = /colophon|copyright|imprint|title ?page|about the (author|publisher)|also by|advertisement|^\s*(more |advance |additional |early )?(praise|acclaim) for\b/i;
+export const BOILERPLATE =
+  /colophon|copyright|imprint|title ?page|about the (author|publisher)|also by|advertisement|^\s*(more |advance |additional |early )?(praise|acclaim) for\b|^\s*(?:[IVXLC]+\.|\d+\.?)?\s*(?:references|bibliography|works cited|literature cited|reference list)\s*$/i;
 
 /** The book's own paragraphs, in order: what the index reads and what mentions are found in. */
 export async function paragraphsOf(db: Db, bookId: string): Promise<Paragraph[]> {
