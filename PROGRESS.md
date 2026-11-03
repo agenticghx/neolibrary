@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel marks the Greco paper (PMID 7568331) and tries Explain it and the summary card.
+next_action: Ask Samuel which open-shelf usability fixes to build (report: claude.ai/artifact/QwLWLQxKG88hoYUMmARWUn); fix 3 needs his cost approval.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-03
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-03 17:56 · Claude Opus 5.5 · Checkpoint: open-shelf usability test with six simulated testers; report page published; no fixes started
+- **Done:** Six Playwright tester subagents (older, power user, small phone, keyboard-only, newcomer, breaker) used the live open shelf signed out (version f9607f9). All read a free book; none got AI help; no leaks. Checked by hand: the 3 free books have no saved AI answers in generations; link pre-loads on /browse count toward the visitor page limit (proxy.ts:104, 132 links); ?q=%00 gives 500, a 20,000-character q gives 431, /Browse goes to /sign-in. Top-10 fixes ranked by tester count, published as a private report page (claude.ai artifact). No repo code changed.
+- **Key paths:** docs/handoffs/2026-11-03-1756-open-shelf-usability-test.md (gitignored); proxy.ts; app/(open)/browse; app/(reader)/books/[id]/read/Reader.tsx; components/own-keys/OwnKeysSetting.tsx
+- **Commands that worked:** railway ssh --service Postgres --environment production -- sh -c 'psql ... read-only count of generations for free_to_read books'; curl -s -o /dev/null -w '%{http_code}' on /browse, /browse?q=%00, /Browse
+- **Known issues / blockers:** Fix 3 (save AI answers for the free books) costs money on Samuel's key and needs his word. Testers shared one internet address, so some rate-limit hits were inflated.
+- **Exact next steps:** 1. Ask Samuel which fixes to build (fix 3 needs his approval of the cost). 2. If yes: worktree m34-s6-visitor-polish from origin/main; start with no pre-load counting in the visitor limit, a fuller non-free book page and friendly 404, the add-key text as a button that opens the key box, the Study card closing when Rewritten opens, search as you type. 3. Phone and desktop screenshots in each PR; take turns merging with the M41 session.
 
 ### 2026-11-03 17:56 · Claude Opus 5.5 · Checkpoint: paper tables (#291) and X-ray junk names (#292) live at 8c5c68d
 - **Done:** #291 (every table row and column readable) and #292 (X-ray junk names; one-time pass removed 116 names from 5 books on production, Chip War's 890 entries and 2816 facts untouched) are live at 8c5c68d, deployed by deploy.yml. Worktrees removed.
