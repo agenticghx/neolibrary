@@ -13,7 +13,7 @@ On 2026-10-07 one session merged fourteen PRs. Every one needed the same dance, 
 - Every PR carries a `PROGRESS.md` Log entry (the PR hygiene check requires it) and most carry a `LEARNING_LOG.md` entry, so **every merge into `main` makes every other open PR conflict on those two files**. Merges are therefore one at a time: rebase → CI → merge → next.
 - Branch protection on `main` requires the four checks on the PR's **head commit**, so any push (a rebase, a reference-image commit) means a fresh CI round.
 - The browser job has timing tests in WebKit (and a few in Chromium) that fail on the shared runners on a third to a half of runs. A flake is re-run once; a second failure of the *same* test on the same PR has, twice now, turned out to be a real race (see `docs/ci-flakes.md`).
-- Reference screenshots are Linux renderings. A page change makes CI fail once; the renderings come back as `*-actual.png` in the `playwright-report` artifact, must be **looked at** (the look and feel is a requirement), copied into `e2e/__screenshots__`, and pushed for one more round.
+- Reference screenshots are Linux renderings. A page change makes CI fail once; the renderings come back as `*-actual.png` in the `playwright-report-<group>` artifacts (one per browser machine since 2026-11-05; `scripts/refresh-screenshots.sh` reads them all), must be **looked at** (the look and feel is a requirement), copied into `e2e/__screenshots__`, and pushed for one more round.
 
 The scripts here do the mechanical parts. The judgement — is this a flake, do these images look right, is this conflict one of the ledgers — stays with the session, and the places to look are listed below.
 

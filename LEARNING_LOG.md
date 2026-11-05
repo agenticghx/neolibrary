@@ -2733,7 +2733,7 @@ tests that pin it, in a small PR.
 **Result.** PR #293, CI run 42040534252: all four checks green on GitHub's machines (4 × AMD EPYC 9V74). Playwright `374 passed (22.1m)` against `373 passed (19.6m)` on Blacksmith: about 13% slower, not the 40% of October. Every reference screenshot matched. The browser job took 28.0 min in all, 4.2 min of it publishing screenshots. Merged as 444b426 by the auto-merge Action.
 **Lesson.** Measure the new machine before planning around an old ratio: October's 18-against-13 would have predicted about 27 min of Playwright, but it was 22.
 
-### Iteration 140 · 2026-11-05 09:30 (laptop clock) · CI: the browser tests on several free machines at once · pending
+### Iteration 140 · 2026-11-05 09:30 (laptop clock) · CI: the browser tests on several free machines at once · success
 
 **Hypothesis.** The browser projects share one database and run as a chain, so Playwright's `--shard` cannot split them: each shard would replay the chain. But the chain branches. Groups of projects, each on its own machine with its own fresh database, can run at the same time if each group repeats only the few projects that make the data it uses (`setup`, `flows` for Grace, `uploads` for the books). The browser check would then take as long as the longest group, not the whole chain.
 **Action.** Added `BROWSER_GROUPS`, `applyBrowserGroup` and `browserGroupsToRun` to `scripts/ci-browser-needed.mjs`; `CI_BROWSER_GROUP` in `playwright.config.ts`; in `ci.yml`, a plan job, one machine per group (a matrix), and a final job that keeps the required check's name. Then ran each group alone on the Mac from an empty database (`CI=1 CI_BROWSER_GROUP=<group> npx playwright test --ignore-snapshots`, `.data/` moved away first).

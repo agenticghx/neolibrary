@@ -155,6 +155,8 @@ jobs:
             skip=0
             if [ "${{ github.event_name }}" = "pull_request" ]; then skip=1; fi
             groups=$(node scripts/ci-browser-needed.mjs --groups "$slices" "$skip")
+            # An empty answer would start no machine and fail the run with an unreadable fromJSON error.
+            if [ -z "$groups" ]; then echo "::error::could not list the browser machines"; exit 1; fi
             echo "groups=$groups" >> "$GITHUB_OUTPUT"
             echo "Machines: $groups"
           }
