@@ -324,25 +324,26 @@ describe("browser groups (one CI machine each)", () => {
     expect(depsOf(projects, "shared-papers")).toEqual(["review", "covers", "own-keys", "focus"]);
   });
 
-  it("the audiobook groups wait on reader (its PDF); narration still follows the Chromium audiobook pass", async () => {
+  it("the audiobook and WebKit groups wait on reader (its PDF); narration still follows the Chromium audiobook pass", async () => {
     const projects = applyBrowserGroup(await allProjects(), "readalong");
     expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "reader", "readalong", "narration"]);
     expect(depsOf(projects, "reader")).toEqual(["uploads"]);
     expect(depsOf(projects, "readalong")).toEqual(["reader"]);
     expect(depsOf(projects, "narration")).toEqual(["readalong"]);
-    const safari = applyBrowserGroup(await allProjects(), "readalong-safari");
-    expect(namesOf(safari)).toEqual(["setup", "flows", "uploads", "reader", "readalong-safari"]);
-    expect(depsOf(safari, "readalong-safari")).toEqual(["reader"]);
+    const webkit = applyBrowserGroup(await allProjects(), "webkit");
+    expect(namesOf(webkit)).toEqual(["setup", "flows", "uploads", "reader", "safari", "readalong-safari"]);
+    expect(depsOf(webkit, "safari")).toEqual(["reader"]);
+    expect(depsOf(webkit, "readalong-safari")).toEqual(["reader"]);
   });
 
-  it("behavior keeps the screenshots and the chain to offline, without the branches or the audiobook", async () => {
+  it("behavior keeps the screenshots and the chain to offline, without the branches, the audiobook or WebKit", async () => {
     const projects = applyBrowserGroup(await allProjects(), "behavior");
     expect(namesOf(projects)).not.toContain("review");
     expect(namesOf(projects)).not.toContain("readalong");
     expect(depsOf(projects, "flows")).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
     expect(depsOf(projects, "home")).toEqual(["stats"]);
     expect(depsOf(projects, "offline")).toEqual(["agents"]);
-    expect(depsOf(projects, "safari")).toEqual(["reader"]);
+    expect(namesOf(projects)).not.toContain("safari"); // WebKit's packages on this machine moved Chromium's screenshots
     expect(depsOf(projects, "open-shelf")).toEqual(["stats"]);
   });
 
@@ -364,15 +365,17 @@ describe("browser groups (one CI machine each)", () => {
       { group: "readalong", webkit: false },
     ]);
     expect(browserGroupsToRun(ALL)).toEqual([
-      { group: "behavior", webkit: true },
+      { group: "behavior", webkit: false },
       { group: "branches", webkit: false },
       { group: "readalong", webkit: false },
-      { group: "readalong-safari", webkit: true },
+      { group: "webkit", webkit: true },
     ]);
-    // Safari's highlight test alone (e2e/safari.spec.ts changed) on main: the behavior machine, with WebKit.
+    // Safari's highlight test alone (e2e/safari.spec.ts changed) on main: the WebKit machine, without the audiobook file.
     expect(browserGroupsToRun(["behavior", "webkit"])).toEqual([
-      { group: "behavior", webkit: true },
+      { group: "behavior", webkit: false },
       { group: "branches", webkit: false },
+      { group: "webkit", webkit: true },
     ]);
+    expect(browserGroupsToRun(["behavior", "webkit"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "branches"]);
   });
 });

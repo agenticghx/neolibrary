@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Check main's first four-machine run (readalong-safari) and the nightly; then speed up publishing screenshots.
+next_action: Read the hand-started CI run on m27-webkit-machine; if the design screenshot passes, mark the PR ready.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-05
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-05 10:29 · Claude Opus 5.5 (laptop) · CI: all of WebKit on one machine (draft PR, testing the design-screenshot cause)
+- **Done:** Since the move to GitHub's machines, Chromium's 'design looks as approved' screenshot failed on 3 of 3 runs on main (42045069614, 42049442066, 42053211796; page 3287 then 3285 px tall) and passed on 3 of 3 PRs (#293-#295). Only main installs WebKit and its system packages. Branch m27-webkit-machine moves Safari's highlight test (safari) off the behavior machine into the WebKit group (renamed from readalong-safari to webkit), so the behavior machine never installs WebKit. A first idea (the design page's carousel drifting) was wrong: it never drifts under a test robot, and a probe read 3253 px 20 times either way.
+- **Key paths:** scripts/ci-browser-needed.mjs (BROWSER_GROUPS.webkit), scripts/ci-browser-needed.d.mts, lib/ci-browser-needed.test.ts, docs/ci-time.md, LEARNING_LOG.md (Iteration 141)
+- **Commands that worked:** npx vitest run lib/ci-browser-needed.test.ts (29 passed); CI=1 CI_BROWSER_GROUP=webkit npx playwright test --ignore-snapshots; gh workflow run ci.yml --ref m27-webkit-machine (runs as main: WebKit on)
+- **Known issues / blockers:** Until this merges, every run on main fails on the design screenshot, so the automatic deploy after a merge does not start. The cause is a hypothesis until the run started by hand on this branch passes the design screenshot with WebKit on.
+- **Exact next steps:** 1. Read the run started by hand on m27-webkit-machine: behavior must pass the design screenshot; webkit must pass safari and readalong-safari. 2. If it does, mark the draft PR ready (auto-merge then merges it) and fill in Iteration 141. 3. If design still fails, the cause is elsewhere: record it and look at what else differs between main and PR runs.
 
 ### 2026-11-05 09:54 · Claude Opus 5.5 (laptop) · CI: browser tests on several free machines, merged (#294); follow-up fixes
 - **Done:** Corrects the 09:02 entry, which was written mid-work and said 'in progress' and 'not yet proven'. #293 (CI on GitHub's free machines) merged as 444b426: four checks green, Playwright 374 passed (22.1m) against 19.6m on Blacksmith. #294 (browser tests as four groups on separate machines) merged as 6a750fa. Every group passed alone on the Mac from an empty database after two fixes: reader runs in the audiobook groups for its PDF, and open-shelf moved to the behavior group. On CI: behavior 326 passed (11.5m), readalong 112 passed (11.1m), branches 50 passed (6.1m); whole run 17.2 min, against 28.0 min for the browser job alone in #293. This branch (m27-ci-followup): the plan step fails loudly if it cannot list machines; the merge-train skill says one playwright-report-<group> artifact per machine; Open unknowns row 16 records the Blacksmith outcome; LEARNING_LOG iterations 139 and 140 filled in.

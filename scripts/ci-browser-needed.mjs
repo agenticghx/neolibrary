@@ -325,19 +325,22 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  * data its targets use (the owner account, Grace, the uploaded books); a group whose
  * targets are all off for this change does not run at all.
  *
- * - behavior: the screenshots, then the long chain from flows to offline, Safari's highlight
- *   test (it hangs off reader), and open-shelf (it needs the state the whole chain leaves:
- *   alone after uploads, a visitor's new rewrite was not refused, 2026-11-05).
+ * - behavior: the screenshots, then the long chain from flows to offline, and open-shelf (it
+ *   needs the state the whole chain leaves: alone after uploads, a visitor's new rewrite was
+ *   not refused, 2026-11-05). Chromium only.
  * - branches: the projects that hang off stats but make readers and books of their own;
  *   here they wait on uploads only.
  * - readalong: the audiobook file in Chromium, then whole-book narration. It needs the PDF
  *   "Discourse on the Method", which reader.spec.ts uploads, so reader runs here too.
- * - readalong-safari: the audiobook file in WebKit (main and the night run only).
+ * - webkit: everything in Safari's engine, on one machine (main and the night run only):
+ *   Safari's highlight test and the audiobook file, after reader. Installing WebKit's system
+ *   packages on the behavior machine made Chromium's "design" screenshot 2 px taller or
+ *   shorter between shots on 3 of 3 runs on main (2026-11-05), never on a pull request.
  */
 export const BROWSER_GROUPS = {
   behavior: {
     support: [],
-    targets: [...VISUAL, "flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "stats", "home", "own-paths", "agents", "offline", "safari", "open-shelf"],
+    targets: [...VISUAL, "flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "stats", "home", "own-paths", "agents", "offline", "open-shelf"],
   },
   branches: {
     support: ["flows", "uploads"],
@@ -347,9 +350,9 @@ export const BROWSER_GROUPS = {
     support: ["flows", "uploads", "reader"],
     targets: ["readalong", "narration"],
   },
-  "readalong-safari": {
+  webkit: {
     support: ["flows", "uploads", "reader"],
-    targets: ["readalong-safari"],
+    targets: ["safari", "readalong-safari"],
   },
 };
 
