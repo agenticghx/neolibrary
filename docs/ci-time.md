@@ -76,7 +76,7 @@ Each machine runs one **group** of projects (`BROWSER_GROUPS` in `scripts/ci-bro
 | `behavior` | the four screenshot projects, the chain from `flows` to `offline`, and `open-shelf` (it needs the state the whole chain leaves); Chromium only | any slice but narration-only |
 | `branches` | `review`, `covers`, `own-keys`, `focus`, then `shared-papers`; here they wait on `uploads`, not `stats` | behaviour slice |
 | `readalong` | `reader` (its PDF, "Discourse on the Method", is used by the audiobook file), the audiobook file in Chromium, then whole-book narration | readalong or narration slice |
-| `webkit` | `reader`, then Safari's highlight test and the audiobook file in WebKit. All of WebKit is on this machine: installing WebKit's system packages on the behavior machine made Chromium's design screenshot 2 px taller or shorter between shots, on 3 of 3 runs on main (2026-11-05) | main and the night run, when the webkit or readalong slice is on |
+| `webkit` | `reader`, then Safari's highlight test and the audiobook file in WebKit. All of WebKit is on this machine, so the behavior machine is Chromium only. (This was tried on 2026-11-05 as a fix for the design screenshot's 2 px wobble on main; it is not the fix, see docs/ci-flakes.md.) | main and the night run, when the webkit or readalong slice is on |
 
 In `ci.yml`, `browser-plan` picks the slices and lists the machines (`node scripts/ci-browser-needed.mjs --groups <slices> <1 to skip WebKit>`). `e2e-group` starts one machine per group. `e2e` keeps the required check's name: it passes only when every machine passed, gathers the screenshots from all of them, checks the 2×2 grid, and posts it on the pull request. Each machine uploads its own `playwright-report-<group>` artifact.
 
