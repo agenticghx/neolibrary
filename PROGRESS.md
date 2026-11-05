@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Ask Samuel which open-shelf usability fixes to build (report: claude.ai/artifact/QwLWLQxKG88hoYUMmARWUn); fix 3 needs his cost approval.
+next_action: Merge PR 1 (CI on GitHub's free machines), then PR 2: browser tests split across several free machines.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-11-03
+updated: 2026-11-05
 shared_copy: none
 ---
 
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-05 08:58 · Claude Opus 5.5 (laptop) · CI: off Blacksmith, onto GitHub's free machines (PR 1 of 2)
+- **Done:** Samuel can no longer pay for Blacksmith (2026-11-05). Branch m27-ci-free-shards swaps the 8 'runs-on: blacksmith-4vcpu-ubuntu-2404' lines (ci.yml 4, auto-merge.yml 1, timing-samples.yml 3) for 'ubuntu-24.04', GitHub's own machines. They cost nothing because the repository is public. Measured first on Blacksmith: browser job typically 13-30 min; Playwright 16.3 and 19.6 min on two PRs, 27.4 min nightly with WebKit. Job 126117258876 spent 32.7 min publishing screenshots to the ci-screenshots branch, longer than its tests. Samuel chose option 2: GitHub machines, then the browser tests split across several free machines at once. That split is PR 2.
+- **Key paths:** .github/workflows/ci.yml, .github/workflows/auto-merge.yml, .github/workflows/timing-samples.yml, LEARNING_LOG.md (Iteration 139)
+- **Commands that worked:** perl -pi -e 's/runs-on: blacksmith-4vcpu-ubuntu-2404/runs-on: ubuntu-24.04/' .github/workflows/*.yml; gh run view --job <id> --log (per-project timings from the Playwright list lines)
+- **Known issues / blockers:** Until this merges, every check waits on Blacksmith. If Blacksmith has already stopped, auto-merge.yml (also on Blacksmith until this lands) will not run, so merge this PR by hand once the checks pass. Playwright's own --shard flag cannot split this suite: the test files share one database and run as a chain, and each shard would replay the chain. The split has to be groups of test files, each group on its own machine with its own fresh database. The screenshot-publishing step can stall for over 30 min (job 126117258876); not fixed here.
+- **Exact next steps:** 1. Merge this PR when the four checks pass on GitHub's machines; note the browser job's time. 2. Samuel: remove the Blacksmith app from the agenticghx organization and cancel the plan. 3. PR 2: split the browser job into groups of test files, run at the same time on separate machines (behaviour chain; branches off uploads; audiobook and narration), each passing from an empty database on the Mac first; a gate job keeps the required check name 'Browser tests (screenshots + accessibility)'. 4. Separate PR: the screenshot-publishing stall.
 
 ### 2026-11-03 17:56 · Claude Opus 5.5 · Checkpoint: open-shelf usability test with six simulated testers; report page published; no fixes started
 - **Done:** Six Playwright tester subagents (older, power user, small phone, keyboard-only, newcomer, breaker) used the live open shelf signed out (version f9607f9). All read a free book; none got AI help; no leaks. Checked by hand: the 3 free books have no saved AI answers in generations; link pre-loads on /browse count toward the visitor page limit (proxy.ts:104, 132 links); ?q=%00 gives 500, a 20,000-character q gives 431, /Browse goes to /sign-in. Top-10 fixes ranked by tester count, published as a private report page (claude.ai artifact). No repo code changed.

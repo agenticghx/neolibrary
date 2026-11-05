@@ -1,4 +1,8 @@
 # Automatic checks GitHub runs on every pull request and on main.
+# Every job runs on GitHub's own free machines (ubuntu-24.04). The repository is public, so GitHub
+# charges nothing and sets no monthly limit. Blacksmith's machines were used from 2026-10-15
+# to 2026-11-05; Samuel stopped them for cost (2026-11-05). The version is pinned, not
+# ubuntu-latest, because the reference screenshots must match the machine that drew them.
 # Once a night (08:00 UTC) the browser job runs every slice, including WebKit.
 # The concurrency group includes the event name, so that night run does not
 # cancel a pull request, and a pull request does not cancel the night run.
@@ -28,7 +32,7 @@ jobs:
     name: Lint, types, unit tests
     # The night run is the browser job only. Lint already ran on the push to main.
     if: github.event_name != 'schedule'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -49,7 +53,7 @@ jobs:
     # the library production uses, so production-only database bugs fail here.
     name: Real Postgres (migrations, data layer)
     if: github.event_name != 'schedule'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     services:
       postgres:
         # The official Postgres image from Amazon's public mirror of Docker Hub's library: Docker Hub
@@ -80,7 +84,7 @@ jobs:
   hygiene:
     name: PR hygiene (PROGRESS.md Log entry)
     if: github.event_name == 'pull_request'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
         with:
@@ -91,7 +95,7 @@ jobs:
     # This name is a required check. Renaming it leaves branch protection
     # waiting for a check that no longer exists.
     name: Browser tests (screenshots + accessibility)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     permissions:
       contents: write        # push screenshots to the ci-screenshots branch
       pull-requests: write   # post the screenshot grid comment
