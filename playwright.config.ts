@@ -1,6 +1,6 @@
 import { defineConfig, type Project } from "@playwright/test";
 import { ADMIN_STATE, SETUP_CODE, TEST_MAX_RANGE } from "./e2e/pages";
-import { applyBrowserSlices, parseBrowserSlices } from "./scripts/ci-browser-needed.mjs";
+import { applyBrowserGroup, applyBrowserSlices, parseBrowserSlices } from "./scripts/ci-browser-needed.mjs";
 
 // Playwright's offline mode (context.setOffline) must reach service workers, or
 // a worker's own fetches still get through and an "offline" test passes while
@@ -48,7 +48,9 @@ export default defineConfig({
   // GitHub sets it. Projects whose slice is off are dropped, and each
   // remaining project waits on the nearest one that still runs.
   // docs/ci-time.md says which files turn which slice on.
-  projects: applyBrowserSlices<Project>(
+  // CI_BROWSER_GROUP (set by ci.yml) then keeps one group of projects for this machine; CI runs the groups
+  // at the same time on separate machines (BROWSER_GROUPS in scripts/ci-browser-needed.mjs). Unset: every project.
+  projects: applyBrowserGroup<Project>(applyBrowserSlices<Project>(
     [
     // 1. Create the owner account and save its session.
     { name: "setup", testMatch: /auth\.setup\.ts/, use: { ...desktop } },
@@ -133,7 +135,7 @@ export default defineConfig({
     parseBrowserSlices(process.env.CI_BROWSER_SLICES),
     // Pull requests skip Safari's engine (CI_SKIP_WEBKIT=1, set by ci.yml); main and the night run keep it.
     { skipWebkit: process.env.CI_SKIP_WEBKIT === "1" },
-  ),
+  ), process.env.CI_BROWSER_GROUP),
   webServer: {
     // A fresh in-process database (PGlite) for every run. Idle connections are
     // kept 120 s (the default is 5 s): a test's requests reuse connections, and

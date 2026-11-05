@@ -8,7 +8,7 @@ The browser job is the slow check. The other three (lint and unit tests, real Po
 
 Measured from GitHub run 37676437968, job 112981045041, on 2026-10-07. The job's wall clock was 14 min 38 s. `npm ci` was 14 s. Installing the two browsers was 38 s (they are cached now; an earlier docs-only run spent 9 min 4 s downloading them). Playwright itself reported `300 passed (12.9m)`.
 
-The projects share one database, so they run in a line. Each number is the gap from that project's first log line to its last, in seconds. The gaps between projects are not included, which is why the numbers add up to less than 12.9 minutes.
+The projects share one database, so they run in a line. (Since 2026-11-05 the line is split into groups on separate machines: see "Several machines at once".) Each number is the gap from that project's first log line to its last, in seconds. The gaps between projects are not included, which is why the numbers add up to less than 12.9 minutes.
 
 | Project | Seconds | Slice |
 |---|---:|---|
@@ -63,11 +63,30 @@ GitHub runs a schedule only from the default branch. The night run does not exis
 
 Pull request #114 also changes `lib/library/audio.ts`, `lib/library/narration.ts`, the workflow, and this selector. Those files select every slice. The next run of #114 still does the long tail once. A later change that stays in spending, sign-in, or uploads does not.
 
+## Several machines at once (2026-11-05)
+
+Written for: Samuel, and the next session that touches CI.
+
+Samuel stopped paying for Blacksmith's machines on 2026-11-05. CI now runs on GitHub's own machines, which are free for a public repository but slower. To make up the time, the browser tests run on several machines at the same time.
+
+Each machine runs one **group** of projects (`BROWSER_GROUPS` in `scripts/ci-browser-needed.mjs`), with its own server and its own fresh database. A group repeats the few projects that make the data it needs: `setup` (the owner account), `flows` (Grace, the invited reader) and `uploads` (the books). Those take about a minute.
+
+| Group | What it runs | When |
+|---|---|---|
+| `behavior` | the four screenshot projects, the chain from `flows` to `offline`, Safari's highlight test, and `open-shelf` (it needs the state the whole chain leaves) | any slice but narration-only |
+| `branches` | `review`, `covers`, `own-keys`, `focus`, then `shared-papers`; here they wait on `uploads`, not `stats` | behaviour slice |
+| `readalong` | `reader` (its PDF, "Discourse on the Method", is used by the audiobook file), the audiobook file in Chromium, then whole-book narration | readalong or narration slice |
+| `readalong-safari` | `reader`, then the audiobook file in WebKit | main and the night run, when readalong is on |
+
+In `ci.yml`, `browser-plan` picks the slices and lists the machines (`node scripts/ci-browser-needed.mjs --groups <slices> <1 to skip WebKit>`). `e2e-group` starts one machine per group. `e2e` keeps the required check's name: it passes only when every machine passed, gathers the screenshots from all of them, checks the 2×2 grid, and posts it on the pull request. Each machine uploads its own `playwright-report-<group>` artifact.
+
+A new project goes in exactly one group's `targets` (a unit test fails otherwise). Before moving a project to another group, run that group alone from an empty database on the Mac: `CI=1 CI_BROWSER_GROUP=<group> npx playwright test --ignore-snapshots` (with `.data/` moved away first). A test that quietly used another project's data fails there.
+
 ## Alternatives that are not built
 
 These were the other ways to shorten the same wait. They are logged here so the next session does not rebuild them.
 
-1. **Several free GitHub machines.** Set aside. The projects share one database, and each project waits for the one before it. Extra machines wait on that same chain. Splitting the job comes after the chain is broken, which is a larger change than skipping the tail.
+1. **Several free GitHub machines.** Built on 2026-11-05: see "Several machines at once" above. Playwright's `--shard` flag is still not the tool: it splits test files evenly, and every shard would have to replay the chain in front of its files. The groups split the chain where it branches instead.
 
 2. **A larger GitHub runner.** Set aside. The audiobook file runs one test after another, and the current machine already runs two Playwright workers. More CPUs do not shorten that file. A larger runner is a paid upgrade. This session does not raise a spending limit.
 

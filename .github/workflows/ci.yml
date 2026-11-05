@@ -91,26 +91,32 @@ jobs:
           fetch-depth: 0
       - run: node scripts/check-pr-hygiene.mjs origin/${{ github.base_ref }}
 
-  e2e:
-    # This name is a required check. Renaming it leaves branch protection
-    # waiting for a check that no longer exists.
-    name: Browser tests (screenshots + accessibility)
+  # The browser tests run on several machines at the same time (2026-11-05, when CI moved to GitHub's
+  # free machines). The test files share one database and run as a chain, so they cannot be cut into
+  # equal slices: each machine runs one group of projects (BROWSER_GROUPS in
+  # scripts/ci-browser-needed.mjs) with its own server and a fresh database, repeating the few
+  # projects that make the data its group needs (the owner account, Grace, the uploaded books).
+  # 1. browser-plan picks the slices for this change and the machines to start.
+  # 2. e2e-group runs one machine per group.
+  # 3. e2e (the required check) waits for them, gathers the screenshots, and posts the grid.
+  browser-plan:
+    name: Browser tests (which machines)
     runs-on: ubuntu-24.04
     permissions:
-      contents: write        # push screenshots to the ci-screenshots branch
-      pull-requests: write   # post the screenshot grid comment
+      contents: read
+      pull-requests: read   # list the pull request's changed files
+    outputs:
+      slices: ${{ steps.pages.outputs.slices }}
+      screenshots: ${{ steps.pages.outputs.screenshots }}
+      groups: ${{ steps.pages.outputs.groups }}
     steps:
       - uses: actions/checkout@v5
         with:
-          # The job can push screenshots. Do not leave that token in git
-          # config while npm ci and Playwright run. The push step below
-          # adds the token to its own remote. See docs/security-leftovers.md (B8).
           persist-credentials: false
+      # ci-browser-needed.mjs uses only Node's own modules, so no npm ci here.
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
       - name: Choose which browser tests this change needs
         id: pages
         env:
@@ -125,6 +131,7 @@ jobs:
               echo "slices=none" >> "$GITHUB_OUTPUT"
               echo "screenshots=false" >> "$GITHUB_OUTPUT"
               echo "webkit=false" >> "$GITHUB_OUTPUT"
+              echo "groups=[]" >> "$GITHUB_OUTPUT"
               echo "No page, player, or audiobook code in this change. Browser tests are not run."
               return
             fi
@@ -145,6 +152,11 @@ jobs:
               esac
             fi
             echo "Browser slices: $slices"
+            skip=0
+            if [ "${{ github.event_name }}" = "pull_request" ]; then skip=1; fi
+            groups=$(node scripts/ci-browser-needed.mjs --groups "$slices" "$skip")
+            echo "groups=$groups" >> "$GITHUB_OUTPUT"
+            echo "Machines: $groups"
           }
           # The night run judges WebKit even when the day's pull requests skipped it.
           if [ "${{ github.event_name }}" = "schedule" ]; then
@@ -177,37 +189,113 @@ jobs:
               emit "$all"
               ;;
           esac
+
+  e2e-group:
+    name: Browser tests (${{ matrix.group }})
+    needs: browser-plan
+    if: needs.browser-plan.outputs.groups != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      # Every machine finishes, so one failure does not hide another.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.browser-plan.outputs.groups) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Cache Playwright browsers
-        if: steps.pages.outputs.run == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: Install the browsers this change needs
-        if: steps.pages.outputs.run == 'true'
+      - name: Install the browsers this machine needs
         run: |
           set -euo pipefail
-          if [ "${{ steps.pages.outputs.webkit }}" = "true" ]; then
+          if [ "${{ matrix.webkit }}" = "true" ]; then
             npx playwright install --with-deps chromium webkit
           else
             npx playwright install --with-deps chromium
           fi
       - name: Playwright (screenshot comparison, axe-core accessibility)
-        if: steps.pages.outputs.run == 'true'
         env:
-          CI_BROWSER_SLICES: ${{ steps.pages.outputs.slices }}
+          CI_BROWSER_SLICES: ${{ needs.browser-plan.outputs.slices }}
           CI_SKIP_WEBKIT: ${{ github.event_name == 'pull_request' && '1' || '' }}
+          CI_BROWSER_GROUP: ${{ matrix.group }}
         run: npx playwright test
 
+      # The full report: the merge train's refresh-screenshots.sh reads *-actual.png from every
+      # playwright-report-* artifact of a run.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.group }}
+          path: |
+            playwright-report/
+            test-results/
+            screenshots/
+          retention-days: 14
+      # Only the pictures, for the e2e job below (the grid check and the ci-screenshots branch).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shots-${{ matrix.group }}
+          path: |
+            screenshots/*.png
+            test-results/**/*-actual.png
+            test-results/**/*-expected.png
+            test-results/**/*-diff.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+  e2e:
+    # This name is a required check. Renaming it leaves branch protection
+    # waiting for a check that no longer exists. It passes only when every
+    # machine above passed (or none had to run).
+    name: Browser tests (screenshots + accessibility)
+    needs: [browser-plan, e2e-group]
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write        # push screenshots to the ci-screenshots branch
+      pull-requests: write   # post the screenshot grid comment
+    steps:
+      - name: Every browser machine passed
+        run: |
+          echo "plan: ${{ needs.browser-plan.result }}; machines: ${{ needs.e2e-group.result }}; groups: ${{ needs.browser-plan.outputs.groups }}"
+          if [ "${{ needs.browser-plan.result }}" != "success" ]; then echo "::error::the browser plan did not finish"; exit 1; fi
+          case "${{ needs.e2e-group.result }}" in
+            success) ;;
+            skipped)
+              if [ '${{ needs.browser-plan.outputs.groups }}' != '[]' ]; then echo "::error::machines were planned but did not run"; exit 1; fi
+              echo "No browser machine had to run for this change." ;;
+            *) echo "::error::a browser machine did not pass (see the Browser tests (<group>) jobs)"; exit 1 ;;
+          esac
+      - uses: actions/checkout@v5
+        if: always()
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        if: always() && needs.browser-plan.outputs.groups != '[]'
+        with:
+          pattern: shots-*
+          merge-multiple: true
+        continue-on-error: true
+
       - name: Require the 2x2 screenshot grid
-        if: always() && steps.pages.outputs.screenshots == 'true'
+        if: always() && needs.browser-plan.outputs.screenshots == 'true' && needs.browser-plan.outputs.groups != '[]'
         run: |
           set -euo pipefail
           missing=0
           # Pages the screenshot projects always photograph, plus a spec page
           # only when that spec's project ran. The mini-player is photographed
           # by the audiobook file. See gridPageNames in scripts/ci-browser-needed.mjs.
-          node scripts/ci-browser-needed.mjs --grid e2e/pages.ts "${{ steps.pages.outputs.slices }}" > "$RUNNER_TEMP/grid-pages.txt"
+          node scripts/ci-browser-needed.mjs --grid e2e/pages.ts "${{ needs.browser-plan.outputs.slices }}" > "$RUNNER_TEMP/grid-pages.txt"
           mapfile -t pages < "$RUNNER_TEMP/grid-pages.txt"
           if [ "${#pages[@]}" -eq 0 ]; then
             echo "::error::the screenshot slice listed no pages"
@@ -221,16 +309,6 @@ jobs:
             done
           done
           exit $missing
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-            screenshots/
-          retention-days: 14
 
       - name: Publish screenshots to the ci-screenshots branch
         if: always() && github.event_name == 'pull_request' && (hashFiles('screenshots/*.png') != '' || hashFiles('test-results/**/*-diff.png') != '')
@@ -292,7 +370,11 @@ jobs:
   deploy:
     name: Start the deploy
     needs: [checks, postgres, e2e]
+    # always() and the three results by name: the e2e job's own needs can be skipped (no browser machine
+    # for a change), and GitHub would then skip this job too without the explicit check.
     if: >-
+      always() &&
+      needs.checks.result == 'success' && needs.postgres.result == 'success' && needs.e2e.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       vars.AUTO_DEPLOY == 'on'

@@ -25,3 +25,13 @@ export function applyBrowserSlices<T extends { name?: string; dependencies?: str
 
 /** Page names the 2×2 screenshot grid requires for this slice list. */
 export function gridPageNames(pageSource: string, slices: readonly string[] | string): string[];
+
+export const BROWSER_GROUPS: Record<"behavior" | "branches" | "readalong" | "readalong-safari", { support: string[]; targets: string[] }>;
+
+export const WEBKIT_PROJECTS: readonly string[];
+
+/** Keeps one CI machine's group of projects (unset or unknown: all of them), re-pointing dependencies. */
+export function applyBrowserGroup<T extends { name?: string; dependencies?: string[] }>(projects: readonly T[], group: string | undefined | null): T[];
+
+/** The groups CI starts for this slice list, one machine each. */
+export function browserGroupsToRun(slices: readonly string[], opts?: { skipWebkit?: boolean }): { group: string; webkit: boolean }[];

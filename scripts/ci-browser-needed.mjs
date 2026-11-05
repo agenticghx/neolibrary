@@ -318,6 +318,101 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
 }
 
 /**
+ * Groups of projects that CI runs at the same time, each on its own machine with its own
+ * fresh database (2026-11-05, when CI moved to GitHub's free machines). A project in no
+ * group would never run in CI, so every project the config names is in exactly one group's
+ * `targets` (a unit test checks this). `support` projects run in a group only to make the
+ * data its targets use (the owner account, Grace, the uploaded books); a group whose
+ * targets are all off for this change does not run at all.
+ *
+ * - behavior: the screenshots, then the long chain from flows to offline, Safari's highlight
+ *   test (it hangs off reader), and open-shelf (it needs the state the whole chain leaves:
+ *   alone after uploads, a visitor's new rewrite was not refused, 2026-11-05).
+ * - branches: the projects that hang off stats but make readers and books of their own;
+ *   here they wait on uploads only.
+ * - readalong: the audiobook file in Chromium, then whole-book narration. It needs the PDF
+ *   "Discourse on the Method", which reader.spec.ts uploads, so reader runs here too.
+ * - readalong-safari: the audiobook file in WebKit (main and the night run only).
+ */
+export const BROWSER_GROUPS = {
+  behavior: {
+    support: [],
+    targets: [...VISUAL, "flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "stats", "home", "own-paths", "agents", "offline", "safari", "open-shelf"],
+  },
+  branches: {
+    support: ["flows", "uploads"],
+    targets: ["review", "covers", "own-keys", "focus", "shared-papers"],
+  },
+  readalong: {
+    support: ["flows", "uploads", "reader"],
+    targets: ["readalong", "narration"],
+  },
+  "readalong-safari": {
+    support: ["flows", "uploads", "reader"],
+    targets: ["readalong-safari"],
+  },
+};
+
+/** Projects that run in Safari's engine (WebKit). playwright.config.ts sets browserName "webkit" on these. */
+export const WEBKIT_PROJECTS = ["safari", "readalong-safari"];
+
+/**
+ * Keeps one group's projects (after `applyBrowserSlices`), plus `setup`, and points each at
+ * the nearest project it still has. A project whose own dependencies all left the group
+ * waits on the nearest chain project at or before them (a branch off stats waits on uploads).
+ * Returns [] when none of the group's targets is left: that machine has nothing to run.
+ * An unknown group name returns the projects unchanged (fail open: run everything).
+ * @template {{name: string, dependencies?: string[]}} T
+ * @param {readonly T[]} projects
+ * @param {string | undefined | null} group
+ * @returns {T[]}
+ */
+export function applyBrowserGroup(projects, group) {
+  const raw = group == null ? "" : String(group).trim();
+  if (!raw || !Object.prototype.hasOwnProperty.call(BROWSER_GROUPS, raw)) return projects.slice();
+  const { support, targets } = BROWSER_GROUPS[raw];
+  if (!projects.some((project) => targets.includes(project.name))) return [];
+  const kept = projects.filter((project) => project.name === "setup" || support.includes(project.name) || targets.includes(project.name));
+  const names = new Set(kept.map((project) => project.name));
+  return kept.map((project) => {
+    let deps = dependenciesFor(project, names);
+    if (!CHAIN.includes(project.name) && !VISUAL.includes(project.name) && project.name !== "safari") {
+      const own = project.dependencies ?? [];
+      if (own.length && !own.some((dep) => names.has(dep))) {
+        const anchors = own.map((dep) => (CHAIN.includes(dep) ? nearestAtOrBefore(dep, names) : null)).filter(Boolean);
+        if (anchors.length) deps = [...new Set(anchors)];
+      }
+    }
+    if (sameDeps(project.dependencies, deps)) return project;
+    if (!deps.length) {
+      const copy = { ...project };
+      delete copy.dependencies;
+      return copy;
+    }
+    return { ...project, dependencies: deps };
+  });
+}
+
+/**
+ * The groups CI starts for this slice list: one machine each. A group runs when at least
+ * one of its targets is on (and, with skipWebkit, is not a WebKit project).
+ * @param {readonly string[]} slices from browserSlices or parseBrowserSlices
+ * @param {{skipWebkit?: boolean}} [opts]
+ * @returns {{group: string, webkit: boolean}[]}
+ */
+export function browserGroupsToRun(slices, opts = {}) {
+  const on = expand(slices);
+  const runs = (name) =>
+    (on.has(sliceForProject(name)) || sliceForProject(name) == null) && !(opts.skipWebkit && WEBKIT_PROJECTS.includes(name));
+  const out = [];
+  for (const [group, { targets }] of Object.entries(BROWSER_GROUPS)) {
+    const live = targets.filter(runs);
+    if (live.length) out.push({ group, webkit: live.some((name) => WEBKIT_PROJECTS.includes(name)) });
+  }
+  return out;
+}
+
+/**
  * Page names the screenshot grid must find for this slice list.
  * Pages with no `spec` are photographed by the screenshot projects.
  * `own-paths.spec.ts` runs with the behaviour slice. `readalong.spec.ts`
@@ -355,6 +450,10 @@ if (isMain) {
   if (process.argv[2] === "--grid") {
     const text = fs.readFileSync(process.argv[3], "utf8");
     for (const name of gridPageNames(text, process.argv[4] ?? "")) console.log(name);
+  } else if (process.argv[2] === "--groups") {
+    // ci.yml: `--groups <slices> <1 to skip WebKit>` prints the machines to start, as JSON for a matrix.
+    const slices = parseBrowserSlices(process.argv[3]) ?? BROWSER_SLICES.slice();
+    console.log(JSON.stringify(browserGroupsToRun(slices, { skipWebkit: process.argv[4] === "1" })));
   } else {
     const path = process.argv[2];
     const text = path ? fs.readFileSync(path, "utf8") : "";

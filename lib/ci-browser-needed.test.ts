@@ -1,8 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  BROWSER_GROUPS,
   BROWSER_SLICES,
+  WEBKIT_PROJECTS,
+  applyBrowserGroup,
   applyBrowserSlices,
+  browserGroupsToRun,
   browserJobNeeded,
   browserSlices,
   gridPageNames,
@@ -289,5 +293,86 @@ describe("playwright.config.ts", () => {
     expect(config.projects?.find((project) => project.name === "focus")?.dependencies).toEqual(["stats"]);
     expect(config.projects?.at(-1)?.name).toBe("focus");
     expect(config.projects?.map((project) => project.name)).toContain("safari");
+  });
+});
+
+// CI runs these groups at the same time on separate GitHub machines, each with its own fresh database (2026-11-05).
+describe("browser groups (one CI machine each)", () => {
+  async function allProjects() {
+    delete process.env.CI_BROWSER_SLICES;
+    delete process.env.CI_BROWSER_GROUP;
+    const { default: config } = await import("../playwright.config");
+    return (config.projects ?? []) as { name: string; dependencies?: string[]; use?: { browserName?: string } }[];
+  }
+
+  it("puts every project the config names in exactly one group's targets, except setup", async () => {
+    const names = (await allProjects()).map((project) => project.name).filter((name) => name !== "setup");
+    const targets = Object.values(BROWSER_GROUPS).flatMap((group) => group.targets);
+    expect([...targets].sort()).toEqual([...names].sort());
+  });
+
+  it("names exactly the config's WebKit projects as WebKit", async () => {
+    const webkit = (await allProjects()).filter((project) => project.use?.browserName === "webkit").map((project) => project.name);
+    expect([...webkit].sort()).toEqual([...WEBKIT_PROJECTS].sort());
+  });
+
+  it("branches wait on uploads, not on stats, and shared papers still wait on the other branches", async () => {
+    const projects = applyBrowserGroup(await allProjects(), "branches");
+    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "review", "covers", "own-keys", "shared-papers", "focus"]);
+    expect(depsOf(projects, "flows")).toEqual(["setup"]);
+    for (const name of ["review", "covers", "own-keys", "focus"]) expect(depsOf(projects, name)).toEqual(["uploads"]);
+    expect(depsOf(projects, "shared-papers")).toEqual(["review", "covers", "own-keys", "focus"]);
+  });
+
+  it("the audiobook groups wait on reader (its PDF); narration still follows the Chromium audiobook pass", async () => {
+    const projects = applyBrowserGroup(await allProjects(), "readalong");
+    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "reader", "readalong", "narration"]);
+    expect(depsOf(projects, "reader")).toEqual(["uploads"]);
+    expect(depsOf(projects, "readalong")).toEqual(["reader"]);
+    expect(depsOf(projects, "narration")).toEqual(["readalong"]);
+    const safari = applyBrowserGroup(await allProjects(), "readalong-safari");
+    expect(namesOf(safari)).toEqual(["setup", "flows", "uploads", "reader", "readalong-safari"]);
+    expect(depsOf(safari, "readalong-safari")).toEqual(["reader"]);
+  });
+
+  it("behavior keeps the screenshots and the chain to offline, without the branches or the audiobook", async () => {
+    const projects = applyBrowserGroup(await allProjects(), "behavior");
+    expect(namesOf(projects)).not.toContain("review");
+    expect(namesOf(projects)).not.toContain("readalong");
+    expect(depsOf(projects, "flows")).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
+    expect(depsOf(projects, "home")).toEqual(["stats"]);
+    expect(depsOf(projects, "offline")).toEqual(["agents"]);
+    expect(depsOf(projects, "safari")).toEqual(["reader"]);
+    expect(depsOf(projects, "open-shelf")).toEqual(["stats"]);
+  });
+
+  it("a group whose targets are all off runs nothing, and an unknown or unset group runs everything", async () => {
+    const all = await allProjects();
+    expect(applyBrowserGroup(applyBrowserSlices(all, ["screenshots"]), "branches")).toEqual([]);
+    expect(applyBrowserGroup(applyBrowserSlices(all, ["behavior"]), "readalong")).toEqual([]);
+    expect(namesOf(applyBrowserGroup(all, undefined))).toEqual(namesOf(all));
+    expect(namesOf(applyBrowserGroup(all, "no-such-group"))).toEqual(namesOf(all));
+  });
+
+  it("starts one machine per group that has work: none for docs, one for a style, three for a PR, four on main", () => {
+    expect(browserGroupsToRun([], { skipWebkit: true })).toEqual([]);
+    expect(browserGroupsToRun(["screenshots"], { skipWebkit: true })).toEqual([{ group: "behavior", webkit: false }]);
+    expect(browserGroupsToRun(["behavior"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "branches"]);
+    expect(browserGroupsToRun(ALL, { skipWebkit: true })).toEqual([
+      { group: "behavior", webkit: false },
+      { group: "branches", webkit: false },
+      { group: "readalong", webkit: false },
+    ]);
+    expect(browserGroupsToRun(ALL)).toEqual([
+      { group: "behavior", webkit: true },
+      { group: "branches", webkit: false },
+      { group: "readalong", webkit: false },
+      { group: "readalong-safari", webkit: true },
+    ]);
+    // Safari's highlight test alone (e2e/safari.spec.ts changed) on main: the behavior machine, with WebKit.
+    expect(browserGroupsToRun(["behavior", "webkit"])).toEqual([
+      { group: "behavior", webkit: true },
+      { group: "branches", webkit: false },
+    ]);
   });
 });

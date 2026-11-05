@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge PR 1 (CI on GitHub's free machines), then PR 2: browser tests split across several free machines.
+next_action: Finish PR 2 (browser tests on several free machines): local group results, then push and compare CI times.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-05
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-05 09:02 · Claude Opus 5.5 (laptop) · CI: browser tests split across several free machines (PR 2 of 2, in progress)
+- **Done:** On branch m27-ci-split (stacked on m27-ci-free-shards, PR 293). The browser tests now run as groups, each on its own GitHub machine with its own server and fresh database: behavior (screenshots, chain flows to offline, Safari highlight), branches (review, covers, open-shelf, own-keys, focus, shared-papers; wait on uploads instead of stats), readalong (Chromium audiobook, then narration), readalong-safari (main and nightly only). ci.yml: browser-plan picks slices and machines; e2e-group runs one machine per group; e2e keeps the required check name, passes only if every machine passed, gathers screenshots, checks the grid, posts it. Deploy job now checks the three results by name. Unit tests: 29 passed (npx vitest run lib/ci-browser-needed.test.ts); eslint and tsc clean. Local run from an empty database: in progress; branches group tests passing so far.
+- **Key paths:** scripts/ci-browser-needed.mjs (BROWSER_GROUPS, applyBrowserGroup, browserGroupsToRun, --groups), scripts/ci-browser-needed.d.mts, playwright.config.ts (CI_BROWSER_GROUP), lib/ci-browser-needed.test.ts, .github/workflows/ci.yml, docs/ci-time.md, .claude/skills/merge-train/scripts/refresh-screenshots.sh (downloads every playwright-report-* artifact)
+- **Commands that worked:** CI=1 CI_BROWSER_GROUP=<group> npx playwright test --ignore-snapshots (after moving .data/ away); CI_BROWSER_GROUP=<group> npx playwright test --list; node scripts/ci-browser-needed.mjs --groups <slices> <1 to skip WebKit>
+- **Known issues / blockers:** Not yet proven that the readalong, readalong-safari and behavior groups pass from an empty database (local runs still going). Not committed or pushed yet. LEARNING_LOG entry for this step not written yet. The screenshot-publishing stall (32.7 min in job 126117258876) is not fixed.
+- **Exact next steps:** 1. Read the local group results; if a group fails for missing data, pull the project it needs into that group. 2. LEARNING_LOG iteration 140. 3. After PR 293 merges, rebase, push, open PR 2 with the timings from its CI run against PR 293's single-machine run. 4. Samuel: remove the Blacksmith app from agenticghx and cancel the plan.
 
 ### 2026-11-05 08:58 · Claude Opus 5.5 (laptop) · CI: off Blacksmith, onto GitHub's free machines (PR 1 of 2)
 - **Done:** Samuel can no longer pay for Blacksmith (2026-11-05). Branch m27-ci-free-shards swaps the 8 'runs-on: blacksmith-4vcpu-ubuntu-2404' lines (ci.yml 4, auto-merge.yml 1, timing-samples.yml 3) for 'ubuntu-24.04', GitHub's own machines. They cost nothing because the repository is public. Measured first on Blacksmith: browser job typically 13-30 min; Playwright 16.3 and 19.6 min on two PRs, 27.4 min nightly with WebKit. Job 126117258876 spent 32.7 min publishing screenshots to the ci-screenshots branch, longer than its tests. Samuel chose option 2: GitHub machines, then the browser tests split across several free machines at once. That split is PR 2.
