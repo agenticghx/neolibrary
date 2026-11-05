@@ -26,7 +26,7 @@ export function applyBrowserSlices<T extends { name?: string; dependencies?: str
 /** Page names the 2×2 screenshot grid requires for this slice list. */
 export function gridPageNames(pageSource: string, slices: readonly string[] | string): string[];
 
-export const BROWSER_GROUPS: Record<"behavior" | "branches" | "readalong" | "readalong-safari", { support: string[]; targets: string[] }>;
+export const BROWSER_GROUPS: Record<"behavior" | "branches" | "readalong" | "webkit", { support: string[]; targets: string[] }>;
 
 export const WEBKIT_PROJECTS: readonly string[];
 
