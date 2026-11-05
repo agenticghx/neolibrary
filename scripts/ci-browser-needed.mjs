@@ -333,9 +333,9 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  * - readalong: the audiobook file in Chromium, then whole-book narration. It needs the PDF
  *   "Discourse on the Method", which reader.spec.ts uploads, so reader runs here too.
  * - webkit: everything in Safari's engine, on one machine (main and the night run only):
- *   Safari's highlight test and the audiobook file, after reader. Installing WebKit's system
- *   packages on the behavior machine made Chromium's "design" screenshot 2 px taller or
- *   shorter between shots on 3 of 3 runs on main (2026-11-05), never on a pull request.
+ *   Safari's highlight test and the audiobook file, after reader. (Tried on 2026-11-05 as a
+ *   fix for the design screenshot's 2 px wobble on main; it was not the cause, see
+ *   docs/ci-flakes.md. The split stays: the behavior machine is Chromium only.)
  */
 export const BROWSER_GROUPS = {
   behavior: {

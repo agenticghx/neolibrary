@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the hand-started CI run on m27-webkit-machine; if the design screenshot passes, mark the PR ready.
+next_action: Find what makes /design 2 px taller at its foot on main's runs (5 of 5 fail); branch runs first, to see whether branches reproduce it.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-05
 shared_copy: none
@@ -354,6 +354,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-05 11:32 · Claude Opus 5.5 (laptop) · CI: correction: #296 did not fix main's design screenshot
+- **Done:** #296 (all WebKit on one machine) merged as 3f81084 on one green run started by hand on its branch. Main then failed the same way twice more (42062889801, nightly 42063667066), with WebKit no longer on that machine, so the stated cause was wrong. This branch corrects the record: LEARNING_LOG iteration 141 marked failure, with the lesson; docs/ci-time.md and the BROWSER_GROUPS comment no longer claim a cause; docs/ci-flakes.md gives the tally (5 of 5 runs on main on GitHub's machines fail; all 4 PRs and 1 branch run pass) and the lead: the two shots are identical to row 3284, and the taller one has 2 more px of blank background at the very bottom. The WebKit split itself stays: the behavior machine is Chromium only.
+- **Key paths:** LEARNING_LOG.md (Iteration 141), docs/ci-flakes.md, docs/ci-time.md, scripts/ci-browser-needed.mjs (comment only)
+- **Commands that worked:** gh run download <run> -n playwright-report-behavior -D <dir>; compare design-actual.png and design-previous.png row by row (python3 with PIL)
+- **Known issues / blockers:** While main's CI is red, the 'Start the deploy' job is skipped, so merges no longer deploy themselves. Nothing is waiting: #293-#296 changed CI and docs only. For the next real merge, deploy by hand: gh workflow run deploy.yml --ref main (sha empty means main's latest; a migration is still refused). Publishing screenshots takes about 4 min per PR; one browser install took 12.5 min (apt).
+- **Exact next steps:** 1. Start 2-3 CI runs by hand on fresh branches at main's tree (gh workflow run ci.yml --ref <branch>), in parallel; if all pass, list what only main has; if any fail, branches reproduce it and a fix can be tested without merging. 2. Find what at the foot of /design adds 2 px of blank space (an element that appears and disappears). 3. Make publishing screenshots faster. 4. Samuel: remove the Blacksmith app from the agenticghx organization and cancel the plan.
 
 ### 2026-11-05 10:29 · Claude Opus 5.5 (laptop) · CI: all of WebKit on one machine (draft PR, testing the design-screenshot cause)
 - **Done:** Since the move to GitHub's machines, Chromium's 'design looks as approved' screenshot failed on 3 of 3 runs on main (42045069614, 42049442066, 42053211796; page 3287 then 3285 px tall) and passed on 3 of 3 PRs (#293-#295). Only main installs WebKit and its system packages. Branch m27-webkit-machine moves Safari's highlight test (safari) off the behavior machine into the WebKit group (renamed from readalong-safari to webkit), so the behavior machine never installs WebKit. A first idea (the design page's carousel drifting) was wrong: it never drifts under a test robot, and a probe read 3253 px 20 times either way.
