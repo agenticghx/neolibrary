@@ -12,6 +12,7 @@ import { editionOf } from "@/lib/library/text-edition";
 import { whereWereWe } from "@/lib/library/where-were-we";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
+import { citationsFor, forReader } from "@/lib/library/citations";
 import { Reader } from "./Reader";
 
 export const metadata: Metadata = { title: "Reading" };
@@ -67,6 +68,8 @@ export default async function ReadPage({
   // M28 S3: "Where were we?" on coming back on a later day; not during a focus session, nor when opened at a
   // place of its own (a search result, a review card, a shared link): the reader came for that place.
   // A whole-book focus lasts days, so "Where were we?" still helps there.
+  // M41 R5: a paper's citations, for Aa > Citations (worked out from its stored text; nothing for a book without).
+  const citations = book.fileType === "epub" ? forReader(await citationsFor(db, user.id, book.id)) : null;
   const recall = sitting ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
   return (
     <Reader
@@ -84,6 +87,7 @@ export default async function ReadPage({
       rewrittenView={rewrittenView}
       recall={recall}
       ownKeys={user.role !== "admin"}
+      citations={citations}
     />
   );
 }

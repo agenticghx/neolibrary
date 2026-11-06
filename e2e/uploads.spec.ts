@@ -891,3 +891,116 @@ test("a PDF with text of its own is laid out again as flowing text, without AI",
   await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
   await expect(page).toHaveURL(/\/library$/);
 });
+
+// M41 R5 "Done when": a paper's author–year citations can be shown as numbers or hidden from Aa, the reference list
+// is numbered, and a place in the text keeps the same address (CFI) with the citations wrapped as without.
+test("a paper's citations can be shown as numbers or hidden, and places keep their address", async ({ page }) => {
+  test.setTimeout(90_000);
+  const md = [
+    "---",
+    "title: Citations in a Short Paper",
+    "author: Ann Example",
+    "---",
+    "# Results",
+    "",
+    "Synergy has a long history (Ames and Bell, 1971; Bell, 1980), as Bell (1980) said plainly.",
+    "",
+    "One work is cited that the list lacks (Zed, 1999).",
+    "",
+    "# References",
+    "",
+    "- Ames, B., and Bell, C.: Two works in one. J. Test. 1: 1–2, 1971.",
+    "- Bell, C.: Alone. J. Test. 2: 3–4, 1980.",
+  ].join("\n");
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "citations-paper.md", mimeType: "text/markdown", buffer: Buffer.from(md) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^Citations in a Short Paper/ }).click();
+  await page.waitForURL(/\/books\/[0-9a-f-]{36}/);
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+
+  type View = {
+    renderer: { getContents(): { doc: Document; index: number }[] };
+    getCFI(index: number, range: Range): string;
+    resolveCFI(cfi: string): { anchor(doc: Document): Range };
+  };
+  const look = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as View;
+      const { doc, index } = view.renderer.getContents()[0];
+      const p = Array.from(doc.querySelectorAll("p")).find((x) => x.textContent!.includes("said plainly"))!;
+      const cites = Array.from(p.querySelectorAll('[data-nl-cite="cite"]'));
+      // The same place on a copy of the page with the citation spans taken out: what a note made before saw.
+      const plain = doc.cloneNode(true) as Document;
+      for (const s of Array.from(plain.querySelectorAll("[data-nl-cite]"))) s.replaceWith(...Array.from(s.childNodes));
+      plain.normalize();
+      const said = (d: Document) => {
+        const para = Array.from(d.querySelectorAll("p")).find((x) => x.textContent!.includes("said plainly"))!;
+        const walker = d.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+        for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+          const at = t.nodeValue!.indexOf("said");
+          if (at >= 0) {
+            const r = d.createRange();
+            r.setStart(t, at);
+            r.setEnd(t, at + 4);
+            return r;
+          }
+        }
+        throw new Error("no 'said'");
+      };
+      const plainCfi = view.getCFI(index, said(plain));
+      return {
+        labels: cites.map((c) => c.getAttribute("data-n")),
+        shown: cites.map((c) => getComputedStyle(c, "::after").content),
+        wordsShown: (p as HTMLElement).innerText,
+        sameCfi: view.getCFI(index, said(doc)) === plainCfi,
+        foundAgain: view.resolveCFI(plainCfi).anchor(doc).toString(),
+      };
+    });
+  await expect.poll(async () => (await look()).labels).toEqual(["[1, 2]", "[2]"]);
+  let s = await look();
+  expect(s.wordsShown).toContain("(Ames and Bell, 1971; Bell, 1980)");
+  expect(s.shown).toEqual(["none", "none"]);
+  expect(s.sameCfi).toBe(true);
+  expect(s.foundAgain).toBe("said");
+
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const settings = page.getByRole("region", { name: "Reading settings" });
+  const citations = settings.getByRole("group", { name: "Citations" });
+  await expect(citations).toContainText("1 citation names a work the list does not hold exactly once, and stays as written.");
+  await citations.getByRole("button", { name: "Numbered", exact: true }).click();
+  await expect.poll(async () => (await look()).shown).toEqual(['" [1, 2]"', '" [2]"']);
+  s = await look();
+  expect(s.wordsShown).not.toContain("Ames and Bell");
+  expect(s.wordsShown).toContain("Bell");
+  expect(s.sameCfi).toBe(true);
+  expect(s.foundAgain).toBe("said");
+  mkdirSync("screenshots", { recursive: true });
+  await page.screenshot({ path: "screenshots/citations-numbered-desktop-light.png" });
+
+  await citations.getByRole("button", { name: "Hidden", exact: true }).click();
+  await expect.poll(async () => (await look()).wordsShown).not.toContain("1980)");
+  expect((await look()).foundAgain).toBe("said");
+
+  // The reference list is numbered in printed order.
+  await citations.getByRole("button", { name: "Numbered", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.evaluate(async () => {
+    const view = document.querySelector("foliate-view") as unknown as { goTo(i: number): Promise<void>; book: { sections: unknown[] } };
+    await view.goTo(view.book.sections.length - 1);
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector("foliate-view") as unknown as View;
+        return view.renderer
+          .getContents()
+          .flatMap(({ doc }) => Array.from(doc.querySelectorAll("[data-nl-ref]")))
+          .map((li) => getComputedStyle(li, "::before").content);
+      }),
+    )
+    .toEqual(['"1. "', '"2. "']);
+});

@@ -1725,6 +1725,57 @@ Open unknowns row 33; it decides how much of R2 is built.
   on a second tap; it fails when taps on equations are ignored. Real-paper
   check: Greco's equation (1) on a local build (test AI), desktop light and
   phone dark.
+- **R5 · Citations as written, numbered or hidden.** Samuel, 2026-11-06: "a
+  paper lists citations in text … names and year, but I should be able to
+  just switch it to numbered … reusable for other papers". Aa has a
+  Citations choice, offered only for a title whose reference list and
+  citations were found: As written (as before), Numbered ("[12]", each work
+  by its place in the reference list counted from the top, the list's
+  entries numbered to match; on a computer the number's tooltip is the
+  entry), or Hidden. Nothing is stored and no file changes: the server finds
+  the reference list (a chapter or a paragraph called References,
+  Bibliography, Literature Cited or Works Cited) and each citation in the
+  prose, from the paragraphs' stored text, each time the paper opens
+  (`lib/library/citations.ts`). Two shapes: in brackets, "(Waud and Parker,
+  1971; Waud et al., 1978)", the whole bracket becomes "[n, m]"; in the
+  sentence, "Bell (1980)", only the bracket does ("Bell [2]"). Authors must
+  be the entry's, in order ("et al." for three or more); a year's letter
+  ("1992b") is the list's own letter, or else the order the list prints
+  them. A citation naming a work the list does not hold exactly once is
+  left as written and counted (the Aa hint says how many). The reader
+  wraps each citation's words in spans as the page loads
+  (`app/(reader)/books/[id]/read/citations.ts`); the words stay in the page
+  (search, read-along, X-ray and stored offsets unchanged) and CSS alone
+  picks what shows. Notes and places are kept by CFI, which counts a page's
+  elements, so the view's CFI functions look through the spans (foliate's
+  filter), and `scripts/patch-foliate-cfi.mjs` fixes the one spot in
+  foliate that counted a place inside such a span from the span: an
+  address is the same with the spans as without, so notes made before
+  this keep their words. The setting is the reader's, for every paper.
+  Known limits: Listen still reads the citation's words; the list is
+  numbered in printed order, not by first mention (that would move the
+  list's entries); a bracket with one unreadable part stays whole as
+  written. *Built 2026-11-06 (branch `m41-citation-style`).*
+  Done when: unit tests read entries in two printed styles, number the
+  list in order, find bracket and sentence citations (possessive, "et al.",
+  letters printed or by order, accents, a company, a word before the names
+  that is not one), keep the words before ("(e.g., [5])"), leave unmatched
+  and doubly matched ones as written and count them, and ignore brackets
+  that are not citations; reader tests wrap the words keeping the text,
+  leave one that crosses an element's edge, and give six ranges (before,
+  across, after, inside, ending inside a citation, in an italic word) the
+  same CFI as the page without spans and find each again, failing without
+  the foliate patch (two fail) and without the filter; a browser test adds
+  a paper, finds "[1, 2]" and "[2]" drawn when Numbered, the words gone
+  when Hidden, the list numbered "1." and "2.", and a place after a
+  citation with the same address as on the page without spans.
+  Real-paper check: the Greco Markdown, every citation matched or
+  explained: 164 entries, 488 citations numbered (591 cited works, each
+  checked to name its entry's first author and year), 10 left as written,
+  each a mismatch in the paper itself (Holford and "Sheiner" for
+  Scheiner, Calabresi for Calabrese, Desmaris for Desmarais, Guimarãs,
+  STSC 1986 for 1988, Pöch 1990b and Chou 1991 with letters the list does
+  not print, Greco et al. 1993 and Drewinko alone not in the list).
 
 ## How a cloud session works on this repo
 

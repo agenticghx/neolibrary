@@ -64,6 +64,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
 import { TableView } from "./TableView";
 import { equationAt, figureAt, markWideTables, tableAt, type Figure, type TappedTable } from "./figure";
+import { filterCitationCfis, wrapCitations, type ReaderCitations } from "./citations";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
@@ -333,6 +334,8 @@ export function Reader(props: {
   visitor?: { backHref: string };
   /** M34 S4: this reader pays for AI and voices with their own keys (anyone but the owner): the settings offer them. */
   ownKeys?: boolean;
+  /** M41 R5: a paper's citations and reference list (lib/library/citations.ts), for Aa > Citations; null for a book without. */
+  citations?: ReaderCitations | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -525,6 +528,8 @@ export function Reader(props: {
   const [downloaded, setDownloaded] = useState<string | null>(null);
   // Focus (M21, EPUBs): the mode now, the paragraph read aloud, and where the mouse rests (in the reader's coordinates).
   const focusRef = useRef<FocusMode>("off");
+  // M41 R5: fixed for the page's life (it comes with the page), read where the book is opened.
+  const citationsRef = useRef(props.citations);
   const spokenBlock = useRef<Element | null>(null);
   const pointer = useRef<{ x: number; y: number; inside: boolean } | null>(null);
   // The layout last laid out (Pages or Scroll, One or Two pages), and the place to mark once a switch has settled.
@@ -860,6 +865,8 @@ export function Reader(props: {
         host.current!.append(v);
         view.current = v;
         await v.open(book);
+        // M41 R5: places are counted as if a paper's citation spans were not there (citations.ts).
+        if (citationsRef.current) filterCitationCfis(v as never);
         // Highlights: load them, and draw each one when its page is rendered.
         const { Overlayer } = (await import("foliate-js/overlayer.js")) as { Overlayer: { highlight: DrawFn } };
         const loaded = props.visitor ? [] : withCrossed(await (await fetch(`/api/books/${props.bookId}/annotations`)).json(), crossedAt.current);
@@ -1052,6 +1059,18 @@ export function Reader(props: {
         v.addEventListener("load", (e: Event) => {
           const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
           mark("nl:frame-load", { index, page: doc.documentElement.dataset.page ?? null });
+          // M41 R5: a paper's citations wrapped first, before the page is laid out or any note drawn on it.
+          const citations = citationsRef.current;
+          if (citations && props.fileType !== "pdf") {
+            wrapCitations(doc, index, citations, (cfi) => {
+              try {
+                const start = v.resolveCFI(cfi).anchor(doc).startContainer;
+                return start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
+              } catch {
+                return null;
+              }
+            });
+          }
           // A PDF page's text layer is complete (the page was just shown) or
           // was laid out for a new size: light the spoken word on it again.
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
@@ -2455,6 +2474,23 @@ export function Reader(props: {
                 you are on stays clear and the rest dims.
               </p>
             </fieldset>
+            {props.citations?.cites.length ? (
+              <fieldset className={styles.group}>
+                <legend>Citations</legend>
+                <Segment
+                  value={settings.citations}
+                  options={[["as-written", "As written"], ["numbered", "Numbered"], ["hidden", "Hidden"]]}
+                  onChange={(citations) => update({ citations })}
+                />
+                <p className={styles.hint}>
+                  Numbered shows each work by its place in the reference list, counted from the top: [12]. On a computer, point at a
+                  number to see the work.
+                  {props.citations.unmatched
+                    ? ` ${props.citations.unmatched} ${props.citations.unmatched === 1 ? "citation names" : "citations name"} a work the list does not hold exactly once, and ${props.citations.unmatched === 1 ? "stays" : "stay"} as written.`
+                    : ""}
+                </p>
+              </fieldset>
+            ) : null}
               </>
             )}
             <fieldset className={styles.group}>

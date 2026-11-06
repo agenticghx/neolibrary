@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Find what makes /design 2 px taller at its foot on main's runs (5 of 5 fail); branch runs first, to see whether branches reproduce it.
+next_action: Merge M41 R5 (citation styles) when green; check it on the live Greco paper.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-11-05
+updated: 2026-11-06
 shared_copy: none
 ---
 
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-11-06 13:15 (laptop clock, from `date`). **M41 R5, citation styles, is built** (branch `m41-citation-style`): Aa > Citations offers As written, Numbered ([12], in the reference list's order) or Hidden for any paper whose reference list and citations are found; no migration. Next: 1. PR; merge when the four checks are green (deploy.yml deploys it). 2. Check it on the live Greco paper signed in: numbers in text and list, existing highlights on the same words.
 
 Written 2026-11-02 06:45 (laptop clock, from `date`). **M41 Papers is planned and R1 is built** (`docs/plan.md` M41; branch `m41-paper-math-tables`, Samuel 2026-11-02: "yes"): a Markdown book's LaTeX equations become MathML and its pipe tables become tables. Not merged, not deployed; no migration. Next: 1. PR; merge when the four checks are green. 2. Deploy at Samuel's word. 3. R2: figures from a `.zip` of the `.md` and its `figures/` folder. 4. Samuel answers Open unknowns row 33 (who papers are for) before R3.
 
@@ -354,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-06 13:15 · Claude Opus 5.5 (laptop) · M41 R5: citations as written, numbered or hidden (branch m41-citation-style)
+- **Done:** Samuel 2026-11-06: switch a paper's author-year citations to numbers, reusable for any paper, verify and deploy without him. Aa now has Citations: As written / Numbered / Hidden, offered only when a reference list and citations are found. The server matches each citation to a reference-list entry from the stored paragraphs every time the paper opens (nothing stored, no migration, no file changed); the reader wraps each citation's words in spans as the page loads and CSS picks what shows; numbers follow the list's printed order and the list is numbered to match; a citation that names a work the list does not hold exactly once stays as written and is counted in the Aa hint. Notes keep their places: the view's CFI functions look through the spans (foliate's filter) and scripts/patch-foliate-cfi.mjs fixes foliate's one spot that counted a place inside such a span wrongly. Greco Markdown: 164 entries, 488 citations numbered, 591 cited works checked against their entry's first author and year (0 suspicious), 10 left as written, each a mismatch in the paper itself (listed in docs/plan.md R5).
+- **Key paths:** lib/library/citations.ts; app/(reader)/books/[id]/read/citations.ts; app/(reader)/books/[id]/read/Reader.tsx (Aa > Citations, load hook); app/(reader)/books/[id]/read/settings.ts (citationCss); app/(reader)/books/[id]/read/page.tsx; scripts/patch-foliate-cfi.mjs (postinstall, predev, prebuild); types/foliate.d.ts; e2e/uploads.spec.ts (last test); docs/plan.md M41 R5
+- **Commands that worked:** npm run check -> Test Files 150 passed | 1 skipped; Tests 1323 passed | 2 skipped; exit 0. npx vitest run lib/library/citations.test.ts 'app/(reader)/books/[id]/read/citations.test.ts' -> 27 passed; with foliate's nodeToParts patch undone: 2 failed | 10 passed (ranges inside a citation). npx playwright test --project=uploads -g 'create the owner account|citations' --ignore-snapshots -> 174 passed (24.7s); screenshots/citations-numbered-desktop-light.png checked by eye.
+- **Known issues / blockers:** Listen still reads a citation's words in Numbered mode. The list is numbered in printed order, not by first mention. A bracket with one unreadable or unmatched part stays whole as written. Not yet checked on the live Greco paper (after deploy).
+- **Exact next steps:** 1. PR; merge when the four checks are green (no migration, so deploy.yml deploys it). 2. On the live site, open the Greco paper signed in: Aa > Citations > Numbered; check numbers in text and list, and that existing highlights sit on the same words. 3. Then the batch of open fixes as Samuel queues them.
 
 ### 2026-11-05 11:32 · Claude Opus 5.5 (laptop) · CI: correction: #296 did not fix main's design screenshot
 - **Done:** #296 (all WebKit on one machine) merged as 3f81084 on one green run started by hand on its branch. Main then failed the same way twice more (42062889801, nightly 42063667066), with WebKit no longer on that machine, so the stated cause was wrong. This branch corrects the record: LEARNING_LOG iteration 141 marked failure, with the lesson; docs/ci-time.md and the BROWSER_GROUPS comment no longer claim a cause; docs/ci-flakes.md gives the tally (5 of 5 runs on main on GitHub's machines fail; all 4 PRs and 1 branch run pass) and the lead: the two shots are identical to row 3284, and the taller one has 2 more px of blank background at the very bottom. The WebKit split itself stays: the behavior machine is Chromium only.
