@@ -29,7 +29,15 @@ export type ReaderSettings = {
    * last tapped) and dims the rest; "paragraph" dims every paragraph but the one you are on.
    */
   focus: FocusMode;
+  /**
+   * M41 R5: a paper's author–year citations as written, as numbers in the reference list's order ("[12]"), or not
+   * shown. Only offered for a book whose reference list and citations were found (citations.ts).
+   */
+  citations: CitationMode;
 };
+
+export type CitationMode = "as-written" | "numbered" | "hidden";
+export const CITATION_MODES: readonly CitationMode[] = ["as-written", "numbered", "hidden"];
 
 export type FocusMode = "off" | "ruler" | "paragraph";
 export const FOCUS_MODES: readonly FocusMode[] = ["off", "ruler", "paragraph"];
@@ -43,6 +51,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   theme: "auto",
   dimPdf: true,
   focus: "off",
+  citations: "as-written",
 };
 export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
@@ -60,6 +69,7 @@ export function loadSettings(): ReaderSettings {
       theme: isTheme(raw.theme) ? raw.theme : "auto",
       dimPdf: raw.dimPdf !== false, // on unless turned off; settings saved before it existed get it on
       focus: FOCUS_MODES.includes(raw.focus) ? raw.focus : "off", // off for settings saved before it existed
+      citations: CITATION_MODES.includes(raw.citations) ? raw.citations : "as-written",
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -104,6 +114,7 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     ::selection { background: ${colors.highlight}; }
     ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
     ${focusCss(colors)}
+    ${citationCss(s.citations, colors)}
     img, svg { max-width: 100%; height: auto; }
     /* M41: a tap on a picture shows it full screen (FigureView.tsx); a linked picture is the link's. */
     img { cursor: zoom-in; }
@@ -128,6 +139,24 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     pre { white-space: pre-wrap !important; }
     aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
   `;
+}
+
+/**
+ * M41 R5: what a citation shows (citations.ts wraps each one: a "cite" span holding a "text" span with the words).
+ * As written adds nothing, so the page is laid out exactly as before. Numbered hides the words and draws the
+ * number after them (`::after` is not text: selection, search and read-along still see the words), and numbers the
+ * reference list. Hidden draws neither.
+ */
+export function citationCss(mode: CitationMode, colors: Record<string, string>): string {
+  if (mode === "as-written") return "";
+  const hide = `[data-nl-cite="text"] { display: none !important; }`;
+  if (mode === "hidden") return `${hide} [data-nl-cite="cite"] { display: none !important; }`;
+  return `
+    ${hide}
+    [data-nl-cite="cite"]::after { content: attr(data-n); color: ${colors.accent}; cursor: help; }
+    [data-nl-cite="cite"][data-space]::after { content: "\\00a0" attr(data-n); }
+    li[data-nl-ref] { list-style: none; }
+    [data-nl-ref]::before { content: attr(data-nl-ref) ". "; color: ${colors.accent}; font-variant-numeric: tabular-nums; font-weight: 600; }`;
 }
 
 /**
