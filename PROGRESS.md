@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M41 R5 (citation styles) when green; check it on the live Greco paper.
+next_action: CI on #298 with the design-screenshot fix; then merge, deploy, check Greco live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-06
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-06 14:10 · Claude Opus 5.5 (laptop) · CI: cause of the /design screenshot failure found; fix rides in #298
+- **Done:** The design screenshot check failed on both attempts of #298 (run 42269158446), and as it stops its machine's chain, 174 later tests (the citation test among them) never ran. Reproduced in CI's Linux image with throwaway probes: the page is 3285.14 px and still while idle; the first full-page capture switches the code labels' system monospace font (105 to 126 px wide) and the page becomes 3287 px, as every later capture is; scrolling first does not do it. Fix: e2e/visual.spec.ts takes one throwaway full-page capture before the check. docs/ci-flakes.md row and LEARNING_LOG iteration 143.
+- **Key paths:** e2e/visual.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project desktop-light -g 'probe design height' (probe spec removed afterwards) -> shots 3285,3287,3287,3287,3287; code w=105.00 h=18.00 -> w=126.03 h=17.00
+- **Known issues / blockers:** Proven only by the probe on the laptop's Linux image; CI on #298 is the real test.
+- **Exact next steps:** 1. CI on #298: behavior machine's design check green, and the 174 tests after it run. 2. Merge, deploy (deploy.yml by hand if main's run is still red), check Greco live.
 
 ### 2026-11-06 13:15 · Claude Opus 5.5 (laptop) · M41 R5: citations as written, numbered or hidden (branch m41-citation-style)
 - **Done:** Samuel 2026-11-06: switch a paper's author-year citations to numbers, reusable for any paper, verify and deploy without him. Aa now has Citations: As written / Numbered / Hidden, offered only when a reference list and citations are found. The server matches each citation to a reference-list entry from the stored paragraphs every time the paper opens (nothing stored, no migration, no file changed); the reader wraps each citation's words in spans as the page loads and CSS picks what shows; numbers follow the list's printed order and the list is numbered to match; a citation that names a work the list does not hold exactly once stays as written and is counted in the Aa hint. Notes keep their places: the view's CFI functions look through the spans (foliate's filter) and scripts/patch-foliate-cfi.mjs fixes foliate's one spot that counted a place inside such a span wrongly. Greco Markdown: 164 entries, 488 citations numbered, 591 cited works checked against their entry's first author and year (0 suspicious), 10 left as written, each a mismatch in the paper itself (listed in docs/plan.md R5).
