@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Aa > Citations on Greco; WebKit machine's slow browser install is the next CI cost to cut.
+next_action: Samuel tries Aa > Citations on Greco; next CI cost to cut is the WebKit machine's browser install.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-06
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-06 16:32 · Claude Opus 5.5 (laptop) · Checkpoint: citation styles (M41 R5) live at 52c6688; /design screenshot fixed
+- **Done:** Aa > Citations (As written / Numbered / Hidden) merged as 52c6688 (#298) and live; checked signed in on Greco (52 citations numbered in chapter III, list 1-164, 10 left as written). Main CI green again after the /design warm-up capture fix. Worktree and branch removed.
+- **Key paths:** docs/handoffs/2026-11-06-1632-citation-styles-live.md (gitignored, laptop only); lib/library/citations.ts; app/(reader)/books/[id]/read/citations.ts; e2e/visual.spec.ts; scripts/patch-foliate-cfi.mjs
+- **Commands that worked:** curl -s https://library.samuelahuno.com/api/health -> commit 52c6688; gh run view 42280358343 -> all success
+- **Known issues / blockers:** WebKit CI machine spent 48 min installing browsers on run 42280358343.
+- **Exact next steps:** 1. Samuel tries Aa > Citations on Greco. 2. Cut the WebKit machine's browser install time (docs/ci-time.md). 3. Optional: mark Greco as a paper (PMID 7568331).
 
 ### 2026-11-06 15:41 · Claude Opus 5.5 (laptop) · Live: 52c6688 (#298, citations as written, numbered or hidden; /design screenshot fix), by deploy.yml
 - **Done:** #298 merged as 52c6688 after all checks passed (PR run 42277419693: behavior 327 passed, the citation test and four /design shots among them). Main's CI 42280358343 all green, the first green main run since 2026-11-05 (the WebKit machine spent 48 min installing browsers), and its deploy job shipped it; no migration, so no backup. Checked live signed in on the Greco paper (Keychain NEOLIBRARY_PASSWORD, never printed): Aa > Citations shows 'As written / Numbered / Hidden' and '10 citations name a work the list does not hold exactly once'; Numbered draws all 52 citations in chapter III as numbers ('Hill model [73]', '[160, 161]', '[33, 35]'), 'Holford and Sheiner, 1981' and 'Chou (1991)' stay as written; the reference list reads 1. to 164., desktop light and phone dark. The check moved Samuel's saved place on Greco to chapter III (4%) and added a 12-s sitting: the place was put back in chapter IV (18.7%; his sittings ended near 18.2%) through the reader, and the one sitting row (4a8b23d2, 2026-11-06 20:25:46 UTC, 12 s, 239 words) deleted by id. A first push of #298's second commit carried a moved-aside local test database (.data-old-*, test fixtures only); the branch was rewritten without it before CI and merge.
