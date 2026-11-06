@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: CI on #298 with the design-screenshot fix; then merge, deploy, check Greco live.
+next_action: Samuel tries Aa > Citations on Greco; WebKit machine's slow browser install is the next CI cost to cut.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-06
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-06 15:41 · Claude Opus 5.5 (laptop) · Live: 52c6688 (#298, citations as written, numbered or hidden; /design screenshot fix), by deploy.yml
+- **Done:** #298 merged as 52c6688 after all checks passed (PR run 42277419693: behavior 327 passed, the citation test and four /design shots among them). Main's CI 42280358343 all green, the first green main run since 2026-11-05 (the WebKit machine spent 48 min installing browsers), and its deploy job shipped it; no migration, so no backup. Checked live signed in on the Greco paper (Keychain NEOLIBRARY_PASSWORD, never printed): Aa > Citations shows 'As written / Numbered / Hidden' and '10 citations name a work the list does not hold exactly once'; Numbered draws all 52 citations in chapter III as numbers ('Hill model [73]', '[160, 161]', '[33, 35]'), 'Holford and Sheiner, 1981' and 'Chou (1991)' stay as written; the reference list reads 1. to 164., desktop light and phone dark. The check moved Samuel's saved place on Greco to chapter III (4%) and added a 12-s sitting: the place was put back in chapter IV (18.7%; his sittings ended near 18.2%) through the reader, and the one sitting row (4a8b23d2, 2026-11-06 20:25:46 UTC, 12 s, 239 words) deleted by id. A first push of #298's second commit carried a moved-aside local test database (.data-old-*, test fixtures only); the branch was rewritten without it before CI and merge.
+- **Key paths:** lib/library/citations.ts; app/(reader)/books/[id]/read/citations.ts; e2e/visual.spec.ts; scripts/patch-foliate-cfi.mjs
+- **Commands that worked:** curl -s https://library.samuelahuno.com/api/health -> commit 52c6688 (and on web-production-f27a0e.up.railway.app); /sign-in 200 on both. Live check: Playwright, signed in, view.goTo(3) then Aa > Citations > Numbered; getComputedStyle(cite,'::after').content -> '" [73]"' etc.
+- **Known issues / blockers:** Live check left no change except the place (restored to chapter IV, not the exact line). Listen still reads citation words; the list is numbered in printed order.
+- **Exact next steps:** 1. Samuel tries Aa > Citations on Greco. 2. Mark Greco as a paper (PMID 7568331) if wanted; citations work either way. 3. The WebKit machine's 48-min browser install is worth a cache fix (docs/ci-time.md).
 
 ### 2026-11-06 14:10 · Claude Opus 5.5 (laptop) · CI: cause of the /design screenshot failure found; fix rides in #298
 - **Done:** The design screenshot check failed on both attempts of #298 (run 42269158446), and as it stops its machine's chain, 174 later tests (the citation test among them) never ran. Reproduced in CI's Linux image with throwaway probes: the page is 3285.14 px and still while idle; the first full-page capture switches the code labels' system monospace font (105 to 126 px wide) and the page becomes 3287 px, as every later capture is; scrolling first does not do it. Fix: e2e/visual.spec.ts takes one throwaway full-page capture before the check. docs/ci-flakes.md row and LEARNING_LOG iteration 143.
