@@ -58,13 +58,14 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
+import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
 import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
 import { TableView } from "./TableView";
 import { equationAt, figureAt, markWideTables, tableAt, type Figure, type TappedTable } from "./figure";
 import { filterCitationCfis, wrapCitations, type ReaderCitations } from "./citations";
+import { placeRedraws, showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
@@ -336,6 +337,8 @@ export function Reader(props: {
   ownKeys?: boolean;
   /** M41 R5: a paper's citations and reference list (lib/library/citations.ts), for Aa > Citations; null for a book without. */
   citations?: ReaderCitations | null;
+  /** M41 R6: a paper's figures redrawn cleanly (lib/library/figure-redraws.ts), for Aa > Figures; empty for most books. */
+  figures?: ReaderFigure[];
 }) {
   const host = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -530,6 +533,9 @@ export function Reader(props: {
   const focusRef = useRef<FocusMode>("off");
   // M41 R5: fixed for the page's life (it comes with the page), read where the book is opened.
   const citationsRef = useRef(props.citations);
+  // M41 R6: the redrawn figures (fixed for the page's life) and the mode now, read as each chapter loads.
+  const figuresRef = useRef(props.figures ?? []);
+  const figureModeRef = useRef<FigureMode>("redrawn");
   const spokenBlock = useRef<Element | null>(null);
   const pointer = useRef<{ x: number; y: number; inside: boolean } | null>(null);
   // The layout last laid out (Pages or Scroll, One or Two pages), and the place to mark once a switch has settled.
@@ -1071,6 +1077,11 @@ export function Reader(props: {
               }
             });
           }
+          // M41 R6: a paper's redrawn figures in place of the printed ones (only their addresses change).
+          if (figuresRef.current.length && props.fileType !== "pdf") {
+            const chapter = (v.book as { sections?: { id?: string }[] } | undefined)?.sections?.[index]?.id;
+            placeRedraws(doc, chapter, figuresRef.current, props.bookId, location.origin, figureModeRef.current);
+          }
           // A PDF page's text layer is complete (the page was just shown) or
           // was laid out for a new size: light the spoken word on it again.
           doc.addEventListener(TEXT_LAYER_EVENT, () => {
@@ -1270,6 +1281,9 @@ export function Reader(props: {
     }
     laidOut.current = layout;
     if (v && root.current) spreadRef.current = applySettings(v, settings, root.current);
+    // M41 R6: Figures, redrawn or as printed, on the pages already open (a page opened later reads the ref).
+    figureModeRef.current = settings.figures;
+    if (v && figuresRef.current.length) for (const { doc } of v.renderer?.getContents() ?? []) showFigures(doc, settings.figures);
     const marking = placeToMark.current
       ? setTimeout(() => {
           const spot = placeToMark.current;
@@ -2474,6 +2488,20 @@ export function Reader(props: {
                 you are on stays clear and the rest dims.
               </p>
             </fieldset>
+            {props.figures?.length ? (
+              <fieldset className={styles.group}>
+                <legend>Figures</legend>
+                <Segment
+                  value={settings.figures}
+                  options={[["redrawn", "Redrawn"], ["printed", "As printed"]]}
+                  onChange={(figures) => update({ figures })}
+                />
+                <p className={styles.hint}>
+                  {props.figures.length === 1 ? "One figure is" : `${props.figures.length} figures are`} drawn again cleanly by AI from the
+                  paper&apos;s own, and checked to match it line for line and word for word. Tap a figure to compare it with the printed one.
+                </p>
+              </fieldset>
+            ) : null}
             {props.citations?.cites.length ? (
               <fieldset className={styles.group}>
                 <legend>Citations</legend>

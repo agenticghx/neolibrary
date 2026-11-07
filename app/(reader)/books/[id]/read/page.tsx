@@ -13,6 +13,7 @@ import { whereWereWe } from "@/lib/library/where-were-we";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
 import { citationsFor, forReader } from "@/lib/library/citations";
+import { figureRedrawsFor } from "@/lib/library/figure-redraws";
 import { Reader } from "./Reader";
 
 export const metadata: Metadata = { title: "Reading" };
@@ -70,6 +71,8 @@ export default async function ReadPage({
   // A whole-book focus lasts days, so "Where were we?" still helps there.
   // M41 R5: a paper's citations, for Aa > Citations (worked out from its stored text; nothing for a book without).
   const citations = book.fileType === "epub" ? forReader(await citationsFor(db, user.id, book.id)) : null;
+  // M41 R6: its figures redrawn cleanly (sent from the laptop; the owner's, for a paper shared with this reader).
+  const figures = book.fileType === "epub" ? await figureRedrawsFor(db, book) : [];
   const recall = sitting ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
   return (
     <Reader
@@ -88,6 +91,7 @@ export default async function ReadPage({
       recall={recall}
       ownKeys={user.role !== "admin"}
       citations={citations}
+      figures={figures}
     />
   );
 }

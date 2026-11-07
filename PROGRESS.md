@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read ~/Documents/neolibrary-figures/greco-run.log and check every Greco redraw on the sheet, then push M41 R6.
+next_action: Merge M41 R6 (PR) when green; after the deploy send Greco's 4 redraws with the owner token and check them live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -363,6 +363,12 @@ Never blocks the loop. Newest first.
 - **Commands that worked:** npx playwright test --project=uploads --ignore-snapshots -g 'create the owner account|figure can be shown redrawn' -> 174 passed; npx tsx scripts/figures-on-subscription.ts redraw <epub> <folder> --only p1,p2 -> both redrawn after 3 corrections
 - **Known issues / blockers:** Greco's full 33-figure run was still going at the checkpoint (~/Documents/neolibrary-figures/greco-run.log, laptop only). Branch not pushed; docs/plan.md R6 has placeholder GRECO_RESULT.
 - **Exact next steps:** 1. Read the run log, rerun failures, make the sheet and check every redraw by eye. 2. Fill GRECO_RESULT, LEARNING_LOG 144, npm run check, push, PR, merge when green. 3. After deploy, send Greco's redraws with the owner token and check live; restore Samuel's reading place.
+### 2026-11-07 11:27 · Claude Opus 5.5 (laptop) · M41 R6: figures redrawn cleanly (in progress, not pushed)
+- **Done:** Samuel 2026-11-07: 'redraw the figures cleanly'. Built on branch m41-figure-redraw (commit 657a12db, local): scripts/figures-on-subscription.ts redraws a paper's figures with claude -p on the subscription, two readings of its words must agree, the SVG must be plain drawing, use those words and lie over the figure in pixels (no missing piece, nothing added), then a second model compares; failures keep the printed figure. Server: POST /api/agent/books/<id>/figure-redraws checks each against the book's file and stores a generations row (kind figure-redraw, no migration); GET /api/books/<id>/figures/<gen>.svg serves it sandboxed. Reader: picture address swapped (no element added), 'Redrawn by AI' label, Aa > Figures, full-screen Show the original. Also fixed focus-lock.test.ts, which read the real clock and began failing 2026-11-07. Also answered Samuel: the iPad half-width page was Chrome keeping a background tab's upright size; reload fixed it (nothing changed).
+- **Key paths:** lib/library/figure-redraw.ts; lib/library/figure-redraws.ts; scripts/figures-on-subscription.ts; prompts/figure-transcribe.md; prompts/figure-redraw.md; app/(reader)/books/[id]/read/figure-redraws.ts; app/api/agent/books/[id]/figure-redraws/route.ts; app/api/books/[id]/figures/[gen]/route.ts; docs/plan.md (M41 R6)
+- **Commands that worked:** npx vitest run lib/library/figure-redraw.test.ts lib/library/figure-redraws.test.ts 'app/(reader)/books/[id]/read/figure-redraws.test.ts' -> 22+9+3 passed; npx playwright test --project=uploads --ignore-snapshots -g 'create the owner account|figure can be shown redrawn' -> 174 passed, fails with the swap off; npx tsx scripts/figures-on-subscription.ts redraw ~/Documents/neolibrary-figures/greco.epub ~/Documents/neolibrary-figures/greco --jobs 3 (Greco p1, p2 redrawn and checked by eye)
+- **Known issues / blockers:** The 33-figure Greco run is still going (log ~/Documents/neolibrary-figures/greco-run.log). npm run check otherwise green (1353 passed before the focus-lock fix). Not pushed, no PR yet. plan.md R6 has a placeholder GRECO_RESULT to fill.
+- **Exact next steps:** 1. When the run ends: npx tsx scripts/figures-on-subscription.ts sheet ~/Documents/neolibrary-figures/greco and look at every redrawn figure. 2. Fill GRECO_RESULT in docs/plan.md, LEARNING_LOG iteration 144, push, PR, merge when green (no migration: auto-deploys). 3. Send Greco's passed redraws to the live site with NEOLIBRARY_AGENT_TOKEN and check them live.
 
 ### 2026-11-06 16:32 · Claude Opus 5.5 (laptop) · Checkpoint: citation styles (M41 R5) live at 52c6688; /design screenshot fixed
 - **Done:** Aa > Citations (As written / Numbered / Hidden) merged as 52c6688 (#298) and live; checked signed in on Greco (52 citations numbered in chapter III, list 1-164, 10 left as written). Main CI green again after the /design warm-up capture fix. Worktree and branch removed.

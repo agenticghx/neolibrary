@@ -356,9 +356,9 @@ async function sameBook(db: Db, ownerId: string, a: string, b: string) {
  * For the routes that serve a book's file or audio: 423 Locked while a session runs on another book, so a tab
  * left open on that book cannot go on reading it; null when the request may go ahead.
  */
-export async function lockedOut(db: Db, ownerId: string, bookId: string | null): Promise<Response | null> {
+export async function lockedOut(db: Db, ownerId: string, bookId: string | null, now = new Date()): Promise<Response | null> {
   if (!bookId) return null;
-  const running = await runningFocus(db, ownerId);
+  const running = await runningFocus(db, ownerId, now);
   if (!running || (await sameBook(db, ownerId, running.bookId, bookId))) return null;
   return Response.json(
     { error: "A focus session is running on another book. This book opens again when it ends.", focusBookId: running.bookId },
