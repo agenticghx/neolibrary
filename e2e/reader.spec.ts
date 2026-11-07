@@ -2370,6 +2370,18 @@ test("Width runs the text across the screen with bigger type, and Justify straig
   await tab.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Width" }).getByRole("button", { name: "Full", exact: true }).click();
   await tab.screenshot({ path: "screenshots/reader-width-settings-tablet-dark.png" });
   await tab.getByRole("button", { name: "Reading settings" }).click();
+  // Measured in the book's own typeface: before it has loaded the page shows a narrower stand-in (103 characters a
+  // line on CI's Linux machine, against about 85).
+  await expect
+    .poll(() =>
+      tab.evaluate(async () => {
+        const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+        const doc = view.renderer.getContents()[0].doc;
+        await doc.fonts.ready;
+        return doc.fonts.check('16px "NL Serif"') && [...doc.fonts].some((f) => f.family.includes("NL Serif") && f.status === "loaded");
+      }),
+    )
+    .toBe(true);
   const perLine = () =>
     tab.evaluate(() => {
       const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
