@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the figures-on-subscription skill; use it for the next paper Samuel names.
+next_action: Samuel looks at Greco's redrawn figures; more redraws only if he asks (figures-on-subscription skill).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 16:10 · Claude Opus 5.5 (laptop) · Checkpoint: figures redrawn cleanly (M41 R6) live at 5c2929e; figures-on-subscription skill merged
+- **Done:** M41 R6 live at 5c2929e (#299 redraws, #300 WebKit fix); Greco's Figures 1, 2, 15, 29 redrawn and checked live in Chrome and iPad-size WebKit; Samuel's reading place restored exactly; skill .claude/skills/figures-on-subscription merged as 3b614349 (#301).
+- **Key paths:** docs/handoffs/2026-11-07-1610-figure-redraws-live-skill.md (laptop only); .claude/skills/figures-on-subscription/SKILL.md; scripts/figures-on-subscription.ts
+- **Commands that worked:** curl <both addresses>/api/health -> commit 5c2929e; figures-on-subscription.ts send -> {saved:4,figures:4}; gh pr view 301 -> MERGED 3b614349
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Samuel looks at Greco's redrawn Figures 1, 2, 15 and 29. 2. More figures or papers only if he asks: load the figures-on-subscription skill. 3. Cut the WebKit CI machine's browser install time (docs/ci-time.md).
 
 ### 2026-11-07 14:58 · Claude Opus 5.5 (laptop) · Skill: figures-on-subscription (redraw a paper's figures, end to end)
 - **Done:** Samuel 2026-11-07: 'go ahead and write a skill' for the figure redraws. New .claude/skills/figures-on-subscription/SKILL.md: what a redraw is and its five checks; rules (subscription only, never edit or loosen, look at every pass, no figures in git, keys by name, no live address in docs); the workflow (find the paper, download its file, try two figures, run all, recheck markers, sheet and look, send, live check in Chrome and iPad-size WebKit with the reading place written back, ledger); what each 'kept' reason means; what can go wrong (401, other instructions, another picture, limit, broken pictures on iPad, missing Aa > Figures). Listed in .claude/skills/README.md and CLAUDE.md; the script points to it.
