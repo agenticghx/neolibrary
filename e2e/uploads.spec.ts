@@ -1069,14 +1069,18 @@ test("a paper's figure can be shown redrawn or as printed, labelled as redrawn b
       const img = doc.querySelector("img")!;
       return {
         src: img.getAttribute("src")!,
+        printed: img.dataset.nlPrinted ?? "",
+        redrawSrc: img.dataset.nlRedrawSrc ?? "",
         loaded: img.complete && img.naturalWidth > 0,
         label: getComputedStyle(img.parentElement!, "::after").content,
         elements: doc.body.querySelectorAll("*").length,
       };
     });
-  await expect.poll(async () => (await look()).loaded).toBe(true);
+  // The redraw is fetched by the reader's own page and shown as a blob: address (WebKit sends no sign-in cookie with a
+  // picture request from the book's page: every figure was a 401 on an iPad, 2026-11-07).
+  await expect.poll(async () => { const l = await look(); return l.loaded && l.src !== l.printed && l.src.startsWith("blob:"); }).toBe(true);
   let s = await look();
-  expect(s.src).toMatch(new RegExp(`/api/books/${id}/figures/[0-9a-f-]{36}\\.svg$`));
+  expect(s.redrawSrc).toMatch(new RegExp(`/api/books/${id}/figures/[0-9a-f-]{36}\\.svg$`));
   expect(s.label).toContain("Redrawn by AI from the paper");
   const elements = s.elements;
   mkdirSync("screenshots", { recursive: true });
@@ -1087,12 +1091,12 @@ test("a paper's figure can be shown redrawn or as printed, labelled as redrawn b
   const figures = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Figures" });
   await expect(figures).toContainText("One figure is drawn again cleanly by AI");
   await figures.getByRole("button", { name: "As printed", exact: true }).click();
-  await expect.poll(async () => (await look()).src).toMatch(/^blob:/);
+  await expect.poll(async () => { const l = await look(); return l.src === l.printed; }).toBe(true);
   s = await look();
   expect(s.label).toBe("none");
   expect(s.elements).toBe(elements);
   await figures.getByRole("button", { name: "Redrawn", exact: true }).click();
-  await expect.poll(async () => (await look()).src).toContain("/figures/");
+  await expect.poll(async () => { const l = await look(); return l.src !== l.printed; }).toBe(true);
   await page.keyboard.press("Escape");
 
   // Full screen: the redraw, whose it is, and the original a tap away.
@@ -1103,10 +1107,11 @@ test("a paper's figure can be shown redrawn or as printed, labelled as redrawn b
   const view = page.getByTestId("figure-view");
   await expect(view).toBeVisible();
   await expect(page.getByTestId("figure-view-note")).toContainText("Redrawn by AI (Claude Opus 5.5) from the paper's figure");
-  await expect(page.getByTestId("figure-view-img")).toHaveAttribute("src", /\/figures\//);
+  const redrawnSrc = (await look()).src;
+  await expect(page.getByTestId("figure-view-img")).toHaveAttribute("src", redrawnSrc);
   await page.screenshot({ path: "screenshots/figure-redrawn-view-desktop-light.png" });
   await view.getByRole("button", { name: "Show the original" }).click();
-  await expect(page.getByTestId("figure-view-img")).toHaveAttribute("src", /^blob:/);
+  await expect(page.getByTestId("figure-view-img")).toHaveAttribute("src", (await look()).printed);
   await expect(page.getByTestId("figure-view-note")).toContainText("as printed in the paper");
   await page.keyboard.press("Escape");
 
@@ -1119,7 +1124,7 @@ test("a paper's figure can be shown redrawn or as printed, labelled as redrawn b
     .poll(() => p.evaluate(() => {
       const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
       const img = view.renderer.getContents().map((x) => x.doc).find((d) => d.querySelector("img"))?.querySelector("img");
-      return !!img && img.complete && img.naturalWidth > 0 && img.getAttribute("src")!.includes("/figures/");
+      return !!img && img.complete && img.naturalWidth > 0 && !!img.dataset.nlRedraw && img.getAttribute("src") === img.dataset.nlRedraw;
     }))
     .toBe(true);
   await p.screenshot({ path: "screenshots/figure-redrawn-phone-dark.png" });

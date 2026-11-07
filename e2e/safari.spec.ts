@@ -48,3 +48,25 @@ test("in Safari, the read-aloud highlight lands on every word in order, on time"
   await expect(bar.getByRole("button", { name: "Play" })).toBeEnabled();
   await expectHighlightKeepsUp(page, "It was on a dreary night of November, that I beheld the accomplishment of my toils. With an anxiety that almost amounted to agony,");
 });
+
+// M41 R6: a redrawn figure loads in Safari's engine. WebKit sends a picture request from the book's page (a blob:
+// frame) without the sign-in cookie, so on 2026-11-07 every redraw was a 401 and a broken picture on an iPad; the
+// reader now fetches the redraw from its own page and hands the book's page a blob: address. The paper and its
+// redraw come from the uploads test ("a paper's figure can be shown redrawn or as printed").
+test("a paper's redrawn figure loads in Safari", async ({ page }) => {
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^A Paper With One Figure/ }).click();
+  await page.waitForURL(/\/books\/[0-9a-f-]{36}/);
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+        const img = view.renderer.getContents().map((x) => x.doc).find((d) => d.querySelector("img"))?.querySelector("img");
+        return !!img && img.complete && img.naturalWidth > 0 && !!img.dataset.nlRedraw && img.getAttribute("src") === img.dataset.nlRedraw;
+      }),
+    )
+    .toBe(true);
+});

@@ -1811,7 +1811,12 @@ Open unknowns row 33; it decides how much of R2 is built.
   has redraws; full screen has Show the original and says which model
   redrew it. Readers a paper is shared with see the owner's redraws. A
   redraw is served only as a picture (an `<img>`, where a browser runs no
-  code in an SVG) with the stored files' sandbox policy. This is the
+  code in an SVG) with the stored files' sandbox policy. The reader fetches
+  it from its own page and hands the book's page a blob: address, as
+  foliate does for the book's own pictures: Safari's engine sent the book
+  page's picture requests without the sign-in cookie, so the first live
+  redraws were broken on an iPad (fixed the same day, branch
+  `m41-figure-redraw-webkit`; a WebKit test in `e2e/safari.spec.ts`). This is the
   paper's own figure redrawn, so the decision that Claude does not
   generate images (Images, above) stands. *Built 2026-11-07 (branch
   `m41-figure-redraw`).*

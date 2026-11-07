@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge M41 R6 (PR) when green; after the deploy send Greco's 4 redraws with the owner token and check them live.
+next_action: Merge the WebKit fix for redrawn figures, then send Greco's 4 redraws again and check them live on iPad-size WebKit.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 14:08 · Claude Opus 5.5 (laptop) · M41 R6 fix: redrawn figures load in Safari's engine (iPad)
+- **Done:** #299 (M41 R6) merged as abc9f39 and live on both addresses (auto-deploy). Greco's 4 redraws sent ({saved:4}); the live check showed them in Chrome but broken in WebKit at iPad size: the book frame's picture requests reached the site without the sign-in cookie (401). The 4 rows were deleted from the live database at once (ids 2e88005a, 75250691, 4ef688b6, 7744c6e3), so Greco shows its printed figures. Fix on branch m41-figure-redraw-webkit: the reader fetches each redraw from its own page and hands the book's page a blob: address; a WebKit test in e2e/safari.spec.ts.
+- **Key paths:** app/(reader)/books/[id]/read/figure-redraws.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/safari.spec.ts; e2e/uploads.spec.ts; LEARNING_LOG.md (iteration 145)
+- **Commands that worked:** npx playwright test --project=safari --ignore-snapshots -g 'create the owner account|figure can be shown redrawn|redrawn figure loads in Safari' -> 245 passed; the old code with the reader check in WebKit fails (Received: false)
+- **Known issues / blockers:** Greco's redraws are not on the live site until this fix is deployed and they are sent again.
+- **Exact next steps:** 1. Merge this PR when green (no migration: auto-deploys). 2. NEOLIBRARY_AGENT_TOKEN=... npx tsx scripts/figures-on-subscription.ts send ~/Documents/neolibrary-figures/greco https://library.samuelahuno.com e374343c-5d8d-466a-8b12-ba984cd57a2e. 3. Live check in Chrome and WebKit at iPad size; restore Samuel's reading place.
 
 ### 2026-11-07 12:18 · Claude Opus 5.5 (laptop) · Checkpoint: M41 R6 figures redrawn cleanly, built on m41-figure-redraw, not pushed
 - **Done:** Built M41 R6 on local branch m41-figure-redraw (commit 657a12db, worktree .claude/worktrees/m41-figure-redraw): laptop script redraws a paper's figures on the subscription with word, overlay and review checks; server stores passed redraws as generations rows (no migration); reader shows them with a 'Redrawn by AI' label, Aa > Figures and Show the original. Unit tests 22+9+3 passed, browser test passes and fails with the swap off. Fixed a focus-lock test that broke on 2026-11-07 (real clock). Answered Samuel's iPad layout question (Chrome stale tab; reload fixed it).
