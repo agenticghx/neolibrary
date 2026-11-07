@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge Aa > Width, then check it live on an iPad-sized WebKit screen.
+next_action: Samuel tries Aa > Width > Full on his iPad.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 18:49 · Claude Opus 5.5 (laptop) · Live: 6c3a964 (#302 Aa > Width and Justify)
+- **Done:** #302 (M27 Q3) merged as 6c3a964 and auto-deployed. Aa > Width: Comfortable / Wide (starts 150 %) / Full (starts 170 %); each width keeps its own size; Justify; a 190 % step. Live check signed in on Chip War at 1366x1024 in WebKit and Chrome, dark: Full 170 %, 80, 84 and 86 characters a line (three paragraphs). Samuel's Chip War place written back to epubcfi(/6/80!/4,/16/1:228,/18/1:263) 0.509 (the check moved it to 0.51); no new sitting row (his open sitting a6a478da may have gained the check's seconds).
+- **Key paths:** app/(reader)/books/[id]/read/settings.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/reader.spec.ts; docs/plan.md (M27 Q3); LEARNING_LOG.md (iteration 146)
+- **Commands that worked:** curl <both addresses>/api/health -> commit 6c3a964, /sign-in 200; zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project reader --ignore-snapshots -> 245 passed
+- **Known issues / blockers:** CI took three rounds: the test measured a paragraph split over two pages, then one line (15 % off) instead of an average; the first starting size (150 %) gave 90 to 103 characters a line, now 170 %.
+- **Exact next steps:** 1. Samuel tries Aa > Width > Full on his iPad. 2. Cut the WebKit CI machine's browser install time (docs/ci-time.md).
 
 ### 2026-11-07 16:32 · Claude Opus 5.5 (laptop) · M27 Q3: Aa > Width (Comfortable / Wide / Full) and Justify
 - **Done:** Samuel 2026-11-07 (iPad screenshots vs Apple Books): text can fill the screen. Aa > Width: Comfortable (680 px, as before), Wide (960 px, starts at 135 %), Full (whole screen, starts at 150 %: about 85 characters a line on an iPad sideways); each width keeps its own text size; Justify switch. Branch m27-reader-width.
