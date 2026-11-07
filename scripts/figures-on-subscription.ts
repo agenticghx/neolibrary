@@ -6,6 +6,7 @@
  * Written for Samuel and the Claude sessions that run it.
  *
  *   npx tsx scripts/figures-on-subscription.ts redraw <book.epub> <folder> [--only p1,p2] [--jobs 3]
+ *   npx tsx scripts/figures-on-subscription.ts recheck <book.epub> <folder>   (the marker check on figures redrawn before it)
  *   npx tsx scripts/figures-on-subscription.ts sheet <folder>          (a page to look at every result)
  *   npx tsx scripts/figures-on-subscription.ts send <folder> <site> <book id>
  *
@@ -17,8 +18,11 @@
  * 3. The SVG must hold only plain drawing (lib/library/figure-redraw.ts
  *    `checkSvg`), use exactly the words read, and lie over the figure when drawn
  *    into pixels (`compareInk`). Then a second model compares the two pictures
- *    and lists any difference of content. A problem goes back for a correction,
- *    at most three times; a figure that still fails keeps its original.
+ *    and lists any difference of content, and a model lists every data point's
+ *    symbol in both (prompts/figure-markers.md): filled and open must match, and
+ *    a marker the print does not show for certain keeps the original. A problem
+ *    goes back for a correction, at most three times; a figure that still fails
+ *    keeps its original.
  *
  * <folder> keeps one JSON file per figure, a picture of its check, and the SVG
  * (keep it out of git: it is the paper's figure). A figure already done is
@@ -34,6 +38,23 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { fill, readPrompt } from "@/lib/ai/prompts";
 import { boxOf, checkSvg, compareInk, FigureError, figuresOf, inkOf, onlyWord, REDRAW_PROMPT, splitSvg, svgTexts, TRANSCRIBE_PROMPT, wordDiff, type Found, type InkCheck, type Spot } from "@/lib/library/figure-redraw";
 import { DECLINED } from "@/lib/library/page-check";
+
+const MARKERS_PROMPT = "figure-markers";
+type Marker = { where: string; figure: string; redraw: string };
+
+/**
+ * Filled and open markers stand for different data, and thinning lines (the pixel check) cannot tell them apart:
+ * a model lists every data point's symbol in both pictures. Any that differ, or that the print does not show for
+ * certain, fail the redraw. Returns the problems (none: it passed).
+ */
+async function markerProblems(call: (m: string, pics: Buffer[], t: string) => Promise<{ text: string }>, figure: Buffer, redrawn: Buffer, instructions: string): Promise<string[]> {
+  const { markers } = jsonIn((await call(DRAWER, [figure, redrawn], instructions)).text) as { markers?: Marker[] };
+  if (!Array.isArray(markers)) return ["The marker check gave no list."];
+  const norm = (s: string) => String(s ?? "").trim().toLowerCase();
+  return markers
+    .filter((m) => norm(m.figure) === "uncertain" || norm(m.figure) !== norm(m.redraw))
+    .map((m) => (norm(m.figure) === "uncertain" ? `The marker ${m.where} cannot be read for certain in the print.` : `The marker ${m.where} is a ${m.figure} in the figure but a ${m.redraw} in the redraw.`));
+}
 
 const arg = (name: string, fallback: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -62,6 +83,8 @@ export type Result = {
   check?: { tolerance: number; missed: number; extra: number; wordsAstray: number };
   calls: Calls;
   promptHash: string;
+  /** The marker check's instructions it passed (figures redrawn before that check have none, and are not sent). */
+  markersHash?: string;
   at: string;
   seconds: number;
 };
@@ -185,7 +208,9 @@ async function prompts() {
   const redraw = await readPrompt(REDRAW_PROMPT);
   const [drawPart, rest] = redraw.split(/^---fix---$/m);
   const [fixPart, reviewPart] = rest.split(/^---review---$/m);
-  return { transcribe, draw: drawPart.trim(), fix: fixPart.trim(), review: reviewPart.trim(), hash: sha256(`${transcribe}\n${redraw}`) };
+  // The marker check is a gate of its own (not part of the drawing's instructions, so not in their fingerprint).
+  const markers = await readPrompt(MARKERS_PROMPT);
+  return { transcribe, draw: drawPart.trim(), fix: fixPart.trim(), review: reviewPart.trim(), markers, markersHash: sha256(markers), hash: sha256(`${transcribe}\n${redraw}`) };
 }
 
 async function redrawOne(f: Found, folder: string, p: Awaited<ReturnType<typeof prompts>>): Promise<Result> {
@@ -230,11 +255,18 @@ async function redrawOne(f: Found, folder: string, p: Awaited<ReturnType<typeof 
     let problems = c.problems;
     if (c.ok && rendered) {
       const review = jsonIn((await call(SECOND, [work.png, rendered.png], p.review)).text) as { differences: string[] };
-      if (!review.differences?.length) {
-        const ink = c.ink!;
-        return done({ status: "redrawn", why: round ? `passed after ${round} correction${round > 1 ? "s" : ""}` : "passed first time", rounds: round, texts, check: { tolerance: ink.tolerance, missed: ink.missed, extra: ink.extra, wordsAstray: ink.wordsAstray } });
+      const markerIssues = review.differences?.length ? [] : await markerProblems(call, work.png, rendered.png, p.markers);
+      if (!review.differences?.length && markerIssues.some((m) => m.includes("for certain"))) {
+        return done({ status: "kept", why: `its markers cannot all be read for certain in the print: ${markerIssues.join(" ")}`, rounds: round, texts });
       }
-      problems = review.differences.map((d) => `A second look found: ${d}`);
+      if (!review.differences?.length && markerIssues.length) {
+        problems = markerIssues;
+      } else if (!review.differences?.length) {
+        const ink = c.ink!;
+        return done({ status: "redrawn", why: round ? `passed after ${round} correction${round > 1 ? "s" : ""}` : "passed first time", rounds: round, texts, markersHash: p.markersHash, check: { tolerance: ink.tolerance, missed: ink.missed, extra: ink.extra, wordsAstray: ink.wordsAstray } });
+      } else {
+        problems = review.differences.map((d) => `A second look found: ${d}`);
+      }
     }
     if (round >= FIXES) return done({ status: "kept", why: `still differs after ${FIXES} corrections: ${problems.join(" ")}`, rounds: round, texts });
     const pics = [work.png, ...(rendered ? [rendered.png] : []), ...(c.picture ? [c.picture] : [])];
@@ -281,6 +313,30 @@ async function redraw(epubPath: string, folder: string) {
   });
 }
 
+/** The marker check on figures already redrawn (made before it existed): one that fails keeps its printed picture. */
+async function recheck(epubPath: string, folder: string) {
+  const p = await prompts();
+  const found = new Map(figuresOf(readFileSync(epubPath)).map((f) => [f.key, f]));
+  for (const n of readdirSync(folder).filter((x) => x.endsWith(".json"))) {
+    const r = JSON.parse(readFileSync(join(folder, n), "utf8")) as Result;
+    const f = found.get(r.key);
+    if (r.status !== "redrawn" || r.markersHash === p.markersHash || !f) continue;
+    const { workW: w, workH: h } = r.size;
+    const work = await draw(f.bytes, w, h);
+    const rendered = await draw(Buffer.from(readFileSync(join(folder, `${r.key}.svg`), "utf8")), w, h);
+    const call = async (model: string, pics: Buffer[], text: string) => {
+      const a = await ask(model, pics, text);
+      r.calls.push({ model: a.model, inputTokens: a.inputTokens, outputTokens: a.outputTokens });
+      return a;
+    };
+    const problems = await markerProblems(call, work.png, rendered.png, p.markers);
+    if (problems.length) Object.assign(r, { status: "kept", why: `the marker check: ${problems.join(" ")}` });
+    else r.markersHash = p.markersHash;
+    writeFileSync(join(folder, n), JSON.stringify(r, null, 2));
+    console.log(`${r.key}: ${r.status} (${problems.length ? r.why : "markers match"})`);
+  }
+}
+
 function sheet(folder: string) {
   const results = readdirSync(folder)
     .filter((n) => n.endsWith(".json"))
@@ -304,7 +360,7 @@ async function send(folder: string, site: string, bookId: string) {
   const results = readdirSync(folder)
     .filter((n) => n.endsWith(".json"))
     .map((n) => JSON.parse(readFileSync(join(folder, n), "utf8")) as Result)
-    .filter((r) => r.status === "redrawn");
+    .filter((r) => r.status === "redrawn" && r.markersHash);
   const figures = results.flatMap((r) =>
     r.spots.map((spot) => ({
       chapter: spot.chapter,
@@ -341,6 +397,7 @@ async function main() {
   const [cmd, a, b, c] = process.argv.slice(2);
   if (cmd === "redraw" && a && b) return redraw(a, b);
   if (cmd === "sheet" && a) return sheet(a);
+  if (cmd === "recheck" && a && b) return recheck(a, b);
   if (cmd === "send" && a && b && c) return send(a, b, c);
   console.log("Usage: figures-on-subscription.ts redraw <book.epub> <folder> [--only p1,p2] [--jobs 3] | sheet <folder> | send <folder> <site> <book id>");
   process.exitCode = 1;
