@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the WebKit fix for redrawn figures, then send Greco's 4 redraws again and check them live on iPad-size WebKit.
+next_action: Samuel looks at Greco's redrawn Figures 1, 2, 15 and 29; more figures only if he asks.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 14:48 · Claude Opus 5.5 (laptop) · Live: 5c2929e (#299 figures redrawn cleanly, #300 WebKit fix); Greco's 4 redraws live
+- **Done:** Samuel 2026-11-07: 'carry on, finish it and deploy'. #299 (M41 R6) merged as abc9f39 and auto-deployed; sending Greco's 4 redraws showed them broken in WebKit (iPad): the book page's picture requests had no sign-in cookie (401). The 4 rows were deleted at once; #300 (reader fetches each redraw from its own page, hands a blob: address; WebKit test) merged as 5c2929e and auto-deployed (main CI green incl. the webkit machine). Redraws sent again ({saved:4}). Live check signed in on Greco: Figures 1 and 2 redrawn, loaded and labelled in Chrome desktop and WebKit at iPad size; As printed shows the scan; full screen names Claude Opus 5.5. Greco: 4 of 33 redrawn (1, 2, 15, 29), the rest kept as printed (8 not line art, 1 words disagreed, 17 still different after 3 corrections, 3 held by the marker check). Samuel's reading place restored to epubcfi(/6/8!/4,/10,/18/23:30) 0.053 (the check had moved it to 0.044); no test sitting left.
+- **Key paths:** lib/library/figure-redraw.ts; lib/library/figure-redraws.ts; scripts/figures-on-subscription.ts; prompts/figure-*.md; app/(reader)/books/[id]/read/figure-redraws.ts; e2e/safari.spec.ts; ~/Documents/neolibrary-figures/greco (laptop only, the paper's figures)
+- **Commands that worked:** curl https://library.samuelahuno.com/api/health and web-production-f27a0e.up.railway.app/api/health -> commit 5c2929e, /sign-in 200 on both; NEOLIBRARY_AGENT_TOKEN=... npx tsx scripts/figures-on-subscription.ts send ~/Documents/neolibrary-figures/greco https://library.samuelahuno.com e374343c-5d8d-466a-8b12-ba984cd57a2e -> {saved:4,figures:4}
+- **Known issues / blockers:** Most of Greco's figures stay as printed: the checks are strict on purpose (a redraw shows only when every check agrees). Redrawing another paper: download its EPUB with the agent route, run redraw, recheck, sheet (look at every pass), then send.
+- **Exact next steps:** 1. Samuel looks at Greco's Figures 1, 2, 15 and 29 (Aa > Figures switches back to the scan). 2. If he wants more figures redrawn: a second pass with more corrections for the near misses (16, 23, 25, 28, 32, 33). 3. Cut the WebKit CI machine's browser install time (docs/ci-time.md).
 
 ### 2026-11-07 14:08 · Claude Opus 5.5 (laptop) · M41 R6 fix: redrawn figures load in Safari's engine (iPad)
 - **Done:** #299 (M41 R6) merged as abc9f39 and live on both addresses (auto-deploy). Greco's 4 redraws sent ({saved:4}); the live check showed them in Chrome but broken in WebKit at iPad size: the book frame's picture requests reached the site without the sign-in cookie (401). The 4 rows were deleted from the live database at once (ids 2e88005a, 75250691, 4ef688b6, 7744c6e3), so Greco shows its printed figures. Fix on branch m41-figure-redraw-webkit: the reader fetches each redraw from its own page and hands the book's page a blob: address; a WebKit test in e2e/safari.spec.ts.
