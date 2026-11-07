@@ -1004,3 +1004,124 @@ test("a paper's citations can be shown as numbers or hidden, and places keep the
     )
     .toEqual(['"1. "', '"2. "']);
 });
+
+// M41 R6 "Done when": a paper's figure redrawn on the laptop and sent with the owner's token is shown in its place
+// (the printed one a switch away, in Aa and full screen), labelled as redrawn by AI, and refused if it is not plain
+// drawing or not of this book's picture. The paper and its picture (a box and a line) are invented.
+test("a paper's figure can be shown redrawn or as printed, labelled as redrawn by AI", async ({ page, playwright, browser }) => {
+  test.setTimeout(90_000);
+  const { createCanvas } = await import("@napi-rs/canvas");
+  const { createHash } = await import("node:crypto");
+  const { figuresOf } = await import("../lib/library/figure-redraw");
+  const c = createCanvas(300, 200);
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff";
+  g.fillRect(0, 0, 300, 200);
+  g.strokeStyle = "#000";
+  g.lineWidth = 5;
+  g.strokeRect(40, 40, 220, 120);
+  const png = new Uint8Array(c.toBuffer("image/png"));
+  const md = "---\ntitle: A Paper With One Figure\nauthor: Ann Example\n---\n# Results\n\nThe box is drawn below.\n\n![Figure 1](figures/fig-01.png)\n\nFigure 1. A box.\n";
+  await page.goto("/import");
+  await page.getByLabel("Choose files").setInputFiles({ name: "one-figure.zip", mimeType: "application/zip", buffer: Buffer.from(zipSync({ "one-figure.md": strToU8(md), "figures/fig-01.png": png })) });
+  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await page.goto("/library");
+  await page.getByTestId("shelf").getByRole("link", { name: /^A Paper With One Figure/ }).click();
+  await page.waitForURL(/\/books\/[0-9a-f-]{36}/);
+  const id = /\/books\/([0-9a-f-]{36})/.exec(page.url())![1];
+
+  // The laptop script's part: a token, the book's own file, and the redraw of its picture.
+  await page.goto("/agents");
+  await page.getByLabel("Which agent is it for?").fill("Figure redraws");
+  await page.getByRole("button", { name: "Make a token" }).click();
+  const token = await page.getByTestId("new-token").inputValue();
+  const agent = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { authorization: `Bearer ${token}` } });
+  const file = await agent.get(`/api/agent/books/${id}/file`);
+  expect(file.status()).toBe(200);
+  const [figure] = figuresOf(new Uint8Array(await file.body()));
+  const prompts = ["figure-transcribe", "figure-redraw"].map((n) => readFileSync(`prompts/${n}.md`, "utf8"));
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="300" height="200"><rect x="0" y="0" width="300" height="200" fill="#fff"/><rect x="40" y="40" width="220" height="120" fill="none" stroke="#000" stroke-width="3"/><text x="150" y="105" text-anchor="middle" font-family="Helvetica" font-size="14">redrawn</text></svg>';
+  const sent = {
+    chapter: figure.spots[0].chapter,
+    nth: figure.spots[0].nth,
+    src: figure.src,
+    inputHash: createHash("sha256").update(figure.bytes).digest("hex"),
+    svg,
+    model: "claude-opus-5-5",
+    promptHash: createHash("sha256").update(`${prompts[0]}\n${prompts[1]}`).digest("hex"),
+    inputTokens: 1000,
+    outputTokens: 800,
+    check: { tolerance: 3, missed: 0, extra: 0, wordsAstray: 0, rounds: 0, reviewedBy: "claude-sonnet-5-5" },
+  };
+  const bad = await agent.post(`/api/agent/books/${id}/figure-redraws`, { data: { figures: [{ ...sent, svg: svg.replace("</svg>", "<script>alert(1)</script></svg>") }] } });
+  expect(bad.status()).toBe(400);
+  expect((await bad.json()).error).toContain("<script>");
+  const ok = await agent.post(`/api/agent/books/${id}/figure-redraws`, { data: { figures: [sent] } });
+  expect(await ok.json()).toEqual({ saved: 1, figures: 1 });
+  await agent.dispose();
+
+  await page.goto(`/books/${id}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const look = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents().map((x) => x.doc).find((d) => d.querySelector("img"))!;
+      const img = doc.querySelector("img")!;
+      return {
+        src: img.getAttribute("src")!,
+        loaded: img.complete && img.naturalWidth > 0,
+        label: getComputedStyle(img.parentElement!, "::after").content,
+        elements: doc.body.querySelectorAll("*").length,
+      };
+    });
+  await expect.poll(async () => (await look()).loaded).toBe(true);
+  let s = await look();
+  expect(s.src).toMatch(new RegExp(`/api/books/${id}/figures/[0-9a-f-]{36}\\.svg$`));
+  expect(s.label).toContain("Redrawn by AI from the paper");
+  const elements = s.elements;
+  mkdirSync("screenshots", { recursive: true });
+  await page.screenshot({ path: "screenshots/figure-redrawn-desktop-light.png" });
+
+  // Aa > Figures: as printed shows the book's own picture again, with no label; nothing is added to the page.
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const figures = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Figures" });
+  await expect(figures).toContainText("One figure is drawn again cleanly by AI");
+  await figures.getByRole("button", { name: "As printed", exact: true }).click();
+  await expect.poll(async () => (await look()).src).toMatch(/^blob:/);
+  s = await look();
+  expect(s.label).toBe("none");
+  expect(s.elements).toBe(elements);
+  await figures.getByRole("button", { name: "Redrawn", exact: true }).click();
+  await expect.poll(async () => (await look()).src).toContain("/figures/");
+  await page.keyboard.press("Escape");
+
+  // Full screen: the redraw, whose it is, and the original a tap away.
+  await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    view.renderer.getContents().map((x) => x.doc).find((d) => d.querySelector("img"))!.querySelector("img")!.click();
+  });
+  const view = page.getByTestId("figure-view");
+  await expect(view).toBeVisible();
+  await expect(page.getByTestId("figure-view-note")).toContainText("Redrawn by AI (Claude Opus 5.5) from the paper's figure");
+  await expect(page.getByTestId("figure-view-img")).toHaveAttribute("src", /\/figures\//);
+  await page.screenshot({ path: "screenshots/figure-redrawn-view-desktop-light.png" });
+  await view.getByRole("button", { name: "Show the original" }).click();
+  await expect(page.getByTestId("figure-view-img")).toHaveAttribute("src", /^blob:/);
+  await expect(page.getByTestId("figure-view-note")).toContainText("as printed in the paper");
+  await page.keyboard.press("Escape");
+
+  // On a phone in the dark: the redraw keeps its white ground (as the printed figure does), the label is readable.
+  const phone = await browser.newContext({ storageState: ADMIN_STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: "dark" });
+  const p = await phone.newPage();
+  await p.goto(`/books/${id}/read`);
+  await expect(p.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect
+    .poll(() => p.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const img = view.renderer.getContents().map((x) => x.doc).find((d) => d.querySelector("img"))?.querySelector("img");
+      return !!img && img.complete && img.naturalWidth > 0 && img.getAttribute("src")!.includes("/figures/");
+    }))
+    .toBe(true);
+  await p.screenshot({ path: "screenshots/figure-redrawn-phone-dark.png" });
+  await phone.close();
+});

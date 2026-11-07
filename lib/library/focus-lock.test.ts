@@ -268,12 +268,12 @@ describe("whole-book focus (M26 R5)", () => {
   it("once the last page is reached, other books open at once, before the question is answered, and a new session can start", async () => {
     const s = await startBook(tm, "2026-10-24T09:00:00Z");
     expect(await runningFocus(database.db, ownerId, at("2026-10-24T10:00:00Z"))).not.toBeNull();
-    expect((await lockedOut(database.db, ownerId, jekyll))?.status).toBe(423);
+    expect((await lockedOut(database.db, ownerId, jekyll, at("2026-10-24T10:00:00Z")))?.status).toBe(423);
     await setProgress(tm, 1);
     // Still open (the reader will ask the question), but no longer locking anything.
     expect((await openFocus(database.db, ownerId))?.id).toBe(s.id);
     expect(await runningFocus(database.db, ownerId, at("2026-10-24T10:00:00Z"))).toBeNull();
-    expect(await lockedOut(database.db, ownerId, jekyll)).toBeNull();
+    expect(await lockedOut(database.db, ownerId, jekyll, at("2026-10-24T10:00:00Z"))).toBeNull();
     // The tab was closed without an answer: the next session closes it as finished.
     await start(jekyll, "2026-10-25T09:00:00Z");
     const [old] = await database.db.select().from(focusSessions).where(eq(focusSessions.id, s.id));

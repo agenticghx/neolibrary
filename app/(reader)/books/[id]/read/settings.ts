@@ -34,7 +34,12 @@ export type ReaderSettings = {
    * shown. Only offered for a book whose reference list and citations were found (citations.ts).
    */
   citations: CitationMode;
+  /** M41 R6: a paper's figures redrawn cleanly (figure-redraws.ts) or as printed. Only offered when some are redrawn. */
+  figures: FigureMode;
 };
+
+export type FigureMode = "redrawn" | "printed";
+export const FIGURE_MODES: readonly FigureMode[] = ["redrawn", "printed"];
 
 export type CitationMode = "as-written" | "numbered" | "hidden";
 export const CITATION_MODES: readonly CitationMode[] = ["as-written", "numbered", "hidden"];
@@ -52,6 +57,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   dimPdf: true,
   focus: "off",
   citations: "as-written",
+  figures: "redrawn",
 };
 export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
@@ -70,6 +76,7 @@ export function loadSettings(): ReaderSettings {
       dimPdf: raw.dimPdf !== false, // on unless turned off; settings saved before it existed get it on
       focus: FOCUS_MODES.includes(raw.focus) ? raw.focus : "off", // off for settings saved before it existed
       citations: CITATION_MODES.includes(raw.citations) ? raw.citations : "as-written",
+      figures: FIGURE_MODES.includes(raw.figures) ? raw.figures : "redrawn",
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -115,6 +122,14 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
     ${focusCss(colors)}
     ${citationCss(s.citations, colors)}
+    /* M41 R6: under a figure shown redrawn (figure-redraws.ts marks its holder), whose drawing it is. Drawn by CSS: not
+       text a search, a note or Listen meets. */
+    [data-nl-redrawn]::after {
+      content: "Redrawn by AI from the paper\\2019s figure \\00b7  tap it to compare";
+      display: block; margin: 0.4em 0 0; text-align: center; text-indent: 0;
+      font: 400 0.75rem/1.3 "NL Sans", Arial, sans-serif; letter-spacing: 0.01em;
+      color: color-mix(in srgb, ${colors.ink} 62%, ${colors.paper});
+    }
     img, svg { max-width: 100%; height: auto; }
     /* M41: a tap on a picture shows it full screen (FigureView.tsx); a linked picture is the link's. */
     img { cursor: zoom-in; }

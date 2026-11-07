@@ -1775,6 +1775,18 @@
   line-height: var(--leading-read);
 }
 
+/* M41 R6: whose drawing a redrawn figure is, or that it is the printed one. */
+.figureNote {
+  margin: 0 auto;
+  max-width: 46rem;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
 /* M41: a table wider than its column, whole (TableView.tsx): on the page's own paper, scrolled both ways. */
 .tableView {
   width: 100vw;
