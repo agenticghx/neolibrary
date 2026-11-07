@@ -10,6 +10,8 @@
  *   npx tsx scripts/figures-on-subscription.ts sheet <folder>          (a page to look at every result)
  *   npx tsx scripts/figures-on-subscription.ts send <folder> <site> <book id>
  *
+ * The whole workflow, with what to look at between steps: .claude/skills/figures-on-subscription/SKILL.md.
+ *
  * Each figure, in turn:
  * 1. Its words are read twice, by two models (prompts/figure-transcribe.md). A
  *    photograph, a shaded surface or a mesh too dense to redraw is kept as it is;

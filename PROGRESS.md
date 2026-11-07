@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel looks at Greco's redrawn Figures 1, 2, 15 and 29; more figures only if he asks.
+next_action: Merge the figures-on-subscription skill; use it for the next paper Samuel names.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 14:58 · Claude Opus 5.5 (laptop) · Skill: figures-on-subscription (redraw a paper's figures, end to end)
+- **Done:** Samuel 2026-11-07: 'go ahead and write a skill' for the figure redraws. New .claude/skills/figures-on-subscription/SKILL.md: what a redraw is and its five checks; rules (subscription only, never edit or loosen, look at every pass, no figures in git, keys by name, no live address in docs); the workflow (find the paper, download its file, try two figures, run all, recheck markers, sheet and look, send, live check in Chrome and iPad-size WebKit with the reading place written back, ledger); what each 'kept' reason means; what can go wrong (401, other instructions, another picture, limit, broken pictures on iPad, missing Aa > Figures). Listed in .claude/skills/README.md and CLAUDE.md; the script points to it.
+- **Key paths:** .claude/skills/figures-on-subscription/SKILL.md; .claude/skills/README.md; CLAUDE.md; scripts/figures-on-subscription.ts (header)
+- **Commands that worked:** npx vitest run lib/ci-browser-needed.test.ts -> 29 passed (skills count as docs: no browser tests)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge when green. 2. Next paper's figures: load the figures-on-subscription skill.
 
 ### 2026-11-07 14:48 · Claude Opus 5.5 (laptop) · Live: 5c2929e (#299 figures redrawn cleanly, #300 WebKit fix); Greco's 4 redraws live
 - **Done:** Samuel 2026-11-07: 'carry on, finish it and deploy'. #299 (M41 R6) merged as abc9f39 and auto-deployed; sending Greco's 4 redraws showed them broken in WebKit (iPad): the book page's picture requests had no sign-in cookie (401). The 4 rows were deleted at once; #300 (reader fetches each redraw from its own page, hands a blob: address; WebKit test) merged as 5c2929e and auto-deployed (main CI green incl. the webkit machine). Redraws sent again ({saved:4}). Live check signed in on Greco: Figures 1 and 2 redrawn, loaded and labelled in Chrome desktop and WebKit at iPad size; As printed shows the scan; full screen names Claude Opus 5.5. Greco: 4 of 33 redrawn (1, 2, 15, 29), the rest kept as printed (8 not line art, 1 words disagreed, 17 still different after 3 corrections, 3 held by the marker check). Samuel's reading place restored to epubcfi(/6/8!/4,/10,/18/23:30) 0.053 (the check had moved it to 0.044); no test sitting left.
