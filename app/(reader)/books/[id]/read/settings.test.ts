@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { bookCss, DEFAULT_SETTINGS, loadSettings, saveSettings } from "./settings";
+import { bookCss, DEFAULT_SETTINGS, loadSettings, saveSettings, WIDTH_SIZE, withWidth } from "./settings";
 
 /** A stand-in for the browser's localStorage (this test runs in Node). */
 function memoryStorage(): Storage {
@@ -109,5 +109,40 @@ describe("reading settings on this device", () => {
       expect(css).toMatch(/\[data-nl-ruler\] \{[^}]*pointer-events: none/);
       expect(css).toMatch(/prefers-reduced-motion: reduce\) \{ \[data-nl-ruler\] \{ transition: none !important; \}/);
     }
+  });
+});
+
+describe("Width and Justify (M27 Q3)", () => {
+  afterEach(() => {
+    delete (globalThis as { localStorage?: Storage }).localStorage;
+  });
+
+  it("makes the text bigger on a wider width, keeps each width's size, and brings it back", () => {
+    const mine = { ...DEFAULT_SETTINGS, size: 110 };
+    const full = withWidth(mine, "full");
+    expect(full).toMatchObject({ width: "full", size: WIDTH_SIZE.full });
+    // Made smaller in Full, then back to Comfortable and to Full again: each width's own size returns.
+    const back = withWidth({ ...full, size: 120 }, "comfortable");
+    expect(back.size).toBe(110);
+    expect(withWidth(back, "full").size).toBe(120);
+    expect(withWidth(back, "wide").size).toBe(WIDTH_SIZE.wide);
+    expect(withWidth(back, "comfortable")).toBe(back);
+  });
+
+  it("starts Comfortable and unjustified, including for settings saved before Width existed, and keeps a choice", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ size: 120 }));
+    expect(loadSettings()).toMatchObject({ width: "comfortable", sizes: {}, justify: false, size: 120 });
+    saveSettings({ ...withWidth({ ...DEFAULT_SETTINGS, size: 110 }, "wide"), justify: true });
+    expect(loadSettings()).toMatchObject({ width: "wide", size: WIDTH_SIZE.wide, sizes: { comfortable: 110 }, justify: true });
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ width: "huge", sizes: { wide: 999, full: 150 } }));
+    expect(loadSettings()).toMatchObject({ width: "comfortable", sizes: { full: 150 } });
+  });
+
+  it("justifies paragraphs only when asked", () => {
+    const colors = { paper: "#fff", ink: "#000", accent: "#00f", highlight: "#ff0", spoken: "#0f0", scheme: "light" };
+    expect(bookCss(DEFAULT_SETTINGS, colors, "https://x.example")).not.toContain("text-align: justify");
+    expect(bookCss({ ...DEFAULT_SETTINGS, justify: true }, colors, "https://x.example")).toContain("p, li, dd, blockquote { text-align: justify; }");
   });
 });

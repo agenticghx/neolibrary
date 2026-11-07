@@ -36,7 +36,33 @@ export type ReaderSettings = {
   citations: CitationMode;
   /** M41 R6: a paper's figures redrawn cleanly (figure-redraws.ts) or as printed. Only offered when some are redrawn. */
   figures: FigureMode;
+  /**
+   * M27 Q3 (Samuel, 2026-11-07, "like Apple Books"): how wide the text runs. Comfortable keeps lines short, as before;
+   * Wide and Full use more of the screen. Each width keeps its own text size (`sizes`), bigger for the wider ones at
+   * first, since a long line in small type is hard to follow.
+   */
+  width: WidthMode;
+  sizes: Partial<Record<WidthMode, number>>;
+  /** Text set flush on both sides, as Apple Books does. */
+  justify: boolean;
 };
+
+export type WidthMode = "comfortable" | "wide" | "full";
+export const WIDTH_MODES: readonly WidthMode[] = ["comfortable", "wide", "full"];
+/** The text column's widest line (px) at each width; Full is the whole screen less the page's own margins. */
+export const WIDTH_PX: Record<WidthMode, number> = { comfortable: 680, wide: 960, full: 4000 };
+/** The text size a width starts at, before the reader picks one there. */
+export const WIDTH_SIZE: Record<WidthMode, number> = { comfortable: 100, wide: 135, full: 150 };
+
+/**
+ * Switches the width, keeping the text size in use for the width left behind and bringing back the one last used at
+ * the new width (or its starting size): wider text is bigger, and going back is as it was.
+ */
+export function withWidth(s: ReaderSettings, width: WidthMode): ReaderSettings {
+  if (width === s.width) return s;
+  const sizes = { ...s.sizes, [s.width]: s.size };
+  return { ...s, width, sizes, size: sizes[width] ?? WIDTH_SIZE[width] };
+}
 
 export type FigureMode = "redrawn" | "printed";
 export const FIGURE_MODES: readonly FigureMode[] = ["redrawn", "printed"];
@@ -58,6 +84,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   focus: "off",
   citations: "as-written",
   figures: "redrawn",
+  width: "comfortable",
+  sizes: {},
+  justify: false,
 };
 export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
@@ -77,6 +106,9 @@ export function loadSettings(): ReaderSettings {
       focus: FOCUS_MODES.includes(raw.focus) ? raw.focus : "off", // off for settings saved before it existed
       citations: CITATION_MODES.includes(raw.citations) ? raw.citations : "as-written",
       figures: FIGURE_MODES.includes(raw.figures) ? raw.figures : "redrawn",
+      width: WIDTH_MODES.includes(raw.width) ? raw.width : "comfortable",
+      sizes: Object.fromEntries(WIDTH_MODES.filter((w) => SIZES.includes(raw.sizes?.[w])).map((w) => [w, raw.sizes[w]])),
+      justify: raw.justify === true,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -122,6 +154,7 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
     ${focusCss(colors)}
     ${citationCss(s.citations, colors)}
+    ${s.justify ? "/* M27 Q3: flush on both sides; a paragraph the book aligns by its own class keeps it. */ p, li, dd, blockquote { text-align: justify; }" : ""}
     /* M41 R6: under a figure shown redrawn (figure-redraws.ts marks its holder), whose drawing it is. Drawn by CSS: not
        text a search, a note or Listen meets. */
     [data-nl-redrawn]::after {
