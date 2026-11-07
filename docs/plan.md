@@ -1834,11 +1834,10 @@ Open unknowns row 33; it decides how much of R2 is built.
   Real-paper check: Greco 1995, 33 figures, every redraw that passed looked
   at beside its figure at full resolution: 4 redrawn (Figures 1, 2, 15,
   29); 8 kept as not line art (shaded surfaces, photographs); 1 whose
-  words three readings did not agree on; 16 still different after three
+  words three readings did not agree on; 17 still different after three
   corrections, most by real omissions (an arrowhead, a dash pattern, a
   zigzag pointer); 3 held back by the marker check (11, 14, 17: filled or
-  open cannot be told for certain in the print); Figure 26 was still
-  being redrawn when this was written. Known limit: most figures stay as
+  open cannot be told for certain in the print). Known limit: most figures stay as
   printed; a redraw is shown only when every check agrees.
 
 ## How a cloud session works on this repo
