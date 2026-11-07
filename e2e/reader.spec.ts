@@ -2313,7 +2313,10 @@ test("Width runs the text across the screen with bigger type, and Justify straig
       const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
       const doc = view.renderer.getContents()[0].doc;
       const p = Array.from(doc.querySelectorAll("p")).find((x) => (x.textContent ?? "").length > 300)!;
-      return { width: Math.round(p.getBoundingClientRect().width), align: getComputedStyle(p).textAlign };
+      // One piece of the paragraph: a paragraph running on to the next page is two pieces side by side, and its whole
+      // box spans both (1309 px on CI, where the fonts break the page elsewhere).
+      const width = Math.max(...Array.from(p.getClientRects()).map((r) => r.width));
+      return { width: Math.round(width), align: getComputedStyle(p).textAlign };
     });
   // The settings panel takes a column beside the book on a computer: open and close it on purpose.
   const panel = page.getByRole("region", { name: "Reading settings" });
