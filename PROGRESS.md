@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Aa > Citations on Greco; next CI cost to cut is the WebKit machine's browser install.
+next_action: Read ~/Documents/neolibrary-figures/greco-run.log and check every Greco redraw on the sheet, then push M41 R6.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-11-06
+updated: 2026-11-07
 shared_copy: none
 ---
 
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 12:18 · Claude Opus 5.5 (laptop) · Checkpoint: M41 R6 figures redrawn cleanly, built on m41-figure-redraw, not pushed
+- **Done:** Built M41 R6 on local branch m41-figure-redraw (commit 657a12db, worktree .claude/worktrees/m41-figure-redraw): laptop script redraws a paper's figures on the subscription with word, overlay and review checks; server stores passed redraws as generations rows (no migration); reader shows them with a 'Redrawn by AI' label, Aa > Figures and Show the original. Unit tests 22+9+3 passed, browser test passes and fails with the swap off. Fixed a focus-lock test that broke on 2026-11-07 (real clock). Answered Samuel's iPad layout question (Chrome stale tab; reload fixed it).
+- **Key paths:** docs/handoffs/2026-11-07-1217-figure-redraws-in-progress.md (laptop only); lib/library/figure-redraw.ts; lib/library/figure-redraws.ts; scripts/figures-on-subscription.ts; prompts/figure-redraw.md; app/(reader)/books/[id]/read/figure-redraws.ts
+- **Commands that worked:** npx playwright test --project=uploads --ignore-snapshots -g 'create the owner account|figure can be shown redrawn' -> 174 passed; npx tsx scripts/figures-on-subscription.ts redraw <epub> <folder> --only p1,p2 -> both redrawn after 3 corrections
+- **Known issues / blockers:** Greco's full 33-figure run was still going at the checkpoint (~/Documents/neolibrary-figures/greco-run.log, laptop only). Branch not pushed; docs/plan.md R6 has placeholder GRECO_RESULT.
+- **Exact next steps:** 1. Read the run log, rerun failures, make the sheet and check every redraw by eye. 2. Fill GRECO_RESULT, LEARNING_LOG 144, npm run check, push, PR, merge when green. 3. After deploy, send Greco's redraws with the owner token and check live; restore Samuel's reading place.
 
 ### 2026-11-06 16:32 · Claude Opus 5.5 (laptop) · Checkpoint: citation styles (M41 R5) live at 52c6688; /design screenshot fixed
 - **Done:** Aa > Citations (As written / Numbered / Hidden) merged as 52c6688 (#298) and live; checked signed in on Greco (52 citations numbered in chapter III, list 1-164, 10 left as written). Main CI green again after the /design warm-up capture fix. Worktree and branch removed.
