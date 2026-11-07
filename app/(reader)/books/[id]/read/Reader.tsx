@@ -536,6 +536,25 @@ export function Reader(props: {
   // M41 R6: the redrawn figures (fixed for the page's life) and the mode now, read as each chapter loads.
   const figuresRef = useRef(props.figures ?? []);
   const figureModeRef = useRef<FigureMode>("redrawn");
+  // Each redraw fetched once from this page (with the sign-in cookie) and kept as a blob: address for the book's pages.
+  const redrawBlobs = useRef(new Map<string, Promise<string>>());
+  const loadRedraw = useCallback((url: string) => {
+    const known = redrawBlobs.current.get(url);
+    if (known) return known;
+    const p = fetch(url, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`${r.status}`))))
+      .then((b) => URL.createObjectURL(b));
+    redrawBlobs.current.set(url, p);
+    p.catch(() => redrawBlobs.current.delete(url));
+    return p;
+  }, []);
+  useEffect(() => {
+    const blobs = redrawBlobs.current;
+    return () => {
+      for (const p of blobs.values()) p.then((u) => URL.revokeObjectURL(u), () => undefined);
+      blobs.clear();
+    };
+  }, []);
   const spokenBlock = useRef<Element | null>(null);
   const pointer = useRef<{ x: number; y: number; inside: boolean } | null>(null);
   // The layout last laid out (Pages or Scroll, One or Two pages), and the place to mark once a switch has settled.
@@ -1080,7 +1099,7 @@ export function Reader(props: {
           // M41 R6: a paper's redrawn figures in place of the printed ones (only their addresses change).
           if (figuresRef.current.length && props.fileType !== "pdf") {
             const chapter = (v.book as { sections?: { id?: string }[] } | undefined)?.sections?.[index]?.id;
-            placeRedraws(doc, chapter, figuresRef.current, props.bookId, location.origin, figureModeRef.current);
+            placeRedraws(doc, chapter, figuresRef.current, props.bookId, location.origin, () => figureModeRef.current, loadRedraw);
           }
           // A PDF page's text layer is complete (the page was just shown) or
           // was laid out for a new size: light the spoken word on it again.
@@ -1239,7 +1258,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection, loadRedraw]);
 
   // Two pages in Scroll: a spread is one screen tall, so a new window size lays the spreads out again (or goes to
   // one column, in a window taller than wide).

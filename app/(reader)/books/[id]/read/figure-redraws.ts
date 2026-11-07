@@ -35,9 +35,22 @@ function holderOf(img: Img): Holder | null {
 
 /**
  * Marks this chapter's redrawn pictures (the n-th <img> of the chapter's page, as the laptop script counted them) with
- * both addresses, then shows the one `mode` asks for. Returns how many were found.
+ * the printed picture's address and the redraw's, then fetches each redraw and shows it if `mode()` (asked once it has
+ * arrived) says Redrawn. Returns how many were found.
+ *
+ * The redraw is fetched by `load` from the reader's own page and handed to the book's page as a blob: address, as
+ * foliate hands it the book's own pictures. Safari's engine (WebKit, so every browser on an iPad) sends a picture
+ * request from the book's page without the sign-in cookie, and the site answered 401 (seen live, 2026-11-07).
  */
-export function placeRedraws(doc: Doc, chapter: string | undefined, figures: ReaderFigure[], bookId: string, origin: string, mode: FigureMode): number {
+export function placeRedraws(
+  doc: Doc,
+  chapter: string | undefined,
+  figures: ReaderFigure[],
+  bookId: string,
+  origin: string,
+  mode: () => FigureMode,
+  load: (url: string) => Promise<string>,
+): number {
   const mine = chapter ? figures.filter((f) => f.chapter === chapter) : [];
   if (!mine.length) return 0;
   const imgs = Array.from(doc.querySelectorAll("img")) as Img[];
@@ -47,11 +60,19 @@ export function placeRedraws(doc: Doc, chapter: string | undefined, figures: Rea
     const printed = img?.getAttribute("src");
     if (!img || !printed) continue;
     img.dataset.nlPrinted ??= printed;
-    img.dataset.nlRedraw = `${origin}/api/books/${bookId}/figures/${f.id}.svg`;
+    const url = `${origin}/api/books/${bookId}/figures/${f.id}.svg`;
+    img.dataset.nlRedrawSrc = url;
     img.dataset.nlModel = f.model;
     placed++;
+    load(url).then(
+      (blob) => {
+        if (img.dataset.nlRedrawSrc !== url) return;
+        img.dataset.nlRedraw = blob;
+        showFigures(doc, mode());
+      },
+      () => undefined, // not fetched: the printed picture stays, with no label
+    );
   }
-  showFigures(doc, mode);
   return placed;
 }
 
