@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Figure } from "./figure";
+import { modelName } from "./figure-redraws";
 import styles from "./reader.module.css";
 
 /** The element that has the keyboard, looking inside the book viewer (its frames sit in shadow roots). */
@@ -21,6 +22,8 @@ export function FigureView({ figure, onClose }: { figure: Figure | null; onClose
   const close = useRef<HTMLButtonElement>(null);
   const back = useRef<HTMLElement | null>(null);
   const [actual, setActual] = useState(false);
+  // M41 R6: a redrawn figure opens as shown on the page; "Show the original" swaps to the printed one, and back.
+  const [original, setOriginal] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const img = useRef<HTMLImageElement>(null);
   // Fitted to the screen, the picture is drawn as large as the space allows, larger than its own size when it is small
@@ -52,7 +55,7 @@ export function FigureView({ figure, onClose }: { figure: Figure | null; onClose
       seen.disconnect();
       i?.removeEventListener("load", measure);
     };
-  }, [figure, actual]);
+  }, [figure, actual, original]);
 
   useEffect(() => {
     const d = dialog.current;
@@ -60,6 +63,7 @@ export function FigureView({ figure, onClose }: { figure: Figure | null; onClose
     if (figure && !d.open) {
       back.current = deepActive();
       setActual(false);
+      setOriginal(figure.redraw ? figure.src === figure.redraw.printed : false);
       d.showModal();
       close.current?.focus();
     } else if (!figure && d.open) {
@@ -98,6 +102,11 @@ export function FigureView({ figure, onClose }: { figure: Figure | null; onClose
       {figure ? (
         <>
           <div className={styles.figureBar}>
+            {figure.redraw ? (
+              <button type="button" className={`${styles.tool} ${styles.figureTool}`} aria-pressed={original} onClick={() => setOriginal((o) => !o)}>
+                {original ? "Show the redraw" : "Show the original"}
+              </button>
+            ) : null}
             <button type="button" className={`${styles.tool} ${styles.figureTool}`} aria-pressed={actual} onClick={() => setActual((a) => !a)}>
               {actual ? "Fit to screen" : "Actual size"}
             </button>
@@ -116,13 +125,20 @@ export function FigureView({ figure, onClose }: { figure: Figure | null; onClose
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={img}
-              src={figure.src}
+              src={figure.redraw ? (original ? figure.redraw.printed : figure.redraw.redrawn) : figure.src}
               alt={figure.alt}
               className={styles.figureImg}
               onClick={() => setActual((a) => !a)}
               data-testid="figure-view-img"
             />
           </div>
+          {figure.redraw ? (
+            <p className={styles.figureNote} data-testid="figure-view-note">
+              {original
+                ? "The figure as printed in the paper."
+                : `Redrawn by AI (${modelName(figure.redraw.model)}) from the paper's figure, and checked to match it line for line and word for word.`}
+            </p>
+          ) : null}
           {figure.legend ? <p className={styles.figureLegend}>{figure.legend}</p> : null}
         </>
       ) : null}

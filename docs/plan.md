@@ -1776,6 +1776,69 @@ Open unknowns row 33; it decides how much of R2 is built.
   Scheiner, Calabresi for Calabrese, Desmaris for Desmarais, Guimarãs,
   STSC 1986 for 1988, Pöch 1990b and Chou 1991 with letters the list does
   not print, Greco et al. 1993 and Drewinko alone not in the list).
+- **R6 · Figures redrawn cleanly.** Samuel, 2026-11-07: "redraw the figures
+  cleanly" (a scanned paper's figures are blurred and heavy). A figure is
+  drawn again as a clean drawing (SVG: lines, shapes and real text) with
+  the same boxes, axes, ticks, curves, points and words in the same places,
+  never a new picture. Made on the laptop with `claude -p` on Samuel's
+  subscription (`scripts/figures-on-subscription.ts`, $0), so it is a step
+  the owner runs per paper, like the text edition: (1) the figure's words
+  are read twice, by Opus and by Sonnet (`prompts/figure-transcribe.md`),
+  and must agree word for word, capitals included (a third reading breaks a
+  tie); a photograph, shaded surface or dense mesh is kept as printed;
+  (2) Opus draws it with exactly those words (`prompts/figure-redraw.md`);
+  (3) the drawing must hold only plain drawing elements (no script, style,
+  link, picture or outside address: `checkSvg` in
+  `lib/library/figure-redraw.ts`), use exactly the words read, and lie over
+  the figure when both are drawn into pixels: lines thinned to one pixel
+  and compared both ways within 0.4 % of the figure's size, no piece of the
+  figure missing (a tick mark counts; a speck of dust and the paper's wider
+  lettering do not) and nothing added; (4) Sonnet compares the two pictures
+  and lists any difference of content; (5) Opus lists every data point's
+  symbol in both pictures (`prompts/figure-markers.md`): filled and open
+  must match, and a marker the print does not show for certain keeps the
+  printed figure (thinning lines, step 3, cannot tell a filled circle from
+  an open one). A problem goes back to Opus with a picture of where it
+  is, at most three times; a figure that still fails keeps its printed
+  picture. The script sends only redraws that passed,
+  with the owner's token; the server checks each against the book's own
+  file (that picture's bytes, at that place in that chapter) and stores it
+  as a `generations` row, kind `figure-redraw`, with model, instructions'
+  fingerprint and tokens (no migration). The reader swaps the picture's
+  address (no element added, so notes keep their places) and writes
+  "Redrawn by AI from the paper's figure · tap it to compare" under it (CSS,
+  not text); Aa > Figures (Redrawn / As printed) is offered when a paper
+  has redraws; full screen has Show the original and says which model
+  redrew it. Readers a paper is shared with see the owner's redraws. A
+  redraw is served only as a picture (an `<img>`, where a browser runs no
+  code in an SVG) with the stored files' sandbox policy. This is the
+  paper's own figure redrawn, so the decision that Claude does not
+  generate images (Images, above) stands. *Built 2026-11-07 (branch
+  `m41-figure-redraw`).*
+  Done when: unit tests refuse a drawing with a script, foreign content, a
+  picture, a link, an event, a style, an outside address, a document type,
+  no namespace, no viewBox or two drawings; compare words whatever a
+  formula's layout and not when a word or a capital differs; pass a thinner
+  redraw that lies over the figure, fail a curve moved past the tolerance
+  and a missing tick, and ignore a speck and wider lettering; list an
+  EPUB's pictures with each chapter and place; store a redraw once with
+  its provenance and serve the newest, refuse another picture's bytes, a
+  place without a picture, a script, other instructions, a model that is
+  not Claude and missing check figures (storing nothing), and serve the
+  owner's redraws to a reader the paper is shared with, who cannot send
+  any; reader tests swap only this chapter's pictures and back, adding no
+  element; a browser test sends a redraw with a token (a script refused),
+  finds it shown and labelled, As printed shows the book's picture with no
+  label and the same elements, and full screen names the model and shows
+  the original; it fails when the swap is off.
+  Real-paper check: Greco 1995, 33 figures, every redraw that passed looked
+  at beside its figure at full resolution: 4 redrawn (Figures 1, 2, 15,
+  29); 8 kept as not line art (shaded surfaces, photographs); 1 whose
+  words three readings did not agree on; 17 still different after three
+  corrections, most by real omissions (an arrowhead, a dash pattern, a
+  zigzag pointer); 3 held back by the marker check (11, 14, 17: filled or
+  open cannot be told for certain in the print). Known limit: most figures stay as
+  printed; a redraw is shown only when every check agrees.
 
 ## How a cloud session works on this repo
 

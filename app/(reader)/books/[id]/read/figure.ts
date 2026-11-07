@@ -2,7 +2,13 @@
  * Tap a picture to see it full screen (M41 R2, "later": a paper's figures are often too small to read in the column).
  * A page's elements live in the book's own frame, so they come from another window: nothing here uses `instanceof`.
  */
-export type Figure = { src: string; alt: string; legend: string };
+export type Figure = {
+  src: string;
+  alt: string;
+  legend: string;
+  /** M41 R6: for a redrawn figure, both pictures' addresses and the model that redrew it (figure-redraws.ts). */
+  redraw?: { printed: string; redrawn: string; model: string };
+};
 
 /** Smaller than this on the page (an icon, a decorative rule), a picture is not offered full screen. */
 export const MIN_FIGURE_PX = 48;
@@ -11,7 +17,7 @@ export const MIN_FIGURE_PX = 48;
 const LEGEND = /^\s*(fig(ure)?s?\.?|table|plate|scheme|chart)\s*[A-Z]?\d/i;
 
 type El = { nodeName: string; closest(sel: string): El | null; textContent: string | null; nextElementSibling: El | null; querySelector(sel: string): El | null };
-type Img = El & { currentSrc: string; src: string; alt: string; getBoundingClientRect(): { width: number; height: number } };
+type Img = El & { currentSrc: string; src: string; alt: string; dataset?: DOMStringMap; getBoundingClientRect(): { width: number; height: number } };
 
 /** The picture a tap on the page asks to see full screen, with its legend; null for anything else (a link's picture too). */
 export function figureAt(target: unknown): Figure | null {
@@ -23,7 +29,9 @@ export function figureAt(target: unknown): Figure | null {
   if (!src) return null;
   const box = img.getBoundingClientRect();
   if (box.width < MIN_FIGURE_PX && box.height < MIN_FIGURE_PX) return null;
-  return { src, alt: img.alt ?? "", legend: legendOf(img) };
+  const d = img.dataset;
+  const redraw = d?.nlRedraw && d.nlPrinted ? { printed: d.nlPrinted, redrawn: d.nlRedraw, model: d.nlModel ?? "" } : undefined;
+  return { src, alt: img.alt ?? "", legend: legendOf(img), ...(redraw ? { redraw } : {}) };
 }
 
 function legendOf(img: El): string {
