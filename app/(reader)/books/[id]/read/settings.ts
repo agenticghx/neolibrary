@@ -52,7 +52,7 @@ export const WIDTH_MODES: readonly WidthMode[] = ["comfortable", "wide", "full"]
 /** The text column's widest line (px) at each width; Full is the whole screen less the page's own margins. */
 export const WIDTH_PX: Record<WidthMode, number> = { comfortable: 680, wide: 960, full: 4000 };
 /** The text size a width starts at, before the reader picks one there. */
-export const WIDTH_SIZE: Record<WidthMode, number> = { comfortable: 100, wide: 135, full: 150 };
+export const WIDTH_SIZE: Record<WidthMode, number> = { comfortable: 100, wide: 150, full: 170 };
 
 /**
  * Switches the width, keeping the text size in use for the width left behind and bringing back the one last used at
@@ -88,7 +88,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   sizes: {},
   justify: false,
 };
-export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170];
+export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170, 190];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
 const KEY = "neolibrary.reader.v1";
 

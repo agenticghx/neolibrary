@@ -2331,9 +2331,9 @@ test("Width runs the text across the screen with bigger type, and Justify straig
   const width = panel.getByRole("group", { name: "Width" });
   await expect(page.getByTestId("text-size")).toHaveText("100%");
   await width.getByRole("button", { name: "Full", exact: true }).click();
-  await expect(page.getByTestId("text-size")).toHaveText("150%");
+  await expect(page.getByTestId("text-size")).toHaveText("170%");
   await page.getByRole("button", { name: "Smaller text" }).click();
-  await expect(page.getByTestId("text-size")).toHaveText("135%");
+  await expect(page.getByTestId("text-size")).toHaveText("150%");
 
   await width.getByRole("checkbox", { name: /Justify/ }).check();
   await expect.poll(async () => (await measure()).align).toBe("justify");
@@ -2342,13 +2342,13 @@ test("Width runs the text across the screen with bigger type, and Justify straig
   mkdirSync("screenshots", { recursive: true });
   await page.screenshot({ path: "screenshots/reader-width-full-desktop-light.png" });
 
-  // Back to Comfortable: the column narrows and the size returns to 100%; Full keeps the 135% chosen there.
+  // Back to Comfortable: the column narrows and the size returns to 100%; Full keeps the 150% chosen there.
   await aa(true);
   await width.getByRole("button", { name: "Comfortable", exact: true }).click();
   await expect(page.getByTestId("text-size")).toHaveText("100%");
   await expect.poll(async () => (await measure()).width).toBeLessThanOrEqual(680);
   await width.getByRole("button", { name: "Full", exact: true }).click();
-  await expect(page.getByTestId("text-size")).toHaveText("135%");
+  await expect(page.getByTestId("text-size")).toHaveText("150%");
   await aa(false);
   // Kept for the next visit, like the other settings.
   await page.reload();
@@ -2360,8 +2360,8 @@ test("Width runs the text across the screen with bigger type, and Justify straig
   await width.getByRole("checkbox", { name: /Justify/ }).uncheck();
   await aa(false);
 
-  // An iPad held sideways, in the dark, Full at the size it starts at: a line of about 75 to 95 characters, as in
-  // Apple Books (longer lines are hard to follow back to the next line's start).
+  // An iPad held sideways, in the dark, Full at the size it starts at: about 80 characters a line, near Apple Books'
+  // 70 to 75 (longer lines are hard to follow back to the next line's start). At 150 % it was 90 to 103.
   const ipad = await browser.newContext({ storageState: ADMIN_STATE, viewport: { width: 1366, height: 1024 }, hasTouch: true, colorScheme: "dark" });
   const tab = await ipad.newPage();
   await tab.goto(page.url());
@@ -2387,10 +2387,11 @@ test("Width runs the text across the screen with bigger type, and Justify straig
       const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
       const doc = view.renderer.getContents()[0].doc;
       const p = Array.from(doc.querySelectorAll("p")).find((x) => (x.textContent ?? "").length > 300)!;
-      // The paragraph's second line (the first may be indented): where the next character's top moves down.
+      // Characters a line, averaged over the paragraph's full lines (one line can run 15 % long or short): where each
+      // character's top moves down is a line break; the last line is left out, being short.
       const walker = doc.createTreeWalker(p, NodeFilter.SHOW_TEXT);
       const chars: { node: Text; at: number }[] = [];
-      for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) for (let i = 0; i < n.length; i++) chars.push({ node: n, at: i });
+      for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) for (let i = 0; i < t.length; i++) chars.push({ node: t, at: i });
       const r = doc.createRange();
       const top = (k: number) => {
         r.setStart(chars[k].node, chars[k].at);
@@ -2398,11 +2399,14 @@ test("Width runs the text across the screen with bigger type, and Justify straig
         return Math.round(r.getBoundingClientRect().top);
       };
       const breaks: number[] = [];
-      for (let k = 1; k < chars.length && breaks.length < 2; k++) if (top(k) > top(k - 1) + 2) breaks.push(k);
-      return breaks.length === 2 ? breaks[1] - breaks[0] : 0;
+      for (let k = 1; k < chars.length; k++) if (top(k) !== top(k - 1) && Math.abs(top(k) - top(k - 1)) > 2) breaks.push(k);
+      const n = breaks.length >= 3 ? Math.round((breaks.at(-1)! - breaks[0]) / (breaks.length - 1)) : 0;
+      (window as unknown as { probe: string }).probe = `${n} characters a line over ${breaks.length - 1} lines of "${(p.textContent ?? "").slice(0, 40)}"`;
+      return n;
     });
-  await expect.poll(perLine).toBeGreaterThan(70);
-  expect(await perLine()).toBeLessThan(100);
+  await expect.poll(perLine).toBeGreaterThan(65);
+  const lineChars = await perLine();
+  expect(lineChars, await tab.evaluate(() => (window as unknown as { probe: string }).probe)).toBeLessThan(95);
   await tab.screenshot({ path: "screenshots/reader-width-full-tablet-dark.png" });
   await ipad.close();
 });
