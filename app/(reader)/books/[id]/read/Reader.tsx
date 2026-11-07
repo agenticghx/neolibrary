@@ -38,7 +38,7 @@ import { rangeForQuote } from "@/lib/reader/find-quote";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
 import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
 import { scrollsItself, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
-import { canWrapColumns, SPREAD_MAX_WIDTH, SPREAD_SETTLE_MS, spreadAlign, spreadCss, spreadPitch, spreadTurn } from "@/lib/reader/spread-scroll";
+import { canWrapColumns, SPREAD_COLUMN_GAP, SPREAD_MAX_WIDTH, SPREAD_SETTLE_MS, spreadAlign, spreadCss, spreadPitch, spreadTurn } from "@/lib/reader/spread-scroll";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
@@ -58,7 +58,7 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode } from "./settings";
+import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, WIDTH_PX, withWidth } from "./settings";
 import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
@@ -174,7 +174,9 @@ function applySettings(v: FoliateView, s: ReaderSettings, themeEl: Element): num
   const pitch = spreadPitch(s, r.getBoundingClientRect(), canWrapColumns());
   r.setAttribute("flow", s.flow);
   // Two pages in Scroll: two columns side by side, so the text may be twice as wide.
-  r.setAttribute("max-inline-size", pitch ? `${SPREAD_MAX_WIDTH}px` : "680px");
+  // M27 Q3: Width. Two pages in Scroll lays two such columns side by side.
+  const column = WIDTH_PX[s.width];
+  r.setAttribute("max-inline-size", pitch ? `${s.width === "comfortable" ? SPREAD_MAX_WIDTH : 2 * column + SPREAD_COLUMN_GAP}px` : `${column}px`);
   // In Pages, "2" is only the wide-window maximum: a window taller than it is wide still forces one (the paginator's
   // portrait rule). Scroll's two columns are the book's own CSS (spreadCss), under the same rule.
   r.setAttribute("max-column-count", s.flow === "paginated" && s.pages === "two" ? "2" : "1");
@@ -2452,6 +2454,22 @@ export function Reader(props: {
             <fieldset className={styles.group}>
               <legend>Layout</legend>
               <Segment value={settings.flow} options={[["paginated", "Pages"], ["scrolled", "Scroll"]]} onChange={(flow) => update({ flow })} />
+            </fieldset>
+            <fieldset className={styles.group}>
+              <legend>Width</legend>
+              <Segment
+                value={settings.width}
+                options={[["comfortable", "Comfortable"], ["wide", "Wide"], ["full", "Full"]]}
+                onChange={(width) => setSettings((s) => (s ? withWidth(s, width) : s))}
+              />
+              <label className={styles.check}>
+                <input type="checkbox" checked={settings.justify} onChange={(e) => update({ justify: e.target.checked })} />
+                Justify (straight edges on both sides)
+              </label>
+              <p className={styles.hint}>
+                Wide and Full use more of a big screen, with bigger text; each width keeps its own text size. On a phone the text
+                already fills the screen.
+              </p>
             </fieldset>
             <fieldset className={styles.group}>
               <legend>Text size</legend>

@@ -832,6 +832,30 @@ Written for Samuel and for the session that builds it.
   Done when: a browser test moves the saved place behind the reader's back,
   brings the window back to the front, sees the offer, and Go there opens
   that place; no offer appears after the tab's own page turns.
+- **Q3 · Width: text across the screen, like Apple Books** (Samuel,
+  2026-11-07, with screenshots of Chip War on his iPad beside Apple
+  Books: "Is there a way text can fill the entire screen?"). Aa has a
+  Width choice: Comfortable (the 680 px column, as before), Wide (960 px)
+  or Full (the whole screen less the page's margins). A long line in small
+  type is hard to follow back to the next line's start, so a wider width
+  starts with bigger type (Samuel: "default bigger type text once I
+  switch to it"): Wide at 150 %, Full at 170 %, which gives about 88
+  characters a line on an iPad held sideways (Apple Books runs about 70
+  to 75; a 190 % step was added above). At 150 %, Full ran 90 to 103. Each width keeps its own
+  text size: change it in Full and Full keeps it; back to Comfortable is
+  as before (`withWidth` in `settings.ts`). A Justify switch sets the
+  text flush on both sides (a paragraph the book aligns by its own class
+  keeps it). Two pages lays two such columns side by side. Settings saved
+  before this open at Comfortable, unjustified. *Built 2026-11-07 (branch
+  `m27-reader-width`).*
+  Done when: unit tests start a wider width at its bigger size, keep each
+  width's size and bring it back, read settings saved before Width as
+  Comfortable and unjustified, refuse unknown values, and justify only when
+  asked; a browser test on Jekyll and Hyde widens the column by more than
+  a third with Full (170 %), keeps a size changed there, narrows it again
+  with Comfortable (100 %), justifies the text, keeps Full after a reload,
+  and on an iPad-sized screen in the dark finds Full's lines, averaged
+  over a paragraph, between 65 and 95 characters.
 
 ### M28 · Review what you read, not only what you highlighted (Samuel, 2026-10-19)
 

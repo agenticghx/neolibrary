@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel looks at Greco's redrawn figures; more redraws only if he asks (figures-on-subscription skill).
+next_action: Merge Aa > Width, then check it live on an iPad-sized WebKit screen.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-07
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-07 16:32 · Claude Opus 5.5 (laptop) · M27 Q3: Aa > Width (Comfortable / Wide / Full) and Justify
+- **Done:** Samuel 2026-11-07 (iPad screenshots vs Apple Books): text can fill the screen. Aa > Width: Comfortable (680 px, as before), Wide (960 px, starts at 135 %), Full (whole screen, starts at 150 %: about 85 characters a line on an iPad sideways); each width keeps its own text size; Justify switch. Branch m27-reader-width.
+- **Key paths:** app/(reader)/books/[id]/read/settings.ts (width, sizes, justify, withWidth); app/(reader)/books/[id]/read/Reader.tsx (applySettings, Aa > Width); e2e/reader.spec.ts; docs/plan.md (M27 Q3); LEARNING_LOG.md (iteration 146)
+- **Commands that worked:** npx vitest run 'app/(reader)/books/[id]/read/settings.test.ts' -> 11 passed; npx playwright test --project=reader --ignore-snapshots -g 'Width runs the text' -> 211 passed; npm run check -> 1361 passed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge when green (no migration: deploys itself). 2. Check live on Chip War at iPad size in WebKit, Aa > Width > Full; restore Samuel's reading place exactly.
 
 ### 2026-11-07 16:10 · Claude Opus 5.5 (laptop) · Checkpoint: figures redrawn cleanly (M41 R6) live at 5c2929e; figures-on-subscription skill merged
 - **Done:** M41 R6 live at 5c2929e (#299 redraws, #300 WebKit fix); Greco's Figures 1, 2, 15, 29 redrawn and checked live in Chrome and iPad-size WebKit; Samuel's reading place restored exactly; skill .claude/skills/figures-on-subscription merged as 3b614349 (#301).

@@ -2303,3 +2303,110 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });
 });
+
+// M27 Q3 "Done when" (Samuel, 2026-11-07: "can text fill the entire screen … like Apple Books"): Width runs the text
+// wider with bigger type, each width keeps its own size, and Justify sets it flush on both sides.
+test("Width runs the text across the screen with bigger type, and Justify straightens its edges", async ({ page, browser }) => {
+  await openJekyll(page);
+  const measure = () =>
+    page.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents()[0].doc;
+      const p = Array.from(doc.querySelectorAll("p")).find((x) => (x.textContent ?? "").length > 300)!;
+      // One piece of the paragraph: a paragraph running on to the next page is two pieces side by side, and its whole
+      // box spans both (1309 px on CI, where the fonts break the page elsewhere).
+      const width = Math.max(...Array.from(p.getClientRects()).map((r) => r.width));
+      return { width: Math.round(width), align: getComputedStyle(p).textAlign };
+    });
+  // The settings panel takes a column beside the book on a computer: open and close it on purpose.
+  const panel = page.getByRole("region", { name: "Reading settings" });
+  const aa = async (open: boolean) => {
+    if ((await panel.isVisible()) !== open) await page.getByRole("button", { name: "Reading settings" }).click();
+    await expect(panel).toBeVisible({ visible: open });
+  };
+  const narrow = await measure();
+  expect(narrow.width).toBeLessThanOrEqual(680);
+
+  await aa(true);
+  const width = panel.getByRole("group", { name: "Width" });
+  await expect(page.getByTestId("text-size")).toHaveText("100%");
+  await width.getByRole("button", { name: "Full", exact: true }).click();
+  await expect(page.getByTestId("text-size")).toHaveText("170%");
+  await page.getByRole("button", { name: "Smaller text" }).click();
+  await expect(page.getByTestId("text-size")).toHaveText("150%");
+
+  await width.getByRole("checkbox", { name: /Justify/ }).check();
+  await expect.poll(async () => (await measure()).align).toBe("justify");
+  await aa(false);
+  await expect.poll(async () => (await measure()).width).toBeGreaterThan(narrow.width * 1.3);
+  mkdirSync("screenshots", { recursive: true });
+  await page.screenshot({ path: "screenshots/reader-width-full-desktop-light.png" });
+
+  // Back to Comfortable: the column narrows and the size returns to 100%; Full keeps the 150% chosen there.
+  await aa(true);
+  await width.getByRole("button", { name: "Comfortable", exact: true }).click();
+  await expect(page.getByTestId("text-size")).toHaveText("100%");
+  await expect.poll(async () => (await measure()).width).toBeLessThanOrEqual(680);
+  await width.getByRole("button", { name: "Full", exact: true }).click();
+  await expect(page.getByTestId("text-size")).toHaveText("150%");
+  await aa(false);
+  // Kept for the next visit, like the other settings.
+  await page.reload();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect.poll(async () => (await measure()).width).toBeGreaterThan(narrow.width * 1.3);
+  // Leave this browser's settings as the other tests expect them.
+  await aa(true);
+  await width.getByRole("button", { name: "Comfortable", exact: true }).click();
+  await width.getByRole("checkbox", { name: /Justify/ }).uncheck();
+  await aa(false);
+
+  // An iPad held sideways, in the dark, Full at the size it starts at: about 80 characters a line, near Apple Books'
+  // 70 to 75 (longer lines are hard to follow back to the next line's start). At 150 % it was 90 to 103.
+  const ipad = await browser.newContext({ storageState: ADMIN_STATE, viewport: { width: 1366, height: 1024 }, hasTouch: true, colorScheme: "dark" });
+  const tab = await ipad.newPage();
+  await tab.goto(page.url());
+  await expect(reader(tab)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await tab.getByRole("button", { name: "Reading settings" }).click();
+  await tab.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Width" }).getByRole("button", { name: "Full", exact: true }).click();
+  await tab.screenshot({ path: "screenshots/reader-width-settings-tablet-dark.png" });
+  await tab.getByRole("button", { name: "Reading settings" }).click();
+  // Measured in the book's own typeface: before it has loaded the page shows a narrower stand-in (103 characters a
+  // line on CI's Linux machine, against about 85).
+  await expect
+    .poll(() =>
+      tab.evaluate(async () => {
+        const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+        const doc = view.renderer.getContents()[0].doc;
+        await doc.fonts.ready;
+        return doc.fonts.check('16px "NL Serif"') && [...doc.fonts].some((f) => f.family.includes("NL Serif") && f.status === "loaded");
+      }),
+    )
+    .toBe(true);
+  const perLine = () =>
+    tab.evaluate(() => {
+      const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+      const doc = view.renderer.getContents()[0].doc;
+      const p = Array.from(doc.querySelectorAll("p")).find((x) => (x.textContent ?? "").length > 300)!;
+      // Characters a line, averaged over the paragraph's full lines (one line can run 15 % long or short): where each
+      // character's top moves down is a line break; the last line is left out, being short.
+      const walker = doc.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      const chars: { node: Text; at: number }[] = [];
+      for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) for (let i = 0; i < t.length; i++) chars.push({ node: t, at: i });
+      const r = doc.createRange();
+      const top = (k: number) => {
+        r.setStart(chars[k].node, chars[k].at);
+        r.setEnd(chars[k].node, chars[k].at + 1);
+        return Math.round(r.getBoundingClientRect().top);
+      };
+      const breaks: number[] = [];
+      for (let k = 1; k < chars.length; k++) if (top(k) !== top(k - 1) && Math.abs(top(k) - top(k - 1)) > 2) breaks.push(k);
+      const n = breaks.length >= 3 ? Math.round((breaks.at(-1)! - breaks[0]) / (breaks.length - 1)) : 0;
+      (window as unknown as { probe: string }).probe = `${n} characters a line over ${breaks.length - 1} lines of "${(p.textContent ?? "").slice(0, 40)}"`;
+      return n;
+    });
+  await expect.poll(perLine).toBeGreaterThan(65);
+  const lineChars = await perLine();
+  expect(lineChars, await tab.evaluate(() => (window as unknown as { probe: string }).probe)).toBeLessThan(95);
+  await tab.screenshot({ path: "screenshots/reader-width-full-tablet-dark.png" });
+  await ipad.close();
+});
