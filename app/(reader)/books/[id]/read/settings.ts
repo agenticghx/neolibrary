@@ -50,6 +50,11 @@ export type ReaderSettings = {
   sizes: Partial<Record<WidthMode, number>>;
   /** Text set flush on both sides, as Apple Books does. */
   justify: boolean;
+  /**
+   * M42 S1: for an e-ink screen (a Boox, a Kindle: greys only, slow to redraw, faint ghosts after anything moves).
+   * Black ink on white paper (white on black in Night), nothing that moves or blurs, and Pages only (`withEink`).
+   */
+  eink: boolean;
 };
 
 export type WidthMode = "comfortable" | "wide" | "full";
@@ -95,6 +100,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   width: "comfortable",
   sizes: {},
   justify: false,
+  eink: false,
 };
 export const SIZES = [80, 90, 100, 110, 120, 135, 150, 170, 190];
 export const SPACING = { compact: 1.4, normal: 1.6, loose: 1.85 } as const;
@@ -103,7 +109,7 @@ const KEY = "neolibrary.reader.v1";
 export function loadSettings(): ReaderSettings {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-    return {
+    return withEink({
       flow: raw.flow === "scrolled" ? "scrolled" : "paginated",
       pages: raw.pages === "two" ? "two" : "one",
       size: SIZES.includes(raw.size) ? raw.size : 100,
@@ -118,10 +124,19 @@ export function loadSettings(): ReaderSettings {
       width: WIDTH_MODES.includes(raw.width) ? raw.width : "comfortable",
       sizes: Object.fromEntries(WIDTH_MODES.filter((w) => SIZES.includes(raw.sizes?.[w])).map((w) => [w, raw.sizes[w]])),
       justify: raw.justify === true,
-    };
+      eink: raw.eink === true, // off for settings saved before it existed
+    });
   } catch {
     return DEFAULT_SETTINGS;
   }
+}
+
+/**
+ * M42 S1: with E-ink on, the layout is Pages. Scrolling smears on an e-ink screen: every step of a scroll is a redraw
+ * that leaves a ghost of the step before. Applied wherever settings are read or changed, so no other code has to ask.
+ */
+export function withEink(s: ReaderSettings): ReaderSettings {
+  return s.eink && s.flow === "scrolled" ? { ...s, flow: "paginated" } : s;
 }
 
 export function saveSettings(s: ReaderSettings) {
@@ -161,7 +176,7 @@ export function bookCss(s: ReaderSettings, colors: Record<string, string>, origi
     a:link, a:visited { color: ${colors.accent} !important; }
     ::selection { background: ${colors.highlight}; }
     ::highlight(nl-spoken) { background-color: ${colors.spoken}; color: ${colors.ink}; }
-    ${focusCss(colors)}
+    ${focusCss(colors, s.eink)}
     ${citationCss(s.citations, colors)}
     ${s.justify ? "/* M27 Q3: flush on both sides; a paragraph the book aligns by its own class keeps it. */ p, li, dd, blockquote { text-align: justify; }" : ""}
     /* M41 R6: under a figure shown redrawn (figure-redraws.ts marks its holder), whose drawing it is. Drawn by CSS: not
@@ -222,7 +237,13 @@ export function citationCss(mode: CitationMode, colors: Record<string, string>):
  * dimmer ink with a custom highlight (no element is added around the text, so clicks, selection and notes are
  * untouched). The ruler's band is drawn by the reader over the book (Reader.module.css, .lens), not in the page.
  */
-function focusCss(colors: Record<string, string>): string {
+function focusCss(colors: Record<string, string>, eink = false): string {
+  // M42 S1: on an e-ink screen the place marked after a layout switch is a black outline that stays still: a tint
+  // turns to a pale grey that is hard to see, and a fade is a series of redraws, each leaving a ghost.
+  const place = eink
+    ? `[data-nl-place] { background: none !important; outline: 2px solid ${colors.ink}; outline-offset: 1px; animation: nl-place-eink 2.4s step-end forwards !important; }
+    @keyframes nl-place-eink { 0% { visibility: visible; } 100% { visibility: hidden; } }`
+    : "";
   return `
     ::highlight(nl-dim) { color: color-mix(in srgb, ${colors.ink} 45%, ${colors.paper}); }
     [data-nl-place] {
@@ -234,6 +255,7 @@ function focusCss(colors: Record<string, string>): string {
     }
     @keyframes nl-place { 0% { opacity: 0; } 8% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
     @media (prefers-reduced-motion: reduce) { [data-nl-place] { animation: none; } }
+    ${place}
   `;
 }
 

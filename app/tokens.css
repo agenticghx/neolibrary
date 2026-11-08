@@ -87,6 +87,8 @@
   --radius-panel: 14px;       /* cards (Samuel's pick A) */
   --blur-glass: 24px;         /* cards, dialogs, the tab bar */
   --blur-rail: 30px;          /* the sidebar */
+  --ruler-bar: 0px;           /* M42 S1: the reading ruler as a bar in the margin (E-ink only) */
+  --ruler-bar-shift: 0px;
 
   /* Light theme colours: warm paper, deep ink, oxidised teal */
   --paper: #f3ede1;          /* page background */
@@ -550,4 +552,140 @@
 .theme-calfskin {
   --ruler-band: color-mix(in srgb, var(--ink-900) 9%, transparent);
   --shadow-ruler: 0 0 6px 2px color-mix(in srgb, var(--ink-900) 5%, transparent);
+}
+
+/*
+ * E-ink (M42 S1): for a paper-like e-ink screen (a Boox, a Kindle), which shows only greys, redraws slowly and keeps
+ * a faint ghost of anything that moves. The reader puts one of these on its element in place of the theme when Aa >
+ * E-ink is on: black ink on white paper, or white on black when the theme is Night (or Auto on a dark device).
+ * Nothing moves (every duration 0), nothing is see-through or blurred (glass turns solid, with an edge in ink), and
+ * nothing casts a shadow. Colours are greys only, so what the screen shows is what was meant. Kept last in this file,
+ * so they win over the blocks above, and free of nested braces (lib/tokens.test.ts reads each block to its first
+ * closing brace).
+ */
+.theme-eink {
+  color-scheme: light;
+  --paper: #fff;
+  --paper-raised: #fff;
+  --paper-sunken: #ececec;
+  --ink-900: #000;
+  --ink-700: #262626;
+  --ink-500: #4d4d4d;
+  --rule: #8c8c8c;
+  --accent: #000;
+  --accent-strong: #000;
+  --on-accent: #fff;
+  --highlight: #d4d4d4;
+  --highlight-active: #a8a8a8;
+  --focus-ring: #000;
+  --machine-ink: #262626;
+  --machine-bg: #ececec;
+  --machine-rule: #595959;
+  --mark-sage: #bdbdbd;
+  --mark-amber: #e3e3e3;
+  --mark-rose: #9e9e9e;
+  --mark-sky: #d0d0d0;
+  --cover-navy: #000;
+  --cover-green: #333;
+  --cover-ink: #fff;
+  --cover-empty: #e6e6e6;
+  --cover-empty-ink: #333;
+  --spine-fill: #00000047;
+  --scrim: #0000004d;
+  --heat-1: #d9d9d9;
+  --heat-2: #a6a6a6;
+  --heat-3: #737373;
+  --heat-4: #404040;
+  --room-1: #fff;
+  --room-2: #fff;
+  --room-3: #fff;
+  --room-base: #fff;
+  --room-sage: #fff;
+  --room-glow: #fff;
+  --panel: #fff;
+  --panel-edge: #000;
+  --rail: #fff;
+  --rail-edge: #000;
+  --nav-hover: #ececec;
+  --nav-current: #d9d9d9;
+  --tabbar: #fff;
+  --tabbar-edge: #000;
+  --room: none;
+  --shadow-cover: none;
+  --shadow-raised: none;
+  --shadow-panel: none;
+  --shadow-chip: none;
+  --shadow-ruler: none;
+  --ruler-band: transparent;
+  --blur-glass: 0px;
+  --ruler-bar: 3px;
+  --ruler-bar-shift: -10px;
+  --blur-rail: 0px;
+  --dur-fast: 0ms;
+  --dur-base: 0ms;
+  --dur-slow: 0ms;
+}
+
+/* E-ink at night: white ink on black. */
+.theme-eink-night {
+  color-scheme: dark;
+  --paper: #000;
+  --paper-raised: #141414;
+  --paper-sunken: #262626;
+  --ink-900: #fff;
+  --ink-700: #d9d9d9;
+  --ink-500: #b3b3b3;
+  --rule: #737373;
+  --accent: #fff;
+  --accent-strong: #fff;
+  --on-accent: #000;
+  --highlight: #4d4d4d;
+  --highlight-active: #6b6b6b;
+  --focus-ring: #fff;
+  --machine-ink: #d9d9d9;
+  --machine-bg: #262626;
+  --machine-rule: #a6a6a6;
+  --mark-sage: #4d4d4d;
+  --mark-amber: #2e2e2e;
+  --mark-rose: #666;
+  --mark-sky: #3d3d3d;
+  --cover-navy: #000;
+  --cover-green: #333;
+  --cover-ink: #fff;
+  --cover-empty: #333;
+  --cover-empty-ink: #ccc;
+  --spine-fill: #0006;
+  --scrim: #00000080;
+  --heat-1: #404040;
+  --heat-2: #666;
+  --heat-3: #999;
+  --heat-4: #ccc;
+  --room-1: #000;
+  --room-2: #000;
+  --room-3: #000;
+  --room-base: #000;
+  --room-sage: #000;
+  --room-glow: #000;
+  --panel: #141414;
+  --panel-edge: #fff;
+  --rail: #141414;
+  --rail-edge: #fff;
+  --nav-hover: #262626;
+  --nav-current: #333;
+  --tabbar: #141414;
+  --tabbar-edge: #fff;
+  --room: none;
+  --shadow-cover: none;
+  --shadow-raised: none;
+  --shadow-panel: none;
+  --shadow-chip: none;
+  --shadow-ruler: none;
+  --ruler-band: transparent;
+  --blur-glass: 0px;
+  --ruler-bar: 3px;
+  --ruler-bar-shift: -10px;
+  --blur-rail: 0px;
+  --dur-fast: 0ms;
+  --dur-base: 0ms;
+  --dur-slow: 0ms;
 }

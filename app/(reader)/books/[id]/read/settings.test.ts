@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { bookCss, DEFAULT_SETTINGS, loadSettings, saveSettings, WIDTH_SIZE, withWidth } from "./settings";
+import { bookCss, DEFAULT_SETTINGS, loadSettings, saveSettings, WIDTH_SIZE, withEink, withWidth } from "./settings";
 
 /** A stand-in for the browser's localStorage (this test runs in Node). */
 function memoryStorage(): Storage {
@@ -160,5 +160,42 @@ describe("Width and Justify (M27 Q3)", () => {
     const colors = { paper: "#fff", ink: "#000", accent: "#00f", highlight: "#ff0", spoken: "#0f0", scheme: "light" };
     expect(bookCss(DEFAULT_SETTINGS, colors, "https://x.example")).not.toContain("text-align: justify");
     expect(bookCss({ ...DEFAULT_SETTINGS, justify: true }, colors, "https://x.example")).toContain("p, li, dd, blockquote { text-align: justify; }");
+  });
+});
+
+describe("E-ink (M42 S1)", () => {
+  afterEach(() => {
+    delete (globalThis as { localStorage?: Storage }).localStorage;
+  });
+  const colors = { paper: "#fff", ink: "#000", accent: "#00f", highlight: "#ff0", spoken: "#0f0", scheme: "light" };
+
+  it("starts off, including for settings saved before it existed, and keeps a choice", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    expect(loadSettings().eink).toBe(false);
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ theme: "sepia", flow: "scrolled" }));
+    expect(loadSettings().eink).toBe(false);
+    expect(loadSettings().flow).toBe("scrolled");
+    saveSettings({ ...DEFAULT_SETTINGS, eink: true });
+    expect(loadSettings().eink).toBe(true);
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ eink: "yes" }));
+    expect(loadSettings().eink).toBe(false);
+  });
+
+  it("reads in Pages: Scroll saved with E-ink on opens in Pages, and a change to Scroll is turned back", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ eink: true, flow: "scrolled" }));
+    expect(loadSettings().flow).toBe("paginated");
+    expect(withEink({ ...DEFAULT_SETTINGS, eink: true, flow: "scrolled" }).flow).toBe("paginated");
+    expect(withEink({ ...DEFAULT_SETTINGS, eink: false, flow: "scrolled" }).flow).toBe("scrolled");
+  });
+
+  it("marks the place after a layout switch with a still outline in ink, not a fading tint", () => {
+    const off = bookCss(DEFAULT_SETTINGS, colors, "https://x.example");
+    const on = bookCss({ ...DEFAULT_SETTINGS, eink: true }, colors, "https://x.example");
+    expect(off).not.toContain("nl-place-eink");
+    expect(on).toContain("[data-nl-place] { background: none !important; outline: 2px solid #000;");
+    expect(on).toContain("@keyframes nl-place-eink");
   });
 });

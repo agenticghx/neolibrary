@@ -78,44 +78,57 @@ computer with the setting on.
 
 ### S1 · The E-ink setting in the reader
 
-Aa gets a switch, **E-ink**, stored with the other reader settings
-(`settings.ts`, a new `eink: boolean`, off by default). When it is on, the
-page's root element carries `data-eink`, and:
+Aa gets a switch, **E-ink**, under "Screen", stored with the other reader
+settings on this device (`settings.ts`, `eink: boolean`, off by default).
+When it is on, the reader element carries the class `theme-eink` in place
+of its theme (`theme-eink-night` when the theme is Night, or Auto on a dark
+device), and:
 
-- Paper is white and ink is black. The reading themes stay, but are drawn
-  in grey (Night becomes white ink on black, which some e-ink tablets show
-  well).
-- Every `--dur-*` duration is 0. It reuses the `prefers-reduced-motion`
-  block in `tokens.css` (the same rules under `[data-eink]`), so motion has
-  one off switch and not two.
-- No `backdrop-filter` and no `box-shadow`. Panels get a solid background and
-  a 1-pixel black border.
-- Flow is Pages. Scroll is shown but not offered, with one line: "E-ink
-  screens smear while scrolling."
-- The reading ruler and paragraph focus draw a black bar in the margin beside
-  the current line or paragraph. They do not dim the rest of the page.
-- Highlights are an underline 2 pixels thick, not a tint. A highlight's colour
-  (its kind) is shown by the line's style (solid, dashed, dotted, double).
-  The saved highlight does not change.
+- Paper is white and ink is black (white on black at night). The E-ink
+  colours are their own set in `app/tokens.css`, greys only; the six themes
+  are not each drawn in grey (built 2026-11-08: one set is simpler to check,
+  and a theme's tint is lost on a grey screen anyway).
+- Every `--dur-*` duration is 0 in the same set, as under
+  `prefers-reduced-motion`.
+- No blur and no shadow: the glass tokens are solid colours with an edge in
+  ink, and every `--shadow-*` is `none`.
+- Flow is Pages (`withEink` in `settings.ts`, applied when settings load and
+  change). Scroll is shown but greyed out, with one line: "E-ink screens
+  smear while scrolling, so E-ink reads in Pages."
+- The reading ruler is a 3-pixel bar in ink at the left of the lines, with no
+  tint and no shadow. The rest of the page is still dimmed, in grey ink (one
+  of the 16 greys an e-ink screen shows); paragraph focus dims as before.
+- Highlights are an underline in ink, not a tint. A highlight's colour is
+  shown by the line: sage solid, amber dashed, rose dotted, sky double. A
+  sticker's, picture's or drawing's passage is underlined solid, and its
+  badge stays, in greys. The saved highlight does not change.
+- The place marked after a layout switch is a still outline in ink, shown
+  for 2.4 seconds, not a fading tint.
 
 Not automatic. Browsers have a CSS test for slow screens (`@media (update:
 slow)`), but tablets that run Chrome on Android often report a fast screen.
 A later step may use it as a hint, after S5 shows what real devices report.
 
-*Done when:* unit tests: the setting is stored and read back, and an old
-saved setting without it reads as off. A browser test with E-ink on, in a
-book: the computed `transition-duration` and `animation-duration` of the
-reader's panels are 0s; no element in the reader has a `backdrop-filter` or a
-`box-shadow`; the body's background and text colours are the E-ink tokens;
-Scroll cannot be chosen; a highlight is drawn as an underline. Each test
-fails when its rule is removed. The contrast test (`lib/contrast.test.ts`)
-checks every E-ink colour pair after turning it to grey. Screenshots: the
-reader with E-ink on, phone and desktop.
+*Done when:* unit tests: the setting is stored and read back, an old saved
+setting without it reads as off, and Scroll saved with E-ink on opens in
+Pages (`settings.test.ts`); both E-ink colour sets pass every contrast pair
+the themes pass, set every colour a theme sets, and use greys only
+(`lib/tokens.test.ts`). A browser test (`e2e/eink.spec.ts`, a reader of its
+own) with E-ink on, in a book: no element on the page has a transition or
+animation longer than 0 s, a shadow, or a blur (with E-ink off the same count
+finds transitions); the book page's background and text are white and black
+(black and white at night); Scroll is greyed out; a Rose highlight is a
+dotted underline and no tint; the ruler is a 3-pixel bar in ink with no
+tint; a reload keeps E-ink and Pages; axe finds nothing in four looks. Each
+check fails when its rule is removed. Screenshots: the reader and Aa with
+E-ink on, phone and desktop, light and dark.
 
 ### S2 · E-ink outside the reader
 
 The setting reaches the whole site, not only the reader: Home, the library,
-Notes and Help. Home's carousel stops drifting (as it does under reduced
+Notes and Help. The command palette (the search box opened with Cmd+K,
+mounted beside the reader, so S1 does not reach it) is glass with a shadow
+until then. Home's carousel stops drifting (as it does under reduced
 motion) and the sky behind Home is plain paper.
 
 The flag must be read before the page is first drawn. Otherwise each page

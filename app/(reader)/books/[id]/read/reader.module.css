@@ -122,6 +122,11 @@
   display: none;
   pointer-events: none;
   border-radius: var(--radius-sm);
+
+  /* M42 S1: on an e-ink screen the band is a bar in the margin beside the lines, in ink (a thin tint is a pale grey
+     there, hard to see), moved left of the text so no letter is covered. Elsewhere the bar is 0 px wide. */
+  border-left: var(--ruler-bar) solid var(--ink-900);
+  translate: var(--ruler-bar-shift) 0;
   background: var(--ruler-band);
   box-shadow: var(--shadow-ruler);
 }
