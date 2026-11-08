@@ -2510,7 +2510,6 @@ export function Reader(props: {
               type="button"
               className={styles.railTool}
               aria-expanded={panel === "xray"}
-              aria-label="Who & what"
               title="Who & what: the names on this page, and everyone the book has named so far"
               onClick={() => setPanel(panel === "xray" ? "none" : "xray")}
             >
@@ -2519,7 +2518,8 @@ export function Reader(props: {
                 <path d="M1.5 13.5c.4-2.6 2-4 4-4s3.6 1.4 4 4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 <path d="M10.5 4h4M10.5 7h4M12 10h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
-              <span className={styles.railWord}>Who &amp; what</span>
+              {/* One short word: "Who & what" wrapped onto two lines on a phone, which made the bar taller and the page shorter. */}
+              <span className={styles.railWord}>Names</span>
             </button>
             )}
             {props.visitor ? null : (

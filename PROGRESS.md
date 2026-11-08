@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the On this page → sidebar PR when green; Samuel tries it on his iPad.
+next_action: Merge #305 (Names in the sidebar) when green; then the ruler-height PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -362,6 +362,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 09:09 · Claude (Opus 5.5, laptop) · M32 X2 (#305): the sidebar button says Names (one line); hidden for visitors
+- **Done:** CI on #305 failed twice: the visitor rail test (3 buttons, expected Study and Rewritten), fixed by hiding the button for visitors; and the text-edition table test at phone size ('584 px wide in a 280 px column'), reproduced on the laptop on the branch, passing on main (worktree mainprobe at b71ca572). Cause: 'Who & what' wrapped to two lines in the phone's bottom bar, making it taller and the page shorter, so the test's table split across two pages. The button now says Names; agents, ai (names on the page) and open-shelf tests pass locally.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; e2e/ai.spec.ts; LEARNING_LOG.md Iteration 148
+- **Commands that worked:** PORT=3419 npx playwright test --project agents --no-deps -g 'pages read on the subscription' --ignore-snapshots (1 passed, fresh database); --project ai -g 'names on the page' (1 passed); --project open-shelf (2 passed)
+- **Known issues / blockers:** The table test measures a table split across two pages as one wide box; harmless now, but fragile if the page height changes again.
+- **Exact next steps:** 1. CI on #305; refresh reference images if they changed; merge when green (it deploys itself). 2. Then the ruler height branch m21-ruler-lines (worktree rulerlines): build, verify, PR, merge.
 
 ### 2026-11-08 08:24 · Claude (Opus 5.5, laptop) · M32 X2: On this page moves from a strip over the page to Who & what in the sidebar
 - **Done:** Samuel 2026-11-08: the On this page strip sometimes blocks the reading view; put it on the sidebar to open when wanted. Branch m32-on-this-page-rail: strip removed; a Who & what button in the sidebar (phone: bottom bar) opens the Who & what panel, whose top section On this page lists the names on the screen (a name opens in the panel). Underlines and their card unchanged. Old strip CSS removed.

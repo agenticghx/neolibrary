@@ -742,12 +742,12 @@ async function tapFirstMark(page: Page) {
 
 // M32 X2: names on the page. Each name's first mention in a paragraph carries a dotted underline, drawn on foliate's
 // overlay; a tap on an underline opens the card over the page, which knows where the reader is like the Who & what
-// list. The names on the screen are listed under "On this page" at the top of Who & what, opened from the sidebar
-// when wanted: never over the text (Samuel, 2026-11-08: the strip at the foot of the page sometimes hid the reading).
-test("names on the page carry a dotted underline, a tap opens the card, and Who & what in the sidebar lists the names on this page", async ({ page }) => {
+// list. The names on the screen are listed under "On this page" at the top of Who & what, opened from the sidebar's
+// Names button when wanted: never over the text (Samuel, 2026-11-08: the strip at the foot of the page sometimes hid the reading).
+test("names on the page carry a dotted underline, a tap opens the card, and Names in the sidebar lists the names on this page", async ({ page }) => {
   await openAtPhrase(page, "lover of the sane and customary"); // chapter 2, Search for Mr. Hyde
   await expect(page.getByRole("region", { name: "On this page" }), "nothing over the page until asked for").toHaveCount(0);
-  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Who & what" }).click();
+  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Names", exact: true }).click();
   const who = page.getByRole("region", { name: "Who & what" });
   const strip = who.getByRole("region", { name: "On this page" });
   await expect(strip).toContainText("Mr. Utterson");
@@ -760,7 +760,7 @@ test("names on the page carry a dotted underline, a tap opens the card, and Who 
   await card.getByRole("button", { name: "Back to the list" }).click();
   await expect(strip).toBeVisible();
   // The sidebar button closes it again.
-  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Who & what" }).click();
+  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Names", exact: true }).click();
   await expect(who).toHaveCount(0);
   // Underlines on the overlay of the chapter shown (foliate keeps the overlay's SVG beside the page's frame, and
   // hands it out with the frame's document): one per name per paragraph.
