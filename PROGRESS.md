@@ -3,8 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries the reading ruler on his iPad (live 0f9b9aa); next build: M42 S1, the E-ink switch in Aa.
-blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e), 32 and 34; see Waiting on Samuel.
+next_action: Merge #305 (Names in the sidebar) when green; then the ruler-height PR.
+blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
 ---
@@ -363,6 +363,19 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-08 09:09 · Claude (Opus 5.5, laptop) · M32 X2 (#305): the sidebar button says Names (one line); hidden for visitors
+- **Done:** CI on #305 failed twice: the visitor rail test (3 buttons, expected Study and Rewritten), fixed by hiding the button for visitors; and the text-edition table test at phone size ('584 px wide in a 280 px column'), reproduced on the laptop on the branch, passing on main (worktree mainprobe at b71ca572). Cause: 'Who & what' wrapped to two lines in the phone's bottom bar, making it taller and the page shorter, so the test's table split across two pages. The button now says Names; agents, ai (names on the page) and open-shelf tests pass locally.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; e2e/ai.spec.ts; LEARNING_LOG.md Iteration 148
+- **Commands that worked:** PORT=3419 npx playwright test --project agents --no-deps -g 'pages read on the subscription' --ignore-snapshots (1 passed, fresh database); --project ai -g 'names on the page' (1 passed); --project open-shelf (2 passed)
+- **Known issues / blockers:** The table test measures a table split across two pages as one wide box; harmless now, but fragile if the page height changes again.
+- **Exact next steps:** 1. CI on #305; refresh reference images if they changed; merge when green (it deploys itself). 2. Then the ruler height branch m21-ruler-lines (worktree rulerlines): build, verify, PR, merge.
+
+### 2026-11-08 08:24 · Claude (Opus 5.5, laptop) · M32 X2: On this page moves from a strip over the page to Who & what in the sidebar
+- **Done:** Samuel 2026-11-08: the On this page strip sometimes blocks the reading view; put it on the sidebar to open when wanted. Branch m32-on-this-page-rail: strip removed; a Who & what button in the sidebar (phone: bottom bar) opens the Who & what panel, whose top section On this page lists the names on the screen (a name opens in the panel). Underlines and their card unchanged. Old strip CSS removed.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; XrayPanel.tsx; XrayPanel.module.css; XrayCard.module.css; reader.module.css; e2e/ai.spec.ts; LEARNING_LOG.md Iteration 148
+- **Commands that worked:** PORT=3419 npx playwright test --project ai --no-deps -g 'names on the page' --ignore-snapshots (1 passed); npm run check (1361 passed)
+- **Known issues / blockers:** Reference screenshots of the reader will change (a sixth sidebar button, no strip): expect one CI round to refresh them. The panels screenshot test was not run locally.
+- **Exact next steps:** 1. PR; refresh reference images from CI if they changed (merge-train), look at them; merge when green; it deploys itself (no migration). 2. Samuel tries Who & what in the sidebar on his iPad.
 ### 2026-11-08 08:51 · Claude Opus 5.5 (laptop) · M42 planned: E-ink reading mode (docs only)
 - **Done:** Planned M42, an E-ink reading mode, at Samuel's word ('yep, plan the e-ink reading mode as suggested') after a chat about designing reading hardware of his own. Five steps: S1 an E-ink switch in Aa (white paper, black ink, no animation, no glass blur or shadows, Pages only, ruler and highlights drawn as bars and underlines); S2 the setting on every page, known before first paint; S3 Listen marks the paragraph, not each word; S4 the tablet's own buttons; S5 a month of daily use whose result decides whether hardware of our own is ever planned. Seven-day sweep: row 3 and row 21 (a), (c), (d) closed, default stands (Decisions lines added); row 21 (e) stays open (access), rows 12 (money) and 13 (access) stay open. Added Open unknowns row 34 (which tablet to buy; money, never closed by default).
 - **Key paths:** docs/eink-reading-plan.md (new); docs/plan.md (M42 section); PROGRESS.md (Open unknowns rows 3, 21, 34; Decisions; Exact next steps; header)

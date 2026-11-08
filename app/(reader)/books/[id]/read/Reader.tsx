@@ -46,7 +46,6 @@ import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { XrayPanel } from "./XrayPanel";
 import { XrayCard } from "./XrayCard";
 import { drawMarks, entryOfKey, namesOnScreen, type DrawnMark } from "./xray-marks";
-import xrayStyles from "./XrayCard.module.css";
 import { FULL_IDLE_MS, fullEvent, wakesBars } from "./fullscreen";
 import { onSidebarChange, setSidebarOpen, sidebarOpen } from "./sidebar";
 import type { XrayMark } from "@/lib/library/xray";
@@ -2403,16 +2402,6 @@ export function Reader(props: {
         <div className={styles.lensClip} aria-hidden="true" hidden={paneMode === "rewritten"}>
           <div ref={lensEl} className={styles.lens} data-testid="ruler" />
         </div>
-        {onPage.length ? (
-          <div className={xrayStyles.strip} role="region" aria-label="On this page">
-            <span className={xrayStyles.stripLabel}>On this page</span>
-            {onPage.map((n) => (
-              <button key={n.id} type="button" className={xrayStyles.chip} onClick={() => setXrayCard(n.id)}>
-                {n.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
         <button type="button" className={`${styles.turn} ${styles.turnNext}`} aria-label="Next page" onClick={() => turnRef.current("next")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="m7 3 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -2513,6 +2502,26 @@ export function Reader(props: {
               </svg>
               <span className={styles.railWord}>Rewritten</span>
             </button>
+            {/* Who & what (M32), with the names on this page at its top: opened when wanted, never over the text
+                (Samuel, 2026-11-08: the "On this page" strip sometimes hid the reading). Not for a visitor (M34),
+                whose Study has no Who & what tab either. */}
+            {props.visitor ? null : (
+            <button
+              type="button"
+              className={styles.railTool}
+              aria-expanded={panel === "xray"}
+              title="Who & what: the names on this page, and everyone the book has named so far"
+              onClick={() => setPanel(panel === "xray" ? "none" : "xray")}
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="5.5" cy="5" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M1.5 13.5c.4-2.6 2-4 4-4s3.6 1.4 4 4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M10.5 4h4M10.5 7h4M12 10h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              {/* One short word: "Who & what" wrapped onto two lines on a phone, which made the bar taller and the page shorter. */}
+              <span className={styles.railWord}>Names</span>
+            </button>
+            )}
             {props.visitor ? null : (
             <button
               type="button"
@@ -2608,7 +2617,7 @@ export function Reader(props: {
         ) : null}
 
         {panel === "xray" && where.cfi ? (
-          <XrayPanel bookId={props.bookId} cfi={where.cfi} onTab={setPanel} onGo={(cfi) => void view.current?.goTo(cfi)} />
+          <XrayPanel bookId={props.bookId} cfi={where.cfi} onPage={onPage} onTab={setPanel} onGo={(cfi) => void view.current?.goTo(cfi)} />
         ) : null}
 
         {panel === "links" ? <CrossLinksPanel links={links} /> : null}

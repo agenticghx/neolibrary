@@ -1666,7 +1666,7 @@
    (data-bare) the book takes the whole screen: it spans every row, and the bars lie over it in their own rows, on the
    paper, so showing or hiding them never lays the page out again. Every one is put in the one column by name: a
    row given without a column would send the book into a new column beside the bars. Once the reader is still (data-idle) the bars,
-   "Where were we?", the read-aloud bar, the page arrows and the "On this page" names fade and the pointer hides; they
+   "Where were we?", the read-aloud bar and the page arrows fade and the pointer hides; they
    come back when the reader reaches for them (fullscreen.ts). A hovered bar stays, and so does one the keyboard is in
    (:focus-visible: a button clicked with the mouse keeps focus, and its bar must still fade); writing in "Where were
    we?" keeps it, as a text box being typed in is :focus-visible. */
