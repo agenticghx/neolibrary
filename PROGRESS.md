@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Plan M43 S2 (genealogy links stored on the site); ask Samuel whether general-knowledge years belong in the app.
+next_action: On Samuel's go, swap in the corrected Shannon file, then mark it a paper and build its X-ray.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 16:16 · Claude Opus 5.5 (laptop) · Checkpoint: Shannon paper live (first file); file swap, paper mark, X-ray on hold
+- **Done:** Shannon 1948 transcribed (55 pages, 281 display equations, 0 KaTeX problems), 12 figures + Table I cropped, first upload live as book 6590338e-194a-4775-831a-e7aa3a4276b5 and checked in Chrome and iPad-size WebKit. Corrected file (5 broken lists as numbered paragraphs) on the laptop only: remove + re-upload restored the old file.
+- **Key paths:** docs/handoffs/2026-11-08-1615-shannon-paper-upload.md (laptop, gitignored); ~/Downloads/papers/shannon1948/ (laptop only)
+- **Commands that worked:** curl -F file=@shannon1948.zip -H 'Authorization: Bearer <NEOLIBRARY_AGENT_TOKEN>' https://library.samuelahuno.com/api/agent/books -> 201
+- **Known issues / blockers:** Production database access (railway ssh psql) denied twice by the auto-mode classifier; Samuel said to hold live work until the main worktree session deploys.
+- **Exact next steps:** 1. On Samuel's go: swap the file (railway ssh allowed + backup + hard-delete + re-upload, or a 'Replace the book file' PR). 2. Mark as paper by DOI 10.1002/j.1538-7305.1948.tb01338.x. 3. X-ray via xray-on-subscription. 4. Live check, reset place, delete check sittings. 5. Ledger.
 
 ### 2026-11-08 16:11 · Claude Opus 5.5 (laptop) · Live: 218147c (#310 M43 S1, the genealogy skill)
 - **Done:** PR #310 merged as 218147c2 by the auto-merge Action with every check green; main CI 42522220994 green; deploy.yml deployed it (no migration, so no backup). Nothing in the app changes: the skill runs on the laptop. Chip War's genealogy page made by the skill was sent to Samuel (private: it quotes the book; kept in the session scratchpad, not in git).
