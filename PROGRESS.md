@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Plan and build M43 S3: the Genealogy tab in Study, reading the links stored on the site.
+next_action: Build M43 S3: the Genealogy tab in Study from the stored links.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 17:42 · Claude Opus 5.5 (laptop) · Checkpoint: M43 genealogy S1 (skill) and S2 (stored on the site) live; S3 next
+- **Done:** M43 S1 genealogy skill live (#310, 218147c); M43 S2 storage live (#311, 171a544, migration 0039, backup prod-before-0039-20261108T214758Z.sql restore-checked); Chip War's genealogy stored on the live site (472 links, 55 removed, 250 life events, 113 people, nothing left out). Samuel's decisions recorded: keep all views; general-knowledge years in the app, purple and switchable.
+- **Key paths:** docs/handoffs/2026-11-08-1742-genealogy-skill-and-storage-live.md (laptop only); docs/genealogy-plan.md; .claude/skills/genealogy-on-subscription/SKILL.md; lib/library/genealogy-store.ts
+- **Commands that worked:** zsh -ic 'npx tsx scripts/genealogy-on-subscription.ts send <folder> <site> <book id>'; npm run test:postgres with TEST_DATABASE_URL on Postgres 18 in Docker
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. M43 S3: the Genealogy tab in Study, reading stored links (readGenealogy), all seven views, reader's place as the slider, purple switchable general-knowledge years, browser tests on a fixture. 2. Send other books' genealogies with the skill when Samuel asks.
 
 ### 2026-11-08 16:51 · Claude Opus 5.5 (laptop) · Live: 171a544 (#311 M43 S2, genealogy stored on the site, migration 0039); Chip War's genealogy sent
 - **Done:** PR #311 merged as 171a5442 (every check green). Backup before 0039: ~/Backups/neolibrary/prod-before-0039-20261108T214758Z.sql (32 MB, 'dump complete' footer); restore-check into a throwaway Postgres 18 exit 0, 261 books, 38 migrations. Deployed from ../neolibrary-deploy (clean detached checkout): railway variable NEOLIBRARY_COMMIT set, railway up. /api/health 171a544 on both addresses; /sign-in 200 on both; log 'Page pictures: ready.'; live _migrations 39, max 0039_genealogy; genealogy_links exists. Chip War's genealogy sent with the skill: 472 links, 55 removed, 250 life events for 113 people, nothing left out by the site's checks; a second send changed nothing; GET returns generation 68a0d2df. Samuel's decision recorded in docs/genealogy-plan.md: general-knowledge years shown in the app, purple and switchable.
