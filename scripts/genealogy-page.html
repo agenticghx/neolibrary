@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book Genealogy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3ede1;--paper-raised:#faf6ee;--paper-sunken:#e9e1d1;--ink-900:#243239;--ink-700:#3c4b52;--ink-500:#5a676c;--rule:#d6ccba;--accent:#376963;--accent-strong:#2a524d;
+  --org:#376963;--person:#8a5a2b;--money:#a0742a;--parts:#376963;--family:#6d5a96;--gk:#8b3fa8;--partner:#7a8a8f;--derived:#9a8f7c;--warn:#9b3b2e;--hl:#e6dcc4;
+  --serif:"Source Serif 4","Iowan Old Style",georgia,serif;--sans:"Source Sans 3","Segoe UI","Helvetica Neue",arial,sans-serif;
+  --r:6px;--shadow:0 1px 2px #24323914,0 4px 14px #2432390f;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#1b282f;--paper-raised:#22323a;--paper-sunken:#152026;--ink-900:#e7ddc9;--ink-700:#cdc3b0;--ink-500:#a49d8e;--rule:#34454d;--accent:#6b9f95;--accent-strong:#8bbab0;
+  --org:#7fb3a8;--person:#d6a26a;--money:#d9b36c;--parts:#7fb3a8;--family:#ad9ad6;--gk:#d08ce8;--partner:#8e9ea3;--derived:#7d8a8a;--warn:#e08a7a;--hl:#2c3e46;--shadow:0 1px 2px #0005,0 4px 14px #0004;}}
+:root[data-theme="dark"]{
+  --paper:#1b282f;--paper-raised:#22323a;--paper-sunken:#152026;--ink-900:#e7ddc9;--ink-700:#cdc3b0;--ink-500:#a49d8e;--rule:#34454d;--accent:#6b9f95;--accent-strong:#8bbab0;
+  --org:#7fb3a8;--person:#d6a26a;--money:#d9b36c;--parts:#7fb3a8;--family:#ad9ad6;--gk:#d08ce8;--partner:#8e9ea3;--derived:#7d8a8a;--warn:#e08a7a;--hl:#2c3e46;--shadow:0 1px 2px #0005,0 4px 14px #0004;}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink-900);font:17px/1.45 var(--sans)}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 120px}
+h1{font:600 2rem/1.15 var(--serif);margin:0 0 6px}
+h2{font:600 1.25rem/1.2 var(--serif);margin:28px 0 8px}
+p{margin:0 0 10px;max-width:72ch}
+.lede{color:var(--ink-700)}
+.for{font-size:.8125rem;color:var(--ink-500);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.stat{background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--r);padding:8px 12px;min-width:118px}
+.stat b{display:block;font:600 1.4rem/1.1 var(--serif)}
+.stat span{font-size:.8125rem;color:var(--ink-500)}
+.bar{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--rule);margin:18px -16px 0;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.tabs{display:flex;gap:4px;background:var(--paper-sunken);border-radius:999px;padding:3px}
+.tabs button{border:0;background:none;font:500 .9375rem var(--sans);color:var(--ink-700);padding:7px 14px;border-radius:999px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--paper-raised);color:var(--ink-900);box-shadow:var(--shadow)}
+.upto{display:flex;align-items:center;gap:10px;flex:1 1 320px;min-width:0}
+.upto label{font-size:.9375rem;color:var(--ink-700);white-space:nowrap}
+.upto input{flex:1;min-width:100px;accent-color:var(--accent)}
+.upto output{font-size:.875rem;color:var(--ink-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 6px}
+.pick input{font:inherit;padding:7px 10px;border:1px solid var(--rule);border-radius:var(--r);background:var(--paper-raised);color:var(--ink-900);width:min(320px,100%)}
+.sugg{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--paper-raised);color:var(--ink-900);border-radius:999px;padding:4px 11px;font:500 .875rem var(--sans);cursor:pointer;text-align:left}
+.chip:hover{border-color:var(--accent)}
+.chip small{color:var(--ink-500);font-weight:400}
+.chip.person{border-left:3px solid var(--person)}
+.chip.organisation{border-left:3px solid var(--org)}
+.hint{font-size:.875rem;color:var(--ink-500)}
+/* tree */
+.tree{position:relative;margin-top:10px;padding:6px 0}
+.tree svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.gen{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 14px;margin:0 0 46px;position:relative}
+.genlabel{position:absolute;left:0;top:-20px;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-500)}
+.card{position:relative;background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--r);box-shadow:var(--shadow);padding:8px 12px 9px;min-width:130px;max-width:230px;cursor:pointer;text-align:center}
+.card:hover{border-color:var(--accent)}
+.card .nm{font:600 1rem/1.2 var(--serif)}
+.card .how{font-size:.78rem;color:var(--ink-500);margin-top:3px}
+.card.focus{border:2px solid var(--accent);background:var(--hl)}
+.card.focus .nm{font-size:1.2rem}
+.more{align-self:center;font-size:.85rem;color:var(--ink-500)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:.85rem;color:var(--ink-700);margin-top:4px}
+.legend i{display:inline-block;width:26px;height:0;border-top:2px solid var(--org);vertical-align:middle;margin-right:6px}
+.legend i.d{border-top:2px dashed var(--derived)}
+/* org chart */
+.orghead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:8px 0 4px}
+.orghead .nm{font:600 1.6rem/1.15 var(--serif)}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;margin-top:12px}
+.group{background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--r);padding:10px 12px}
+.group h3{margin:0 0 8px;font:600 .8125rem var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-500)}
+.group .chips{display:flex;flex-wrap:wrap;gap:6px}
+/* person path */
+.path{list-style:none;margin:14px 0 0;padding:0 0 0 22px;border-left:2px solid var(--rule)}
+.path li{position:relative;margin:0 0 14px;padding-left:10px}
+.path li::before{content:"";position:absolute;left:-29px;top:7px;width:12px;height:12px;border-radius:50%;background:var(--paper);border:2px solid var(--person)}
+.path li.org::before{border-color:var(--org)}
+.path .ch{font-size:.78rem;color:var(--ink-500)}
+.path .what{font-weight:500}
+.path .what button{font:inherit;color:var(--accent);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.path q{display:block;font:400 .95rem/1.5 var(--serif);color:var(--ink-700);margin-top:2px}
+.path .ev{font-size:.8rem;border:0;background:none;color:var(--ink-500);cursor:pointer;padding:0;text-decoration:underline}
+/* drawer */
+.drawer{position:fixed;right:16px;bottom:16px;width:min(460px,calc(100vw - 32px));max-height:min(70vh,640px);overflow:auto;background:var(--paper-raised);border:1px solid var(--rule);border-radius:10px;box-shadow:0 10px 40px #0003;padding:14px 16px 16px;z-index:20}
+.drawer[hidden]{display:none}
+.drawer .x{position:sticky;top:0;float:right;border:0;background:var(--paper-sunken);color:var(--ink-900);border-radius:999px;width:30px;height:30px;font-size:18px;cursor:pointer}
+.drawer h3{font:600 1.1rem/1.25 var(--serif);margin:2px 40px 10px 0}
+.ev-item{border-top:1px solid var(--rule);padding:10px 0}
+.ev-item:first-of-type{border-top:0}
+.ev-item .s{font-weight:600}
+.ev-item blockquote{margin:6px 0;padding:6px 10px;border-left:3px solid var(--accent);background:var(--paper);font:400 1rem/1.55 var(--serif);color:var(--ink-900)}
+.ev-item .meta{font-size:.8rem;color:var(--ink-500)}
+.badge{display:inline-block;font-size:.72rem;padding:1px 7px;border-radius:999px;border:1px solid var(--rule);color:var(--ink-700);margin-left:4px}
+.badge.fix{border-color:var(--warn);color:var(--warn)}
+.badge.inf{border-style:dashed}
+.drawer .go{margin-top:8px}
+
+.orghead .tabs{margin-left:auto}
+.tabs.small button{padding:5px 12px;font-size:.875rem}
+.legend i.sw{display:inline-block;width:13px;height:13px;border:0;border-radius:50%;background:var(--c);vertical-align:-2px;margin-right:6px}
+.legend svg{vertical-align:-2px;margin-right:6px}
+.legend i.sw.ring{background:transparent;border:2.5px solid var(--c);box-sizing:border-box}
+.svgbox{max-width:920px;margin:6px auto 0;overflow-x:auto}
+svg.orbit{width:100%;min-width:700px;height:auto;display:block}
+.ring{fill:none;stroke:var(--rule);stroke-dasharray:2 5}
+.catarc{fill:none;stroke-width:7;stroke-linecap:round;opacity:.5}
+.spoke{opacity:.5;transition:opacity .2s}
+.spoke.dashed,.ribbon.dashed{stroke-dasharray:6 5}
+.spoke.dim{opacity:.07}.node.dim{opacity:.28}
+.node{cursor:pointer;transition:opacity .2s}.node:focus{outline:none}
+.lbl,.sub{paint-order:stroke;stroke:var(--paper);stroke-width:5px;stroke-linejoin:round}
+.lbl{font:600 15px var(--serif);fill:var(--ink-900)}
+.sub{font:12px var(--sans);fill:var(--ink-500)}
+.hub{fill:var(--hl);stroke:var(--accent);stroke-width:2.5}
+.hubtxt{font:600 21px var(--serif);fill:var(--ink-900)}
+.ringlbl{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;fill:var(--ink-500)}
+.flow{position:relative;display:grid;grid-template-columns:1fr minmax(270px,1.3fr) 1fr;grid-template-areas:"up up up" "in core out" "down down down";gap:34px 76px;margin-top:16px}
+.ribbons{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.ribbon{fill:none;opacity:.33}
+.fcol{display:flex;flex-direction:column;gap:8px;justify-content:center;position:relative;z-index:1}
+.fcol-up,.fcol-down{flex-direction:row;flex-wrap:wrap;justify-content:center}
+.fcol-up{grid-area:up}.fcol-in{grid-area:in}.fcol-out{grid-area:out}.fcol-down{grid-area:down}
+.fcol-up .fhead,.fcol-down .fhead{width:100%;text-align:center}
+.fnode{all:unset;box-sizing:border-box;cursor:pointer;display:block;background:var(--paper-raised);border:1px solid var(--rule);border-left:4px solid var(--c);border-radius:6px;padding:6px 10px;box-shadow:var(--shadow)}
+.fnode:focus-visible{outline:2px solid var(--accent)}
+.fcol-out .fnode{border-left:1px solid var(--rule);border-right:4px solid var(--c);text-align:right}
+.fnode b{display:block;font:600 .95rem/1.2 var(--serif)}.fnode small{color:var(--ink-500);font-size:.75rem}
+.fcore{grid-area:core;position:relative;z-index:1;background:var(--paper-raised);border:2px solid var(--accent);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.corename{font:600 1.5rem/1.15 var(--serif);text-align:center;margin-bottom:8px}
+.crow{border-top:1px solid var(--rule);padding:8px 0 6px}
+.fhead{font:600 .72rem var(--sans);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-500);margin-bottom:6px}
+.succession{display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding-left:10px;border-left:2px solid var(--person)}
+.crow .chips{display:flex;flex-wrap:wrap;gap:5px}
+.tlbox{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--r);background:var(--paper-raised);margin-top:8px}
+.timeline{display:block}
+.band.b0{fill:var(--paper-raised)}.band.b1{fill:var(--paper-sunken);opacity:.6}
+.partlbl{font:600 11px var(--sans);fill:var(--ink-500);letter-spacing:.04em}
+.chlbl{font:11px var(--sans);fill:var(--ink-500)}
+.unread{fill:var(--paper);opacity:.8}
+.nowline{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:3 3}
+.grouplbl{font:600 11px var(--sans);letter-spacing:.08em;fill:var(--ink-500)}
+.rowname{font:600 14px var(--serif);fill:var(--ink-900);cursor:pointer;dominant-baseline:middle}
+.rowsub{font:11px var(--sans);fill:var(--ink-500)}
+.rowrule{stroke:var(--rule);stroke-width:.6}
+.span{stroke-width:3.5;opacity:.3;stroke-linecap:round}
+.mark{cursor:pointer}.mark:focus{outline:none}.mark:focus circle,.mark:focus path,.mark:focus rect+*{stroke-width:3.5}
+@media (max-width:700px){.rowname{font-size:13px}.flow{grid-template-columns:1fr;grid-template-areas:"up" "in" "core" "out" "down";gap:20px}.flow .ribbons{display:none}.fcol-out .fnode{text-align:left;border-right:1px solid var(--rule);border-left:4px solid var(--c)}.orghead .tabs{margin-left:0;width:100%}}
+
+.story-box{margin-top:8px}
+.story .lane.l0{fill:var(--paper-raised)}.story .lane.l1{fill:var(--paper-sunken);opacity:.55}
+.lanelbl{font:600 13px var(--sans);letter-spacing:.02em;fill:var(--ink-700);cursor:pointer}.lanelbl.pl{fill:var(--person)}
+.yr{font:600 13px var(--sans);fill:var(--ink-900)}.yr.none{fill:var(--ink-500);font-weight:400}
+.lifeline{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.stop{fill:var(--paper);stroke:var(--accent);stroke-width:2.5}.stop.dated{fill:var(--accent)}.stop.x{stroke:var(--warn);stroke-width:3;fill:none}
+.evlbl{font:12px var(--sans);fill:var(--ink-700);paint-order:stroke;stroke:var(--paper-raised);stroke-width:3px}
+.mateline{stroke:var(--ink-500);stroke-width:2.5;opacity:.35;stroke-linecap:round}
+.matelbl{font:italic 11.5px var(--serif);fill:var(--ink-500)}
+.mate{cursor:pointer}.mate:hover .mateline{opacity:.7}
+.legend .sw.hollow{background:var(--paper);border:2px solid var(--accent);box-sizing:border-box}
+.legend i.mt{display:inline-block;width:26px;height:0;border-top:3px solid var(--ink-500);opacity:.45;vertical-align:middle;margin-right:6px}
+.yrk{font:600 .85rem var(--sans)}.yrk.none{color:var(--ink-500)}
+.rvhline{fill:none;stroke-width:2;opacity:.55;transition:opacity .15s}.rvhline.dim{opacity:.05}
+.axis{stroke:var(--rule)}.axlbl{font:600 11px var(--sans);letter-spacing:.06em;fill:var(--ink-500)}
+.badge.b-stated{border-color:var(--accent);color:var(--accent)}.badge.b-worked{border-color:var(--money);color:var(--money)}.badge.b-ordered{border-style:dashed}.badge.b-unknown{color:var(--ink-500)}
+.yrinline{font-weight:600;color:var(--ink-900)}
+
+.settings{background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--r);padding:10px 12px;margin:10px 0 4px;display:flex;flex-direction:column;gap:8px}
+.setting{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:.92rem;color:var(--ink-700)}
+.settings .hint{margin:0;font-size:.82rem;max-width:none}
+.banner{background:var(--hl);border-left:4px solid var(--money);border-radius:var(--r);padding:10px 12px;margin:10px 0;font-size:.95rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.yr.gk,.yrk.gk,.yrinline.gk{fill:var(--gk);color:var(--gk);font-style:italic}
+.stop.gk{fill:var(--gk);stroke:var(--gk)}
+.badge.b-gk{border-color:var(--gk);color:var(--gk)}
+.gkitem{border-left:3px solid var(--gk);padding-left:10px}
+details{margin-top:26px;background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--r);padding:10px 14px}
+details summary{cursor:pointer;font-weight:600}
+.removed{font-size:.9rem}
+.removed div{border-top:1px solid var(--rule);padding:7px 0}
+.removed em{color:var(--ink-500)}
+.skill{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:8px}
+.step{background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--r);padding:10px 12px;font-size:.92rem}
+.step b{display:block;font:600 1rem var(--serif);margin-bottom:2px}
+.empty{color:var(--ink-500);font-style:italic;margin:20px 0}
+@media (max-width:640px){.tabs{width:100%}.tabs button{flex:1;padding:7px 6px;font-size:.875rem}h1{font-size:1.6rem}.card{min-width:110px;max-width:170px;padding:7px 9px}.gen{gap:10px;margin-bottom:40px}.upto output{max-width:130px}}
+</style>
+</head>
+<body>
+<main>
+  <header id="intro"></header>
+
+  <div class="bar">
+    <div class="tabs" role="group" aria-label="View">
+      <button data-v="tree" aria-pressed="true">Family tree</button>
+      <button data-v="org" aria-pressed="false">Inside a company</button>
+      <button data-v="person" aria-pressed="false">One person</button>
+    </div>
+    <div class="upto">
+      <label for="upto">Read up to chapter</label>
+      <input id="upto" type="range" min="1" max="2" value="2">
+      <output id="uptoOut"></output>
+    </div>
+  </div>
+
+  <section id="view"></section>
+
+  <details>
+    <summary id="removedSum">Links the second reading removed</summary>
+    <p class="hint">Each had a real quote, but the paragraph does not say the link. Shown so you can judge the second reading too.</p>
+    <div class="removed" id="removed"></div>
+  </details>
+</main>
+
+<div class="drawer" id="drawer" hidden role="dialog" aria-label="Where the book says it"><button class="x" id="dx" aria-label="Close">×</button><div id="dbody"></div></div>
+
+<script>
+const D = /*DATA*/null;
+const REL = {founded:"founded",worked_at:"worked at",led:"led",left:"left",advised:"advised",spun_out_of:"spun out of",acquired:"bought",bought_part_of:"bought part of",part_of:"is part of",funded:"funded",supplied:"supplied",partnered:"partnered with",mentored:"mentored",hired:"hired",worked_for:"worked for",friend:"is a friend of",family:"is family of"};
+const kindOf = n => D.nodes[n] || "organisation";
+let view = "tree", upto = D.n;
+const focus = {tree: D.top.tree[0] || D.top.org[0] || "", org: D.top.org[0] || "", person: D.top.person[0] || ""};
+const PARTS = D.parts;
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v != null) e.setAttribute(k, v); } for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k))); return e; };
+const live = () => D.links.filter(l => l.chapter <= upto);
+const sentence = l => `${l.from} ${REL[l.relation] || l.relation} ${l.to}`;
+
+
+// ---------- intro: what this page is, from the run's own numbers ----------
+function intro() {
+  const s = D.stats, c = s.checked || {};
+  document.title = `${D.book}: genealogy`;
+  const step = (n, t, body) => el("div", {class: "step"}, el("b", {}, `${n}. ${t}`), body);
+  $("#intro").replaceChildren(
+    el("div", {class: "for"}, `Genealogy · ${D.book} · read by Claude on the owner's subscription · keep private: it quotes the book`),
+    el("h1", {}, `${D.book}: genealogy`),
+    el("p", {class: "lede"}, `Every `, el("b", {}, "link"), ` the book states between two named people or organisations (who founded what, who worked or led where, which company came out of which, who bought, funded or supplied whom), each with the sentence it rests on. Tap anything to see that sentence.`),
+    el("div", {class: "stats", id: "stats"}),
+    el("h2", {}, "How it was made"),
+    el("div", {class: "skill"},
+      step(1, "Read", `Each of ${s.chapters} chapters went to Claude with its paragraphs numbered; it answered with links: from, relation, to, the paragraph and a quote.`),
+      step(2, "Check the quote", `A link whose quote is not found word for word in its paragraph is dropped: ${s.dropped} were.`),
+      step(3, "Names", `A names reading grouped ${s.merged} other spellings into the names they belong to and set aside ${s.vague} vague groups.`),
+      step(4, "Second reading", `Each link was read again against its paragraph: ${c.holds || 0} held, ${c.fixed || 0} were corrected, ${(c.unsupported || 0) + (c.fix_unusable || 0)} were removed.`),
+      step(5, "Dates", `Each chapter was read whole for the year of each link, with the words that say it, checked like the quotes: ${s.dated} links got a year.`),
+      step(6, "Lives", `For ${s.lives} people, repeated links were merged into life events in the order they happened, by a checked year or a quoted clue. Years the book leaves out come from Claude's general knowledge, drawn in purple and never mixed with the book's.`)));
+}
+
+// ---------- stats ----------
+function stats() {
+  const s = D.stats, c = s.checked;
+  const box = (n, t) => el("div", {class: "stat"}, el("b", {}, n), el("span", {}, t));
+  $("#stats").replaceChildren(box(s.chapters, "chapters read"), box(s.offered, "links offered"), box(s.dropped, "quotes not in the book"),
+    box(c.fixed || 0, "corrected by the second reading"), box((c.unsupported || 0) + (c.fix_unusable || 0), "removed by the second reading"),
+    box(D.links.length, "links shown"), box(Object.keys(D.nodes).length, "names"));
+  void c;
+}
+
+// ---------- evidence drawer ----------
+function openEvidence(title, items, go) {
+  const body = $("#dbody"); body.replaceChildren(el("h3", {}, title));
+  for (const it of items) {
+    const l = it.link || it, badges = [];
+    if (l.was) badges.push(el("span", {class: "badge fix", title: l.why || ""}, "corrected"));
+    if (it.inferred) badges.push(el("span", {class: "badge inf"}, "one of two quotes"));
+    body.append(el("div", {class: "ev-item"},
+      el("div", {class: "s"}, sentence(l), l.role ? ` (${l.role})` : "", l.year ? `, ${l.year}` : "", badges),
+      el("blockquote", {}, l.quote),
+      el("div", {class: "meta"}, `Chapter ${l.chapter}: ${D.chapters[l.chapter]} · paragraph ${l.passage}`),
+      l.was ? el("div", {class: "meta"}, `First reading said: "${l.was}". Second reading: ${l.why || ""}`) : null));
+  }
+  if (go) body.append(el("div", {class: "go"}, ...go));
+  $("#drawer").hidden = false; $("#drawer").scrollTop = 0;
+}
+$("#dx").onclick = () => { $("#drawer").hidden = true; };
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("#drawer").hidden = true; });
+const goButtons = name => {
+  const k = kindOf(name), out = [];
+  if (k === "organisation") { out.push(el("button", {class: "chip", onclick: () => show("tree", name)}, `${name}: family tree`)); out.push(el("button", {class: "chip", onclick: () => show("org", name)}, `${name}: who was there`)); }
+  else out.push(el("button", {class: "chip", onclick: () => show("person", name)}, `${name}: path`));
+  return out;
+};
+function show(v, name) { view = v; if (name) focus[v] = name; $("#drawer").hidden = true; render(); window.scrollTo({top: $(".bar").offsetTop, behavior: "smooth"}); }
+
+// ---------- lineage: which organisation came from which ----------
+function lineage(L) {
+  const E = new Map(), isOrg = n => kindOf(n) === "organisation";
+  const add = (p, c, how, item, person) => {
+    if (p === c) return; const k = p + "\u0000" + c;
+    if (!E.has(k)) E.set(k, {parent: p, child: c, hows: new Set(), people: new Set(), items: [], book: false});
+    const e = E.get(k); e.hows.add(how); if (person) e.people.add(person); e.items.push(item); if (!item.inferred) e.book = true;
+  };
+  for (const l of L) {
+    if (!isOrg(l.from) || !isOrg(l.to)) continue;
+    if (l.relation === "spun_out_of") add(l.to, l.from, "spun out", {link: l});
+    if (l.relation === "acquired") add(l.from, l.to, "bought", {link: l});
+    if (l.relation === "part_of") add(l.to, l.from, "part of it", {link: l});
+  }
+  // Founders who had been somewhere first: X descends from Y when a founder of X was at Y no later (in the book's order) than X's founding.
+  const first = (pred) => L.filter(pred).reduce((m, l) => Math.min(m, l.chapter), Infinity);
+  for (const f of L.filter(l => l.relation === "founded" && kindOf(l.from) === "person" && isOrg(l.to))) {
+    const fx = first(l => l.relation === "founded" && l.from === f.from && l.to === f.to);
+    if (f.chapter !== fx) continue;
+    for (const w of L.filter(l => l.from === f.from && ["worked_at", "led", "left"].includes(l.relation) && isOrg(l.to) && l.to !== f.to)) {
+      const wy = first(l => l.from === f.from && l.to === w.to && ["worked_at", "led", "left"].includes(l.relation));
+      if (w.chapter !== wy || wy > fx) continue;
+      if (w.year && f.year && w.year > f.year) continue;
+      add(w.to, f.to, "founders came from here", {link: w, inferred: true}, f.from);
+      add(w.to, f.to, "founders came from here", {link: f, inferred: true}, f.from);
+    }
+  }
+  // Drop an inferred edge whose reverse the book states outright.
+  for (const [k, e] of E) { const r = E.get(e.child + "\u0000" + e.parent); if (r && r.book && !e.book) E.delete(k); }
+  return [...E.values()];
+}
+
+function renderTree(box) {
+  const L = live(), E = lineage(L), name = focus.tree;
+  const orgs = [...new Set(E.flatMap(e => [e.parent, e.child]))].sort();
+  box.append(picker(orgs, "tree", D.top.tree));
+  box.append(el("div", {class: "legend"}, el("span", {}, el("i"), "the book says it came out of, was bought by, or is part of"), el("span", {}, el("i", {class: "d"}), "a founder had worked there first (two quotes put together)")));
+  if (!orgs.includes(name)) { box.append(el("p", {class: "empty"}, upto < D.n ? `Up to chapter ${upto}, the book has not yet linked ${name} to another organisation.` : `The book links ${name} to no other organisation as parent or offspring.`)); return; }
+  const up = new Map([[name, 0]]), down = new Map([[name, 0]]), CAP = 12;
+  const gens = {"-2": [], "-1": [], "0": [name], "1": [], "2": []}, via = new Map(), seen = new Set([name]);
+  for (const g of [1, 2]) {
+    for (const n of gens[-(g - 1)] || gens["0"]) for (const e of E.filter(e => e.child === n && !seen.has(e.parent))) { seen.add(e.parent); gens[-g].push(e.parent); via.set(e.parent, e); }
+    for (const n of gens[g - 1]) for (const e of E.filter(e => e.parent === n && !seen.has(e.child))) { seen.add(e.child); gens[g].push(e.child); via.set(e.child, e); }
+  }
+  const tree = el("div", {class: "tree"}), svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); tree.append(svg);
+  const label = {"-2": "Further back", "-1": "Came from", "0": "", "1": "Came out of it", "2": "And out of those"};
+  const cards = new Map();
+  for (const g of ["-2", "-1", "0", "1", "2"]) {
+    const list = gens[g]; if (!list.length) continue;
+    const row = el("div", {class: "gen"}); if (label[g]) row.append(el("div", {class: "genlabel"}, label[g]));
+    for (const n of list.slice(0, CAP)) {
+      const e = via.get(n);
+      const how = e ? [...e.hows].join(", ") + (e.people.size ? ` · ${[...e.people].slice(0, 3).join(", ")}${e.people.size > 3 ? "…" : ""}` : "") : "";
+      const c = el("div", {class: "card" + (g === "0" ? " focus" : ""), tabindex: 0, role: "button",
+        onclick: () => g === "0" ? openEvidence(`${n}: its links in the tree`, E.filter(x => x.parent === n || x.child === n).flatMap(x => x.items), goButtons(n)) : openEvidence(`${e.parent} → ${e.child}`, e.items, goButtons(n))},
+        el("div", {class: "nm"}, n), how ? el("div", {class: "how"}, how) : null);
+      c.addEventListener("keydown", ev => { if (ev.key === "Enter") c.click(); });
+      cards.set(n, c); row.append(c);
+    }
+    if (list.length > CAP) row.append(el("div", {class: "more"}, `+ ${list.length - CAP} more`));
+    tree.append(row);
+  }
+  box.append(tree, el("p", {class: "hint"}, "Tap a card for the sentences behind its line, then open it as the centre of the tree or see who was there."));
+  const draw = () => {
+    const r = tree.getBoundingClientRect(); svg.replaceChildren();
+    for (const [n, c] of cards) {
+      const e = via.get(n); if (!e) continue; const other = cards.get(e.parent === n ? e.child : e.parent); if (!other) continue;
+      const a = c.getBoundingClientRect(), b = other.getBoundingClientRect(), [top, bot] = a.top < b.top ? [a, b] : [b, a];
+      const x1 = top.left + top.width / 2 - r.left, y1 = top.bottom - r.top, x2 = bot.left + bot.width / 2 - r.left, y2 = bot.top - r.top, m = (y1 + y2) / 2;
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", `M${x1},${y1} C${x1},${m} ${x2},${m} ${x2},${y2}`); p.setAttribute("fill", "none");
+      p.setAttribute("stroke", e.book ? "var(--org)" : "var(--derived)"); p.setAttribute("stroke-width", e.book ? 2 : 1.6); if (!e.book) p.setAttribute("stroke-dasharray", "5 4");
+      svg.append(p);
+    }
+  };
+  requestAnimationFrame(draw); window.onresize = draw;
+}
+
+// ---------- inside a company: three ways to draw it ----------
+const SVGNS = "http://www.w3.org/2000/svg";
+const S = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v != null) e.setAttribute(k, v); } for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k))); return e; };
+const CAT = {
+  founder: {label: "Founded it", color: "var(--person)", side: "people"},
+  leader: {label: "Led it", color: "var(--person)", side: "people"},
+  staff: {label: "Worked there", color: "var(--person)", side: "people"},
+  adviser: {label: "Advised it", color: "var(--person)", side: "people"},
+  parent: {label: "Came from / owned by", color: "var(--family)", side: "up"},
+  offspring: {label: "Its offspring and purchases", color: "var(--family)", side: "down"},
+  money_in: {label: "Money in", color: "var(--money)", side: "in"},
+  supplier: {label: "Suppliers", color: "var(--parts)", side: "in"},
+  bought_from: {label: "Bought part of", color: "var(--family)", side: "in"},
+  customer: {label: "Customers", color: "var(--parts)", side: "out"},
+  money_out: {label: "Money out", color: "var(--money)", side: "out"},
+  sold_to: {label: "Sold part of itself to", color: "var(--family)", side: "out"},
+  partner: {label: "Partners", color: "var(--partner)", side: "out"},
+};
+const ORDER = Object.keys(CAT);
+// Everyone and everything linked to one organisation, each with the category its links put it in.
+function around(X, L) {
+  const M = new Map();
+  for (const l of L) {
+    if (l.from !== X && l.to !== X) continue;
+    const o = l.from === X ? l.to : l.from, out = l.from === X, r = l.relation;
+    let cat;
+    if (kindOf(o) === "person") cat = r === "founded" ? "founder" : r === "led" ? "leader" : r === "advised" ? "adviser" : r === "funded" ? (out ? "money_out" : "money_in") : r === "supplied" ? (out ? "customer" : "supplier") : "staff";
+    else cat = r === "funded" ? (out ? "money_out" : "money_in") : r === "supplied" ? (out ? "customer" : "supplier") : r === "spun_out_of" || r === "part_of" ? (out ? "parent" : "offspring")
+      : r === "acquired" || r === "founded" ? (out ? "offspring" : "parent") : r === "bought_part_of" ? (out ? "bought_from" : "sold_to") : r === "hired" ? (out ? "supplier" : "customer") : "partner";
+    if (!M.has(o)) M.set(o, {name: o, kind: kindOf(o), cats: new Set(), links: []});
+    const e = M.get(o); e.cats.add(cat); e.links.push(l);
+  }
+  for (const e of M.values()) {
+    e.cat = ORDER.find(c => e.cats.has(c)); e.first = Math.min(...e.links.map(l => l.chapter)); e.last = Math.max(...e.links.map(l => l.chapter));
+    e.role = e.links.find(l => l.role && l.relation === "led")?.role || e.links.find(l => l.role)?.role || null;
+  }
+  return [...M.values()].sort((a, b) => ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat) || a.first - b.first);
+}
+const evidenceFor = (X, e) => openEvidence(`${e.name} and ${X}`, [...e.links].sort((a, b) => a.chapter - b.chapter), goButtons(e.name));
+const wrapWords = (s, n) => { const out = []; let cur = ""; for (const w of s.split(" ")) { if (cur && (cur + " " + w).length > n) { out.push(cur); cur = w; } else cur = cur ? cur + " " + w : w; } if (cur) out.push(cur); return out; };
+let orgMode = "orbit";
+
+function renderOrg(box) {
+  const L = live(), name = focus.org;
+  const orgs = [...new Set(L.flatMap(l => [l.from, l.to]).filter(n => kindOf(n) === "organisation"))].sort();
+  box.append(picker(orgs, "org", D.top.org));
+  const A = around(name, L);
+  const modes = [["orbit", "Power map"], ["flow", "Money and parts"], ["time", "Who was there when"]];
+  box.append(el("div", {class: "orghead"}, el("span", {class: "nm"}, name), el("span", {class: "hint"}, `${A.length} names, ${A.reduce((n, e) => n + e.links.length, 0)} links, up to chapter ${upto}`),
+    el("div", {class: "tabs small", role: "group", "aria-label": "Drawing"}, modes.map(([m, t]) => el("button", {"aria-pressed": String(m === orgMode), onclick: () => { orgMode = m; render(); }}, t)))));
+  if (!A.length) { box.append(el("p", {class: "empty"}, `Up to chapter ${upto}, the book links nobody to ${name}.`)); return; }
+  const stage = el("div", {class: "stage-" + orgMode}); box.append(stage);
+  ({orbit: drawOrbit, flow: drawFlow, time: drawTimeline})[orgMode](stage, name, A);
+}
+
+// A. Power map: the company at the centre, people on the inner ring, organisations on the outer ring, grouped by how they are linked.
+function drawOrbit(stage, X, A) {
+  const W = 1000, H = 810, cx = W / 2, cy = H / 2, R1 = 175, R2 = 330;
+  const svg = S("svg", {viewBox: `0 0 ${W} ${H}`, class: "orbit", role: "img", "aria-label": `Power map of ${X}`});
+  const people = A.filter(e => e.kind === "person"), orgs = A.filter(e => e.kind !== "person");
+  const place = (list, R, start) => list.forEach((e, i) => { const a = start + (i + 0.5) * 2 * Math.PI / list.length; e.x = cx + R * Math.cos(a); e.y = cy + R * Math.sin(a); e.a = a; });
+  place(people, R1, -Math.PI / 2 - Math.PI * 0.35); place(orgs, R2, -Math.PI / 2 + 0.2);
+  svg.append(S("circle", {cx, cy, r: R1, class: "ring"}), S("circle", {cx, cy, r: R2, class: "ring"}));
+  // category arcs on the outer ring
+  const arcs = S("g");
+  for (const c of ORDER) {
+    const g = orgs.filter(e => e.cat === c); if (!g.length) continue;
+    const step = 2 * Math.PI / orgs.length, a0 = g[0].a - step / 2 + 0.02, a1 = g[g.length - 1].a + step / 2 - 0.02, r = R2 + 0;
+    const p = (a, rr) => `${cx + rr * Math.cos(a)},${cy + rr * Math.sin(a)}`;
+    arcs.append(S("path", {d: `M${p(a0, r)} A${r},${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1, r)}`, stroke: CAT[c].color, class: "catarc"}));
+  }
+  svg.append(arcs);
+  const spokes = S("g"), nodes = S("g");
+  const all = [...people, ...orgs], maxN = Math.max(...all.map(e => e.links.length));
+  for (const e of all) {
+    const w = 1.2 + 3.5 * e.links.length / maxN, col = CAT[e.cat].color;
+    const sp = S("line", {x1: cx, y1: cy, x2: e.x, y2: e.y, stroke: col, "stroke-width": w, class: "spoke" + (e.cat === "partner" ? " dashed" : "")});
+    spokes.append(sp);
+    const r = 7 + 9 * Math.sqrt(e.links.length / maxN), right = Math.cos(e.a) >= -0.01, lines = wrapWords(e.name, 18);
+    const lx = e.x + (r + 7) * (right ? 1 : -1), sub = CAT[e.cat].label + (e.role ? ` · ${e.role}` : "");
+    const g = S("g", {class: "node", tabindex: 0, role: "button", "aria-label": `${e.name}: ${sub}`, onclick: () => { focusNode(svg, e); evidenceFor(X, e); }, onkeydown: ev => { if (ev.key === "Enter") { focusNode(svg, e); evidenceFor(X, e); } }},
+      S("circle", {cx: e.x, cy: e.y, r: r + 10, fill: "transparent"}),
+      S("circle", {cx: e.x, cy: e.y, r, fill: e.kind === "person" ? "var(--paper-raised)" : col, stroke: col, "stroke-width": 2.5}),
+      S("text", {x: lx, y: e.y - (lines.length - 1) * 8 - 2, "text-anchor": right ? "start" : "end", class: "lbl"}, lines.map((t, i) => S("tspan", {x: lx, dy: i ? 16 : 0}, t))),
+      S("text", {x: lx, y: e.y + (lines.length - 1) * 8 + 14, "text-anchor": right ? "start" : "end", class: "sub"}, sub));
+    g.spoke = sp; g.entry = e; nodes.append(g);
+  }
+  svg.append(spokes, nodes);
+  const cl = wrapWords(X, 14);
+  svg.append(S("circle", {cx, cy, r: 74, class: "hub"}), S("text", {x: cx, y: cy - (cl.length - 1) * 11 + 6, "text-anchor": "middle", class: "hubtxt"}, cl.map((t, i) => S("tspan", {x: cx, dy: i ? 22 : 0}, t))));
+  svg.append(S("text", {x: cx, y: cy - R1 - 12, "text-anchor": "middle", class: "ringlbl"}, "people"), S("text", {x: cx, y: cy - R2 - 14, "text-anchor": "middle", class: "ringlbl"}, "organisations"));
+  stage.append(legend(A), el("div", {class: "svgbox"}, svg), el("p", {class: "hint"}, "Thicker line, bigger dot: the book links them more often. Tap a dot for the sentences."));
+}
+function focusNode(svg, e) { svg.querySelectorAll(".node").forEach(n => { const on = n.entry === e; n.classList.toggle("dim", !on); n.spoke.classList.toggle("dim", !on); }); }
+function legend(A, withPeople = true) {
+  const cats = ORDER.filter(c => CAT[c].side !== "people" && A.some(e => e.cat === c && e.kind !== "person"));
+  const ppl = withPeople && A.some(e => e.kind === "person") ? [el("span", {}, el("i", {class: "sw ring", style: "--c:var(--person)"}), "People (hollow rings)"), el("span", {}, el("i", {class: "sw", style: "--c:var(--ink-500)"}), "Organisations (filled dots, coloured by link)")] : [];
+  return el("div", {class: "legend"}, ppl, cats.map(c => el("span", {}, el("i", {class: "sw", style: `--c:${CAT[c].color}`}), CAT[c].label)));
+}
+
+// B. Money and parts: what flows in on the left, out on the right, family above and below, and the people inside the company.
+function drawFlow(stage, X, A) {
+  const by = side => A.filter(e => e.kind !== "person" || ["money_in", "money_out", "supplier", "customer"].includes(e.cat)).filter(e => CAT[e.cat].side === side);
+  const people = A.filter(e => e.kind === "person" && CAT[e.cat].side === "people");
+  const node = e => el("button", {class: "fnode", style: `--c:${CAT[e.cat].color}`, onclick: () => evidenceFor(X, e)}, el("b", {}, e.name), el("small", {}, `${CAT[e.cat].label} · ch ${e.first}${e.links.length > 1 ? ` · ${e.links.length}×` : ""}`));
+  const col = (side, title) => { const list = by(side); const d = el("div", {class: "fcol fcol-" + side}); if (list.length) d.append(el("div", {class: "fhead"}, title)); list.forEach(e => { const n = node(e); n.entry = e; d.append(n); }); return d; };
+  // the company card: a small org chart from what the book says
+  const roleRow = (cat, title) => { const g = people.filter(e => e.cat === cat); if (!g.length) return null; return el("div", {class: "crow"}, el("div", {class: "fhead"}, title), el("div", {class: cat === "leader" ? "succession" : "chips"}, g.map(e => el("button", {class: "chip person", onclick: () => evidenceFor(X, e)}, e.name, el("small", {}, (e.role ? e.role + " · " : "") + "ch " + e.first))))); };
+  const core = el("div", {class: "fcore"}, el("div", {class: "corename"}, X), roleRow("founder", "Founded by"), roleRow("leader", "Led by, in the book's order"), roleRow("staff", "Worked there"), roleRow("adviser", "Advised by"));
+  const grid = el("div", {class: "flow"}, col("up", "Came from / owned by"), col("in", "Coming in"), core, col("out", "Going out"), col("down", "Offspring and purchases"));
+  const svg = S("svg", {class: "ribbons"}); grid.prepend(svg);
+  stage.append(legend(A.filter(e => e.kind !== "person" || CAT[e.cat].side !== "people"), false), grid, el("p", {class: "hint"}, "Ribbon width: how often the book links them. Amber is money, green is chips, tools and services, purple is family."));
+  const draw = () => {
+    svg.replaceChildren(); const r = grid.getBoundingClientRect(), c = core.getBoundingClientRect(); svg.setAttribute("width", r.width); svg.setAttribute("height", r.height);
+    const nodes = [...grid.querySelectorAll(".fnode")]; const sides = {in: [], out: [], up: [], down: []};
+    nodes.forEach(n => sides[CAT[n.entry.cat].side].push(n));
+    for (const [side, list] of Object.entries(sides)) list.forEach((n, i) => {
+      const b = n.getBoundingClientRect(), e = n.entry, w = Math.min(14, 2 + 3 * e.links.length), f = (i + 1) / (list.length + 1);
+      let d;
+      if (side === "in") { const x1 = b.right - r.left, y1 = b.top + b.height / 2 - r.top, x2 = c.left - r.left, y2 = c.top - r.top + c.height * (0.15 + 0.7 * f); d = `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}`; }
+      else if (side === "out") { const x1 = c.right - r.left, y1 = c.top - r.top + c.height * (0.15 + 0.7 * f), x2 = b.left - r.left, y2 = b.top + b.height / 2 - r.top; d = `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}`; }
+      else if (side === "up") { const x1 = b.left + b.width / 2 - r.left, y1 = b.bottom - r.top, x2 = c.left - r.left + c.width * (0.2 + 0.6 * f), y2 = c.top - r.top; d = `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`; }
+      else { const x1 = c.left - r.left + c.width * (0.2 + 0.6 * f), y1 = c.bottom - r.top, x2 = b.left + b.width / 2 - r.left, y2 = b.top - r.top; d = `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`; }
+      svg.append(S("path", {d, stroke: CAT[e.cat].color, "stroke-width": w, class: "ribbon" + (e.cat === "partner" ? " dashed" : "")}));
+    });
+  };
+  requestAnimationFrame(draw); window.onresize = draw;
+}
+
+// C. Who was there when: one row per name, a mark for each chapter that links it to the company (like a band's line-up chart).
+function drawTimeline(stage, X, A) {
+  const narrow = innerWidth < 700, nameW = narrow ? 112 : 210, top = 46, rowH = narrow ? 28 : 38, headH = 24;
+  const avail = Math.max(240, (stage.parentElement?.clientWidth || 900)) - nameW - 8, cw = narrow ? avail / D.n : Math.max(12, avail / D.n), W = nameW + D.n * cw + 8, ms = Math.max(3.2, Math.min(6, cw * 0.62));
+  const x = ch => nameW + (ch - 0.5) * cw;
+  const groups = [["People", A.filter(e => e.kind === "person")], ["Organisations", A.filter(e => e.kind !== "person")]].filter(g => g[1].length);
+  const H = top + groups.reduce((h, g) => h + headH + g[1].length * rowH, 0) + 10;
+  const svg = S("svg", {width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: "timeline", role: "img", "aria-label": `Who was linked to ${X}, chapter by chapter`});
+  PARTS.forEach(([c, n, t], i) => { const c2 = (PARTS[i + 1]?.[0] || D.n + 1); svg.append(S("rect", {x: x(c) - cw / 2, y: 0, width: (c2 - c) * cw, height: H, class: i % 2 ? "band b1" : "band b0"}, S("title", {}, `Part ${n}: ${t}`)), S("text", {x: x(c) - cw / 2 + 3, y: 16, class: "partlbl"}, narrow ? n : `Part ${n}`)); });
+  for (let c = narrow ? 10 : 5; c <= D.n; c += narrow ? 10 : 5) svg.append(S("text", {x: x(c), y: 36, "text-anchor": "middle", class: "chlbl"}, c));
+  if (upto < D.n) svg.append(S("rect", {x: x(upto + 1) - cw / 2, y: 0, width: (D.n - upto) * cw, height: H, class: "unread"}), S("text", {x: x(upto + 1) - cw / 2 + 6, y: H - 10, class: "chlbl"}, "not read yet"));
+  svg.append(S("line", {x1: x(upto) + cw / 2, x2: x(upto) + cw / 2, y1: 22, y2: H, class: "nowline"}));
+  const SHAPE = {founded: "diamond", led: "disc", worked_at: "ring", hired: "ring", left: "cross", advised: "square"};
+  let y = top;
+  for (const [title, list] of groups) {
+    svg.append(S("text", {x: 4, y: y + 16, class: "grouplbl"}, title.toUpperCase())); y += headH;
+    for (const e of list) {
+      const cy = y + rowH / 2, col = CAT[e.cat].color;
+      const nm = S("text", {x: nameW - 10, y: narrow ? cy + 1 : cy - 5, "text-anchor": "end", class: "rowname", role: "button", tabindex: 0, onclick: () => evidenceFor(X, e)}, e.name.length > (narrow ? 13 : 28) ? e.name.slice(0, narrow ? 11 : 27) + "…" : e.name, S("title", {}, e.name));
+      svg.append(S("line", {x1: 0, x2: W, y1: y + rowH, y2: y + rowH, class: "rowrule"}), nm);
+      if (!narrow) svg.append(S("text", {x: nameW - 10, y: cy + 11, "text-anchor": "end", class: "rowsub"}, (CAT[e.cat].label + (e.role ? ` · ${e.role}` : "")).slice(0, 34)));
+      if (e.last > e.first) svg.append(S("line", {x1: x(e.first), x2: x(e.last), y1: cy, y2: cy, stroke: col, class: "span"}));
+      const byCh = new Map(); for (const l of e.links) { if (!byCh.has(l.chapter)) byCh.set(l.chapter, []); byCh.get(l.chapter).push(l); }
+      for (const [ch, ls] of byCh) {
+        const rel = ["founded", "led", "left", "advised"].find(r => ls.some(l => l.relation === r)) || ls[0].relation, shape = e.kind === "person" ? (SHAPE[rel] || "ring") : "disc", cxm = x(ch), s = ms;
+        const mark = shape === "diamond" ? S("path", {d: `M${cxm},${cy - s - 1} L${cxm + s + 1},${cy} L${cxm},${cy + s + 1} L${cxm - s - 1},${cy} Z`, fill: col})
+          : shape === "disc" ? S("circle", {cx: cxm, cy, r: s - 0.5, fill: col})
+          : shape === "cross" ? S("path", {d: `M${cxm - s + 1},${cy - s + 1} L${cxm + s - 1},${cy + s - 1} M${cxm + s - 1},${cy - s + 1} L${cxm - s + 1},${cy + s - 1}`, stroke: col, "stroke-width": 2.5})
+          : shape === "square" ? S("rect", {x: cxm - s + 1, y: cy - s + 1, width: 2 * s - 2, height: 2 * s - 2, fill: "var(--paper)", stroke: col, "stroke-width": 2})
+          : S("circle", {cx: cxm, cy, r: s - 1.5, fill: "var(--paper)", stroke: col, "stroke-width": 2.2});
+        svg.append(S("g", {class: "mark", role: "button", tabindex: 0, onclick: () => openEvidence(`${e.name} and ${X}, chapter ${ch}`, ls, goButtons(e.name))},
+          S("rect", {x: cxm - cw / 2, y: y + 2, width: cw, height: rowH - 4, fill: "transparent"}), mark, S("title", {}, `Chapter ${ch}: ${ls.map(sentence).join("; ")}`)));
+      }
+      y += rowH;
+    }
+  }
+  const key = el("div", {class: "legend"},
+    el("span", {}, el("svg", {width: 14, height: 14, viewBox: "0 0 14 14"}), "founded"), el("span", {}, "led"), el("span", {}, "worked there"), el("span", {}, "left"), el("span", {}, "advised"));
+  const shapes = [["M7,1 L13,7 L7,13 L1,7 Z", "fill"], ["c", "disc"], ["c", "ring"], ["M2,2 L12,12 M12,2 L2,12", "cross"], ["r", "square"]];
+  [...key.children].forEach((sp, i) => { const [d, k] = shapes[i]; const s = S("svg", {width: 14, height: 14, viewBox: "0 0 14 14"}, k === "fill" ? S("path", {d, fill: "var(--person)"}) : k === "disc" ? S("circle", {cx: 7, cy: 7, r: 5.5, fill: "var(--person)"}) : k === "ring" ? S("circle", {cx: 7, cy: 7, r: 4.8, fill: "none", stroke: "var(--person)", "stroke-width": 2.2}) : k === "cross" ? S("path", {d, stroke: "var(--person)", "stroke-width": 2.5}) : S("rect", {x: 2, y: 2, width: 10, height: 10, fill: "none", stroke: "var(--person)", "stroke-width": 2})); sp.replaceChildren(s, sp.textContent || ["founded", "led", "worked there", "left", "advised"][i]); });
+  stage.append(key, el("div", {class: "tlbox"}, svg), el("p", {class: "hint"}, "Each mark is a chapter that links the name to the company; the line runs from the first such chapter to the last. Chapters stand in for time: the book is told mostly in order. Organisations are coloured as in the power map."));
+}
+
+// ---------- one person: their life in the order it happened ----------
+const BASIS = {stated: ["year from the book", "b-stated"], worked_out: ["year worked out from the book", "b-worked"], ordered: ["placed by the book's order", "b-ordered"], unknown: ["order not given", "b-unknown"]};
+const ACTIVE = {worked_for: "worked for", friend: "friend of", founded: "founded", worked_at: "worked at", led: "led", left: "left", advised: "advised", hired: "hired", mentored: "mentored", partnered: "partnered with", funded: "funded", family: "family of", supplied: "supplied", acquired: "bought", bought_part_of: "bought part of", part_of: "part of", spun_out_of: "spun out of"};
+const PASSIVE = {worked_for: "employed", friend: "friend of", family: "family of", founded: "founded by", hired: "hired by", mentored: "mentored by", advised: "advised by", funded: "funded by", supplied: "supplied by", led: "led by", worked_at: "employed", acquired: "bought by"};
+let personMode = "story", minLinks = 3, showGK = true;
+const linkCount = p => D.links.filter(l => l.from === p || l.to === p).length;
+// The person's events, visible up to the slider, each worded from the direction of its own links.
+function lifeOf(p) {
+  const raw = linkCount(p) >= minLinks ? (D.lives || {})[p] : null;
+  const evs = raw ? raw.map((e, i) => ({...e, i})) : D.links.map((l, i) => ({l, i})).filter(x => x.l.from === p || x.l.to === p).sort((a, b) => a.l.chapter - b.l.chapter)
+    .map((x, i) => ({what: x.l.relation, with: x.l.from === p ? x.l.to : x.l.from, role: x.l.role, links: [x.i], date_ids: [], basis: "unknown", start_year: null, end_year: null, why: "Not rebuilt (below your setting): shown in the book's order.", i}));
+  const out = [];
+  for (const e of evs) {
+    const ls = e.links.map(i => D.links[i]).filter(l => l && l.chapter <= upto); if (!ls.length) continue;
+    const l0 = ls[0], active = l0.from === p, rel = l0.relation;
+    const other = active ? l0.to : l0.from;
+    out.push({...e, ls, other, kind: kindOf(other), verb: active ? (ACTIVE[rel] || rel) : (PASSIVE[rel] || `${ACTIVE[rel] || rel} (by)`), rel, first: Math.min(...ls.map(l => l.chapter))});
+  }
+  return {events: out, rebuilt: !!raw};
+}
+function eventEvidence(p, e) {
+  const body = $("#dbody"); openEvidence(`${p}: ${e.verb} ${e.other}`, e.ls, goButtons(e.other));
+  const add = [];
+  add.push(el("div", {class: "ev-item"}, el("div", {class: "s"}, "When: ", e.start_year ? `${e.start_year}${e.end_year && e.end_year !== e.start_year ? "–" + e.end_year : ""}` : "no year in the book", el("span", {class: "badge " + BASIS[e.basis]?.[1]}, BASIS[e.basis]?.[0] || e.basis)),
+    el("div", {class: "meta"}, e.why || "")));
+  if (e.gk?.start_year || e.gk?.note) add.push(el("div", {class: "ev-item gkitem"}, el("div", {class: "s"}, "From general knowledge, not the book: ", e.gk.start_year ? span(e.gk.start_year, e.gk.end_year) : "no year", el("span", {class: "badge b-gk"}, `${e.gk.confidence || ""} confidence`)), e.gk.note ? el("div", {class: "meta"}, e.gk.note) : null, el("div", {class: "meta"}, "Claude's own knowledge, not checked against the book or a source.")));
+  for (const d of e.date_ids || []) { const f = D.dates[d]; if (f) add.push(el("div", {class: "ev-item"}, el("div", {class: "s"}, `The year: ${f.year}${f.end_year ? "–" + f.end_year : ""}`), el("blockquote", {}, f.quote), el("div", {class: "meta"}, `Chapter ${f.chapter}: ${D.chapters[f.chapter]} · paragraph ${f.passage}`))); }
+  if (e.order_quote) add.push(el("div", {class: "ev-item"}, el("div", {class: "s"}, "The order"), el("blockquote", {}, e.order_quote), el("div", {class: "meta"}, `Chapter ${e.order_chapter}: ${D.chapters[e.order_chapter]} · paragraph ${e.order_passage}`)));
+  body.querySelector("h3").after(...add);
+}
+const span = (a, b) => `${a}${b && b !== a ? "–" + String(b).slice(-2) : ""}`;
+const yearText = e => e.start_year ? span(e.start_year, e.end_year) : (showGK && e.gk?.start_year ? span(e.gk.start_year, e.gk.end_year) : "");
+const yearKind = e => e.start_year ? "book" : (showGK && e.gk?.start_year ? "gk" : "none");
+
+function renderPerson(box) {
+  const L = live(), name = focus.person;
+  const people = [...new Set(L.flatMap(l => [l.from, l.to]).filter(n => kindOf(n) === "person"))].sort();
+  box.append(picker(people, "person", D.top.person));
+  const {events, rebuilt} = lifeOf(name);
+  const dated = events.filter(e => e.start_year).length, gkd = events.filter(e => !e.start_year && e.gk?.start_year).length, n = linkCount(name);
+  const modes = [["story", "Storyline"], ["read", "Read vs happened"], ["list", "List"]];
+  box.append(el("div", {class: "orghead"}, el("span", {class: "nm"}, name),
+    el("span", {class: "hint"}, events.length ? (rebuilt ? `${events.length} life events, in the order they happened · ${dated} dated by the book${showGK && gkd ? ` · ${gkd} from general knowledge` : ""}` : `${events.length} links, in the book's order`) : ""),
+    el("div", {class: "tabs small", role: "group", "aria-label": "Drawing"}, modes.map(([m, t]) => el("button", {"aria-pressed": String(m === personMode), onclick: () => { personMode = m; render(); }}, t)))));
+  if (!events.length) { box.append(el("p", {class: "empty"}, `Up to chapter ${upto}, the book links ${name} to nobody.`)); return; }
+  const seg = (label, opts, cur, set) => el("div", {class: "setting"}, el("span", {}, label), el("div", {class: "tabs small", role: "group", "aria-label": label}, opts.map(([v, t]) => el("button", {"aria-pressed": String(v === cur), onclick: () => { set(v); render(); }}, t))));
+  box.append(el("div", {class: "settings"},
+    seg("Rebuild a life when the book links the person at least", [[1, "1"], [2, "2"], [3, "3"], [5, "5"]].map(([v, t]) => [v, t + (v === 1 ? " time" : " times")]), minLinks, v => { minLinks = v; }),
+    seg("Years the book leaves out", [[true, "Fill from general knowledge"], [false, "Leave blank"]], showGK, v => { showGK = v; }),
+    el("p", {class: "hint"}, `Rebuilding puts a person's links into the order things happened; each rebuild is one reading by Claude, so in the app this setting trades cost for coverage. Below the setting, a life is shown in the book's order. This run read the lives of ${D.stats.lives} people. General-knowledge years are Claude's own knowledge, not checked against the book, and are always drawn in purple.`)));
+  if (!rebuilt && events.length) box.append(!(D.lives || {})[name]
+    ? el("div", {class: "banner"}, `${name}'s life was not read in this run, so this is the book's order, not the order things happened.`)
+    : el("div", {class: "banner"}, `${name}: the book links them ${n} time${n === 1 ? "" : "s"}, below your setting of ${minLinks}, so this is the book's order, not the order things happened. `, el("button", {class: "chip", onclick: () => { minLinks = Math.min(minLinks, n); render(); }}, `Rebuild ${name} anyway`)));
+  const stage = el("div"); box.append(stage);
+  ({story: drawStory, read: drawReadVsHappened, list: drawLifeList})[personMode](stage, name, events);
+}
+
+// A. Storyline: one lane per organisation; the person's line moves between lanes as their life does. Others who were in the same place run beside them, faint.
+function drawStory(stage, p, E) {
+  const narrow = innerWidth < 700, laneW = 14, n = E.length, avail = (stage.parentElement?.clientWidth || 900) - 2, colW = Math.max(narrow ? 84 : 76, (avail - laneW - 24) / n), laneH = narrow ? 100 : 104, top = 40;
+  const lanes = []; let cur = null; const at = [];
+  for (const e of E) { if (e.kind === "organisation") { if (!lanes.includes(e.other)) lanes.push(e.other); cur = e.other; } at.push(cur ?? e.other); if (cur == null && !lanes.includes(e.other)) lanes.push(e.other); }
+  const W = laneW + n * colW + 24, H = top + lanes.length * laneH + 34;
+  const x = i => laneW + (i + 0.5) * colW, y = lane => top + lanes.indexOf(lane) * laneH + laneH / 2;
+  const svg = S("svg", {width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: "story", role: "img", "aria-label": `${p}'s life as a storyline`});
+  lanes.forEach((ln, k) => {
+    svg.append(S("rect", {x: 0, y: top + k * laneH, width: W, height: laneH, class: k % 2 ? "lane l1" : "lane l0"}));
+    svg.append(S("text", {x: 10, y: top + (k + 1) * laneH - 9, class: "lanelbl" + (kindOf(ln) === "person" ? " pl" : ""), role: "button", tabindex: 0, onclick: () => show(kindOf(ln) === "person" ? "person" : "org", ln)}, ln));
+  });
+  // years along the top
+  E.forEach((e, i) => { const t = yearText(e), k = yearKind(e); svg.append(S("text", {x: x(i), y: 22, "text-anchor": "middle", class: "yr " + k}, t || "·")); });
+  // fellow travellers: others whose rebuilt lives have them in the same organisation; drawn across the columns where the person is there
+  const others = [];
+  for (const ln of lanes.filter(l => kindOf(l) === "organisation")) {
+    const cols = at.map((a, i) => a === ln ? i : -1).filter(i => i >= 0); if (!cols.length) continue;
+    const mates = [];
+    for (const [q, evs] of Object.entries(D.lives || {})) {
+      if (q === p) continue;
+      const here = evs.filter(e => e.with === ln && ["founded", "worked_at", "led"].includes(e.what) && e.links.some(i => D.links[i]?.chapter <= upto));
+      if (!here.length) continue;
+      const mine = E.filter((e, i) => at[i] === ln), ys = [...mine, ...here].map(e => e.start_year).filter(Boolean);
+      // years given on both sides must overlap; with none, they share the place
+      const theirs = here.map(e => [e.start_year, e.end_year || e.start_year]).filter(v => v[0]), myYears = mine.map(e => [e.start_year, e.end_year || e.start_year]).filter(v => v[0]);
+      const overlap = theirs.length && myYears.length && theirs.some(([a, b]) => myYears.some(([c, d]) => a <= d + 1 && c <= b + 1));
+      const cofound = here.some(e => e.what === "founded") && mine.some(e => e.rel === "founded");
+      const met = D.links.some(l => l.chapter <= upto && ((l.from === p && l.to === q) || (l.from === q && l.to === p)));
+      if (!(overlap || (!(theirs.length && myYears.length) && (cofound || met)))) continue;
+      mates.push({q, n: here.reduce((s, e) => s + e.links.length, 0), how: here[0].what});
+      void ys;
+    }
+    mates.sort((a, b) => b.n - a.n).slice(0, narrow ? 2 : 3).forEach((m, k) => others.push({ln, cols, ...m, k}));
+  }
+  for (const o of others) {
+    const up = true, yy = y(o.ln) - (15 + 13 * o.k), x0 = x(o.cols[0]) - colW * 0.42, x1 = x(o.cols[o.cols.length - 1]) + colW * 0.42;
+    svg.append(S("g", {class: "mate", role: "button", tabindex: 0, onclick: () => show("person", o.q)},
+      S("path", {d: `M${x0},${yy} L${x1},${yy}`, class: "mateline"}), S("text", {x: x1 - 2, y: up ? yy - 4 : yy + 12, "text-anchor": "end", class: "matelbl"}, o.q), S("title", {}, `${o.q} was also at ${o.ln} (${o.how.replace("_", " ")}). Tap to see their path.`)));
+  }
+  // the person's own line
+  let d = "";
+  E.forEach((e, i) => { const X = x(i), Y = y(at[i]); if (!i) d = `M${X - colW * 0.45},${Y} L${X},${Y}`; else { const pX = x(i - 1), pY = y(at[i - 1]), m = (pX + X) / 2; d += ` C${m},${pY} ${m},${Y} ${X},${Y}`; } });
+  d += ` L${x(n - 1) + colW * 0.45},${y(at[n - 1])}`;
+  svg.append(S("path", {d, class: "lifeline"}));
+  E.forEach((e, i) => {
+    const X = x(i), Y = y(at[i]), col = e.kind === "person" ? "var(--person)" : "var(--org)", s = 7, dated = !!e.start_year;
+    const shape = e.rel === "founded" ? S("path", {d: `M${X},${Y - s - 2} L${X + s + 2},${Y} L${X},${Y + s + 2} L${X - s - 2},${Y} Z`})
+      : e.rel === "left" ? S("path", {d: `M${X - s},${Y - s} L${X + s},${Y + s} M${X + s},${Y - s} L${X - s},${Y + s}`, class: "x"})
+      : e.kind === "person" ? S("rect", {x: X - s + 1, y: Y - s + 1, width: 2 * s - 2, height: 2 * s - 2, rx: 2})
+      : S("circle", {cx: X, cy: Y, r: s});
+    shape.setAttribute("class", (shape.getAttribute("class") || "") + " stop" + (dated ? " dated" : yearKind(e) === "gk" ? " gk" : ""));
+    const label = wrapWords(`${e.verb} ${e.kind === "person" ? e.other : ""}`.trim(), Math.max(10, Math.floor(colW / 7)));
+    svg.append(S("g", {class: "mark", role: "button", tabindex: 0, onclick: () => eventEvidence(p, e), onkeydown: ev => { if (ev.key === "Enter") eventEvidence(p, e); }},
+      S("rect", {x: X - colW / 2, y: Y - 26, width: colW, height: 52, fill: "transparent"}), shape,
+      S("text", {x: X, y: Y + 24, "text-anchor": "middle", class: "evlbl"}, label.map((t, k) => S("tspan", {x: X, dy: k ? 13 : 0}, t))),
+      S("title", {}, `${e.verb} ${e.other}${yearText(e) ? ", " + yearText(e) : ""} (${BASIS[e.basis]?.[0] || ""})`)));
+  });
+  const key = el("div", {class: "legend"},
+    el("span", {}, el("b", {class: "yrk"}, "1987"), " year from the book"), showGK ? el("span", {}, el("b", {class: "yrk gk"}, "1957"), " general knowledge, not the book") : null, el("span", {}, el("b", {class: "yrk none"}, "·"), " no year: placed by the book's order"),
+    el("span", {}, el("i", {class: "sw", style: "--c:var(--ink-900)"}), "solid stop: dated"), el("span", {}, el("i", {class: "sw hollow"}), "hollow: not dated"),
+    el("span", {}, el("i", {class: "mt"}), "others at the same place"));
+  stage.append(key, el("div", {class: "tlbox story-box"}, svg), el("p", {class: "hint"}, "Read left to right: each column is one step in their life, in the order it happened. The line moves to a new lane when they move to a new organisation. Faint lines are other people the book puts at the same organisation at the same time (tap one to see their path). Tap a stop for the sentences and for how its date or place in the order was found."));
+}
+
+// B. Where you read it vs when it happened: chapters on top, the life in order below, a line for each time the book tells a step.
+function drawReadVsHappened(stage, p, E) {
+  const narrow = innerWidth < 700, W = Math.max(narrow ? 640 : 900, (stage.parentElement?.clientWidth || 900) - 2), padL = 20, padR = 20, yTop = 58, yBot = narrow ? 300 : 340, H = yBot + 96;
+  const cx = ch => padL + (ch - 0.5) * (W - padL - padR) / D.n, ex = i => padL + (i + 0.5) * (W - padL - padR) / E.length;
+  const svg = S("svg", {width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: "rvh", role: "img", "aria-label": "Where the book tells each step against when it happened"});
+  svg.append(S("text", {x: padL, y: 18, class: "axlbl"}, `WHERE YOU READ IT (chapters 1–${D.n})`), S("text", {x: padL, y: yBot + 84, class: "axlbl"}, "WHEN IT HAPPENED (their life, in order)"));
+  PARTS.forEach(([c, n], i) => { const c2 = PARTS[i + 1]?.[0] || D.n + 1; svg.append(S("rect", {x: cx(c) - (W - 40) / (2 * D.n), y: 26, width: (c2 - c) * (W - padL - padR) / D.n, height: 16, class: i % 2 ? "band b1" : "band b0"}), S("text", {x: cx(c) - (W - 40) / (2 * D.n) + 3, y: 38, class: "partlbl"}, n)); });
+  svg.append(S("line", {x1: padL, x2: W - padR, y1: yTop - 8, y2: yTop - 8, class: "axis"}), S("line", {x1: padL, x2: W - padR, y1: yBot + 8, y2: yBot + 8, class: "axis"}));
+  if (upto < D.n) svg.append(S("rect", {x: cx(upto + 1) - (W - 40) / (2 * D.n), y: 26, width: W - padR - cx(upto + 1), height: 16, class: "unread"}));
+  const lines = S("g"), marks = S("g");
+  E.forEach((e, i) => {
+    const col = e.kind === "person" ? "var(--person)" : `hsl(${(i * 47) % 360} 38% 45%)`;
+    for (const l of e.ls) lines.append(S("path", {d: `M${cx(l.chapter)},${yTop} C${cx(l.chapter)},${(yTop + yBot) / 2} ${ex(i)},${(yTop + yBot) / 2} ${ex(i)},${yBot}`, class: "rvhline", stroke: col, "data-e": i}));
+    for (const l of e.ls) marks.append(S("circle", {cx: cx(l.chapter), cy: yTop, r: 3.5, fill: col}));
+    const lbl = wrapWords(`${e.verb} ${e.other}`, narrow ? 11 : 14).slice(0, 3);
+    marks.append(S("g", {class: "mark", role: "button", tabindex: 0, onclick: () => eventEvidence(p, e), onmouseenter: () => hi(i), onmouseleave: () => hi(null), onfocus: () => hi(i)},
+      S("circle", {cx: ex(i), cy: yBot, r: 6.5, fill: e.start_year ? col : "var(--paper)", stroke: col, "stroke-width": 2.5}),
+      S("text", {x: ex(i), y: yBot + 26, "text-anchor": "middle", class: "yr " + yearKind(e)}, yearText(e) || "·"),
+      S("text", {x: ex(i), y: yBot + 42, "text-anchor": "middle", class: "evlbl"}, lbl.map((t, k) => S("tspan", {x: ex(i), dy: k ? 12 : 0}, t)))));
+  });
+  const hi = k => lines.querySelectorAll("path").forEach(pth => pth.classList.toggle("dim", k != null && +pth.dataset.e !== k));
+  svg.append(lines, marks);
+  const told = E.reduce((s, e) => s + e.ls.length, 0), back = [];
+  E.forEach((e, i) => E.forEach((f, j) => { if (j > i && f.first < e.first) back.push([e, f]); }));
+  stage.append(el("p", {class: "hint"}, `The book tells ${p}'s ${E.length} steps ${told} times. Where lines cross, the book tells a later step before an earlier one (a flashback)${back.length ? `: ${back.length} pairs here` : ": none here"}. Fans of lines are steps the book comes back to.`),
+    el("div", {class: "tlbox"}, svg), el("p", {class: "hint"}, "Point at or tap a step to light its lines."));
+}
+
+// C. The plain list, in true order, with how each step was placed.
+function drawLifeList(stage, p, E) {
+  const ol = el("ol", {class: "path"});
+  for (const e of E) {
+    ol.append(el("li", {class: e.kind === "organisation" ? "org" : ""},
+      el("div", {class: "ch"}, yearText(e) ? el("b", {class: "yrinline " + yearKind(e)}, yearText(e)) : "", " ", yearKind(e) === "gk" ? el("span", {class: "badge b-gk"}, "year from general knowledge") : null, " ", el("span", {class: "badge " + BASIS[e.basis]?.[1]}, BASIS[e.basis]?.[0] || e.basis), ` · told in chapter${e.ls.length > 1 ? "s" : ""} ${[...new Set(e.ls.map(l => l.chapter))].join(", ")}`),
+      el("div", {class: "what"}, e.verb, " ", el("button", {onclick: () => show(e.kind === "person" ? "person" : "org", e.other)}, e.other), e.role ? ` (${e.role})` : ""),
+      el("q", {}, e.ls[0].quote),
+      el("div", {class: "hint"}, e.why || ""),
+      el("button", {class: "ev", onclick: () => eventEvidence(p, e)}, "where the book says it, and how it was placed")));
+  }
+  stage.append(ol);
+}
+
+// ---------- shared ----------
+function picker(names, v, sugg) {
+  const id = "dl-" + v, inp = el("input", {list: id, placeholder: v === "person" ? "Find a person" : "Find an organisation", "aria-label": "Find a name"});
+  const dl = el("datalist", {id}, names.map(n => el("option", {value: n})));
+  inp.addEventListener("change", () => { if (names.includes(inp.value)) show(v, inp.value); });
+  return el("div", {class: "pick"}, inp, dl, el("div", {class: "sugg"}, sugg.filter(n => names.includes(n)).map(n => el("button", {class: "chip " + kindOf(n), "aria-pressed": String(n === focus[v]), onclick: () => show(v, n)}, n))));
+}
+function render() {
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === view)));
+  $("#uptoOut").textContent = `${upto}. ${D.chapters[upto]}`;
+  const box = $("#view"); box.replaceChildren(); window.onresize = null;
+  ({tree: renderTree, org: renderOrg, person: renderPerson})[view](box);
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { view = b.dataset.v; render(); });
+$("#upto").oninput = e => { upto = +e.target.value; render(); };
+$("#removedSum").textContent = `Links the second reading removed (${D.doubted.length})`;
+$("#removed").replaceChildren(...D.doubted.sort((a, b) => a.chapter - b.chapter).map(l => el("div", {}, el("b", {}, sentence(l)), ` · ch ${l.chapter} · `, el("em", {}, l.why || ""), el("div", {class: "hint"}, `"${l.quote}"`))));
+intro(); stats(); $("#upto").max = D.n; $("#upto").value = D.n; render();
+</script>
+</body>
+</html>

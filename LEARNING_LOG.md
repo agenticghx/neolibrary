@@ -2837,3 +2837,43 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The run's log and the failed test's error-context.md (downloaded with `gh run download 42503607489 -n playwright-report-branches`).
 **Result.** The E-ink test passed on CI. focus.spec's whole-book focus test failed at its reader's join: the page said "Too many attempts. Wait 15 minutes." Sign-ups are limited to 10 per address in 15 minutes (`app/(public)/actions.ts`), and the E-ink reader's join was one more from the test machine's address. own-keys.spec hit the same thing in CI run 41476467866 and gave its reader an address of its own (`x-forwarded-for`); the E-ink reader now does too (198.51.100.42). Local run: 2 passed.
 **Lesson.** A test that signs a new reader up from the shared test address takes one of the 10 sign-ups every other such test needs: give it its own `x-forwarded-for`, as own-keys and shared-papers do. Read error-context.md before calling a red check a flake: the page's own words named the cause.
+
+### Iteration 153 · 2026-11-08 13:20 (laptop clock) · M43 S1: links read chapter by chapter, quotes checked · failure then fix
+
+**Hypothesis.** Asking Claude for every link a chapter states between two named people or organisations, each with a word-for-word quote, and checking the quote against the paragraph named, gives links that can be trusted as far as their quote goes (the X-ray's rule, applied to edges between names rather than facts about one).
+**Action.** A prototype on the laptop (not in git: it quotes Chip War): one `claude -p` reading per chapter on Sonnet 5.5, 54 chapters, five at a time; a quote check folding curly quotes and dashes.
+**Evaluation.** Counts per chapter; a changed word and a quote pointed at the wrong paragraph fed to the checker by hand.
+**Result.** 1.5 minutes for the book. Four chapters had every link dropped and four answers failed to parse. All eight were the checker: the model wrote the paragraph number as text ("1"), and twice it sent a corrected second answer after the first ("Correction: that link is not…"). After the fix: 457 links, every quote found; the checker refused the changed word and the wrong paragraph.
+**Lesson.** When a whole chapter fails, suspect the checker before the model: read one raw answer first. Take the last JSON object in an answer (a model that corrects itself sends a second one), and accept numbers written as text.
+
+### Iteration 154 · 2026-11-08 13:50 (laptop clock) · M43 S1: a second reading of every link · failure then fix
+
+**Hypothesis.** A real quote does not make the link drawn from it right ("AT&T is part of Bell Labs", "Andy Grove founded Intel" both had real quotes), so a second reading of each link against its paragraph, answering holds, reversed, wrong_relation or unsupported, will catch them.
+**Action.** The second reading per chapter; verdicts applied in code. Then a rewrite: the second reading writes "why" first and, for a fix, the corrected link in full ("Samsung supplied Intel"), and reads it back as a sentence.
+**Evaluation.** Every correction listed and read by eye.
+**Result.** First version: two "reversed" verdicts contradicted their own reasons (Samsung supplying Intel, Alcatel-Lucent part of Nokia) and would have turned true links round. A second fault was mine: the reading numbered links from an already filtered list, so the answers landed on the wrong links. With the corrected link written out and both readings numbering from one list: 376 held, 29 fixed (all read correctly except the next iteration's), 47 removed.
+**Lesson.** Ask for the corrected thing, not a verdict about it: "reversed" is ambiguous about which way. And number a list once, from the file both readings read.
+
+### Iteration 155 · 2026-11-08 14:10 (laptop clock) · M43 S1: a relation the list lacked · failure then fix
+
+**Hypothesis.** The relation list (founded, worked at, led, left, spun out of, bought, part of, funded, supplied, partnered, …) covers what a business history says.
+**Action.** Looked at the family tree of TSMC.
+**Evaluation.** By eye, then the raw answers for the odd line.
+**Result.** Micron appeared above Texas Instruments, and so "further back" in TSMC's tree. The book says TI "sold its operations to Micron" (its memory-chip business); with only "bought" (the whole company) to choose, the second reading wrote "Micron bought Texas Instruments". With `bought_part_of` added and chapter 21 read again: "Micron bought part of Texas Instruments", and the tree ignores partial purchases.
+**Lesson.** A reading forced to choose from a list fills a missing relation with the nearest wrong one, and nothing flags it: look at the drawings for impossible lines.
+
+### Iteration 156 · 2026-11-08 14:30 (laptop clock) · M43 S1: a person's life in the order it happened · success
+
+**Hypothesis.** Samuel asked for a person's events in the order they happened, not the book's order. The book's own years and order words ("had left Shockley to found Fairchild") are enough to rebuild most lives without outside knowledge.
+**Action.** Two more readings. Dates, per chapter with the whole chapter's text: each link's year with the words that give it, checked like a quote. Lives, per person: links merged into events, each placed by a checked year or a quoted order clue, both checked.
+**Evaluation.** Counts, and the rebuilt lives of Morris Chang, Robert Noyce and Andy Grove read against the book.
+**Result.** 107 of 405 links dated, every year's words found. 211 life events for 95 people: 63 dated by the book, 15 worked out from its dates ("three years at Sylvania" before 1958), 91 placed by a quoted clue, 42 left in the book's order; no year or clue taken away by the checks. The rebuilt lives read correctly (Chang: Sylvania, TI from 1958, General Instrument, ITRI 1985, TSMC 1987).
+**Lesson.** Dates live in the chapter, often paragraphs away from the link: read the whole chapter for them, not the link's paragraph. And a life needs merging before ordering: the book tells Noyce's founding of Fairchild five times.
+
+### Iteration 157 · 2026-11-08 14:45 (laptop clock) · M43 S1: years from general knowledge · success, with a prompt fault
+
+**Hypothesis.** Opus can fill the years the book leaves out, from its own knowledge, well enough to show when marked as not the book's.
+**Action.** One reading per person on Opus 5.5: a year only when confident (high or medium), never one the book gives; a note when its knowledge disagrees with the book.
+**Evaluation.** Years I could check from memory (Noyce: Philco 1953, Shockley 1956, Fairchild 1957, Intel 1968, the industry association 1977, Sematech 1988–90; Chang left TI 1983; Sporck led National 1967–91), and every note read.
+**Result.** 104 years filled (65 high, 39 medium); every one checked was right. Two notes disagreed usefully with the book (Perry left Sylvania in 1964, not 1963; Barrett became Intel's CEO in 1998). About eight notes objected to directions ("Gelsinger mentored Grove": it was the other way): the prompt listed events as "what with" without saying who did what to whom.
+**Lesson.** Give a reading the direction of every link ("who relation whom"), or it will argue with a direction it cannot see. The skill's prompts now do.
