@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Aa > Width > Full on his iPad.
+next_action: Merge the M21 ruler PR when CI is green; Samuel tries the ruler on his iPad.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
-updated: 2026-11-07
+updated: 2026-11-08
 shared_copy: none
 ---
 
@@ -356,6 +356,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 06:30 · Claude (Opus 5.5, laptop) · M21 ruler: full browser run green (251 passed); PR opened
+- **Done:** The first full run (reader + Safari with every earlier step) failed 1 of 251: the new Safari ruler test after Larger text, which failed in 5 of 6 repeats. Cause: the first-line check accepted letters in the book area's side margins, where the end of the page before still showed during WebKit's re-layout. It now uses foliate's visible page box. Safari test 8 of 8 repeats; fresh full run 251 passed; committed on m21-ruler-fixed and pushed with a PR.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx (shownOf, holdLens, placeRuler); e2e/safari.spec.ts; LEARNING_LOG.md Iteration 147
+- **Commands that worked:** PORT=3418 npx playwright test --project reader --project safari --ignore-snapshots (251 passed, 3.9m); PORT=3417 npx playwright test --project safari --no-deps -g 'reading ruler' --repeat-each 8 --ignore-snapshots (8 passed)
+- **Known issues / blockers:** Repeating the ruler test in parallel workers makes copies collide on Jekyll's notes (Notes (2)); the test is not built to run twice at once. Not tried on a real iPad.
+- **Exact next steps:** 1. Wait for the four CI checks on the PR; merge with the merge train when green (reference screenshots may need refreshing if any changed). 2. It deploys itself (no migration). 3. Samuel tries Aa > Focus > Ruler in Scroll on his iPad.
+
+### 2026-11-08 06:19 · Claude (Opus 5.5, laptop) · M21: the reading ruler stands still (Apple Books style) and works by touch; 5 defects fixed
+- **Done:** Tested the ruler (Aa > Focus > Ruler) in WebKit at iPad size with touch and in Chromium on a local copy of live 6c3a964. Found: a tap never moved the band (a relocate 25 ms later put it back on the first line); in Scroll the band slid with the text then jumped; WebKit only: band mid-page after a page turn and off the page after Larger text; X-ray underlines full colour on dimmed lines. Fixed on branch m21-ruler-fixed: the band is drawn by the reader over the book (.lens), held at the point the reader chose (still while the text scrolls, settles on the nearest line when it stops), a tap survives foliate's settling, a turned page starts on the first letter inside the visible page, WebKit's motionless mouse events are ignored, X-ray underlines at 40 % while Focus is on. Not yet committed or pushed when this entry was written.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/focus.ts; app/(reader)/books/[id]/read/reader.module.css; app/tokens.css (--ruler-band, --shadow-ruler); app/(reader)/books/[id]/read/xray-marks.ts; settings.ts and settings.test.ts; e2e/reader.spec.ts (Focus on a touch screen); e2e/safari.spec.ts (reading ruler in Safari); LEARNING_LOG.md Iteration 147
+- **Commands that worked:** npm run check (1361 passed); PORT=3417 npx playwright test --project reader --no-deps -g Focus --ignore-snapshots (5 passed); PORT=3417 npx playwright test --project safari --no-deps -g 'reading ruler' --ignore-snapshots (1 passed); probe script in session scratchpad ruler-probe.mjs
+- **Known issues / blockers:** Full reader + safari run with all prerequisite projects was still running at entry time. Not tried on a real iPad: during a fast flick the clear line may lag a frame (the band itself is still). X-ray underlines are fainter on every line, the clear one too. New tests not run against the old code (the probe shows the old behaviour).
+- **Exact next steps:** 1. Read the full run's result; fix anything it shows. 2. Commit on m21-ruler-fixed, open the PR (body drafted in the session scratchpad pr-body.md), merge with the merge train when the four checks are green; it deploys itself (no migration). 3. Samuel tries Aa > Focus > Ruler in Scroll on his iPad.
 
 ### 2026-11-07 18:49 · Claude Opus 5.5 (laptop) · Live: 6c3a964 (#302 Aa > Width and Justify)
 - **Done:** #302 (M27 Q3) merged as 6c3a964 and auto-deployed. Aa > Width: Comfortable / Wide (starts 150 %) / Full (starts 170 %); each width keeps its own size; Justify; a 190 % step. Live check signed in on Chip War at 1366x1024 in WebKit and Chrome, dark: Full 170 %, 80, 84 and 86 characters a line (three paragraphs). Samuel's Chip War place written back to epubcfi(/6/80!/4,/16/1:228,/18/1:263) 0.509 (the check moved it to 0.51); no new sitting row (his open sitting a6a478da may have gained the check's seconds).

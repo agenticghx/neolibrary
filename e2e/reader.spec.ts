@@ -1968,8 +1968,8 @@ async function paragraphsOnScreen(page: Page): Promise<{ text: string; lines: Fo
 }
 
 /**
- * What Focus shows on the book's page: its mode, the ruler's band (page coordinates; null when hidden), and whether
- * the text at each point is dimmed (inside the page's "nl-dim" highlight).
+ * What Focus shows on the book's page: its mode, the ruler's band (drawn over the book by the reader; page
+ * coordinates; null when hidden), and whether the text at each point is dimmed (inside the page's "nl-dim" highlight).
  */
 async function focusShown(page: Page, points: { x: number; y: number }[] = []) {
   return page.evaluate((points) => {
@@ -1978,8 +1978,8 @@ async function focusShown(page: Page, points: { x: number; y: number }[] = []) {
       const win = doc.defaultView as (Window & { CSS: typeof CSS }) | null;
       const frame = (win?.frameElement as HTMLElement | null)?.getBoundingClientRect();
       if (!win || !frame) continue;
-      const band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
-      const box = band && win.getComputedStyle(band).display !== "none" ? band.getBoundingClientRect() : null;
+      const band = document.querySelector<HTMLElement>('[data-testid="ruler"]');
+      const box = band && getComputedStyle(band).display !== "none" ? band.getBoundingClientRect() : null;
       const dim = win.CSS.highlights?.get("nl-dim");
       const ranges = dim ? Array.from(dim as unknown as Iterable<Range>) : [];
       const caret = (x: number, y: number) => {
@@ -1998,7 +1998,7 @@ async function focusShown(page: Page, points: { x: number; y: number }[] = []) {
       });
       return {
         mode: doc.documentElement.getAttribute("data-nl-focus"),
-        band: box ? { top: frame.top + box.top, bottom: frame.top + box.bottom, left: frame.left + box.left, right: frame.left + box.right } : null,
+        band: box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right } : null,
         dimmed,
       };
     }
@@ -2010,16 +2010,18 @@ async function focusShown(page: Page, points: { x: number; y: number }[] = []) {
 async function underPointer(page: Page, points: { x: number; y: number }[]) {
   return page.evaluate((points) => {
     const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { doc: Document }[] } };
+    const band = document.querySelector<HTMLElement>('[data-testid="ruler"]');
     for (const { doc } of view.renderer.getContents()) {
       const win = doc.defaultView;
       const frame = (win?.frameElement as HTMLElement | null)?.getBoundingClientRect();
-      const band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
       if (!win || !frame || !band) continue;
       const at = points.map(({ x, y }) => {
+        // The band is over the book, in the reader's page: a point on it must still reach the book's frame.
+        const top = document.elementFromPoint(x, y);
         const el = doc.elementFromPoint(x - frame.left, y - frame.top);
-        return { band: !!el?.closest("[data-nl-ruler]"), inText: !!el && el !== doc.body && el !== doc.documentElement && doc.body.contains(el) };
+        return { band: !!top?.closest('[data-testid="ruler"]') || top?.tagName.toLowerCase() !== "foliate-view", inText: !!el && el !== doc.body && el !== doc.documentElement && doc.body.contains(el) };
       });
-      return { band: win.getComputedStyle(band).pointerEvents, at };
+      return { band: getComputedStyle(band).pointerEvents, at };
     }
     return null;
   }, points);
@@ -2153,6 +2155,69 @@ test("Focus: the reading ruler follows the pointer and dims the rest, without ge
   }
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });
+});
+
+test.describe("Focus on a touch screen", () => {
+  test.use({ hasTouch: true });
+
+  // Samuel, 2026-11-08, on an iPad: a tap did not move the ruler (the page's small settling after a tap put it back on
+  // the first line), and in Scroll it slid away with the text, then jumped. Now it stays on the line tapped, and in
+  // Scroll it stays still on screen while the text moves under it, as in Apple Books.
+  test("Focus: the ruler stays on the line tapped, goes to the first line when the page turns, and stays still while the text scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await jekyllWithFocus(page, "Ruler");
+    // A touch screen has no mouse: the test browser's cursor, left on a settings button over the book, is moved off it.
+    await page.mouse.move(5, 5);
+    const [, b] = await twoParagraphs(page);
+
+    // Pages: a tap puts the band on that line, and it stays there.
+    const tapped = middle(b.lines[1]);
+    await page.touchscreen.tap(tapped.x, tapped.y);
+    await expect.poll(async () => near((await focusShown(page))?.band, tapped.y), { message: "band on the line tapped" }).toBe(true);
+    await page.waitForTimeout(1000);
+    expect(near((await focusShown(page))?.band, tapped.y), "still on the line tapped a second later").toBe(true);
+    expect((await focusShown(page, [tapped]))?.dimmed).toEqual([false]);
+
+    // A turned page: the band goes to its first line.
+    const at = (await reader(page).getAttribute("data-cfi")) ?? "";
+    await page.keyboard.press("ArrowRight");
+    await expect(reader(page)).not.toHaveAttribute("data-cfi", at);
+    const firstLine = async () => Math.min(...(await paragraphsOnScreen(page)).flatMap((p) => p.lines.map((l) => l.y)));
+    await expect.poll(async () => near((await focusShown(page))?.band, await firstLine()), { message: "band on the new page's first line" }).toBe(true);
+
+    // Scroll: tap a line in the middle of the screen, then move the text up by three lines.
+    await page.getByRole("button", { name: "Reading settings" }).click();
+    await page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Layout" }).getByRole("button", { name: "Scroll", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: "Reading settings" })).toBeHidden();
+    await page.mouse.move(5, 5);
+    await page.waitForTimeout(800);
+    const lines = (await paragraphsOnScreen(page)).flatMap((p) => p.lines).filter((l) => l.right - l.left > 200 && l.y > 300 && l.y < 600);
+    expect(lines.length, "full lines in the middle of the screen").toBeGreaterThan(0);
+    const start = middle(lines[0]);
+    await page.touchscreen.tap(start.x, start.y);
+    await expect.poll(async () => near((await focusShown(page))?.band, start.y), { message: "band on the line tapped in Scroll" }).toBe(true);
+    await page.waitForTimeout(300); // the band's glide onto the line (120 ms) is over
+    const before = (await focusShown(page))!.band!;
+    const step = before.bottom - before.top;
+    for (let i = 1; i <= 3; i++) {
+      await page.evaluate((dy) => {
+        (document.querySelector("foliate-view") as unknown as { renderer: { containerPosition: number } }).renderer.containerPosition += dy;
+      }, step);
+      await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+      // Near the left edge, which every line reaches (a paragraph's short last line may end before the middle).
+      const left = lines[0].left + 40;
+      const now = await focusShown(page, [{ x: left, y: start.y }, { x: left, y: start.y - i * step }]);
+      expect(Math.abs(now!.band!.top - before.top), `the band stays still on screen (${i} lines scrolled)`).toBeLessThan(1);
+      // The line now under the band is the clear one; the line first tapped, moved up with the text, is dimmed.
+      expect(now?.dimmed, `the line under the band is clear (${i} lines scrolled)`).toEqual([false, true]);
+    }
+    // When the text stops, the band settles on the line under it: by less than half a line.
+    await page.waitForTimeout(800);
+    const settled = (await focusShown(page))!.band!;
+    expect(Math.abs(settled.top - before.top)).toBeLessThan(step / 2 + 1);
+  });
 });
 
 test("Focus: paragraph focus dims every paragraph but the one under the pointer, or the first on the page from the keyboard", async ({ page }) => {

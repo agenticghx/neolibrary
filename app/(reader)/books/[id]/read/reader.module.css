@@ -95,6 +95,49 @@
   min-width: 0;
 }
 
+/* Focus on: the X-ray's dotted underlines are quieter (xray-marks.ts reads this). */
+.stage[data-focus] {
+  --nl-xray-ink: 0.4;
+}
+
+/*
+ * Focus (M21): the reading ruler's band, over the book in the same cell. It is drawn over the text, not behind it, so
+ * that in Scroll it can stay still while the text moves (the book's page is a frame that scrolls). Tinted with the
+ * theme's own ink, it leaves the line's ink as it is and only shades the paper around it. It takes no clicks.
+ */
+.lensClip {
+  grid-row: 1;
+  grid-column: 2;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.lens {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+  border-radius: var(--radius-sm);
+  background: var(--ruler-band);
+  box-shadow: var(--shadow-ruler);
+}
+
+.lens[data-shown] {
+  display: block;
+}
+
+/* With "reduce motion" on, --dur-fast is 0: the band jumps instead of gliding. */
+.lens[data-glide] {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    width var(--dur-fast) var(--ease-out),
+    height var(--dur-fast) var(--ease-out);
+}
+
 .turnPrev {
   grid-row: 1;
   grid-column: 1;

@@ -1,12 +1,14 @@
 /**
- * Focus (M21), inside an EPUB page's frame: a reading ruler (a soft band behind one line, the rest of the text
- * dimmed) or paragraph focus (every paragraph dimmed but one). The colours and the band's look are in settings.ts
- * (bookCss); this file decides where the band goes and what is dimmed.
+ * Focus (M21), inside an EPUB page's frame: a reading ruler (a soft band on one line, the rest of the text dimmed) or
+ * paragraph focus (every paragraph dimmed but one). The colours are in settings.ts (bookCss); this file decides which
+ * line or paragraph is in focus and dims the rest.
  *
  * Nothing is wrapped around the book's text: the dimming is a custom highlight (CSS Custom Highlight API, as the
- * spoken word is), and the band is one element added after <body>, so the addresses of passages (CFIs, counted
- * inside <body>) do not move. The band takes no clicks (pointer-events: none), so selecting text, notes and
- * highlights work as before. The spoken word is painted over the dimming (its highlight has the higher priority).
+ * spoken word is), so the addresses of passages (CFIs, counted inside <body>) do not move. The ruler's band itself is
+ * not in the page: Reader.tsx draws it over the book (the lens), at the place on screen that focusAt returns, so it
+ * can stay still while the text scrolls under it (Samuel, 2026-11-08: "In Apple the ruler is stationary and scrolling
+ * moves the text"). It takes no clicks, so selecting text, notes and highlights work as before. The spoken word is
+ * painted over the dimming (its highlight has the higher priority).
  */
 import type { FocusMode } from "./settings";
 
@@ -79,7 +81,7 @@ export function nearest<T extends Box>(boxes: T[], x: number, y: number): T | nu
 type FrameWindow = Window & { CSS: typeof CSS; Highlight: typeof Highlight };
 type Caret = { node: Node; offset: number };
 /** What is in focus on one page, so a pointer that stays on the same line does no work. */
-const shown = new WeakMap<Document, { block: Element; line: Box | null }>();
+const shown = new WeakMap<Document, { block: Element; line: Box | null; band?: Box }>();
 
 /** Turns Focus on or off on one page. Whatever was in focus is cleared; Reader.tsx puts it back where it belongs. */
 export function setFocusMode(doc: Document, mode: FocusMode) {
@@ -93,9 +95,6 @@ export function setFocusMode(doc: Document, mode: FocusMode) {
 export function clearFocus(doc: Document) {
   shown.delete(doc);
   (doc.defaultView as FrameWindow | null)?.CSS?.highlights?.delete(DIM);
-  const band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
-  band?.removeAttribute("data-shown");
-  band?.removeAttribute("data-glide");
 }
 
 const modeOf = (doc: Document) => (doc.documentElement?.getAttribute("data-nl-focus") as FocusMode | null) ?? "off";
@@ -114,36 +113,43 @@ export function blockAt(doc: Document, x: number, y: number): Element | null {
 
 /**
  * Puts the focus on the line (ruler) or paragraph (paragraph focus) at a point of the page, in the frame's own
- * coordinates (a pointer event's clientX and clientY). Returns false when the point is not on text: what is in
- * focus stays.
+ * coordinates (a pointer event's clientX and clientY). Returns the ruler's band for that line (the line's full height,
+ * across its column, in the frame's coordinates), or for paragraph focus the paragraph's box; null when the point is
+ * not on text, and then what is in focus stays. `dimIfNone`: when the point is not on text, dim the whole page
+ * instead (the ruler held still while a gap between paragraphs scrolls under it).
  */
-export function focusAt(doc: Document, x: number, y: number): boolean {
+export function focusAt(doc: Document, x: number, y: number, dimIfNone = false): Box | null {
   const mode = modeOf(doc);
-  if (mode === "off") return false;
+  if (mode === "off") return null;
   const block = blockAt(doc, x, y);
-  if (!block) return false;
+  if (!block) {
+    if (dimIfNone && mode === "ruler") dimAll(doc);
+    return null;
+  }
   if (mode === "paragraph") {
     focusBlock(doc, block);
-    return true;
+    return box(block.getBoundingClientRect());
   }
   const was = shown.get(doc);
-  if (was?.block === block && was.line && x >= was.line.left - 4 && x <= was.line.right + 4 && y >= was.line.top && y <= was.line.bottom) return true;
+  if (was?.block === block && was.line && was.band && x >= was.line.left - 4 && x <= was.line.right + 4 && y >= was.line.top && y <= was.line.bottom) return was.band;
   // The part of the paragraph in the pointer's column (it may run over two pages side by side), and its lines.
   const column = nearest(Array.from(block.getClientRects()), x, y);
-  if (!column) return false;
+  if (!column) return null;
   const range = doc.createRange();
   range.selectNodeContents(block);
   const line = lineAt(linesIn(Array.from(range.getClientRects()), column), y);
-  if (!line) return false;
-  if (was?.block === block && was.line && was.line.top === line.top && was.line.left === line.left) return true;
-  shown.set(doc, { block, line });
+  if (!line) return null;
   // The band fills the line's height (the text's boxes are shorter than the line), across the column.
   const lineHeight = parseFloat(doc.defaultView?.getComputedStyle(block).lineHeight ?? "") || (line.bottom - line.top) * 1.3;
   const pad = Math.max(0, (lineHeight - (line.bottom - line.top)) / 2);
-  showBand(doc, { left: column.left, right: column.right, top: line.top - pad, bottom: line.bottom + pad });
+  const band = { left: column.left, right: column.right, top: line.top - pad, bottom: line.bottom + pad };
+  if (was?.block === block && was.line && was.line.top === line.top && was.line.left === line.left) return was.band ?? band;
+  shown.set(doc, { block, line, band });
   dimAllBut(doc, lineRange(doc, block, line));
-  return true;
+  return band;
 }
+
+const box = (b: Box): Box => ({ left: b.left, top: b.top, right: b.right, bottom: b.bottom });
 
 /** Paragraph focus on one block: the paragraph read aloud, or the first one on a page turned to with the keyboard. */
 export function focusBlock(doc: Document, block: Element) {
@@ -156,22 +162,6 @@ export function focusBlock(doc: Document, block: Element) {
 
 /** The block in focus on this page now, if any (for the tests and for Reader.tsx). */
 export const focusedBlock = (doc: Document) => shown.get(doc)?.block ?? null;
-
-function showBand(doc: Document, box: Box) {
-  let band = doc.querySelector<HTMLElement>(":root > [data-nl-ruler]");
-  if (!band) {
-    band = doc.createElement("div");
-    band.setAttribute("data-nl-ruler", "");
-    band.setAttribute("aria-hidden", "true");
-    doc.documentElement.append(band);
-  }
-  // Glide from line to line, but appear in place the first time (no slide in from the corner).
-  if (band.hasAttribute("data-shown")) band.setAttribute("data-glide", "");
-  band.style.width = `${box.right - box.left}px`;
-  band.style.height = `${box.bottom - box.top}px`;
-  band.style.transform = `translate(${box.left}px, ${box.top}px)`;
-  band.setAttribute("data-shown", "");
-}
 
 /** The caret position at a point (Chromium and Firefox name it one way, Safari the other). */
 function caretAt(doc: Document, x: number, y: number): Caret | null {
@@ -204,6 +194,18 @@ function lineRange(doc: Document, block: Element, line: Box): Range {
   } catch {
     return whole;
   }
+}
+
+/** Dims all the page's text: the ruler is over no line (a gap between paragraphs, or the margin). */
+function dimAll(doc: Document) {
+  const win = doc.defaultView as FrameWindow | null;
+  if (!win?.CSS?.highlights || !win.Highlight || !doc.body) return;
+  shown.delete(doc);
+  const all = doc.createRange();
+  all.selectNodeContents(doc.body);
+  const dim = new win.Highlight(all);
+  dim.priority = -1;
+  win.CSS.highlights.set(DIM, dim);
 }
 
 /** Dims all the page's text before and after `keep`. */
@@ -245,13 +247,42 @@ export function firstLetter(range: Range): Spot | null {
   return null;
 }
 
+/**
+ * The first letter of a range that lies inside a box on screen (`inside`, given the letter's box in the page's
+ * coordinates): where the text the reader sees starts. While WebKit lays a page out again, foliate's range for the
+ * text on screen can still start on the page before (2026-11-08). Gives up after `most` letters.
+ */
+export function firstLetterInside(range: Range, inside: (box: DOMRect) => boolean, most = 4000): Spot | null {
+  const doc = range.startContainer.ownerDocument;
+  if (!doc) return null;
+  const common = range.commonAncestorContainer;
+  const walker = doc.createTreeWalker(common.nodeType === Node.TEXT_NODE ? (common.parentNode ?? common) : common, NodeFilter.SHOW_TEXT);
+  const letter = doc.createRange();
+  let tried = 0;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!range.intersectsNode(node)) continue;
+    const text = node.nodeValue ?? "";
+    const from = node === range.startContainer ? range.startOffset : 0;
+    const to = node === range.endContainer ? range.endOffset : text.length;
+    for (let i = from; i < to; i++) {
+      if (/\s/.test(text[i])) continue;
+      if (++tried > most) return null;
+      letter.setStart(node, i);
+      letter.setEnd(node, i + 1);
+      const box = Array.from(letter.getClientRects()).find((b) => b.width > 0 && b.height > 0);
+      if (box && inside(box)) return { node, offset: i };
+    }
+  }
+  return null;
+}
+
 /** How long the place stays marked after a layout switch, fading at the end (settings.ts, nl-place). */
 export const PLACE_MARK_MS = 2400;
 
 /**
  * After a switch of layout (Pages or Scroll, One or Two pages), a soft band on the line holding `spot` for a moment,
  * so the eye finds the place: in Two pages the words read last can sit in the right column (Samuel, 2026-10-26).
- * Like the ruler's band, it is one element after <body>, so the addresses of passages do not move.
+ * It is one element after <body>, so the addresses of passages do not move.
  */
 export function markLine(doc: Document, spot: Spot) {
   if (!spot.node.isConnected || spot.node.ownerDocument !== doc || !doc.documentElement) return;

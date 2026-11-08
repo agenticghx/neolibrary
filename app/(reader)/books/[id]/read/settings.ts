@@ -209,24 +209,13 @@ export function citationCss(mode: CitationMode, colors: Record<string, string>):
 
 /**
  * Focus (M21), inside the book's frames. Reader.tsx sets data-nl-focus on the page's root element and does the rest
- * from where the pointer is (focus.ts): the text outside the line or paragraph in front of the reader is painted in a
+ * from where the ruler is (focus.ts): the text outside the line or paragraph in front of the reader is painted in a
  * dimmer ink with a custom highlight (no element is added around the text, so clicks, selection and notes are
- * untouched), and the ruler is a band drawn behind the text. Under it, the body is see-through so the band shows.
+ * untouched). The ruler's band is drawn by the reader over the book (Reader.module.css, .lens), not in the page.
  */
 function focusCss(colors: Record<string, string>): string {
   return `
     ::highlight(nl-dim) { color: color-mix(in srgb, ${colors.ink} 45%, ${colors.paper}); }
-    html[data-nl-focus="ruler"] body { background: transparent !important; }
-    [data-nl-ruler] {
-      position: fixed; left: 0; top: 0; z-index: -1; display: none;
-      pointer-events: none; user-select: none; -webkit-user-select: none;
-      border-radius: 4px;
-      background: color-mix(in srgb, ${colors.ink} 9%, transparent);
-      box-shadow: 0 0 6px 2px color-mix(in srgb, ${colors.ink} 5%, transparent);
-    }
-    html[data-nl-focus="ruler"] [data-nl-ruler][data-shown] { display: block; }
-    [data-nl-ruler][data-glide] { transition: transform 120ms cubic-bezier(0.2, 0.7, 0.2, 1), width 120ms, height 120ms; }
-    @media (prefers-reduced-motion: reduce) { [data-nl-ruler] { transition: none !important; } }
     [data-nl-place] {
       position: fixed; left: 0; top: 0; z-index: 1;
       pointer-events: none; user-select: none; -webkit-user-select: none;
