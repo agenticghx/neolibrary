@@ -363,6 +363,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-08 11:30 · Claude (Opus 5.5, laptop) · Checkpoint: ruler fixed (#303/#304), On this page in the sidebar as Names (#305), ruler height 1-3 lines (#307): all live at 49312c8
+- **Done:** All three of Samuel's 2026-11-08 asks merged and deployed; /api/health says 49312c8 on both addresses. Worktrees ruler, onpage, rulerlines, mainprobe removed.
+- **Key paths:** docs/handoffs/2026-11-08-1130-ruler-names-ruler-height-live.md (laptop only, gitignored); app/(reader)/books/[id]/read/Reader.tsx; focus.ts; settings.ts; XrayPanel.tsx
+- **Commands that worked:** gh run view 42494158770 --json jobs; curl -s https://library.samuelahuno.com/api/health
+- **Known issues / blockers:** Not tried on a real iPad; main CI for #305/#307 left out the WebKit machine (covered by a laptop probe).
+- **Exact next steps:** 1. Samuel's verdict on his iPad: the Names button, and Aa > Focus > Ruler > Ruler height > 3 lines. 2. If the clear line lags on a fast flick, revisit the scroll handler. 3. Optional: make the text-edition table test robust to a table split across pages.
+
 ### 2026-11-08 10:39 · Claude (Opus 5.5, laptop) · Live: 49312c8 (#305 On this page in the sidebar as Names; #307 ruler height 1-3 lines)
 - **Done:** #305 merged as 6ddd856 and deployed itself (main CI 42490487635 green; health 6ddd856). #307 (Aa > Ruler height: 1, 2 or 3 lines) merged as 49312c8 after a ledger-only rebase over 86fc0d41; main CI 42494158770 green; Deploy succeeded on its own (no migration). /api/health on library.samuelahuno.com and web-production-f27a0e.up.railway.app says 49312c8; /sign-in 200 on both.
 - **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; XrayPanel.tsx; focus.ts; settings.ts; e2e/ai.spec.ts; e2e/reader.spec.ts
