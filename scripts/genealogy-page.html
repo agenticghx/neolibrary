@@ -282,6 +282,12 @@ const goButtons = name => {
 function show(v, name) { view = v; if (name) focus[v] = name; $("#drawer").hidden = true; render(); window.scrollTo({top: $(".bar").offsetTop, behavior: "smooth"}); }
 
 // ---------- lineage: which organisation came from which ----------
+/** The earliest year a person's rebuilt life gives for one of `whats` with `withName` (the book's year, else general knowledge's when shown). */
+function lifeYear(person, whats, withName) {
+  const evs = (D.lives || {})[person] || [];
+  const ys = evs.filter(e => e.with === withName && whats.includes(e.what)).map(e => e.start_year || (showGK && e.gk?.start_year) || null).filter(Boolean);
+  return ys.length ? Math.min(...ys) : null;
+}
 function lineage(L) {
   const E = new Map(), isOrg = n => kindOf(n) === "organisation";
   const add = (p, c, how, item, person) => {
@@ -302,7 +308,11 @@ function lineage(L) {
     if (f.chapter !== fx) continue;
     for (const w of L.filter(l => l.from === f.from && ["worked_at", "led", "left"].includes(l.relation) && isOrg(l.to) && l.to !== f.to)) {
       const wy = first(l => l.from === f.from && l.to === w.to && ["worked_at", "led", "left"].includes(l.relation));
-      if (w.chapter !== wy || wy > fx) continue;
+      if (w.chapter !== wy) continue;
+      // When was the person there, and when did they found it? Years from their rebuilt life (the book's, or general
+      // knowledge's) win; the book's chapter order stands in only when a year is missing.
+      const atY = lifeYear(f.from, ["worked_at", "worked_for", "led", "left"], w.to), fdY = lifeYear(f.from, ["founded"], f.to);
+      if (atY && fdY ? atY > fdY : wy > fx) continue;
       if (w.year && f.year && w.year > f.year) continue;
       add(w.to, f.to, "founders came from here", {link: w, inferred: true}, f.from);
       add(w.to, f.to, "founders came from here", {link: f, inferred: true}, f.from);

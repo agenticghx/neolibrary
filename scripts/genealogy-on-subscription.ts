@@ -30,7 +30,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fill, readPrompt, splitPrompt } from "@/lib/ai/prompts";
 import { parseEpub } from "@/lib/library/ebook";
-import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, readNames, slug, type Chapter, type Link } from "@/lib/library/genealogy";
+import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, readNames, signature, slug, type Chapter, type Link } from "@/lib/library/genealogy";
 import { extractSections } from "@/lib/library/sections";
 
 const arg = (name: string, fallback: string) => {
@@ -39,7 +39,8 @@ const arg = (name: string, fallback: string) => {
 };
 const readJson = <T>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
 const writeJson = (p: string, v: unknown) => writeFileSync(p, JSON.stringify(v, null, 1));
-const pad = (n: number) => String(n).padStart(3, "0");
+/** A chapter's answer file: named by the chapter's own id, so a change to which chapters are read never mixes answers up. */
+const fileOf = (c: Chapter) => `${slug(c.key)}.json`;
 
 /** One reading through `claude -p` on the subscription: the prompt's system part, its message, no tools. */
 function claude(model: string, effort: string, system: string, user: string): Promise<string> {
@@ -91,16 +92,16 @@ async function prompt(name: string) {
 }
 
 /** Pages about the edition, not the book: their names are publishers and editors, not the book's people. */
-const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (author|publisher)|also by|praise|dedication|title page|cover|half title)\b/i;
+const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (author|publisher)|also by|(more )?praise|dedication|title page|cover|half title)\b/i;
 
 /** The book's chapters as the app splits them (same paragraph ids); chapters with almost no text are left out. */
 function chaptersOf(folder: string): { chapters: Chapter[]; parts: [number, string, string][] } {
   const bytes = new Uint8Array(readFileSync(join(folder, "book.epub")));
   const toc = parseEpub(bytes).toc as { label: string; href: string }[];
   const sections = extractSections(bytes, toc);
-  const byChapter = new Map<number, { label: string; paragraphs: { id: string; text: string }[] }>();
+  const byChapter = new Map<number, { key: string; label: string; paragraphs: { id: string; text: string }[] }>();
   for (const s of sections) {
-    if (s.kind === "chapter") byChapter.set(s.chapterIndex, { label: s.label, paragraphs: [] });
+    if (s.kind === "chapter") byChapter.set(s.chapterIndex, { key: s.id, label: s.label, paragraphs: [] });
     else if (s.kind === "paragraph" && s.text.trim() && s.form !== "equation") byChapter.get(s.chapterIndex)?.paragraphs.push({ id: s.id, text: s.text.replace(/\s+/g, " ").trim() });
   }
   const chapters: Chapter[] = [];
@@ -110,7 +111,7 @@ function chaptersOf(folder: string): { chapters: Chapter[]; parts: [number, stri
     const size = c.paragraphs.reduce((n, p) => n + p.text.length, 0);
     if (/^part\b/i.test(c.label) && size < 1500) pendingPart = c.label;
     if (size < 500 || BACK_MATTER.test(c.label.trim())) continue;
-    chapters.push({ number: chapters.length + 1, title: c.label || `Chapter ${chapters.length + 1}`, paragraphs: c.paragraphs });
+    chapters.push({ key: c.key, number: chapters.length + 1, title: c.label || `Chapter ${chapters.length + 1}`, paragraphs: c.paragraphs });
     if (pendingPart) {
       const m = pendingPart.match(/^part\s+([^\s:.]+)[\s:.]*(.*)$/i);
       parts.push([chapters.length, m?.[1] ?? String(parts.length + 1), m?.[2] || pendingPart]);
@@ -127,12 +128,14 @@ const said = (l: Link) => `${l.from} ${l.relation} ${l.to}`;
 /** Everything read so far, checked again from the raw answers. Missing stages give empty results. */
 function build(folder: string, chapters: Chapter[]) {
   const ans = (stage: string, name: string) => (existsSync(join(folder, stage, name)) ? readJson<{ answer: string }>(join(folder, stage, name)).answer : null);
+  // Answers that refer to links by number are saved with what each number meant (a link's signature), so they still
+  // match after an earlier stage is read again.
   let offered = 0;
   let dropped = 0;
   let read = 0;
   const firstLinks: Link[] = [];
   for (const c of chapters) {
-    const a = ans("1-links", `c${pad(c.number)}.json`);
+    const a = ans("1-links", fileOf(c));
     if (a === null) continue;
     read++;
     const r = checkLinks(a, c);
@@ -141,34 +144,54 @@ function build(folder: string, chapters: Chapter[]) {
     firstLinks.push(...r.kept);
   }
   const namesAnswer = existsSync(join(folder, "2-names.json")) ? readJson<{ answer: string }>(join(folder, "2-names.json")).answer : null;
-  const names = namesAnswer ? readNames(namesAnswer, new Set(firstLinks.flatMap((l) => [l.from, l.to]))) : { alias: new Map<string, string>(), vague: new Set<string>(), ignored: 0 };
+  const people = new Set(firstLinks.flatMap((l) => [l.from_kind === "person" ? l.from : "", l.to_kind === "person" ? l.to : ""]));
+  const names = namesAnswer ? readNames(namesAnswer, new Set(firstLinks.flatMap((l) => [l.from, l.to])), (n) => people.has(n)) : { alias: new Map<string, string>(), vague: new Set<string>(), ignored: 0 };
   const merged = mergeNames(firstLinks, names.alias, names.vague);
   const answers = new Map<number, Record<string, unknown>>();
+  const mergedAt = new Map(merged.links.map((l, i) => [signature(l), i]));
   for (const c of chapters) {
-    const a = ans("3-check", `c${pad(c.number)}.json`);
-    const obj = a ? lastObject(a, "checks") : null;
+    const f = join(folder, "3-check", fileOf(c));
+    if (!existsSync(f)) continue;
+    const { answer, ids } = readJson<{ answer: string; ids: string[] }>(f);
+    const obj = lastObject(answer, "checks");
     for (const x of Array.isArray(obj?.checks) ? (obj.checks as Record<string, unknown>[]) : []) {
-      const id = Number(String(x.id).replace(/^L/, ""));
-      if (Number.isInteger(id) && merged.links[id]?.chapter === c.number) answers.set(id, x);
+      const at = mergedAt.get(ids[Number(String(x.id).replace(/^L/, ""))] ?? "");
+      if (at !== undefined) answers.set(at, x);
     }
   }
   const checked = applyChecks(merged.links, answers, names.alias);
   const links = checked.kept;
   const dates = new Map<number, ReturnType<typeof checkDates>[number]>();
+  const linkAt = new Map(links.map((l, i) => [signature(l), i]));
   for (const c of chapters) {
-    const a = ans("4-dates", `c${pad(c.number)}.json`);
-    if (a === null) continue;
-    const ids = new Set(links.map((l, i) => (l.chapter === c.number ? i : -1)).filter((i) => i >= 0));
-    for (const d of checkDates(a, c, ids)) if (d.checked) dates.set(d.id, d);
+    const f = join(folder, "4-dates", fileOf(c));
+    if (!existsSync(f)) continue;
+    const { answer, ids } = readJson<{ answer: string; ids: string[] }>(f);
+    for (const d of checkDates(answer, c, new Set(ids.map((_, k) => k)))) {
+      const at = linkAt.get(ids[d.id]);
+      if (d.checked && at !== undefined) dates.set(at, { ...d, id: at });
+    }
   }
   const paragraph = (ch: number, p: number) => chapters[ch - 1]?.paragraphs[p - 1]?.text ?? null;
   const lives: Record<string, ReturnType<typeof checkLife>["events"]> = {};
   const lifeDropped = { year_without_fact: 0, order_quote_not_found: 0 };
   for (const p of peopleOf(links)) {
-    const a = ans("5-lives", `${slug(p.name)}.json`);
-    if (a === null) continue;
+    const f = join(folder, "5-lives", `${slug(p.name)}.json`);
+    if (!existsSync(f)) continue;
+    const saved = readJson<{ answer: string; links: Record<string, string>; facts: Record<string, string> }>(f);
+    // The answer's L… and D… ids, as they were when it was read, matched to today's list by what each link says.
+    const now = (table: Record<string, string>, prefix: string) => (x: unknown) => {
+      const at = linkAt.get(table[`${prefix}${String(x).replace(prefix, "")}`] ?? "");
+      return at === undefined ? null : at;
+    };
+    const obj = lastObject(saved.answer, "events");
+    const events = (Array.isArray(obj?.events) ? (obj.events as Record<string, unknown>[]) : []).map((e) => ({
+      ...e,
+      links: (Array.isArray(e.links) ? e.links : []).map(now(saved.links, "L")).filter((x) => x !== null),
+      date_ids: (Array.isArray(e.date_ids) ? e.date_ids : []).map(now(saved.facts, "D")).filter((x) => x !== null),
+    }));
     const { facts } = lifeInput(p.name, links, dates);
-    const r = checkLife(a, new Set(p.ids), new Map(facts.map((i) => [i, dates.get(i)!.year!])), paragraph);
+    const r = checkLife(JSON.stringify({ events }), new Set(p.ids), new Map(facts.map((i) => [i, dates.get(i)!.year!])), paragraph);
     lives[p.name] = r.events;
     lifeDropped.year_without_fact += r.dropped.year_without_fact;
     lifeDropped.order_quote_not_found += r.dropped.order_quote_not_found;
@@ -220,11 +243,11 @@ async function read(folder: string) {
   console.log(`1. Links: ${chapters.length} chapters.`);
   const p1 = await prompt("genealogy-links");
   failed += await pool(
-    chapters.filter((c) => todo("1-links", `c${pad(c.number)}.json`)),
+    chapters.filter((c) => todo("1-links", fileOf(c))),
     jobs,
     async (c) => {
       const answer = await claude(model, effort, p1.system, fill(p1.user, { book: meta.title, chapter: `${c.number}. ${c.title}`, known, passages: passages(c) }));
-      writeJson(join(folder, "1-links", `c${pad(c.number)}.json`), { answer });
+      writeJson(join(folder, "1-links", fileOf(c)), { answer });
       const r = checkLinks(answer, c);
       return `  ${c.number}. ${c.title}: ${r.kept.length} links kept, ${r.dropped.length} dropped`;
     },
@@ -253,13 +276,13 @@ async function read(folder: string) {
   const b3 = build(folder, chapters);
   const p3 = await prompt("genealogy-check");
   failed += await pool(
-    chapters.filter((c) => todo("3-check", `c${pad(c.number)}.json`) && b3.merged.links.some((l) => l.chapter === c.number)),
+    chapters.filter((c) => todo("3-check", fileOf(c)) && b3.merged.links.some((l) => l.chapter === c.number)),
     jobs,
     async (c) => {
-      const mine = b3.merged.links.map((l, i) => ({ l, i })).filter(({ l }) => l.chapter === c.number);
+      const mine = b3.merged.links.filter((l) => l.chapter === c.number).map((l, i) => ({ l, i }));
       const text = mine.map(({ l, i }) => `<link id="${i}">\n${l.from} (${l.from_kind}) —${l.relation}→ ${l.to} (${l.to_kind})\nquote: ${l.quote}\n<passage>${c.paragraphs[l.passage - 1].text}</passage>\n</link>`).join("\n\n");
       const answer = await claude(model, effort, p3.system, fill(p3.user, { book: meta.title, chapter: `${c.number}. ${c.title}`, links: text }));
-      writeJson(join(folder, "3-check", `c${pad(c.number)}.json`), { answer });
+      writeJson(join(folder, "3-check", fileOf(c)), { answer, ids: mine.map(({ l }) => signature(l)) });
       return `  ${c.number}. checked ${mine.length} links`;
     },
   );
@@ -269,13 +292,13 @@ async function read(folder: string) {
   const b4 = build(folder, chapters);
   const p4 = await prompt("genealogy-dates");
   failed += await pool(
-    chapters.filter((c) => todo("4-dates", `c${pad(c.number)}.json`) && b4.links.some((l) => l.chapter === c.number)),
+    chapters.filter((c) => todo("4-dates", fileOf(c)) && b4.links.some((l) => l.chapter === c.number)),
     jobs,
     async (c) => {
-      const mine = b4.links.map((l, i) => ({ l, i })).filter(({ l }) => l.chapter === c.number);
+      const mine = b4.links.filter((l) => l.chapter === c.number).map((l, i) => ({ l, i }));
       const text = mine.map(({ l, i }) => `id ${i}: ${said(l)} (passage ${l.passage}: "${l.quote}")`).join("\n");
       const answer = await claude(model, effort, p4.system, fill(p4.user, { book: meta.title, chapter: `${c.number}. ${c.title}`, passages: passages(c), links: text }));
-      writeJson(join(folder, "4-dates", `c${pad(c.number)}.json`), { answer });
+      writeJson(join(folder, "4-dates", fileOf(c)), { answer, ids: mine.map(({ l }) => signature(l)) });
       const d = checkDates(answer, c, new Set(mine.map(({ i }) => i)));
       return `  ${c.number}. ${d.filter((x) => x.checked).length} of ${mine.length} links dated`;
     },
@@ -303,7 +326,8 @@ async function read(folder: string) {
           passages: keys.map(([c, n]) => `<passage chapter="${c}" n="${n}">${chapters[c - 1].paragraphs[n - 1].text}</passage>`).join("\n"),
         }),
       );
-      writeJson(join(folder, "5-lives", `${slug(p.name)}.json`), { person: p.name, answer });
+      const table = (ids: number[], prefix: string) => Object.fromEntries(ids.map((i) => [`${prefix}${i}`, signature(b5.links[i])]));
+      writeJson(join(folder, "5-lives", `${slug(p.name)}.json`), { person: p.name, answer, links: table(mine.map(({ i }) => i), "L"), facts: table(facts, "D") });
       return `  ${p.name}: read`;
     },
   );

@@ -16,8 +16,11 @@ export const RELATIONS = ["founded", "worked_at", "led", "left", "advised", "spu
 export type Relation = (typeof RELATIONS)[number];
 export type Kind = "person" | "organisation";
 
-/** One chapter as read: its paragraphs in order (passage n is paragraphs[n - 1]). */
-export type Chapter = { number: number; title: string; paragraphs: { id: string; text: string }[] };
+/** One chapter as read: `key` is the app's id for the chapter (stable while the book file is the same); passage n is paragraphs[n - 1]. */
+export type Chapter = { key: string; number: number; title: string; paragraphs: { id: string; text: string }[] };
+
+/** Matches a stored answer's ids to today's list: the link as first read, whatever names or corrections came after. */
+export const signature = (l: Pick<Link, "origin">) => l.origin;
 
 export type Link = {
   from: string;
@@ -32,6 +35,8 @@ export type Link = {
   paragraph: string;
   quote: string;
   note: string | null;
+  /** The link as first read (names, relation, paragraph): later readings refer to it by this, which renaming or correcting never changes. */
+  origin: string;
 };
 
 /**
@@ -102,7 +107,7 @@ export function checkLinks(answer: string, ch: Chapter): { kept: Link[]; dropped
       dropped.push({ link: r, why: "quote not in the paragraph" });
       continue;
     }
-    kept.push({ from: from!, from_kind: fk!, to: to!, to_kind: tk!, relation: relation!, role: str(r.role, 80), year: year(r.year), chapter: ch.number, passage: passage!, paragraph: para!.id, quote: para!.text.slice(at.start, at.end), note: str(r.note) });
+    kept.push({ from: from!, from_kind: fk!, to: to!, to_kind: tk!, relation: relation!, role: str(r.role, 80), year: year(r.year), chapter: ch.number, passage: passage!, paragraph: para!.id, quote: para!.text.slice(at.start, at.end), note: str(r.note), origin: `${from}|${relation}|${to}|${para!.id}` });
   }
   return { kept, dropped };
 }
@@ -111,14 +116,21 @@ export function checkLinks(answer: string, ch: Chapter): { kept: Link[]; dropped
  * The names reading, checked: each group keeps one name and folds in the others, all of which must have been read;
  * a name in two groups stays in the first. Vague names must have been read too.
  */
-export function readNames(answer: string, names: Iterable<string>): { alias: Map<string, string>; vague: Set<string>; ignored: number } {
+export function readNames(answer: string, names: Iterable<string>, isPerson: (name: string) => boolean = () => false): { alias: Map<string, string>; vague: Set<string>; ignored: number } {
   const known = new Set(names);
   const obj = lastObject(answer, "same");
   const alias = new Map<string, string>();
   const vague = new Set<string>();
   let ignored = 0;
   for (const g of Array.isArray(obj?.same) ? (obj.same as Record<string, unknown>[]) : []) {
-    const keep = typeof g?.name === "string" ? g.name : "";
+    let keep = typeof g?.name === "string" ? g.name : "";
+    // A person is known by the fullest form of their name ("Robert Noyce", not "Bob Noyce"), whatever the reading chose.
+    const members = [keep, ...(Array.isArray(g?.others) ? g.others : [])].filter((n): n is string => typeof n === "string" && known.has(n));
+    if (members.length && members.every(isPerson)) {
+      const longest = members.reduce((a, b) => (b.length > a.length ? b : a));
+      if (longest !== keep) g.others = [keep, ...(g.others as unknown[]).filter((o) => o !== longest)];
+      keep = longest;
+    }
     if (!known.has(keep) || alias.has(keep)) {
       ignored++;
       continue;

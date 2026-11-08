@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, readNames, slug, type Chapter, type Link } from "./genealogy";
 
 const ch: Chapter = {
+  key: "ch-3",
   number: 3,
   title: "The Integrated Circuit",
   paragraphs: [
@@ -60,6 +61,7 @@ const link = (from: string, relation: Link["relation"], to: string, extra: Parti
   paragraph: "p1",
   quote: "q",
   note: null,
+  origin: `${from}|${relation}|${to}|p1`,
   ...extra,
 });
 
@@ -79,6 +81,21 @@ describe("names", () => {
     const merged = mergeNames([link("Taiwan Semiconductor Manufacturing Company", "supplied", "Apple"), link("Fairchild", "spun_out_of", "Fairchild Semiconductor"), link("China's semiconductor efforts", "funded", "SMIC")], r.alias, r.vague);
     expect(merged.links.map((l) => `${l.from} ${l.to}`)).toEqual(["TSMC Apple"]);
     expect(merged.removed).toBe(2);
+  });
+});
+
+describe("names of people", () => {
+  it("keeps a person's fullest name even when the reading chose a short one, and leaves organisations as chosen", () => {
+    const r = readNames(JSON.stringify({ same: [{ name: "Bob Noyce", others: ["Robert Noyce"] }, { name: "TSMC", others: ["Taiwan Semiconductor Manufacturing Company"] }] }), ["Bob Noyce", "Robert Noyce", "TSMC", "Taiwan Semiconductor Manufacturing Company"], (n) => n.includes("Noyce"));
+    expect([...r.alias]).toEqual([
+      ["Bob Noyce", "Robert Noyce"],
+      ["Taiwan Semiconductor Manufacturing Company", "TSMC"],
+    ]);
+  });
+  it("keeps a link's origin through renaming and correction", () => {
+    const [l] = mergeNames([link("Bob Noyce", "founded", "Intel", { from_kind: "person" })], new Map([["Bob Noyce", "Robert Noyce"]]), new Set()).links;
+    const fixed = applyChecks([l], new Map([[0, { verdict: "fix", link: { from: "Robert Noyce", relation: "led", to: "Intel" } }]])).kept[0];
+    expect([fixed.from, fixed.relation, fixed.origin]).toEqual(["Robert Noyce", "led", "Bob Noyce|founded|Intel|p1"]);
   });
 });
 

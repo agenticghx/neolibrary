@@ -39,7 +39,7 @@ Samuel chose to keep all of these views (2026-11-08).
    ```bash
    npx tsx scripts/genealogy-on-subscription.ts read <folder> --chapters 3 && npx tsx scripts/genealogy-on-subscription.ts page <folder>
    ```
-3. **Read the whole book**, in the background, watching its log. Chip War (54 chapters) took about N minutes (see the ledger). A failed reading is listed and the run stops before the next stage; run the same command again and it carries on.
+3. **Read the whole book**, in the background, watching its log. Chip War (58 sections, 54 chapters) took 7.5 minutes for all six readings (2026-11-08). A failed reading is listed and the run stops before the next stage; run the same command again and it carries on.
    ```bash
    npx tsx scripts/genealogy-on-subscription.ts read <folder> > <folder>.log 2>&1 &
    ```
