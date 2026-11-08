@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Main green with the ruler (#303 + Safari test fix), then it deploys; Samuel tries the ruler on his iPad.
+next_action: Samuel tries the reading ruler on his iPad (live 0f9b9aa).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -356,6 +356,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 07:56 · Claude (Opus 5.5, laptop) · Live: 0f9b9aa (#303 the reading ruler stands still and works by touch, #304 its Safari test)
+- **Done:** #303 merged as 2a34da6; main's CI failed in WebKit on the new ruler test (the Right arrow did not turn the page, run 42477309939), so no deploy. #304 turns pages with the Next page button; merged as 0f9b9aa; main CI run 42481133123 all green including Browser tests (webkit); Deploy succeeded on its own (no migration). /api/health on library.samuelahuno.com and web-production-f27a0e.up.railway.app says 0f9b9aa; /sign-in 200 on both.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; focus.ts; reader.module.css; app/tokens.css; e2e/reader.spec.ts; e2e/safari.spec.ts
+- **Commands that worked:** gh run view 42481133123 --json jobs; curl -s https://library.samuelahuno.com/api/health
+- **Known issues / blockers:** No live check signed in on Samuel's books (it would move his saved reading place); not tried on a real iPad.
+- **Exact next steps:** Samuel tries Aa > Focus > Ruler in Scroll (and Pages) on his iPad: tap a line, scroll, turn pages, Larger text.
 
 ### 2026-11-08 07:21 · Claude (Opus 5.5, laptop) · M21 ruler: the Safari ruler test turns pages with the button (main's CI failed on it)
 - **Done:** #303 (the ruler) merged as 2a34da6, but main's CI run 42477309939 failed in Browser tests (webkit): the new test 'the reading ruler goes to the first line of a turned page…' pressed the Right arrow and the page did not turn (data-cfi unchanged for 5 s), before any ruler check ran. 82 other WebKit tests passed; 'screenshots + accessibility' failed only as the summary of that machine. Not deployed: live is still 6c3a964. The test now turns pages with the Next page button, as the other Safari tests do, and moves the mouse off the book after.
