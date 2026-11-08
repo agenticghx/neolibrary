@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: PR #309 (M42 S1): merge when green; then S2.
+next_action: Samuel tries Aa > E-ink (live 611cf81); next build: M42 S2.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 13:15 · Claude Opus 5.5 (laptop) · Live: 611cf81 (#309 Aa > E-ink, M42 S1)
+- **Done:** PR #309 merged as 611cf81 (2026-11-08 17:50 UTC) after all checks were green on its second run; deploy.yml deployed it (run 42508436257, success, 7m24s). No migration.
+- **Key paths:** app/tokens.css; app/(reader)/books/[id]/read/{settings.ts,Reader.tsx}; e2e/eink.spec.ts
+- **Commands that worked:** curl https://library.samuelahuno.com/api/health -> commit 611cf81; curl https://web-production-f27a0e.up.railway.app/api/health -> commit 611cf81; /sign-in -> 200; the live stylesheet holds .theme-eink-night
+- **Known issues / blockers:** Not tried signed in on the live site, and not on an e-ink screen: the Boox is not here yet.
+- **Exact next steps:** 1. Samuel tries Aa > Screen > E-ink on a book. 2. M42 S2: E-ink on every page, known before the first paint, including the command palette. 3. S4 and S5 when the Boox arrives.
 
 ### 2026-11-08 12:32 · Claude Opus 5.5 (laptop) · M42 S1: CI fix, the E-ink reader gets its own address
 - **Done:** PR #309's 'Browser tests (branches)' failed (run 42503607489): the E-ink test passed, but focus.spec's whole-book test got 'Too many attempts' at its reader's join, because the E-ink reader's join was an 11th from the shared test address (limit 10 per address in 15 minutes, app/(public)/actions.ts). The E-ink reader now sends its own x-forwarded-for (198.51.100.42), as own-keys and shared-papers do. LEARNING_LOG iteration 152.
