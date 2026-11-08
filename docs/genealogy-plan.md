@@ -65,10 +65,21 @@ keep all of them.
   them (Chip War, The Grid and The Pay Off overlap). *Done when:* decided with
   Samuel after S3 is in use.
 
+## Decisions
+
+- General-knowledge years appear in the app too, drawn in purple and
+  switchable ("Leave blank"), never mixed with the book's own years (Samuel,
+  2026-11-08: "go ahead with your recommendation"). S2 keeps them in their own
+  columns (`gk_start_year`, `gk_end_year`, `gk_confidence`, `gk_note`).
+
+## Status
+
+- S1 merged and live (#310, 218147c).
+- S2: links and life events stored on the site (`db/migrations/0039_genealogy`,
+  `lib/library/genealogy-store.ts`, `POST /api/agent/books/<id>/genealogy`,
+  `send` in the skill's script), in export and import.
+
 ## Open questions
 
-- Whether the general-knowledge years belong in the app at all, or only on the
-  laptop page (they are Claude's knowledge, not the book's; Samuel liked them
-  marked and switchable, 2026-11-08).
 - Whether a founder's every past employer counts as a parent in the family
   tree (now drawn dashed), or only the one they left to found it.

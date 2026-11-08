@@ -9,6 +9,8 @@
  *   npx tsx scripts/genealogy-on-subscription.ts read <folder> [--chapters 3] [--jobs 5] [--model m] [--years-model m] [--min-links 1] [--known names.txt]
  *   npx tsx scripts/genealogy-on-subscription.ts page <folder>                      (genealogy.html from what has been read)
  *   npx tsx scripts/genealogy-on-subscription.ts status <folder>
+ *   npx tsx scripts/genealogy-on-subscription.ts send <folder> <site> <book id>    (M43 S2: store it on the site, checked again there)
+ *   npx tsx scripts/genealogy-on-subscription.ts payload <folder>                   (what send would post, to <folder>/send.json)
  *
  * Six readings, each one after the last, each checked in lib/library/genealogy.ts before it is used:
  * 1. Links, per chapter (prompts/genealogy-links.md): every link the chapter states, with the paragraph and a quote.
@@ -31,6 +33,7 @@ import { join } from "node:path";
 import { fill, readPrompt, splitPrompt } from "@/lib/ai/prompts";
 import { parseEpub } from "@/lib/library/ebook";
 import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, readNames, signature, slug, type Chapter, type Link } from "@/lib/library/genealogy";
+import { genealogyPromptHash, type GenealogySend, type SentLink } from "@/lib/library/genealogy-store";
 import { extractSections } from "@/lib/library/sections";
 
 const arg = (name: string, fallback: string) => {
@@ -401,6 +404,37 @@ function page(folder: string) {
   console.log(`second reading ${JSON.stringify(b.checked.counts)}; ${b.links.length} links shown; ${b.dates.size} dated; ${data.stats.lives} lives (${JSON.stringify(b.lifeDropped)} taken away by the checks).`);
 }
 
+/** M43 S2: what `send` posts: every link (those the second reading removed marked so), dates and lives, by paragraph id. */
+async function sendable(folder: string): Promise<GenealogySend> {
+  const { chapters } = chaptersOf(folder);
+  const b = build(folder, chapters);
+  const pid = (chapter: number | null, passage: number | null) => (chapter && passage ? (chapters[chapter - 1]?.paragraphs[passage - 1]?.id ?? null) : null);
+  const kept: SentLink[] = b.links.map((l, i) => {
+    const d = b.dates.get(i);
+    const dp = d ? pid(l.chapter, d.passage) : null;
+    return { from: l.from, from_kind: l.from_kind, to: l.to, to_kind: l.to_kind, relation: l.relation, role: l.role, paragraph: l.paragraph, quote: l.quote, check: l.check ?? null, was: l.was ?? null, why: l.why ?? null, date: d && dp && d.year && d.quote ? { year: d.year, end_year: d.end_year, paragraph: dp, quote: d.quote } : null };
+  });
+  const removed: SentLink[] = b.checked.removed.map((l) => ({ from: l.from, from_kind: l.from_kind, to: l.to, to_kind: l.to_kind, relation: l.relation, role: l.role, paragraph: l.paragraph, quote: l.quote, removed: true, why: l.why }));
+  const lives: GenealogySend["lives"] = {};
+  for (const [person, evs] of Object.entries(b.lives))
+    lives[person] = evs.map((e) => {
+      const op = pid(e.order_chapter, e.order_passage);
+      const gk = (e as { gk?: { start_year: number | null; end_year: number | null; confidence: "high" | "medium"; note: string | null } }).gk;
+      return { what: e.what, with: e.with, role: e.role, links: e.links, start_year: e.start_year, end_year: e.end_year, date_links: e.date_ids, basis: e.basis, order: op && e.order_quote ? { paragraph: op, quote: e.order_quote } : null, why: e.why, gk: gk ?? null };
+    });
+  return { model: arg("model", "claude-sonnet-5-5"), promptHash: await genealogyPromptHash(), links: [...kept, ...removed], lives };
+}
+
+async function send(folder: string, site: string, bookId: string) {
+  const t = process.env.NEOLIBRARY_AGENT_TOKEN;
+  if (!t) throw new Error("NEOLIBRARY_AGENT_TOKEN is not set: make a token at /agents and run `keyadd NEOLIBRARY_AGENT_TOKEN` in Terminal, then run this in a login shell (zsh -ic).");
+  const body = await sendable(folder);
+  const res = await fetch(`${site.replace(/\/$/, "")}/api/agent/books/${bookId}/genealogy`, { method: "POST", headers: { authorization: `Bearer ${t}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const out = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new Error(`${res.status} ${JSON.stringify(out)}`);
+  console.log(out.unchanged ? `Nothing changed: the site already holds this genealogy (${out.links} links, ${out.events} life events).` : `Stored: ${out.links} links, ${out.removed} removed by the second reading, ${out.events} life events for ${out.people} people. Left out by the site's own checks: ${JSON.stringify(out.dropped)}.`);
+}
+
 function status(folder: string) {
   const { chapters } = chaptersOf(folder);
   const n = (d: string) => (existsSync(join(folder, d)) ? readdirSync(join(folder, d)).length : 0);
@@ -424,9 +458,9 @@ async function fetchBook(site: string, bookId: string, folder: string) {
 }
 
 const [cmd, a1, a2, a3] = process.argv.slice(2);
-const run = cmd === "fetch" && a3 ? fetchBook(a1, a2, a3) : cmd === "read" && a1 ? read(a1) : cmd === "page" && a1 ? Promise.resolve(page(a1)) : cmd === "status" && a1 ? Promise.resolve(status(a1)) : null;
+const run = cmd === "payload" && a1 ? sendable(a1).then((b) => writeJson(join(a1, "send.json"), b)) : cmd === "send" && a3 ? send(a1, a2, a3) : cmd === "fetch" && a3 ? fetchBook(a1, a2, a3) : cmd === "read" && a1 ? read(a1) : cmd === "page" && a1 ? Promise.resolve(page(a1)) : cmd === "status" && a1 ? Promise.resolve(status(a1)) : null;
 if (!run) {
-  console.error("Usage: genealogy-on-subscription.ts fetch <site> <book id> <folder> | read <folder> [--chapters n] [--jobs 5] [--model m] [--years-model m] [--min-links 1] [--known file] | page <folder> | status <folder>");
+  console.error("Usage: genealogy-on-subscription.ts fetch <site> <book id> <folder> | send <folder> <site> <book id> | payload <folder> | read <folder> [--chapters n] [--jobs 5] [--model m] [--years-model m] [--min-links 1] [--known file] | page <folder> | status <folder>");
   process.exit(2);
 }
 run.catch((e) => {

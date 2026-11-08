@@ -37,6 +37,7 @@ import { FakeCovers } from "@/lib/covers/sources";
 import { findMissingCovers, rejectCover, uploadCover } from "./cover-lookup";
 import { ensureXray } from "./xray";
 import { bookChapters, readChapter } from "./xray-read";
+import { genealogyPromptHash, saveGenealogy } from "./genealogy-store";
 
 let database: Database;
 let ownerId: string;
@@ -147,6 +148,16 @@ describe("library export (ground rule 7)", () => {
     // M32 X3: one chapter read for X-ray by the fake AI, so facts and their AI answer are in the file.
     const [firstChapter] = await bookChapters(database.db, bookId);
     await readChapter({ db: database.db, model: new FakeModel() }, ownerId, bookId, firstChapter);
+    // M43 S2: a genealogy sent for the book (one kept link with a year, one the second reading removed, one life event with a general-knowledge year).
+    const gp = (await getSections(database.db, ownerId, bookId)).filter((x) => x.kind === "paragraph" && x.text.length > 120)[3];
+    const gq = gp.text.split(" ").slice(0, 6).join(" ");
+    const gl = { from: "The Time Traveller", from_kind: "person" as const, to: "Filby", to_kind: "person" as const, relation: "friend", paragraph: gp.id, quote: gq };
+    await saveGenealogy(database.db, ownerId, bookId, {
+      model: "claude-sonnet-5-5",
+      promptHash: await genealogyPromptHash(),
+      links: [{ ...gl, check: "holds", date: { year: 1895, paragraph: gp.id, quote: gq } }, { ...gl, relation: "mentored", removed: true, why: "Not said." }],
+      lives: { "The Time Traveller": [{ what: "friend", with: "Filby", links: [0], start_year: 1895, date_links: [0], basis: "stated", gk: { start_year: 1890, confidence: "medium", note: "A guess." } }] },
+    });
     const before = await exportLibrary(database.db, ownerId);
     expect(before.books.find((b) => b.id === edition.id)?.editionOf).toBe(bookId);
     expect(before.books.length).toBeGreaterThan(100);
@@ -201,7 +212,7 @@ describe("library export (ground rule 7)", () => {
     expect(before.settings).toEqual({ aiStyle: "ste-standard", rewrittenView: "rewritten" });
     expect(before.books.find((b) => b.id === bookId)?.aiStyle).toBe("ste-strict");
     // The X-ray reading (M32 X3) is one more AI answer, checked below with its facts; the four made above are these.
-    expect(before.generations!.filter((g) => g.kind !== "xray")).toEqual([
+    expect(before.generations!.filter((g) => g.kind !== "xray" && g.kind !== "genealogy")).toEqual([
       expect.objectContaining({ kind: "rewrite", sectionId: paragraph.id, options: { level: "plain" }, model: "fake" }),
       expect.objectContaining({ kind: "questions", sectionId: carew.id, options: { style: "ste-light" } }),
       expect.objectContaining({ kind: "transcript", provider: "elevenlabs", output: voice.annotation.voice!.transcript }),
@@ -240,12 +251,19 @@ describe("library export (ground rule 7)", () => {
     expect(before.generations!.some((g) => g.id === before.xrayFacts![0].generationId && g.kind === "xray")).toBe(true);
     const mentionsBefore = (await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).length;
     expect(mentionsBefore).toBeGreaterThan(50);
+    expect(before.genealogyLinks!.map((l) => [l.relation, l.removed, l.dateYear])).toEqual([
+      ["friend", false, 1895],
+      ["mentored", true, null],
+    ]);
+    expect(before.genealogyEvents!.map((e) => [e.person, e.startYear, e.gkStartYear])).toEqual([["The Time Traveller", 1895, 1890]]);
+    expect(before.generations!.filter((g) => g.kind === "genealogy").map((g) => g.id)).toEqual([before.genealogyLinks![0].generationId]);
 
     await wipeLibrary(database.db, ownerId);
     await database.db.update(users).set({ aiStyle: "plain", rewrittenView: "side" }).where(eq(users.id, ownerId));
     const empty = await exportLibrary(database.db, ownerId);
     expect(empty.xrayEntries).toEqual([]);
     expect(empty.xrayFacts).toEqual([]);
+    expect([empty.genealogyLinks, empty.genealogyEvents]).toEqual([[], []]);
     expect(await database.db.select().from(xrayMentions).where(eq(xrayMentions.bookId, bookId))).toEqual([]);
     expect([empty.books, empty.paths, empty.collections, empty.annotations, empty.generations, empty.questionMarks, empty.audioTracks, empty.readalongImports, empty.readingSessions, empty.reviewCards]).toEqual([[], [], [], [], [], [], [], [], [], []]);
     expect(empty.focusSessions).toEqual([]);

@@ -48,6 +48,11 @@ Samuel chose to keep all of these views (2026-11-08).
    - `--known <file>` gives names to use as written (one per line), such as the book's cast of characters.
 4. **Build the page** and look at it yourself before sending it: `npx tsx scripts/genealogy-on-subscription.ts page <folder>`. Open the family tree of the most linked organisation, a power map and the storyline of the most linked person, on an iPad-sized window (Samuel reads on an iPad in Chrome, so WebKit).
 5. **Send** `<folder>/genealogy.html` to Samuel with SendUserFile, saying it is private because it quotes the book.
+5a. **Store it on the site** (M43 S2), so the app can show it:
+   ```bash
+   zsh -ic 'npx tsx scripts/genealogy-on-subscription.ts send <folder> <site> <book id>'
+   ```
+   The site checks every quote, year and order quote again against its own copy of the book and prints what it left out and why (nothing, for a book read from the file the site holds). The same send again changes nothing; a new one replaces the book's genealogy. `payload <folder>` writes what would be sent to `<folder>/send.json` without sending. The site refuses a send read with other instructions than its own `prompts/genealogy-*.md`: after a prompt change, deploy first.
 6. **Record it in the ledger**: the book, the numbers `page` prints (links offered, quotes not found, second reading's counts, links shown, dated, lives), the time taken, and what was looked at by eye.
 
 ## The six readings and their checks
