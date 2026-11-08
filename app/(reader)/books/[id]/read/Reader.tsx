@@ -57,7 +57,7 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, WIDTH_PX, withWidth } from "./settings";
+import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, WIDTH_PX, withEink, withWidth } from "./settings";
 import { clearFocus, firstLetter, firstLetterInside, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Box, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
@@ -144,6 +144,37 @@ function drawBadge(paths: readonly string[], fill: string, ink: string, highligh
   };
 }
 
+/**
+ * M42 S1: a highlight on an e-ink screen. A tint is a pale grey there, hard to see, so the passage is underlined in
+ * ink, and the highlight's colour is told by the line: sage solid, amber dashed, rose dotted, sky double. The saved
+ * highlight is unchanged; turning E-ink off draws the tint again.
+ */
+const EINK_LINES: Record<string, EinkLine> = { sage: "solid", amber: "dashed", rose: "dotted", sky: "double" };
+type EinkLine = "solid" | "dashed" | "dotted" | "double";
+function einkUnderline(line: EinkLine, ink: string): DrawFn {
+  return (rects) => {
+    const ns = "http://www.w3.org/2000/svg";
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("data-eink-line", line);
+    const dash = line === "dashed" ? "6 4" : line === "dotted" ? "1.5 3" : null;
+    for (const { left, right, bottom } of rects as DOMRect[]) {
+      for (const dy of line === "double" ? [0, 3.5] : [0]) {
+        const l = document.createElementNS(ns, "line");
+        l.setAttribute("x1", String(left));
+        l.setAttribute("x2", String(right));
+        l.setAttribute("y1", String(bottom + dy));
+        l.setAttribute("y2", String(bottom + dy));
+        l.setAttribute("stroke", ink);
+        l.setAttribute("stroke-width", line === "double" ? "1.5" : "2");
+        if (dash) l.setAttribute("stroke-dasharray", dash);
+        if (line === "dotted") l.setAttribute("stroke-linecap", "round");
+        g.append(l);
+      }
+    }
+    return g as unknown as SVGElement;
+  };
+}
+
 /** The quote around a selection (W3C TextQuoteSelector): exact text plus some words either side. */
 function quoteOf(doc: Document, range: Range) {
   const before = doc.createRange();
@@ -159,7 +190,9 @@ function quoteOf(doc: Document, range: Range) {
   };
 }
 
-const readerClass = (s: ReaderSettings) => (s.theme === "auto" ? styles.reader : `${styles.reader} theme-${s.theme}`);
+/** The theme's class on the reader element; with E-ink on (M42 S1), the E-ink colours in its place (light, or Night's dark). */
+const readerClass = (s: ReaderSettings) =>
+  s.eink ? `${styles.reader} theme-eink${isDark(s) ? "-night" : ""}` : s.theme === "auto" ? styles.reader : `${styles.reader} theme-${s.theme}`;
 
 const TOKENS = { paper: "--paper", ink: "--ink-900", accent: "--accent", highlight: "--highlight", spoken: "--highlight-active" } as const;
 
@@ -532,6 +565,8 @@ export function Reader(props: {
   const [downloaded, setDownloaded] = useState<string | null>(null);
   // Focus (M21, EPUBs): the mode now, the paragraph read aloud, and where the mouse rests (in the reader's coordinates).
   const focusRef = useRef<FocusMode>("off");
+  // M42 S1: E-ink on, read where highlights are drawn (they are underlined in ink, not tinted).
+  const einkRef = useRef(false);
   const rulerLinesRef = useRef<RulerLines>(1);
   // M41 R5: fixed for the page's life (it comes with the page), read where the book is opened.
   const citationsRef = useRef(props.citations);
@@ -1096,17 +1131,25 @@ export function Reader(props: {
             .detail;
           const a = notesRef.current.find((x) => x.cfi === annotation.value);
           const cs = getComputedStyle(root.current!);
+          const ink = cs.getPropertyValue("--ink-900").trim();
+          // M42 S1: with E-ink on, a passage is underlined in ink (a sticker's, a picture's or a drawing's solid; a
+          // highlight's in its colour's line), and the badges stay, in greys.
+          const passage: DrawFn = einkRef.current ? einkUnderline("solid", ink) : Overlayer.highlight;
           if (a?.kind === "sticker" && a.sticker) {
             const fill = cs.getPropertyValue(`--mark-${STICKERS[a.sticker].color}`).trim();
-            draw(drawBadge(STICKERS[a.sticker].paths, fill, cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null), {});
+            draw(drawBadge(STICKERS[a.sticker].paths, fill, ink, passage, range ?? null), {});
             return;
           }
           if (a?.kind === "image") {
-            draw(drawBadge(PICTURE_PATHS, cs.getPropertyValue("--mark-sage").trim(), cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null, "right"), {});
+            draw(drawBadge(PICTURE_PATHS, cs.getPropertyValue("--mark-sage").trim(), ink, passage, range ?? null, "right"), {});
             return;
           }
           if (a?.kind === "drawing") {
-            draw(drawBadge(PEN_PATHS, cs.getPropertyValue("--mark-sky").trim(), cs.getPropertyValue("--ink-900").trim(), Overlayer.highlight, range ?? null, "right"), {});
+            draw(drawBadge(PEN_PATHS, cs.getPropertyValue("--mark-sky").trim(), ink, passage, range ?? null, "right"), {});
+            return;
+          }
+          if (einkRef.current) {
+            draw(einkUnderline(EINK_LINES[a?.color ?? "sage"] ?? "solid", ink), {});
             return;
           }
           const color = cs.getPropertyValue(`--mark-${a?.color ?? "sage"}`).trim();
@@ -1526,6 +1569,12 @@ export function Reader(props: {
     }
     laidOut.current = layout;
     if (v && root.current) spreadRef.current = applySettings(v, settings, root.current);
+    // M42 S1: E-ink switched: draw the notes on the pages again, as underlines or as tints (their colours changed too).
+    if (einkRef.current !== settings.eink) {
+      einkRef.current = settings.eink;
+      if (v && props.fileType !== "pdf")
+        for (const a of notesRef.current) if (["highlight", "sticker", "drawing", "image"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
+    }
     // M41 R6: Figures, redrawn or as printed, on the pages already open (a page opened later reads the ref).
     figureModeRef.current = settings.figures;
     if (v && figuresRef.current.length) for (const { doc } of v.renderer?.getContents() ?? []) showFigures(doc, settings.figures);
@@ -2220,7 +2269,7 @@ export function Reader(props: {
     if (playingBook && playingBook !== props.bookId) stop();
   }, [playingBook, props.bookId, stop]);
 
-  const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
+  const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? withEink({ ...s, ...patch }) : s));
 
   // Read it rewritten (M17): a change here is the account's view too (also on the Account page), so every
   // book and device opens in it. Shown at once; if it cannot be saved, it still holds in this reader.
@@ -2694,7 +2743,19 @@ export function Reader(props: {
               <>
             <fieldset className={styles.group}>
               <legend>Layout</legend>
-              <Segment value={settings.flow} options={[["paginated", "Pages"], ["scrolled", "Scroll"]]} onChange={(flow) => update({ flow })} />
+              <Segment
+                value={settings.flow}
+                options={[
+                  ["paginated", "Pages"],
+                  ["scrolled", "Scroll", settings.eink],
+                ]}
+                onChange={(flow) => update({ flow })}
+              />
+              {settings.eink ? (
+                <p className={styles.hint} data-testid="eink-scroll-note">
+                  E-ink screens smear while scrolling, so E-ink reads in Pages.
+                </p>
+              ) : null}
             </fieldset>
             <fieldset className={styles.group}>
               <legend>Width</legend>
@@ -2811,6 +2872,17 @@ export function Reader(props: {
               </>
             )}
             <fieldset className={styles.group}>
+              <legend>Screen</legend>
+              <label className={styles.check}>
+                <input type="checkbox" checked={settings.eink} onChange={(e) => update({ eink: e.target.checked })} />
+                E-ink (a paper-like screen, such as a Boox or a Kindle)
+              </label>
+              <p className={styles.hint}>
+                Black on white, nothing that moves or fades, and highlights drawn as lines under the words. Kept on this device
+                only.
+              </p>
+            </fieldset>
+            <fieldset className={styles.group}>
               <legend>Theme</legend>
               <Segment
                 className={styles.themeChoices}
@@ -2819,8 +2891,9 @@ export function Reader(props: {
                 onChange={(theme) => update({ theme })}
               />
               <p className={styles.hint}>
-                North Window is cool daylight with a teal mark. Private Press is bright paper with a red mark. Calfskin is warm
-                hide with a gold mark.
+                {settings.eink
+                  ? "With E-ink on, every theme is black on white, and Night is white on black."
+                  : "North Window is cool daylight with a teal mark. Private Press is bright paper with a red mark. Calfskin is warm hide with a gold mark."}
               </p>
             </fieldset>
             {props.fileType === "pdf" ? (

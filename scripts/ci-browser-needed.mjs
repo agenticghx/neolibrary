@@ -79,6 +79,8 @@ const PROJECT_SLICE = {
   covers: "behavior",
   // M26 R3: the focus session with a question; a branch off `stats` too.
   focus: "behavior",
+  // M42 S1: the E-ink reading setting, as a reader of its own; a branch off `stats` too.
+  eink: "behavior",
   // M34: the open shelf, as the owner and as a visitor; a branch off `stats` too.
   "open-shelf": "behavior",
   // M34 S4: bring your own key; a branch off `stats` too.
@@ -344,7 +346,7 @@ export const BROWSER_GROUPS = {
   },
   branches: {
     support: ["flows", "uploads"],
-    targets: ["review", "covers", "own-keys", "focus", "shared-papers"],
+    targets: ["review", "covers", "own-keys", "eink", "focus", "shared-papers"],
   },
   readalong: {
     support: ["flows", "uploads", "reader"],

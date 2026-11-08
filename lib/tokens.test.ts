@@ -19,6 +19,10 @@ const themes = {
   north: themeBlock("north"),
   press: themeBlock("press"),
   calfskin: themeBlock("calfskin"),
+  // M42 S1: E-ink, black on white and white on black (Night). Greys only, so a pair that passes here passes on a
+  // screen that can show nothing else.
+  eink: themeBlock("eink"),
+  einkNight: themeBlock("eink-night"),
 };
 
 const pairs: [fg: string, bg: string, min: number][] = [
@@ -50,6 +54,8 @@ describe.each([
   ["north", themes.north],
   ["press", themes.press],
   ["calfskin", themes.calfskin],
+  ["eink", themes.eink],
+  ["eink night", themes.einkNight],
 ])("%s theme colour tokens", (_name, tokens) => {
   it.each(pairs)("%s on %s reaches %s:1", (fg, bg, min) => {
     expect(tokens[fg], `missing --${fg}`).toBeDefined();
@@ -67,6 +73,8 @@ describe.each([
   ["north", themes.north],
   ["press", themes.press],
   ["calfskin", themes.calfskin],
+  ["eink", themes.eink],
+  ["eink night", themes.einkNight],
 ])("%s reading calendar shades", (_name, tokens) => {
   const steps = ["paper-sunken", "heat-1", "heat-2", "heat-3", "heat-4"];
   it("each step stands further from the page than the one before", () => {
@@ -233,5 +241,25 @@ describe("reading surfaces stay on solid paper", () => {
     const css = read("../components/player/MiniPlayer.module.css");
     expect(block(css, ".bar")).toContain("background-color: var(--panel);");
     expect(block(css, selector)).toContain("background-color: var(--paper);");
+  });
+});
+
+// M42 S1: E-ink sets every colour a theme sets (so no colour of the theme underneath shows through) and the highlight
+// colours too (badges are greys on e-ink), and only greys: a colour an e-ink screen cannot show would be a guess.
+describe.each([
+  ["eink", themes.eink],
+  ["eink night", themes.einkNight],
+])("%s colours", (_name, tokens) => {
+  it("defines every colour a theme does, and the highlight colours", () => {
+    const missing = Object.keys(light).filter((k) => !k.startsWith("figure-") && tokens[k] === undefined);
+    expect(missing).toEqual([]);
+  });
+  it("uses greys only", () => {
+    // #rgb, #rgba, #rrggbb or #rrggbbaa: red, green and blue the same.
+    const isGrey = (v: string) => {
+      const hex = v.length <= 5 ? [...v.slice(1, 4)].map((c) => c + c).join("") : v.slice(1, 7);
+      return hex.slice(0, 2) === hex.slice(2, 4) && hex.slice(2, 4) === hex.slice(4, 6);
+    };
+    expect(Object.entries(tokens).filter(([, v]) => !isGrey(v))).toEqual([]);
   });
 });

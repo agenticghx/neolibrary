@@ -120,13 +120,15 @@ export default defineConfig({
     { name: "open-shelf", testMatch: /\/open-shelf\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     // 18c. Bring your own key (M34 S4): a reader of its own asks for AI answers with a key kept in its browser; a branch off stats.
     { name: "own-keys", testMatch: /\/own-keys\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
+    // 18c2. The E-ink reading setting (M42 S1): a reader of its own; a branch off stats.
+    { name: "eink", testMatch: /\/eink\.spec\.ts$/, dependencies: ["stats"], use: { ...desktop } },
     // 18d. Shared papers (M41 R3c): a reader of its own sees and reads the owner's paper; the owner stops sharing it.
-    // It runs after the other projects that make a reader of their own (review, covers, own-keys, focus): a paper
+    // It runs after the other projects that make a reader of their own (review, covers, own-keys, focus, eink): a paper
     // marked while they run would be shared into their readers' libraries. The paper is removed again at the end.
     {
       name: "shared-papers",
       testMatch: /\/shared-papers\.spec\.ts$/,
-      dependencies: ["review", "covers", "open-shelf", "own-keys", "focus"],
+      dependencies: ["review", "covers", "open-shelf", "own-keys", "focus", "eink"],
       use: { ...desktop },
     },
     // 19. A focus session with a question (M26 R3): a reader of its own, with the browser's clock controlled; a branch off stats.

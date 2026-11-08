@@ -318,10 +318,10 @@ describe("browser groups (one CI machine each)", () => {
 
   it("branches wait on uploads, not on stats, and shared papers still wait on the other branches", async () => {
     const projects = applyBrowserGroup(await allProjects(), "branches");
-    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "review", "covers", "own-keys", "shared-papers", "focus"]);
+    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "review", "covers", "own-keys", "eink", "shared-papers", "focus"]);
     expect(depsOf(projects, "flows")).toEqual(["setup"]);
-    for (const name of ["review", "covers", "own-keys", "focus"]) expect(depsOf(projects, name)).toEqual(["uploads"]);
-    expect(depsOf(projects, "shared-papers")).toEqual(["review", "covers", "own-keys", "focus"]);
+    for (const name of ["review", "covers", "own-keys", "focus", "eink"]) expect(depsOf(projects, name)).toEqual(["uploads"]);
+    expect(depsOf(projects, "shared-papers")).toEqual(["review", "covers", "own-keys", "focus", "eink"]);
   });
 
   it("the audiobook and WebKit groups wait on reader (its PDF); narration still follows the Chromium audiobook pass", async () => {

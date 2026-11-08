@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build M42 S1, the E-ink switch in Aa (docs/eink-reading-plan.md).
+next_action: M42 S1 PR: merge when green; then S2 (E-ink on every page).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -18,6 +18,8 @@ people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
 
 ## Exact next steps
+
+Written 2026-11-08 12:09 (laptop clock, from `date`). **M42 S1, the E-ink switch in Aa, is built and verified** (branch `m42-eink-setting`): greys-only colours, nothing moves, blurs or casts a shadow, Pages only, highlights as ink underlines, the ruler as a bar. No migration. Next: 1. PR; merge when the four checks are green (it deploys itself). 2. S2: E-ink on every page, known before the first paint, including the command palette. 3. S4 and S5 when the Boox arrives (Samuel 2026-11-08: "i'll go for boox").
 
 Written 2026-11-08 08:51 (laptop clock, from `date`). **M42 E-ink reading mode is planned, not started** (`docs/plan.md` M42, detail in `docs/eink-reading-plan.md`; branch `m42-eink-reading`; Samuel: "yep, plan the e-ink reading mode as suggested"). Docs and ledger only, no code, no migration. Next: 1. PR; merge when the four checks are green (a docs-only merge does not deploy). 2. Build S1, the E-ink switch in Aa, test it in Chrome on a computer; S2 and S3 after it. 3. S4 and S5 wait for a tablet: Open unknowns row 34 (which one to buy) is Samuel's and is never closed by default, as it is about money.
 
@@ -363,6 +365,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 12:09 · Claude Opus 5.5 (laptop) · M42 S1 verified: full check, browser test, five mutations
+- **Done:** M42 S1 (the E-ink switch in Aa) verified on branch m42-eink-setting. npm run check passes; the E-ink browser test passes; each of five mutations (durations not zeroed, panel shadow kept, highlight tinted, ruler bar 0 px, Scroll offered) fails it at the line meant to catch it. Screenshots looked at. LEARNING_LOG iteration 151.
+- **Key paths:** e2e/eink.spec.ts; app/tokens.css; app/(reader)/books/[id]/read/{settings.ts,Reader.tsx,reader.module.css}; LEARNING_LOG.md; screenshots/eink-{reader,settings}-{desktop,phone}-{light,dark}.png (not committed)
+- **Commands that worked:** npm run check -> 1415 passed, 2 skipped; npx playwright test --project setup --project eink --no-deps --ignore-snapshots --workers=1 -> 2 passed (13.9s); mutations: each '1 failed' at lines 142, 142, 143, 155, 145
+- **Known issues / blockers:** The rest of the browser suite was not run on the Mac; CI runs it. The change to the other readers is a 0 px ruler border and a 0 px shift by default, and the highlight drawing unchanged with E-ink off.
+- **Exact next steps:** 1. PR; merge when the four checks are green; it deploys itself (no migration). 2. M42 S2: E-ink on every page, known before the first paint, including the command palette. 3. S4 and S5 when the Boox arrives.
+
+### 2026-11-08 12:06 · Claude Opus 5.5 (laptop) · M42 S1 built: the E-ink switch in Aa (not yet a PR)
+- **Done:** Built M42 S1 on branch m42-eink-setting (Samuel: 'go ahead' with step 1). Aa > Screen > E-ink: the reader element gets theme-eink (theme-eink-night for Night or Auto on a dark device), a greys-only token set in app/tokens.css with every duration 0, no blur, no shadows, solid glass with an ink edge; Pages only (withEink in settings.ts; Scroll greyed out with a note); highlights drawn as ink underlines whose line tells the colour (sage solid, amber dashed, rose dotted, sky double); the ruler a 3 px ink bar left of the lines (tokens --ruler-bar, --ruler-bar-shift); the place marked after a layout switch a still ink outline. New browser test e2e/eink.spec.ts (a reader of its own; project eink, a branch off stats, before shared-papers). Plan S1 rewritten to match what was built; the command palette (outside the reader element) moved to S2's list.
+- **Key paths:** app/tokens.css; app/(reader)/books/[id]/read/{settings.ts,Reader.tsx,reader.module.css,settings.test.ts}; lib/tokens.test.ts; e2e/eink.spec.ts; playwright.config.ts; scripts/ci-browser-needed.mjs; lib/ci-browser-needed.test.ts; docs/eink-reading-plan.md
+- **Commands that worked:** npx vitest run lib/tokens.test.ts 'app/(reader)/books/[id]/read/settings.test.ts' -> 339 + settings tests passed; npx vitest run lib/ci-browser-needed.test.ts -> 29 passed; npx playwright test --project setup --project eink --no-deps --ignore-snapshots --workers=1 -> 2 passed (12.3s, before the ruler bar moved from :global CSS to tokens); npx stylelint '**/*.css' -> clean
+- **Known issues / blockers:** npm run check was still running when this entry was written. The browser test has not been re-run since the ruler bar moved to tokens. Mutation checks (one rule removed at a time) not run yet; script ready in the session scratchpad. First browser run failed only because setup and eink ran in parallel (no admin session yet): use --workers=1.
+- **Exact next steps:** 1. Finish npm run check; re-run the eink browser test. 2. Run the five mutations (durations, panel shadow, highlight tint, ruler bar width, Scroll offered) and record that each fails the test. 3. LEARNING_LOG iteration; commit; PR with the screenshots (screenshots/eink-*.png); merge when the four checks are green. 4. Then S2 (E-ink outside the reader, known before first paint).
 
 ### 2026-11-08 11:37 · Claude Opus 5.5 (laptop) · M42: Samuel picks a Boox (row 34 answered)
 - **Done:** Recorded Samuel's answer to Open unknowns row 34: the e-ink tablet for M42 S4 and S5 is a Boox ('i'll go for boox'). Decisions line added; the plan's Open questions updated. Model not named yet.
