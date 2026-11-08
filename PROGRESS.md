@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Aa > E-ink (live 611cf81); next build: M42 S2.
+next_action: Build M42 S2: E-ink on every page, known before the first paint.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 14:06 · Claude Opus 5.5 (laptop) · Checkpoint: M42 S1 (Aa > E-ink) live at 611cf81; S2 next
+- **Done:** M42 S1 merged (#309, 611cf81) and live on both addresses; the plan, the Boox answer (#308) and the deploy record (69a8a46b) are on main.
+- **Key paths:** docs/handoffs/2026-11-08-1406-m42-s1-eink-live.md (laptop only, gitignored); docs/eink-reading-plan.md; e2e/eink.spec.ts; app/tokens.css
+- **Commands that worked:** npm run check -> 1415 passed; npx playwright test --project setup --project eink --no-deps --ignore-snapshots --workers=1 -> 2 passed; curl /api/health on both addresses -> 611cf81
+- **Known issues / blockers:** Not tried signed in on the live site, nor on an e-ink screen. The Boox model is not named yet.
+- **Exact next steps:** 1. M42 S2 in a new worktree from origin/main (branch m42-eink-everywhere): the E-ink flag readable at first paint, so Home, the library, Notes, Help and the command palette follow it. 2. S3: Listen by paragraph. 3. S4 and S5 when the Boox arrives.
 
 ### 2026-11-08 13:15 · Claude Opus 5.5 (laptop) · Live: 611cf81 (#309 Aa > E-ink, M42 S1)
 - **Done:** PR #309 merged as 611cf81 (2026-11-08 17:50 UTC) after all checks were green on its second run; deploy.yml deployed it (run 42508436257, success, 7m24s). No migration.
