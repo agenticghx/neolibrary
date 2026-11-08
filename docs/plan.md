@@ -1869,6 +1869,43 @@ Open unknowns row 33; it decides how much of R2 is built.
   open cannot be told for certain in the print). Known limit: most figures stay as
   printed; a redraw is shown only when every check agrees.
 
+### M42 · E-ink reading mode (Samuel, 2026-11-08)
+
+Written for Samuel and for the sessions that build it. Samuel asked how he
+would design a reading device of his own, "like Kindle" but open and made
+for study. The advice was to run Neolibrary on an e-ink tablet that can
+already be bought (a Boox or a Daylight: Android tablets with a full
+browser) and use it every day for a month before planning hardware of our
+own. He said "yep, plan the e-ink reading mode as suggested". E-ink is the
+paper-like screen of a Kindle. It shows greys, redraws slowly, and leaves
+faint ghosts of the old picture when things move. The detail, with the code
+each step touches, is in `docs/eink-reading-plan.md`. **Recorded, not
+started.** No migration. Hardware of our own (a prototype board, a factory)
+is left out on purpose: S5 decides whether it is ever worth planning.
+
+- **S1 · The E-ink setting in the reader.** A switch in Aa, kept on the
+  device. It makes paper white and ink black, sets every animation to 0,
+  takes away glass blur and shadows, keeps the flow on Pages, draws the
+  ruler and paragraph focus as a margin bar rather than a grey veil, and
+  draws highlights as underlines. *Done when:* browser tests find no
+  animation, no blur or shadow and the E-ink colours with it on, and fail
+  when a rule is removed; the contrast test passes in grey.
+- **S2 · E-ink outside the reader.** The setting reaches Home, the library,
+  Notes and Help, and is known before the first paint (no flash of the full
+  design). *Done when:* `data-eink` is on the first HTML of Home after it is
+  turned on in the reader, and the carousel does not move.
+- **S3 · Listen on e-ink.** The voice marks the paragraph, not each word.
+  *Done when:* a fake-voice test counts one mark change per paragraph.
+- **S4 · The device's own buttons.** A page that names the keys a tablet
+  sends; map the ones missing; how to add the site to the home screen.
+  *Done when:* every button on Samuel's device that sends a key turns the
+  page. Needs the device (Open unknowns row 34).
+- **S5 · A month of daily reading.** The test, set before the month: "I study
+  for 2 hours with no distraction, and every note I write lands on the right
+  sentence." What software can fix becomes pull requests. What it cannot
+  goes in the plan's "Hardware gaps" list. *Done when:* the plan says
+  whether a device of his own would add anything.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
