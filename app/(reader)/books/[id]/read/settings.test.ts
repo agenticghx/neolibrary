@@ -69,6 +69,22 @@ describe("reading settings on this device", () => {
     expect(loadSettings().focus).toBe("off");
   });
 
+  it("opens with a one-line ruler, keeps 2 or 3 lines, and ignores any other height (Samuel, 2026-11-08)", () => {
+    const storage = memoryStorage();
+    globalThis.localStorage = storage;
+    expect(DEFAULT_SETTINGS.rulerLines).toBe(1);
+    storage.setItem("neolibrary.reader.v1", JSON.stringify({ focus: "ruler" }));
+    expect(loadSettings().rulerLines).toBe(1);
+    for (const rulerLines of [2, 3, 1] as const) {
+      saveSettings({ ...DEFAULT_SETTINGS, focus: "ruler", rulerLines });
+      expect(loadSettings().rulerLines).toBe(rulerLines);
+    }
+    for (const bad of [0, 4, "3", null]) {
+      storage.setItem("neolibrary.reader.v1", JSON.stringify({ rulerLines: bad }));
+      expect(loadSettings().rulerLines).toBe(1);
+    }
+  });
+
   it("keeps North Window, Private Press and Calfskin, and ignores a theme it does not know", () => {
     const storage = memoryStorage();
     globalThis.localStorage = storage;

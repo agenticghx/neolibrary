@@ -30,6 +30,11 @@ export type ReaderSettings = {
    */
   focus: FocusMode;
   /**
+   * How many lines the ruler covers (Samuel, 2026-11-08: "focus on 3 lines at a time, not one", so the eye moves on
+   * less often): the line tapped and the ones after it.
+   */
+  rulerLines: RulerLines;
+  /**
    * M41 R5: a paper's author–year citations as written, as numbers in the reference list's order ("[12]"), or not
    * shown. Only offered for a book whose reference list and citations were found (citations.ts).
    */
@@ -72,6 +77,8 @@ export const CITATION_MODES: readonly CitationMode[] = ["as-written", "numbered"
 
 export type FocusMode = "off" | "ruler" | "paragraph";
 export const FOCUS_MODES: readonly FocusMode[] = ["off", "ruler", "paragraph"];
+export type RulerLines = 1 | 2 | 3;
+export const RULER_LINES: readonly RulerLines[] = [1, 2, 3];
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
   flow: "paginated",
@@ -82,6 +89,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   theme: "auto",
   dimPdf: true,
   focus: "off",
+  rulerLines: 1,
   citations: "as-written",
   figures: "redrawn",
   width: "comfortable",
@@ -104,6 +112,7 @@ export function loadSettings(): ReaderSettings {
       theme: isTheme(raw.theme) ? raw.theme : "auto",
       dimPdf: raw.dimPdf !== false, // on unless turned off; settings saved before it existed get it on
       focus: FOCUS_MODES.includes(raw.focus) ? raw.focus : "off", // off for settings saved before it existed
+      rulerLines: RULER_LINES.includes(raw.rulerLines) ? raw.rulerLines : 1,
       citations: CITATION_MODES.includes(raw.citations) ? raw.citations : "as-written",
       figures: FIGURE_MODES.includes(raw.figures) ? raw.figures : "redrawn",
       width: WIDTH_MODES.includes(raw.width) ? raw.width : "comfortable",

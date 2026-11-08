@@ -57,7 +57,7 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, WIDTH_PX, withWidth } from "./settings";
+import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, WIDTH_PX, withWidth } from "./settings";
 import { clearFocus, firstLetter, firstLetterInside, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Box, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
@@ -532,6 +532,7 @@ export function Reader(props: {
   const [downloaded, setDownloaded] = useState<string | null>(null);
   // Focus (M21, EPUBs): the mode now, the paragraph read aloud, and where the mouse rests (in the reader's coordinates).
   const focusRef = useRef<FocusMode>("off");
+  const rulerLinesRef = useRef<RulerLines>(1);
   // M41 R5: fixed for the page's life (it comes with the page), read where the book is opened.
   const citationsRef = useRef(props.citations);
   // M41 R6: the redrawn figures (fixed for the page's life) and the mode now, read as each chapter loads.
@@ -566,7 +567,7 @@ export function Reader(props: {
   const lens = useRef<Box | null>(null);
   const lensAnchor = useRef<{ x: number; y: number } | null>(null);
   // The line the band is on, in its page's own coordinates: in Pages the band follows it when the page moves.
-  const lensLine = useRef<{ doc: Document; band: Box } | null>(null);
+  const lensLine = useRef<{ doc: Document; band: Box & { lead?: number } } | null>(null);
   const lensPlace = useRef<string | null>(null);
   // The layout last laid out (Pages or Scroll, One or Two pages), and the place to mark once a switch has settled.
   const laidOut = useRef<string | null>(null);
@@ -768,13 +769,14 @@ export function Reader(props: {
    * Shows the ruler's band at a place on screen (the window's coordinates), or hides it (null). `anchor`: the reader
    * put it there (a tap, the mouse, the first line), so it is the point the ruler is held at from now on.
    */
-  const showLens = useCallback((at: Box | null, anchor = false, glide = true) => {
+  const showLens = useCallback((at: Box | null, anchor = false, glide = true, lead?: number) => {
     lens.current = at;
     if (!at) {
       lensAnchor.current = null;
       lensLine.current = null;
     }
-    else if (anchor) lensAnchor.current = { x: at.left + 8, y: (at.top + at.bottom) / 2 };
+    // Held at its first line (`lead`): with a ruler of two or three lines, the line the reader put it on.
+    else if (anchor) lensAnchor.current = { x: at.left + 8, y: lead ?? (at.top + at.bottom) / 2 };
     const el = lensEl.current;
     const clip = el?.parentElement?.getBoundingClientRect();
     if (!el || !clip) return;
@@ -809,11 +811,12 @@ export function Reader(props: {
    * false to jump (the band following its line as the page moves).
    */
   const showLensOn = useCallback(
-    (doc: Document, band: Box, anchor = false, glide = true) => {
+    (doc: Document, band: Box & { lead?: number }, anchor = false, glide = true) => {
       const frame = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
       if (!frame) return;
       lensLine.current = { doc, band };
-      showLens({ left: frame.left + band.left, right: frame.left + band.right, top: frame.top + band.top, bottom: frame.top + band.bottom }, anchor, glide);
+      const lead = band.lead === undefined ? undefined : frame.top + band.lead;
+      showLens({ left: frame.left + band.left, right: frame.left + band.right, top: frame.top + band.top, bottom: frame.top + band.bottom }, anchor, glide, lead);
     },
     [showLens],
   );
@@ -1027,6 +1030,7 @@ export function Reader(props: {
       try {
         const initial = loadSettings();
         focusRef.current = props.fileType === "pdf" ? "off" : initial.focus;
+        rulerLinesRef.current = initial.rulerLines;
         await import("foliate-js/view.js");
         const blob = await downloadBook(props.fileUrl, {
           stallMs: OPEN_TIMEOUT_MS,
@@ -1355,7 +1359,7 @@ export function Reader(props: {
             const View = doc.defaultView as (Window & typeof globalThis) | null;
             if (View?.ResizeObserver) new View.ResizeObserver(() => markWideTables(doc)).observe(doc.body);
             // Focus (M21): the line or paragraph under the mouse as it moves (once a frame), or where a finger taps.
-            setFocusMode(doc, focusRef.current);
+            setFocusMode(doc, focusRef.current, rulerLinesRef.current);
             let frame = 0;
             let at = { x: 0, y: 0 };
             const follow = (e: PointerEvent, now: boolean) => {
@@ -1536,11 +1540,12 @@ export function Reader(props: {
     // Focus (M21): EPUBs only. A new mode is set on every page shown; a new size or layout moves the lines, so the
     // band and the dimming are put back once the page is laid out again.
     const focus: FocusMode = props.fileType === "pdf" ? "off" : settings.focus;
-    if (focusRef.current !== focus) {
+    if (focusRef.current !== focus || rulerLinesRef.current !== settings.rulerLines) {
       focusRef.current = focus;
+      rulerLinesRef.current = settings.rulerLines;
       if (focus !== "ruler") showLens(null);
       try {
-        for (const { doc } of v?.renderer?.getContents() ?? []) if (doc?.documentElement) setFocusMode(doc, focus);
+        for (const { doc } of v?.renderer?.getContents() ?? []) if (doc?.documentElement) setFocusMode(doc, focus, settings.rulerLines);
       } catch {
         // No pages yet: each page sets its mode as it loads.
       }
@@ -2757,10 +2762,21 @@ export function Reader(props: {
                 onChange={(focus) => update({ focus })}
               />
               <p className={styles.hint}>
-                Ruler: a soft band sits behind the line under your pointer, or the line you tap. Paragraph: the paragraph
-                you are on stays clear and the rest dims.
+                Ruler: a soft band sits on the line under your pointer, or the line you tap; in Scroll it stays put and the
+                text moves under it. Paragraph: the paragraph you are on stays clear and the rest dims.
               </p>
             </fieldset>
+            {settings.focus === "ruler" ? (
+              <fieldset className={styles.group}>
+                <legend>Ruler height</legend>
+                <Segment
+                  value={String(settings.rulerLines) as "1" | "2" | "3"}
+                  options={[["1", "1 line"], ["2", "2 lines"], ["3", "3 lines"]]}
+                  onChange={(n) => update({ rulerLines: Number(n) as RulerLines })}
+                />
+                <p className={styles.hint}>Two or three lines in the band at once: the line you tap and the ones after it.</p>
+              </fieldset>
+            ) : null}
             {props.figures?.length ? (
               <fieldset className={styles.group}>
                 <legend>Figures</legend>

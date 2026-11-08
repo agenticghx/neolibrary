@@ -2220,6 +2220,40 @@ test.describe("Focus on a touch screen", () => {
   });
 });
 
+// Samuel, 2026-11-08: a ruler that covers three lines at a time, so the eye moves on less often.
+test("Focus: the ruler can cover three lines: the line tapped and the two after it are clear, the next is dimmed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await jekyllWithFocus(page, "Ruler");
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  const height = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Ruler height" });
+  await height.getByRole("button", { name: "3 lines", exact: true }).click();
+  await expect(height.getByRole("button", { name: "3 lines", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await page.mouse.move(5, 5);
+  // A paragraph with at least four full lines on screen.
+  const all = (await paragraphsOnScreen(page)).flatMap((p) => p.lines).sort((a, b) => a.y - b.y);
+  const start = all.findIndex((l, i) => i + 3 < all.length && all[i + 3].y - l.y < 120 && l.y > 150);
+  expect(start, "four lines in a row on screen").toBeGreaterThanOrEqual(0);
+  const [l1, l2, l3, l4] = all.slice(start, start + 4);
+  await page.mouse.move(l1.left + 40, l1.y);
+  await expect
+    .poll(async () => {
+      const band = (await focusShown(page))?.band;
+      return !!band && band.top <= l1.y && band.bottom >= l3.y && band.bottom < l4.y;
+    }, { message: "the band covers the line under the pointer and the two after it" })
+    .toBe(true);
+  const left = (l: { left: number; y: number }) => ({ x: l.left + 40, y: l.y });
+  expect((await focusShown(page, [left(l1), left(l2), left(l3), left(l4)]))?.dimmed).toEqual([false, false, false, true]);
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: "screenshots/reader-focus-ruler-3-lines-desktop-light.png" });
+  // Back to one line for the tests after this one (the choice is kept on this device).
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await height.getByRole("button", { name: "1 line", exact: true }).click();
+  await page.keyboard.press("Escape");
+});
+
 test("Focus: paragraph focus dims every paragraph but the one under the pointer, or the first on the page from the keyboard", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });

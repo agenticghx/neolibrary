@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build M42 S1, the E-ink switch in Aa (docs/eink-reading-plan.md).
+next_action: Merge #305, then the ruler-height PR; Samuel tries both on his iPad.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -363,6 +363,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-08 09:12 · Claude (Opus 5.5, laptop) · M21: the ruler can cover 2 or 3 lines (Aa > Ruler height)
+- **Done:** Samuel 2026-11-08: make the ruler cover 3 lines at a time, not one. Branch m21-ruler-lines: setting rulerLines (1, 2, 3; default 1), Aa > Ruler height shown with Focus Ruler; focus.ts linesAfter adds the next lines in the same column, into the next paragraph; the band is held by its first line (lead) so the stationary ruler does not creep.
+- **Key paths:** app/(reader)/books/[id]/read/focus.ts; settings.ts; settings.test.ts; Reader.tsx; e2e/reader.spec.ts; LEARNING_LOG.md Iteration 149
+- **Commands that worked:** PORT=3417 npx playwright test --project reader --no-deps -g Focus --workers 1 --ignore-snapshots (6 passed); npm run check (1362 passed); ruler3-probe.mjs in WebKit at iPad size
+- **Known issues / blockers:** Built on main before #305 (Names in the sidebar): rebase after #305 merges (ledger and Reader.tsx).
+- **Exact next steps:** 1. After #305 merges, rebase onto main, push, PR; merge when green (deploys itself, no migration). 2. Samuel tries Aa > Ruler height > 3 lines on his iPad, in Scroll.
 ### 2026-11-08 09:57 · Claude Opus 5.5 (laptop) · Checkpoint: M42 E-ink reading mode planned and merged (#306)
 - **Done:** M42 plan merged as ead995ac (PR #306, 2026-11-08 14:06 UTC); all four checks green; deploy skipped (docs only). No M42 code yet.
 - **Key paths:** docs/handoffs/2026-11-08-0956-m42-eink-plan.md (laptop only, gitignored); docs/eink-reading-plan.md; docs/plan.md (M42)

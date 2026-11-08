@@ -10,13 +10,15 @@
  * moves the text"). It takes no clicks, so selecting text, notes and highlights work as before. The spoken word is
  * painted over the dimming (its highlight has the higher priority).
  */
-import type { FocusMode } from "./settings";
+import type { FocusMode, RulerLines } from "./settings";
 
 /** The blocks that count as a paragraph: the innermost one around the pointer is the one in front of the reader. */
 export const FOCUS_BLOCKS = "p, li, blockquote, dd, dt, h1, h2, h3, h4, h5, h6, pre, figcaption, td, th";
 const DIM = "nl-dim";
 
 export type Box = { left: number; top: number; right: number; bottom: number };
+/** The ruler's band, with the middle of its first line (`lead`): the line the reader put it on. */
+export type Band = Box & { lead: number };
 
 /**
  * The lines of a block inside one column, from the boxes of its text (Range.getClientRects): boxes whose middles
@@ -81,16 +83,22 @@ export function nearest<T extends Box>(boxes: T[], x: number, y: number): T | nu
 type FrameWindow = Window & { CSS: typeof CSS; Highlight: typeof Highlight };
 type Caret = { node: Node; offset: number };
 /** What is in focus on one page, so a pointer that stays on the same line does no work. */
-const shown = new WeakMap<Document, { block: Element; line: Box | null; band?: Box }>();
+const shown = new WeakMap<Document, { block: Element; line: Box | null; band?: Band }>();
 
-/** Turns Focus on or off on one page. Whatever was in focus is cleared; Reader.tsx puts it back where it belongs. */
-export function setFocusMode(doc: Document, mode: FocusMode) {
+/**
+ * Turns Focus on or off on one page, and sets how many lines the ruler covers. Whatever was in focus is cleared;
+ * Reader.tsx puts it back where it belongs.
+ */
+export function setFocusMode(doc: Document, mode: FocusMode, lines: RulerLines = 1) {
   const root = doc.documentElement;
   if (!root) return;
   if (mode === "off") root.removeAttribute("data-nl-focus");
   else root.setAttribute("data-nl-focus", mode);
+  root.setAttribute("data-nl-ruler-lines", String(lines));
   clearFocus(doc);
 }
+
+const linesOf = (doc: Document) => Math.min(3, Math.max(1, Number(doc.documentElement?.getAttribute("data-nl-ruler-lines")) || 1));
 
 export function clearFocus(doc: Document) {
   shown.delete(doc);
@@ -118,7 +126,7 @@ export function blockAt(doc: Document, x: number, y: number): Element | null {
  * not on text, and then what is in focus stays. `dimIfNone`: when the point is not on text, dim the whole page
  * instead (the ruler held still while a gap between paragraphs scrolls under it).
  */
-export function focusAt(doc: Document, x: number, y: number, dimIfNone = false): Box | null {
+export function focusAt(doc: Document, x: number, y: number, dimIfNone = false): Band | Box | null {
   const mode = modeOf(doc);
   if (mode === "off") return null;
   const block = blockAt(doc, x, y);
@@ -139,14 +147,80 @@ export function focusAt(doc: Document, x: number, y: number, dimIfNone = false):
   range.selectNodeContents(block);
   const line = lineAt(linesIn(Array.from(range.getClientRects()), column), y);
   if (!line) return null;
-  // The band fills the line's height (the text's boxes are shorter than the line), across the column.
-  const lineHeight = parseFloat(doc.defaultView?.getComputedStyle(block).lineHeight ?? "") || (line.bottom - line.top) * 1.3;
-  const pad = Math.max(0, (lineHeight - (line.bottom - line.top)) / 2);
-  const band = { left: column.left, right: column.right, top: line.top - pad, bottom: line.bottom + pad };
-  if (was?.block === block && was.line && was.line.top === line.top && was.line.left === line.left) return was.band ?? band;
+  if (was?.block === block && was.line && was.band && was.line.top === line.top && was.line.left === line.left) return was.band;
+  // The line, and the ones after it in the same column when the ruler covers more than one (into the next paragraphs).
+  const rows = [{ block, line }, ...linesAfter(doc, block, column, line, linesOf(doc) - 1)];
+  const last = rows[rows.length - 1];
+  // The band fills the lines' height (the text's boxes are shorter than a line), across the column.
+  const pad = (b: Element, l: Box) => {
+    const lineHeight = parseFloat(doc.defaultView?.getComputedStyle(b).lineHeight ?? "") || (l.bottom - l.top) * 1.3;
+    return Math.max(0, (lineHeight - (l.bottom - l.top)) / 2);
+  };
+  const band: Band = {
+    left: column.left,
+    right: column.right,
+    top: line.top - pad(block, line),
+    bottom: last.line.bottom + pad(last.block, last.line),
+    lead: (line.top + line.bottom) / 2,
+  };
   shown.set(doc, { block, line, band });
-  dimAllBut(doc, lineRange(doc, block, line));
+  const keep = lineRange(doc, block, line);
+  if (last.line !== line) {
+    const end = lineRange(doc, last.block, last.line);
+    try {
+      keep.setEnd(end.endContainer, end.endOffset);
+    } catch {
+      // Leave the first line alone in focus.
+    }
+  }
+  dimAllBut(doc, keep);
   return band;
+}
+
+/**
+ * Up to `count` lines after `line` in the same column (the column's horizontal extent): the rest of its paragraph,
+ * then the paragraphs after it. Stops at the foot of the column (the next lines are in another column or on the next
+ * page).
+ */
+function linesAfter(doc: Document, block: Element, column: Box, line: Box, count: number): { block: Element; line: Box }[] {
+  const out: { block: Element; line: Box }[] = [];
+  if (count <= 0) return out;
+  const inColumn = (l: Box) => l.left >= column.left - 2 && l.right <= column.right + 2;
+  const linesOfBlock = (b: Element) => {
+    const range = doc.createRange();
+    range.selectNodeContents(b);
+    const boxes = Array.from(range.getClientRects());
+    const span = { left: column.left, right: column.right, top: -Infinity, bottom: Infinity };
+    return linesIn(boxes, span).filter(inColumn);
+  };
+  let below = line.bottom - 1;
+  for (const l of linesOfBlock(block)) {
+    if (out.length >= count) return out;
+    if (l.top > below) {
+      out.push({ block, line: l });
+      below = l.bottom - 1;
+    }
+  }
+  // The paragraphs after it, in reading order: innermost blocks only (a blockquote's paragraphs, not the blockquote).
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT);
+  walker.currentNode = block;
+  let looked = 0;
+  for (let node = walker.nextNode() as Element | null; node && out.length < count && looked < 40; node = walker.nextNode() as Element | null) {
+    if (block.contains(node) || !node.matches(FOCUS_BLOCKS) || node.querySelector(FOCUS_BLOCKS)) continue;
+    looked++;
+    const lines = linesOfBlock(node);
+    if (!lines.length) continue;
+    // The next paragraph starts in another column or page: the column ends here.
+    if (lines[0].top <= below) return out;
+    for (const l of lines) {
+      if (out.length >= count) break;
+      if (l.top > below) {
+        out.push({ block: node, line: l });
+        below = l.bottom - 1;
+      }
+    }
+  }
+  return out;
 }
 
 const box = (b: Box): Box => ({ left: b.left, top: b.top, right: b.right, bottom: b.bottom });
