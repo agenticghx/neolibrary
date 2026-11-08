@@ -3,8 +3,8 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Names and Ruler height on his iPad (live 49312c8).
-blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
+next_action: Build M42 S1, the E-ink switch in Aa (docs/eink-reading-plan.md).
+blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
 ---
@@ -308,10 +308,11 @@ Never blocks the loop. Newest first.
 | 31 | **On a scan's pages, highlights are saved and listed in Notes but never drawn on the page** (found 2026-10-26 while building notes across the scan and its text edition): the PDF page renderer (foliate's fixed layout) has no drawing layer, so this was true before for every note made on a scan, and stays true for a note from the text edition. Such a note's "Go to" lands on its words, unmarked. Build a highlight layer for scan pages (the browser's text highlights over the page's hidden text, as the read-aloud word is lit)? Default: as now. | Samuel | none (no deadline) | closed 2026-11-01: default stands (no answer in 7 days) |
 | 32 | **Bring your own AI key (M36, `docs/plan.md`)** (Samuel, 2026-10-29: "this app should be bring your own AI API keys until we find cheap api keys for public use or from donations"). Five defaults to confirm before it is built: (1) answers one reader paid for (rewrites, Need to know, Test yourself) stay shared free with other readers of the same text; (2) keys stored encrypted with a server key held in a Railway variable, shown only as their last four characters; (3) invited readers keep using your key until M36 ships, then only your requests use it; (4) voices and pictures stay on your keys for now; (5) showcase visitors (M34) never ask for new answers. And: build it now, or after M34? Default until you say: recorded, not built. | Samuel | 2026-11-12 | open (default applies) |
 | 33 | **Papers (M41): who are they for?** Samuel alone, or also the people he invites? Asked 2026-11-02 when he agreed to the plan in `docs/plan.md` M41. It decides R3: a paper shared with invited readers needs the same sharing rules as books and a check that its file may be shared; papers for Samuel alone need neither. R1 (equations and tables) and R2 (figures) do not depend on it. | Samuel | 2026-11-16 | answered 2026-11-02: Samuel, "yes people invited should see papers". Built as M41 R3c: every title marked a paper is readable by invited readers, each with their own notes; a switch per paper stops sharing it |
-| 34 | **E-ink reading (M42): which tablet, if any, to buy?** M42 is the cheap test of a reading device of your own: Neolibrary in the browser of an e-ink tablet you can already buy, used daily for a month (`docs/eink-reading-plan.md`). Candidates: a Boox (Android, Chrome, page buttons on some models, many sizes) or a Daylight (a paper-like screen that redraws fast enough for smooth scrolling and video, Android). A Kindle's browser is too limited. S4 (the device's buttons) and S5 (the month) need the device; S1 to S3 do not. Default while open: build S1 to S3 and test them in Chrome on a computer; nothing is bought. Never closed by the seven-day rule: it is about money. | Samuel | 2026-11-22 | open (default applies) |
+| 34 | **E-ink reading (M42): which tablet, if any, to buy?** M42 is the cheap test of a reading device of your own: Neolibrary in the browser of an e-ink tablet you can already buy, used daily for a month (`docs/eink-reading-plan.md`). Candidates: a Boox (Android, Chrome, page buttons on some models, many sizes) or a Daylight (a paper-like screen that redraws fast enough for smooth scrolling and video, Android). A Kindle's browser is too limited. S4 (the device's buttons) and S5 (the month) need the device; S1 to S3 do not. Default while open: build S1 to S3 and test them in Chrome on a computer; nothing is bought. Never closed by the seven-day rule: it is about money. | Samuel | 2026-11-22 | **answered 2026-11-08: a Boox** ("i'll go for boox"). Model not named yet; S4 records it and the keys its buttons send. |
 
 ## Decisions
 
+- 2026-11-08 · M42: the e-ink tablet for S4 and S5 is a Boox (Open unknowns row 34) · by Samuel ("i'll go for boox")
 - 2026-11-08 · M42 E-ink reading mode is planned (`docs/plan.md` M42, `docs/eink-reading-plan.md`): test Neolibrary on a bought e-ink tablet for a month before planning hardware of our own · by Samuel ("yep, plan the e-ink reading mode as suggested")
 - 2026-11-08 · Row 3: the Path page stays as drawn; the two Home extras (a question, threads) stay out · default stands
 - 2026-11-08 · Row 21 (a), (c), (d): Original / Side by side / Rewritten stays one setting for every book; "Want to Read" keeps the titles not available yet; the phone reader's top bar is unchanged · default stands
@@ -362,6 +363,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 11:37 · Claude Opus 5.5 (laptop) · M42: Samuel picks a Boox (row 34 answered)
+- **Done:** Recorded Samuel's answer to Open unknowns row 34: the e-ink tablet for M42 S4 and S5 is a Boox ('i'll go for boox'). Decisions line added; the plan's Open questions updated. Model not named yet.
+- **Key paths:** PROGRESS.md (row 34, Decisions, header blockers); docs/eink-reading-plan.md (Open questions)
+- **Commands that worked:** none beyond editing
+- **Known issues / blockers:** Which Boox model is not decided; it matters for S4 (page buttons) and S5 (pen). Buyer's note given in chat: the Go 7 reportedly has page buttons, a stylus option, microphone and speaker; check Boox's own spec page before buying.
+- **Exact next steps:** 1. Merge this PR when green. 2. Build M42 S1 (the E-ink switch in Aa) in a new worktree from origin/main. 3. S4 when the Boox arrives: record its model and the keys its buttons send.
 
 ### 2026-11-08 11:30 · Claude (Opus 5.5, laptop) · Checkpoint: ruler fixed (#303/#304), On this page in the sidebar as Names (#305), ruler height 1-3 lines (#307): all live at 49312c8
 - **Done:** All three of Samuel's 2026-11-08 asks merged and deployed; /api/health says 49312c8 on both addresses. Worktrees ruler, onpage, rulerlines, mainprobe removed.
