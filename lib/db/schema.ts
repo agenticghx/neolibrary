@@ -448,6 +448,75 @@ export const xrayFacts = pgTable("xray_facts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * M43 S2: a book's genealogy (db/migrations/0039_genealogy.up.sql). A link is one thing the book says between two named
+ * people or organisations, its quote found in sections.text at [startAt, endAt); `ord` is its place in the book's list,
+ * which life events name. Links the second reading removed are kept with `removed`. generation_id is the send.
+ */
+export const genealogyLinks = pgTable("genealogy_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  generationId: uuid("generation_id")
+    .notNull()
+    .references(() => generations.id, { onDelete: "cascade" }),
+  ord: integer("ord").notNull(),
+  fromName: text("from_name").notNull(),
+  fromKind: text("from_kind").$type<GenealogyKind>().notNull(),
+  toName: text("to_name").notNull(),
+  toKind: text("to_kind").$type<GenealogyKind>().notNull(),
+  relation: text("relation").notNull(),
+  role: text("role"),
+  removed: boolean("removed").notNull().default(false),
+  verdict: text("verdict").$type<"holds" | "fix">(),
+  was: text("was"),
+  why: text("why"),
+  sectionId: text("section_id").notNull(),
+  chapterIndex: integer("chapter_index").notNull(),
+  position: integer("position").notNull(),
+  startAt: integer("start_at").notNull(),
+  endAt: integer("end_at").notNull(),
+  quote: text("quote").notNull(),
+  dateYear: integer("date_year"),
+  dateEndYear: integer("date_end_year"),
+  dateSectionId: text("date_section_id"),
+  dateStartAt: integer("date_start_at"),
+  dateEndAt: integer("date_end_at"),
+  dateQuote: text("date_quote"),
+});
+export type GenealogyKind = "person" | "organisation";
+
+/** M43 S2: one event in one person's life, in the order it happened; general-knowledge years kept in their own columns. */
+export const genealogyEvents = pgTable("genealogy_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookId: uuid("book_id")
+    .notNull()
+    .references(() => books.id, { onDelete: "cascade" }),
+  generationId: uuid("generation_id")
+    .notNull()
+    .references(() => generations.id, { onDelete: "cascade" }),
+  person: text("person").notNull(),
+  ord: integer("ord").notNull(),
+  what: text("what").notNull(),
+  withName: text("with_name").notNull(),
+  role: text("role"),
+  linkOrds: jsonb("link_ords").$type<number[]>().notNull().default([]),
+  startYear: integer("start_year"),
+  endYear: integer("end_year"),
+  dateLinkOrds: jsonb("date_link_ords").$type<number[]>().notNull().default([]),
+  basis: text("basis").$type<"stated" | "worked_out" | "ordered" | "unknown">().notNull(),
+  orderSectionId: text("order_section_id"),
+  orderStartAt: integer("order_start_at"),
+  orderEndAt: integer("order_end_at"),
+  orderQuote: text("order_quote"),
+  why: text("why"),
+  gkStartYear: integer("gk_start_year"),
+  gkEndYear: integer("gk_end_year"),
+  gkConfidence: text("gk_confidence").$type<"high" | "medium">(),
+  gkNote: text("gk_note"),
+});
+
 /** Time and words of one sitting inside one chapter (M10 (c)). */
 export type ChapterReading = { key: string; label: string; position: number; activeSeconds: number; words: number };
 

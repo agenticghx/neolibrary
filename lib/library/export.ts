@@ -1,6 +1,7 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, focusSessions, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, xrayEntries, xrayFacts, type ChapterReading, type XrayKind } from "@/lib/db/schema";
+import { annotations, audioTracks, books, readalongImports, collectionBooks, collections, focusSessions, genealogyEvents, genealogyLinks, generations, paths, pillars, questionMarks, readingSessions, reviewCards, slots, users, xrayEntries, xrayFacts, type ChapterReading, type XrayKind } from "@/lib/db/schema";
+import { RELATIONS } from "./genealogy";
 import { assertSafeKey } from "@/lib/storage";
 import { isStyle, isView } from "./levels";
 import { cleanPicture } from "./pinned";
@@ -220,6 +221,10 @@ export type LibraryExport = {
   xrayEntries?: { id: string; bookId: string; name: string; kind: XrayKind; aliases: string[]; generationId: string | null }[];
   /** M32 X3: what Claude read about each entry, with the quote each fact rests on and the AI answer it came from. */
   xrayFacts?: { id: string; bookId: string; entryId: string; generationId: string; chapterIndex: number; sectionId: string; position: number; startAt: number; endAt: number; fact: string; quote: string; createdAt: string }[];
+  /** M43 S2: each book's genealogy links (who founded, led, worked at, bought, funded or supplied whom), with their quotes and the send they came from. */
+  genealogyLinks?: (typeof genealogyLinks.$inferSelect)[];
+  /** M43 S2: each person's life events in the order they happened; general-knowledge years in their own fields. */
+  genealogyEvents?: (typeof genealogyEvents.$inferSelect)[];
   /**
    * Daily review's schedule for each card rated so far (added in M21). Since M28 each has a `cardId`: a highlight's or
    * note's id (then `annotationId` is the same), "q:<question bank id>:<number>" for a Test yourself question, or "g:<Explain it back attempt id>:<number>" for
@@ -308,6 +313,12 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         .from(xrayFacts)
         .where(inArray(xrayFacts.bookId, bookRows.map((b) => b.id)))
         .orderBy(asc(xrayFacts.bookId), asc(xrayFacts.position), asc(xrayFacts.startAt), asc(xrayFacts.id))
+    : [];
+  const genealogyLinkRows = bookRows.length
+    ? await db.select().from(genealogyLinks).where(inArray(genealogyLinks.bookId, bookRows.map((b) => b.id))).orderBy(asc(genealogyLinks.bookId), asc(genealogyLinks.ord))
+    : [];
+  const genealogyEventRows = bookRows.length
+    ? await db.select().from(genealogyEvents).where(inArray(genealogyEvents.bookId, bookRows.map((b) => b.id))).orderBy(asc(genealogyEvents.bookId), asc(genealogyEvents.person), asc(genealogyEvents.ord))
     : [];
   const reviewRows = await db.select().from(reviewCards).where(eq(reviewCards.ownerId, ownerId)).orderBy(asc(reviewCards.firstReviewedAt), asc(reviewCards.cardId));
   // Only schedules of notes and question banks the file brings (a schedule has no database link to either).
@@ -490,6 +501,8 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     })),
     xrayEntries: xrayRows,
     xrayFacts: xrayFactRows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    genealogyLinks: genealogyLinkRows,
+    genealogyEvents: genealogyEventRows,
     reviewCards: reviewRows
       .filter((r) => (r.annotationId ? exportedNotes.has(r.annotationId) : exportedSources.has(sourceOf(r.cardId) ?? "")))
       .map((r) => ({
@@ -519,6 +532,8 @@ export async function wipeLibrary(db: Db, ownerId: string) {
     await tx.delete(readalongImports).where(eq(readalongImports.ownerId, ownerId));
     await tx.delete(readingSessions).where(eq(readingSessions.ownerId, ownerId));
     await tx.delete(focusSessions).where(eq(focusSessions.ownerId, ownerId));
+    await tx.delete(genealogyEvents).where(inArray(genealogyEvents.bookId, tx.select({ id: books.id }).from(books).where(eq(books.ownerId, ownerId))));
+    await tx.delete(genealogyLinks).where(inArray(genealogyLinks.bookId, tx.select({ id: books.id }).from(books).where(eq(books.ownerId, ownerId))));
     await tx.delete(xrayFacts).where(inArray(xrayFacts.bookId, tx.select({ id: books.id }).from(books).where(eq(books.ownerId, ownerId))));
     await tx.delete(xrayEntries).where(inArray(xrayEntries.bookId, tx.select({ id: books.id }).from(books).where(eq(books.ownerId, ownerId))));
     await tx.delete(generations).where(eq(generations.ownerId, ownerId));
@@ -631,6 +646,21 @@ function checkImport(x: LibraryExport, ownerId: string) {
     if (!generationIds.has(f.generationId)) refuse("An X-ray fact came from an AI answer that is not in this file.");
     if (typeof f.fact !== "string" || typeof f.quote !== "string" || !f.quote.trim()) refuse("An X-ray fact has no quote.");
     if (!Number.isInteger(f.startAt) || !Number.isInteger(f.endAt) || f.startAt < 0 || f.endAt <= f.startAt) refuse("An X-ray fact's place in its paragraph is not a span of text.");
+  }
+  const gKinds: unknown[] = ["person", "organisation"];
+  const isSpan = (a: unknown, b: unknown) => Number.isInteger(a) && Number.isInteger(b) && (a as number) >= 0 && (b as number) > (a as number);
+  for (const l of x.genealogyLinks ?? []) {
+    if (!bookIds.has(l.bookId)) refuse("A genealogy link is for a book that is not in this file.");
+    if (!generationIds.has(l.generationId)) refuse("A genealogy link came from a reading that is not in this file.");
+    if (typeof l.fromName !== "string" || typeof l.toName !== "string" || !gKinds.includes(l.fromKind) || !gKinds.includes(l.toKind)) refuse("A genealogy link does not name two people or organisations.");
+    if (!(RELATIONS as readonly unknown[]).includes(l.relation)) refuse("A genealogy link is of a kind this library does not know.");
+    if (typeof l.quote !== "string" || !l.quote.trim() || !isSpan(l.startAt, l.endAt)) refuse("A genealogy link has no quote.");
+  }
+  for (const e of x.genealogyEvents ?? []) {
+    if (!bookIds.has(e.bookId)) refuse("A life event is for a book that is not in this file.");
+    if (!generationIds.has(e.generationId)) refuse("A life event came from a reading that is not in this file.");
+    if (typeof e.person !== "string" || !Array.isArray(e.linkOrds) || !e.linkOrds.every((n) => Number.isInteger(n))) refuse("A life event does not say whose it is or what it rests on.");
+    if (!["stated", "worked_out", "ordered", "unknown"].includes(e.basis)) refuse("A life event's date is of a kind this library does not know.");
   }
   const noteIds = new Set((x.annotations ?? []).map((a) => a.annotationId));
   const isDate = (d: unknown) => typeof d === "string" && !Number.isNaN(Date.parse(d));
@@ -790,6 +820,10 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
     for (let i = 0; i < facts.length; i += 500) {
       await tx.insert(xrayFacts).values(facts.slice(i, i + 500).map((f) => ({ ...f, createdAt: new Date(f.createdAt) })));
     }
+    const gLinks = x.genealogyLinks ?? [];
+    for (let i = 0; i < gLinks.length; i += 500) await tx.insert(genealogyLinks).values(gLinks.slice(i, i + 500));
+    const gEvents = x.genealogyEvents ?? [];
+    for (let i = 0; i < gEvents.length; i += 500) await tx.insert(genealogyEvents).values(gEvents.slice(i, i + 500));
     // Imports before tracks: an uploaded track points at its import.
     for (const r of x.readalongImports ?? []) {
       await tx.insert(readalongImports).values({ ...r, ownerId, createdAt: new Date(r.createdAt), finishedAt: r.finishedAt ? new Date(r.finishedAt) : null });

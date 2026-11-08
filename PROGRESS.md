@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: On Samuel's go, swap in the corrected Shannon file, then mark it a paper and build its X-ray.
+next_action: Merge the M43 S2 PR, back up, deploy 0039, then send Chip War's genealogy to the live site.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 16:27 · Claude Opus 5.5 · M43 S2: a book's genealogy stored on the site (migration 0039)
+- **Done:** Links and life events stored on the site: migration 0039 (genealogy_links, genealogy_events; general-knowledge years in their own columns, per Samuel 2026-11-08), lib/library/genealogy-store.ts (every quote, year and order quote found again in the server's own paragraphs; one generation per send; the same send again stores nothing; a new one replaces the book's rows), GET/POST /api/agent/books/<id>/genealogy, export/wipe/import, and send/payload in the skill's script. Both real sends from S1 stored in fresh databases with nothing left out (Jekyll 22 links/4 removed/17 events; Chip War 472/55/250, 113 people, 411 KB). Not yet sent to the live site: that waits for the deploy (with a backup, since it has a migration).
+- **Key paths:** db/migrations/0039_genealogy.{up,down}.sql; lib/db/schema.ts; lib/library/genealogy-store.ts; lib/library/genealogy-store.test.ts; lib/library/export.ts; lib/library/export.test.ts; app/api/agent/books/[id]/genealogy/route.ts; scripts/genealogy-on-subscription.ts; docs/genealogy-plan.md; .claude/skills/genealogy-on-subscription/SKILL.md
+- **Commands that worked:** npx vitest run lib/library/genealogy-store.test.ts lib/library/export.test.ts lib/db/migrate.test.ts (25 passed); TEST_DATABASE_URL=postgres://postgres:postgres@localhost:55439/postgres npm run test:postgres (2 passed, Postgres 18 in Docker); npx tsx scripts/genealogy-on-subscription.ts payload <folder>
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge when the four checks are green. 2. Deploy from the laptop at Samuel's word (given: 'merge and deploy when green'): backup with pg_dump and restore-check first (migration 0039), then railway up; check /api/health on both addresses and count _migrations. 3. Send Chip War's genealogy to the live site with the skill's send command; check GET shows 472 links. 4. M43 S3: the Genealogy tab in Study.
 
 ### 2026-11-08 16:16 · Claude Opus 5.5 (laptop) · Checkpoint: Shannon paper live (first file); file swap, paper mark, X-ray on hold
 - **Done:** Shannon 1948 transcribed (55 pages, 281 display equations, 0 KaTeX problems), 12 figures + Table I cropped, first upload live as book 6590338e-194a-4775-831a-e7aa3a4276b5 and checked in Chrome and iPad-size WebKit. Corrected file (5 broken lists as numbered paragraphs) on the laptop only: remove + re-upload restored the old file.
