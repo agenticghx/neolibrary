@@ -184,9 +184,10 @@ That answer decides whether there is ever an M-step for hardware.
 
 ## Open questions
 
-- **Which device** (Open unknowns row 34). It costs money, so it is Samuel's
-  choice and is never closed by the seven-day default. While it is open, S1
-  to S3 are built and tested in Chrome on a computer without a device.
+- **Which device** (Open unknowns row 34): answered 2026-11-08, a Boox
+  (Samuel: "i'll go for boox"). S4 records the model and what its buttons
+  send. Until it arrives, S1 to S3 are built and tested in Chrome on a
+  computer.
 
 ## Hardware gaps
 
