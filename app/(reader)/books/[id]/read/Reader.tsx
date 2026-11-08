@@ -2503,7 +2503,9 @@ export function Reader(props: {
               <span className={styles.railWord}>Rewritten</span>
             </button>
             {/* Who & what (M32), with the names on this page at its top: opened when wanted, never over the text
-                (Samuel, 2026-11-08: the "On this page" strip sometimes hid the reading). */}
+                (Samuel, 2026-11-08: the "On this page" strip sometimes hid the reading). Not for a visitor (M34),
+                whose Study has no Who & what tab either. */}
+            {props.visitor ? null : (
             <button
               type="button"
               className={styles.railTool}
@@ -2519,6 +2521,7 @@ export function Reader(props: {
               </svg>
               <span className={styles.railWord}>Who &amp; what</span>
             </button>
+            )}
             {props.visitor ? null : (
             <button
               type="button"
