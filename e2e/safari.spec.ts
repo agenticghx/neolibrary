@@ -128,9 +128,12 @@ test("the reading ruler goes to the first line of a turned page, and stays on th
   };
   await expect.poll(onFirstLine, { message: "the band on the first line when Ruler is chosen" }).toBe(true);
   for (let turn = 1; turn <= 2; turn++) {
+    // The page-turn button, as the other Safari tests turn pages (on CI's WebKit an Arrow key here was not taken:
+    // run 42477309939); the mouse then leaves the book again.
     const at = (await reader.getAttribute("data-cfi")) ?? "";
-    await page.keyboard.press("ArrowRight");
+    await page.getByRole("button", { name: "Next page" }).click();
     await expect(reader).not.toHaveAttribute("data-cfi", at);
+    await page.mouse.move(5, 5);
     await expect.poll(onFirstLine, { message: `the band on the first line after turn ${turn}` }).toBe(true);
   }
   await page.getByRole("button", { name: "Reading settings" }).click();
