@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M43 S1 genealogy-skill PR when green; then plan M43 S2 (links stored on the site).
+next_action: Plan M43 S2 (genealogy links stored on the site); ask Samuel whether general-knowledge years belong in the app.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 16:11 · Claude Opus 5.5 (laptop) · Live: 218147c (#310 M43 S1, the genealogy skill)
+- **Done:** PR #310 merged as 218147c2 by the auto-merge Action with every check green; main CI 42522220994 green; deploy.yml deployed it (no migration, so no backup). Nothing in the app changes: the skill runs on the laptop. Chip War's genealogy page made by the skill was sent to Samuel (private: it quotes the book; kept in the session scratchpad, not in git).
+- **Key paths:** .claude/skills/genealogy-on-subscription/SKILL.md; scripts/genealogy-on-subscription.ts; docs/genealogy-plan.md
+- **Commands that worked:** curl -s https://<both addresses>/api/health -> commit 218147c; /sign-in 200 on both
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. M43 S2: store links and life events on the site (a migration with its reverse step and a backup before it runs). 2. Samuel to decide whether general-knowledge years appear in the app or only on the laptop page.
 
 ### 2026-11-08 15:15 · Claude Opus 5.5 (laptop) · Shannon paper: list fix made on the laptop; the live copy keeps the first file
 - **Done:** Review after the upload found 5 numbered lists broken by an equation (sections 6, 18, 20, 27 and one more) drawn with an indented '1.' and the later items as flush paragraphs. The stitch now writes each broken list as numbered paragraphs throughout (29 items). Letter specimens (sections 2-3) compared with the PDF text layer letter for letter: 9 of 9 match. Tried to replace the live copy: Remove from library, then upload again -> {status: restored, same bookId 6590338e-...}: the importer matches a removed book by title and author and brings the old file back, so the live copy is still the first upload (text and equations the same; only those 5 lists differ in indentation). Live EPUB downloaded and checked: c9.xhtml still has the list as <ol>. The paper is on the shelf once, progress 0.
