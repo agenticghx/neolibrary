@@ -1906,6 +1906,29 @@ is left out on purpose: S5 decides whether it is ever worth planning.
   goes in the plan's "Hardware gaps" list. *Done when:* the plan says
   whether a device of his own would add anything.
 
+### M43 · Genealogy: who came from where (Samuel, 2026-11-08)
+
+Written for Samuel and for the sessions that build it. While reading Chip War
+Samuel wanted to follow its family trees and org charts: Fairchild and the
+companies its people founded, Morris Chang's path to TSMC. A prototype on
+Chip War (kept off git: it quotes the book) read every link the book states
+between two named people or organisations, checked each against the book's
+words, and drew three views for each question; he kept all of them. The
+detail is in `docs/genealogy-plan.md`.
+
+- **S1 · The skill.** Read any EPUB in the library on the owner's
+  subscription, six readings each checked, ending at a private page on the
+  laptop. *Done when:* the checks' unit tests pass, and it runs end to end on
+  a public-domain fixture and on Chip War, both pages working in WebKit.
+- **S2 · Links stored on the site.** A table keyed to paragraphs and X-ray
+  entries, an agent endpoint that checks the skill's answers again, export
+  and import. Needs a migration. *Done when:* a send stores the links, a
+  second send changes nothing, and the export round trip brings them back.
+- **S3 · The views in Study.** A Genealogy tab with the prototype's views.
+  *Done when:* browser tests open each view on a fixture book and the slider
+  hides later chapters.
+- **S4 · Across books.** Decided with Samuel after S3 is in use.
+
 ## How a cloud session works on this repo
 
 The steps are in `CLAUDE.md`, which every session loads automatically. In short:
