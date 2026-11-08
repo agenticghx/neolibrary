@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #305 (Names in the sidebar) when green; then the ruler-height PR.
+next_action: Build M42 S1, the E-ink switch in Aa (docs/eink-reading-plan.md).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -362,6 +362,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 09:57 · Claude Opus 5.5 (laptop) · Checkpoint: M42 E-ink reading mode planned and merged (#306)
+- **Done:** M42 plan merged as ead995ac (PR #306, 2026-11-08 14:06 UTC); all four checks green; deploy skipped (docs only). No M42 code yet.
+- **Key paths:** docs/handoffs/2026-11-08-0956-m42-eink-plan.md (laptop only, gitignored); docs/eink-reading-plan.md; docs/plan.md (M42)
+- **Commands that worked:** gh pr view 306 --json state,mergedAt,mergeCommit; gh pr checks 306
+- **Known issues / blockers:** S4 and S5 need a tablet: Open unknowns row 34 (money; never closed by default).
+- **Exact next steps:** 1. Build M42 S1 in a new worktree from origin/main on branch m42-eink-setting; follow S1's Done when in docs/eink-reading-plan.md. 2. S2, S3. 3. S4, S5 after row 34.
 
 ### 2026-11-08 09:09 · Claude (Opus 5.5, laptop) · M32 X2 (#305): the sidebar button says Names (one line); hidden for visitors
 - **Done:** CI on #305 failed twice: the visitor rail test (3 buttons, expected Study and Rewritten), fixed by hiding the button for visitors; and the text-edition table test at phone size ('584 px wide in a 280 px column'), reproduced on the laptop on the branch, passing on main (worktree mainprobe at b71ca572). Cause: 'Who & what' wrapped to two lines in the phone's bottom bar, making it taller and the page shorter, so the test's table split across two pages. The button now says Names; agents, ai (names on the page) and open-shelf tests pass locally.
