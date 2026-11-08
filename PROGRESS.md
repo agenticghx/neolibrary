@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the M43 S2 PR, back up, deploy 0039, then send Chip War's genealogy to the live site.
+next_action: Plan and build M43 S3: the Genealogy tab in Study, reading the links stored on the site.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 16:51 · Claude Opus 5.5 (laptop) · Live: 171a544 (#311 M43 S2, genealogy stored on the site, migration 0039); Chip War's genealogy sent
+- **Done:** PR #311 merged as 171a5442 (every check green). Backup before 0039: ~/Backups/neolibrary/prod-before-0039-20261108T214758Z.sql (32 MB, 'dump complete' footer); restore-check into a throwaway Postgres 18 exit 0, 261 books, 38 migrations. Deployed from ../neolibrary-deploy (clean detached checkout): railway variable NEOLIBRARY_COMMIT set, railway up. /api/health 171a544 on both addresses; /sign-in 200 on both; log 'Page pictures: ready.'; live _migrations 39, max 0039_genealogy; genealogy_links exists. Chip War's genealogy sent with the skill: 472 links, 55 removed, 250 life events for 113 people, nothing left out by the site's checks; a second send changed nothing; GET returns generation 68a0d2df. Samuel's decision recorded in docs/genealogy-plan.md: general-knowledge years shown in the app, purple and switchable.
+- **Key paths:** db/migrations/0039_genealogy.up.sql; lib/library/genealogy-store.ts; app/api/agent/books/[id]/genealogy/route.ts; docs/genealogy-plan.md
+- **Commands that worked:** railway ssh --service Postgres --environment production -- sh -c 'pg_dump --no-owner -U "$PGUSER" -d "$PGDATABASE"' < /dev/null > <backup>; docker exec -i <pg18> psql -v ON_ERROR_STOP=1 < <backup>; railway up --service web --environment production --ci; zsh -ic 'npx tsx scripts/genealogy-on-subscription.ts send <folder> <site> <book id>'
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. M43 S3: the Genealogy tab in Study (Family tree; Inside a company: Power map, Money and parts, Who was there when; One person: Storyline, Read vs happened, List), reading the stored links; general-knowledge years in purple and switchable; browser tests on a fixture book. 2. Send genealogies for other books with the skill as Samuel asks.
 
 ### 2026-11-08 16:27 · Claude Opus 5.5 · M43 S2: a book's genealogy stored on the site (migration 0039)
 - **Done:** Links and life events stored on the site: migration 0039 (genealogy_links, genealogy_events; general-knowledge years in their own columns, per Samuel 2026-11-08), lib/library/genealogy-store.ts (every quote, year and order quote found again in the server's own paragraphs; one generation per send; the same send again stores nothing; a new one replaces the book's rows), GET/POST /api/agent/books/<id>/genealogy, export/wipe/import, and send/payload in the skill's script. Both real sends from S1 stored in fresh databases with nothing left out (Jekyll 22 links/4 removed/17 events; Chip War 472/55/250, 113 people, 411 KB). Not yet sent to the live site: that waits for the deploy (with a backup, since it has a migration).
