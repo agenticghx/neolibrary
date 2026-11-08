@@ -106,8 +106,8 @@ describe("reading settings on this device", () => {
     expect(ruler).toContain("hyphens: manual !important");
     for (const css of [off, ruler]) {
       expect(css).toContain("::highlight(nl-dim) { color: color-mix(in srgb, #243239 45%, #f3ede1); }");
-      expect(css).toMatch(/\[data-nl-ruler\] \{[^}]*pointer-events: none/);
-      expect(css).toMatch(/prefers-reduced-motion: reduce\) \{ \[data-nl-ruler\] \{ transition: none !important; \}/);
+      // The ruler's band is the reader's (Reader.module.css), drawn over the book: none is put in the page.
+      expect(css).not.toContain("data-nl-ruler");
     }
   });
 });

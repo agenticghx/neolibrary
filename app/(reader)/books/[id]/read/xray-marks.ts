@@ -24,6 +24,9 @@ export function dottedUnderline(color: string) {
     const ns = "http://www.w3.org/2000/svg";
     const g = document.createElementNS(ns, "g");
     g.setAttribute("data-xray", "");
+    // Quieter while Focus is on (Reader.tsx sets --nl-xray-ink on the stage), so lines the ruler dims are not
+    // underlined in full colour.
+    g.style.setProperty("opacity", "var(--nl-xray-ink, 1)");
     for (const r of rects) {
       const line = document.createElementNS(ns, "line");
       line.setAttribute("x1", String(r.left));

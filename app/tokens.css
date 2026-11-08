@@ -536,3 +536,18 @@
   --shadow-panel: 0 1px 2px #2a21180f, 0 14px 36px -14px #2a211838;
   --shadow-chip: 0 1px 2px #2a21181f, 0 4px 10px -4px #2a21181f;
 }
+
+/*
+ * The reading ruler's band (M21, the reader's .lens): the theme's own ink laid thinly over the page, so the line's
+ * ink stays as it is and only the paper around it is shaded. Declared on each theme too, so it takes that theme's ink.
+ */
+:root,
+.theme-paper,
+.theme-sepia,
+.theme-night,
+.theme-north,
+.theme-press,
+.theme-calfskin {
+  --ruler-band: color-mix(in srgb, var(--ink-900) 9%, transparent);
+  --shadow-ruler: 0 0 6px 2px color-mix(in srgb, var(--ink-900) 5%, transparent);
+}

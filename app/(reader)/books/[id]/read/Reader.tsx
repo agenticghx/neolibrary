@@ -59,7 +59,7 @@ import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { bookCss, loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, WIDTH_PX, withWidth } from "./settings";
-import { clearFocus, firstLetter, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Spot } from "./focus";
+import { clearFocus, firstLetter, firstLetterInside, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Box, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { FigureView } from "./FigureView";
 import { TableView } from "./TableView";
@@ -559,6 +559,16 @@ export function Reader(props: {
   }, []);
   const spokenBlock = useRef<Element | null>(null);
   const pointer = useRef<{ x: number; y: number; inside: boolean } | null>(null);
+  // Focus (M21): the ruler's band (the lens), drawn over the book in the reader's own page. `lens` is where it is on
+  // screen (the window's coordinates); `lensAnchor` the point the reader put it at (a tap, the mouse, or the first
+  // line), which scrolling never moves, so the band cannot creep; `lensPlace` the place in the book (CFI) it was put
+  // on, in Pages.
+  const lensEl = useRef<HTMLDivElement | null>(null);
+  const lens = useRef<Box | null>(null);
+  const lensAnchor = useRef<{ x: number; y: number } | null>(null);
+  // The line the band is on, in its page's own coordinates: in Pages the band follows it when the page moves.
+  const lensLine = useRef<{ doc: Document; band: Box } | null>(null);
+  const lensPlace = useRef<string | null>(null);
   // The layout last laid out (Pages or Scroll, One or Two pages), and the place to mark once a switch has settled.
   const laidOut = useRef<string | null>(null);
   const placeToMark = useRef<Spot | null>(null);
@@ -756,11 +766,155 @@ export function Reader(props: {
   }, [onWheel]);
 
   /**
-   * Puts Focus (M21) where it belongs on the pages shown: the paragraph read aloud (paragraph focus); else what is
-   * under a mouse resting on the page; else the first line or paragraph on the page (the keyboard, a tap elsewhere,
-   * or a page just opened). `range`: the text on screen, from a relocate.
+   * Shows the ruler's band at a place on screen (the window's coordinates), or hides it (null). `anchor`: the reader
+   * put it there (a tap, the mouse, the first line), so it is the point the ruler is held at from now on.
    */
-  const refocus = useCallback((range?: Range | null) => {
+  const showLens = useCallback((at: Box | null, anchor = false, glide = true) => {
+    lens.current = at;
+    if (!at) {
+      lensAnchor.current = null;
+      lensLine.current = null;
+    }
+    else if (anchor) lensAnchor.current = { x: at.left + 8, y: (at.top + at.bottom) / 2 };
+    const el = lensEl.current;
+    const clip = el?.parentElement?.getBoundingClientRect();
+    if (!el || !clip) return;
+    if (!at) {
+      el.removeAttribute("data-shown");
+      el.removeAttribute("data-glide");
+      return;
+    }
+    // Glide from line to line, but appear in place the first time (no slide in from the corner).
+    el.toggleAttribute("data-glide", glide && el.hasAttribute("data-shown"));
+    el.style.width = `${at.right - at.left}px`;
+    el.style.height = `${at.bottom - at.top}px`;
+    el.style.transform = `translate(${at.left - clip.left}px, ${at.top - clip.top}px)`;
+    el.setAttribute("data-shown", "");
+  }, []);
+
+  /**
+   * What of a book's page is on screen: foliate's page box around the frame (it hides the pages either side, which
+   * lie in the frame's columns too), within the book's area. Null if the page is not shown.
+   */
+  const shownOf = (doc: Document): Box | null => {
+    const frameEl = doc.defaultView?.frameElement as HTMLElement | null;
+    const seen = (frameEl?.parentElement?.parentElement ?? frameEl)?.getBoundingClientRect();
+    const clip = lensEl.current?.parentElement?.getBoundingClientRect();
+    if (!seen || !clip) return null;
+    const box = { left: Math.max(seen.left, clip.left), right: Math.min(seen.right, clip.right), top: Math.max(seen.top, clip.top), bottom: Math.min(seen.bottom, clip.bottom) };
+    return box.right > box.left && box.bottom > box.top ? box : null;
+  };
+
+  /**
+   * Shows the band on a line of a book's page (`band`, in that page's coordinates). `anchor`: as showLens. `glide`:
+   * false to jump (the band following its line as the page moves).
+   */
+  const showLensOn = useCallback(
+    (doc: Document, band: Box, anchor = false, glide = true) => {
+      const frame = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      if (!frame) return;
+      lensLine.current = { doc, band };
+      showLens({ left: frame.left + band.left, right: frame.left + band.right, top: frame.top + band.top, bottom: frame.top + band.bottom }, anchor, glide);
+    },
+    [showLens],
+  );
+
+  /**
+   * The ruler held where the reader put it on screen (lensAnchor): the line there comes into focus. "still" (Scroll,
+   * while the text moves): the band stays exactly where it is and the text passes under it; a gap between paragraphs
+   * there leaves the whole page dimmed. "settle" (Scroll, the text has stopped): the band also moves onto that line,
+   * by less than half a line. "align" (Pages, or a new layout): the same, but with no line there it gives up. Returns
+   * false when the ruler cannot be held: none yet, its point is off the book (the window changed), or, aligning, no
+   * line there.
+   */
+  const holdLens = useCallback(
+    (how: "still" | "settle" | "align") => {
+      const at = lensAnchor.current;
+      const v = view.current;
+      const clip = lensEl.current?.parentElement?.getBoundingClientRect();
+      if (!at || !lens.current || !v?.renderer || !clip) return false;
+      const { x, y } = at;
+      if (y < clip.top || y > clip.bottom || x < clip.left || x > clip.right) return false;
+      let contents: { doc: Document }[] = [];
+      try {
+        contents = v.renderer.getContents();
+      } catch {
+        return false;
+      }
+      for (const { doc } of contents) {
+        const frame = (doc?.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+        if (!frame || y < frame.top || y > frame.bottom || x < frame.left || x > frame.right) continue;
+        const band = focusAt(doc, x - frame.left, y - frame.top, how !== "align");
+        // In Pages, the line must be on the page shown, not on the one beside it, hidden in the same frame.
+        const seen = shownOf(doc);
+        const middle = band ? frame.left + (band.left + band.right) / 2 : NaN;
+        if (how === "align" && (!band || !seen || middle < seen.left || middle > seen.right)) return false;
+        if (band && how !== "still") showLensOn(doc, band);
+        return true;
+      }
+      return false;
+    },
+    [showLensOn],
+  );
+
+  /**
+   * Puts the ruler (Focus, M21) where it belongs. A mouse resting on the text: the line under it. Else, in Scroll,
+   * the band stays where it is on screen and the text moves under it (Samuel, 2026-11-08, from Apple Books); in Pages
+   * it stays on its line until the page turns (a tap's own small settling of the page is not a turn). Else (a page
+   * turned, or nothing placed yet) the first line on screen. `range` and `cfi`: the text on screen and its place, from
+   * a relocate; none after a new layout.
+   */
+  const placeRuler = useCallback(
+    (contents: { doc: Document }[], range?: Range | null, cfi?: string | null) => {
+      const v = view.current;
+      if (!v?.renderer) return;
+      // The lines may have moved under the same boxes (a new text size): what was in focus is worked out afresh.
+      for (const { doc } of contents) if (doc?.documentElement) clearFocus(doc);
+      const p = pointer.current;
+      if (p?.inside) {
+        for (const { doc } of contents) {
+          const frame = (doc?.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+          const band = frame && focusAt(doc, p.x - frame.left, p.y - frame.top);
+          if (frame && band) {
+            showLensOn(doc, band, true);
+            return;
+          }
+        }
+      }
+      const scrolled = v.renderer.getAttribute("flow") === "scrolled";
+      const samePage = !cfi || cfi === lensPlace.current;
+      if (cfi) lensPlace.current = cfi;
+      if (lens.current && (scrolled || samePage) && holdLens(scrolled && cfi ? "settle" : "align")) return;
+      // The first letter on screen: inside the book's area (foliate's range can start with a space left at the end
+      // of the page before, or, in WebKit while a page is laid out again, on the page before).
+      const onScreen = range ?? (v as { lastLocation?: { range?: Range | null } | null }).lastLocation?.range;
+      const doc = onScreen?.startContainer.ownerDocument;
+      const frame = (doc?.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      const seen = doc ? shownOf(doc) : null;
+      if (!onScreen || !doc || !frame || !seen) return;
+      const spot = firstLetterInside(
+        onScreen,
+        (b) => frame.left + b.left >= seen.left - 1 && frame.left + b.right <= seen.right + 1 && frame.top + b.top >= seen.top - 1 && frame.top + b.bottom <= seen.bottom + 1,
+      );
+      const letter = doc.createRange();
+      if (spot) {
+        letter.setStart(spot.node, spot.offset);
+        letter.setEnd(spot.node, spot.offset + 1);
+      }
+      const r = spot ? Array.from(letter.getClientRects()).find((b) => b.width > 0 && b.height > 0) : null;
+      const band = r ? focusAt(doc, r.left + 1, (r.top + r.bottom) / 2) : null;
+      if (band) showLensOn(doc, band, true);
+      else showLens(null);
+    },
+    [showLens, showLensOn, holdLens],
+  );
+
+  /**
+   * Puts Focus (M21) where it belongs on the pages shown. The ruler: placeRuler. Paragraph focus: the paragraph read
+   * aloud; else what is under a mouse resting on the page; else the first paragraph on the page (the keyboard, a tap
+   * elsewhere, or a page just opened). `range` and `cfi`: the text on screen and its place, from a relocate.
+   */
+  const refocus = useCallback((range?: Range | null, cfi?: string | null) => {
     const v = view.current;
     const mode = focusRef.current;
     if (!v?.renderer || mode === "off") return;
@@ -768,6 +922,10 @@ export function Reader(props: {
     try {
       contents = v.renderer.getContents();
     } catch {
+      return;
+    }
+    if (mode === "ruler") {
+      placeRuler(contents, range, cfi);
       return;
     }
     for (const { doc } of contents) {
@@ -798,7 +956,7 @@ export function Reader(props: {
       );
       if (first) focusAt(doc, first.left + 1, (first.top + first.bottom) / 2);
     }
-  }, []);
+  }, [placeRuler]);
 
   /**
    * The focus session as the server has it (M26 R4a), put on this device: it may have been started or ended, or a
@@ -970,6 +1128,28 @@ export function Reader(props: {
         // spread it lands in. foliate places a jump's target again as fonts and pictures arrive, and drops a turn
         // asked for while one is under way, so the lining up waits until the jump has settled. Scrolling by hand is
         // left where it stops.
+        // Focus (M21), in Scroll: the ruler stays where it is on screen while the text moves under it, and the line
+        // under it comes into focus, once a frame (a mouse resting on the text: the line under the mouse).
+        // In Pages, the band stays on its line as the page moves (WebKit can report a page's place before it has
+        // finished moving it there: the band then landed a page to the side, 2026-11-08).
+        let rolling = 0;
+        v.renderer.addEventListener("scroll", () => {
+          if (focusRef.current !== "ruler" || rolling) return;
+          rolling = requestAnimationFrame(() => {
+            rolling = 0;
+            const line = lensLine.current;
+            if (v.renderer.getAttribute("flow") !== "scrolled") {
+              if (!line?.doc.defaultView) return;
+              showLensOn(line.doc, line.band, true, false);
+              // Moved off the page shown (its page went by without a relocate): the first line on screen.
+              const at = lens.current;
+              const seen = shownOf(line.doc);
+              const middle = at ? (at.left + at.right) / 2 : NaN;
+              if (at && (!seen || middle < seen.left || middle > seen.right)) refocus();
+            } else if (pointer.current?.inside) refocus();
+            else holdLens("still");
+          });
+        });
         let lineUp: ReturnType<typeof setTimeout> | undefined;
         v.renderer.addEventListener("relocate", (e: Event) => {
           const reason = (e as CustomEvent<{ reason?: string }>).detail?.reason;
@@ -1044,7 +1224,7 @@ export function Reader(props: {
             lookForLinks(visibleText.current);
           }, 600);
           // Focus (M21) on the page now in front of the reader.
-          if (props.fileType !== "pdf") refocus(d.range ?? null);
+          if (props.fileType !== "pdf") refocus(d.range ?? null, cfi);
         });
         /**
          * The other version's notes on the page just shown (a scan's page, with its text drawn; or a chapter of the
@@ -1185,17 +1365,39 @@ export function Reader(props: {
               // While a paragraph is read aloud, paragraph focus stays on it.
               if (focusRef.current === "off" || (focusRef.current === "paragraph" && spokenBlock.current)) return;
               at = { x: e.clientX, y: e.clientY };
-              if (now) focusAt(doc, at.x, at.y);
+              // The ruler's band goes onto the line, over the book; it stays there (a tap's small settling of the
+              // page is not a turn: refocus).
+              const place = () => {
+                const band = focusAt(doc, at.x, at.y);
+                if (!band || focusRef.current !== "ruler") return;
+                showLensOn(doc, band, true);
+                lensPlace.current = whereCfi.current;
+              };
+              if (now) place();
               else if (!frame)
                 frame = requestAnimationFrame(() => {
                   frame = 0;
-                  focusAt(doc, at.x, at.y);
+                  place();
                 });
             };
+            // A browser sends mouse events of its own just after a tap, and WebKit again when the text scrolls under
+            // the place last tapped or pointed at (the pointer has not moved on the screen): neither is a mouse
+            // moving on the page.
+            let touched = -Infinity;
+            let last = { x: NaN, y: NaN };
+            const moved = (e: PointerEvent) => {
+              const was = last;
+              last = { x: e.screenX, y: e.screenY };
+              return e.screenX !== was.x || e.screenY !== was.y;
+            };
             doc.addEventListener("pointermove", (e) => {
-              if (e.pointerType === "mouse") follow(e, false);
+              if (moved(e) && e.pointerType === "mouse" && e.timeStamp - touched > 800) follow(e, false);
             });
-            doc.addEventListener("pointerdown", (e) => follow(e, true));
+            doc.addEventListener("pointerdown", (e) => {
+              moved(e);
+              if (e.pointerType !== "mouse") touched = e.timeStamp;
+              follow(e, true);
+            });
             doc.addEventListener("pointerout", (e) => {
               if (!e.relatedTarget && pointer.current) pointer.current = { ...pointer.current, inside: false };
             });
@@ -1260,7 +1462,26 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, dismissSelection, loadRedraw]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw]);
+
+  // Focus (M21): the book's area changed size or place (the device turned, full screen, a side pane): the ruler's
+  // band, drawn over the book, is put back on its line, or on the first line if its place is gone.
+  useEffect(() => {
+    const clip = lensEl.current?.parentElement;
+    if (!clip) return;
+    let frame = 0;
+    const sizes = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (focusRef.current === "ruler" && lens.current) refocus();
+      });
+    });
+    sizes.observe(clip);
+    return () => {
+      sizes.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [refocus]);
 
   // Two pages in Scroll: a spread is one screen tall, so a new window size lays the spreads out again (or goes to
   // one column, in a window taller than wide).
@@ -1318,6 +1539,7 @@ export function Reader(props: {
     const focus: FocusMode = props.fileType === "pdf" ? "off" : settings.focus;
     if (focusRef.current !== focus) {
       focusRef.current = focus;
+      if (focus !== "ruler") showLens(null);
       try {
         for (const { doc } of v?.renderer?.getContents() ?? []) if (doc?.documentElement) setFocusMode(doc, focus);
       } catch {
@@ -1395,7 +1617,7 @@ export function Reader(props: {
       cancelAnimationFrame(relaid);
       mq.removeEventListener("change", onChange);
     };
-  }, [settings, props.fileType, refocus]);
+  }, [settings, props.fileType, refocus, showLens]);
 
   // Save on leaving; keyboard paging.
   useEffect(() => {
@@ -2168,7 +2390,8 @@ export function Reader(props: {
           }}
         />
       ) : null}
-      <div ref={stage} className={stageClass}>
+      {/* With Focus on, the X-ray's dotted underlines are quieter too (xray-marks.ts): a custom highlight cannot dim them (.stage[data-focus]). */}
+      <div ref={stage} className={stageClass} data-focus={settings && settings.focus !== "off" ? "" : undefined}>
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M11 3 5 9l6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -2176,6 +2399,10 @@ export function Reader(props: {
         </button>
         {/* Covered by the rewrite alone: kept open (and its turns working) but out of reach. */}
         <div ref={host} className={styles.host} inert={paneMode === "rewritten"} />
+        {/* Focus (M21): the ruler's band, over the book and taking no clicks (Reader.module.css, .lens). */}
+        <div className={styles.lensClip} aria-hidden="true" hidden={paneMode === "rewritten"}>
+          <div ref={lensEl} className={styles.lens} data-testid="ruler" />
+        </div>
         {onPage.length ? (
           <div className={xrayStyles.strip} role="region" aria-label="On this page">
             <span className={xrayStyles.stripLabel}>On this page</span>
