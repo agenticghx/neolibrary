@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #305, then the ruler-height PR; Samuel tries both on his iPad.
+next_action: Samuel tries Names and Ruler height on his iPad (live 49312c8).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12 to 14; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -362,6 +362,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 10:39 · Claude (Opus 5.5, laptop) · Live: 49312c8 (#305 On this page in the sidebar as Names; #307 ruler height 1-3 lines)
+- **Done:** #305 merged as 6ddd856 and deployed itself (main CI 42490487635 green; health 6ddd856). #307 (Aa > Ruler height: 1, 2 or 3 lines) merged as 49312c8 after a ledger-only rebase over 86fc0d41; main CI 42494158770 green; Deploy succeeded on its own (no migration). /api/health on library.samuelahuno.com and web-production-f27a0e.up.railway.app says 49312c8; /sign-in 200 on both.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; XrayPanel.tsx; focus.ts; settings.ts; e2e/ai.spec.ts; e2e/reader.spec.ts
+- **Commands that worked:** gh run view 42494158770 --json jobs; curl -s https://library.samuelahuno.com/api/health
+- **Known issues / blockers:** Main's CI for these two did not run the WebKit (Safari engine) machine (the machine plan left it out); WebKit was checked on the laptop with the iPad-size probe. No live check signed in on Samuel's books (it would move his reading place); not tried on a real iPad.
+- **Exact next steps:** Samuel tries on his iPad: the Names button in the sidebar (On this page at the top of Who & what), and Aa > Focus > Ruler > Ruler height > 3 lines in Scroll.
 
 ### 2026-11-08 09:12 · Claude (Opus 5.5, laptop) · M21: the ruler can cover 2 or 3 lines (Aa > Ruler height)
 - **Done:** Samuel 2026-11-08: make the ruler cover 3 lines at a time, not one. Branch m21-ruler-lines: setting rulerLines (1, 2, 3; default 1), Aa > Ruler height shown with Focus Ruler; focus.ts linesAfter adds the next lines in the same column, into the next paragraph; the band is held by its first line (lead) so the stationary ruler does not creep.
