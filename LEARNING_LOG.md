@@ -2829,3 +2829,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** `npm run check` (1415 passed, 2 skipped); the browser test (2 passed, 13.9 s); five mutations, each one rule removed: durations, the panel shadow, the highlight underline, the ruler bar width, Scroll greyed out. Screenshots looked at: desktop light, desktop dark, phone dark with Aa open.
 **Result.** All five mutations failed the browser test at the line meant to catch them (lines 142, 142, 143, 155, 145). The count over every element found one thing the token set did not reach: the command palette's panel, which is mounted beside the reader, not in it (moved to S2). The tokens hypothesis held for everything inside the reader element.
 **Lesson.** Count over every element rather than checking named ones: the count found the one panel outside the reader that a list of named elements would have missed. And run the setup project with `--workers=1` when running one project alone, or the test starts before there is a signed-in owner.
+
+### Iteration 152 · 2026-11-08 13:00 (laptop clock) · M42 S1: CI's branches machine · failure then fix
+
+**Hypothesis.** The E-ink test, a reader of its own like focus.spec's, runs beside the other branch projects without touching them.
+**Action.** Pushed PR #309; read CI run 42503607489 when "Browser tests (branches)" failed.
+**Evaluation.** The run's log and the failed test's error-context.md (downloaded with `gh run download 42503607489 -n playwright-report-branches`).
+**Result.** The E-ink test passed on CI. focus.spec's whole-book focus test failed at its reader's join: the page said "Too many attempts. Wait 15 minutes." Sign-ups are limited to 10 per address in 15 minutes (`app/(public)/actions.ts`), and the E-ink reader's join was one more from the test machine's address. own-keys.spec hit the same thing in CI run 41476467866 and gave its reader an address of its own (`x-forwarded-for`); the E-ink reader now does too (198.51.100.42). Local run: 2 passed.
+**Lesson.** A test that signs a new reader up from the shared test address takes one of the 10 sign-ups every other such test needs: give it its own `x-forwarded-for`, as own-keys and shared-papers do. Read error-context.md before calling a red check a flake: the page's own words named the cause.

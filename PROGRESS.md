@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: M42 S1 PR: merge when green; then S2 (E-ink on every page).
+next_action: PR #309 (M42 S1): merge when green; then S2.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 12:32 · Claude Opus 5.5 (laptop) · M42 S1: CI fix, the E-ink reader gets its own address
+- **Done:** PR #309's 'Browser tests (branches)' failed (run 42503607489): the E-ink test passed, but focus.spec's whole-book test got 'Too many attempts' at its reader's join, because the E-ink reader's join was an 11th from the shared test address (limit 10 per address in 15 minutes, app/(public)/actions.ts). The E-ink reader now sends its own x-forwarded-for (198.51.100.42), as own-keys and shared-papers do. LEARNING_LOG iteration 152.
+- **Key paths:** e2e/eink.spec.ts; LEARNING_LOG.md
+- **Commands that worked:** gh run download 42503607489 -n playwright-report-branches -D <dir> (error-context.md showed the alert); npx playwright test --project setup --project eink --no-deps --ignore-snapshots --workers=1 -> 2 passed (12.4s)
+- **Known issues / blockers:** none known; CI to confirm on the new commit
+- **Exact next steps:** 1. CI on PR #309; merge when the four checks are green (deploys itself). 2. M42 S2.
 
 ### 2026-11-08 12:09 · Claude Opus 5.5 (laptop) · M42 S1 verified: full check, browser test, five mutations
 - **Done:** M42 S1 (the E-ink switch in Aa) verified on branch m42-eink-setting. npm run check passes; the E-ink browser test passes; each of five mutations (durations not zeroed, panel shadow kept, highlight tinted, ruler bar 0 px, Scroll offered) fails it at the line meant to catch it. Screenshots looked at. LEARNING_LOG iteration 151.

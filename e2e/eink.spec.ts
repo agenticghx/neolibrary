@@ -19,7 +19,14 @@ async function newReader(page: Page, browser: Browser) {
   await page.getByLabel(/Who is it for/).fill("Ezi, e-ink");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
   const link = await page.getByTestId("invite-link").inputValue();
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } });
+  // Its own address (the app reads x-forwarded-for), as own-keys.spec.ts: joining counts against the sign-in limit of
+  // 10 per address in 15 minutes (app/(public)/actions.ts). CI run 42503607489: with this reader on the shared
+  // address, focus.spec's join got "Too many attempts".
+  const ctx = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "x-forwarded-for": "198.51.100.42" },
+  });
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem("neolibrary:reader-sidebar", "open");
