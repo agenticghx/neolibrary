@@ -77,59 +77,11 @@
   cursor: pointer;
 }
 
-/* The strip sits at the foot of the page's column, over the page's own bottom margin (the top band is where the
-   first lines sit on a phone, and a test watches it for the theme's colour). */
-.strip {
-  z-index: var(--z-raised);
-  display: flex;
-  flex-wrap: wrap;
-  grid-row: 1;
-  grid-column: 2;
-  gap: var(--space-1);
-  place-self: end center;
-  align-items: center;
-  max-width: 100%;
-  margin-bottom: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-pill);
-  background-color: var(--paper-raised);
-}
-
-.stripLabel {
-  margin-right: var(--space-1);
-  color: var(--ink-500);
-  font-size: var(--text-xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-}
-
-.chip {
-  padding: 0 var(--space-2);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-pill);
-  background-color: var(--paper);
-  color: var(--ink-700);
-  font: inherit;
-  font-size: var(--text-xs);
-  cursor: pointer;
-}
-
-.chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 @media (width <= 48rem) {
   .card {
     inset: auto 0 0;
     width: auto;
     max-height: 70dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  }
-
-  .strip {
-    margin-bottom: var(--space-1);
-    padding-inline: var(--space-2);
   }
 }

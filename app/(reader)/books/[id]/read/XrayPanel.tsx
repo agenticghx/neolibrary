@@ -16,13 +16,30 @@ import { aiFetch } from "@/lib/own-keys";
  * the chapters ahead as empty, until "Show everything" is ticked. Tapping an
  * entry shows where it appears; each chapter opens its first mention.
  *
+ * "On this page" (Samuel, 2026-11-08): the names on the screen now, at the top
+ * of the panel, opened from the sidebar's Who & what when wanted. It was a
+ * strip over the foot of the page, where it hid the text.
+ *
  * X3: "Build the X-ray" reads the whole book with Claude, chapter by chapter,
  * behind an estimate and a confirm box; the list then carries kinds and each
  * name's facts, with their quotes. Marks on the page are X2.
  */
 type Build = Partial<XraySummary> & { configured: boolean; fake?: boolean };
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
-export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: string; onTab: (tab: StudyTab) => void; onGo: (cfi: string) => void }) {
+export function XrayPanel({
+  bookId,
+  cfi,
+  onPage = [],
+  onTab,
+  onGo,
+}: {
+  bookId: string;
+  cfi: string;
+  /** The names on the screen now (the X-ray marks of the pages shown), in reading order. */
+  onPage?: { id: string; name: string }[];
+  onTab: (tab: StudyTab) => void;
+  onGo: (cfi: string) => void;
+}) {
   const [data, setData] = useState<(XrayList & { fake?: boolean }) | null>(null);
   const [tick, setTick] = useState(0);
   const [build, setBuild] = useState<Build | null>(null);
@@ -135,6 +152,22 @@ export function XrayPanel({ bookId, cfi, onTab, onGo }: { bookId: string; cfi: s
           </button>
           <XrayEntryCard bookId={bookId} entry={current} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} />
         </article>
+      ) : null}
+      {data && !current ? (
+        <section className={own.onPage} aria-label="On this page">
+          <p className={own.onPageLabel}>On this page</p>
+          {onPage.length ? (
+            <div className={own.chips}>
+              {onPage.map((n) => (
+                <button key={n.id} type="button" className={own.chip} onClick={() => setOpen(n.id)}>
+                  {n.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className={styles.hint}>No names from the book’s index on this page.</p>
+          )}
+        </section>
       ) : null}
       {data && !current && build ? (
         <section className={own.build} aria-label="Read the book with Claude">

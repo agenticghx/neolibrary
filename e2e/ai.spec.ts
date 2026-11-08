@@ -723,24 +723,9 @@ test("Who & what lists the book's names by mentions so far, and a name met later
   expect((await page.request.get(`/api/books/${bookIdOf(page)}/xray?cfi=nonsense`)).status()).toBe(400);
 });
 
-// M32 X2: names on the page. Each name's first mention in a paragraph carries a dotted underline, drawn on foliate's
-// overlay; the "On this page" strip names what is on the screen; a tap on an underline, or on a chip, opens the card
-// over the page, which knows where the reader is like the Who & what list.
-test("names on the page carry a dotted underline, the strip names what is on the screen, and a tap opens the card", async ({ page }) => {
-  await openAtPhrase(page, "lover of the sane and customary"); // chapter 2, Search for Mr. Hyde
-  const strip = page.getByRole("region", { name: "On this page" });
-  await expect(strip).toContainText("Mr. Utterson");
-  await expect(strip).toContainText("Edward Hyde");
-  // Underlines on the overlay of the chapter shown (foliate keeps the overlay's SVG beside the page's frame, and
-  // hands it out with the frame's document): one per name per paragraph.
+/** A tap on the first X-ray underline of the page, through foliate's own hit test on the page's document. */
+async function tapFirstMark(page: Page) {
   type Contents = { doc: Document; overlayer?: { element: SVGElement } }[];
-  const drawn = await page.evaluate(() => {
-    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): Contents } };
-    return view.renderer.getContents().reduce((n, { overlayer }) => n + (overlayer?.element.querySelectorAll("g[data-xray]").length ?? 0), 0);
-  });
-  expect(drawn).toBeGreaterThan(5);
-  // A tap on the first underline (Mr. Utterson, the chapter's first words), through foliate's own hit test on the
-  // page's document, at the underline's place.
   await page.evaluate(() => {
     const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): Contents } };
     for (const { doc, overlayer } of view.renderer.getContents()) {
@@ -753,23 +738,52 @@ test("names on the page carry a dotted underline, the strip names what is on the
     }
     throw new Error("no mark on this page");
   });
+}
+
+// M32 X2: names on the page. Each name's first mention in a paragraph carries a dotted underline, drawn on foliate's
+// overlay; a tap on an underline opens the card over the page, which knows where the reader is like the Who & what
+// list. The names on the screen are listed under "On this page" at the top of Who & what, opened from the sidebar
+// when wanted: never over the text (Samuel, 2026-11-08: the strip at the foot of the page sometimes hid the reading).
+test("names on the page carry a dotted underline, a tap opens the card, and Who & what in the sidebar lists the names on this page", async ({ page }) => {
+  await openAtPhrase(page, "lover of the sane and customary"); // chapter 2, Search for Mr. Hyde
+  await expect(page.getByRole("region", { name: "On this page" }), "nothing over the page until asked for").toHaveCount(0);
+  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Who & what" }).click();
+  const who = page.getByRole("region", { name: "Who & what" });
+  const strip = who.getByRole("region", { name: "On this page" });
+  await expect(strip).toContainText("Mr. Utterson");
+  await expect(strip).toContainText("Edward Hyde");
+  // A name on this page opens in the panel.
   const card = page.getByTestId("xray-card");
-  await expect(card).toContainText("Mr. Utterson");
-  await expect(card).toContainText("Where it appears");
-  await expect(card).toContainText("mentions so far");
-  // A chip in the strip opens another name; "All names" opens Who & what; Escape closes.
   await strip.getByRole("button", { name: "Edward Hyde" }).click();
   await expect(card).toContainText("Edward Hyde");
   await expect(card).toContainText("Also written Mr. Hyde, Hyde");
-  await card.getByRole("button", { name: "All names" }).click();
-  await expect(card).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Who & what" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("region", { name: "Who & what" })).toHaveCount(0);
-  await strip.getByRole("button", { name: "Mr. Utterson" }).click();
-  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Back to the list" }).click();
+  await expect(strip).toBeVisible();
+  // The sidebar button closes it again.
+  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Who & what" }).click();
+  await expect(who).toHaveCount(0);
+  // Underlines on the overlay of the chapter shown (foliate keeps the overlay's SVG beside the page's frame, and
+  // hands it out with the frame's document): one per name per paragraph.
+  type Contents = { doc: Document; overlayer?: { element: SVGElement } }[];
+  const drawn = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): Contents } };
+    return view.renderer.getContents().reduce((n, { overlayer }) => n + (overlayer?.element.querySelectorAll("g[data-xray]").length ?? 0), 0);
+  });
+  expect(drawn).toBeGreaterThan(5);
+  // A tap on the first underline (Mr. Utterson, the chapter's first words) opens the card over the page.
+  await tapFirstMark(page);
+  await expect(card).toContainText("Mr. Utterson");
+  await expect(card).toContainText("Where it appears");
+  await expect(card).toContainText("mentions so far");
   await card.getByRole("button", { name: "Close" }).click();
   await expect(card).toHaveCount(0);
+  // "All names" opens Who & what; Escape closes it.
+  await tapFirstMark(page);
+  await card.getByRole("button", { name: "All names" }).click();
+  await expect(card).toHaveCount(0);
+  await expect(who).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(who).toHaveCount(0);
   // The marks endpoint wants a chapter number.
   expect((await page.request.get(`/api/books/${bookIdOf(page)}/xray/marks?chapter=x`)).status()).toBe(400);
 });
@@ -898,9 +912,9 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-who-and-what-${name}-${scheme}.png` });
 
-      // M32 X2: the card that opens from a name on the page, with the strip above the text.
+      // M32 X2: the card that opens from a name on the page.
       await page.keyboard.press("Escape");
-      await page.getByRole("region", { name: "On this page" }).getByRole("button").first().click();
+      await tapFirstMark(page);
       await expect(page.getByTestId("xray-card")).toContainText("Where it appears");
       const xcard = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(xcard.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
