@@ -366,6 +366,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 11:57 · Claude Opus 5.5 · Checkpoint: M43 genealogy polish live (2e6ebae) and checked signed in on Chip War, The Grid and The Pay Off
+- **Done:** #316-#319 merged and live: stricter company matching, one parent per founder in the family tree, laptop page drawn by the app's code, explanations removed, view fixes (Back to where I am, FURTHER BACK, Study tabs), About the authors / Sources / Acknowledgements left out of chapter numbers. Checked live in the in-app browser signed in.
+- **Key paths:** docs/handoffs/2026-11-09-1157-genealogy-polish-live.md (gitignored); lib/library/genealogy-names.ts; lib/library/genealogy.ts; app/(reader)/books/[id]/read/genealogy-views.ts; scripts/genealogy-on-subscription.ts
+- **Commands that worked:** npm run check (1450 passed); npx playwright test --project=ai --ignore-snapshots -g 'Genealogy opens|...' (258 passed); curl /api/health both addresses -> 2e6ebae
+- **Known issues / blockers:** None. The Pay Off's title page and Chip War's Cast of Characters still count as chapter 1 (no general rule).
+- **Exact next steps:** Samuel uses the Genealogy tabs and says what to change; more books' genealogies only at his word.
+
 ### 2026-11-09 10:06 · Claude Opus 5.5 · Live: 2e6ebae (#319 Acknowledgements left out of the genealogy's chapter numbers)
 - **Done:** Checked live, signed in, in the in-app browser: Chip War 57 chapters to Chapter 54; The Grid 41 page groups to Pages 299-317; The Pay Off 33 chapters to Epilogue (was 36, ending at ABOUT THE AUTHORS). Views open with only the provenance line; The Grid's FirstEnergy tree draws.
 - **Key paths:** lib/library/genealogy.ts
