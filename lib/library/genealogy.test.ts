@@ -201,13 +201,16 @@ describe("numberChapters (one rule for the skill and the site)", () => {
     expect(parts).toEqual([[1, "I", "Beginnings"]]);
   });
 
-  it("leaves out About the author pages, one author or several, in any case", () => {
+  it("leaves out About the author pages (one author or several, in any case) and lists of sources", () => {
     // The Pay Off's last page, "ABOUT THE AUTHORS", was numbered chapter 36 until 2026-11-09.
     const { chapters } = numberChapters([
       { label: "The Only Chapter", size: 9000 },
       { label: "About the Author", size: 900 },
       { label: "ABOUT THE AUTHORS", size: 1200 },
       { label: "About the Publishers", size: 700 },
+      { label: "Sources", size: 40000 }, // The Pay Off's last numbered page after the fix above
+      { label: "References", size: 30000 },
+      { label: "Further Reading", size: 3000 },
     ]);
     expect(chapters.map((c) => c.title)).toEqual(["The Only Chapter"]);
   });

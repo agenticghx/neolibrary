@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #317 when green; check the three books live.
+next_action: Merge the Sources PR when green; check The Pay Off's last chapter live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 08:53 · Claude Opus 5.5 · Live: 5fd6a20 (#317); M43: Sources and References left out of the genealogy's chapter numbers
+- **Done:** #317 live (About the authors left out; explanations removed from the Genealogy views): checked in the in-app browser, The Pay Off's views open with one provenance line. Then: BACK_MATTER also matches Sources, References, Further reading (The Pay Off's slider ended at 35. Sources).
+- **Key paths:** lib/library/genealogy.ts; lib/library/genealogy.test.ts; LEARNING_LOG.md
+- **Commands that worked:** curl /api/health both addresses -> 5fd6a20; /sign-in 200; npx vitest run lib/library/genealogy.test.ts lib/library/genealogy-view.test.ts (23 passed); page for three run folders: 57, 41, 34 chapters
+- **Known issues / blockers:** The Pay Off's title page is still chapter 1. No migration.
+- **Exact next steps:** Merge when green (deploys itself); check The Pay Off ends at its last real chapter.
 
 ### 2026-11-09 08:09 · Claude Opus 5.5 · Live: fe4ba57 (#316 stricter company matching, one parent per founder, laptop page from the app's code, three view fixes)
 - **Done:** #316 deployed itself after main's CI re-run (first run hit the known stats.spec.ts:72 flake). Checked live in the in-app browser signed in as Samuel: Intel's tree is Shockley, Fairchild, Intel (Philco gone); Back to where I am hidden at the reader's chapter; FURTHER BACK no longer over the key.
