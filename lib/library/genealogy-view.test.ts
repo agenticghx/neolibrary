@@ -9,7 +9,7 @@ import { MemoryStorage } from "@/lib/storage";
 import { parseEpub } from "./ebook";
 import { numberChapters } from "./genealogy";
 import { genealogyPromptHash, saveGenealogy, type SentLink } from "./genealogy-store";
-import { genealogyView } from "./genealogy-view";
+import { genealogyNames, genealogyView } from "./genealogy-view";
 import { importBook } from "./import";
 import { extractSections } from "./sections";
 
@@ -110,6 +110,24 @@ describe("a book's genealogy as the views draw it (M43 S3)", () => {
     expect(start.at).toBe(1);
     const there = (await genealogyView(database.db, ownerId, bookId, await cfiOf(late.id)))!;
     expect(there.at).toBe(there.links[0].chapter);
+  });
+
+  it("lists its names for the Who & what card, with kinds, link counts and which have a family tree", async () => {
+    expect(await genealogyNames(database.db, ownerId, bookId)).toEqual([]);
+    const org = (from: string, relation: string, to: string): SentLink => ({ ...link(late, from, relation, to), from_kind: "organisation", to_kind: "organisation" });
+    await saveGenealogy(database.db, ownerId, bookId, {
+      model: "claude-sonnet-5-5",
+      promptHash: await genealogyPromptHash(),
+      links: [link(early, "Gabriel John Utterson", "friend", "Henry Jekyll"), link(late, "Henry Jekyll", "friend", "Hastie Lanyon"), org("The cabinet", "part_of", "Jekyll's house"), { ...link(late, "Poole", "family", "Henry Jekyll"), removed: true }],
+      lives: {},
+    });
+    expect(await genealogyNames(database.db, ownerId, bookId)).toEqual([
+      { name: "Henry Jekyll", kind: "person", links: 2, tree: false },
+      { name: "Gabriel John Utterson", kind: "person", links: 1, tree: false },
+      { name: "Hastie Lanyon", kind: "person", links: 1, tree: false },
+      { name: "The cabinet", kind: "organisation", links: 1, tree: true },
+      { name: "Jekyll's house", kind: "organisation", links: 1, tree: true },
+    ]);
   });
 
   it("is only for the book's owner", async () => {

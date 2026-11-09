@@ -89,7 +89,11 @@ keep all of them.
   - Known trade-off: the drawing code now lives twice, in the app and in the
     laptop page (`scripts/genealogy-page.html`). A change to a view belongs in
     both until the laptop page reads the app's module.
-  - Not done: a name in the X-ray card opening its family tree or life (next).
+  - Merged and live (#312, ffc92bf).
+  - A name in the X-ray card (Who & what, and the card over the page) opens
+    its family tree, its company view or its life, when the genealogy has it
+    (`matchGenealogyName` in `lib/library/genealogy-names.ts`: exact spelling,
+    else a person's surname or the first words of a company's name).
 
 ## Open questions
 

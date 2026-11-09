@@ -8,6 +8,7 @@ import { Trail, XrayEntryCard } from "./XrayEntryCard";
 import styles from "./reader.module.css";
 import own from "./XrayPanel.module.css";
 import { aiFetch } from "@/lib/own-keys";
+import type { GenealogyTop } from "./genealogy-views";
 
 /**
  * Who & what (M32 X1): the people, places and terms the book names, most
@@ -32,6 +33,7 @@ export function XrayPanel({
   onPage = [],
   onTab,
   onGo,
+  onGenealogy,
 }: {
   bookId: string;
   cfi: string;
@@ -39,6 +41,8 @@ export function XrayPanel({
   onPage?: { id: string; name: string }[];
   onTab: (tab: StudyTab) => void;
   onGo: (cfi: string) => void;
+  /** M43 S3: a name's family tree or life, when the book's genealogy has it. */
+  onGenealogy?: (name: string, view: GenealogyTop) => void;
 }) {
   const [data, setData] = useState<(XrayList & { fake?: boolean }) | null>(null);
   const [tick, setTick] = useState(0);
@@ -150,7 +154,7 @@ export function XrayPanel({
           <button type="button" className={own.back} onClick={() => setOpen(null)}>
             Back to the list
           </button>
-          <XrayEntryCard bookId={bookId} entry={current} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} />
+          <XrayEntryCard bookId={bookId} entry={current} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} onGenealogy={onGenealogy} />
         </article>
       ) : null}
       {data && !current ? (

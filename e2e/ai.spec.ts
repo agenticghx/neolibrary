@@ -870,6 +870,22 @@ test("Genealogy opens its three questions and seven views over the page, from wh
     () => (document.querySelector("foliate-view") as unknown as { lastLocation?: { tocItem?: { label?: string } } }).lastLocation?.tocItem?.label === "Incident of the Letter",
   );
 
+  // From a name in Who & what: the lawyer's card offers his life, under his genealogy name, and opens it.
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Who & what" }).click();
+  const who = page.getByRole("region", { name: "Who & what" });
+  await who.getByTestId("xray-list").getByRole("button", { name: /Mr\. Utterson/ }).click();
+  const fromCard = who.getByTestId("xray-genealogy");
+  await expect(fromCard).toContainText("In the genealogy as Gabriel John Utterson.");
+  await fromCard.getByRole("button", { name: "Life, in the order it happened" }).click();
+  await expect(g.getByRole("img", { name: "Gabriel John Utterson's life as a storyline" })).toBeVisible();
+  await page.screenshot({ path: "screenshots/genealogy-from-xray-desktop-light.png" });
+  await g.getByRole("button", { name: "Close", exact: true }).click();
+  // A name the genealogy does not have (London, a place) offers nothing.
+  await who.getByTestId("xray-card").getByRole("button", { name: "Back to the list" }).click();
+  await who.getByTestId("xray-list").getByRole("button", { name: /^London/ }).click();
+  await expect(who.getByTestId("xray-card")).toContainText("Where it appears");
+  await expect(who.getByTestId("xray-genealogy")).toHaveCount(0);
+
   // Screenshots for the pull request (not committed), at desktop and phone size, light and dark.
   await mkdir("screenshots", { recursive: true });
   for (const scheme of ["light", "dark"] as const) {

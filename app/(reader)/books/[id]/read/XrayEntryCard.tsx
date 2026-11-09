@@ -7,6 +7,21 @@ import type { LibraryLink, WorldView } from "@/lib/library/xray-layers";
 import styles from "./reader.module.css";
 import own from "./XrayEntryCard.module.css";
 import { aiFetch } from "@/lib/own-keys";
+import { matchGenealogyName, type GenealogyName } from "@/lib/library/genealogy-names";
+import type { GenealogyTop } from "./genealogy-views";
+
+/** M43 S3: each book's genealogy names, asked for once per page (a card opens and closes often). */
+const genealogyNames = new Map<string, Promise<GenealogyName[]>>();
+const namesOf = (bookId: string) => {
+  if (!genealogyNames.has(bookId))
+    genealogyNames.set(
+      bookId,
+      fetch(`/api/books/${bookId}/genealogy?names=1`)
+        .then(async (res) => (res.ok ? ((await res.json()) as { names: GenealogyName[] }).names : []))
+        .catch(() => []),
+    );
+  return genealogyNames.get(bookId)!;
+};
 
 type Layers = { library: LibraryLink[]; world: WorldView | null; estimate: number | null; fake: boolean; for: string };
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
@@ -51,6 +66,7 @@ export function XrayEntryCard({
   showAll,
   fake,
   onGo,
+  onGenealogy,
 }: {
   bookId: string;
   entry: XrayListEntry;
@@ -60,7 +76,21 @@ export function XrayEntryCard({
   /** The answers came from the test AI (browser tests), not Claude. */
   fake?: boolean;
   onGo: (cfi: string, fact?: XrayFact) => void;
+  /** M43 S3: open the Genealogy views on this name (absent where they cannot open, as for a visitor). */
+  onGenealogy?: (name: string, view: GenealogyTop) => void;
 }) {
+  // The name in the book's genealogy, if it is there: its family tree or its life is then one tap away.
+  const [names, setNames] = useState<{ for: string; list: GenealogyName[] } | null>(null);
+  const wanted = Boolean(onGenealogy);
+  useEffect(() => {
+    if (!wanted) return;
+    let live = true;
+    namesOf(bookId).then((list) => live && setNames({ for: bookId, list }));
+    return () => {
+      live = false;
+    };
+  }, [bookId, wanted]);
+  const inGenealogy = onGenealogy && names?.for === bookId ? matchGenealogyName(entry, names.list) : null;
   // X4: the same name in the reader's other books, and what the world knows (asked for here, kept once asked).
   const [loaded, setLoaded] = useState<Layers | null>(null);
   const [asking, setAsking] = useState(false);
@@ -112,6 +142,30 @@ export function XrayEntryCard({
       </p>
       <Trail entry={entry} chapters={chapters} position={position} showAll={showAll} />
       {entry.aliases.length > 1 ? <p className={styles.hint}>Also written {entry.aliases.filter((a) => a !== entry.name).join(", ")}.</p> : null}
+      {inGenealogy && onGenealogy ? (
+        <div className={own.genealogy} data-testid="xray-genealogy">
+          <p className={styles.groupLabel}>Genealogy</p>
+          {inGenealogy.name !== entry.name ? <p className={styles.hint}>In the genealogy as {inGenealogy.name}.</p> : null}
+          <div className={own.genealogyActions}>
+            {inGenealogy.kind === "person" ? (
+              <button type="button" className={styles.tool} onClick={() => onGenealogy(inGenealogy.name, "person")}>
+                Life, in the order it happened
+              </button>
+            ) : (
+              <>
+                {inGenealogy.tree ? (
+                  <button type="button" className={styles.tool} onClick={() => onGenealogy(inGenealogy.name, "tree")}>
+                    Family tree
+                  </button>
+                ) : null}
+                <button type="button" className={styles.tool} onClick={() => onGenealogy(inGenealogy.name, "org")}>
+                  Inside the company
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
       {entry.facts.length ? (
         <>
           <p className={own.factsHead}>
