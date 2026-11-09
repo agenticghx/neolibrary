@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Watch the X-ray to genealogy PR merge and deploy.
+next_action: Merge the PDF-grouping PR; Samuel decides S4 (an 'Also in' link or nothing).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 21:03 · Claude Opus 5.5 · M43: The Grid (PDF) and The Pay Off read and sent; S4 overlap measured (small)
+- **Done:** The Grid (a PDF with text) and The Pay Off (its text edition) read on the subscription and sent to the live site: The Grid 54 links, 12 removed, 44 events for 37 people; The Pay Off 135 links, 20 removed, 90 events for 65 people; nothing left out by the site's checks. The skill now reads a PDF (fetch splits it with extractPdfSections) and numberChapters groups a PDF's pages into ~18,000-character chapters, the same rule on the site. Overlap across the three books: 15 names, 1 in all three (IBM).
+- **Key paths:** lib/library/genealogy.ts (numberChapters, PDF_CHAPTER_CHARS); lib/library/genealogy-view.ts; scripts/genealogy-on-subscription.ts; docs/genealogy-plan.md (S4 measured)
+- **Commands that worked:** genealogy-on-subscription.ts fetch|read|page|payload|send for both books; npx vitest run; npm run lint
+- **Known issues / blockers:** No migration: deploys itself when merged. Until this deploys, The Grid's Genealogy tab numbers its 315 pages as chapters. S4: measured overlap too small for a cross-book view; Samuel decides between an 'Also in <book>' link or nothing.
+- **Exact next steps:** 1. Merge this PR when green; check /api/health. 2. Samuel looks at The Grid and The Pay Off Genealogy tabs. 3. Samuel decides S4: 'Also in <book>' link, or stop.
 
 ### 2026-11-08 20:36 · Claude Opus 5.5 · M43 S3: a name in Who & what opens its family tree or life, tested; PR opened
 - **Done:** The X-ray card (in Who & what and over the page) has a Genealogy row when the name is in the book's genealogy: Life, in the order it happened (a person), Family tree and Inside the company (a company); it opens the views on that name at the reader's chapter. Matching: exact spelling, else surname for people, first words for companies, most linked of several.

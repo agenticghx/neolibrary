@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, readNames, slug, type Chapter, type Link } from "./genealogy";
+import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, numberChapters, PDF_CHAPTER_CHARS, readNames, slug, type Chapter, type Link } from "./genealogy";
 
 const ch: Chapter = {
   key: "ch-3",
@@ -183,4 +183,31 @@ describe("checkYears", () => {
 it("slug makes a file name of a person's name", () => {
   expect(slug("Morris Chang")).toBe("Morris-Chang");
   expect(slug("K. T. Li")).toBe("K-T-Li");
+});
+
+describe("numberChapters (one rule for the skill and the site)", () => {
+  it("numbers an EPUB's chapters, leaving out short pages and the edition's own, and starts a part at a short Part page", () => {
+    const { chapters, parts } = numberChapters([
+      { label: "Copyright", size: 900 },
+      { label: "Part I: Beginnings", size: 300 },
+      { label: "The First", size: 9000 },
+      { label: "A note", size: 200 },
+      { label: "The Second", size: 8000 },
+    ]);
+    expect(chapters.map((c) => [c.number, c.title, c.items.length])).toEqual([
+      [1, "The First", 1],
+      [2, "The Second", 1],
+    ]);
+    expect(parts).toEqual([[1, "I", "Beginnings"]]);
+  });
+
+  it("groups a PDF's pages into chapters of about a book chapter's length, blank pages skipped, a short tail joined to the last", () => {
+    const page = (n: number, size: number) => ({ label: `Page ${n}`, size, index: n - 1 });
+    const pages = [page(1, 0), ...Array.from({ length: 18 }, (_, i) => page(i + 2, 3000)), page(20, 1000)];
+    const { chapters, parts } = numberChapters(pages);
+    expect(chapters.map((c) => c.title)).toEqual(["Pages 2–7", "Pages 8–13", "Pages 14–20"]);
+    expect(chapters[0].size).toBeGreaterThanOrEqual(PDF_CHAPTER_CHARS);
+    expect(chapters.flatMap((c) => c.items.map((i) => i.index))).toEqual(pages.slice(1).map((p) => p.index)); // every page with text, once, in order
+    expect(parts).toEqual([[1, "1–3", "Chapters 1 to 3"]]);
+  });
 });

@@ -89,8 +89,10 @@ export async function genealogyView(db: Db, ownerId: string, bookId: string, cfi
     .groupBy(sections.chapterIndex);
   const sizeOf = new Map(sizes.map((s) => [s.index, s.size]));
   const { chapters, parts } = numberChapters(heads.map((h) => ({ ...h, size: sizeOf.get(h.index) ?? 0 })));
-  // A chapter index the numbering left out (a short page with a link on it) counts as the next numbered chapter.
-  const numberOf = (index: number) => (chapters.find((c) => c.index >= index) ?? chapters[chapters.length - 1])?.number ?? 1;
+  // Each entry's chapter number: its own, or its group's (a PDF's pages). An entry the numbering left out (a short page
+  // with a link on it) counts as the next numbered chapter.
+  const numbered = new Map(chapters.flatMap((c) => c.items.map((i) => [i.index, c.number] as const)));
+  const numberOf = (index: number) => numbered.get(index) ?? (chapters.find((c) => c.index >= index) ?? chapters[chapters.length - 1])?.number ?? 1;
 
   // Where each quote is, to go there.
   const ids = new Set<string>();

@@ -304,24 +304,58 @@ export function checkYears(answer: string, events: { start_year: number | null }
 /** Pages that are about the edition, not the story: never read for links, never numbered as chapters. */
 export const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (author|publisher)|also by|(more )?praise|dedication|title page|cover|half title)\b/i;
 
+/** A PDF's pages are grouped into reading chapters of about this many characters (a book chapter's length). */
+export const PDF_CHAPTER_CHARS = 18_000;
+const PAGE_LABEL = /^Page \d+$/;
+
 /**
  * The chapters a genealogy is read from, numbered 1, 2, 3…, and the book's parts. One rule for the laptop skill and
  * the site (M43 S3), so a link's "chapter 12" means the same chapter in both. `size` is the chapter's prose, in
- * characters with spaces squeezed. A short "Part …" page starts a part; other chapters under 500 characters, and
- * the edition's own pages, are left out. A book with no parts gets bands of ten chapters.
+ * characters with spaces squeezed. Each chapter keeps the entries it was made of (`items`).
+ * - An EPUB: a short "Part …" page starts a part; other chapters under 500 characters, and the edition's own pages,
+ *   are left out; one entry per chapter.
+ * - A PDF (every entry is a page, "Page 12"): pages are grouped in order into chapters of about PDF_CHAPTER_CHARS
+ *   ("Pages 12–31"), so a 300-page book reads as some twenty chapters, not three hundred.
+ * A book with no parts gets bands of ten chapters.
  */
 export function numberChapters<T extends { label: string; size: number }>(list: T[]) {
-  const chapters: (T & { number: number; title: string })[] = [];
+  const chapters: (T & { number: number; title: string; items: T[] })[] = [];
   const parts: [number, string, string][] = [];
-  let pendingPart: string | null = null;
-  for (const c of list) {
-    if (/^part\b/i.test(c.label) && c.size < 1500) pendingPart = c.label;
-    if (c.size < 500 || BACK_MATTER.test(c.label.trim())) continue;
-    chapters.push({ ...c, number: chapters.length + 1, title: c.label || `Chapter ${chapters.length + 1}` });
-    if (pendingPart) {
-      const m = pendingPart.match(/^part\s+([^\s:.]+)[\s:.]*(.*)$/i);
-      parts.push([chapters.length, m?.[1] ?? String(parts.length + 1), m?.[2] || pendingPart]);
-      pendingPart = null;
+  if (list.length && list.every((c) => PAGE_LABEL.test(c.label))) {
+    let group: T[] = [];
+    let size = 0;
+    const close = () => {
+      if (!group.length) return;
+      const first = group[0].label.replace("Page ", "");
+      const last = group[group.length - 1].label.replace("Page ", "");
+      chapters.push({ ...group[0], size, number: chapters.length + 1, title: first === last ? `Page ${first}` : `Pages ${first}–${last}`, items: group });
+      group = [];
+      size = 0;
+    };
+    for (const c of list) {
+      if (!c.size) continue;
+      group.push(c);
+      size += c.size;
+      if (size >= PDF_CHAPTER_CHARS) close();
+    }
+    // A short last group joins the one before it.
+    if (group.length && size < PDF_CHAPTER_CHARS / 3 && chapters.length) {
+      const prev = chapters.pop()!;
+      group = [...prev.items, ...group];
+      size += prev.size;
+    }
+    close();
+  } else {
+    let pendingPart: string | null = null;
+    for (const c of list) {
+      if (/^part\b/i.test(c.label) && c.size < 1500) pendingPart = c.label;
+      if (c.size < 500 || BACK_MATTER.test(c.label.trim())) continue;
+      chapters.push({ ...c, number: chapters.length + 1, title: c.label || `Chapter ${chapters.length + 1}`, items: [c] });
+      if (pendingPart) {
+        const m = pendingPart.match(/^part\s+([^\s:.]+)[\s:.]*(.*)$/i);
+        parts.push([chapters.length, m?.[1] ?? String(parts.length + 1), m?.[2] || pendingPart]);
+        pendingPart = null;
+      }
     }
   }
   const n = chapters.length;

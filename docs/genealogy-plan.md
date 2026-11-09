@@ -64,6 +64,13 @@ keep all of them.
 - **S4 · Across books.** One person or company across every book that links
   them (Chip War, The Grid and The Pay Off overlap). *Done when:* decided with
   Samuel after S3 is in use.
+  - Measured 2026-11-08, after reading The Grid (54 links, 37 people) and The
+    Pay Off (135 links, 65 people) and sending both: 15 names are in two or more
+    of the three books (4 people, 11 organisations), 1 in all three (IBM).
+    Most have one or two links in the second book (Intel: 58 in Chip War, 1 in
+    The Grid), and two are loose matches ("MIT Instrumentation Lab" and "MIT";
+    "Google China" and "Google"). Too little for a cross-book view.
+    Recommendation: an "Also in <book>" link on a name instead; Samuel decides.
 
 ## Decisions
 
@@ -90,6 +97,8 @@ keep all of them.
     laptop page (`scripts/genealogy-page.html`). A change to a view belongs in
     both until the laptop page reads the app's module.
   - Merged and live (#312, ffc92bf).
+  - A PDF with its own text is read in groups of pages (`numberChapters`,
+    about 18,000 characters each), the same groups on the site.
   - A name in the X-ray card (Who & what, and the card over the page) opens
     its family tree, its company view or its life, when the genealogy has it
     (`matchGenealogyName` in `lib/library/genealogy-names.ts`: exact spelling,

@@ -34,7 +34,8 @@ import { fill, readPrompt, splitPrompt } from "@/lib/ai/prompts";
 import { parseEpub } from "@/lib/library/ebook";
 import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, numberChapters, readNames, signature, slug, type Chapter, type Link } from "@/lib/library/genealogy";
 import { genealogyPromptHash, type GenealogySend, type SentLink } from "@/lib/library/genealogy-store";
-import { extractSections } from "@/lib/library/sections";
+import { extractPdfSections } from "@/lib/library/pdf-sections";
+import { extractSections, type Section } from "@/lib/library/sections";
 
 const arg = (name: string, fallback: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -98,9 +99,14 @@ async function prompt(name: string) {
 
 /** The book's chapters as the app splits them (same paragraph ids), numbered by the rule the site uses (numberChapters). */
 function chaptersOf(folder: string): { chapters: Chapter[]; parts: [number, string, string][] } {
-  const bytes = new Uint8Array(readFileSync(join(folder, "book.epub")));
-  const toc = parseEpub(bytes).toc as { label: string; href: string }[];
-  const sections = extractSections(bytes, toc);
+  // A PDF's sections were split at fetch time (extractPdfSections is async) and saved beside it.
+  const pdf = join(folder, "sections.json");
+  const sections: Section[] = existsSync(pdf)
+    ? readJson<Section[]>(pdf)
+    : (() => {
+        const bytes = new Uint8Array(readFileSync(join(folder, "book.epub")));
+        return extractSections(bytes, parseEpub(bytes).toc as { label: string; href: string }[]);
+      })();
   const byChapter = new Map<number, { key: string; label: string; paragraphs: { id: string; text: string }[] }>();
   for (const s of sections) {
     if (s.kind === "chapter") byChapter.set(s.chapterIndex, { key: s.id, label: s.label, paragraphs: [] });
@@ -108,7 +114,7 @@ function chaptersOf(folder: string): { chapters: Chapter[]; parts: [number, stri
   }
   const list = [...byChapter].sort((a, b) => a[0] - b[0]).map(([, c]) => ({ ...c, size: c.paragraphs.reduce((n, p) => n + p.text.length, 0) }));
   const { chapters, parts } = numberChapters(list);
-  return { chapters: chapters.map((c) => ({ key: c.key, number: c.number, title: c.title, paragraphs: c.paragraphs })), parts };
+  return { chapters: chapters.map((c) => ({ key: c.key, number: c.number, title: c.title, paragraphs: c.items.flatMap((i) => i.paragraphs) })), parts };
 }
 
 const passages = (c: Chapter) => c.paragraphs.map((p, i) => `<passage n="${i + 1}">${p.text}</passage>`).join("\n");
@@ -434,13 +440,18 @@ async function fetchBook(site: string, bookId: string, folder: string) {
   const info = await fetch(base, { headers: { authorization: `Bearer ${t}` } });
   const body = (await info.json().catch(() => ({}))) as { book?: { title: string; kind: string; scan?: boolean } };
   if (!info.ok || !body.book) throw new Error(`${info.status} ${JSON.stringify(body)}`);
-  if (body.book.kind !== "epub") throw new Error(`${body.book.title} is a ${body.book.kind}${body.book.scan ? " scan" : ""}: read its text edition (or an EPUB) instead.`);
+  const isPdf = body.book.kind === "pdf" && !body.book.scan;
+  if (body.book.kind !== "epub" && !isPdf) throw new Error(`${body.book.title} is a ${body.book.kind}${body.book.scan ? " scan" : ""}: read its text edition instead.`);
   const file = await fetch(`${base}/file`, { headers: { authorization: `Bearer ${t}` } });
   if (!file.ok) throw new Error(`file: ${file.status}`);
   mkdirSync(folder, { recursive: true });
-  writeFileSync(join(folder, "book.epub"), new Uint8Array(await file.arrayBuffer()));
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const saved = join(folder, isPdf ? "book.pdf" : "book.epub");
+  writeFileSync(saved, bytes);
+  // A PDF is split now, as the site split it at upload (the same function, so the same paragraph ids).
+  if (isPdf) writeJson(join(folder, "sections.json"), await extractPdfSections(bytes));
   writeJson(join(folder, "meta.json"), { title: body.book.title, bookId });
-  console.log(`${body.book.title}: saved to ${join(folder, "book.epub")}.`);
+  console.log(`${body.book.title}: saved to ${saved}.`);
 }
 
 const [cmd, a1, a2, a3] = process.argv.slice(2);

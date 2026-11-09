@@ -2909,3 +2909,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Unit tests of the matcher (exact, surname, company prefix, a first name alone, a place) and of the names list; the browser test opens Mr. Utterson's card, finds "In the genealogy as Gabriel John Utterson", opens his storyline, and checks that London offers nothing.
 **Result.** Unit tests 10 passed (matcher and names list); browser run 259 passed: Mr. Utterson's card says "In the genealogy as Gabriel John Utterson" and opens his storyline at the reader's chapter; London offers nothing.
 **Lesson.** When two indexes of one book name things differently, match on the rule each one used to choose its name, not on equality.
+
+### Iteration 162 · 2026-11-08 (laptop clock) · M43 S4 question: do the books share names? · measured, no
+
+**Hypothesis.** A cross-book view (S4) is worth building only if Chip War, The Grid and The Pay Off share many people and companies; read the other two and count before designing it.
+**Action.** The Pay Off read from its text edition (an EPUB, unchanged skill). The Grid is a PDF with its own text: `fetch` now splits it with the site's own `extractPdfSections` (same paragraph ids), and `numberChapters` groups a PDF's pages into chapters of about 18,000 characters, the same rule on the site. Both sent; a scratch script counted names in two or more books (exact name, else surname for people, first words for organisations).
+**Evaluation.** Unit tests of the grouping (blank pages skipped, a short tail joined to the last group, every page once in order) and a site test on the Descartes PDF fixture (the site's chapters equal the skill's; the link found by the skill's paragraph id). The live sends' own checks.
+**Result.** The Grid: 315 pages read as 41 chapters, 71 links offered, 54 shown, 37 lives; stored with nothing left out. The Pay Off: 36 chapters, 160 offered, 135 shown, 65 lives; stored with nothing left out. Overlap: 15 names in two or more books, 1 in all three (IBM); most with one or two links in the second book, two of them loose matches.
+**Lesson.** Measure the data a feature would show before building it: three books on one theme still shared only a handful of names.
