@@ -301,4 +301,32 @@ export function checkYears(answer: string, events: { start_year: number | null }
 }
 
 /** "Morris Chang" → "Morris-Chang": a file name for a person's reading. */
+/** Pages that are about the edition, not the story: never read for links, never numbered as chapters. */
+export const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (author|publisher)|also by|(more )?praise|dedication|title page|cover|half title)\b/i;
+
+/**
+ * The chapters a genealogy is read from, numbered 1, 2, 3…, and the book's parts. One rule for the laptop skill and
+ * the site (M43 S3), so a link's "chapter 12" means the same chapter in both. `size` is the chapter's prose, in
+ * characters with spaces squeezed. A short "Part …" page starts a part; other chapters under 500 characters, and
+ * the edition's own pages, are left out. A book with no parts gets bands of ten chapters.
+ */
+export function numberChapters<T extends { label: string; size: number }>(list: T[]) {
+  const chapters: (T & { number: number; title: string })[] = [];
+  const parts: [number, string, string][] = [];
+  let pendingPart: string | null = null;
+  for (const c of list) {
+    if (/^part\b/i.test(c.label) && c.size < 1500) pendingPart = c.label;
+    if (c.size < 500 || BACK_MATTER.test(c.label.trim())) continue;
+    chapters.push({ ...c, number: chapters.length + 1, title: c.label || `Chapter ${chapters.length + 1}` });
+    if (pendingPart) {
+      const m = pendingPart.match(/^part\s+([^\s:.]+)[\s:.]*(.*)$/i);
+      parts.push([chapters.length, m?.[1] ?? String(parts.length + 1), m?.[2] || pendingPart]);
+      pendingPart = null;
+    }
+  }
+  const n = chapters.length;
+  if (!parts.length) for (let i = 1; i <= n; i += 10) parts.push([i, `${i}–${Math.min(i + 9, n)}`, `Chapters ${i} to ${Math.min(i + 9, n)}`]);
+  return { chapters, parts };
+}
+
 export const slug = (name: string) => name.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "x";

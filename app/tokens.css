@@ -110,6 +110,20 @@
   --machine-bg: #ece6f0;
   --machine-rule: #7a6a8c;
 
+  /* Genealogy views (M43 S3): the kinds of link, each light then dark; the theme's color-scheme picks one, so a
+     Night book gets the dark set and a Paper book the light set without a block per theme. */
+  --gn-org: light-dark(#376963, #7fb3a8);     /* organisations, and links the book states */
+  --gn-person: light-dark(#8a5a2b, #d6a26a);  /* people */
+  --gn-money: light-dark(#a0742a, #d9b36c);   /* money in and out */
+  --gn-family: light-dark(#6d5a96, #ad9ad6);  /* came from, offspring, bought */
+  --gn-gk: light-dark(#8b3fa8, #d08ce8);      /* years from general knowledge, never the book's */
+  --gn-partner: light-dark(#7a8a8f, #8e9ea3); /* partners */
+  --gn-derived: light-dark(#9a8f7c, #7d8a8a); /* a line put together from two quotes */
+  --gn-warn: light-dark(#9b3b2e, #e08a7a);    /* corrected by the second reading; a person leaving */
+  --gn-hl: light-dark(#e6dcc4, #2c3e46);      /* the focused card or company */
+  --text-chart: 0.75rem;     /* 12px  labels inside a chart */
+  --text-chart-sm: 0.6875rem; /* 11px axis and part labels inside a chart */
+
   /* Highlight colours in books (drawn translucent over the text) */
   --mark-sage: #5f9e86;
   --mark-amber: #e0a43a;

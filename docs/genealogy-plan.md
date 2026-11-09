@@ -77,7 +77,19 @@ keep all of them.
 - S1 merged and live (#310, 218147c).
 - S2: links and life events stored on the site (`db/migrations/0039_genealogy`,
   `lib/library/genealogy-store.ts`, `POST /api/agent/books/<id>/genealogy`,
-  `send` in the skill's script), in export and import.
+  `send` in the skill's script), in export and import. Merged and live
+  (#311, 171a544).
+- S3: the Genealogy tab in Study (`GenealogyPanel.tsx`), whose three
+  questions open the seven views over the whole page (`GenealogyView.tsx`,
+  `genealogy-views.ts`, from `GET /api/books/<id>/genealogy`,
+  `lib/library/genealogy-view.ts`). The slider starts at the reader's
+  chapter; every quote can turn the page to where the book says it.
+  Chapters are numbered by one rule for the skill and the site
+  (`numberChapters` in `lib/library/genealogy.ts`).
+  - Known trade-off: the drawing code now lives twice, in the app and in the
+    laptop page (`scripts/genealogy-page.html`). A change to a view belongs in
+    both until the laptop page reads the app's module.
+  - Not done: a name in the X-ray card opening its family tree or life (next).
 
 ## Open questions
 

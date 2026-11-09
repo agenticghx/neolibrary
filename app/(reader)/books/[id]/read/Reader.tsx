@@ -44,6 +44,10 @@ import { rangeForNonSpace, rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { XrayPanel } from "./XrayPanel";
+import { GenealogyPanel } from "./GenealogyPanel";
+import { GenealogyView } from "./GenealogyView";
+import type { GenealogyTop } from "./genealogy-views";
+import type { GenealogyView as GenealogyData } from "@/lib/library/genealogy-view";
 import { XrayCard } from "./XrayCard";
 import { drawMarks, entryOfKey, namesOnScreen, type DrawnMark } from "./xray-marks";
 import { FULL_IDLE_MS, fullEvent, wakesBars } from "./fullscreen";
@@ -417,10 +421,12 @@ export function Reader(props: {
   const [toc, setToc] = useState<TocItem[]>([]);
   // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
   const [pageCount, setPageCount] = useState(0);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "links" | "images" | "picture">("none");
+  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "genealogy" | "links" | "images" | "picture">("none");
   // X-ray on the page (M32 X2): the name whose card is open, the names on the screen, and each chapter's marks
   // (fetched once, drawn on its overlay).
   const [xrayCard, setXrayCard] = useState<string | null>(null);
+  // M43 S3: the Genealogy views over the whole screen, opened from the Genealogy tab.
+  const [genealogy, setGenealogy] = useState<{ data: GenealogyData; view: GenealogyTop; focus?: string } | null>(null);
   const [onPage, setOnPage] = useState<{ id: string; name: string }[]>([]);
   const xrayMarks = useRef(new Map<number, Promise<XrayMark[]>>());
   const xrayDrawn = useRef(new Map<number, DrawnMark[]>());
@@ -2291,7 +2297,7 @@ export function Reader(props: {
     panel === "links" ||
     panel === "images" ||
     panel === "ask" ||
-    ((panel === "know" || panel === "questions" || panel === "explain" || panel === "xray") && Boolean(where.cfi)) ||
+    ((panel === "know" || panel === "questions" || panel === "explain" || panel === "xray" || panel === "genealogy") && Boolean(where.cfi)) ||
     (panel === "picture" && Boolean(activePicture?.picture)) ||
     (panel === "rewrite" && Boolean(rewriteAt)) ||
     (panel === "settings" && Boolean(settings));
@@ -2429,6 +2435,9 @@ export function Reader(props: {
             <WhereWereWeStrip bookId={props.bookId} recall={props.recall!} onSeeMissed={() => setPanel("explain")} onSaved={() => void reload()} />
           ) : null}
         </div>
+      ) : null}
+      {genealogy ? (
+        <GenealogyView data={genealogy.data} view={genealogy.view} focus={genealogy.focus} onClose={() => setGenealogy(null)} onGo={(cfi) => void view.current?.goTo(cfi)} />
       ) : null}
       {xrayCard ? (
         <XrayCard
@@ -2672,6 +2681,10 @@ export function Reader(props: {
 
         {panel === "xray" && where.cfi ? (
           <XrayPanel bookId={props.bookId} cfi={where.cfi} onPage={onPage} onTab={setPanel} onGo={(cfi) => void view.current?.goTo(cfi)} />
+        ) : null}
+
+        {panel === "genealogy" && where.cfi ? (
+          <GenealogyPanel bookId={props.bookId} cfi={where.cfi} onTab={setPanel} onOpen={(data, v, focus) => setGenealogy({ data, view: v, focus })} />
         ) : null}
 
         {panel === "links" ? <CrossLinksPanel links={links} /> : null}

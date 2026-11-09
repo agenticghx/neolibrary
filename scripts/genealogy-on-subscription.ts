@@ -32,7 +32,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fill, readPrompt, splitPrompt } from "@/lib/ai/prompts";
 import { parseEpub } from "@/lib/library/ebook";
-import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, readNames, signature, slug, type Chapter, type Link } from "@/lib/library/genealogy";
+import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, numberChapters, readNames, signature, slug, type Chapter, type Link } from "@/lib/library/genealogy";
 import { genealogyPromptHash, type GenealogySend, type SentLink } from "@/lib/library/genealogy-store";
 import { extractSections } from "@/lib/library/sections";
 
@@ -95,9 +95,8 @@ async function prompt(name: string) {
 }
 
 /** Pages about the edition, not the book: their names are publishers and editors, not the book's people. */
-const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (author|publisher)|also by|(more )?praise|dedication|title page|cover|half title)\b/i;
 
-/** The book's chapters as the app splits them (same paragraph ids); chapters with almost no text are left out. */
+/** The book's chapters as the app splits them (same paragraph ids), numbered by the rule the site uses (numberChapters). */
 function chaptersOf(folder: string): { chapters: Chapter[]; parts: [number, string, string][] } {
   const bytes = new Uint8Array(readFileSync(join(folder, "book.epub")));
   const toc = parseEpub(bytes).toc as { label: string; href: string }[];
@@ -107,22 +106,9 @@ function chaptersOf(folder: string): { chapters: Chapter[]; parts: [number, stri
     if (s.kind === "chapter") byChapter.set(s.chapterIndex, { key: s.id, label: s.label, paragraphs: [] });
     else if (s.kind === "paragraph" && s.text.trim() && s.form !== "equation") byChapter.get(s.chapterIndex)?.paragraphs.push({ id: s.id, text: s.text.replace(/\s+/g, " ").trim() });
   }
-  const chapters: Chapter[] = [];
-  const parts: [number, string, string][] = [];
-  let pendingPart: string | null = null;
-  for (const [, c] of [...byChapter].sort((a, b) => a[0] - b[0])) {
-    const size = c.paragraphs.reduce((n, p) => n + p.text.length, 0);
-    if (/^part\b/i.test(c.label) && size < 1500) pendingPart = c.label;
-    if (size < 500 || BACK_MATTER.test(c.label.trim())) continue;
-    chapters.push({ key: c.key, number: chapters.length + 1, title: c.label || `Chapter ${chapters.length + 1}`, paragraphs: c.paragraphs });
-    if (pendingPart) {
-      const m = pendingPart.match(/^part\s+([^\s:.]+)[\s:.]*(.*)$/i);
-      parts.push([chapters.length, m?.[1] ?? String(parts.length + 1), m?.[2] || pendingPart]);
-      pendingPart = null;
-    }
-  }
-  if (!parts.length) for (let i = 1; i <= chapters.length; i += 10) parts.push([i, `${i}–${Math.min(i + 9, chapters.length)}`, `Chapters ${i} to ${Math.min(i + 9, chapters.length)}`]);
-  return { chapters, parts };
+  const list = [...byChapter].sort((a, b) => a[0] - b[0]).map(([, c]) => ({ ...c, size: c.paragraphs.reduce((n, p) => n + p.text.length, 0) }));
+  const { chapters, parts } = numberChapters(list);
+  return { chapters: chapters.map((c) => ({ key: c.key, number: c.number, title: c.title, paragraphs: c.paragraphs })), parts };
 }
 
 const passages = (c: Chapter) => c.paragraphs.map((p, i) => `<passage n="${i + 1}">${p.text}</passage>`).join("\n");

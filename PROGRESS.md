@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Build M43 S3: the Genealogy tab in Study from the stored links.
+next_action: Watch the M43 S3 PR merge and deploy, then check Chip War's Genealogy tab live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 19:29 · Claude Opus 5.5 · M43 S3: the Genealogy tab in Study, tested; PR opened
+- **Done:** Study > Genealogy shows what the book's genealogy holds and opens the seven views over the page (Family tree; Power map, Money and parts, Who was there when; Storyline, Read vs happened, List). The slider starts at the reader's chapter, general-knowledge years are purple and switchable, the rebuild setting works, removed links are listed, and every quote can turn the page to where the book says it. Chapters are numbered by one rule for the skill and the site (Chip War's laptop page data unchanged: same 57 chapters, same bytes).
+- **Key paths:** app/(reader)/books/[id]/read/{GenealogyPanel,GenealogyView}.tsx; app/(reader)/books/[id]/read/genealogy-views.ts; app/api/books/[id]/genealogy/route.ts; lib/library/genealogy-view.ts; lib/library/genealogy-view.test.ts; e2e/ai.spec.ts; screenshots/genealogy-*.png (not committed)
+- **Commands that worked:** npx vitest run (1437 passed + glyph test passed after replacing an arrow); npm run lint; npm run typecheck; npx playwright test --project=ai --ignore-snapshots -g 'create the owner account|three public-domain books land|Genealogy opens|Study opens on Need' (258 passed)
+- **Known issues / blockers:** No migration: deploys itself when merged. Not done: a name in the X-ray card opening its family tree or life. The drawing code lives twice (app and scripts/genealogy-page.html).
+- **Exact next steps:** 1. Merge when the four checks are green (auto-merge). 2. After the deploy, check /api/health shows the merge commit and open Chip War > Study > Genealogy on the live site (GET only; restore the reading place if it moves). 3. Next small step: a name in the X-ray card opens its family tree or life.
+
+### 2026-11-08 19:18 · Claude Opus 5.5 · M43 S3: the Genealogy tab in Study (in progress, not yet a PR)
+- **Done:** Genealogy tab in Study (GenealogyPanel) opens the seven views over the page (GenealogyView, genealogy-views.ts, ported from the laptop page); GET /api/books/<id>/genealogy builds the view data from stored rows (lib/library/genealogy-view.ts), each quote with its CFI; one chapter-numbering rule (numberChapters) for skill and site; --gn-* colour tokens via light-dark(); unit tests (genealogy-view.test.ts) and a browser test in e2e/ai.spec.ts.
+- **Key paths:** app/(reader)/books/[id]/read/GenealogyPanel.tsx; app/(reader)/books/[id]/read/GenealogyView.tsx; app/(reader)/books/[id]/read/genealogy-views.ts; app/api/books/[id]/genealogy/route.ts; lib/library/genealogy-view.ts; lib/library/genealogy.ts; docs/genealogy-plan.md
+- **Commands that worked:** npx vitest run (1437 passed; glyph test fixed after); npx tsc --noEmit; npx eslint; npx stylelint 'app/**/*.css'; genealogy-on-subscription.ts page on Chip War gives identical data
+- **Known issues / blockers:** Browser test run (npx playwright test --project=ai --ignore-snapshots -g ...) still running at time of entry; not yet committed or pushed. X-ray card name to genealogy link not done.
+- **Exact next steps:** 1. Read the browser test result, fix, look at screenshots/genealogy-*.png. 2. Commit on m43-genealogy-tab, open PR with screenshots evidence, merge when green (no migration: deploys itself). 3. Live-check Chip War's Genealogy tab.
 
 ### 2026-11-08 17:42 · Claude Opus 5.5 (laptop) · Checkpoint: M43 genealogy S1 (skill) and S2 (stored on the site) live; S3 next
 - **Done:** M43 S1 genealogy skill live (#310, 218147c); M43 S2 storage live (#311, 171a544, migration 0039, backup prod-before-0039-20261108T214758Z.sql restore-checked); Chip War's genealogy stored on the live site (472 links, 55 removed, 250 life events, 113 people, nothing left out). Samuel's decisions recorded: keep all views; general-knowledge years in the app, purple and switchable.

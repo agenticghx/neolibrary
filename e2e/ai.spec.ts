@@ -1,6 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import { parseEpub } from "../lib/library/ebook";
+import { genealogyPromptHash, type SentLink } from "../lib/library/genealogy-store";
+import { extractSections } from "../lib/library/sections";
 import { ADMIN_STATE } from "./pages";
 
 // The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
@@ -265,7 +269,7 @@ test("Study opens on Need to know, with Test yourself one tab away; Rewrite offe
   await expect(page.getByRole("button", { name: "What do I need to know?" })).toHaveCount(0); // the "?" is gone
   await page.getByRole("button", { name: "Study" }).click();
   const tabs = page.getByRole("tablist", { name: "Study" });
-  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask", "Explain it back", "Who & what"]);
+  await expect(tabs.getByRole("tab")).toHaveText(["Need to know", "Test yourself", "Ask", "Explain it back", "Who & what", "Genealogy"]);
   await expect(tabs.getByRole("tab", { name: "Need to know" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("region", { name: "What do I need to know?" })).toBeVisible();
   await tabs.getByRole("tab", { name: "Test yourself" }).click();
@@ -739,6 +743,163 @@ async function tapFirstMark(page: Page) {
     throw new Error("no mark on this page");
   });
 }
+
+// M43 S3: the Genealogy tab. The book's links are sent as the laptop skill sends them (with an owner token, quotes
+// anchored to real paragraphs of the Jekyll fixture; no model is called), then each of the seven views opens over
+// the page, the slider hides what is ahead of the reader, and a quote turns the page to where the book says it.
+test("Genealogy opens its three questions and seven views over the page, from where the reader is", async ({ page, playwright }) => {
+  await openAtPhrase(page, "lover of the sane and customary"); // Search for Mr. Hyde: chapter 2 of the views' numbering
+  const bookId = bookIdOf(page);
+  const bytes = new Uint8Array(readFileSync("fixtures/books/stevenson-jekyll-and-hyde.epub"));
+  const paras = extractSections(bytes, parseEpub(bytes).toc as { label: string; href: string }[]).filter((x) => x.kind === "paragraph");
+  const at = (quote: string) => {
+    const p = paras.find((x) => x.text.includes(quote));
+    if (!p) throw new Error(`not in the book: ${quote}`);
+    return { paragraph: p.id, quote };
+  };
+  const link = (from: string, fromKind: "person" | "organisation", relation: string, to: string, toKind: "person" | "organisation", quote: string, extra: Partial<SentLink> = {}): SentLink => ({
+    from,
+    from_kind: fromKind,
+    to,
+    to_kind: toKind,
+    relation,
+    role: null,
+    ...at(quote),
+    check: "holds",
+    ...extra,
+  });
+  const links: SentLink[] = [
+    link("Hastie Lanyon", "person", "friend", "Henry Jekyll", "person", "you and I must be the two oldest friends that Henry Jekyll has"), // ch 2
+    link("Gabriel John Utterson", "person", "friend", "Henry Jekyll", "person", "you and I must be the two oldest friends that Henry Jekyll has"), // ch 2
+    link("Gabriel John Utterson", "person", "advised", "Henry Jekyll", "person", "though he took charge of it now that it was made", { role: "lawyer" }), // ch 2
+    link("Poole", "person", "worked_at", "Dr. Jekyll's house", "organisation", "“I will see, Mr. Utterson,” said Poole", { role: "butler" }), // ch 2
+    link("Dr. Jekyll's house", "organisation", "acquired", "The surgeon's dissecting rooms", "organisation", "The doctor had bought the house from the heirs of a celebrated surgeon"), // ch 5
+    link("Gabriel John Utterson", "person", "advised", "Sir Danvers Carew", "person", "Carew was my client, but so are you", { role: "lawyer", check: "fix", was: "Utterson worked for Carew", why: "The lawyer advised him." }), // ch 5
+    link("The cabinet", "organisation", "part_of", "Dr. Jekyll's house", "organisation", "now more than ever confined himself to the cabinet over the laboratory"), // ch 6
+    link("Poole", "person", "family", "Henry Jekyll", "person", "“Is Dr. Jekyll at home, Poole?” asked the lawyer.", { removed: true, check: null, why: "A butler, not family." }),
+  ];
+  const lives = {
+    "Gabriel John Utterson": [
+      { what: "friend", with: "Henry Jekyll", links: [1], basis: "ordered" as const, why: "Their friendship is old when the book begins.", gk: { start_year: 1860, end_year: null, confidence: "medium" as const, note: "A test year, standing in for general knowledge." } },
+      { what: "advised", with: "Henry Jekyll", links: [2], basis: "ordered" as const, why: "He holds the will in chapter 2." },
+      { what: "advised", with: "Sir Danvers Carew", links: [5], basis: "ordered" as const, order: at("Carew was my client, but so are you"), why: "Carew was his client before the murder." },
+    ],
+  };
+
+  // The laptop skill's part: a token, and the send.
+  await page.goto("/agents");
+  await page.getByLabel("Which agent is it for?").fill("Genealogy");
+  await page.getByRole("button", { name: "Make a token" }).click();
+  const token = await page.getByTestId("new-token").inputValue();
+  const agent = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: { cookies: [], origins: [] }, extraHTTPHeaders: { authorization: `Bearer ${token}` } });
+  const sent = await agent.post(`/api/agent/books/${bookId}/genealogy`, { data: { model: "claude-sonnet-5-5", promptHash: await genealogyPromptHash(), links, lives } });
+  expect(sent.status(), await sent.text()).toBeLessThan(300);
+  expect(await sent.json()).toMatchObject({ links: 7, removed: 1, events: 3, dropped: {} });
+  await agent.dispose();
+
+  await openAtPhrase(page, "lover of the sane and customary");
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Genealogy" }).click();
+  const tab = page.getByRole("region", { name: "Genealogy" });
+  await expect(tab.getByTestId("genealogy-summary")).toContainText("7 links between 8 people and organisations, 1 life put in order");
+  await expect(tab).toContainText("You are in chapter 2 of");
+
+  // Family tree: at chapter 2 the house has no parent or offspring yet; slid to the end, it has both.
+  await tab.getByRole("button", { name: /^Family tree/ }).click();
+  const g = page.getByRole("dialog", { name: "Genealogy" });
+  await expect(g).toBeVisible();
+  const slider = g.getByRole("slider", { name: "Read up to chapter" });
+  await expect(slider).toHaveValue("2");
+  await expect(g.getByTestId("genealogy")).toContainText("Up to chapter 2, the book has not yet linked Dr. Jekyll's house to another organisation.");
+  const end = await slider.getAttribute("max");
+  await slider.fill(end!);
+  // The tree's cards: each names the organisation and how it is linked (the picker's chips name it alone).
+  await expect(g.getByRole("button", { name: "The surgeon's dissecting rooms bought" })).toBeVisible();
+  await expect(g.getByRole("button", { name: "The cabinet part of it" })).toBeVisible();
+  await g.getByRole("button", { name: "The surgeon's dissecting rooms bought" }).click();
+  const drawer = g.getByRole("dialog", { name: "Where the book says it" });
+  await expect(drawer).toContainText("The doctor had bought the house from the heirs of a celebrated surgeon");
+  await expect(drawer).toContainText("Chapter 5: Incident of the Letter");
+  await page.keyboard.press("Escape"); // the drawer first
+  await expect(drawer).toBeHidden();
+  await expect(g).toBeVisible();
+  await g.getByRole("button", { name: "Back to where I am" }).click();
+  await expect(slider).toHaveValue("2");
+
+  // Inside a company: its three drawings, at the reader's chapter (the purchase is ahead, so only Poole so far).
+  await g.getByRole("group", { name: "View" }).getByRole("button", { name: "Inside a company" }).click();
+  await expect(g.getByRole("img", { name: "Power map of Dr. Jekyll's house" })).toBeVisible();
+  await expect(g).toContainText("1 name, 1 link, up to chapter 2");
+  await g.getByRole("button", { name: "Money and parts" }).click();
+  await expect(g.getByRole("button", { name: /^Poole/ })).toBeVisible();
+  await g.getByRole("button", { name: "Who was there when" }).click();
+  await expect(g.getByRole("img", { name: "Who was linked to Dr. Jekyll's house, chapter by chapter" })).toBeVisible();
+  await expect(g.locator("svg text", { hasText: "not read yet" })).toBeVisible();
+
+  // One person: the lawyer's life, in the order it happened (the Carew step is ahead until the slider moves).
+  await g.getByRole("group", { name: "View" }).getByRole("button", { name: "One person" }).click();
+  await g.getByLabel("Find a name").fill("Gabriel John Utterson");
+  await g.getByLabel("Find a name").press("Enter"); // the picker opens a name on its change event
+  await slider.fill(end!);
+  await expect(g.getByRole("img", { name: "Gabriel John Utterson's life as a storyline" })).toBeVisible();
+  await expect(g.locator("svg text", { hasText: "1860" })).toBeVisible(); // a general-knowledge year, in purple
+  await g.getByRole("button", { name: "Read vs happened" }).click();
+  await expect(g.getByRole("img", { name: "Where the book tells each step against when it happened" })).toBeVisible();
+  await g.getByRole("button", { name: "List" }).click();
+  await expect(g.locator("ol li")).toHaveCount(3);
+  // Years the book leaves out: the purple year goes when they are left blank.
+  await expect(g.getByText("1860", { exact: true })).toBeVisible();
+  await g.getByRole("button", { name: "Leave blank" }).click();
+  await expect(g.getByText("1860", { exact: true })).toHaveCount(0);
+  await g.getByRole("button", { name: "Fill from general knowledge" }).click();
+  // Who gets rebuilt: above his three links, his life is shown in the book's order, and he can be rebuilt anyway.
+  await g.getByRole("button", { name: "5 times" }).click();
+  await expect(g).toContainText("below your setting of 5, so this is the book's order");
+  await g.getByRole("button", { name: "Rebuild Gabriel John Utterson anyway" }).click();
+  await expect(g).toContainText("3 life events, in the order they happened");
+  // The links the second reading removed are listed apart.
+  await expect(g.getByText("Links the second reading removed (1)")).toBeVisible();
+
+  // A step's sentences: the general-knowledge year is labelled as such, and the quote turns the page.
+  await g.getByRole("button", { name: "where the book says it, and how it was placed" }).last().click();
+  await expect(drawer).toContainText("Carew was my client, but so are you");
+  await expect(drawer).toContainText("corrected");
+  await drawer.getByRole("button", { name: "Go to this place in the book" }).first().click();
+  await expect(g).toHaveCount(0);
+  await page.waitForFunction(
+    () => (document.querySelector("foliate-view") as unknown as { lastLocation?: { tocItem?: { label?: string } } }).lastLocation?.tocItem?.label === "Incident of the Letter",
+  );
+
+  // Screenshots for the pull request (not committed), at desktop and phone size, light and dark.
+  await mkdir("screenshots", { recursive: true });
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const [name, size] of [
+      ["desktop", { width: 1280, height: 860 }],
+      ["phone", { width: 390, height: 844 }],
+    ] as const) {
+      await page.setViewportSize(size);
+      await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Genealogy" }).click().catch(() => undefined);
+      if (!(await tab.isVisible())) {
+        await page.getByRole("button", { name: "Study" }).click();
+        await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Genealogy" }).click();
+      }
+      await page.screenshot({ path: `screenshots/genealogy-tab-${name}-${scheme}.png` });
+      for (const [question, file] of [
+        ["Family tree", "tree"],
+        ["Inside a company", "org"],
+        ["One person", "person"],
+      ] as const) {
+        await tab.getByRole("button", { name: new RegExp(`^${question}`) }).click();
+        await g.getByRole("slider", { name: "Read up to chapter" }).fill(end!);
+        await page.waitForTimeout(150); // the tree's and ribbons' lines are drawn on the next frame
+        await page.screenshot({ path: `screenshots/genealogy-${file}-${name}-${scheme}.png` });
+        await g.getByRole("button", { name: "Close", exact: true }).click();
+      }
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+});
 
 // M32 X2: names on the page. Each name's first mention in a paragraph carries a dotted underline, drawn on foliate's
 // overlay; a tap on an underline opens the card over the page, which knows where the reader is like the Who & what

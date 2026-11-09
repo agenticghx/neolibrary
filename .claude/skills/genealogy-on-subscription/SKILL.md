@@ -52,7 +52,7 @@ Samuel chose to keep all of these views (2026-11-08).
    ```bash
    zsh -ic 'npx tsx scripts/genealogy-on-subscription.ts send <folder> <site> <book id>'
    ```
-   The site checks every quote, year and order quote again against its own copy of the book and prints what it left out and why (nothing, for a book read from the file the site holds). The same send again changes nothing; a new one replaces the book's genealogy. `payload <folder>` writes what would be sent to `<folder>/send.json` without sending. The site refuses a send read with other instructions than its own `prompts/genealogy-*.md`: after a prompt change, deploy first.
+   The site checks every quote, year and order quote again against its own copy of the book and prints what it left out and why (nothing, for a book read from the file the site holds). The same send again changes nothing; a new one replaces the book's genealogy. `payload <folder>` writes what would be sent to `<folder>/send.json` without sending. The site refuses a send read with other instructions than its own `prompts/genealogy-*.md`: after a prompt change, deploy first. Once sent, Samuel reads it in the book's reader: Study > Genealogy (M43 S3), with the same seven views; the chapter numbers there are the page's (one rule, `numberChapters`).
 6. **Record it in the ledger**: the book, the numbers `page` prints (links offered, quotes not found, second reading's counts, links shown, dated, lives), the time taken, and what was looked at by eye.
 
 ## The six readings and their checks
