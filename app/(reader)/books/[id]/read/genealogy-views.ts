@@ -1,11 +1,11 @@
 /**
  * Genealogy views (M43 S3), drawn into one element: Family tree; Inside a company (Power map, Money and parts, Who
  * was there when); One person (Storyline, Read vs happened, List). Written for Claude sessions; Samuel chose and
- * reviewed these views on the laptop page (scripts/genealogy-page.html), whose script this is, moved into the app:
- * the same drawing code, its state kept per mount, its look in GenealogyView.module.css, and every quote able to
- * turn the reader's page to where the book says it.
+ * reviewed these views on the laptop page, whose script this was, moved into the app: its state kept per mount, its
+ * look in GenealogyView.module.css, and every quote able to turn the reader's page to where the book says it.
  *
- * The laptop page stays for runs not yet sent to the site. A change to one view belongs in both.
+ * The laptop page (scripts/genealogy-on-subscription.ts `page`, for runs not yet sent to the site) is drawn by this
+ * same file, its types stripped and inlined, so a change here shows in both. Keep it free of imports other than types.
  */
 import type { GenealogyView, GenealogyViewEvent, GenealogyViewLink } from "@/lib/library/genealogy-view";
 
@@ -231,6 +231,14 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       .filter((y): y is number => !!y);
     return ys.length ? Math.min(...ys) : null;
   }
+  /** The latest year a person's rebuilt life places them at an organisation, up to `cap` (the founding they left it for). */
+  function lastYearAt(person: string, withName: string, cap: number | null) {
+    const ys = (D.lives[person] ?? [])
+      .filter((e) => e.with === withName)
+      .flatMap((e) => [e.start_year || (showGK && e.gk?.start_year) || null, e.end_year || (showGK && e.gk?.end_year) || null])
+      .filter((y): y is number => !!y && (!cap || y <= cap));
+    return ys.length ? Math.max(...ys) : null;
+  }
   function lineage(Ls: L[]) {
     const E = new Map<string, Lineage>();
     const isOrg = (n: string) => kindOf(n) === "organisation";
@@ -250,22 +258,33 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       if (l.relation === "acquired") add(l.from, l.to, "bought", { link: l });
       if (l.relation === "part_of") add(l.to, l.from, "part of it", { link: l });
     }
-    // Founders who had been somewhere first: X descends from Y when a founder of X was at Y before X's founding.
+    // Founders who had been somewhere first: X descends from Y when a founder of X left Y to found it, that is, Y is
+    // the last place they were at before X's founding. Earlier employers stay in their life, not in X's family
+    // (Samuel, 2026-11-09: Philco is not a parent of Intel because Noyce once worked there).
     const first = (pred: (l: L) => boolean) => Ls.filter(pred).reduce((m, l) => Math.min(m, l.chapter), Infinity);
     for (const f of Ls.filter((l) => l.relation === "founded" && kindOf(l.from) === "person" && isOrg(l.to))) {
       const fx = first((l) => l.relation === "founded" && l.from === f.from && l.to === f.to);
       if (f.chapter !== fx) continue;
-      for (const w of Ls.filter((l) => l.from === f.from && ["worked_at", "led", "left"].includes(l.relation) && isOrg(l.to) && l.to !== f.to)) {
-        const wy = first((l) => l.from === f.from && l.to === w.to && ["worked_at", "led", "left"].includes(l.relation));
+      const fdY = lifeYear(f.from, ["founded"], f.to);
+      const before: { w: L; atY: number | null; wy: number }[] = [];
+      // A company they had founded before counts as a place they were at (Noyce left Fairchild, which he co-founded, for Intel).
+      const AT = ["worked_at", "led", "left", "founded"];
+      for (const w of Ls.filter((l) => l.from === f.from && AT.includes(l.relation) && isOrg(l.to) && l.to !== f.to)) {
+        const wy = first((l) => l.from === f.from && l.to === w.to && AT.includes(l.relation));
         if (w.chapter !== wy) continue;
         // Years from their rebuilt life win; the book's chapter order stands in only when a year is missing.
-        const atY = lifeYear(f.from, ["worked_at", "worked_for", "led", "left"], w.to);
-        const fdY = lifeYear(f.from, ["founded"], f.to);
+        const atY = lifeYear(f.from, ["worked_at", "worked_for", "led", "left", "founded"], w.to);
         if (atY && fdY ? atY > fdY : wy > fx) continue;
         if (w.year && f.year && w.year > f.year) continue;
-        add(w.to, f.to, "founders came from here", { link: w, inferred: true }, f.from);
-        add(w.to, f.to, "founders came from here", { link: f, inferred: true }, f.from);
+        before.push({ w, atY: lastYearAt(f.from, w.to, fdY), wy });
       }
+      if (!before.length) continue;
+      // The one they were at last: by the latest year there when every one has a year, else (and on a tie) by where
+      // the book first says it.
+      const byYear = before.every((b) => b.atY !== null);
+      const last = before.reduce((a, b) => ((byYear ? b.atY! - a.atY! : 0) || b.wy - a.wy) > 0 ? b : a);
+      add(last.w.to, f.to, "founders came from here", { link: last.w, inferred: true }, f.from);
+      add(last.w.to, f.to, "founders came from here", { link: f, inferred: true }, f.from);
     }
     // Drop an inferred edge whose reverse the book states outright.
     for (const [k, e] of E) {
@@ -282,7 +301,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
     const orgs = [...new Set(E.flatMap((e) => [e.parent, e.child]))].sort();
     box.append(picker(orgs, "tree", D.top.tree));
     box.append(alsoLine(name, "tree"));
-    box.append(el("div", { class: "legend" }, el("span", {}, el("i"), "the book says it came out of, was bought by, or is part of"), el("span", {}, el("i", { class: "d" }), "a founder had worked there first (two quotes put together)")));
+    box.append(el("div", { class: "legend" }, el("span", {}, el("i"), "the book says it came out of, was bought by, or is part of"), el("span", {}, el("i", { class: "d" }), "a founder left it to found the company (two quotes put together)")));
     if (!orgs.includes(name)) {
       box.append(el("p", { class: "empty" }, upto < D.n ? `Up to chapter ${upto}, the book has not yet linked ${name || "a company"} to another organisation.` : `The book links ${name || "no company"} to no other organisation as parent or offspring.`));
       return;

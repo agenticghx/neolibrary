@@ -1,11 +1,13 @@
 /*
  * Six Study tabs (M21, M26, M32, M43) in the panel's width, two by two: on one row they need more room than the panel
  * has (about 19rem inside), and the row then pushed the whole panel sideways. An odd last tab takes a row of its own.
- * Each label stays on one line. The rest of their look is in reader.module.css.
+ * Each label stays on one line. When the panel is too narrow for two labels side by side (a phone, a narrow window:
+ * "Need to know" ran into "Test yourself" until 2026-11-09), each tab takes a row of its own instead.
+ * The rest of their look is in reader.module.css.
  */
 .tabs[role="tablist"] {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(max(7.5rem, 45%), 1fr)); /* "Explain it back" needs 6.75rem */
 }
 
 .tabs .tab {

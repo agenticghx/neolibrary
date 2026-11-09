@@ -1,5 +1,5 @@
 /*
- * The Genealogy views (M43 S3), over the book: the laptop page's look (scripts/genealogy-page.html) in the app's
+ * The Genealogy views (M43 S3), over the book, and on the laptop page (`page` inlines this file): the look in the app's
  * tokens and theme. Class names are the ones genealogy-views.ts writes; it maps them through this module.
  */
 .overlay {
@@ -54,6 +54,11 @@
   max-width: 74rem;
   margin: 0 auto;
   padding: 0 var(--space-4) var(--space-9);
+}
+
+/* A chip or button the views hide ("Back to where I am" at the reader's own chapter): their display rules would show it. */
+.root [hidden] {
+  display: none;
 }
 
 .root p {
@@ -234,7 +239,9 @@
 /* Family tree */
 .tree {
   position: relative;
-  margin-top: var(--space-2);
+
+  /* Room for the first generation's label, which sits above its row. */
+  margin-top: var(--space-6);
   padding: var(--space-2) 0;
 }
 

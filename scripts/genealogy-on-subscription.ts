@@ -30,10 +30,12 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import ts from "typescript";
 import { fill, readPrompt, splitPrompt } from "@/lib/ai/prompts";
 import { parseEpub } from "@/lib/library/ebook";
 import { applyChecks, checkDates, checkLife, checkLinks, checkYears, lastObject, mergeNames, numberChapters, readNames, signature, slug, type Chapter, type Link } from "@/lib/library/genealogy";
 import { genealogyPromptHash, type GenealogySend, type SentLink } from "@/lib/library/genealogy-store";
+import type { GenealogyView, GenealogyViewEvent, GenealogyViewKind, GenealogyViewLink } from "@/lib/library/genealogy-view";
 import { extractPdfSections } from "@/lib/library/pdf-sections";
 import { extractSections, type Section } from "@/lib/library/sections";
 
@@ -351,13 +353,13 @@ function page(folder: string) {
   const meta = existsSync(join(folder, "meta.json")) ? readJson<{ title: string }>(join(folder, "meta.json")) : { title: "Book" };
   const { chapters, parts } = chaptersOf(folder);
   const b = build(folder, chapters);
-  const kinds = new Map<string, Map<string, number>>();
+  const kinds = new Map<string, Map<GenealogyViewKind, number>>();
   for (const l of [...b.links, ...b.checked.removed])
     for (const [n, k] of [
       [l.from, l.from_kind],
       [l.to, l.to_kind],
-    ]) {
-      const m = kinds.get(n) ?? new Map<string, number>();
+    ] as const) {
+      const m = kinds.get(n) ?? new Map<GenealogyViewKind, number>();
       m.set(k, (m.get(k) ?? 0) + 1);
       kinds.set(n, m);
     }
@@ -367,33 +369,70 @@ function page(folder: string) {
   const top = (pred: (n: string) => boolean) => [...count].filter(([n]) => pred(n)).sort((x, y) => y[1] - x[1]).map(([n]) => n).slice(0, 8);
   const lineage = new Set(b.links.filter((l) => l.from_kind === "organisation" && l.to_kind === "organisation" && ["spun_out_of", "acquired", "part_of"].includes(l.relation)).flatMap((l) => [l.from, l.to]));
   const usedDates = new Set(Object.values(b.lives).flatMap((evs) => evs.flatMap((e) => e.date_ids)));
-  const data = {
+  // The site's own view data (GenealogyView), so the page below is drawn by the site's own code: one copy of it.
+  const shape = (l: (typeof b.links)[number]): GenealogyViewLink => ({ from: l.from, from_kind: l.from_kind, to: l.to, to_kind: l.to_kind, relation: l.relation, role: l.role, chapter: l.chapter, quote: l.quote, cfi: null, check: l.check ?? null, was: l.was ?? null, why: l.why ?? null, year: l.year });
+  const data: GenealogyView = {
     book: meta.title,
     n: chapters.length,
     chapters: Object.fromEntries(chapters.map((c) => [c.number, c.title])),
     parts,
-    stats: {
-      chapters: b.read,
-      offered: b.offered,
-      dropped: b.dropped,
-      merged: b.names.alias.size,
-      vague: b.merged.removed,
-      checked: b.checked.counts,
-      dated: b.dates.size,
-      lives: Object.keys(b.lives).length,
-    },
+    at: chapters.length,
+    model: `${arg("model", "claude-sonnet-5-5")}, on the subscription`,
+    sentAt: new Date().toISOString(),
     nodes,
-    links: b.links,
-    doubted: b.checked.removed,
-    lives: b.lives,
-    dates: Object.fromEntries([...usedDates].filter((i) => b.dates.has(i)).map((i) => [i, { year: b.dates.get(i)!.year, end_year: b.dates.get(i)!.end_year, quote: b.dates.get(i)!.quote, chapter: b.links[i].chapter, passage: b.dates.get(i)!.passage }])),
+    links: b.links.map(shape),
+    doubted: b.checked.removed.map(shape),
+    lives: Object.fromEntries(
+      Object.entries(b.lives).map(([n, evs]) => [
+        n,
+        evs.map((e) => ({ what: e.what, with: e.with, role: e.role, links: e.links, start_year: e.start_year, end_year: e.end_year, date_ids: e.date_ids, basis: e.basis, order_chapter: e.order_chapter, order_quote: e.order_quote, order_cfi: null, why: e.why, gk: (e as { gk?: GenealogyViewEvent["gk"] }).gk ?? null })),
+      ]),
+    ),
+    dates: Object.fromEntries([...usedDates].filter((i) => b.dates.has(i)).map((i) => [i, { year: b.dates.get(i)!.year!, end_year: b.dates.get(i)!.end_year, quote: b.dates.get(i)!.quote!, chapter: b.links[i].chapter, cfi: null }])),
     top: { tree: top((n) => nodes[n] === "organisation" && lineage.has(n)), org: top((n) => nodes[n] === "organisation"), person: top((n) => nodes[n] === "person") },
   };
-  const template = readFileSync(join(process.cwd(), "scripts", "genealogy-page.html"), "utf8");
+  const c = b.checked.counts as Record<string, number>;
+  const stats = `How this page was made: ${b.read} chapters read; ${b.offered} links offered, ${b.dropped} left out because the quote is not in the book, ${b.names.alias.size} spellings grouped, ${b.merged.removed} links to vague names removed. The second reading kept ${c.holds ?? 0}, corrected ${c.fixed ?? 0} and removed ${(c.unsupported ?? 0) + (c.fix_unusable ?? 0)}. ${b.links.length} links shown, ${b.dates.size} with a year, ${Object.keys(b.lives).length} lives rebuilt.`;
   const out = join(folder, "genealogy.html");
-  writeFileSync(out, template.replace("/*DATA*/null", JSON.stringify(data).replace(/<\//g, "<\\/")));
-  console.log(`${out}: ${b.read} chapters, ${b.offered} links offered, ${b.dropped} quotes not in the book, ${b.names.alias.size} spellings grouped, ${b.merged.removed} links to vague names removed;`);
-  console.log(`second reading ${JSON.stringify(b.checked.counts)}; ${b.links.length} links shown; ${b.dates.size} dated; ${data.stats.lives} lives (${JSON.stringify(b.lifeDropped)} taken away by the checks).`);
+  writeFileSync(out, pageHtml(data, stats));
+  console.log(`${out}: ${stats} (${JSON.stringify(b.lifeDropped)} taken away by the checks.)`);
+}
+
+/**
+ * The laptop page: one private file drawn by the Genealogy tab's own code (genealogy-views.ts, its types stripped)
+ * in the site's tokens and the tab's styles, so the page and the site cannot drift apart. Opens from disk, no server.
+ */
+function pageHtml(data: GenealogyView, stats: string) {
+  const app = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
+  const views = app("app/(reader)/books/[id]/read/genealogy-views.ts");
+  const js = ts.transpileModule(views, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText.replace(/^export /gm, "");
+  const css = app("app/tokens.css") + app("app/(reader)/books/[id]/read/GenealogyView.module.css");
+  // Nothing inside may close the <style> or <script> it sits in.
+  const safe = (s: string) => s.replace(/<\/(script|style)/gi, "<\\/$1");
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(data.book)}: genealogy</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>${safe(css)}
+:root{--font-serif:"Source Serif 4","Iowan Old Style",georgia,serif;--font-sans:"Source Sans 3","Segoe UI","Helvetica Neue",arial,sans-serif}
+body{margin:0;background:var(--paper)}
+.stats{color:var(--ink-500);font-size:var(--text-sm);border-top:var(--border-hair) solid var(--rule);padding-top:var(--space-3)}
+</style>
+</head>
+<body>
+<div class="overlay"><div class="root" id="root"></div><div class="root"><p class="stats">${esc(stats)}</p></div></div>
+<script type="application/json" id="data">${safe(JSON.stringify(data))}</script>
+<script type="module">
+${safe(js)}
+mountGenealogy(document.getElementById("root"), JSON.parse(document.getElementById("data").textContent), { onGo: () => {}, onClose: () => {} });
+</script>
+</body>
+</html>
+`;
 }
 
 /** M43 S2: what `send` posts: every link (those the second reading removed marked so), dates and lives, by paragraph id. */
