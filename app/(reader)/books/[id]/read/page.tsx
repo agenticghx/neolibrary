@@ -24,7 +24,7 @@ export default async function ReadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ at?: string; listen?: string; page?: string; view?: string }>;
+  searchParams: Promise<{ at?: string; listen?: string; page?: string; view?: string; genealogy?: string }>;
 }) {
   const user = await requireUser();
   const db = await getDb();
@@ -87,6 +87,7 @@ export default async function ReadPage({
       openPage={openPage}
       initialFraction={book.progress}
       startListening={sp.listen === "1" && found.available.listen}
+      openGenealogyAt={typeof sp.genealogy === "string" ? sp.genealogy.slice(0, 250) : undefined}
       rewrittenView={rewrittenView}
       recall={recall}
       ownKeys={user.role !== "admin"}

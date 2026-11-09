@@ -795,6 +795,14 @@ test("Genealogy opens its three questions and seven views over the page, from wh
   const sent = await agent.post(`/api/agent/books/${bookId}/genealogy`, { data: { model: "claude-sonnet-5-5", promptHash: await genealogyPromptHash(), links, lives } });
   expect(sent.status(), await sent.text()).toBeLessThan(300);
   expect(await sent.json()).toMatchObject({ links: 7, removed: 1, events: 3, dropped: {} });
+  // A second book's genealogy naming the lawyer by his surname alone, for "Also in" below.
+  const frankenstein = ((await (await agent.get("/api/agent/books")).json()).books as { id: string; title: string }[]).find((b) => b.title === "Frankenstein")!;
+  const fBytes = new Uint8Array(readFileSync("fixtures/books/shelley-frankenstein.epub"));
+  const fPara = extractSections(fBytes, parseEpub(fBytes).toc as { label: string; href: string }[]).find((x) => x.kind === "paragraph" && x.text.length > 200)!;
+  const fSent = await agent.post(`/api/agent/books/${frankenstein.id}/genealogy`, {
+    data: { model: "claude-sonnet-5-5", promptHash: await genealogyPromptHash(), links: [{ from: "Utterson", from_kind: "person", to: "Victor Frankenstein", to_kind: "person", relation: "friend", paragraph: fPara.id, quote: fPara.text.split(" ").slice(0, 8).join(" "), check: "holds" }], lives: {} },
+  });
+  expect(fSent.status(), await fSent.text()).toBeLessThan(300);
   await agent.dispose();
 
   await openAtPhrase(page, "lover of the sane and customary");
@@ -915,6 +923,23 @@ test("Genealogy opens its three questions and seven views over the page, from wh
     }
   }
   await page.emulateMedia({ colorScheme: "light" });
+
+  // "Also in <book>": the lawyer is in Frankenstein's genealogy too (as "Utterson"); the link opens that book's views on him.
+  await page.setViewportSize({ width: 1280, height: 860 });
+  await tab.getByRole("button", { name: /^One person/ }).click();
+  await g.getByLabel("Find a name").fill("Gabriel John Utterson");
+  await g.getByLabel("Find a name").press("Enter");
+  const also = g.getByTestId("genealogy-also");
+  await expect(also).toContainText("Also in");
+  await expect(also.getByRole("link", { name: /Frankenstein/ })).toContainText("as Utterson · 1 link");
+  await page.screenshot({ path: "screenshots/genealogy-also-desktop-light.png" });
+  await also.getByRole("link", { name: /Frankenstein/ }).click();
+  await page.waitForURL(new RegExp(`/books/${frankenstein.id}/read\\?genealogy=person`));
+  const there = page.getByRole("dialog", { name: "Genealogy" });
+  await expect(there.getByTestId("genealogy")).toContainText("Frankenstein: genealogy");
+  await expect(there.getByRole("img", { name: "Utterson's life as a storyline" })).toBeVisible();
+  // And back: Frankenstein's Utterson is in Jekyll and Hyde as Gabriel John Utterson.
+  await expect(there.getByTestId("genealogy-also").getByRole("link", { name: /Jekyll/ })).toContainText("as Gabriel John Utterson");
 });
 
 // M32 X2: names on the page. Each name's first mention in a paragraph carries a dotted underline, drawn on foliate's

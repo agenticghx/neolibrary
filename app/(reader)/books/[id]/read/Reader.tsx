@@ -357,6 +357,8 @@ export function Reader(props: {
   initialFraction: number;
   /** Open with the Read aloud bar showing (Home's "Listen from here"); the reader still presses Play (Safari needs the click). */
   startListening?: boolean;
+  /** M43: open the Genealogy views on a name ("person:Robert Noyce", from "Also in <book>" in another book's views). */
+  openGenealogyAt?: string;
   /** The view the book opens in (M17), from the reader's account: the book alone, the rewrite beside it, or the rewrite alone. */
   rewrittenView?: RewrittenMode;
   /** M25: a scanned PDF and its text edition (two books): which one this is, so the footer offers Scan | Text. */
@@ -564,6 +566,23 @@ export function Reader(props: {
           .then(async (res) => (res.ok ? ((await res.json()) as GenealogyData | { none: true }) : null))
           .then((d) => d && !("none" in d) && setGenealogy({ data: d, view: v, focus: name }))
           .catch(() => undefined);
+  // "Also in <book>" (M43): the same name in the reader's other books, each opening that book's views on it (in the
+  // view it is in, or "Inside a company" when that book gives the organisation no family tree).
+  const alsoIn = (name: string, kind: "person" | "organisation", v: GenealogyTop) =>
+    fetch(`/api/books/${props.bookId}/genealogy?${new URLSearchParams({ also: name, kind })}`)
+      .then(async (res) => (res.ok ? ((await res.json()) as { also: { bookId: string; title: string; name: string; links: number; tree: boolean }[] }).also : []))
+      .then((list) => list.map((a) => ({ title: a.title, name: a.name, links: a.links, href: `/books/${a.bookId}/read?${new URLSearchParams({ genealogy: `${v === "tree" && !a.tree ? "org" : v}:${a.name}` })}` })));
+  // Opened from another book's "Also in": the views on that name, once the book is open.
+  const askedGenealogy = useRef(false);
+  useEffect(() => {
+    const m = /^(tree|org|person):(.+)$/.exec(props.openGenealogyAt ?? "");
+    if (!m || askedGenealogy.current || props.visitor) return;
+    askedGenealogy.current = true;
+    void fetch(`/api/books/${props.bookId}/genealogy?${new URLSearchParams(props.initialCfi ? { cfi: props.initialCfi } : {})}`)
+      .then(async (res) => (res.ok ? ((await res.json()) as GenealogyData | { none: true }) : null))
+      .then((d) => d && !("none" in d) && setGenealogy({ data: d, view: m[1] as GenealogyTop, focus: m[2] }))
+      .catch(() => undefined);
+  }, [props.openGenealogyAt, props.bookId, props.initialCfi, props.visitor]);
   // Whole-book focus (M26 R5): one book only, for days; a line above the page. Answering it reloads the notes.
   const bookAnswered = useRef<() => void>(() => {});
   const bookFocus = useBookFocus(props.bookId, where, () => bookAnswered.current(), !props.visitor);
@@ -2446,7 +2465,14 @@ export function Reader(props: {
         </div>
       ) : null}
       {genealogy ? (
-        <GenealogyView data={genealogy.data} view={genealogy.view} focus={genealogy.focus} onClose={() => setGenealogy(null)} onGo={(cfi) => void view.current?.goTo(cfi)} />
+        <GenealogyView
+          data={genealogy.data}
+          view={genealogy.view}
+          focus={genealogy.focus}
+          onClose={() => setGenealogy(null)}
+          onGo={(cfi) => void view.current?.goTo(cfi)}
+          also={props.visitor ? undefined : alsoIn}
+        />
       ) : null}
       {xrayCard ? (
         <XrayCard
