@@ -3,7 +3,7 @@
 import styles from "./reader.module.css";
 import own from "./StudyTabs.module.css";
 
-export type StudyTab = "know" | "questions" | "ask" | "explain" | "xray";
+export type StudyTab = "know" | "questions" | "ask" | "explain" | "xray" | "genealogy";
 
 /** M34: the Study tabs a visitor (not signed in) may use on a free book. */
 export const VISITOR_TABS: StudyTab[] = ["know", "questions"];
@@ -14,12 +14,13 @@ const TABS: [StudyTab, string][] = [
   ["ask", "Ask"],
   ["explain", "Explain it back"],
   ["xray", "Who & what"],
+  ["genealogy", "Genealogy"],
 ];
 
 /**
  * The parts of Study (M19 P5, M21, M26, M32): the ideas a chapter takes for granted, questions on it, a question of
- * your own answered from the book, your own summary of the chapter, checked against it, and who and what the book
- * names (X-ray). Tabs at the top of each panel, so each is one press away. The arrow keys move between them.
+ * your own answered from the book, your own summary of the chapter, checked against it, who and what the book
+ * names (X-ray), and its genealogy (M43: who founded, led or came out of what). Tabs at the top of each panel, so each is one press away. The arrow keys move between them.
  */
 export function StudyTabs({ current, onPick, only }: { current: StudyTab; onPick: (tab: StudyTab) => void; only?: StudyTab[] }) {
   // M34: a visitor gets only the tabs that need no account (Need to know, Test yourself).
