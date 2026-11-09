@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the PDF-grouping PR; Samuel decides S4 (an 'Also in' link or nothing).
+next_action: Samuel tries the Genealogy tabs of Chip War, The Grid and The Pay Off and says what to change.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 22:09 · Claude Opus 5.5 · Live: 3aac62f (#313 Who & what to genealogy, #314 PDF chapters, #315 Also in <book>)
+- **Done:** Three merges deployed by deploy.yml (no migrations): #313 ee2b5a9 (a name in Who & what opens its family tree or life), #314 be14bd4 (a PDF's genealogy read and shown in groups of pages; The Grid and The Pay Off read and sent), #315 3aac62f ("Also in <book>" under a name in the Genealogy views). M43 genealogy is complete for the three books; S4 settled as the Also-in link (Samuel: "add it").
+- **Key paths:** lib/library/genealogy-also.ts; lib/library/genealogy-names.ts; lib/library/genealogy.ts (numberChapters); docs/genealogy-plan.md
+- **Commands that worked:** curl /api/health on both addresses -> 3aac62f; /sign-in 200 on both; railway logs -> Page pictures: ready.; ?also= without a session -> 401; genealogyElsewhere on a copy of the three real sends: Intel -> The Grid; IBM -> The Grid, The Pay Off; Ren Zhengfei and Huawei -> The Pay Off; Robert Noyce -> nothing
+- **Known issues / blockers:** Not checked in a browser signed in as Samuel (no session here). Loose matches possible by the prefix rule ("MIT Instrumentation Lab" and "MIT"); the link says which name it matched.
+- **Exact next steps:** 1. Samuel tries Chip War > Genealogy > Inside a company > Intel (Also in The Grid), and The Grid's and The Pay Off's Genealogy tabs. 2. Genealogies for more books at his word: fetch, read, page, send with the skill.
 
 ### 2026-11-08 21:19 · Claude Opus 5.5 · M43: "Also in <book>" tested; PR opened
 - **Done:** "Also in <book>" under a name in the three Genealogy views, linking to the same name in the owner's other books' genealogies (opens that book's views on it). Also fixed: Close no longer covers "Back to where I am" when the views are scrolled.
