@@ -366,6 +366,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 08:09 · Claude Opus 5.5 · Live: fe4ba57 (#316 stricter company matching, one parent per founder, laptop page from the app's code, three view fixes)
+- **Done:** #316 deployed itself after main's CI re-run (first run hit the known stats.spec.ts:72 flake). Checked live in the in-app browser signed in as Samuel: Intel's tree is Shockley, Fairchild, Intel (Philco gone); Back to where I am hidden at the reader's chapter; FURTHER BACK no longer over the key.
+- **Key paths:** lib/library/genealogy-names.ts; app/(reader)/books/[id]/read/genealogy-views.ts; scripts/genealogy-on-subscription.ts
+- **Commands that worked:** curl /api/health on both addresses -> commit fe4ba57; /sign-in 200; gh run rerun 42616167494 --failed -> success
+- **Known issues / blockers:** None. #317 (About the authors; explanations removed) open, checks running.
+- **Exact next steps:** Merge #317 when green; recheck The Pay Off ends at chapter 35 and the views open without the explanations.
+
 ### 2026-11-09 07:51 · Claude Opus 5.5 · M43: explanations removed from the Genealogy views
 - **Done:** Removed the opening paragraph, the lines under each drawing, the removed-links note and the Study tab's closing line (Samuel: too many subtitles). Kept: Read by Claude (model), date; and Crossing lines: the book tells a later step first.
 - **Key paths:** app/(reader)/books/[id]/read/genealogy-views.ts; app/(reader)/books/[id]/read/GenealogyPanel.tsx; e2e/ai.spec.ts; LEARNING_LOG.md
@@ -379,13 +386,6 @@ Never blocks the loop. Newest first.
 - **Commands that worked:** npx vitest run lib/library/genealogy.test.ts lib/library/genealogy-view.test.ts (23 passed); npm run check
 - **Known issues / blockers:** The Pay Off's title page (THE PAY OFF) is still numbered chapter 1: no general rule tells a title page with praise from a short chapter. No migration.
 - **Exact next steps:** Merge when green (deploys itself). Recheck The Pay Off's slider: 35 chapters.
-### 2026-11-09 08:09 · Claude Opus 5.5 · Live: fe4ba57 (#316 stricter company matching, one parent per founder, laptop page from the app's code, three view fixes)
-- **Done:** #316 deployed itself after main's CI re-run (first run hit the known stats.spec.ts:72 flake). Checked live in the in-app browser signed in as Samuel: Intel's tree is Shockley, Fairchild, Intel (Philco gone); Back to where I am hidden at the reader's chapter; FURTHER BACK no longer over the key.
-- **Key paths:** lib/library/genealogy-names.ts; app/(reader)/books/[id]/read/genealogy-views.ts; scripts/genealogy-on-subscription.ts
-- **Commands that worked:** curl /api/health on both addresses -> commit fe4ba57; /sign-in 200; gh run rerun 42616167494 --failed -> success
-- **Known issues / blockers:** None. #317 (About the authors; explanations removed) open, checks running.
-- **Exact next steps:** Merge #317 when green; recheck The Pay Off ends at chapter 35 and the views open without the explanations.
-
 ### 2026-11-09 06:58 · Claude Opus 5.5 · M43: stricter company matching, one parent per founder in the family tree, laptop page drawn by the app's code, three live faults fixed
 - **Done:** Company names match only when the extra words are like Inc. or Semiconductor (MIT no longer matches MIT Instrumentation Lab; Google no longer Google China; Tesla still Tesla Motors). Family tree: a founder links the new company only to the place they were at last before founding it (Intel: Shockley, then Fairchild; Philco gone). The laptop page is drawn by the app's genealogy-views.ts and styles (scripts/genealogy-page.html deleted). Looked at Chip War's live views signed in as Samuel: fixed Back to where I am always showing, FURTHER BACK over the key, Study tab names overlapping in a narrow panel.
 - **Key paths:** lib/library/genealogy-names.ts; app/(reader)/books/[id]/read/genealogy-views.ts; app/(reader)/books/[id]/read/GenealogyView.module.css; app/(reader)/books/[id]/read/StudyTabs.module.css; scripts/genealogy-on-subscription.ts; e2e/ai.spec.ts; docs/genealogy-plan.md; LEARNING_LOG.md
