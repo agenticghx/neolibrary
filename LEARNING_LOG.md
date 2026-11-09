@@ -2948,3 +2948,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Lint and types; the Genealogy browser test (one assertion on the removed closing line dropped, the reader's chapter still checked by the slider); Chip War's laptop page rebuilt and looked at.
 **Result.** 1450 unit tests and 258 browser tests passed; the page opens with no script errors and starts at the views.
 **Lesson.** Explanations written for choosing a design are not the ones a reader needs once it is chosen; take them out when it ships.
+
+### Iteration 167 · 2026-11-09 (laptop clock) · M43: a list of sources is back matter · success
+
+**Hypothesis.** With "About the authors" left out, The Pay Off's slider ended at "35. Sources", a list of references, not a chapter.
+**Action.** `BACK_MATTER` takes "sources", "references" and "further reading"; the numbering test gained those three.
+**Evaluation.** Unit tests; the three run folders numbered again with the laptop script.
+**Result.** 23 passed in the two genealogy test files. Chip War 57 and The Grid 41 chapters, unchanged; The Pay Off 34 (36 this morning).
+**Lesson.** Look at the end of the slider after fixing the last page: the page before it may be back matter too.
