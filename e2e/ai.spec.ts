@@ -810,7 +810,6 @@ test("Genealogy opens its three questions and seven views over the page, from wh
   await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Genealogy" }).click();
   const tab = page.getByRole("region", { name: "Genealogy" });
   await expect(tab.getByTestId("genealogy-summary")).toContainText("7 links between 8 people and organisations, 1 life put in order");
-  await expect(tab).toContainText("You are in chapter 2 of");
 
   // Family tree: at chapter 2 the house has no parent or offspring yet; slid to the end, it has both.
   await tab.getByRole("button", { name: /^Family tree/ }).click();

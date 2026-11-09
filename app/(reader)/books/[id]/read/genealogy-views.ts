@@ -155,8 +155,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       "header",
       { class: "intro" },
       el("h2", { class: "title" }, `${D.book}: genealogy`),
-      el("p", { class: "lede" }, "Every link the book states between two named people or organisations: who founded what, who worked or led where, which company came out of which, who bought, funded or supplied whom. Each rests on a sentence of the book; tap anything to see it."),
-      el("p", { class: "made" }, `Read by Claude (${D.model}) on ${sent}, quotes checked word for word against the book. Years in purple are Claude's general knowledge, not the book's.`),
+      el("p", { class: "made" }, `Read by Claude (${D.model}), ${sent}.`),
     ),
     el("div", { class: "bar" }, tabs, el("div", { class: "upto" }, el("label", { for: "gn-upto" }, "Read up to chapter"), slider, out, back)),
     stage,
@@ -165,7 +164,6 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
           "details",
           { class: "doubted" },
           el("summary", {}, `Links the second reading removed (${doubted.length})`),
-          el("p", { class: "hint" }, "Each had a real quote, but the paragraph does not say the link. Shown so you can judge the second reading too."),
           el("div", { class: "removed" }, doubted.map((l) => el("div", {}, el("b", {}, sentence(l)), ` · ch ${l.chapter} · `, el("em", {}, l.why || ""), el("div", { class: "hint" }, `"${l.quote}"`), goTo(l.cfi)))),
         )
       : null,
@@ -357,7 +355,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       if (list.length > CAP) row.append(el("div", { class: "more" }, `+ ${list.length - CAP} more`));
       tree.append(row);
     }
-    box.append(tree, el("p", { class: "hint" }, "Tap a card for the sentences behind its line, then open it as the centre of the tree or see who was there."));
+    box.append(tree);
     const draw = () => {
       const r = tree.getBoundingClientRect();
       svg.replaceChildren();
@@ -556,7 +554,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       S("text", { x: cx, y: cy - (cl.length - 1) * 11 + 6, "text-anchor": "middle", class: "hubtxt" }, cl.map((t, i) => S("tspan", { x: cx, dy: i ? 22 : 0 }, t))),
     );
     svg.append(S("text", { x: cx, y: cy - R1 - 12, "text-anchor": "middle", class: "ringlbl" }, "people"), S("text", { x: cx, y: cy - R2 - 14, "text-anchor": "middle", class: "ringlbl" }, "organisations"));
-    s.append(legend(A), el("div", { class: "svgbox" }, svg), el("p", { class: "hint" }, "Thicker line, bigger dot: the book links them more often. Tap a dot for the sentences."));
+    s.append(legend(A), el("div", { class: "svgbox" }, svg));
   }
 
   // B. Money and parts: what flows in on the left, out on the right, family above and below, the people inside.
@@ -592,7 +590,6 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
         false,
       ),
       grid,
-      el("p", { class: "hint" }, "Ribbon width: how often the book links them. Amber is money, green is chips, tools and services, purple is family."),
     );
     const draw = () => {
       svg.replaceChildren();
@@ -724,7 +721,6 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
     s.append(
       key,
       el("div", { class: "tlbox" }, svg),
-      el("p", { class: "hint" }, "Each mark is a chapter that links the name to the company; the line runs from the first such chapter to the last. Chapters stand in for time: the book is told mostly in order. Organisations are coloured as in the power map."),
     );
   }
 
@@ -816,7 +812,6 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
     }
     const seg = <T>(label: string, choices: [T, string][], cur: T, set: (v: T) => void) =>
       el("div", { class: "setting" }, el("span", {}, label), el("div", { class: "tabs small", role: "group", "aria-label": label }, choices.map(([v, t]) => el("button", { type: "button", "aria-pressed": String(v === cur), onclick: () => (set(v), render()) }, t))));
-    const lives = Object.keys(D.lives).length;
     box.append(
       el(
         "div",
@@ -836,8 +831,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
           showGK,
           (v) => (showGK = v),
         ),
-        el("p", { class: "hint" }, `Rebuilding puts a person's links into the order things happened. It is one reading by Claude per person, made on the laptop: this book has ${lives} ${lives === 1 ? "life" : "lives"} rebuilt. Below your setting, a life is shown in the book's order. General-knowledge years are Claude's own knowledge, not checked against the book, and are always drawn in purple.`),
-      ),
+        ),
     );
     if (!rebuilt)
       box.append(
@@ -971,7 +965,6 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
     s.append(
       key,
       el("div", { class: "tlbox story-box" }, svg),
-      el("p", { class: "hint" }, "Read left to right: each column is one step in their life, in the order it happened. The line moves to a new lane when they move to a new organisation. Faint lines are other people the book puts at the same organisation at the same time (tap one to see their path). Tap a stop for the sentences and for how its date or place in the order was found."),
     );
   }
 
@@ -1013,7 +1006,6 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       );
     });
     svg.append(lines, marks);
-    const told = E.reduce((t, e) => t + e.ls.length, 0);
     let back = 0;
     E.forEach((e, i) =>
       E.forEach((f, j) => {
@@ -1021,9 +1013,8 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       }),
     );
     s.append(
-      el("p", { class: "hint" }, `The book tells ${p}'s ${E.length} steps ${told} times. Where lines cross, the book tells a later step before an earlier one (a flashback)${back ? `: ${back} pairs here` : ": none here"}. Fans of lines are steps the book comes back to.`),
+      el("p", { class: "hint" }, `Crossing lines: the book tells a later step first${back ? ` (${back} here)` : " (none here)"}.`),
       el("div", { class: "tlbox" }, svg),
-      el("p", { class: "hint" }, "Point at or tap a step to light its lines."),
     );
   }
 

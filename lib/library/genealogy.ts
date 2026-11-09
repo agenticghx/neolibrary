@@ -302,7 +302,7 @@ export function checkYears(answer: string, events: { start_year: number | null }
 
 /** "Morris Chang" → "Morris-Chang": a file name for a person's reading. */
 /** Pages that are about the edition, not the story: never read for links, never numbered as chapters. */
-export const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (author|publisher)|also by|(more )?praise|dedication|title page|cover|half title)\b/i;
+export const BACK_MATTER = /^(imprint|colophon|uncopyright|copyright|contents|table of contents|index|notes|endnotes|bibliography|acknowledg|about the (authors?|publishers?)|also by|(more )?praise|dedication|title page|cover|half title)\b/i;
 
 /** A PDF's pages are grouped into reading chapters of about this many characters (a book chapter's length). */
 export const PDF_CHAPTER_CHARS = 18_000;

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #317 when green and check it live.
+next_action: Merge #317 when green; check the three books live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -373,6 +373,19 @@ Never blocks the loop. Newest first.
 - **Known issues / blockers:** None. #317 (About the authors; explanations removed) open, checks running.
 - **Exact next steps:** Merge #317 when green; recheck The Pay Off ends at chapter 35 and the views open without the explanations.
 
+### 2026-11-09 07:51 · Claude Opus 5.5 · M43: explanations removed from the Genealogy views
+- **Done:** Removed the opening paragraph, the lines under each drawing, the removed-links note and the Study tab's closing line (Samuel: too many subtitles). Kept: Read by Claude (model), date; and Crossing lines: the book tells a later step first.
+- **Key paths:** app/(reader)/books/[id]/read/genealogy-views.ts; app/(reader)/books/[id]/read/GenealogyPanel.tsx; e2e/ai.spec.ts; LEARNING_LOG.md
+- **Commands that worked:** npm run check (1450 passed); npx playwright test --project=ai --ignore-snapshots -g 'create the owner account|three public-domain books land|Genealogy opens|Who & what lists' (258 passed)
+- **Known issues / blockers:** Main's CI for #316 hit the known stats.spec.ts:72 flake; re-run started. No migration.
+- **Exact next steps:** Merge #317 when green; when #316 and #317 are live, look at Chip War, The Grid and The Pay Off in the in-app browser.
+
+### 2026-11-09 07:31 · Claude Opus 5.5 · M43: About the authors pages left out of the genealogy's chapter numbers
+- **Done:** BACK_MATTER now matches About the authors and About the publishers (plural). Found on the live Pay Off views (chapter 36: ABOUT THE AUTHORS). Also checked live, signed in: The Grid (family tree, Samuel Insull's storyline) and The Pay Off (Inside a company: Better than Cash Alliance) open and draw.
+- **Key paths:** lib/library/genealogy.ts; lib/library/genealogy.test.ts; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/genealogy.test.ts lib/library/genealogy-view.test.ts (23 passed); npm run check
+- **Known issues / blockers:** The Pay Off's title page (THE PAY OFF) is still numbered chapter 1: no general rule tells a title page with praise from a short chapter. No migration.
+- **Exact next steps:** Merge when green (deploys itself). Recheck The Pay Off's slider: 35 chapters.
 ### 2026-11-09 06:58 · Claude Opus 5.5 · M43: stricter company matching, one parent per founder in the family tree, laptop page drawn by the app's code, three live faults fixed
 - **Done:** Company names match only when the extra words are like Inc. or Semiconductor (MIT no longer matches MIT Instrumentation Lab; Google no longer Google China; Tesla still Tesla Motors). Family tree: a founder links the new company only to the place they were at last before founding it (Intel: Shockley, then Fairchild; Philco gone). The laptop page is drawn by the app's genealogy-views.ts and styles (scripts/genealogy-page.html deleted). Looked at Chip War's live views signed in as Samuel: fixed Back to where I am always showing, FURTHER BACK over the key, Study tab names overlapping in a narrow panel.
 - **Key paths:** lib/library/genealogy-names.ts; app/(reader)/books/[id]/read/genealogy-views.ts; app/(reader)/books/[id]/read/GenealogyView.module.css; app/(reader)/books/[id]/read/StudyTabs.module.css; scripts/genealogy-on-subscription.ts; e2e/ai.spec.ts; docs/genealogy-plan.md; LEARNING_LOG.md

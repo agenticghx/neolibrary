@@ -2932,3 +2932,19 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Unit tests of the matcher (Tesla is Tesla Motors; MIT, Google and Texas match nothing new). The three laptop pages rebuilt and opened headless: no script errors; Intel's tree. The live views read in the browser pane; the Study tabs measured in the live page.
 **Result.** Intel's tree went from Bell Labs, Fairchild, Shockley and Philco to Shockley, then Fairchild, then Intel; the first try still showed Shockley (Noyce left it and co-founded Fairchild in the same year, 1957), fixed by comparing the last year at each place, not the first. The live check found three faults the tests had not: "Back to where I am" always showing (the chip's `display` beat the `hidden` attribute), "FURTHER BACK" over the tree's key, and Study's tab names running into each other in a narrow panel. Unit tests 1449 passed; browser run 259 passed.
 **Lesson.** A start year says when someone arrived, not when they left; "the last place before" needs the last year there. And a page looked at by the person it is for finds what a test that checks presence does not: test that a hidden thing is hidden.
+
+### Iteration 165 · 2026-11-09 (laptop clock) · M43: "About the authors" is back matter · success
+
+**Hypothesis.** The live Pay Off views numbered its last page, "ABOUT THE AUTHORS", as chapter 36: the back-matter rule matched "about the author" followed by a word boundary, so the plural slipped through.
+**Action.** `BACK_MATTER` takes "authors?" and "publishers?"; a test of numberChapters with one author, several, in capitals, and publishers.
+**Evaluation.** Unit tests of the numbering and the site's view data.
+**Result.** 23 passed in the two genealogy test files. On the site, The Pay Off will number 35 chapters; the links stored from the authors' page stay, counted in the last chapter (the site maps an unnumbered page to the next numbered one, else the last).
+**Lesson.** A word boundary after a singular noun refuses its plural; write the plural into the pattern.
+
+### Iteration 166 · 2026-11-09 (laptop clock) · M43: fewer explanations in the Genealogy views · success
+
+**Hypothesis.** Samuel found the views wordy ("so much subtitles"). The explanations were written while he was choosing the views on the laptop page; now that he knows them, they are noise, and a key or a label already says most of what they said.
+**Action.** Removed the opening paragraph, the line under each drawing (tree, power map, money and parts, who was there when, storyline, the rebuild setting), the note on removed links, and the Study tab's closing line. Kept the provenance line, shortened to "Read by Claude (model), date" (ground rule: AI output carries its provenance), and one line on Read vs happened ("Crossing lines: the book tells a later step first"), which the chart cannot show by itself.
+**Evaluation.** Lint and types; the Genealogy browser test (one assertion on the removed closing line dropped, the reader's chapter still checked by the slider); Chip War's laptop page rebuilt and looked at.
+**Result.** 1450 unit tests and 258 browser tests passed; the page opens with no script errors and starts at the views.
+**Lesson.** Explanations written for choosing a design are not the ones a reader needs once it is chosen; take them out when it ships.

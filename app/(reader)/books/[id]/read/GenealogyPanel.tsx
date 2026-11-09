@@ -85,8 +85,7 @@ export function GenealogyPanel({ bookId, cfi, onTab, onOpen }: { bookId: string;
       {has ? (
         <>
           <p className={own.summary} data-testid="genealogy-summary">
-            {has.links.length} links between {names} people and organisations{lives ? `, ${lives} ${lives === 1 ? "life" : "lives"} put in order` : ""}. Each rests on a sentence of the
-            book.
+            {has.links.length} links between {names} people and organisations{lives ? `, ${lives} ${lives === 1 ? "life" : "lives"} put in order` : ""}.
           </p>
           <div className={own.questions}>
             {QUESTIONS.map(([view, title, what]) => (
@@ -113,10 +112,6 @@ export function GenealogyPanel({ bookId, cfi, onTab, onOpen }: { bookId: string;
               </div>
             </div>
           ) : null}
-          <p className={styles.hint}>
-            You are in chapter {has.at} of {has.n}: the views show what the book has said up to here, and a slider shows more. Read by Claude ({has.model}),{" "}
-            {new Date(has.sentAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}.
-          </p>
         </>
       ) : null}
     </section>
