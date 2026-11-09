@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel uses the Genealogy tabs of Chip War, The Grid and The Pay Off and says what to change.
+next_action: Collect the five audit reviewers' reports, verify each finding, then fix the certain ones in .claude/worktrees/audit.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 18:34 · Claude Fable 5.2 · Checkpoint: whole-project audit started, nothing changed yet
+- **Done:** Audit of main (f6457f0e) begun at Samuel's request. Baseline clean: npm run check passed (158 test files, 1450 tests). No open pull requests, no open Dependabot alerts. Mechanical findings recorded, none acted on: the ci-screenshots branch is 4.52 GB of the repository's 4.65 GB; 261 remote branches belong to merged pull requests; three scripts and one dev package are referenced by nothing; deploy.yml pins older action versions than ci.yml. Five read-only reviewers are still reading the code and docs.
+- **Key paths:** docs/handoffs/2026-11-09-1833-whole-project-audit.md (gitignored, on the laptop); .claude/worktrees/audit (branch m44-audit-cleanup, no commits)
+- **Commands that worked:** git worktree add .claude/worktrees/audit -b m44-audit-cleanup origin/main; npm ci; npm run check; git rev-list --objects origin/ci-screenshots --not origin/main | git cat-file --batch-check
+- **Known issues / blockers:** The reviewers stopped once at the 5-hour usage limit and were resumed at 18:33; their reports are not in yet. Pruning the screenshots branch and deleting merged branches need Samuel's word.
+- **Exact next steps:** 1. Collect the five reviewers' reports and check each finding. 2. Fix the certain ones in the audit worktree, one small pull request per topic. 3. Give Samuel the list of the rest, security findings in chat only.
 
 ### 2026-11-09 16:31 · Claude Opus 5.5 · Checkpoint: all work live (bc5ead1), no open PRs or alerts, no background jobs
 - **Done:** Genealogy polish (#316-#319) and Dependabot alert 19 fix (#320) live as bc5ead1; alert 19 fixed; no open PRs; stale watcher stopped; worktrees and branches removed.
