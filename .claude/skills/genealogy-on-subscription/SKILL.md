@@ -34,7 +34,7 @@ Samuel chose to keep all of these views (2026-11-08).
    ```bash
    zsh -ic 'npx tsx scripts/genealogy-on-subscription.ts fetch <site> <book id> <folder>'
    ```
-   It refuses a PDF: a scanned book needs its text edition's EPUB instead. A local EPUB works too: copy it to `<folder>/book.epub` and write `<folder>/meta.json` as `{"title": "…"}`.
+   A PDF with its own text (not a scan) works: `fetch` splits it as the site did at upload (`extractPdfSections`, so the same paragraph ids) into `<folder>/sections.json`, and its pages are read in groups of about 18,000 characters ("Pages 14–20", `numberChapters`); The Grid's 315 pages read as 41 chapters. A scanned PDF needs its text edition instead: pass the edition's book id (the `textEdition` of `GET /api/agent/books/<id>`), as for The Pay Off. A local EPUB works too: copy it to `<folder>/book.epub` and write `<folder>/meta.json` as `{"title": "…"}`.
 2. **Try three chapters first** on a new kind of book, then look at what came out:
    ```bash
    npx tsx scripts/genealogy-on-subscription.ts read <folder> --chapters 3 && npx tsx scripts/genealogy-on-subscription.ts page <folder>

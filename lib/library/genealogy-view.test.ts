@@ -11,6 +11,7 @@ import { numberChapters } from "./genealogy";
 import { genealogyPromptHash, saveGenealogy, type SentLink } from "./genealogy-store";
 import { genealogyNames, genealogyView } from "./genealogy-view";
 import { importBook } from "./import";
+import { extractPdfSections } from "./pdf-sections";
 import { extractSections } from "./sections";
 
 let database: Database;
@@ -128,6 +129,25 @@ describe("a book's genealogy as the views draw it (M43 S3)", () => {
       { name: "The cabinet", kind: "organisation", links: 1, tree: true },
       { name: "Jekyll's house", kind: "organisation", links: 1, tree: true },
     ]);
+  });
+
+  it("groups a PDF's pages into the same chapters as the skill, and finds the links by the skill's paragraph ids", async () => {
+    const pdfBytes = new Uint8Array(readFileSync(new URL("../../fixtures/books/descartes-meditation-one.pdf", import.meta.url)));
+    const { bookId: pdfId } = await importBook(database.db, new MemoryStorage(), ownerId, { name: "descartes.pdf", bytes: pdfBytes });
+    const pdfSections = await extractPdfSections(pdfBytes); // as the skill's fetch splits it
+    const para = pdfSections.find((p) => p.kind === "paragraph" && p.text.length > 60)!;
+    const saved = await saveGenealogy(database.db, ownerId, pdfId, { model: "claude-sonnet-5-5", promptHash: await genealogyPromptHash(), links: [{ ...link(para, "René Descartes", "friend", "Marin Mersenne"), paragraph: para.id }], lives: {} });
+    expect(saved.dropped).toEqual({});
+    const view = (await genealogyView(database.db, ownerId, pdfId, null))!;
+    const sizes = new Map<number, { label: string; size: number }>();
+    for (const x of pdfSections) {
+      if (x.kind === "chapter") sizes.set(x.chapterIndex, { label: x.label, size: 0 });
+      else if (x.text.trim()) sizes.get(x.chapterIndex)!.size += x.text.replace(/\s+/g, " ").trim().length;
+    }
+    const skill = numberChapters([...sizes].sort((a, b) => a[0] - b[0]).map(([, c]) => c));
+    expect(Object.values(view.chapters)).toEqual(skill.chapters.map((c) => c.title));
+    expect(view.chapters[1]).toMatch(/^Pages? \d/);
+    expect(view.links[0].chapter).toBe(1);
   });
 
   it("is only for the book's owner", async () => {
