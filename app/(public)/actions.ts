@@ -76,6 +76,8 @@ export async function acceptInviteAction(_: FormState, data: FormData): Promise<
       name: field(data, "name"),
       password: field(data, "password"),
     });
+    // M41 R3c: the owner's shared papers are in the new reader's library from the start (not only after a sign-in).
+    await shareAllWith(await getDb(), user.id);
     await startSession(user.id);
   });
   if (result.error) return result;

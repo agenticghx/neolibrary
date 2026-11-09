@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Finish the audit's remaining small fixes and give Samuel the review list.
+next_action: Give Samuel the audit's review list and act on his choices.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -366,6 +366,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 18:55 · Claude Fable 5.2 · Audit fix 3: two paper features follow the own-key rule; shared papers on accepting an invite
+- **Done:** From the whole-project audit. The paper summary card and Explain an equation now choose the model the way every other AI route does: the owner uses the library's key, anyone else their own key (stored answers are still served without one). An invited reader gets the shared papers when they accept the invitation, not only at their next sign-in.
+- **Key paths:** app/api/books/[id]/explain-math/route.ts; app/api/books/[id]/paper-summary/route.ts; app/(reader)/books/[id]/read/EquationView.tsx; app/(app)/books/[id]/PaperSummary.tsx; app/(public)/actions.ts; LEARNING_LOG.md
+- **Commands that worked:** npm run lint; npx tsc --noEmit; npx vitest run lib/ai lib/library/shared-papers.test.ts lib/library/paper-summary.test.ts lib/library/explain-math.test.ts (56 passed)
+- **Known issues / blockers:** No browser test covers an invited reader using these two features; checked by reading and by the unit tests of the functions they call.
+- **Exact next steps:** Give Samuel the audit's review list.
 ### 2026-11-09 18:48 · Claude Fable 5.2 · M41: a hidden copy of a shared paper stays hidden (audit fix 1)
 - **Done:** From the whole-project audit. A reader's copy of a paper the owner no longer shares is not offered under removed books, cannot be restored, and opens no file. One unit test added; it fails on main and passes here.
 - **Key paths:** lib/library/shared-papers.ts; lib/library/remove-book.ts; lib/library/shared-papers.test.ts; LEARNING_LOG.md

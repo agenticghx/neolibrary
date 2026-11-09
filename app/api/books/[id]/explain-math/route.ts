@@ -1,6 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModel } from "@/lib/ai/model-picks";
+import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -33,14 +33,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     // { cfi, latex }: what is stored and what asking costs. { cfi, latex, ask: true, fresh? }: ask (or re-serve).
     if (body.ask === true) {
-      const out = await explainMath(db, await textModel(db, "explain-math"), user.id, { bookId, cfi: body.cfi, latex: body.latex, fresh: body.fresh === true });
+      const out = await explainMath(db, await savedOrNewModelFor(db, "explain-math", user, req), user.id, { bookId, cfi: body.cfi, latex: body.latex, fresh: body.fresh === true });
       return Response.json(out, { status: out.reused ? 200 : 201 });
     }
     const equation = await equationAt(db, user.id, bookId, body.cfi, body.latex);
     const versions = await listExplainMath(db, user.id, bookId, equation);
     let estimate: number | null = null;
     try {
-      estimate = await estimateExplainMath(db, await textModel(db, "explain-math"), user.id, bookId, equation);
+      estimate = await estimateExplainMath(db, await textModelFor(db, "explain-math", user, req), user.id, bookId, equation);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
