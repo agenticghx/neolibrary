@@ -2964,3 +2964,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Unit tests; the three run folders numbered again.
 **Result.** 23 passed. Chip War 57 and The Grid 41, unchanged; The Pay Off 33.
 **Lesson.** A prefix inside an alternation followed by `\b` is not a prefix. Test every entry of a word list, not one.
+
+### Iteration 169 · 2026-11-09 (laptop clock) · M41: a hidden copy of a shared paper stays hidden · success
+
+**Hypothesis.** A reader's copy of a shared paper is hidden with the same mark as a book the reader removed, so the "removed books" list and the restore step treated the two alike. Restore and the file check should ask whether the owner still shares the paper.
+**Action.** `stillShared` in `lib/library/shared-papers.ts`; `restoreBook`, `listRemovedBooks` and `readerMayFetch` use it. One new unit test.
+**Evaluation.** The new test on main's code, then on the fix; `npm run check`.
+**Result.** Before: 1 failed, 3 passed. After: `shared-papers.test.ts` and `remove-book.test.ts` 8 passed; whole suite 1451 passed, 2 skipped.
+**Lesson.** One mark with two meanings (hidden by the owner, removed by the reader) needs each reader of that mark to say which meaning it wants.

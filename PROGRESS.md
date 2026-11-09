@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Collect the five audit reviewers' reports, verify each finding, then fix the certain ones in .claude/worktrees/audit.
+next_action: Finish the audit's remaining small fixes and give Samuel the review list.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 18:48 · Claude Fable 5.2 · M41: a hidden copy of a shared paper stays hidden (audit fix 1)
+- **Done:** From the whole-project audit. A reader's copy of a paper the owner no longer shares is not offered under removed books, cannot be restored, and opens no file. One unit test added; it fails on main and passes here.
+- **Key paths:** lib/library/shared-papers.ts; lib/library/remove-book.ts; lib/library/shared-papers.test.ts; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/shared-papers.test.ts lib/library/remove-book.test.ts (8 passed); npm run check (1451 passed, 2 skipped)
+- **Known issues / blockers:** Not changed: a copy the reader removed themselves still comes back when the owner marks or shares the paper again. Telling the two apart needs a product decision; it is on Samuel's review list.
+- **Exact next steps:** Continue the audit: remaining reviewers' reports, the small certain fixes, then the review list for Samuel.
 
 ### 2026-11-09 18:34 · Claude Fable 5.2 · Checkpoint: whole-project audit started, nothing changed yet
 - **Done:** Audit of main (f6457f0e) begun at Samuel's request. Baseline clean: npm run check passed (158 test files, 1450 tests). No open pull requests, no open Dependabot alerts. Mechanical findings recorded, none acted on: the ci-screenshots branch is 4.52 GB of the repository's 4.65 GB; 261 remote branches belong to merged pull requests; three scripts and one dev package are referenced by nothing; deploy.yml pins older action versions than ci.yml. Five read-only reviewers are still reading the code and docs.

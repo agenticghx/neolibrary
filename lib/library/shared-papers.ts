@@ -51,6 +51,11 @@ async function sharedPaper(db: Db, paperId: string) {
   return { paper: live ? p : null, ownerId: owner.id };
 }
 
+/** Is the owner's paper `paperId` shared with readers at this moment? */
+export async function stillShared(db: Db, paperId: string): Promise<boolean> {
+  return !!(await sharedPaper(db, paperId))?.paper;
+}
+
 /** The invited readers: everyone signed up who is not the owner and not disabled. */
 async function readers(db: Db, ownerId: string, only?: string) {
   const rows = await db
@@ -147,12 +152,13 @@ export async function sharedBy(db: Db, book: { sharedFrom: string | null }): Pro
  */
 export async function readerMayFetch(db: Db, userId: string, key: string, ownKey: boolean): Promise<boolean> {
   if (ownKey) return true;
-  const [copy] = await db
-    .select({ id: books.id })
+  const copies = await db
+    .select({ sharedFrom: books.sharedFrom })
     .from(books)
-    .where(and(eq(books.ownerId, userId), isNotNull(books.sharedFrom), isNull(books.deletedAt), or(eq(books.fileKey, key), eq(books.coverKey, key))))
-    .limit(1);
-  return !!copy;
+    .where(and(eq(books.ownerId, userId), isNotNull(books.sharedFrom), isNull(books.deletedAt), or(eq(books.fileKey, key), eq(books.coverKey, key))));
+  // The owner's paper must still be shared: a copy on the reader's shelf is not enough on its own.
+  for (const c of copies) if (await stillShared(db, c.sharedFrom!)) return true;
+  return false;
 }
 
 /** How many readers hold a live copy of each of these papers (for the owner's paper page). */
