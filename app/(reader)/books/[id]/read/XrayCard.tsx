@@ -6,6 +6,7 @@ import { XrayEntryCard } from "./XrayEntryCard";
 import styles from "./reader.module.css";
 import own from "./XrayCard.module.css";
 import { aiFetch } from "@/lib/own-keys";
+import type { GenealogyTop } from "./genealogy-views";
 
 /**
  * The card that opens from a name on the page (M32 X2, Samuel's pick A): over
@@ -13,7 +14,24 @@ import { aiFetch } from "@/lib/own-keys";
  * reader is, like the Who & what list: what the book has said about the name
  * up to here, and a "Show everything" switch.
  */
-export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookId: string; cfi: string | null; entryId: string; onClose: () => void; onGo: (cfi: string) => void; onAll: () => void }) {
+export function XrayCard({
+  bookId,
+  cfi,
+  entryId,
+  onClose,
+  onGo,
+  onAll,
+  onGenealogy,
+}: {
+  bookId: string;
+  cfi: string | null;
+  entryId: string;
+  onClose: () => void;
+  onGo: (cfi: string) => void;
+  onAll: () => void;
+  /** M43 S3: a name's family tree or life, when the book's genealogy has it. */
+  onGenealogy?: (name: string, view: GenealogyTop) => void;
+}) {
   const [data, setData] = useState<(XrayList & { fake?: boolean }) | null>(null);
   const [showAll, setShowAll] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,7 +63,7 @@ export function XrayCard({ bookId, cfi, entryId, onClose, onGo, onAll }: { bookI
       </div>
       {!data ? <p className={styles.hint}>Looking it up…</p> : null}
       {data && !entry ? <p className={styles.hint}>That name is not in the index.</p> : null}
-      {data && entry ? <XrayEntryCard bookId={bookId} entry={entry} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} /> : null}
+      {data && entry ? <XrayEntryCard bookId={bookId} entry={entry} chapters={data.chapters} position={data.position} showAll={showAll} fake={data.fake} onGo={onGo} onGenealogy={onGenealogy} /> : null}
       <div className={own.foot}>
         <label className={own.toggle}>
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show everything

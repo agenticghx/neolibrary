@@ -176,3 +176,15 @@
   text-decoration-color: var(--accent);
   text-underline-offset: var(--space-0);
 }
+
+/* M43 S3: the name's family tree or life, when it is in the book's genealogy. */
+.genealogy {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.genealogyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

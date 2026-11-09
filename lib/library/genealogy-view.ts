@@ -8,9 +8,10 @@
  */
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { books, sections } from "@/lib/db/schema";
+import { books, genealogyLinks, sections } from "@/lib/db/schema";
 import { numberChapters } from "./genealogy";
-import { readGenealogy } from "./genealogy-store";
+import type { GenealogyName } from "./genealogy-names";
+import { genealogyStatus, readGenealogy } from "./genealogy-store";
 import { positionAt } from "./xray";
 
 export type GenealogyViewKind = "person" | "organisation";
@@ -196,4 +197,37 @@ export async function genealogyView(db: Db, ownerId: string, bookId: string, cfi
     dates,
     top: { tree: top((n) => nodes[n] === "organisation" && lineage.has(n)), org: top((n) => nodes[n] === "organisation"), person: top((n) => nodes[n] === "person") },
   };
+}
+
+/**
+ * The names in a book's genealogy, each with its kind, how many links it has, and whether it has a family tree
+ * (an organisation the book says came out of, was bought by or is part of another). For the Who & what card, which
+ * offers a name's family tree or life without loading the whole genealogy. Empty when none has been sent.
+ */
+export async function genealogyNames(db: Db, ownerId: string, bookId: string): Promise<GenealogyName[]> {
+  if (!(await genealogyStatus(db, ownerId, bookId))) return [];
+  const rows = await db
+    .select({ from: genealogyLinks.fromName, fromKind: genealogyLinks.fromKind, to: genealogyLinks.toName, toKind: genealogyLinks.toKind, relation: genealogyLinks.relation })
+    .from(genealogyLinks)
+    .where(and(eq(genealogyLinks.bookId, bookId), eq(genealogyLinks.removed, false)));
+  const out = new Map<string, GenealogyName>();
+  const votes = new Map<string, Map<GenealogyViewKind, number>>();
+  for (const r of rows) {
+    const family = r.fromKind === "organisation" && r.toKind === "organisation" && ["spun_out_of", "acquired", "part_of"].includes(r.relation);
+    for (const [n, k] of [
+      [r.from, r.fromKind],
+      [r.to, r.toKind],
+    ] as const) {
+      const e = out.get(n) ?? { name: n, kind: k, links: 0, tree: false };
+      e.links++;
+      e.tree ||= family;
+      out.set(n, e);
+      const m = votes.get(n) ?? new Map<GenealogyViewKind, number>();
+      m.set(k, (m.get(k) ?? 0) + 1);
+      votes.set(n, m);
+    }
+  }
+  // Each name's kind: the one most of its links give it, as the views decide.
+  for (const [n, m] of votes) out.get(n)!.kind = [...m].sort((x, y) => y[1] - x[1])[0][0];
+  return [...out.values()].sort((a, b) => b.links - a.links);
 }

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries Chip War > Study > Genealogy; then the X-ray card to genealogy link.
+next_action: Watch the X-ray to genealogy PR merge and deploy.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 20:36 · Claude Opus 5.5 · M43 S3: a name in Who & what opens its family tree or life, tested; PR opened
+- **Done:** The X-ray card (in Who & what and over the page) has a Genealogy row when the name is in the book's genealogy: Life, in the order it happened (a person), Family tree and Inside the company (a company); it opens the views on that name at the reader's chapter. Matching: exact spelling, else surname for people, first words for companies, most linked of several.
+- **Key paths:** lib/library/genealogy-names.ts; lib/library/genealogy-view.ts (genealogyNames); app/api/books/[id]/genealogy/route.ts (?names=1); app/(reader)/books/[id]/read/XrayEntryCard.tsx; e2e/ai.spec.ts; docs/ci-flakes.md
+- **Commands that worked:** npm run lint; npx vitest run; npx playwright test --project=ai --ignore-snapshots -g '...|Genealogy opens|Who & what lists' (259 passed)
+- **Known issues / blockers:** No migration: deploys itself when merged.
+- **Exact next steps:** 1. Merge when the four checks are green. 2. Check /api/health shows the merge commit on both addresses. 3. Samuel tries Chip War: a name in Who & what, then its genealogy; S4 (across books) waits on him.
+
+### 2026-11-08 20:31 · Claude Opus 5.5 · M43 S3: a name in Who & what opens its family tree or life (built, browser test running)
+- **Done:** matchGenealogyName (lib/library/genealogy-names.ts) pairs an X-ray name with the genealogy's (exact, else surname for people, first words for companies); GET /api/books/<id>/genealogy?names=1 (genealogyNames); a Genealogy row in the X-ray card (list and over the page) opens the views on that name; design-screenshot flake noted in docs/ci-flakes.md.
+- **Key paths:** lib/library/genealogy-names.ts; lib/library/genealogy-names.test.ts; lib/library/genealogy-view.ts; app/(reader)/books/[id]/read/XrayEntryCard.tsx; app/(reader)/books/[id]/read/Reader.tsx; e2e/ai.spec.ts
+- **Commands that worked:** npx tsc --noEmit; npx eslint (reader folder, lib/library, genealogy route); npx vitest run lib/library/genealogy-names.test.ts lib/library/genealogy-view.test.ts (10 passed)
+- **Known issues / blockers:** Browser test run in progress; not yet committed or pushed.
+- **Exact next steps:** 1. Read the browser test result and fix. 2. Commit on m43-xray-to-genealogy, open PR, merge when green (no migration: deploys itself). 3. Check /api/health shows the merge commit on both addresses.
 
 ### 2026-11-08 20:25 · Claude Opus 5.5 · Live: ffc92bf (#312 M43 S3, the Genealogy tab in Study)
 - **Done:** #312 merged as ffc92bf after one re-run (design-phone-dark screenshot: CI's image identical by eye, a known flaky test). Deployed by deploy.yml (no migration). Chip War's genealogy is on the site and the tab reads it.

@@ -555,6 +555,15 @@ export function Reader(props: {
     fraction: props.initialFraction,
     chapter: "",
   });
+  // From a name in Who & what (its card in the list or over the page): the views open on that name, from where the
+  // reader is. Not for a visitor, whose Study has no Genealogy.
+  const openGenealogy = props.visitor
+    ? undefined
+    : (name: string, v: GenealogyTop) =>
+        void fetch(`/api/books/${props.bookId}/genealogy?${new URLSearchParams(where.cfi ? { cfi: where.cfi } : {})}`)
+          .then(async (res) => (res.ok ? ((await res.json()) as GenealogyData | { none: true }) : null))
+          .then((d) => d && !("none" in d) && setGenealogy({ data: d, view: v, focus: name }))
+          .catch(() => undefined);
   // Whole-book focus (M26 R5): one book only, for days; a line above the page. Answering it reloads the notes.
   const bookAnswered = useRef<() => void>(() => {});
   const bookFocus = useBookFocus(props.bookId, where, () => bookAnswered.current(), !props.visitor);
@@ -2446,6 +2455,7 @@ export function Reader(props: {
           entryId={xrayCard}
           onClose={() => setXrayCard(null)}
           onGo={(cfi) => void view.current?.goTo(cfi)}
+          onGenealogy={openGenealogy}
           onAll={() => {
             setXrayCard(null);
             setPanel("xray");
@@ -2680,7 +2690,7 @@ export function Reader(props: {
         ) : null}
 
         {panel === "xray" && where.cfi ? (
-          <XrayPanel bookId={props.bookId} cfi={where.cfi} onPage={onPage} onTab={setPanel} onGo={(cfi) => void view.current?.goTo(cfi)} />
+          <XrayPanel bookId={props.bookId} cfi={where.cfi} onPage={onPage} onTab={setPanel} onGo={(cfi) => void view.current?.goTo(cfi)} onGenealogy={openGenealogy} />
         ) : null}
 
         {panel === "genealogy" && where.cfi ? (
