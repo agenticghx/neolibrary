@@ -211,6 +211,8 @@ describe("numberChapters (one rule for the skill and the site)", () => {
       { label: "Sources", size: 40000 }, // The Pay Off's last numbered page after the fix above
       { label: "References", size: 30000 },
       { label: "Further Reading", size: 3000 },
+      { label: "Acknowledgements", size: 4000 }, // matched nothing until 2026-11-09: "acknowledg" then a word boundary
+      { label: "Acknowledgments", size: 4000 },
     ]);
     expect(chapters.map((c) => c.title)).toEqual(["The Only Chapter"]);
   });

@@ -2956,3 +2956,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Unit tests; the three run folders numbered again with the laptop script.
 **Result.** 23 passed in the two genealogy test files. Chip War 57 and The Grid 41 chapters, unchanged; The Pay Off 34 (36 this morning).
 **Lesson.** Look at the end of the slider after fixing the last page: the page before it may be back matter too.
+
+### Iteration 168 · 2026-11-09 (laptop clock) · M43: "acknowledg" never matched · success
+
+**Hypothesis.** With Sources gone, The Pay Off's slider ended at "Acknowledgements". The back-matter list had "acknowledg" to cover both spellings, but the pattern ends in a word boundary, which cannot fall between "acknowledg" and "e": it matched nothing, in any book, since it was written.
+**Action.** `acknowledg\w*`; the numbering test gained both spellings.
+**Evaluation.** Unit tests; the three run folders numbered again.
+**Result.** 23 passed. Chip War 57 and The Grid 41, unchanged; The Pay Off 33.
+**Lesson.** A prefix inside an alternation followed by `\b` is not a prefix. Test every entry of a word list, not one.

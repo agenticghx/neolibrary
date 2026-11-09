@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the Sources PR when green; check The Pay Off's last chapter live.
+next_action: Merge the Acknowledgements PR when green; check it live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 09:29 · Claude Opus 5.5 · Live: 7a72c99 (#318); M43: Acknowledgements left out of the genealogy's chapter numbers
+- **Done:** #318 live (Sources, References, Further reading left out). The Pay Off then ended at Acknowledgements: the list's acknowledg entry never matched (a word boundary after a prefix); now acknowledg\w*.
+- **Key paths:** lib/library/genealogy.ts; lib/library/genealogy.test.ts; LEARNING_LOG.md
+- **Commands that worked:** curl /api/health both addresses -> 7a72c99; /sign-in 200; npx vitest run lib/library/genealogy.test.ts lib/library/genealogy-view.test.ts (23 passed); page for three run folders: 57, 41, 33 chapters
+- **Known issues / blockers:** The Pay Off's title page is still chapter 1; Chip War's Cast of Characters is chapter 1 (it holds links). No migration.
+- **Exact next steps:** Merge when green (deploys itself); check The Pay Off's last chapter is a real chapter.
 
 ### 2026-11-09 08:53 · Claude Opus 5.5 · Live: 5fd6a20 (#317); M43: Sources and References left out of the genealogy's chapter numbers
 - **Done:** #317 live (About the authors left out; explanations removed from the Genealogy views): checked in the in-app browser, The Pay Off's views open with one provenance line. Then: BACK_MATTER also matches Sources, References, Further reading (The Pay Off's slider ended at 35. Sources).
