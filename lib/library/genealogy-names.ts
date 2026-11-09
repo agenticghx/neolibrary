@@ -7,6 +7,12 @@
 export type GenealogyName = { name: string; kind: "person" | "organisation"; links: number; tree: boolean };
 
 const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "sir", "lord", "lady", "dame", "professor", "prof", "rev", "the"]);
+/**
+ * Words a company's name may carry or drop and still be the same company ("Tesla" and "Tesla Motors", "Intel" and
+ * "Intel Corporation"). Any other extra word names something else: "MIT Instrumentation Lab" is a lab, not MIT;
+ * "Google China" is one arm of Google.
+ */
+const COMPANY = new Set(["inc", "incorporated", "corp", "corporation", "co", "company", "ltd", "limited", "plc", "llc", "ag", "sa", "nv", "gmbh", "group", "holdings", "motors", "semiconductor", "semiconductors", "electronics", "technologies", "technology", "industries", "enterprises"]);
 const words = (s: string) =>
   s
     .toLowerCase()
@@ -17,8 +23,9 @@ const words = (s: string) =>
 /**
  * The genealogy's name for an X-ray entry, or null. An exact name (any spelling the X-ray knows, any case) wins.
  * Otherwise a person matches by surname with every other word of theirs present ("Mr. Utterson", "Gabriel John
- * Utterson"), and an organisation when its words begin the genealogy's name ("Fairchild", "Fairchild
- * Semiconductor"). Of several that fit, the most linked; a place, term, work or event never matches a person.
+ * Utterson"), and an organisation when its words begin the genealogy's name and the rest are only words like "Inc." or
+ * "Semiconductor" ("Fairchild", "Fairchild Semiconductor"; not "MIT", "MIT Instrumentation Lab"). Of several that fit,
+ * the most linked; a place, term, work or event never matches a person.
  */
 export function matchGenealogyName(entry: { name: string; kind: string; aliases: string[] }, names: GenealogyName[]): GenealogyName | null {
   const spellings = [...new Set([entry.name, ...entry.aliases])];
@@ -37,8 +44,14 @@ export function matchGenealogyName(entry: { name: string; kind: string; aliases:
       const mine = words(s);
       if (!mine.length) return false;
       if (n.kind === "person") return mine[mine.length - 1] === theirs[theirs.length - 1] && mine.every((w) => theirs.includes(w));
-      return mine.length <= theirs.length && mine.every((w, i) => theirs[i] === w);
+      return sameCompany(mine, theirs);
     });
   });
   return fits.sort((a, b) => b.links - a.links)[0] ?? null;
+}
+
+/** Two company names, as words: the same once words like "Inc." are set aside, the shorter beginning the longer. */
+function sameCompany(a: string[], b: string[]) {
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.every((w, i) => long[i] === w) && long.slice(short.length).every((w) => COMPANY.has(w));
 }

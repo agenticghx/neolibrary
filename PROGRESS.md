@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel tries the Genealogy tabs of Chip War, The Grid and The Pay Off and says what to change.
+next_action: Merge the M43 strict-matching PR when green; recheck Intel's tree live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
-updated: 2026-11-08
+updated: 2026-11-09
 shared_copy: none
 ---
 
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 06:58 · Claude Opus 5.5 · M43: stricter company matching, one parent per founder in the family tree, laptop page drawn by the app's code, three live faults fixed
+- **Done:** Company names match only when the extra words are like Inc. or Semiconductor (MIT no longer matches MIT Instrumentation Lab; Google no longer Google China; Tesla still Tesla Motors). Family tree: a founder links the new company only to the place they were at last before founding it (Intel: Shockley, then Fairchild; Philco gone). The laptop page is drawn by the app's genealogy-views.ts and styles (scripts/genealogy-page.html deleted). Looked at Chip War's live views signed in as Samuel: fixed Back to where I am always showing, FURTHER BACK over the key, Study tab names overlapping in a narrow panel.
+- **Key paths:** lib/library/genealogy-names.ts; app/(reader)/books/[id]/read/genealogy-views.ts; app/(reader)/books/[id]/read/GenealogyView.module.css; app/(reader)/books/[id]/read/StudyTabs.module.css; scripts/genealogy-on-subscription.ts; e2e/ai.spec.ts; docs/genealogy-plan.md; LEARNING_LOG.md
+- **Commands that worked:** npm run check (1449 passed); npx playwright test --project=ai --ignore-snapshots -g 'create the owner account|three public-domain books land|Genealogy opens|Study opens on Need|Who & what lists' (259 passed); npx tsx scripts/genealogy-on-subscription.ts page <folder> for the three books (no script errors headless)
+- **Known issues / blockers:** Phone screenshots may change (Study tabs in one column when the panel is narrow); the merge train refreshes them from CI. No migration.
+- **Exact next steps:** Merge when green (deploys itself); check the live views again in the in-app browser: Intel's tree, Back to where I am hidden at the reader's chapter.
 
 ### 2026-11-08 23:00 · Claude Opus 5.5 · Checkpoint: M43 genealogy complete and live for Chip War, The Grid and The Pay Off
 - **Done:** Genealogy tab in Study (#312 ffc92bf), X-ray name to genealogy (#313 ee2b5a9), PDF read in page groups with The Grid and The Pay Off sent (#314 be14bd4), Also in <book> (#315 3aac62f); all live; worktrees removed.

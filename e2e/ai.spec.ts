@@ -818,6 +818,8 @@ test("Genealogy opens its three questions and seven views over the page, from wh
   await expect(g).toBeVisible();
   const slider = g.getByRole("slider", { name: "Read up to chapter" });
   await expect(slider).toHaveValue("2");
+  // At the reader's own chapter there is nowhere to go back to (it showed regardless until 2026-11-09).
+  await expect(g.getByRole("button", { name: "Back to where I am" })).toBeHidden();
   await expect(g.getByTestId("genealogy")).toContainText("Up to chapter 2, the book has not yet linked Dr. Jekyll's house to another organisation.");
   const end = await slider.getAttribute("max");
   await slider.fill(end!);
@@ -833,6 +835,7 @@ test("Genealogy opens its three questions and seven views over the page, from wh
   await expect(g).toBeVisible();
   await g.getByRole("button", { name: "Back to where I am" }).click();
   await expect(slider).toHaveValue("2");
+  await expect(g.getByRole("button", { name: "Back to where I am" })).toBeHidden();
 
   // Inside a company: its three drawings, at the reader's chapter (the purchase is ahead, so only Poole so far).
   await g.getByRole("group", { name: "View" }).getByRole("button", { name: "Inside a company" }).click();

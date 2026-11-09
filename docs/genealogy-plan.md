@@ -41,7 +41,7 @@ keep all of them.
 - **S1 · The skill.** `.claude/skills/genealogy-on-subscription/SKILL.md`,
   `scripts/genealogy-on-subscription.ts` (fetch, read, page, status), six
   prompts `prompts/genealogy-*.md`, the checks in `lib/library/genealogy.ts`
-  with unit tests, and the page template `scripts/genealogy-page.html`. Runs on
+  with unit tests; the page is drawn by the app's `genealogy-views.ts`. Runs on
   the owner's subscription for any EPUB in the library and ends at a private
   page on the laptop. *Done when:* `npm run check` passes with the checks'
   tests; the skill runs end to end on a public-domain fixture (Jekyll and Hyde)
@@ -98,18 +98,25 @@ keep all of them.
   chapter; every quote can turn the page to where the book says it.
   Chapters are numbered by one rule for the skill and the site
   (`numberChapters` in `lib/library/genealogy.ts`).
-  - Known trade-off: the drawing code now lives twice, in the app and in the
-    laptop page (`scripts/genealogy-page.html`). A change to a view belongs in
-    both until the laptop page reads the app's module.
+  - The laptop page (`page`) is drawn by the app's own `genealogy-views.ts`
+    and its styles, inlined into one file (2026-11-09); the old
+    `scripts/genealogy-page.html` is gone, so the drawing code lives once.
   - Merged and live (#312, ffc92bf).
   - A PDF with its own text is read in groups of pages (`numberChapters`,
     about 18,000 characters each), the same groups on the site.
   - A name in the X-ray card (Who & what, and the card over the page) opens
     its family tree, its company view or its life, when the genealogy has it
     (`matchGenealogyName` in `lib/library/genealogy-names.ts`: exact spelling,
-    else a person's surname or the first words of a company's name).
+    else a person's surname, or a company whose name only adds words like
+    "Inc." or "Semiconductor": "Tesla" is "Tesla Motors", but "MIT" is not
+    "MIT Instrumentation Lab" and "Google" is not "Google China"; Samuel,
+    2026-11-09: stricter).
+  - Family tree, decided 2026-11-09 (Samuel did not know; Claude recommended):
+    a founder links a new company only to the place they were at last before
+    founding it, a company they had founded included (Noyce: Fairchild, not
+    Shockley or Philco, for Intel). Earlier employers stay in the person's life.
 
 ## Open questions
 
-- Whether a founder's every past employer counts as a parent in the family
-  tree (now drawn dashed), or only the one they left to found it.
+
+None open (2026-11-09).

@@ -10,6 +10,9 @@ const names: GenealogyName[] = [
   { name: "Fairchild Camera and Instrument", kind: "organisation", links: 6, tree: true },
   { name: "Intel", kind: "organisation", links: 60, tree: true },
   { name: "Texas Instruments", kind: "organisation", links: 20, tree: false },
+  { name: "MIT Instrumentation Lab", kind: "organisation", links: 4, tree: false },
+  { name: "Google China", kind: "organisation", links: 1, tree: false },
+  { name: "Tesla Motors", kind: "organisation", links: 1, tree: false },
 ];
 const entry = (name: string, kind = "name", aliases: string[] = []) => ({ name, kind, aliases: [name, ...aliases] });
 const match = (e: ReturnType<typeof entry>) => matchGenealogyName(e, names)?.name ?? null;
@@ -30,10 +33,17 @@ describe("which genealogy name an X-ray entry is (M43 S3)", () => {
     expect(match(entry("Edward Jekyll", "person"))).toBeNull();
   });
 
-  it("finds an organisation by the words its name begins with, the most linked of several", () => {
+  it("finds an organisation whose name only adds words like Inc. or Semiconductor", () => {
     expect(match(entry("Fairchild", "organisation"))).toBe("Fairchild Semiconductor");
-    expect(match(entry("Texas", "organisation"))).toBe("Texas Instruments");
+    expect(match(entry("Tesla", "organisation"))).toBe("Tesla Motors");
     expect(match(entry("Instruments", "organisation"))).toBeNull();
+  });
+
+  it("does not take a lab, a branch or another company that only begins with the same word", () => {
+    // Samuel, 2026-11-09: matching should be stricter. Seen across Chip War, The Grid and The Pay Off.
+    expect(match(entry("MIT", "organisation"))).toBeNull();
+    expect(match(entry("Google", "organisation"))).toBeNull();
+    expect(match(entry("Texas", "organisation"))).toBeNull();
   });
 
   it("never makes a place, term, work or event a person or company, nor a person a company", () => {
