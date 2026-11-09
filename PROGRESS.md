@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #317 when green and check it live.
+next_action: Merge the About-the-authors PR when green; recheck The Pay Off live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -366,6 +366,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 07:31 · Claude Opus 5.5 · M43: About the authors pages left out of the genealogy's chapter numbers
+- **Done:** BACK_MATTER now matches About the authors and About the publishers (plural). Found on the live Pay Off views (chapter 36: ABOUT THE AUTHORS). Also checked live, signed in: The Grid (family tree, Samuel Insull's storyline) and The Pay Off (Inside a company: Better than Cash Alliance) open and draw.
+- **Key paths:** lib/library/genealogy.ts; lib/library/genealogy.test.ts; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/genealogy.test.ts lib/library/genealogy-view.test.ts (23 passed); npm run check
+- **Known issues / blockers:** The Pay Off's title page (THE PAY OFF) is still numbered chapter 1: no general rule tells a title page with praise from a short chapter. No migration.
+- **Exact next steps:** Merge when green (deploys itself). Recheck The Pay Off's slider: 35 chapters.
 ### 2026-11-09 08:09 · Claude Opus 5.5 · Live: fe4ba57 (#316 stricter company matching, one parent per founder, laptop page from the app's code, three view fixes)
 - **Done:** #316 deployed itself after main's CI re-run (first run hit the known stats.spec.ts:72 flake). Checked live in the in-app browser signed in as Samuel: Intel's tree is Shockley, Fairchild, Intel (Philco gone); Back to where I am hidden at the reader's chapter; FURTHER BACK no longer over the key.
 - **Key paths:** lib/library/genealogy-names.ts; app/(reader)/books/[id]/read/genealogy-views.ts; scripts/genealogy-on-subscription.ts

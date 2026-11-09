@@ -201,6 +201,17 @@ describe("numberChapters (one rule for the skill and the site)", () => {
     expect(parts).toEqual([[1, "I", "Beginnings"]]);
   });
 
+  it("leaves out About the author pages, one author or several, in any case", () => {
+    // The Pay Off's last page, "ABOUT THE AUTHORS", was numbered chapter 36 until 2026-11-09.
+    const { chapters } = numberChapters([
+      { label: "The Only Chapter", size: 9000 },
+      { label: "About the Author", size: 900 },
+      { label: "ABOUT THE AUTHORS", size: 1200 },
+      { label: "About the Publishers", size: 700 },
+    ]);
+    expect(chapters.map((c) => c.title)).toEqual(["The Only Chapter"]);
+  });
+
   it("groups a PDF's pages into chapters of about a book chapter's length, blank pages skipped, a short tail joined to the last", () => {
     const page = (n: number, size: number) => ({ label: `Page ${n}`, size, index: n - 1 });
     const pages = [page(1, 0), ...Array.from({ length: 18 }, (_, i) => page(i + 2, 3000)), page(20, 1000)];
