@@ -2,21 +2,38 @@
 
 import { useEffect, useRef } from "react";
 import type { GenealogyView as Data } from "@/lib/library/genealogy-view";
-import { mountGenealogy, type GenealogyTop } from "./genealogy-views";
+import { mountGenealogy, type GenealogyAlso, type GenealogyTop } from "./genealogy-views";
 import own from "./GenealogyView.module.css";
 
 /**
  * The Genealogy views over the whole screen (M43 S3): they need the width of the page, not the Study column.
  * Escape closes the sentence drawer first, then this. "Go to this place in the book" closes it and turns the page.
  */
-export function GenealogyView({ data, view, focus, onClose, onGo }: { data: Data; view: GenealogyTop; focus?: string; onClose: () => void; onGo: (cfi: string) => void }) {
+export function GenealogyView({
+  data,
+  view,
+  focus,
+  onClose,
+  onGo,
+  also,
+}: {
+  data: Data;
+  view: GenealogyTop;
+  focus?: string;
+  onClose: () => void;
+  onGo: (cfi: string) => void;
+  /** "Also in <book>": the same name in the reader's other books. */
+  also?: (name: string, kind: "person" | "organisation", view: GenealogyTop) => Promise<GenealogyAlso[]>;
+}) {
   const root = useRef<HTMLDivElement>(null);
   const close = useRef<HTMLButtonElement>(null);
   const done = useRef(onClose);
   const go = useRef(onGo);
+  const elsewhere = useRef(also);
   useEffect(() => {
     done.current = onClose;
     go.current = onGo;
+    elsewhere.current = also;
   });
   useEffect(() => {
     if (!root.current) return;
@@ -25,6 +42,7 @@ export function GenealogyView({ data, view, focus, onClose, onGo }: { data: Data
       view,
       focus,
       styles: own,
+      also: (name, kind, v) => elsewhere.current?.(name, kind, v) ?? Promise.resolve([]),
       onClose: () => done.current(),
       onGo: (cfi) => {
         go.current(cfi);

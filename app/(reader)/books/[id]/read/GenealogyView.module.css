@@ -103,7 +103,9 @@
   gap: var(--space-2) var(--space-4);
   align-items: center;
   margin: var(--space-4) calc(var(--space-4) * -1) 0;
-  padding: var(--space-2) var(--space-4);
+
+  /* Room on the right for Close, which stays over the bar when the views are scrolled. */
+  padding: var(--space-2) var(--space-9) var(--space-2) var(--space-4);
   border-bottom: var(--border-hair) solid var(--rule);
   background: var(--paper);
 }
@@ -1170,4 +1172,26 @@
   .orghead .tabs {
     margin-left: 0;
   }
+}
+
+/* "Also in <book>" (M43): the same name in the reader's other books' genealogies. */
+.also {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.also:empty {
+  display: none;
+}
+
+.alsoLabel {
+  color: var(--ink-500);
+  font-size: var(--text-sm);
+}
+
+.also a {
+  text-decoration: none;
 }

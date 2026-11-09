@@ -71,6 +71,11 @@ keep all of them.
     The Grid), and two are loose matches ("MIT Instrumentation Lab" and "MIT";
     "Google China" and "Google"). Too little for a cross-book view.
     Recommendation: an "Also in <book>" link on a name instead; Samuel decides.
+  - Samuel chose the small version (2026-11-08, "add it"): "Also in <book>"
+    under a name in the Genealogy views, for each of his other books whose
+    genealogy has it (`lib/library/genealogy-also.ts`; the same matching as the
+    Who & what card, in both directions). The link opens that book with its
+    views on the name (`?genealogy=person:<name>`). No cross-book view.
 
 ## Decisions
 

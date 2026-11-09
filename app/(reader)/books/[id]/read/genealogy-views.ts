@@ -14,7 +14,17 @@ type Kid = Node | string | number | null | undefined | false | Kid[];
 type Attrs = Record<string, unknown>;
 export type GenealogyTop = "tree" | "org" | "person";
 /** `styles` maps the class names used here to a CSS module's (GenealogyView.module.css). */
-export type GenealogyOptions = { view?: GenealogyTop; focus?: string; styles?: Record<string, string>; onGo: (cfi: string) => void; onClose: () => void };
+/** M43: the same name in another book's genealogy, and the address that opens that book's views on it. */
+export type GenealogyAlso = { title: string; name: string; links: number; href: string };
+export type GenealogyOptions = {
+  view?: GenealogyTop;
+  focus?: string;
+  styles?: Record<string, string>;
+  onGo: (cfi: string) => void;
+  onClose: () => void;
+  /** "Also in <book>": the reader's other books with this name, for the view it is shown in. */
+  also?: (name: string, kind: "person" | "organisation", view: GenealogyTop) => Promise<GenealogyAlso[]>;
+};
 
 const SVGNS = "http://www.w3.org/2000/svg";
 const REL: Record<string, string> = { founded: "founded", worked_at: "worked at", led: "led", left: "left", advised: "advised", spun_out_of: "spun out of", acquired: "bought", bought_part_of: "bought part of", part_of: "is part of", funded: "funded", supplied: "supplied", partnered: "partnered with", mentored: "mentored", hired: "hired", worked_for: "worked for", friend: "is a friend of", family: "is family of" };
@@ -92,6 +102,22 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
   let minLinks = 3;
   let showGK = true;
   let redraw: (() => void) | null = null;
+  // "Also in <book>": asked once per name and view, filled in under the name when it comes.
+  const alsoCache = new Map<string, Promise<GenealogyAlso[]>>();
+  const alsoLine = (name: string, v: GenealogyTop) => {
+    const box = el("div", { class: "also", "data-testid": "genealogy-also" });
+    if (!opts.also || !name) return box;
+    const key = `${v}\u0000${name}`;
+    if (!alsoCache.has(key)) alsoCache.set(key, opts.also(name, kindOf(name) === "person" ? "person" : "organisation", v).catch(() => []));
+    void alsoCache.get(key)!.then((list) => {
+      if (!list.length) return;
+      box.append(
+        el("span", { class: "alsoLabel" }, "Also in"),
+        ...list.map((a) => el("a", { class: "chip", href: a.href }, a.title, el("small", {}, `${a.name !== name ? `as ${a.name} · ` : ""}${plural(a.links, "link")}`))),
+      );
+    });
+    return box;
+  };
   const PARTS = D.parts;
   const kindOf = (n: string) => D.nodes[n] || "organisation";
   const live = () => D.links.filter((l) => l.chapter <= upto);
@@ -255,6 +281,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
     const name = focus.tree;
     const orgs = [...new Set(E.flatMap((e) => [e.parent, e.child]))].sort();
     box.append(picker(orgs, "tree", D.top.tree));
+    box.append(alsoLine(name, "tree"));
     box.append(el("div", { class: "legend" }, el("span", {}, el("i"), "the book says it came out of, was bought by, or is part of"), el("span", {}, el("i", { class: "d" }), "a founder had worked there first (two quotes put together)")));
     if (!orgs.includes(name)) {
       box.append(el("p", { class: "empty" }, upto < D.n ? `Up to chapter ${upto}, the book has not yet linked ${name || "a company"} to another organisation.` : `The book links ${name || "no company"} to no other organisation as parent or offspring.`));
@@ -416,6 +443,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
           (m) => (orgMode = m),
         ),
       ),
+      alsoLine(name, "org"),
     );
     if (!A.length) {
       box.append(el("p", { class: "empty" }, `Up to chapter ${upto}, the book links nobody to ${name}.`));
@@ -761,6 +789,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
           (m) => (personMode = m),
         ),
       ),
+      alsoLine(name, "person"),
     );
     if (!events.length) {
       box.append(el("p", { class: "empty" }, `Up to chapter ${upto}, the book links ${name || "this person"} to nobody.`));
