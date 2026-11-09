@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the About-the-authors PR when green; recheck The Pay Off live.
+next_action: Merge #317 when green; check the three books live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 07:51 · Claude Opus 5.5 · M43: explanations removed from the Genealogy views
+- **Done:** Removed the opening paragraph, the lines under each drawing, the removed-links note and the Study tab's closing line (Samuel: too many subtitles). Kept: Read by Claude (model), date; and Crossing lines: the book tells a later step first.
+- **Key paths:** app/(reader)/books/[id]/read/genealogy-views.ts; app/(reader)/books/[id]/read/GenealogyPanel.tsx; e2e/ai.spec.ts; LEARNING_LOG.md
+- **Commands that worked:** npm run check (1450 passed); npx playwright test --project=ai --ignore-snapshots -g 'create the owner account|three public-domain books land|Genealogy opens|Who & what lists' (258 passed)
+- **Known issues / blockers:** Main's CI for #316 hit the known stats.spec.ts:72 flake; re-run started. No migration.
+- **Exact next steps:** Merge #317 when green; when #316 and #317 are live, look at Chip War, The Grid and The Pay Off in the in-app browser.
 
 ### 2026-11-09 07:31 · Claude Opus 5.5 · M43: About the authors pages left out of the genealogy's chapter numbers
 - **Done:** BACK_MATTER now matches About the authors and About the publishers (plural). Found on the live Pay Off views (chapter 36: ABOUT THE AUTHORS). Also checked live, signed in: The Grid (family tree, Samuel Insull's storyline) and The Pay Off (Inside a company: Better than Cash Alliance) open and draw.
