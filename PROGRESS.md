@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the minimatch PR when green; confirm Dependabot alert 19 is closed.
+next_action: Samuel uses the Genealogy tabs of Chip War, The Grid and The Pay Off and says what to change.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 15:02 · Claude Opus 5.5 · Live: bc5ead1 (#320 minimatch 11.0.5 for the TypeScript linter); Dependabot alert 19 fixed
+- **Done:** #320 merged by hand (auto-merge only takes branches starting m or claude/; this one was deps-minimatch) and deployed. Dependabot alert 19 state fixed at 2026-11-09T19:35:12Z. Worktree and branch removed.
+- **Key paths:** package.json; package-lock.json
+- **Commands that worked:** gh api repos/agenticghx/neolibrary/dependabot/alerts/19 -> fixed; curl /api/health both addresses -> bc5ead1; /sign-in 200
+- **Known issues / blockers:** Remove the override once typescript-eslint asks for minimatch 11. Name branches m... so auto-merge takes them.
+- **Exact next steps:** Samuel uses the Genealogy tabs and says what to change.
 
 ### 2026-11-09 13:55 · Claude Opus 5.5 · Checkpoint: Dependabot alert 19 (minimatch) fix in PR #320, merge and deploy pending
 - **Done:** Alert 19 (GHSA-g3hv-75wg-m249, minimatch >=7 <11.0.1, moderate) traced to @typescript-eslint/typescript-estree (lint-only); npm override to minimatch ^11.0.5 in PR #320; npm audit 0 vulnerabilities; npm run check 1450 passed.
