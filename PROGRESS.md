@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel uses the Genealogy tabs of Chip War, The Grid and The Pay Off and says what to change.
+next_action: Confirm PR #320 merged and live and Dependabot alert 19 is fixed.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 13:55 · Claude Opus 5.5 · Checkpoint: Dependabot alert 19 (minimatch) fix in PR #320, merge and deploy pending
+- **Done:** Alert 19 (GHSA-g3hv-75wg-m249, minimatch >=7 <11.0.1, moderate) traced to @typescript-eslint/typescript-estree (lint-only); npm override to minimatch ^11.0.5 in PR #320; npm audit 0 vulnerabilities; npm run check 1450 passed.
+- **Key paths:** docs/handoffs/2026-11-09-1354-minimatch-alert-fix.md (gitignored); package.json; package-lock.json
+- **Commands that worked:** npm ls minimatch --all; npm audit -> found 0 vulnerabilities; npm run check (1450 passed)
+- **Known issues / blockers:** Not yet confirmed: #320 merged, deployed, alert 19 fixed. Remove the override once typescript-eslint asks for minimatch 11.
+- **Exact next steps:** Confirm #320 merged and live and alert 19 fixed; record the deploy with ledger-to-main; remove worktree .claude/worktrees/minimatch and branch deps-minimatch.
 
 ### 2026-11-09 11:57 · Claude Opus 5.5 · Checkpoint: M43 genealogy polish live (2e6ebae) and checked signed in on Chip War, The Grid and The Pay Off
 - **Done:** #316-#319 merged and live: stricter company matching, one parent per founder in the family tree, laptop page drawn by the app's code, explanations removed, view fixes (Back to where I am, FURTHER BACK, Study tabs), About the authors / Sources / Acknowledgements left out of chapter numbers. Checked live in the in-app browser signed in.
