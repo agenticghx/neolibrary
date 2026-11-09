@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the Acknowledgements PR when green; check it live.
+next_action: Samuel uses the Genealogy tabs of Chip War, The Grid and The Pay Off and says what to change.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 10:06 · Claude Opus 5.5 · Live: 2e6ebae (#319 Acknowledgements left out of the genealogy's chapter numbers)
+- **Done:** Checked live, signed in, in the in-app browser: Chip War 57 chapters to Chapter 54; The Grid 41 page groups to Pages 299-317; The Pay Off 33 chapters to Epilogue (was 36, ending at ABOUT THE AUTHORS). Views open with only the provenance line; The Grid's FirstEnergy tree draws.
+- **Key paths:** lib/library/genealogy.ts
+- **Commands that worked:** curl /api/health both addresses -> 2e6ebae; /sign-in 200; fetch /api/books/<id>/genealogy for the three books
+- **Known issues / blockers:** The Pay Off's title page is still chapter 1; Chip War's Cast of Characters is chapter 1 (it holds links). No migration.
+- **Exact next steps:** Samuel uses the Genealogy tabs and says what to change.
 
 ### 2026-11-09 09:29 · Claude Opus 5.5 · Live: 7a72c99 (#318); M43: Acknowledgements left out of the genealogy's chapter numbers
 - **Done:** #318 live (Sources, References, Further reading left out). The Pay Off then ended at Acknowledgements: the list's acknowledg entry never matched (a word boundary after a prefix); now acknowledg\w*.
