@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Confirm PR #320 merged and live and Dependabot alert 19 is fixed.
+next_action: Merge the minimatch PR when green; confirm Dependabot alert 19 is closed.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -366,6 +366,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 12:44 · Claude Opus 5.5 · Dependabot alert 19 fixed: minimatch 11.0.5 for the TypeScript linter
+- **Done:** GHSA-g3hv-75wg-m249 (minimatch >=7 <11.0.1, a slow-down from crafted glob patterns, moderate) came from @typescript-eslint/typescript-estree 8.71.0, a lint-only tool; its newest release still asks for minimatch ^10.2.2, so an npm override gives it ^11.0.5. Not on the live site's code path.
+- **Key paths:** package.json; package-lock.json
+- **Commands that worked:** npm ls minimatch --all (only 3.1.5 and 11.0.5 left); npm audit -> found 0 vulnerabilities; npm run check (1450 passed)
+- **Known issues / blockers:** Remove the override once typescript-eslint asks for minimatch 11 itself. minimatch 11 needs Node 20+; CI, the deploy and engines use 22.
+- **Exact next steps:** Merge when green (deploys itself); confirm alert 19 shows fixed.
 ### 2026-11-09 13:55 · Claude Opus 5.5 · Checkpoint: Dependabot alert 19 (minimatch) fix in PR #320, merge and deploy pending
 - **Done:** Alert 19 (GHSA-g3hv-75wg-m249, minimatch >=7 <11.0.1, moderate) traced to @typescript-eslint/typescript-estree (lint-only); npm override to minimatch ^11.0.5 in PR #320; npm audit 0 vulnerabilities; npm run check 1450 passed.
 - **Key paths:** docs/handoffs/2026-11-09-1354-minimatch-alert-fix.md (gitignored); package.json; package-lock.json
