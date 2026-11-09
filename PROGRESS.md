@@ -366,12 +366,6 @@ Never blocks the loop. Newest first.
 
 ## Log
 
-### 2026-11-09 12:44 · Claude Opus 5.5 · Dependabot alert 19 fixed: minimatch 11.0.5 for the TypeScript linter
-- **Done:** GHSA-g3hv-75wg-m249 (minimatch >=7 <11.0.1, a slow-down from crafted glob patterns, moderate) came from @typescript-eslint/typescript-estree 8.71.0, a lint-only tool; its newest release still asks for minimatch ^10.2.2, so an npm override gives it ^11.0.5. Not on the live site's code path.
-- **Key paths:** package.json; package-lock.json
-- **Commands that worked:** npm ls minimatch --all (only 3.1.5 and 11.0.5 left); npm audit -> found 0 vulnerabilities; npm run check (1450 passed)
-- **Known issues / blockers:** Remove the override once typescript-eslint asks for minimatch 11 itself. minimatch 11 needs Node 20+; CI, the deploy and engines use 22.
-- **Exact next steps:** Merge when green (deploys itself); confirm alert 19 shows fixed.
 ### 2026-11-09 13:55 · Claude Opus 5.5 · Checkpoint: Dependabot alert 19 (minimatch) fix in PR #320, merge and deploy pending
 - **Done:** Alert 19 (GHSA-g3hv-75wg-m249, minimatch >=7 <11.0.1, moderate) traced to @typescript-eslint/typescript-estree (lint-only); npm override to minimatch ^11.0.5 in PR #320; npm audit 0 vulnerabilities; npm run check 1450 passed.
 - **Key paths:** docs/handoffs/2026-11-09-1354-minimatch-alert-fix.md (gitignored); package.json; package-lock.json
@@ -379,6 +373,12 @@ Never blocks the loop. Newest first.
 - **Known issues / blockers:** Not yet confirmed: #320 merged, deployed, alert 19 fixed. Remove the override once typescript-eslint asks for minimatch 11.
 - **Exact next steps:** Confirm #320 merged and live and alert 19 fixed; record the deploy with ledger-to-main; remove worktree .claude/worktrees/minimatch and branch deps-minimatch.
 
+### 2026-11-09 12:44 · Claude Opus 5.5 · Dependabot alert 19 fixed: minimatch 11.0.5 for the TypeScript linter
+- **Done:** GHSA-g3hv-75wg-m249 (minimatch >=7 <11.0.1, a slow-down from crafted glob patterns, moderate) came from @typescript-eslint/typescript-estree 8.71.0, a lint-only tool; its newest release still asks for minimatch ^10.2.2, so an npm override gives it ^11.0.5. Not on the live site's code path.
+- **Key paths:** package.json; package-lock.json
+- **Commands that worked:** npm ls minimatch --all (only 3.1.5 and 11.0.5 left); npm audit -> found 0 vulnerabilities; npm run check (1450 passed)
+- **Known issues / blockers:** Remove the override once typescript-eslint asks for minimatch 11 itself. minimatch 11 needs Node 20+; CI, the deploy and engines use 22.
+- **Exact next steps:** Merge when green (deploys itself); confirm alert 19 shows fixed.
 ### 2026-11-09 11:57 · Claude Opus 5.5 · Checkpoint: M43 genealogy polish live (2e6ebae) and checked signed in on Chip War, The Grid and The Pay Off
 - **Done:** #316-#319 merged and live: stricter company matching, one parent per founder in the family tree, laptop page drawn by the app's code, explanations removed, view fixes (Back to where I am, FURTHER BACK, Study tabs), About the authors / Sources / Acknowledgements left out of chapter numbers. Checked live in the in-app browser signed in.
 - **Key paths:** docs/handoffs/2026-11-09-1157-genealogy-polish-live.md (gitignored); lib/library/genealogy-names.ts; lib/library/genealogy.ts; app/(reader)/books/[id]/read/genealogy-views.ts; scripts/genealogy-on-subscription.ts
