@@ -366,6 +366,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-08 23:00 · Claude Opus 5.5 · Checkpoint: M43 genealogy complete and live for Chip War, The Grid and The Pay Off
+- **Done:** Genealogy tab in Study (#312 ffc92bf), X-ray name to genealogy (#313 ee2b5a9), PDF read in page groups with The Grid and The Pay Off sent (#314 be14bd4), Also in <book> (#315 3aac62f); all live; worktrees removed.
+- **Key paths:** docs/handoffs/2026-11-08-2300-genealogy-complete-three-books.md; lib/library/genealogy-also.ts; lib/library/genealogy-names.ts; lib/library/genealogy-view.ts; app/(reader)/books/[id]/read/genealogy-views.ts; docs/genealogy-plan.md
+- **Commands that worked:** curl /api/health on both addresses -> 3aac62f; npx vitest run (1445 passed); npx playwright test --project=ai --ignore-snapshots -g '...Genealogy opens...' (259 passed)
+- **Known issues / blockers:** Not seen in a browser signed in as Samuel. Drawing code lives twice (app and scripts/genealogy-page.html).
+- **Exact next steps:** 1. Samuel tries the three Genealogy tabs on the iPad and says what to change. 2. More books at his word with the skill (fetch, read, page, send; a scan's text edition id). 3. Optional: the laptop page reuses genealogy-views.ts.
+
 ### 2026-11-08 22:09 · Claude Opus 5.5 · Live: 3aac62f (#313 Who & what to genealogy, #314 PDF chapters, #315 Also in <book>)
 - **Done:** Three merges deployed by deploy.yml (no migrations): #313 ee2b5a9 (a name in Who & what opens its family tree or life), #314 be14bd4 (a PDF's genealogy read and shown in groups of pages; The Grid and The Pay Off read and sent), #315 3aac62f ("Also in <book>" under a name in the Genealogy views). M43 genealogy is complete for the three books; S4 settled as the Also-in link (Samuel: "add it").
 - **Key paths:** lib/library/genealogy-also.ts; lib/library/genealogy-names.ts; lib/library/genealogy.ts (numberChapters); docs/genealogy-plan.md
