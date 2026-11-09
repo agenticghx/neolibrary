@@ -366,6 +366,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 16:31 · Claude Opus 5.5 · Checkpoint: all work live (bc5ead1), no open PRs or alerts, no background jobs
+- **Done:** Genealogy polish (#316-#319) and Dependabot alert 19 fix (#320) live as bc5ead1; alert 19 fixed; no open PRs; stale watcher stopped; worktrees and branches removed.
+- **Key paths:** docs/handoffs/2026-11-09-1630-all-live-nothing-running.md (gitignored); package.json
+- **Commands that worked:** curl /api/health both addresses -> bc5ead1; gh pr list --state open -> 0; dependabot open alerts -> 0; TaskStop briuy0nc7
+- **Known issues / blockers:** None.
+- **Exact next steps:** Samuel uses the Genealogy tabs and says what to change; more genealogies only at his word.
+
 ### 2026-11-09 15:02 · Claude Opus 5.5 · Live: bc5ead1 (#320 minimatch 11.0.5 for the TypeScript linter); Dependabot alert 19 fixed
 - **Done:** #320 merged by hand (auto-merge only takes branches starting m or claude/; this one was deps-minimatch) and deployed. Dependabot alert 19 state fixed at 2026-11-09T19:35:12Z. Worktree and branch removed.
 - **Key paths:** package.json; package-lock.json
