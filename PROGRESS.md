@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Watch the M43 S3 PR merge and deploy, then check Chip War's Genealogy tab live.
+next_action: Samuel tries Chip War > Study > Genealogy; then the X-ray card to genealogy link.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-08
 shared_copy: none
@@ -365,6 +365,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-08 20:25 · Claude Opus 5.5 · Live: ffc92bf (#312 M43 S3, the Genealogy tab in Study)
+- **Done:** #312 merged as ffc92bf after one re-run (design-phone-dark screenshot: CI's image identical by eye, a known flaky test). Deployed by deploy.yml (no migration). Chip War's genealogy is on the site and the tab reads it.
+- **Key paths:** app/(reader)/books/[id]/read/GenealogyPanel.tsx; app/(reader)/books/[id]/read/GenealogyView.tsx; app/(reader)/books/[id]/read/genealogy-views.ts; lib/library/genealogy-view.ts
+- **Commands that worked:** curl /api/health on both addresses -> commit ffc92bf; /sign-in 200 on both; railway logs -> Page pictures: ready.; GET /api/agent/books/<Chip War>/genealogy -> 472 links, 55 removed, 250 events, 113 people; genealogyView on a local copy of Chip War with the same send -> 57 chapters, chapters/parts/link chapters identical to the laptop page, 472 of 472 links with a CFI, 124 GK years, 363 KB
+- **Known issues / blockers:** Not checked in a browser signed in as Samuel (no session here). The design-page screenshot flake (design-phone-dark, run 42540550931 attempt 1) is not yet noted in docs/ci-flakes.md; add it with the next PR.
+- **Exact next steps:** 1. Samuel opens Chip War > Study > Genealogy on the iPad and says what to change. 2. Next small step: a name in the X-ray card opens its family tree or life; note the design screenshot flake in docs/ci-flakes.md in that PR. 3. S4 (across books) waits on Samuel after S3 is in use.
 
 ### 2026-11-08 19:29 · Claude Opus 5.5 · M43 S3: the Genealogy tab in Study, tested; PR opened
 - **Done:** Study > Genealogy shows what the book's genealogy holds and opens the seven views over the page (Family tree; Power map, Money and parts, Who was there when; Storyline, Read vs happened, List). The slider starts at the reader's chapter, general-knowledge years are purple and switchable, the rebuild setting works, removed links are listed, and every quote can turn the page to where the book says it. Chapters are numbered by one rule for the skill and the site (Chip War's laptop page data unchanged: same 57 chapters, same bytes).
