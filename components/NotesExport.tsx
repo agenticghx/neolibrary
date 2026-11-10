@@ -1,5 +1,6 @@
 "use client";
 
+import { copyText } from "@/lib/copy";
 import { useState } from "react";
 import styles from "./NotesExport.module.css";
 
@@ -7,7 +8,7 @@ const MAILTO_LIMIT = 1800; // long mailto links get cut off by mail apps
 
 /** Take your notes on a book elsewhere: download, copy, or email. */
 export function NotesExport({ bookId, title }: { bookId: string; title: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const base = `/api/books/${bookId}/annotations/export`;
   const markdown = async () => (await fetch(`${base}?format=md`)).text();
 
@@ -23,12 +24,11 @@ export function NotesExport({ bookId, title }: { bookId: string; title: string }
         type="button"
         className={styles.link}
         onClick={async () => {
-          await navigator.clipboard?.writeText(await markdown()).catch(() => {});
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
+          setCopied((await copyText(await markdown())) ? "yes" : "no");
+          setTimeout(() => setCopied(null), 2000);
         }}
       >
-        {copied ? "Copied" : "Copy all"}
+        {copied === "yes" ? "Copied" : copied === "no" ? "Could not copy" : "Copy all"}
       </button>
       <button
         type="button"

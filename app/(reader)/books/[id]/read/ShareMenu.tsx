@@ -1,5 +1,6 @@
 "use client";
 
+import { copyText } from "@/lib/copy";
 import { useState } from "react";
 import { downloadBlob, quoteCard } from "@/lib/reader/quote-card";
 import styles from "./reader.module.css";
@@ -37,8 +38,7 @@ export function ShareMenu({
         className={styles.tool}
         onClick={async () => {
           const link = `${location.origin}/books/${bookId}/read?at=${encodeURIComponent(cfi)}`;
-          await navigator.clipboard?.writeText(link).catch(() => {});
-          setDone("Link copied");
+          setDone((await copyText(link)) ? "Link copied" : "Could not copy the link");
         }}
       >
         Copy link

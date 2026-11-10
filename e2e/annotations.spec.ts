@@ -451,3 +451,55 @@ test("an open book offers the place left off elsewhere", async ({ page }) => {
   // Leave the book where the later tests expect it.
   await page.request.put(`/api/books/${id}/position`, { data: before });
 });
+
+// A save that fails must say so, with what the reader typed: the selection bar that held the words has closed by then.
+test("a note the library does not save is said, with the words typed; a copy the browser refuses is not called Copied", async ({ page, context }) => {
+  await openAtRuggedCountenance(page);
+  const before = await page.getByRole("button", { name: /^Notes/ }).textContent();
+  await context.route("**/api/books/*/annotations", (route) =>
+    route.request().method() === "POST" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
+  await selectPhrase(page, "rugged countenance");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Add note" }).click();
+  await bar.getByLabel("Your note").fill("Words that must not be lost.");
+  await bar.getByRole("button", { name: "Save note" }).click();
+  const failed = page.getByTestId("save-failed");
+  await expect(failed).toContainText("Not saved. The library said: The library is busy.");
+  await expect(failed).toContainText("Words that must not be lost.");
+  await expect(page.getByRole("button", { name: /^Notes/ })).toHaveText(before!);
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await expect(failed).toBeVisible();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/reader-save-failed-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await failed.getByRole("button", { name: "Dismiss" }).click();
+  await expect(failed).toHaveCount(0);
+  await context.unrouteAll();
+
+  // The browser refuses the clipboard: the button says so.
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.reject(new Error("denied")) } });
+  });
+  await selectPhrase(page, "rugged countenance");
+  await bar.getByRole("button", { name: "Copy", exact: true }).click();
+  await expect(bar.getByRole("button", { name: "Could not copy" })).toBeVisible();
+});
+
+// An error answer for the book's notes must not look like a book with no notes.
+test("notes that cannot be loaded are said, not shown as none", async ({ page, context }) => {
+  await context.route("**/api/books/*/annotations", (route) =>
+    route.request().method() === "GET" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
+  await openAtRuggedCountenance(page);
+  await expect(page.getByTestId("notes-failed")).toContainText("could not be loaded. They are safe in the library.");
+  await context.unrouteAll();
+});

@@ -33,8 +33,15 @@ export function VoiceRecorder({
   const result = useRef<{ blob: Blob; ms: number } | null>(null);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // True from pressing Record until the browser answers "may this page use the microphone?".
+  const [asking, setAsking] = useState(false);
+  const askingNow = useRef(false);
+  // True once this recorder has left the page (Back, or the panel closed).
+  const gone = useRef(false);
+
   useEffect(
     () => () => {
+      gone.current = true;
       if (tick.current) clearInterval(tick.current);
       recorder.current?.stream.getTracks().forEach((t) => t.stop());
     },
@@ -47,9 +54,18 @@ export function VoiceRecorder({
   };
 
   const start = async () => {
+    // A second press while the browser is still asking would open a second microphone that nothing ever closes.
+    if (askingNow.current) return;
+    askingNow.current = true;
+    setAsking(true);
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // The reader went Back while the browser was asking: close the microphone at once.
+      if (gone.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       const rec = new MediaRecorder(stream);
       chunks.current = [];
       rec.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
@@ -71,6 +87,9 @@ export function VoiceRecorder({
       }, 200);
     } catch {
       setError("The microphone is not available. Allow it in the browser and try again.");
+    } finally {
+      askingNow.current = false;
+      if (!gone.current) setAsking(false);
     }
   };
 
@@ -96,7 +115,7 @@ export function VoiceRecorder({
           Back
         </button>
         {state === "idle" ? (
-          <button type="button" className={styles.primaryTool} onClick={() => void start()}>
+          <button type="button" className={styles.primaryTool} disabled={asking} onClick={() => void start()}>
             Record
           </button>
         ) : null}
