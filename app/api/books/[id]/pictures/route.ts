@@ -65,7 +65,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { subject?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { subject?: unknown };
   try {
     const out = await makePicture(await getDb(), await getStorage(), generatorFor(user), user.id, { bookId: (await params).id, subject: body.subject });
     return Response.json({ picture: await view(out.generation), reused: out.reused }, { status: out.reused ? 200 : 201 });

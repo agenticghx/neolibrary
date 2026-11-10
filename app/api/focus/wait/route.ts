@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 async function handle(req: Request, change: typeof startWait | typeof cancelWait) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = ((await req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   const db = await getDb();
   const row = await change(db, user.id, body.id);
   if (!row) return Response.json({ error: "No such focus session." }, { status: 404 });

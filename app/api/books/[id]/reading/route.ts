@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = ((await req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   try {
     await recordReading(await getDb(), user.id, {
       sessionId: body.sessionId,

@@ -66,7 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const at = await signedIn(params);
   if (at.error) return at.error;
   if (!mayMakeTextEditions(at.user)) return ownerOnly();
-  const body = (await req.json().catch(() => ({}))) as { confirm?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { confirm?: unknown };
   try {
     const d = await deps();
     const { started } = await startTextEdition(d, at.user.id, at.bookId, body.confirm);

@@ -15,7 +15,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { aiStyle?: unknown; rewrittenView?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { aiStyle?: unknown; rewrittenView?: unknown };
   try {
     return Response.json(await setPreferences(await getDb(), user.id, { aiStyle: body.aiStyle, rewrittenView: body.rewrittenView }));
   } catch (e) {

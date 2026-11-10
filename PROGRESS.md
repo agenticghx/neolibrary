@@ -4,7 +4,7 @@ status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: Samuel reads the audit review list (Open unknowns rows 35 and 36) and says which remaining findings to fix and whether to prune GitHub.
-blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 1, 12, 13, 21 (e), 27 (3), 35 and 36; see Waiting on Samuel.
+blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
 ---
@@ -179,6 +179,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 21:18 · Claude Fable 5.2 · Audit fix 8: second batch of nine bugs
+- **Done:** From the audit's review list. With a failing test first: (1) a display equation followed by a full stop or words on its line ('$$x = y$$.') no longer swallows the rest of the book; (2) importing notes adds nothing when one item is refused, where it used to stop half way; (3) Explain it back no longer saves the reader's summary again on each retry after a failed call; (4) chapter labels like CIVIL and DIM are names, not Roman numerals; (5) a read-along package whose chapter names an audio file missing from its list is refused before anything is stored (it used to crash and leave a stuck import), and an unsupported audio type is caught before the first file is stored; (6) a note's quote holding a letter outside the basic plane (a formula's italic x) is found whole in the other version of the book. By reading: a JSON body of null on 24 routes is an empty body, not an error page; a repeated ?q= on Search and Library no longer crashes the page; the whole-book X-ray route answers 404 for an unknown book.
+- **Key paths:** lib/library/{markdown-epub,annotations,explain-back,chapter-name}.ts; lib/readalong/importer.ts; lib/reader/find-quote.ts; app/(app)/search/page.tsx; app/(app)/library/page.tsx; app/api/books/[id]/xray/build/route.ts; 23 route files under app/api; six test files
+- **Commands that worked:** npx vitest run lib/readalong/importer.test.ts lib/library/explain-back.test.ts lib/reader/find-quote.test.ts lib/library/annotation-formats.test.ts lib/library/markdown-epub.test.ts lib/library/chapter-name.test.ts (51 passed; 6 failed on main); npm run check (1457 passed, 2 skipped)
+- **Known issues / blockers:** The three changes made by reading have no test of their own. 'MIX' is still read as a Roman numeral (it is one: 1009).
+- **Exact next steps:** Samuel's choices on Open unknowns rows 35 and 36; the reader-page findings (failed saves that say nothing, double saves) need a browser to verify.
 ### 2026-11-09 21:11 · Claude Fable 5.2 · Audit fix 7: documents back in step with the code
 - **Done:** PROGRESS.md: 'Exact next steps' is one current block again (it held 81 dated blocks back to 2026-10-09; they are in git and in the Log); 'Waiting on Samuel' marks Railway auto-deploy, branch protection and the private-repository minutes as settled; Open unknowns row 32 closed (overtaken by M34 S4); the header's blockers name the rows that are open. docs/plan.md: M26 and M32 marked built with their pull requests, M42 S1 marked built. docs/design.md: the screenshot allowance is 40 pixels, not 0.2%; reference images come from CI; the missing glass-redo-plan file is named as missing. docs/done.md: the milestone rule covers M13 onward; two waiting rows settled. The skills index and CLAUDE.md list genealogy-on-subscription (and CLAUDE.md lists browser-test-triage). .env.example lists six variables the app reads that it did not name.
 - **Key paths:** PROGRESS.md; docs/plan.md; docs/design.md; docs/done.md; .claude/skills/README.md; CLAUDE.md; .env.example

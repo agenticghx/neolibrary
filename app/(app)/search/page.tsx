@@ -11,7 +11,9 @@ export const dynamic = "force-dynamic";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requireUser();
-  const q = ((await searchParams).q ?? "").slice(0, 200);
+  // "?q=a&q=b" arrives as a list: only one search at a time.
+  const asked = (await searchParams).q;
+  const q = (typeof asked === "string" ? asked : "").slice(0, 200);
   const db = await getDb();
   const [hits, noteHits] = q ? await Promise.all([searchLibrary(db, user.id, q), searchNotes(db, user.id, q)]) : [[], []];
   const byBook = new Map<string, SearchHit[]>();

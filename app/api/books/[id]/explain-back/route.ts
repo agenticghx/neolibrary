@@ -66,7 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; summary?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { chapterId?: unknown; summary?: unknown };
   try {
     const db = await getDb();
     // The note is saved even when no model can answer (no key): explainBack asks for the model only after saving it.

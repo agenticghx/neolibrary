@@ -14,6 +14,6 @@ export async function GET(req: Request, { params }: Params) {
 /** Adds a note as the agent: `{ "text": "…", "sectionId": "…" (optional, from a search result) }`. */
 export async function POST(req: Request, { params }: Params) {
   const bookId = (await params).id;
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = ((await req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   return withAgent(req, async ({ db, user, agent }) => ({ note: await agentAddNote(db, user.id, agent, { bookId, text: body.text, sectionId: body.sectionId }) }), 201);
 }

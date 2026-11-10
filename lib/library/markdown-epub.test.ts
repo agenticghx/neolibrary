@@ -190,6 +190,17 @@ $$ \\frac{1}{ $$
 The end.
 `;
 
+  it("ends a display equation at its closing $$, also with a full stop or words after it on the line", () => {
+    const chapters = chaptersOf("# One\n\n$$x = y$$.\n\nA paragraph after it.\n\n## Two\n\n$$a = b$$ where a is small.\n\nLast paragraph.\n");
+    expect(chapters.map((c) => c.title)).toEqual(["One", "Two"]);
+    const [one, two] = chapters.map((c) => c.html.join("\n"));
+    expect(one).toContain('<p class="equation"><math alttext="x = y"');
+    expect(one).toContain("<p>A paragraph after it.</p>");
+    expect(two).toContain('<p class="equation"><math alttext="a = b"');
+    expect(two).toContain("<p>where a is small.</p>");
+    expect(two).toContain("<p>Last paragraph.</p>");
+  });
+
   it("turns inline and display LaTeX into MathML, keeping the source only where Listen and search do not look", () => {
     const html = chaptersOf(PAPER)[0].html.join("\n");
     expect(html).toMatch(/<p>The Hill equation, <math alttext="E = \\frac\{E_\{\\max\} D\^\{m\}\}\{D_\{50\}\^\{m\} \+ D\^\{m\}\}" xmlns="http:\/\/www.w3.org\/1998\/Math\/MathML">/);

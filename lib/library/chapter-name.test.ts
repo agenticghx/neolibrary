@@ -10,6 +10,10 @@ describe("chapterName", () => {
     expect(chapterName("8. Minting plastic: from credit to debit cards")).toBe("8. Minting plastic: from credit to debit cards");
     expect(chapterName("Letter II")).toBe("Letter II");
     expect(chapterName("Introduction")).toBe("Introduction");
+    // Words made of a Roman numeral's letters are names, not numbers.
+    expect(chapterName("CIVIL")).toBe("CIVIL");
+    expect(chapterName("DIM")).toBe("DIM");
+    expect(chapterName("MCMXCIV")).toBe("chapter MCMXCIV");
     expect(chapterName("Mix")).toBe("Mix"); // numerals are upper case in books; a word like "Mix" is a name
     expect(chapterName("")).toBe("this part");
   });

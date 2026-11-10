@@ -33,6 +33,14 @@ describe("a note's words found again in the other version of the book (Open unkn
     expect(findLetters(text, yes, lettersOf("Then they"))).toEqual([theirs, theirs + yes.length]);
   });
 
+  it("finds a quote that holds a letter outside the basic plane (a formula's italic x), whole", () => {
+    const x = String.fromCodePoint(0x1d465);
+    const doc = new DOMParser().parseFromString(`<html><body><p>Before it. We set ${x} to one here. After it.</p></body></html>`, "text/html");
+    const root = doc.querySelector("body") as unknown as Element;
+    expect(textOf(root, positionsForQuote(root, { exact: `set ${x} to one` }))).toBe(`set ${x} to one`);
+    expect(textOf(root, positionsForQuote(root, { exact: `We set ${x}` }))).toBe(`We set ${x}`);
+  });
+
   it("finds a long quote read differently by its ends; a short one only whole", () => {
     const quote = lettersOf("Several years have now elapsed since I first became aware");
     // A word read differently in the middle: both ends are there.

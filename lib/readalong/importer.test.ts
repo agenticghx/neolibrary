@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
-import { zipSync } from "fflate";
+import { strFromU8, strToU8, zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
@@ -63,6 +63,16 @@ describe("importing a read-along package (M13)", () => {
       expect(text.slice(f, to)).toBe(text.split(/\s+/)[1]);
     }
     expect(await storage.stat(t[0].audioKey)).toMatchObject({ contentType: "audio/wav" });
+  });
+
+  it("refuses a package whose chapter names an audio file missing from its audio list, keeping nothing", async () => {
+    const { files } = pkgFor(0, 3);
+    const manifest = JSON.parse(strFromU8(files["manifest.json"]));
+    manifest.chapters[0].audio = "audio/not-listed.wav";
+    const zip = zipSync({ ...files, "manifest.json": strToU8(JSON.stringify(manifest)) });
+    await expect(startImport(database.db, storage, ownerId, bookId, zip)).rejects.toThrow("that is not in its audio list");
+    expect(await database.db.select().from(readalongImports)).toEqual([]);
+    expect(await tracks()).toEqual([]);
   });
 
   it("takes long audio in parts: nothing plays until every part is in and the file matches the package", async () => {

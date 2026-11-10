@@ -96,6 +96,17 @@ describe("W3C Web Annotation export", () => {
     expect(await importAnnotations(database.db, ownerId, book.id, fromW3C(file))).toEqual({ added: 0, skipped: 3 });
   });
 
+  it("adds nothing when one item of the file is refused, so the file can be corrected and sent again", async () => {
+    const before = await listAnnotations(database.db, ownerId, book.id);
+    const file = JSON.parse(JSON.stringify(toW3C(book, before)));
+    await database.db.delete(annotations).where(eq(annotations.ownerId, ownerId));
+    const items = fromW3C(file);
+    const bad = [items[0], { ...items[1], cfi: "not a place in the book" }, items[2]];
+    await expect(importAnnotations(database.db, ownerId, book.id, bad)).rejects.toThrow();
+    expect(await listAnnotations(database.db, ownerId, book.id)).toEqual([]);
+    expect(await importAnnotations(database.db, ownerId, book.id, items)).toEqual({ added: 3, skipped: 0 });
+  });
+
   it("rejects files that are not W3C annotations", () => {
     expect(() => fromW3C({ hello: 1 })).toThrow("not a W3C");
     expect(() => fromW3C([{ type: "Thing" }])).toThrow("not a W3C");

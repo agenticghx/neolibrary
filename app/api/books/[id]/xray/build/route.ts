@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 function errorResponse(e: unknown) {
-  if (e instanceof XrayError) return Response.json({ error: e.message }, { status: 400 });
+  if (e instanceof XrayError) return Response.json({ error: e.message }, { status: /not found/i.test(e.message) ? 404 : 400 });
   if (e instanceof SpendingCapReached) return Response.json({ error: e.message }, { status: 429 });
   if (e instanceof AiNotConfigured) return Response.json({ error: e.message }, { status: 503 });
   if (e instanceof AiError) return Response.json({ error: e.message }, { status: 502 });
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { confirm?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { confirm?: unknown };
   const db = await getDb();
   try {
     const model = await textModelFor(db, "xray", user, req);

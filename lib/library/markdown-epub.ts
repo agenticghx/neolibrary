@@ -175,11 +175,17 @@ export function chaptersOf(body: string, pictures?: Pictures): Chapter[] {
     // A display equation (M41): `$$` … `$$`, on one line or several.
     if (/^\s*\$\$/.test(line)) {
       flush();
+      // It ends at the next `$$`, wherever on a line that is: "$$x = y$$." (a full stop after it) ends there too.
       const block = [line.trim().slice(2)];
-      while (!/\$\$\s*$/.test(block[block.length - 1]) && n + 1 < lines.length) block.push(lines[++n].trimEnd());
-      const tex = block.join("\n").replace(/\$\$\s*$/, "");
+      while (!block[block.length - 1].includes("$$") && n + 1 < lines.length) block.push(lines[++n].trimEnd());
+      const all = block.join("\n");
+      const close = all.indexOf("$$");
+      const tex = close < 0 ? all : all.slice(0, close);
       const math = mathMl(tex, true);
       here().html.push(`<p class="equation">${math ?? `<code>${esc(`$$${tex}$$`)}</code>`}</p>`);
+      // Words after the closing `$$` on its line start the next paragraph; punctuation alone is dropped.
+      const after = close < 0 ? "" : all.slice(close + 2).trim();
+      if (/[\p{L}\p{N}]/u.test(after)) para.push(after);
       continue;
     }
     // A table (M41): a row of cells, a line of dashes under it, then the rows.

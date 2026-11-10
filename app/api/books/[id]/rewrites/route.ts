@@ -73,7 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { sectionId?: unknown; level?: unknown; strictness?: unknown; fresh?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { sectionId?: unknown; level?: unknown; strictness?: unknown; fresh?: unknown };
   if (typeof body.sectionId !== "string" || !isLevel(body.level)) {
     return Response.json({ error: "Choose a paragraph and a level." }, { status: 400 });
   }
