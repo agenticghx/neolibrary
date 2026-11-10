@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = ((await req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   try {
     const db = await getDb();
     const ended = await endFocus(db, user.id, body.id, { answered: false });

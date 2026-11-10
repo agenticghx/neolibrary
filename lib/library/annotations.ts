@@ -466,7 +466,7 @@ export function readingOrder(a: Annotation, b: Annotation): number {
  * Returns how many were added and skipped.
  */
 export async function importAnnotations(
-  db: Db,
+  outer: Db,
   ownerId: string,
   bookId: string,
   items: {
@@ -484,34 +484,39 @@ export async function importAnnotations(
     modified: string | null;
   }[],
 ) {
-  let added = 0;
-  let skipped = 0;
-  for (const it of items) {
-    if (it.id) {
-      const [exists] = await db
-        .select({ id: annotations.id })
-        .from(annotations)
-        .where(eq(annotations.annotationId, it.id))
-        .limit(1);
-      if (exists) {
-        skipped += 1;
-        continue;
+  // One transaction: an item the app refuses (a place that is not in the book, a note with no words) leaves
+  // nothing behind, so the file can be corrected and sent again.
+  return outer.transaction(async (tx) => {
+    const db = tx as unknown as Db;
+    let added = 0;
+    let skipped = 0;
+    for (const it of items) {
+      if (it.id) {
+        const [exists] = await db
+          .select({ id: annotations.id })
+          .from(annotations)
+          .where(eq(annotations.annotationId, it.id))
+          .limit(1);
+        if (exists) {
+          skipped += 1;
+          continue;
+        }
       }
+      const created = it.created && !Number.isNaN(Date.parse(it.created)) ? new Date(it.created) : new Date();
+      const a = await createAnnotation(
+        db,
+        ownerId,
+        { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined, drawing: it.drawing ?? undefined, picture: it.picture ?? undefined },
+        created,
+        it.id ?? undefined,
+        it.agent ?? undefined,
+      );
+      // Keep the "last changed" time too, as a second version.
+      if (it.modified && it.modified !== it.created && !Number.isNaN(Date.parse(it.modified))) {
+        await addVersion(db, ownerId, a.id, {}, new Date(it.modified));
+      }
+      added += 1;
     }
-    const created = it.created && !Number.isNaN(Date.parse(it.created)) ? new Date(it.created) : new Date();
-    const a = await createAnnotation(
-      db,
-      ownerId,
-      { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined, drawing: it.drawing ?? undefined, picture: it.picture ?? undefined },
-      created,
-      it.id ?? undefined,
-      it.agent ?? undefined,
-    );
-    // Keep the "last changed" time too, as a second version.
-    if (it.modified && it.modified !== it.created && !Number.isNaN(Date.parse(it.modified))) {
-      await addVersion(db, ownerId, a.id, {}, new Date(it.modified));
-    }
-    added += 1;
-  }
-  return { added, skipped };
+    return { added, skipped };
+  });
 }

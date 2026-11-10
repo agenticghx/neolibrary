@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const at = await signedIn(params);
   if (at.error) return at.error;
   if (!mayNarrateWholeBooks(at.user)) return ownerOnly();
-  const body = (await req.json().catch(() => ({}))) as { voice?: unknown; confirm?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { voice?: unknown; confirm?: unknown };
   try {
     const db = await getDb();
     const model = getSpeechModel();

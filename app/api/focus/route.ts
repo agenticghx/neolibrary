@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const body = ((await req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   try {
     const db = await getDb();
     const row = await startFocus(db, user.id, { bookId: body.bookId, question: body.question, minutes: body.minutes, kind: body.kind, days: body.days });

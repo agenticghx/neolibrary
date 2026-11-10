@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { id?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { id?: unknown };
   try {
     return Response.json(await setPaper(await getDb(), getPaperLookup(), user.id, bookId, body.id));
   } catch (e) {
@@ -44,7 +44,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (user.role !== "admin") return Response.json({ error: "Only the library's owner shares papers." }, { status: 403 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { share?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { share?: unknown };
   if (typeof body.share !== "boolean") return Response.json({ error: "Say share: true or false." }, { status: 400 });
   try {
     return Response.json(await setPaperSharing(await getDb(), user.id, bookId, body.share));

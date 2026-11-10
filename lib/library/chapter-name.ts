@@ -2,5 +2,6 @@
 export function chapterName(label: string) {
   const l = label.trim();
   if (!l) return "this part";
-  return /^(?:[IVXLCDM]+|\d+)\.?$/.test(l) ? `chapter ${l.replace(/\.$/, "")}` : l;
+  // A Roman numeral as one is written (XIV, not any run of its letters: "CIVIL" and "DIM" are words).
+  return /^(?:(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})|\d+)\.?$/.test(l) ? `chapter ${l.replace(/\.$/, "")}` : l;
 }

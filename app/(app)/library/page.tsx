@@ -40,7 +40,9 @@ export default async function LibraryPage({
   searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string; show?: string; audio?: string }>;
 }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const given = await searchParams;
+  // "?q=a&q=b" arrives as a list: only one search at a time.
+  const sp = { ...given, q: typeof given.q === "string" ? given.q : undefined };
   // Books, Audiobooks and PDFs were three filters until 2026-10-29; their old addresses open Books.
   if (sp.show && Object.hasOwn(OLD_SHOWS, sp.show)) redirect(libraryHref({ ...sp, show: "all", audio: OLD_SHOWS[sp.show].audio }));
   const db = await getDb();

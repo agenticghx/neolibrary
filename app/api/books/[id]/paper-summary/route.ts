@@ -46,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { fresh?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { fresh?: unknown };
   const db = await getDb();
   try {
     const out = await summariseCard(db, await savedOrNewModelFor(db, "paper-summary", user, req), user.id, { bookId, fresh: body.fresh === true });

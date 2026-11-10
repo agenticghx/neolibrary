@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found." }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { question?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { question?: unknown };
   try {
     const out = await askBook(await getDb(), await savedOrNewModelFor(await getDb(), "ask", user, req), user.id, { bookId, question: body.question });
     return Response.json(out, { status: out.found && !out.reused ? 201 : 200 });

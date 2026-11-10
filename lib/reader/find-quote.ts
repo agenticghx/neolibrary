@@ -80,19 +80,25 @@ export function positionsForQuote(
     }
     if (state === "before") continue;
     const text = node.nodeValue ?? "";
-    for (let i = 0; i < text.length && state !== "done"; i++) {
-      for (const c of lettersOf(text[i])) {
-        letters.push(c);
+    // By whole characters: a letter outside the basic plane (the italic x of a formula) is two UTF-16 units, and
+    // half of one is no letter. `where` has one entry per unit of `letters`, so the two stay in step.
+    for (let i = 0; i < text.length && state !== "done"; ) {
+      const char = String.fromCodePoint(text.codePointAt(i)!);
+      const kept = lettersOf(char);
+      for (let k = 0; k < kept.length; k++) {
+        letters.push(kept[k]);
         where.push([node, i]);
       }
-      if (state === "past" && lettersOf(text[i]) && --left <= 0) state = "done";
+      if (state === "past" && kept && --left <= 0) state = "done";
+      i += char.length;
     }
   }
   const found = findLetters(letters.join(""), want, lettersOf(quote.prefix ?? ""));
   if (!found) return null;
   const [s, e] = found;
   const [endNode, endAt] = where[e - 1];
-  return { start: where[s], end: [endNode, endAt + 1] };
+  const last = String.fromCodePoint((endNode.nodeValue ?? "").codePointAt(endAt) ?? 0).length;
+  return { start: where[s], end: [endNode, endAt + last] };
 }
 
 /** positionsForQuote as a Range, or null. */

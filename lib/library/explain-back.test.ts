@@ -165,6 +165,10 @@ describe("explaining a part back, in the database (M26 R1)", () => {
     expect(capped.error).toBeInstanceOf(SpendingCapReached);
     expect(capped.attempt).toBeNull();
     expect(capped.note?.body).toBe(summary);
+    // Sent again after the failed call: the same note, not a second one.
+    const again = await explainBack(database.db, new FakeModel(), ownerId, { bookId: jekyll, chapterId: chapter.id, summary }, { caps: { perBookUsd: 0, perMonthUsd: 0 } });
+    expect(again.note?.id).toBe(capped.note?.id);
+    expect((await listAnnotations(database.db, ownerId, jekyll)).filter((a) => a.body === summary)).toHaveLength(1);
 
     const other = `${summary} And then some more.`;
     const none = await explainBack(database.db, () => {

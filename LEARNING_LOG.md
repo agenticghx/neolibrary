@@ -3008,3 +3008,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Four new tests on main's export code, then with the change; `npm run check`.
 **Result.** On main: 3 failed, 1 passed. With the change: 4 passed; whole suite 1457 passed, 2 skipped.
 **Lesson.** Ground rule 7 needs a test that fails when a column is added to `books` and not to the export. This round trip compared two exports, which agree when both leave the same column out.
+### Iteration 175 · 2026-11-09 (laptop clock) · Audit, second batch: nine bugs, six with a failing test first · success
+
+**Hypothesis.** The reviewers' remaining small findings are real and each can be shown by a unit test on main.
+**Action.** Six test cases, then the fixes: a display equation ends at its closing `$$` wherever on the line; importing notes is one transaction; Explain it back does not save its note twice; a chapter label is a Roman numeral only when written as one; the read-along import checks every chapter's audio before storing anything; the quote finder walks whole characters. Three more by reading: a JSON body of `null` on 24 routes, `?q=a&q=b` on two pages, an unknown book on the whole-book X-ray route.
+**Evaluation.** The six cases on main's code, then with the fixes; `npm run check`.
+**Result.** On main: 6 failed, 45 passed. With the fixes: 51 passed; whole suite 1457 passed, 2 skipped.
+**Lesson.** `req.json().catch(() => ({}))` guards a body that is not JSON, not a body that is the JSON `null`. A loop that reads text one UTF-16 unit at a time drops every letter outside the basic plane.

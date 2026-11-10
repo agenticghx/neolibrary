@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { cfi?: unknown; latex?: unknown; ask?: unknown; fresh?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { cfi?: unknown; latex?: unknown; ask?: unknown; fresh?: unknown };
   if (typeof body.cfi !== "string" || !isCfi(body.cfi)) return Response.json({ error: "Tap an equation first." }, { status: 400 });
   const db = await getDb();
   try {

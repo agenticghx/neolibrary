@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // M34: a visitor, for a free book only, within their request limit (lib/auth/asker.ts).
   const user = await askerOr(await getDb(), bookId, req);
   if (user instanceof Response) return user;
-  const body = (await req.json().catch(() => ({}))) as { chapterId?: unknown; fresh?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { chapterId?: unknown; fresh?: unknown };
   if (typeof body.chapterId !== "string") return Response.json({ error: "Choose a chapter." }, { status: 400 });
   try {
     const out = await needToKnow(await getDb(), await savedOrNewModelFor(await getDb(), "prerequisites", user, req), user.id, { bookId, chapterId: body.chapterId, fresh: body.fresh === true && !user.visitor });

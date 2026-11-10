@@ -126,6 +126,13 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
   const inZip = Object.fromEntries(Object.entries(files).filter(([n]) => pkg.manifest.audio.some((a) => a.file === n)));
   const verdict = checkPackage(pkg, { audio: inZip });
   if (!verdict.ok) throw new ReadalongError(`This package has problems: ${verdict.errors.slice(0, 3).join("; ")}.`);
+  // Checked before anything is stored: every chapter's audio is in the package's audio list, and every audio
+  // file is of a kind the player takes.
+  const listed = new Set(pkg.manifest.audio.map((a) => a.file));
+  const stray = pkg.manifest.chapters.find((c) => !listed.has(c.audio));
+  if (stray) throw new ReadalongError(`This package has problems: chapter ${stray.n} names an audio file (${stray.audio}) that is not in its audio list.`);
+  const unplayable = pkg.manifest.audio.find((a) => !MIME[(/\.[a-z0-9]+$/i.exec(a.file)?.[0] ?? "").toLowerCase()]);
+  if (unplayable) throw new ReadalongError(`Unsupported audio file ${unplayable.file}: use .m4b, .m4a, .mp3, .wav, .ogg or .flac.`);
   const bookFile = await storage.get(book.fileKey);
   if (!bookFile || !isForBook(pkg, bookFile.data)) {
     throw new ReadalongError("This package was made from a different file of this book (the fingerprints differ). Make it again from the file in your library.");

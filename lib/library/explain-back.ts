@@ -5,7 +5,7 @@ import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { generations, sections } from "@/lib/db/schema";
 import { getStyles } from "./ai-style";
-import { createAnnotation, type Annotation } from "./annotations";
+import { createAnnotation, listAnnotations, type Annotation } from "./annotations";
 import { cut, passagesBlock, type Passage } from "./ask";
 import type { Style } from "./levels";
 import { bookLine, chapterFor, styleInstruction, type Chapter } from "./prerequisites";
@@ -269,7 +269,9 @@ export async function explainBack(
   if (stored) return { note: null, attempt: viewAttempt(stored, passages), reused: true, error: null };
   // The reader's words are kept before anything is asked of Claude.
   const where = anchor(passages);
-  const note = await createAnnotation(db, ownerId, { kind: "note", bookId: input.bookId, cfi: where.cfi, quote: where.quote, body: summary }, opts.now?.());
+  // Sent again after a call that failed (a spending cap, no key): the note is already there, so it is not saved twice.
+  const kept = (await listAnnotations(db, ownerId, input.bookId)).find((a) => a.kind === "note" && a.cfi === where.cfi && a.body === summary);
+  const note = kept ?? (await createAnnotation(db, ownerId, { kind: "note", bookId: input.bookId, cfi: where.cfi, quote: where.quote, body: summary }, opts.now?.()));
   try {
     const out = await generate(db, typeof model === "function" ? model() : model, req, opts);
     return { note, attempt: viewAttempt(out.generation, passages), reused: out.reused, error: null };
