@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Start the Reader.tsx split with the four small components at the bottom of the file.
+next_action: Reader.tsx split, first cut: move Segment, JumpTo, TocList and EditionSwitch into their own files.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -16,6 +16,7 @@ on a shelf, read and listen together, with AI help on every section
 (rewrites, prerequisites, question banks, images), open only to invited
 people. Goals are in `docs/vision.md`; the milestone plan is in `docs/plan.md`.
 "Done" for version 1 means milestones M1 to M12 in the plan are merged and deployed.
+Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven checks; safety of a reader's work, privacy and money come before new features).
 
 ## Exact next steps
 
@@ -178,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 13:06 · Claude (laptop session) · Version 2 goal written; the laptop's main folder is on main again
+- **Done:** docs/version-2.md: what Neolibrary is for now (a study reader for one serious reader and a few guests), seven checks that define version 2, the rule that a reader's work, privacy and money come before new features, and where each check stands today. Linked from CLAUDE.md, docs/done.md and the ledger's head. Samuel asked for a recommendation ('your greatest recommendation without dodging the work'); he can overrule any line. Also, at his word: the laptop's main folder was moved from m25-scan-compare (175 commits behind) to main; his own uncommitted edits were carried over untouched; a backup of the folder as it was is on the laptop. #334 merged before this.
+- **Key paths:** docs/version-2.md; CLAUDE.md; docs/done.md; PROGRESS.md
+- **Commands that worked:** git switch main && git merge --ff-only origin/main (in the main folder, after a backup and after restoring the two session-written files whose content main already had)
+- **Known issues / blockers:** Version 2's numbers (5 s covers, 12-minute checks, 400 lines, 1,500 lines) are targets I chose, not measured limits.
+- **Exact next steps:** 1. Reader.tsx split: the four small components at the bottom, then the mark-drawing helpers, then notes and the offline queue into one hook. 2. One migration (Samuel's go-ahead, 2026-11-10): bytes received per read-along import, and failed paid calls counted against the cap; backup before it deploys. 3. Open-shelf covers within 5 s in WebKit.
 
 ### 2026-11-10 12:38 · Claude (laptop session) · The Notes panel's forms say when a save fails
 - **Done:** Owner sweep, sixth item. A note about the book, or an edit to a note, that the library does not save now shows a message above the box and keeps the words. Browser test with screenshots (four looks) and the accessibility check: 248 passed in the annotations project's run. #333 (guards) merged before this.
