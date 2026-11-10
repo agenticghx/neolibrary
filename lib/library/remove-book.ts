@@ -1,4 +1,4 @@
-import { syncSharedPaper } from "./shared-papers";
+import { stillShared, syncSharedPaper } from "./shared-papers";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots } from "@/lib/db/schema";
@@ -41,6 +41,9 @@ export async function removeBook(db: Db, ownerId: string, bookId: string, now = 
 
 export async function restoreBook(db: Db, ownerId: string, bookId: string) {
   if (!UUID.test(bookId)) throw new RemoveBookError("Book not found.");
+  // A reader's copy of a shared paper comes back only while the owner still shares that paper.
+  const [copy] = await db.select({ sharedFrom: books.sharedFrom }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  if (copy?.sharedFrom && !(await stillShared(db, copy.sharedFrom))) throw new RemoveBookError("Book not found.");
   const done = await db
     .update(books)
     .set({ deletedAt: null })
@@ -53,9 +56,15 @@ export async function restoreBook(db: Db, ownerId: string, bookId: string) {
 /** The reader's removed books, newest removal first. Titles taken off a Path (no file) are not listed: they were never on a shelf. */
 export async function listRemovedBooks(db: Db, ownerId: string) {
   const rows = await db
-    .select({ id: books.id, title: books.title, author: books.author, removedAt: books.deletedAt })
+    .select({ id: books.id, title: books.title, author: books.author, removedAt: books.deletedAt, sharedFrom: books.sharedFrom })
     .from(books)
     .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)))
     .orderBy(desc(books.deletedAt));
-  return rows.map((r) => ({ ...r, removedAt: r.removedAt!.toISOString() }));
+  const listed = [];
+  for (const { sharedFrom, ...r } of rows) {
+    // A copy of a paper the owner no longer shares cannot be brought back, so it is not offered.
+    if (sharedFrom && !(await stillShared(db, sharedFrom))) continue;
+    listed.push({ ...r, removedAt: r.removedAt!.toISOString() });
+  }
+  return listed;
 }

@@ -10,7 +10,7 @@ import { MemoryStorage } from "@/lib/storage";
 import { createAnnotation, listAnnotations } from "./annotations";
 import { importBook } from "./import";
 import { clearPaper, PaperError, setPaper } from "./papers";
-import { removeBook, restoreBook } from "./remove-book";
+import { listRemovedBooks, removeBook, restoreBook } from "./remove-book";
 import { readerMayFetch, setPaperSharing, shareAllWith, sharedBy } from "./shared-papers";
 import { listShelf } from "./shelf";
 
@@ -85,6 +85,24 @@ describe("shared papers (M41 R3c)", () => {
 
     await clearPaper(database.db, ownerId, paperId);
     expect(await papersOf(ann)).toEqual([]);
+  });
+
+  it("does not let a reader bring back a copy of a paper the owner stopped sharing", async () => {
+    const ann = await invite("ann@example.com");
+    await setPaper(database.db, new FakePapers(), ownerId, paperId, "10.5555/12345678");
+    const [orig] = await database.db.select().from(books).where(eq(books.id, paperId));
+    const [copy] = await database.db.select().from(books).where(and(eq(books.ownerId, ann), eq(books.sharedFrom, paperId)));
+    await setPaperSharing(database.db, ownerId, paperId, false);
+    expect(await listRemovedBooks(database.db, ann)).toEqual([]);
+    await expect(restoreBook(database.db, ann, copy.id)).rejects.toThrow("Book not found.");
+    expect(await papersOf(ann)).toEqual([]);
+    // A copy left on a shelf by any route still opens no file once sharing is off.
+    await database.db.update(books).set({ deletedAt: null }).where(eq(books.id, copy.id));
+    expect(await readerMayFetch(database.db, ann, orig.fileKey!, false)).toBe(false);
+    // Sharing on again: the copy and its file are back.
+    await setPaperSharing(database.db, ownerId, paperId, true);
+    expect(await papersOf(ann)).toHaveLength(1);
+    expect(await readerMayFetch(database.db, ann, orig.fileKey!, false)).toBe(true);
   });
 
   it("gives a reader who joins later the papers already shared, and shares no reader's own paper", async () => {
