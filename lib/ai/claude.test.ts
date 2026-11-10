@@ -80,6 +80,11 @@ describe("ClaudeModel", () => {
     await expect(new ClaudeModel(KEY, undefined, { fetch: refused.fetch }).generate(req)).rejects.toThrow(AiRefused);
     const cut = fakeApi(message({ stop_reason: "max_tokens" }));
     await expect(new ClaudeModel(KEY, undefined, { fetch: cut.fetch }).generate(req)).rejects.toThrow("cut off");
+    // Both were answered, so both were charged: the error carries what the API says it used (for the spending cap).
+    const billed = await new ClaudeModel(KEY, undefined, { fetch: fakeApi(message({ stop_reason: "max_tokens" })).fetch }).generate(req).catch((e) => e.billed);
+    expect(billed).toMatchObject({ inputTokens: expect.any(Number), outputTokens: expect.any(Number) });
+    const declined = await new ClaudeModel(KEY, undefined, { fetch: fakeApi(message({ stop_reason: "refusal", content: [] })).fetch }).generate(req).catch((e) => e.billed);
+    expect(declined).toMatchObject({ model: expect.any(String) });
   });
 
   it("turns API errors into plain messages", async () => {
