@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Deploy migration 0040 from the laptop after a backup, as soon as its pull request merges.
+next_action: Reader split, second cut: notes and the offline queue into a useNotes hook.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 14:37 · Claude Fable 5.2 (laptop session) · Live: 7c2165c (migration 0040), deployed from the laptop after a backup
+- **Done:** At Samuel's go-ahead (2026-11-10). #337 merged as 7c2165c; main's own CI run on it passed. Backup taken before the deploy (33,202,186 bytes, 'dump complete' footer present); an identical-size backup 15 minutes earlier restored into a throwaway Postgres 18 with exit 0 (39 migrations, 261 books, 51 annotations), and migration 0040 ran up, down, up on that copy with exit 0. Deployed from the deploy checkout (clean, at 7c2165c). After: /api/health on both addresses says 7c2165c; /sign-in and /browse answer 200 on both; _migrations holds 40 rows, the newest 0040_spend_and_upload_counts; books still 261; the log says 'Page pictures: ready.'. Also live since earlier today: #329 to #336.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0040-20261110T1930Z.sql (laptop); db/migrations/0040_spend_and_upload_counts.up.sql
+- **Commands that worked:** railway ssh --service Postgres --environment production -- sh -c 'pg_dump --no-owner ...' > backup ; docker run postgres:18 + psql -v ON_ERROR_STOP=1 < backup ; railway variable set NEOLIBRARY_COMMIT=<sha> --service web --environment production --skip-deploys ; railway up --service web --environment production --ci
+- **Known issues / blockers:** No signed-in check of the live site was made after the deploy (no read-along import or AI call was tried there). The site deploys itself again from the next merge, since live now equals main's code.
+- **Exact next steps:** 1. Reader split, second cut: notes and the offline queue into a useNotes hook (tests: e2e/offline.spec.ts, e2e/annotations.spec.ts); then focus sessions, reading aloud, full screen. Target under 1,500 lines (now 2,858). 2. One shared book-visibility check in lib/. 3. Open-shelf covers within 5 s in WebKit (each takes about 0.5 s from the server). 4. A signed-in live check of download-then-offline. 5. The rest of docs/version-2.md.
 
 ### 2026-11-10 14:01 · Claude (laptop session) · Migration 0040: read-along audio and billed-but-failed AI calls are counted
 - **Done:** Version 2 check 4, at Samuel's go-ahead (2026-11-10). Migration 0040 adds readalong_imports.bytes_received and the table failed_spend. A reader's read-along imports together may hold at most 50 GB of audio (READALONG_MAX_GB); each part is counted under a per-reader lock before it is stored. A paid AI call that was billed but gave nothing usable (declined, cut off, empty) is written to failed_spend with its cost, and counts against the spending cap and on the costs page. Unit tests: 1471 passed, 2 skipped. Open unknowns swept: row 35 answered, row 36 closed; row 29 left open (not judged). docs/ci-flakes.md: readalong.spec.ts:903 failed once in WebKit on main after #333 and passed on the next run.
