@@ -746,7 +746,9 @@ offers Scan | Text. Plan, steps S1 to S8 and their "Done when":
 
 ### M26 · Reading for understanding (Samuel picked these three, 2026-10-16)
 
-Written for Samuel and for the session that builds it. Not started: Samuel
+Written for Samuel and for the session that built it. **Built 2026-10-17 to
+2026-10-24** (R1 #191, R3 #200 and #201, R4 #203 and #207, R5 #233 and #234).
+Written before it started: Samuel
 says when, and which step first (Claude's suggestion: R1). These came from
 a list of ideas Samuel liked; he chose the top three.
 
@@ -1090,7 +1092,8 @@ Written for Samuel and for the session that builds it.
 
 ### M32 · X-ray: who and what is in a book (Samuel, 2026-10-22)
 
-Written for Samuel and for the session that builds it. Not started: Samuel
+Written for Samuel and for the session that built it. **Built 2026-10-23**
+(X1 to X7: #223, #224, #225, #226, #228, #230, #232). Written before it started: Samuel
 says when. X-ray is Kindle's name for the panel behind a book: the people,
 places and terms in it, each with a description and a bar showing where it
 comes up. The ideas, ranked, are in `docs/xray-ideas.md`; the live prototype
@@ -1879,8 +1882,8 @@ browser) and use it every day for a month before planning hardware of our
 own. He said "yep, plan the e-ink reading mode as suggested". E-ink is the
 paper-like screen of a Kindle. It shows greys, redraws slowly, and leaves
 faint ghosts of the old picture when things move. The detail, with the code
-each step touches, is in `docs/eink-reading-plan.md`. **Recorded, not
-started.** No migration. Hardware of our own (a prototype board, a factory)
+each step touches, is in `docs/eink-reading-plan.md`. **S1 (the E-ink switch
+in Aa) built 2026-11-08 (#309); the later steps are not started.** No migration. Hardware of our own (a prototype board, a factory)
 is left out on purpose: S5 decides whether it is ever worth planning.
 
 - **S1 · The E-ink setting in the reader.** A switch in Aa, kept on the

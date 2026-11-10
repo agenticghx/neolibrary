@@ -14,7 +14,9 @@ Version 1 is **done** when every box in the checklist below is ticked on
 
 ## When a milestone is done
 
-A milestone (M1 to M12 in `docs/plan.md`) is done when **all** of these hold:
+A milestone in `docs/plan.md` is done when **all** of these hold (written for
+M1 to M12, which made up version 1; later milestones, M13 onward, follow the
+same rule):
 
 1. **Built.** Every bullet in its plan section is implemented, or the bullet
    is explicitly moved to "Later" in `docs/plan.md` with a one-line reason
@@ -46,12 +48,12 @@ the next milestone.
 
 | Waiting item | Needed for | Until it arrives |
 |---|---|---|
-| Connect the repo to Railway `web` and generate a domain | live deploy (M1 onward) | everything is tested in CI; the "live" boxes stay open |
+| ~~Connect the repo to Railway `web` and generate a domain~~ settled: the Deploy workflow deploys main since 2026-11-01 (`.github/workflows/deploy.yml`) | live deploy (M1 onward) | |
 | `ANTHROPIC_API_KEY` on Railway | real Claude calls (M6, M11) | fake Claude in all tests |
 | `OPENAI_API_KEY` on Railway | image generation (M9) | fake image provider |
 | Spending caps (open unknown 1) | M6, M7, M9 | built-in defaults: $5 per book, $20 per month per provider, set by environment variables |
 | Real-book verdicts (M4, M6) | Samuel's taste | recorded as "awaiting verdict"; not blocking |
-| Branch protection on `main` | a second lock on merging | auto-merge already waits for green CI |
+| ~~Branch protection on `main`~~ settled: four required checks (seen 2026-11-09) | a second lock on merging | |
 
 Version 1 is **"done (built)"** when every milestone box is ticked, and
 **"done (live)"** when the live boxes are ticked too. Sessions aim for
