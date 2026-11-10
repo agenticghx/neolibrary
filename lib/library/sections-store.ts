@@ -48,7 +48,7 @@ export async function getSections(db: Db, ownerId: string, bookId: string) {
     .orderBy(asc(sections.position));
 }
 
-/** Builds sections for EPUBs uploaded before the section model existed. */
+/** Builds sections for books (EPUB or PDF) that have none: uploaded before the section model existed, or not built at upload. */
 export async function backfillSections(db: Db, storage: Storage) {
   const missing = await db
     .select({ id: books.id, fileKey: books.fileKey, toc: books.toc, fileType: books.fileType })
@@ -65,8 +65,13 @@ export async function backfillSections(db: Db, storage: Storage) {
   for (const b of missing) {
     const file = await storage.get(b.fileKey!).catch(() => null);
     if (!file) continue;
-    await buildSections(db, b.id, file.data, b.toc as { label: string; href: string }[], b.fileType ?? "epub");
-    done += 1;
+    // One file that cannot be read must not stop the books after it (this runs at every server start).
+    try {
+      await buildSections(db, b.id, file.data, b.toc as { label: string; href: string }[], b.fileType ?? "epub");
+      done += 1;
+    } catch (e) {
+      console.error(`Paragraphs could not be built for book ${b.id}:`, e);
+    }
   }
   return done;
 }
