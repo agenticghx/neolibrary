@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read main's newest CI run (WebKit, readalong.spec.ts:903), then the second Reader cut.
+next_action: Deploy migration 0040 from the laptop after a backup, as soon as its pull request merges.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 14:01 · Claude (laptop session) · Migration 0040: read-along audio and billed-but-failed AI calls are counted
+- **Done:** Version 2 check 4, at Samuel's go-ahead (2026-11-10). Migration 0040 adds readalong_imports.bytes_received and the table failed_spend. A reader's read-along imports together may hold at most 50 GB of audio (READALONG_MAX_GB); each part is counted under a per-reader lock before it is stored. A paid AI call that was billed but gave nothing usable (declined, cut off, empty) is written to failed_spend with its cost, and counts against the spending cap and on the costs page. Unit tests: 1471 passed, 2 skipped. Open unknowns swept: row 35 answered, row 36 closed; row 29 left open (not judged). docs/ci-flakes.md: readalong.spec.ts:903 failed once in WebKit on main after #333 and passed on the next run.
+- **Key paths:** db/migrations/0040_spend_and_upload_counts.up.sql and .down.sql; lib/db/schema.ts; lib/ai/claude.ts, model.ts, generate.ts; lib/library/costs.ts; lib/readalong/importer.ts; lib/ai/failed-spend.test.ts; lib/readalong/importer.test.ts; docs/ci-flakes.md
+- **Commands that worked:** npm run check ; npx vitest run lib/ai lib/readalong lib/db
+- **Known issues / blockers:** This pull request holds a migration: once merged, the Deploy workflow refuses every deploy until it is deployed from the laptop after a backup. failed_spend is not in the library export: it holds no text of the reader's or a book's, and spending brought back from a file is never counted. The Batch API path (scanned pages) does not go through generate(); a billed failure there is still not recorded. Whether Anthropic bills a declined answer is taken from what the API's usage reports, not checked against an invoice.
+- **Exact next steps:** 1. When this merges: backup (pg_dump over railway ssh, footer checked), restore-check into a throwaway Postgres 18, deploy the merge commit from ../neolibrary-deploy, check /api/health on both addresses, /sign-in, the _migrations count (40) and the log line 'Page pictures: ready.'; record with ledger-to-main. 2. Reader split, second cut: notes and the offline queue into a useNotes hook. 3. One shared book-visibility check.
 
 ### 2026-11-10 13:20 · Claude (laptop session) · Reader split, first cut: controls and stateless helpers in their own files
 - **Done:** Version 2 check 5. Reader.tsx 3,271 lines to 2,859 by pure moves: ReaderControls.tsx (Segment, JumpTo, TocList, EditionSwitch) and reader-helpers.ts (26 helpers and types with no component state). npm run check green; 342 browser tests passed (offline, focus, e-ink projects and what they depend on). #335 (the version 2 goal) merged before this. Main's run on 4ca41f1 (#333) failed in WebKit on e2e/readalong.spec.ts:903 (the audiobook says when it ends); nothing in #333 touches audio; main's next run is the re-run.
