@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeRefused, type OutboxItem } from "./outbox";
+import { describeRefused, mine, type OutboxItem } from "./outbox";
 
 // M20 Q2: a note the server refuses stays on the device, described in words
 // in the Notes panel, so what the reader wrote is not lost without a word.
@@ -28,5 +28,20 @@ describe("describeRefused", () => {
 
   it("says the error number when the server gave no reason", () => {
     expect(describeRefused(item({ refused: { ...refused, status: 404, reason: "" } }), []).reason).toBe("The library did not accept it (error 404).");
+  });
+});
+
+// Two people can use one browser: a waiting note is only ever sent by the reader who wrote it.
+describe("mine", () => {
+  const waiting = (over: Partial<OutboxItem>): OutboxItem => ({ id: "c1", bookId: "b1", body: {}, savedAt: "2026-11-10T11:00:00.000Z", ...over });
+
+  it("keeps the reader's own items and leaves out another reader's", () => {
+    const items = [waiting({ id: "a", owner: "ada" }), waiting({ id: "b", owner: "bea" })];
+    expect(mine(items, "ada").map((i) => i.id)).toEqual(["a"]);
+    expect(mine(items, "bea").map((i) => i.id)).toEqual(["b"]);
+  });
+
+  it("counts an item saved before owners were recorded as the signed-in reader's", () => {
+    expect(mine([waiting({ id: "old" })], "ada").map((i) => i.id)).toEqual(["old"]);
   });
 });

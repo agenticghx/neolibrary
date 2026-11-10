@@ -4,6 +4,13 @@
  * removal, that cannot reach the server waits here with the id the browser
  * gave it, and is sent when the network returns, in the order it was made. Annotations are only ever added (ground rule 9) and the
  * server stores an id once, so sending one twice is harmless.
+ *
+ * Every item belongs to the reader who made it (`owner`, their account id).
+ * Two people can use one browser; without the owner, the second person's
+ * session would send the first person's waiting notes, the library would
+ * refuse them (not their book), and they would never be sent again. So every
+ * function here takes the signed-in reader's id and only sees their items.
+ * Signing out does not empty the outbox: the notes wait for their owner.
  */
 /**
  * - create: a new annotation; `id` is its id, `body` what to POST.
@@ -15,6 +22,8 @@
  */
 export type OutboxItem = {
   id: string;
+  /** The account id of the reader who made it. Items saved before 2026-11-10 have none: see `mine`. */
+  owner?: string;
   op?: "create" | "edit" | "remove" | "restore";
   annotationId?: string;
   bookId: string;
@@ -54,11 +63,18 @@ async function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) =>
   }
 }
 
-export const addToOutbox = (item: OutboxItem) => run("readwrite", (s) => s.put(item)).then(() => undefined);
+/**
+ * The items that are `owner`'s. One with no owner was saved before owners
+ * were recorded; it counts as the signed-in reader's, as it did then (the
+ * other choice, never sending it, would lose a note for certain).
+ */
+export const mine = (items: OutboxItem[], owner: string) => items.filter((i) => i.owner === undefined || i.owner === owner);
+
+export const addToOutbox = (owner: string, item: OutboxItem) => run("readwrite", (s) => s.put({ ...item, owner })).then(() => undefined);
 export const removeFromOutbox = (id: string) => run("readwrite", (s) => s.delete(id)).then(() => undefined);
 
-export async function outboxFor(bookId?: string): Promise<OutboxItem[]> {
-  const all = await run<OutboxItem[]>("readonly", (s) => s.getAll());
+export async function outboxFor(owner: string, bookId?: string): Promise<OutboxItem[]> {
+  const all = mine(await run<OutboxItem[]>("readonly", (s) => s.getAll()), owner);
   return all.filter((i) => !bookId || i.bookId === bookId).sort((a, b) => a.savedAt.localeCompare(b.savedAt));
 }
 
@@ -66,17 +82,17 @@ export async function outboxFor(bookId?: string): Promise<OutboxItem[]> {
 export const isOffline = (e: unknown) => e instanceof TypeError;
 
 /**
- * Sends everything waiting, oldest first. A change the server accepts (or
+ * Sends everything of `owner`'s that is waiting, oldest first. A change the server accepts (or
  * already has) leaves the outbox. One it refuses (4xx) stays, marked with
  * the server's reason, so the reader can see it and copy what they wrote;
  * it is not sent again, since that cannot help (until M20 it was dropped
  * with no word). On a network failure it stops and keeps the rest.
  * Returns how many were sent and refused.
  */
-export async function flushOutbox(): Promise<{ sent: number; refused: number }> {
+export async function flushOutbox(owner: string): Promise<{ sent: number; refused: number }> {
   let sent = 0;
   let refused = 0;
-  for (const item of (await outboxFor()).filter((i) => !i.refused)) {
+  for (const item of (await outboxFor(owner)).filter((i) => !i.refused)) {
     let res: Response;
     try {
       const op = opOf(item);
@@ -106,7 +122,7 @@ export async function flushOutbox(): Promise<{ sent: number; refused: number }> 
       refused += 1;
       const said = (await res.json().catch(() => ({}))) as { error?: unknown };
       const reason = typeof said.error === "string" ? said.error : "";
-      await addToOutbox({ ...item, refused: { status: res.status, reason, at: new Date().toISOString() } });
+      await addToOutbox(owner, { ...item, refused: { status: res.status, reason, at: new Date().toISOString() } });
     } else break;
   }
   return { sent, refused };

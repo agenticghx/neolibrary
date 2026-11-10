@@ -346,6 +346,8 @@ const onFullscreenChange = (changed: () => void) => {
 };
 
 export function Reader(props: {
+  /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
+  readerId: string;
   bookId: string;
   title: string;
   author: string;
@@ -1765,7 +1767,7 @@ export function Reader(props: {
     } catch (e) {
       if (!isOffline(e)) throw e;
     }
-    const waiting = await outboxFor(props.bookId).catch(() => []);
+    const waiting = await outboxFor(props.readerId, props.bookId).catch(() => []);
     // The other version's notes get their places here, after the last wait: one placed while the outbox was read
     // would otherwise come back without its place, and stay so, as placing skips a note already placed (the
     // flaky agents.spec.ts:318, 2026-10-29).
@@ -1812,7 +1814,7 @@ export function Reader(props: {
       return { changeId, queued: false };
     } catch (e) {
       if (!isOffline(e)) throw e;
-      await addToOutbox({ id: changeId, op, annotationId: a.id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
+      await addToOutbox(props.readerId, { id: changeId, op, annotationId: a.id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
       return { changeId, queued: true };
     }
   };
@@ -1823,7 +1825,7 @@ export function Reader(props: {
    * saves go to the server at once.
    */
   const waitingCreate = async (id: string) =>
-    madeOffline.current.has(id) ? (await outboxFor(props.bookId).catch(() => [])).find((w) => w.id === id && opOf(w) === "create") : undefined;
+    madeOffline.current.has(id) ? (await outboxFor(props.readerId, props.bookId).catch(() => [])).find((w) => w.id === id && opOf(w) === "create") : undefined;
 
   /**
    * Adds a highlight, note, sticker or bookmark with an id chosen here. With
@@ -1836,7 +1838,7 @@ export function Reader(props: {
       return await api(`/api/books/${props.bookId}/annotations`, "POST", { ...body, id });
     } catch (e) {
       if (!isOffline(e)) throw e;
-      await addToOutbox({ id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
+      await addToOutbox(props.readerId, { id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
       return localAnnotation(id, body);
     }
   };
@@ -1850,7 +1852,7 @@ export function Reader(props: {
   useEffect(() => {
     if (props.visitor) return; // nothing of a visitor's waits to be sent
     const sync = async () => {
-      await flushOutbox().catch(() => ({ sent: 0 }));
+      await flushOutbox(props.readerId).catch(() => ({ sent: 0 }));
       await reloadRef.current().catch(() => {});
     };
     const online = () => void sync();
@@ -1864,7 +1866,7 @@ export function Reader(props: {
       window.removeEventListener(SYNC_EVENT, online);
       clearInterval(timer);
     };
-  }, [props.visitor]);
+  }, [props.visitor, props.readerId]);
 
   const clearSelection = () => {
     selectionDoc.current?.getSelection()?.removeAllRanges();
@@ -1952,7 +1954,7 @@ export function Reader(props: {
   const saveNote = async (a: Annotation, body: string) => {
     // Made offline and not sent yet: change what will be sent.
     const waiting = await waitingCreate(a.id);
-    if (waiting) await addToOutbox({ ...waiting, body: { ...waiting.body, body } });
+    if (waiting) await addToOutbox(props.readerId, { ...waiting, body: { ...waiting.body, body } });
     else await change(a, "edit", { body });
     await reload();
   };
@@ -1960,7 +1962,7 @@ export function Reader(props: {
   /** Removes a note: if it was made offline and never sent, it (and its edits) just leave the outbox. */
   const forget = async (a: Annotation) => {
     if (await waitingCreate(a.id)) {
-      for (const w of await outboxFor(props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
+      for (const w of await outboxFor(props.readerId, props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
     } else await change(a, "remove");
   };
 
@@ -1973,13 +1975,13 @@ export function Reader(props: {
     const waiting = await waitingCreate(a.id);
     if (waiting) {
       // Made offline and never sent: dropping it from the outbox removes it; Undo puts it back.
-      for (const w of await outboxFor(props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
-      undo = () => addToOutbox(waiting);
+      for (const w of await outboxFor(props.readerId, props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
+      undo = () => addToOutbox(props.readerId, waiting);
     } else {
       const { changeId, queued } = await change(a, "remove");
       undo = async () => {
         // The removal is still waiting to be sent: taking it back is enough. Otherwise the server brings the note back.
-        if (queued && (await outboxFor(props.bookId).catch(() => [])).some((w) => w.id === changeId)) await removeFromOutbox(changeId);
+        if (queued && (await outboxFor(props.readerId, props.bookId).catch(() => [])).some((w) => w.id === changeId)) await removeFromOutbox(changeId);
         else await change(a, "restore", { annotation: a });
       };
     }

@@ -76,6 +76,7 @@ export default async function ReadPage({
   const recall = sitting ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
   return (
     <Reader
+      readerId={user.id}
       bookId={book.id}
       title={book.title}
       author={book.author}

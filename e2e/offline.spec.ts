@@ -381,6 +381,87 @@ test("a note the library refuses when the connection returns is kept under Could
   await server.dispose();
 });
 
+// Two people can use one browser. A note waiting on the device belongs to the reader who wrote it: another reader's
+// session never sends it (the library would refuse it as "not your book" and it would never be sent again), and it
+// still waits, untouched, for its owner.
+test("a waiting note of another reader is not sent, and stays on the device for them", async ({ page, context }) => {
+  const frankenstein = await bookId(page, "Frankenstein");
+  const theirs = "0b1f6f0e-3c56-4c1e-9a55-0f6d3c1f7a11";
+  const posted: string[] = [];
+  await context.route("**/api/books/*/annotations", (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    posted.push((route.request().postDataJSON() as { id: string }).id);
+    return route.continue();
+  });
+  const outbox = () =>
+    page.evaluate(
+      () =>
+        new Promise<{ id: string; owner?: string; refused?: unknown }[]>((resolve, reject) => {
+          const open = indexedDB.open("neolibrary-offline", 1);
+          open.onupgradeneeded = () => open.result.createObjectStore("outbox", { keyPath: "id" });
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const all = open.result.transaction("outbox").objectStore("outbox").getAll();
+            all.onsuccess = () => (open.result.close(), resolve(all.result));
+          };
+        }),
+    );
+  // Another reader used this browser and left a note waiting.
+  await page.goto("/help");
+  await page.evaluate(
+    ({ id, bookId }) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("neolibrary-offline", 1);
+        open.onupgradeneeded = () => open.result.createObjectStore("outbox", { keyPath: "id" });
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const put = open.result
+            .transaction("outbox", "readwrite")
+            .objectStore("outbox")
+            .put({ id, owner: "another-reader", bookId, body: { kind: "note", body: "Another reader's words." }, savedAt: "2026-11-10T09:00:00.000Z" });
+          put.onsuccess = () => (open.result.close(), resolve());
+        };
+      }),
+    { id: theirs, bookId: frankenstein },
+  );
+
+  // This reader opens the book: the reader page sends what waits, at once.
+  const listed = page.waitForResponse((r) => r.url().endsWith(`/api/books/${frankenstein}/annotations`) && r.request().method() === "GET");
+  await page.goto(`/books/${frankenstein}/read`);
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await listed;
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const panel = page.getByRole("navigation", { name: "Notes" });
+  await expect(panel.getByText("Another reader's words.")).toHaveCount(0);
+  await expect(panel.getByTestId("not-saved")).toHaveCount(0);
+
+  // A note of this reader's own, made with no connection, is kept under their account and sent when it returns.
+  await context.unrouteAll();
+  await context.route("**/api/books/*/annotations", (route) =>
+    route.request().method() === "POST" ? route.abort("internetdisconnected") : route.continue(),
+  );
+  const words = `Mine, written offline ${Date.now()}.`;
+  await panel.getByLabel("A note about this book").fill(words);
+  await panel.locator("form").filter({ has: page.getByLabel("A note about this book") }).getByRole("button", { name: "Add note" }).click();
+  const row = panel.getByTestId("notes").getByRole("listitem").filter({ hasText: words });
+  await expect(row.getByTestId("note-pending")).toBeVisible();
+  const own = (await outbox()).find((i) => i.id !== theirs)!;
+  expect(own.owner).toMatch(/^[0-9a-f-]{36}$/);
+  await context.unrouteAll();
+  await context.route("**/api/books/*/annotations", (route) => {
+    if (route.request().method() === "POST") posted.push((route.request().postDataJSON() as { id: string }).id);
+    return route.continue();
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(row.getByTestId("note-pending")).toHaveCount(0);
+
+  // The other reader's note was never sent, and still waits exactly as it was left.
+  expect(posted).toContain(own.id);
+  expect(posted).not.toContain(theirs);
+  expect(await outbox()).toEqual([expect.objectContaining({ id: theirs, owner: "another-reader" })]);
+  expect((await outbox())[0].refused).toBeUndefined();
+});
+
 // PDF books too: the PDF viewer's files are kept with the first PDF downloaded.
 test("a PDF downloaded for offline opens with the network off, pages and all", async ({ page, context }) => {
   const discourse = await bookId(page, "Discourse on the Method");
