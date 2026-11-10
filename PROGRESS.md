@@ -179,12 +179,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
-### 2026-11-10 07:34 · Claude (laptop session) · Unit tests copy one migrated database; ledger-only commits skip lint, types and unit tests
-- **Done:** First item of the owner sweep (2026-11-10). testDatabase() starts from a database migrated once per run (Vitest global setup) instead of replaying 78 migrations per test. Laptop: 805 s of processor time down to 398 s; 1463 tests pass, 2 skipped. ci.yml: on a push to main that changes only PROGRESS.md, npm ci, lint, types and unit tests are skipped and the job still ends green, so Start the deploy runs as before. Pull requests run everything.
-- **Key paths:** lib/db/test-db.ts, lib/db/test-db-snapshot.ts, lib/db/test-db.test.ts, lib/db/client.ts, vitest.config.mts, .github/workflows/ci.yml
+### 2026-11-10 07:34 · Claude (laptop session) · Unit tests copy one migrated database
+- **Done:** First item of the owner sweep (2026-11-10). testDatabase() starts from a database migrated once per run (Vitest global setup) instead of replaying 78 migrations per test. Laptop: 805 s of processor time down to 398 s; 1463 tests pass, 2 skipped. A second change (skip the unit checks on ledger-only pushes to main) was taken out before merging: that run's green result starts the deploy, so merged code could have gone live before its own checks finished.
+- **Key paths:** lib/db/test-db.ts, lib/db/test-db-snapshot.ts, lib/db/test-db.test.ts, lib/db/client.ts, vitest.config.mts
 - **Commands that worked:** time npx vitest run ; npm run check
-- **Known issues / blockers:** The saving on CI's machine is not known until this pull request's run. The ledger-only skip can only be seen working on the first ledger push after the merge.
-- **Exact next steps:** 1. Read the unit-test step's time in this pull request's CI run and record it. 2. After the merge, check the next ledger-only push: steps skipped, Start the deploy ran. 3. Next on the owner sweep's list: offline safety (branch m44-offline-safety), then note-saving honesty.
+- **Known issues / blockers:** The saving on CI's machine is not known until this pull request's run.
+- **Exact next steps:** 1. Read the unit-test step's time in this pull request's CI run and record it. 2. Next on the owner sweep's list: offline safety (branch m44-offline-safety), then note-saving honesty.
 
 ### 2026-11-10 07:25 · Claude (laptop session) · Checkpoint: owner sweep done, feedback list written for Samuel; no code changed
 - **Done:** Read-only sweep of main at cc153fad after the audit of 2026-11-09: the parts the audit did not read (service worker, root config, scripts, prompts, browser-test helpers, workflows), a re-check of the audit's unconfirmed reader findings, and where CI time goes. Measured: in run 42786252543 the unit-test step took 815 s of about 15 minutes (lint 26 s, types 18 s); 70 test files build a fresh database with all 78 migrations per test; 45 of the last 100 commits on main change only PROGRESS.md and each starts that run. The automatic Claude review workflow failed on its last 10 runs. The main laptop folder's CLAUDE.md differs from main's (deploy rule out of date). Open unknowns were not swept in this entry; row 35 stays open (the list holds a recommended order, not a decision).
