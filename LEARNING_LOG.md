@@ -3064,3 +3064,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Types, lint, unit tests; the browser tests of the offline, focus and e-ink projects and all they depend on.
 **Result.** `Reader.tsx` 3,271 lines to 2,859. `npm run check` green (1468 passed, 2 skipped). Browser tests: 342 passed.
 **Lesson.** Move first, change later: a cut that only moves lines can be judged by "types pass and every browser test passes", so it can be large. A cut that also changes behaviour cannot.
+### Iteration 183 · 2026-11-10 (laptop clock) · Migration 0040: read-along audio and billed-but-failed AI calls are counted · success
+
+**Hypothesis.** Two things cost storage or money with no count kept: the audio a read-along import takes in (no ceiling at all), and a paid AI call that is billed but gives nothing usable (declined, cut off, empty), which stored no row and so never reached the spending cap.
+**Action.** Migration 0040 adds `readalong_imports.bytes_received` and a table `failed_spend`. Each audio part is counted under a per-reader lock before it is stored, against one ceiling for all of a reader's imports (50 GB, `READALONG_MAX_GB`). The Claude client's errors for an unusable answer carry what the API says it used; `generate()` writes that to `failed_spend` before releasing its hold; `spending()` and the costs page add it in.
+**Evaluation.** Unit tests: a model that charges and gives nothing, then the cap; two parts arriving together with room for one; the migration up, down, up. `npm run check`.
+**Result.** 1471 passed, 2 skipped. The third failing call is refused by the cap; of two parts together one is taken and one refused, and the count is exact.
+**Lesson.** A first attempt at the ceiling limited part numbers and broke eleven tests that send short audio in small parts. Count what you want to bound (bytes), not a stand-in for it (parts).
