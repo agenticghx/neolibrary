@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClearOffline } from "@/components/ClearOffline";
 import { Mark } from "@/components/Mark";
 import { currentUser } from "@/lib/auth/session";
 import styles from "./open.module.css";
@@ -10,6 +11,8 @@ export default async function OpenLayout({ children }: { children: React.ReactNo
   const signedIn = Boolean(await currentUser());
   return (
     <div className={styles.room}>
+      {/* A session that ended (expired, or switched off) lands here, not on the sign-in page: downloads go here too. */}
+      {signedIn ? null : <ClearOffline />}
       <header className={styles.bar}>
         <Link href="/browse" className={styles.brand}>
           <Mark size={28} />

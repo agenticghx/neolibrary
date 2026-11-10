@@ -68,9 +68,15 @@ export async function removeDownload(bookId: string, fileUrl: string) {
   await books.delete(absolute(readerPath(bookId)));
   await books.delete(file.origin + file.pathname);
   await books.delete(absolute(`/api/books/${bookId}/annotations`));
+  // The last download gone: the app's files kept for offline go too (the service worker stops adding to them).
+  const pages = (await books.keys()).filter((r) => /\/books\/[0-9a-f-]{36}\/read$/.test(new URL(r.url).pathname));
+  if (pages.length === 0) await caches.delete(ASSETS);
 }
 
-/** Removes every downloaded book from this device (on sign-out). */
+/**
+ * Removes every downloaded book from this device: on the sign-in page (so after signing out) and on any page shown
+ * to someone not signed in. Notes waiting to be sent (lib/outbox.ts) are not touched: they wait for their writer.
+ */
 export async function clearOffline() {
   if (typeof window === "undefined" || !("caches" in window)) return;
   await Promise.all([caches.delete(BOOKS), caches.delete(ASSETS)]);

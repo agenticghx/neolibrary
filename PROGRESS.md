@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Service worker fixes from the owner sweep (m44-offline-deploy), then note-saving honesty.
+next_action: After m44-offline-deploy is live: WebKit check at iPad size; then note-saving honesty.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 08:13 · Claude (laptop session) · A downloaded book survives a deploy; downloads leave a signed-out device
+- **Done:** Owner sweep, third item. Service worker: while a device holds a download, the app's own files are saved as they load, so a reader page refreshed after a deploy still opens offline; saving to the cache never decides the answer (the network's answer is returned first); kept app files are emptied with the last download and trimmed to the newest 1,500. The open shelf, seen signed out, clears downloads like the sign-in page. New browser test fails on main's code (0 scripts kept) and passes with the change (332 passed in the offline project's run).
+- **Key paths:** public/sw.js, lib/offline.ts, app/(open)/layout.tsx, components/ClearOffline.tsx, e2e/offline.spec.ts
+- **Commands that worked:** npx playwright test --ignore-snapshots --project=offline ; npm run check
+- **Known issues / blockers:** The storage-full case has no test. The signed-out test was not shown failing on main. A device that is never online again keeps its downloads readable offline: that is what a download is. After this deploys itself: check the live site in WebKit at iPad size (a broken service worker breaks page loads on returning devices).
+- **Exact next steps:** 1. After the merge and deploy: live WebKit check at iPad size (open a book, download it, reload). 2. Note-saving honesty (branch m44-notes-say-so): a failed save says so and keeps the text; notes that fail to load say so; Copied only when copied; the voice recorder's microphone. 3. Then the money items on the owner sweep's list.
 
 ### 2026-11-10 07:56 · Claude (laptop session) · A note waiting offline belongs to the reader who wrote it
 - **Done:** Owner sweep, second item. Each note waiting on the device (made with no connection) now records its writer's account id, and only that reader's session shows or sends it; signing out leaves it waiting for them. Older waiting items with no owner count as the signed-in reader's, as before. New browser test fails on main's code (another reader's words appeared in Notes) and passes with the change.

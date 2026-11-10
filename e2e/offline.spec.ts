@@ -117,6 +117,70 @@ test("download a book for offline; with the network off it still opens", async (
   expect(await page.evaluate(async () => Boolean(await (await caches.open("neolibrary-offline-books-v1")).match(location.href)))).toBe(false);
 });
 
+// A deploy gives the reader page new script files. The downloaded copy of the page is refreshed on the next online
+// visit, so the files it now names must be kept too, or the book stops opening offline. Modelled here by taking one
+// kept script away after the download (as if the page now named a file the device never saved).
+test("after a deploy, one online visit keeps the page's new files and the book still opens offline", async ({ page, context }) => {
+  const frankenstein = await bookId(page, "Frankenstein");
+  const ready = () => expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await page.goto(`/books/${frankenstein}/read`);
+  await ready();
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 10_000 }).toBe(true);
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByTestId("offline").getByRole("button", { name: "Download for offline" }).click();
+  await expect(page.getByTestId("offline").getByRole("status")).toBeVisible();
+
+  // Every script the page uses is taken out of the kept files: the device now holds none of the "new build".
+  const kept = () =>
+    page.evaluate(async () => (await (await caches.open("neolibrary-offline-assets-v1")).keys()).map((r) => r.url).filter((u) => u.endsWith(".js")));
+  const scripts = await kept();
+  expect(scripts.length).toBeGreaterThan(3);
+  await page.evaluate(async (urls) => {
+    const cache = await caches.open("neolibrary-offline-assets-v1");
+    await Promise.all(urls.map((u) => cache.delete(u)));
+  }, scripts);
+  expect(await kept()).toEqual([]);
+
+  // One visit with the network on: the files the page loads are kept again.
+  await page.goto(`/books/${frankenstein}/read`);
+  await ready();
+  await expect.poll(async () => (await kept()).length, { timeout: 15_000 }).toBeGreaterThan(3);
+
+  // Network off: the book opens from the device.
+  await context.setOffline(true);
+  await context.route("**/*", (route) => route.abort("internetdisconnected"));
+  await page.goto(`/books/${frankenstein}/read`);
+  await ready();
+  await expect.poll(() => visibleText(page)).not.toBe("");
+  await context.unrouteAll();
+  await context.setOffline(false);
+
+  // Removing the last download empties the kept app files too, and they are not kept again while nothing is downloaded.
+  await page.goto(`/books/${frankenstein}/read`);
+  await ready();
+  await page.getByRole("button", { name: "Reading settings" }).click();
+  await page.getByTestId("offline").getByRole("button", { name: "Remove download" }).click();
+  await expect(page.getByTestId("offline").getByRole("button", { name: "Download for offline" })).toBeVisible();
+  expect(await page.evaluate(() => caches.has("neolibrary-offline-assets-v1"))).toBe(false);
+  await page.goto(`/books/${frankenstein}/read`);
+  await ready();
+  expect(await page.evaluate(() => caches.has("neolibrary-offline-assets-v1"))).toBe(false);
+});
+
+// A session that ended (expired, or switched off by the owner) does not pass the sign-in page: the library sends a
+// signed-out visit to the open shelf. Downloads leave the device there too.
+test("the open shelf, seen signed out, removes downloaded books from the device", async ({ browser }) => {
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const page = await ctx.newPage();
+  await page.goto("/manifest.webmanifest");
+  await page.evaluate(async () => {
+    await (await caches.open("neolibrary-offline-books-v1")).put("/books/x/read", new Response("kept?"));
+  });
+  await page.goto("/browse");
+  await expect.poll(() => page.evaluate(() => caches.has("neolibrary-offline-books-v1"))).toBe(false);
+  await ctx.close();
+});
+
 test("the sign-in page removes downloaded books from the device", async ({ browser }) => {
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await context.newPage();
