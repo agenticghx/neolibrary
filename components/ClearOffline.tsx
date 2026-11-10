@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { clearOffline } from "@/lib/offline";
 
-/** On the sign-in page: books downloaded for offline do not stay on the device after signing out. */
+/** On pages shown to someone not signed in: books downloaded for offline do not stay on the device. */
 export function ClearOffline() {
   useEffect(() => {
     void clearOffline().catch(() => {});
