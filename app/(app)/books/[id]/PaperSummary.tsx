@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import forms from "@/components/forms.module.css";
+import { aiFetch } from "@/lib/own-keys";
 import styles from "./page.module.css";
 
 type Card = { question: string; method: string; finding: string; limits: string };
@@ -30,7 +31,7 @@ export function PaperSummary({ bookId }: { bookId: string }) {
   useEffect(() => {
     let live = true;
     void (async () => {
-      const res = await fetch(`/api/books/${bookId}/paper-summary`).catch(() => null);
+      const res = await aiFetch(`/api/books/${bookId}/paper-summary`).catch(() => null);
       const body = res ? await res.json().catch(() => ({})) : {};
       if (!live) return;
       if (res?.ok) setData(body as Data);
@@ -45,7 +46,7 @@ export function PaperSummary({ bookId }: { bookId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/paper-summary`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fresh }) });
+      const res = await aiFetch(`/api/books/${bookId}/paper-summary`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fresh }) });
       const body = (await res.json().catch(() => ({}))) as { error?: string; generation?: Version };
       if (!res.ok || !body.generation) {
         setError(body.error ?? "That did not work. Try again.");

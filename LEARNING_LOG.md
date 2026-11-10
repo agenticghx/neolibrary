@@ -2972,3 +2972,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The new test on main's code, then on the fix; `npm run check`.
 **Result.** Before: 1 failed, 3 passed. After: `shared-papers.test.ts` and `remove-book.test.ts` 8 passed; whole suite 1451 passed, 2 skipped.
 **Lesson.** One mark with two meanings (hidden by the owner, removed by the reader) needs each reader of that mark to say which meaning it wants.
+### Iteration 171 · 2026-11-09 (laptop clock) · M34: two paper features follow the own-key rule · success, not proven in a browser
+
+**Hypothesis.** The paper summary card and Explain an equation (M41 R4, built 2026-10-18/19) predate M34 S4 (2026-11-02), which moved every AI route to "the asker's own key unless the asker is the owner". These two routes were not moved.
+**Action.** Both routes use `textModelFor` for the estimate and `savedOrNewModelFor` for the answer, as Ask does; their two pages send requests with `aiFetch`, which carries the reader's key. Accepting an invite now also copies the shared papers.
+**Evaluation.** `npm run lint`, `npx tsc --noEmit`, the AI, shared-paper, summary and equation unit tests.
+**Result.** Lint and types clean; 56 passed. No browser test signs in as an invited reader and uses these two features, so that path is checked by reading only.
+**Lesson.** A rule applied route by route misses the routes written before it. `git grep -n "textModel(db" -- app/api` should print nothing but owner-only routes.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { aiFetch } from "@/lib/own-keys";
 import styles from "./reader.module.css";
 
 /** The equation a tap opened: its place (a CFI), its LaTeX and number. */
@@ -57,7 +58,7 @@ export function EquationView({ bookId, equation, onClose }: { bookId: string; eq
     if (!equation) return;
     let live = true;
     void (async () => {
-      const res = await fetch(`/api/books/${bookId}/explain-math`, {
+      const res = await aiFetch(`/api/books/${bookId}/explain-math`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cfi: equation.cfi, latex: equation.latex }),
@@ -77,7 +78,7 @@ export function EquationView({ bookId, equation, onClose }: { bookId: string; eq
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/books/${bookId}/explain-math`, {
+      const res = await aiFetch(`/api/books/${bookId}/explain-math`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cfi: equation.cfi, latex: equation.latex, ask: true, fresh }),

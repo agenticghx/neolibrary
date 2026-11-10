@@ -1,6 +1,6 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
-import { textModel } from "@/lib/ai/model-picks";
+import { savedOrNewModelFor, textModelFor } from "@/lib/ai/model-picks";
 import { AiError, AiNotConfigured, AiRefused } from "@/lib/ai/model";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -20,7 +20,7 @@ function errorResponse(e: unknown) {
 }
 
 /** M41 R4a: a paper's stored summary cards (oldest first) and the cost of making one. */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
@@ -30,7 +30,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const versions = await listSummaries(db, user.id, bookId);
     let estimate: number | null = null;
     try {
-      estimate = await estimateSummary(db, await textModel(db, "paper-summary"), user.id, bookId);
+      estimate = await estimateSummary(db, await textModelFor(db, "paper-summary", user, req), user.id, bookId);
     } catch (e) {
       if (!(e instanceof AiNotConfigured)) throw e;
     }
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = (await req.json().catch(() => ({}))) as { fresh?: unknown };
   const db = await getDb();
   try {
-    const out = await summariseCard(db, await textModel(db, "paper-summary"), user.id, { bookId, fresh: body.fresh === true });
+    const out = await summariseCard(db, await savedOrNewModelFor(db, "paper-summary", user, req), user.id, { bookId, fresh: body.fresh === true });
     return Response.json(out, { status: out.reused ? 200 : 201 });
   } catch (e) {
     return errorResponse(e);
