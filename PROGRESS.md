@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel reads the audit review list (Open unknowns rows 35 and 36) and says which remaining findings to fix and whether to prune GitHub.
+next_action: Samuel reads the audit review list (Open unknowns row 35) and says which remaining findings to fix.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 01:54 · Claude Fable 5.2 · GitHub pruned at Samuel's word: 258 merged branches deleted, ci-screenshots cut to pull requests 305 onward
+- **Done:** Samuel, 2026-11-10: 'Yes to pruning' (Open unknowns row 36, both parts; the row's status in the table is not yet changed to closed). (a) 258 remote branches deleted: each one's tip was exactly the last commit of a merged pull request. 13 remote branches remain: main, ci-screenshots, 4 of closed pull requests, 4 with no pull request, and 3 merged ones that gained commits after their merge (m21-calendar, m26-ai-model-per-feature, m40-deploy-trigger). (b) ci-screenshots replaced by one commit holding the folders of pull requests 305 to 328 (1,938 pictures, 636 MB packed; it held 16,949 pictures, 4.52 GB, in 522 commits). A kept picture still loads (HTTP 200). Screenshot grids in comments on pull requests before 305 no longer show their pictures.
+- **Key paths:** ~/Backups/neolibrary/merged-branches-2026-11-10.bundle (185 MB, all 258 branches; restore one with: git fetch <bundle> refs/remotes/origin/<branch>:<branch>); local ref refs/backup/ci-screenshots-2026-11-10 = c2758ea4 (the old screenshots branch, in the laptop's main checkout only)
+- **Commands that worked:** git bundle create/verify; git push origin --delete <branches>; git mktree + git commit-tree; git push --force-with-lease=ci-screenshots:c2758ea4 origin 7a905894:refs/heads/ci-screenshots
+- **Known issues / blockers:** GitHub's reported repository size falls only after GitHub's own clean-up, at a time it chooses. CI still adds to ci-screenshots on every pull request and nothing prunes it, so it will grow again (about 30 MB a pull request). The laptop's .git stays 4.6 GB while the backup ref is kept.
+- **Exact next steps:** Samuel's choices on Open unknowns row 35 (what is left of the audit list). Optional: a pruning step in ci.yml's publish job so the screenshots branch keeps only recent pull requests.
 
 ### 2026-11-10 00:27 · Claude Fable 5.2 · Checkpoint: audit closed; eight fixes live (30d196e)
 - **Done:** All eight audit pull requests are merged and deployed by the Deploy workflow: #321, #323, #322, #324, #325, #326, #327, #328. Deploy log issue 268, 2026-11-10T05:25:45Z: 'Live: 30d196e (was eaca17f). /api/health on every address shows 30d196e; /sign-in 200. No migration.' Main's CI passed on 30d196e. No pull request is open. The nine audit worktrees and their branches, local and on GitHub, are removed.
