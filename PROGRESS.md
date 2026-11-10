@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Continue the audit's remaining items: export round trip, stale documents.
+next_action: Continue the audit's remaining item: stale documents.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -368,6 +368,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 21:08 · Claude Fable 5.2 · Audit fix 6: export round trip for papers and the open shelf
+- **Done:** A library export now carries what M34 and M41 added to a book: whether it is on the open shelf, and a paper's kind, authors, journal, year, DOI, PubMed ID and sharing switch. Export then import no longer turns papers into books or puts every title back on the open shelf. An invited reader's export now imports: a copy of a shared paper is accepted when it names a paper in the owner's library with exactly that paper's file and cover, and comes back hidden if the paper is no longer shared. 'Free to read' is never taken from a file. Older export files still import.
+- **Key paths:** lib/library/export.ts; lib/library/export-papers.test.ts (new); LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/export-papers.test.ts (4 passed; 3 failed on main's export code); npm run check (1457 passed, 2 skipped)
+- **Known issues / blockers:** lib/library/export.test.ts 'export → wipe → import gives back an identical library' failed once in six runs, with and without this change (its review-queue order assertion): a flaky test, not yet in docs/ci-flakes.md. The export format's version number is unchanged (the new fields are optional).
+- **Exact next steps:** Audit items left: stale documents.
 ### 2026-11-09 21:03 · Claude Fable 5.2 · Audit fix 5: a chapter's X-ray facts are stored once
 - **Done:** Reading a chapter again for the X-ray (another AI style, changed instructions, or the chapter sent twice) put its facts beside the earlier ones, so a name card listed each fact twice. The new answer's facts now take the place of the chapter's earlier facts. One test case added; with the old rule it fails with 'expected 12 to be 6'.
 - **Key paths:** lib/library/xray-read.ts (applyChapter); lib/library/xray-read.test.ts; LEARNING_LOG.md
