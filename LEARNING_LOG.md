@@ -3015,3 +3015,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The six cases on main's code, then with the fixes; `npm run check`.
 **Result.** On main: 6 failed, 45 passed. With the fixes: 51 passed; whole suite 1457 passed, 2 skipped.
 **Lesson.** `req.json().catch(() => ({}))` guards a body that is not JSON, not a body that is the JSON `null`. A loop that reads text one UTF-16 unit at a time drops every letter outside the basic plane.
+### Iteration 176 · 2026-11-10 (laptop clock) · Unit tests copy one migrated database · success
+
+**Hypothesis.** The unit tests take 815 s of CI's 15 minutes (run 42786252543) because 70 test files build an empty database and replay all 78 migrations for each test; building it once and copying it per test removes a large part of that.
+**Action.** Vitest's global setup (`lib/db/test-db-snapshot.ts`) migrates one PGlite database, saves it as a file, and `testDatabase()` starts each test from a copy. A second change, skipping the unit checks on a push to main that changes only `PROGRESS.md`, was written and taken out before merging (see Lesson).
+**Evaluation.** `time npx vitest run` on the laptop before and after; a new test that the snapshot is used and two databases share nothing.
+**Result.** Before: 55.89 s on the clock, 805 s of processor time. After: 30.05 s, 398 s of processor time. 1463 passed (was 1461), 2 skipped. The time on CI's machine is known only from this pull request's run.
+**Lesson.** A ledger-only push's run starts the deploy of whatever merged before it; if that run skips the unit tests, merged code can go live before its own run has finished or after it failed. Do not make a run on main cheaper without tracing what its green result starts. Also: the laptop hid the cost: 16 cores made 805 s of work look like 56 s. Judge test cost by processor time ("user" in `time`), which is what a 4-core CI machine pays on the clock.

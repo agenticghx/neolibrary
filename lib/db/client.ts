@@ -17,10 +17,18 @@ export type RawSql = {
   close(): Promise<void>;
 };
 
-export type Database = { db: Db; raw: RawSql; kind: "postgres" | "pglite" };
+export type Database = {
+  db: Db;
+  raw: RawSql;
+  kind: "postgres" | "pglite";
+  /** PGlite only: the whole database as one file, for `loadDataDir`. */
+  dump?: () => Promise<Blob>;
+};
 
 export async function openDatabase(
   env: Record<string, string | undefined> = process.env,
+  /** PGlite in memory only: start from a database saved with `dump`. */
+  options: { loadDataDir?: Blob } = {},
 ): Promise<Database> {
   if (env.DATABASE_URL) {
     const { default: postgres } = await import("postgres");
@@ -45,10 +53,13 @@ export async function openDatabase(
     const { mkdir } = await import("node:fs/promises");
     await mkdir(env.PGLITE_DIR, { recursive: true });
   }
-  const client = env.PGLITE_DIR ? new PGlite(env.PGLITE_DIR) : new PGlite();
+  const client = env.PGLITE_DIR
+    ? new PGlite(env.PGLITE_DIR)
+    : new PGlite(options.loadDataDir ? { loadDataDir: options.loadDataDir } : {});
   await client.waitReady;
   return {
     kind: "pglite",
+    dump: () => client.dumpDataDir("none"),
     db: drizzle(client, { schema }) as unknown as Db,
     raw: {
       exec: async (sql) => void (await client.exec(sql)),
