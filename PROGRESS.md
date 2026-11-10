@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel says whether to tidy the five small document items and read the unread parts; otherwise his choices on Open unknowns row 35.
+next_action: Samuel reads the owner sweep's feedback list (laptop, docs/handoffs/2026-11-10-owner-sweep-feedback.md) and says what to do first; recommended: faster unit tests in CI.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 07:25 · Claude (laptop session) · Checkpoint: owner sweep done, feedback list written for Samuel; no code changed
+- **Done:** Read-only sweep of main at cc153fad after the audit of 2026-11-09: the parts the audit did not read (service worker, root config, scripts, prompts, browser-test helpers, workflows), a re-check of the audit's unconfirmed reader findings, and where CI time goes. Measured: in run 42786252543 the unit-test step took 815 s of about 15 minutes (lint 26 s, types 18 s); 70 test files build a fresh database with all 78 migrations per test; 45 of the last 100 commits on main change only PROGRESS.md and each starts that run. The automatic Claude review workflow failed on its last 10 runs. The main laptop folder's CLAUDE.md differs from main's (deploy rule out of date). Open unknowns were not swept in this entry; row 35 stays open (the list holds a recommended order, not a decision).
+- **Key paths:** docs/handoffs/2026-11-10-owner-sweep-feedback.md (laptop only, gitignored: it includes security items)
+- **Commands that worked:** gh run view 42786252543 --json jobs ; git archive origin/main | tar -x -C <scratch folder> (a read-only copy to review)
+- **Known issues / blockers:** Nothing was run in a browser or against the live database; findings marked 'read' in the list are unconfirmed. Unit-test saving from one shared migrated database is not measured.
+- **Exact next steps:** 1. Samuel reads the feedback list and says which parts to do. 2. Recommended first: branch m44-ci-fast-tests (migrate the test database once and copy it per test; skip unit tests on ledger-only commits but keep the Start the deploy job). 3. Then the offline-safety and note-saving fixes named in the list.
 
 ### 2026-11-10 03:54 · Claude Fable 5.2 · Checkpoint: audit closed; five small document items and the unread parts wait on Samuel's yes
 - **Done:** A stalled session resumed, found the audit already closed on main, changed no file, and verified: no open pull request, CI green on 9482a63, 13 branches on GitHub. The documentation reviewer's late report adds five small items not on the review list (unread CI outputs, four unused .gitignore entries, two stale skill sentences, three closed rows under Open in docs/ci-flakes.md, LEARNING_LOG.md's M14 title and short index); none is checked against current main.
