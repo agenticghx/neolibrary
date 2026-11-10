@@ -239,8 +239,11 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
   return { entries, dropped };
 }
 
-/** Stores a checked answer: entries joined or added, this answer's facts (replacing its earlier ones), mentions rebuilt for the names that changed. */
-export async function applyChapter(db: Db, bookId: string, generationId: string, checked: { entries: CheckedEntry[] }) {
+/**
+ * Stores a checked answer: entries joined or added, this answer's facts in place of the chapter's earlier ones (from this
+ * answer or an older one: another style, changed instructions, sent twice), mentions rebuilt for the names that changed.
+ */
+export async function applyChapter(db: Db, bookId: string, chapterIndex: number, generationId: string, checked: { entries: CheckedEntry[] }) {
   const existing = new Map((await db.select().from(xrayEntries).where(eq(xrayEntries.bookId, bookId))).map((e) => [e.id, e]));
   const changed: XrayEntry[] = [];
   await db.transaction(async (tx) => {
@@ -258,7 +261,7 @@ export async function applyChapter(db: Db, bookId: string, generationId: string,
         changed.push({ id: e.id, name: e.name, kind: e.kind, aliases: e.aliases });
       }
     }
-    await tx.delete(xrayFacts).where(eq(xrayFacts.generationId, generationId));
+    await tx.delete(xrayFacts).where(and(eq(xrayFacts.bookId, bookId), eq(xrayFacts.chapterIndex, chapterIndex)));
     const facts = checked.entries.flatMap((e) => e.facts.map((f) => ({ bookId, entryId: e.id, generationId, chapterIndex: f.chapterIndex, sectionId: f.sectionId, position: f.position, startAt: f.start, endAt: f.end, fact: f.fact, quote: f.quote })));
     for (let i = 0; i < facts.length; i += 500) await tx.insert(xrayFacts).values(facts.slice(i, i + 500));
   });
@@ -319,7 +322,7 @@ export async function readChapter(deps: ReadDeps, ownerId: string, bookId: strin
   const req = await buildRequest(deps.db, ownerId, bookId, chapter, passages, known);
   const { generation, reused } = await generate(deps.db, deps.model, req, { fresh: opts.fresh, caps: deps.caps, now: deps.now });
   const checked = checkAnswer(generation.output, passages, known);
-  const applied = await applyChapter(deps.db, bookId, generation.id, checked);
+  const applied = await applyChapter(deps.db, bookId, chapter.chapterIndex, generation.id, checked);
   return { generation, reused, dropped: checked.dropped, entries: applied.entries, facts: applied.facts };
 }
 
@@ -519,7 +522,7 @@ export async function saveChapterReadElsewhere(db: Db, ownerId: string, bookId: 
     })
     .returning();
   const checked = checkAnswer(input.output, passages, known);
-  const applied = await applyChapter(db, bookId, row.id, checked);
+  const applied = await applyChapter(db, bookId, chapter.chapterIndex, row.id, checked);
   const next = await nextChapterToRead(db, ownerId, bookId);
   return { generationId: row.id, entries: applied.entries, facts: applied.facts, dropped: checked.dropped, done: next.done, total: next.total };
 }

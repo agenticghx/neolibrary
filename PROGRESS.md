@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Continue the audit's remaining items: export round trip, doubled X-ray facts, stale documents.
+next_action: Continue the audit's remaining items: export round trip, stale documents.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -368,6 +368,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-09 21:03 · Claude Fable 5.2 · Audit fix 5: a chapter's X-ray facts are stored once
+- **Done:** Reading a chapter again for the X-ray (another AI style, changed instructions, or the chapter sent twice) put its facts beside the earlier ones, so a name card listed each fact twice. The new answer's facts now take the place of the chapter's earlier facts. One test case added; with the old rule it fails with 'expected 12 to be 6'.
+- **Key paths:** lib/library/xray-read.ts (applyChapter); lib/library/xray-read.test.ts; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/xray-read.test.ts (10 passed); npm run check (1453 passed, 2 skipped)
+- **Known issues / blockers:** Facts already doubled on the live site stay doubled until that chapter is read again, or until they are cleaned with one DELETE on the live database (a change to live data: needs a backup and Samuel's word). How many there are is not known: the read-only count query was refused by this session's permission settings.
+- **Exact next steps:** Audit items left: export round trip, stale documents.
 ### 2026-11-09 20:59 · Claude Fable 5.2 · Audit fix 4: a removed book serves no paragraphs
 - **Done:** A removed book, and a reader's hidden copy of a paper the owner stopped sharing, no longer answers the routes that serve its paragraphs: read aloud, rewrites, Need to know, Test yourself, Explain it back, the X-ray, Genealogy, citations, figure redraws, pictures, 'where were we'. Twenty checks in 14 files now also ask that the book is not removed. Notes and reading history of a removed book are untouched (ground rule 9); restoring the book brings everything back.
 - **Key paths:** lib/library/{audio,citations,explain-math,genealogy-store,prerequisites,rewrite,xray-read,xray,sections-store,xray-layers,where-were-we,figure-redraws,notes-across,pictures}.ts; lib/library/shared-papers.test.ts; LEARNING_LOG.md

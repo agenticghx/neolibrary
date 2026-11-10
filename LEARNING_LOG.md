@@ -2994,3 +2994,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The case on main's code, then with the change; `npm run check`.
 **Result.** On main: 1 failed, 3 passed. With the change: 4 passed; whole suite 1453 passed, 2 skipped. No existing test relied on reading a removed book.
 **Lesson.** "Yours" and "in your library" are two conditions. Search already asked both; the checks copied from an older one did not.
+### Iteration 173 · 2026-11-09 (laptop clock) · M32: a chapter's X-ray facts are stored once · success
+
+**Hypothesis.** A chapter's facts were deleted by the stored answer they came from. A second answer for the same chapter (another AI style, changed instructions, the chapter sent twice from the subscription script) left the first answer's facts in place beside its own.
+**Action.** `applyChapter` takes the chapter and deletes that chapter's facts for the book before it stores the new ones. One test case: read a chapter, change the style, read it again.
+**Evaluation.** The case with the old delete rule, then with the new; `npm run check`.
+**Result.** Old rule: "expected 12 to be 6". New rule: 10 passed; whole suite 1453 passed, 2 skipped.
+**Lesson.** Delete by what the rows describe (the chapter), not by what made them (the answer), when a newer maker can describe the same thing.
