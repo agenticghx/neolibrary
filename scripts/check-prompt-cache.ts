@@ -33,9 +33,11 @@ async function main(key: string) {
   }
 }
 
+// This check can only be made on the paid API (the subscription does not report the cache), so it must be
+// asked for by name: the project rule is that model work outside the app runs on the subscription.
 const key = process.env.ANTHROPIC_API_KEY?.trim();
-if (!key) {
-  console.error("Set ANTHROPIC_API_KEY first.");
+if (!process.argv.includes("--paid-api") || !key) {
+  console.error("This makes two paid calls (well under one cent). Run it with --paid-api and ANTHROPIC_API_KEY set.");
   process.exit(1);
 }
 main(key).catch((e) => {
