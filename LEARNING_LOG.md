@@ -3071,3 +3071,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Unit tests: a model that charges and gives nothing, then the cap; two parts arriving together with room for one; the migration up, down, up. `npm run check`.
 **Result.** 1471 passed, 2 skipped. The third failing call is refused by the cap; of two parts together one is taken and one refused, and the count is exact.
 **Lesson.** A first attempt at the ceiling limited part numbers and broke eleven tests that send short audio in small parts. Count what you want to bound (bytes), not a stand-in for it (parts).
+### Iteration 184 · 2026-11-10 (laptop clock) · Reader split, second cut: notes and the offline queue in their own hook · success
+
+**Hypothesis.** The code that loads, adds, edits and removes a reader's notes, with the queue of notes made offline, can leave `Reader.tsx` as a hook (a reusable piece of a page's logic, in its own file) with no change in behaviour, if what needs the selection on the page stays behind and calls it.
+**Action.** `useNotes.ts` holds the notes list, loading, the offline queue and its sending, edit, remove and Undo. `api` (one JSON request) moved to `reader-helpers.ts`. Moved by script, line for line; nothing memoized, so every function is remade each render as before. The hook is called where the notes list was declared.
+**Evaluation.** `git diff --color-moved` to list lines that are not pure moves; types and lint; the whole browser suite on the laptop; `npm run check`.
+**Result.** `Reader.tsx` 2,858 lines to 2,661; `useNotes.ts` 230. Lines not moved: imports, the hook's signature and return, the hook call, and two effect dependency lists that now name `notesRef` and `setNotes` (both never change). Browser tests: 430 passed. `npm run check`: 1471 passed, 2 skipped.
+**Lesson.** Name the hook's argument `props` and the moved lines need no rewriting (`props.bookId` stays `props.bookId`), so the diff tool can show the move as a move. Known faults in the moved code (a note saved twice, a mark that stays after removal) were left as they are: fixing during a move makes the move unjudgeable.
