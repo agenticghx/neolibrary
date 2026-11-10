@@ -6,6 +6,7 @@ import { assertSafeKey } from "@/lib/storage";
 import { isStyle, isView } from "./levels";
 import { cleanPicture } from "./pinned";
 import { isRating, MIN_EASE, type Rating } from "./review-schedule";
+import { stillShared } from "./shared-papers";
 
 /**
  * Ground rule 7 (no lock-in): everything in a user's library (books, paths,
@@ -76,6 +77,21 @@ export type LibraryExport = {
     lastOpenedAt: string | null;
     /** When the reader removed it from the library (M19); absent or null when it is on the shelves. */
     deletedAt?: string | null;
+    /** M34: on the open shelf (the owner's books). Absent in older exports: on, the column's default. */
+    onShelf?: boolean;
+    /**
+     * M41: a research paper's details, and whether the owner shares it with invited readers. Absent in older
+     * exports (a book). `sharedFrom`, on an invited reader's copy of the owner's paper, is that paper's id: the
+     * copy's file is the owner's, so it comes back only while that paper is still in the owner's library.
+     */
+    kind?: "book" | "paper";
+    authors?: unknown[];
+    journal?: string | null;
+    year?: number | null;
+    doi?: string | null;
+    pmid?: string | null;
+    sharePapers?: boolean;
+    sharedFrom?: string | null;
     createdAt: string;
     updatedAt: string;
   }[];
@@ -360,6 +376,15 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         aiStyle: b.aiStyle,
         lastOpenedAt: iso(b.lastOpenedAt),
         ...(b.deletedAt ? { deletedAt: b.deletedAt.toISOString() } : {}),
+        onShelf: b.onShelf,
+        kind: b.kind,
+        authors: b.authors,
+        journal: b.journal,
+        year: b.year,
+        doi: b.doi,
+        pmid: b.pmid,
+        sharePapers: b.sharePapers,
+        ...(b.sharedFrom ? { sharedFrom: b.sharedFrom } : {}),
         createdAt: b.createdAt.toISOString(),
         updatedAt: b.updatedAt.toISOString(),
       })),
@@ -580,9 +605,16 @@ function checkImport(x: LibraryExport, ownerId: string) {
   };
   const bookIds = new Set(x.books.map((b) => b.id));
   for (const b of x.books) {
-    if (b.file && !ownKey(b.file.key, "books", ownerId)) refuse(`The file of "${b.title}" is not stored in your library.`);
+    // A copy of a paper the library's owner shares: its file and cover are the owner's, checked against that paper
+    // in importLibrary (sharedCopies), not against the reader's own folders.
+    const copy = b.sharedFrom != null;
+    if (copy && (typeof b.sharedFrom !== "string" || !UUID.test(b.sharedFrom) || bookIds.has(b.sharedFrom))) refuse(`"${b.title}" names a shared paper that is not one.`);
+    if (!copy && b.file && !ownKey(b.file.key, "books", ownerId)) refuse(`The file of "${b.title}" is not stored in your library.`);
+    if (b.kind != null && b.kind !== "book" && b.kind !== "paper") refuse(`"${b.title}" is neither a book nor a paper.`);
+    if (b.authors != null && !Array.isArray(b.authors)) refuse(`"${b.title}" has a list of authors that is not a list.`);
+    if (b.year != null && !Number.isInteger(b.year)) refuse(`"${b.title}" has a year that is not a whole number.`);
     if (b.editionOf != null && (b.editionOf === b.id || !bookIds.has(b.editionOf))) refuse(`The text edition of "${b.title}" names a scan that is not in this file.`);
-    if (b.coverKey != null && !ownKey(b.coverKey, "covers", ownerId)) refuse(`The cover of "${b.title}" is not stored in your library.`);
+    if (!copy && b.coverKey != null && !ownKey(b.coverKey, "covers", ownerId)) refuse(`The cover of "${b.title}" is not stored in your library.`);
     if (b.coverSource != null && !COVER_SOURCES.includes(b.coverSource)) refuse(`The cover of "${b.title}" names a source Neolibrary does not know.`);
     // The catalogue page becomes a link on the Covers page: only a web address, never javascript: or a file.
     if (b.coverRejected != null && !Array.isArray(b.coverRejected)) refuse(`The cover of "${b.title}" has a list of turned-down covers that is not a list.`);
@@ -688,6 +720,26 @@ function checkImport(x: LibraryExport, ownerId: string) {
  * books, slots and collections survive. Refuses rows that already exist, and
  * files that point outside this reader's library (see checkImport).
  */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The file's copies of papers shared with this reader. Each must name a paper in another reader's library and
+ * carry exactly that paper's file and cover: a copy is what lets its reader fetch the file. Returns the ids of the
+ * copies whose paper is no longer shared (they are imported hidden).
+ */
+async function sharedCopies(db: Db, x: LibraryExport, ownerId: string): Promise<Set<string>> {
+  const hidden = new Set<string>();
+  for (const b of x.books) {
+    if (b.sharedFrom == null) continue;
+    const [paper] = await db.select({ ownerId: books.ownerId, fileKey: books.fileKey, coverKey: books.coverKey }).from(books).where(eq(books.id, b.sharedFrom));
+    if (!paper || paper.ownerId === ownerId || !b.file || b.file.key !== paper.fileKey || (b.coverKey != null && b.coverKey !== paper.coverKey)) {
+      throw new ExportFormatError(`"${b.title}" is a paper that was shared with you, and this library no longer holds it as it was. Nothing was imported.`);
+    }
+    if (!(await stillShared(db, b.sharedFrom))) hidden.add(b.id);
+  }
+  return hidden;
+}
+
 export async function importLibrary(db: Db, ownerId: string, data: unknown) {
   const x = data as LibraryExport;
   if (!x || x.format !== EXPORT_FORMAT || typeof x.version !== "number") {
@@ -695,6 +747,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
   }
   if (x.version > EXPORT_VERSION) throw new ExportFormatError("This export is from a newer version of Neolibrary.");
   checkImport(x, ownerId);
+  const hiddenCopies = await sharedCopies(db, x, ownerId);
   const date = (s: string | null) => (s ? new Date(s) : null);
   await db.transaction(async (tx) => {
     // A note's versions share an annotationId, which the database does not keep
@@ -738,7 +791,18 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         position: b.position ?? null,
         aiStyle: b.aiStyle ?? null,
         lastOpenedAt: date(b.lastOpenedAt),
-        deletedAt: typeof b.deletedAt === "string" ? date(b.deletedAt) : null,
+        // A copy of a paper its owner no longer shares comes back hidden, with the reader's notes (ground rule 9).
+        deletedAt: typeof b.deletedAt === "string" ? date(b.deletedAt) : hiddenCopies.has(b.id) ? new Date() : null,
+        // Absent in a file from before M34 or M41: the columns' defaults. Free to read is never taken from a file.
+        onShelf: b.onShelf !== false,
+        kind: b.kind === "paper" ? "paper" : "book",
+        authors: (b.authors ?? []) as never,
+        journal: typeof b.journal === "string" ? b.journal : null,
+        year: typeof b.year === "number" ? b.year : null,
+        doi: typeof b.doi === "string" ? b.doi : null,
+        pmid: typeof b.pmid === "string" ? b.pmid : null,
+        sharePapers: b.sharePapers !== false,
+        sharedFrom: b.sharedFrom ?? null,
         createdAt: new Date(b.createdAt),
         updatedAt: new Date(b.updatedAt),
       });

@@ -3001,3 +3001,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The case with the old delete rule, then with the new; `npm run check`.
 **Result.** Old rule: "expected 12 to be 6". New rule: 10 passed; whole suite 1453 passed, 2 skipped.
 **Lesson.** Delete by what the rows describe (the chapter), not by what made them (the answer), when a newer maker can describe the same thing.
+### Iteration 174 · 2026-11-09 (laptop clock) · Export round trip for papers and the open shelf · success
+
+**Hypothesis.** The library export predates the open shelf (M34) and papers (M41): it left out the open-shelf switch and every paper column, so export then import turned papers into books and put every title back on the open shelf. An invited reader's export named the owner's file for each shared paper, which the import refused whole.
+**Action.** The export carries `onShelf`, `kind`, `authors`, `journal`, `year`, `doi`, `pmid`, `sharePapers`, and `sharedFrom` on a reader's copy. The import takes them (older files get the columns' defaults), never takes "free to read" from a file, and accepts a copy only when it names a paper in another reader's library with exactly that paper's file and cover; a copy of a paper no longer shared comes back hidden.
+**Evaluation.** Four new tests on main's export code, then with the change; `npm run check`.
+**Result.** On main: 3 failed, 1 passed. With the change: 4 passed; whole suite 1457 passed, 2 skipped.
+**Lesson.** Ground rule 7 needs a test that fails when a column is added to `books` and not to the export. This round trip compared two exports, which agree when both leave the same column out.
