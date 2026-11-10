@@ -3050,3 +3050,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The review's run logs; the scripts' refusals run by hand; a unit test for the session sweep; `npm run check`.
 **Result.** Review: last 10 runs failed within a minute, and a run that passed took 36 s, was denied a permission and left "No buffered inline comments". Scripts: `find-covers-on.ts` on a remote address → "not on this computer"; `check-prompt-cache.ts` with no flag → refuses. Unit tests green, with one new test.
 **Lesson.** A check that is green and says nothing is worse than no check: it reads as "reviewed". Open a passing run's log once before trusting any automatic reviewer.
+### Iteration 181 · 2026-11-10 (laptop clock) · The Notes panel's forms say when a save fails · success
+
+**Hypothesis.** The Notes panel's two forms (a note about the book, an edit to a note) await the save with no catch, so a save the library refuses shows nothing; the words stay in the box with no reason given.
+**Action.** Both forms catch the failure and show "Not saved. The library said: … Your words are still in the box." above the box.
+**Evaluation.** A browser test: the library answers 500 to the save; the message appears and the box still holds the words. Screenshots in four looks with the accessibility check.
+**Result.** With the change: 248 passed in the annotations project's run. Not run on main's code (the handler there has no catch and no message element, so the test cannot pass).
+**Lesson.** In a Playwright filter, `has:` takes a locator looked up inside the element being filtered; one already rooted in a parent (`panel.getByLabel`) never matches and the click waits until the timeout.

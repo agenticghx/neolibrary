@@ -48,6 +48,8 @@ export function NotesPanel({
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [bookNote, setBookNote] = useState("");
+  // The form whose save failed ("book", or the id of the note being edited), with the library's reason.
+  const [failed, setFailed] = useState<{ form: string; reason: string } | null>(null);
 
   return (
     <nav className={styles.panel} aria-label="Notes">
@@ -93,10 +95,21 @@ export function NotesPanel({
         className={styles.noteForm}
         onSubmit={async (e) => {
           e.preventDefault();
-          await onAddBookNote(bookNote);
-          setBookNote("");
+          // A save that fails says so and leaves the words in the box.
+          try {
+            await onAddBookNote(bookNote);
+            setBookNote("");
+            setFailed(null);
+          } catch (err) {
+            setFailed({ form: "book", reason: err instanceof Error && err.message ? err.message : "Not saved" });
+          }
         }}
       >
+        {failed?.form === "book" ? (
+          <p className={styles.formError} role="alert">
+            Not saved. The library said: {failed.reason} Your words are still in the box.
+          </p>
+        ) : null}
         <label htmlFor="book-note" className={styles.groupLabel}>
           A note about this book
         </label>
@@ -177,10 +190,20 @@ export function NotesPanel({
                   className={styles.noteForm}
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    await onSave(a, draft);
-                    setEditing(null);
+                    try {
+                      await onSave(a, draft);
+                      setEditing(null);
+                      setFailed(null);
+                    } catch (err) {
+                      setFailed({ form: a.id, reason: err instanceof Error && err.message ? err.message : "Not saved" });
+                    }
                   }}
                 >
+                  {failed?.form === a.id ? (
+                    <p className={styles.formError} role="alert">
+                      Not saved. The library said: {failed.reason} Your words are still in the box.
+                    </p>
+                  ) : null}
                   <label htmlFor={`edit-${a.id}`} className="visually-hidden">
                     Edit note
                   </label>

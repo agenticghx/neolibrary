@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Notes panel forms say when a save fails; then the Reader.tsx split.
+next_action: Start the Reader.tsx split with the four small components at the bottom of the file.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 12:38 · Claude (laptop session) · The Notes panel's forms say when a save fails
+- **Done:** Owner sweep, sixth item. A note about the book, or an edit to a note, that the library does not save now shows a message above the box and keeps the words. Browser test with screenshots (four looks) and the accessibility check: 248 passed in the annotations project's run. #333 (guards) merged before this.
+- **Key paths:** app/(reader)/books/[id]/read/NotesPanel.tsx, e2e/annotations.spec.ts
+- **Commands that worked:** npx playwright test --ignore-snapshots --project=annotations -g 'note about the book that is not saved' ; npm run check
+- **Known issues / blockers:** The new test was not run on main's code. Editing a note has the same message but no test of its own.
+- **Exact next steps:** 1. Reader.tsx split, lowest risk first: the four small components at the bottom of the file, the mark-drawing helpers, then notes and the offline queue into one hook (tests: e2e/offline.spec.ts, e2e/annotations.spec.ts). 2. One shared book-visibility check in lib/. 3. Open-shelf covers: about 0.5 s each from the server (measured 2026-11-10). 4. Last, at Samuel's word with a backup: one migration for read-along bytes received and failed paid calls.
 
 ### 2026-11-10 12:18 · Claude (laptop session) · Guards: empty review removed, @claude limited, scripts ask before spending, expired sessions swept
 - **Done:** Owner sweep, fifth item. The automatic Claude review workflow is removed (it posted nothing: last 10 runs failed, a passing run took 36 s and left no comment). claude.yml starts only for the owner, a member or a collaborator. compare-models.ts uses the subscription unless --paid-api; check-prompt-cache.ts needs --paid-api; find-covers-on.ts refuses a database not on this computer unless --not-local. Expired sign-in sessions are deleted at each sign-in. Also checked today: all four earlier fixes are live at 1fa5057; signed out, in WebKit and Chromium at 1366x1024, /browse (twice) and /sign-in load with the new service worker in control.
