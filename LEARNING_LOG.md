@@ -3057,3 +3057,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** A browser test: the library answers 500 to the save; the message appears and the box still holds the words. Screenshots in four looks with the accessibility check.
 **Result.** With the change: 248 passed in the annotations project's run. Not run on main's code (the handler there has no catch and no message element, so the test cannot pass).
 **Lesson.** In a Playwright filter, `has:` takes a locator looked up inside the element being filtered; one already rooted in a parent (`panel.getByLabel`) never matches and the click waits until the timeout.
+### Iteration 182 · 2026-11-10 (laptop clock) · Reader split, first cut: controls and stateless helpers moved out · success
+
+**Hypothesis.** The pieces of `Reader.tsx` that hold no component state can be moved to their own files with no change in behaviour: four small components at the bottom, and the helper functions and types above the component.
+**Action.** `ReaderControls.tsx` (Segment, JumpTo, TocList, EditionSwitch) and `reader-helpers.ts` (26 helpers and types). Moved by script, line for line; imports pruned from lint's unused list.
+**Evaluation.** Types, lint, unit tests; the browser tests of the offline, focus and e-ink projects and all they depend on.
+**Result.** `Reader.tsx` 3,271 lines to 2,859. `npm run check` green (1468 passed, 2 skipped). Browser tests: 342 passed.
+**Lesson.** Move first, change later: a cut that only moves lines can be judged by "types pass and every browser test passes", so it can be large. A cut that also changes behaviour cannot.
