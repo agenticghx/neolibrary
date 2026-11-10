@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel reads the audit review list (Open unknowns rows 35 and 36) and says which findings to fix and whether to prune GitHub.
+next_action: Continue the audit's remaining items: export round trip, doubled X-ray facts, stale documents.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -367,6 +367,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 20:59 · Claude Fable 5.2 · Audit fix 4: a removed book serves no paragraphs
+- **Done:** A removed book, and a reader's hidden copy of a paper the owner stopped sharing, no longer answers the routes that serve its paragraphs: read aloud, rewrites, Need to know, Test yourself, Explain it back, the X-ray, Genealogy, citations, figure redraws, pictures, 'where were we'. Twenty checks in 14 files now also ask that the book is not removed. Notes and reading history of a removed book are untouched (ground rule 9); restoring the book brings everything back.
+- **Key paths:** lib/library/{audio,citations,explain-math,genealogy-store,prerequisites,rewrite,xray-read,xray,sections-store,xray-layers,where-were-we,figure-redraws,notes-across,pictures}.ts; lib/library/shared-papers.test.ts; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/shared-papers.test.ts (4 passed; 1 failed on main); npm run check (1453 passed, 2 skipped)
+- **Known issues / blockers:** Saving a note on a removed book is still accepted (lib/library/annotations.ts ownsBook): left as it is.
+- **Exact next steps:** Audit items left: export round trip, doubled X-ray facts, stale documents.
 
 ### 2026-11-09 20:15 · Claude Fable 5.2 · Checkpoint: audit done; three fixes live (4bf5515); review list waits on Samuel
 - **Done:** Whole-project audit finished. Five reviewers read lib, app, components, the migrations and the docs. Three pull requests merged and deployed by the Deploy workflow: #321 (be5b536), #323 (85e0ea1), #322 (4bf5515). Deploy log issue 268, 2026-11-10T01:14:14Z: 'Live: 4bf5515 ... /api/health on every address shows 4bf5515; /sign-in 200. No migration.' Main's CI (with WebKit) passed on all three commits. The four audit worktrees and their branches are removed.

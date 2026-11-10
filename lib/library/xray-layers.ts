@@ -25,7 +25,7 @@ export async function entryOf(db: Db, ownerId: string, bookId: string, entryId: 
     .select({ id: xrayEntries.id, name: xrayEntries.name, kind: xrayEntries.kind, aliases: xrayEntries.aliases })
     .from(xrayEntries)
     .innerJoin(books, eq(books.id, xrayEntries.bookId))
-    .where(and(eq(xrayEntries.bookId, bookId), eq(xrayEntries.id, entryId), eq(books.ownerId, ownerId)));
+    .where(and(eq(xrayEntries.bookId, bookId), eq(xrayEntries.id, entryId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!row) throw new XrayError("That name was not found.");
   return row;
 }

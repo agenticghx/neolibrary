@@ -1,4 +1,4 @@
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { annotations, books, generations, readingSessions } from "@/lib/db/schema";
 import { partAnchor } from "./explain-back";
@@ -38,7 +38,7 @@ export async function whereWereWe(db: Db, ownerId: string, bookId: string, now =
   const [book] = await db
     .select({ position: books.position })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book?.position || !isCfi(book.position)) return null;
   const chapter = await chapterFor(db, ownerId, bookId, { cfi: book.position }).catch(() => null);
   if (!chapter) return null;

@@ -2986,3 +2986,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The four cases on main's code, then with the fixes; `npm run check`.
 **Result.** On main: 4 failed, 18 passed. With the fixes: 22 passed; whole suite 1452 passed, 2 skipped.
 **Lesson.** `String.replace` with a string built from outside text is a bug waiting for a `$`; pass a function. A pattern copied into 38 files is one decision made 38 times: the loose id check let 36 hyphens through everywhere.
+
+### Iteration 172 · 2026-11-09 (laptop clock) · A removed book serves no paragraphs · success
+
+**Hypothesis.** Twenty book checks in `lib/library` that stand in front of a book's paragraphs asked "is this book yours" but not "is it still in your library". A removed book, and a hidden copy of a shared paper, still answered read aloud, rewrites, Need to know, Test yourself, Explain it back, the X-ray, Genealogy, citations and pictures.
+**Action.** `isNull(books.deletedAt)` added to those checks (14 files). One test case: a hidden copy refuses `passageFor` and `chapterFor`.
+**Evaluation.** The case on main's code, then with the change; `npm run check`.
+**Result.** On main: 1 failed, 3 passed. With the change: 4 passed; whole suite 1453 passed, 2 skipped. No existing test relied on reading a removed book.
+**Lesson.** "Yours" and "in your library" are two conditions. Search already asked both; the checks copied from an older one did not.

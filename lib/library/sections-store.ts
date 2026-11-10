@@ -44,7 +44,7 @@ export async function getSections(db: Db, ownerId: string, bookId: string) {
     })
     .from(sections)
     .innerJoin(books, eq(books.id, sections.bookId))
-    .where(and(eq(sections.bookId, bookId), eq(books.ownerId, ownerId)))
+    .where(and(eq(sections.bookId, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
     .orderBy(asc(sections.position));
 }
 

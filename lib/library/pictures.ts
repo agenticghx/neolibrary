@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { bookGroup, capsFromEnv, reserveSpend, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
 import { fill, readPrompt, sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
@@ -27,7 +27,7 @@ async function request(db: Db, ownerId: string, bookId: string, subjectIn: unkno
     ? await db
         .select({ title: books.title, author: books.author })
         .from(books)
-        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)))
+        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
     : [];
   if (!book) throw new PictureError("Book not found.");
   const file = await readPrompt("image");
