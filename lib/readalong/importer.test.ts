@@ -75,6 +75,27 @@ describe("importing a read-along package (M13)", () => {
     expect(await tracks()).toEqual([]);
   });
 
+  it("counts the audio a reader's imports take in, and refuses a part that would pass the ceiling", async () => {
+    const { files } = pkgFor(5, 2);
+    const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    const piece = files["audio/01.wav"].slice(0, 100);
+    const received = async () => (await database.db.select({ n: readalongImports.bytesReceived }).from(readalongImports).where(eq(readalongImports.id, s.id)))[0].n;
+    await putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 1, piece, { maxBytes: 250 });
+    expect(await received()).toBe(100);
+    // Two parts arriving together, with room for one: one is taken, one is refused, and the count is exact.
+    const both = await Promise.allSettled([
+      putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 2, piece, { maxBytes: 250 }),
+      putAudioPart(database.db, storage, ownerId, bookId, s.id, "audio/01.wav", 3, piece, { maxBytes: 250 }),
+    ]);
+    expect(both.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(String((both.find((r) => r.status === "rejected") as PromiseRejectedResult).reason)).toContain("reached the library's limit");
+    expect(await received()).toBe(200);
+    // Removing the import gives the room back.
+    await deleteImport(database.db, storage, ownerId, bookId, s.id);
+    const again = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));
+    await putAudioPart(database.db, storage, ownerId, bookId, again.id, "audio/01.wav", 1, piece, { maxBytes: 250 });
+  });
+
   it("takes long audio in parts: nothing plays until every part is in and the file matches the package", async () => {
     const { files } = pkgFor(5, 2);
     const s = await startImport(database.db, storage, ownerId, bookId, withoutAudio(files));

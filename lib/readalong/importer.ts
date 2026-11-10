@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, desc, eq, isNull, lt, ne, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, readalongImports, type ReadalongAudio, type ReadalongPending } from "@/lib/db/schema";
 import { getSections } from "@/lib/library/sections-store";
@@ -27,6 +27,39 @@ export const PART_BYTES = 8 * 1024 * 1024;
 export const MAX_PART_BYTES = 16 * 1024 * 1024;
 /** At most this many audio files per package (one per chapter is the most a book needs). */
 export const MAX_AUDIO_FILES = 300;
+/**
+ * The most audio one reader's imports may hold together, finished or not (migration 0040; before it there was no
+ * ceiling, so any signed-in reader could fill the storage bucket). 50 GB unless READALONG_MAX_GB says otherwise.
+ * Removing an import gives its room back. Imports made before 2026-11-10 count as 0.
+ */
+export function maxImportBytes(env: Record<string, string | undefined> = process.env): number {
+  const gb = Number(env.READALONG_MAX_GB);
+  return (Number.isFinite(gb) && gb > 0 ? gb : 50) * 1024 ** 3;
+}
+
+/**
+ * Adds `bytes` to an import's count, unless that would take the reader's imports past the ceiling. One reader's
+ * counts are taken one at a time (a lock on the reader, held for this transaction), so two parts arriving
+ * together cannot both slip under the ceiling.
+ */
+async function countBytes(db: Db, ownerId: string, importId: string, bytes: number, max = maxImportBytes()) {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`readalong:${ownerId}`}))`);
+    const [{ total }] = await tx
+      .select({ total: sql<number>`coalesce(sum(${readalongImports.bytesReceived}), 0)::float8` })
+      .from(readalongImports)
+      .where(eq(readalongImports.ownerId, ownerId));
+    if (Number(total) + bytes > max) {
+      throw new ReadalongError(
+        `Your read-along audio has reached the library's limit (${Math.round(max / 1024 ** 3)} GB across all your books). Remove an import you no longer need, then try again.`,
+      );
+    }
+    await tx
+      .update(readalongImports)
+      .set({ bytesReceived: sql`${readalongImports.bytesReceived} + ${bytes}` })
+      .where(eq(readalongImports.id, importId));
+  });
+}
 /**
  * The package zip sent in one request: scripts and timings (a few MB even for
  * a long book), or a small package with its audio inside (the page's .zip
@@ -146,6 +179,15 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
   if (pkg.manifest.audio.length > MAX_AUDIO_FILES) throw new ReadalongError(`A package may have at most ${MAX_AUDIO_FILES} audio files.`);
   await sweepAbandoned(db, storage, ownerId);
   const id = randomUUID();
+  // Audio sent inside the zip (at most MAX_ZIP_BYTES) counts toward the reader's ceiling too.
+  const inZipBytes = Object.values(inZip).reduce((n, d) => n + d.byteLength, 0);
+  const [{ held }] = await db
+    .select({ held: sql<number>`coalesce(sum(${readalongImports.bytesReceived}), 0)::float8` })
+    .from(readalongImports)
+    .where(eq(readalongImports.ownerId, ownerId));
+  if (Number(held) + inZipBytes > maxImportBytes()) {
+    throw new ReadalongError("Your read-along audio has reached the library's limit. Remove an import you no longer need, then try again.");
+  }
   const audio: ReadalongAudio[] = [];
   for (const [i, a] of pkg.manifest.audio.entries()) {
     const ext = (/\.[a-z0-9]+$/i.exec(a.file)?.[0] ?? "").toLowerCase();
@@ -170,18 +212,31 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
     report: { chapters: match.chapters, paragraphs: match.paragraphs.length },
     audio,
     pending,
+    bytesReceived: inZipBytes,
   });
   if (audio.every((a) => !a.uploadId)) return finishImport(db, storage, ownerId, bookId, id, {});
   return summary(await ownedImport(db, ownerId, bookId, id));
 }
 
-export async function putAudioPart(db: Db, storage: Storage, ownerId: string, bookId: string, importId: string, file: string, part: number, data: Uint8Array) {
+export async function putAudioPart(
+  db: Db,
+  storage: Storage,
+  ownerId: string,
+  bookId: string,
+  importId: string,
+  file: string,
+  part: number,
+  data: Uint8Array,
+  opts: { maxBytes?: number } = {},
+) {
   const row = await ownedImport(db, ownerId, bookId, importId);
   if (row.status !== "uploading") throw new ReadalongError("This import is already finished.");
   const a = row.audio.find((x) => x.file === file && x.uploadId);
   if (!a) throw new ReadalongError(`No audio file ${file} is waiting in this import.`);
   if (!Number.isInteger(part) || part < 1 || part > 10000) throw new ReadalongError("Part numbers run from 1 to 10000.");
   if (data.byteLength === 0 || data.byteLength > MAX_PART_BYTES) throw new ReadalongError(`A part must be 1 byte to ${MAX_PART_BYTES / 1024 / 1024} MB.`);
+  // Counted before it is stored. A part sent twice (a retry) is counted twice: the ceiling is generous for that.
+  await countBytes(db, ownerId, importId, data.byteLength, opts.maxBytes);
   return { part, tag: await storage.putPart(a.key, a.uploadId!, part, data) };
 }
 

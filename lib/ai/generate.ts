@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { isOwnKeyProvider } from "./own-key";
 import type { Db } from "@/lib/db/client";
-import { audioTracks, books, generations, textEditionJobs } from "@/lib/db/schema";
+import { audioTracks, books, failedSpend, generations, textEditionJobs } from "@/lib/db/schema";
 import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel } from "./model";
 import { sha256 } from "./prompts";
 
@@ -140,8 +140,16 @@ export async function spending(db: Db, provider: string, bookId: string | null, 
       );
     return Number(r[0]?.usd ?? 0);
   };
-  const month = (await sum(generations, false)) + (await sum(audioTracks, false));
-  const book = bookId ? (await sum(generations, true)) + (await sum(audioTracks, true)) : 0;
+  // Calls that were billed but gave nothing usable (failed_spend) count too.
+  const failed = async (book: boolean) => {
+    const r = await db
+      .select({ usd: sql<number>`coalesce(sum(${failedSpend.costUsd}), 0)::float8` })
+      .from(failedSpend)
+      .where(and(eq(failedSpend.provider, provider), book && bookId ? inArray(failedSpend.bookId, group) : gte(failedSpend.createdAt, monthStart(now))));
+    return Number(r[0]?.usd ?? 0);
+  };
+  const month = (await sum(generations, false)) + (await sum(audioTracks, false)) + (await failed(false));
+  const book = bookId ? (await sum(generations, true)) + (await sum(audioTracks, true)) + (await failed(true)) : 0;
   return { month, book };
 }
 
@@ -379,6 +387,23 @@ export async function generate(
         })
         .returning();
       return toGeneration(row);
+    } catch (e) {
+      // Billed but unusable: written before the hold is released, so the next call's cap check already sees it.
+      if (e instanceof AiError && e.billed) {
+        await db.insert(failedSpend).values({
+          ownerId: req.ownerId,
+          bookId: req.bookId,
+          provider: model.provider,
+          model: e.billed.model,
+          kind: req.kind,
+          inputTokens: e.billed.inputTokens,
+          outputTokens: e.billed.outputTokens,
+          costUsd: costUsd(e.billed.model, e.billed.inputTokens, e.billed.outputTokens, e.billed.cache),
+          reason: e.message.slice(0, 300),
+          createdAt: now,
+        });
+      }
+      throw e;
     } finally {
       await release();
     }

@@ -36,7 +36,13 @@ export interface TextModel {
   generate(req: TextRequest): Promise<TextResult>;
 }
 
-export class AiError extends Error {}
+export class AiError extends Error {
+  /**
+   * Set when the service answered, and so charged, but the answer cannot be used (declined, cut off, empty):
+   * what it says it used. The spending cap counts it (lib/ai/generate.ts).
+   */
+  billed?: { model: string; inputTokens: number; outputTokens: number; cache?: { write: number; read: number } };
+}
 /** No API key is set, so real calls are impossible. */
 export class AiNotConfigured extends AiError {}
 /** The model declined to answer. */

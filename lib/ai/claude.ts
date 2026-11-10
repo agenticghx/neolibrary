@@ -44,23 +44,25 @@ export class ClaudeModel implements TextModel {
       if (e instanceof Anthropic.APIError) throw new AiError(`Claude could not answer (${e.status ?? "network"}).`);
       throw e;
     }
-    if (response.stop_reason === "refusal") {
-      throw new AiRefused(response.stop_details?.explanation || "Claude declined to rewrite this passage.");
-    }
-    if (response.stop_reason === "max_tokens") throw new AiError("The answer was cut off before it finished.");
-    const text = response.content
-      .flatMap((b) => (b.type === "text" ? [b.text] : []))
-      .join("")
-      .trim();
-    if (!text) throw new AiError("Claude returned no text.");
     const write = response.usage.cache_creation_input_tokens ?? 0;
     const read = response.usage.cache_read_input_tokens ?? 0;
-    return {
-      text,
+    const used = {
       model: response.model,
       inputTokens: response.usage.input_tokens + write + read,
       outputTokens: response.usage.output_tokens,
       cache: { write, read },
     };
+    // An answer that cannot be used was still answered: the error carries what the API says it used.
+    const unusable = <E extends AiError>(e: E) => Object.assign(e, { billed: used });
+    if (response.stop_reason === "refusal") {
+      throw unusable(new AiRefused(response.stop_details?.explanation || "Claude declined to rewrite this passage."));
+    }
+    if (response.stop_reason === "max_tokens") throw unusable(new AiError("The answer was cut off before it finished."));
+    const text = response.content
+      .flatMap((b) => (b.type === "text" ? [b.text] : []))
+      .join("")
+      .trim();
+    if (!text) throw unusable(new AiError("Claude returned no text."));
+    return { text, ...used };
   }
 }

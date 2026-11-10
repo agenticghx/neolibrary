@@ -1,7 +1,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { capsFromEnv, spending } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
-import { audioTracks, books, generations } from "@/lib/db/schema";
+import { audioTracks, books, failedSpend, generations } from "@/lib/db/schema";
 
 /**
  * The running cost counter (M7, ground rule 8): this month's spending per
@@ -62,6 +62,13 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
     .where(and(eq(audioTracks.imported, false), gte(audioTracks.createdAt, since)))
     .groupBy(audioTracks.bookId, audioTracks.provider);
   for (const r of a) add(r.bookId, r.provider ?? "", Number(r.usd));
+  // Calls that were billed but gave nothing usable (migration 0040): money spent all the same.
+  const f = await db
+    .select({ bookId: failedSpend.bookId, provider: failedSpend.provider, usd: sql<number>`sum(${failedSpend.costUsd})::float8` })
+    .from(failedSpend)
+    .where(gte(failedSpend.createdAt, since))
+    .groupBy(failedSpend.bookId, failedSpend.provider);
+  for (const r of f) add(r.bookId, r.provider, Number(r.usd));
 
   const mine = await db.select({ id: books.id, title: books.title }).from(books).where(eq(books.ownerId, adminId));
   const titles = new Map(mine.map((b) => [b.id, b.title]));

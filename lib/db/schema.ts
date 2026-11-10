@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { bigint, boolean, doublePrecision, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 // Mirrors db/migrations. The SQL files are the source of truth for the layout;
 // this file gives TypeScript the same shape for queries.
@@ -336,6 +336,28 @@ export const readalongImports = pgTable("readalong_imports", {
   pending: jsonb("pending").$type<ReadalongPending[] | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
+  /** Bytes of audio this import has taken in (migration 0040); a reader's imports together have a ceiling. */
+  bytesReceived: bigint("bytes_received", { mode: "number" }).notNull().default(0),
+});
+
+/**
+ * A paid AI call that was billed but gave nothing usable (declined, cut off, empty): counted against the spending
+ * cap like a stored answer, and kept apart from `generations` so it can never be served as one (migration 0040).
+ */
+export const failedSpend = pgTable("failed_spend", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  bookId: uuid("book_id").references(() => books.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  kind: text("kind").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  costUsd: doublePrecision("cost_usd").notNull().default(0),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type ReadalongReport = { chapters: { n: number; title: string; spokenWords: number; matchedWords: number }[]; paragraphs: number };
