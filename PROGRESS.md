@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader split, third cut: the sitting focus session into its own hook.
+next_action: Reader split, fourth cut: reading aloud into its own hook.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 18:12 · Claude Fable 5.2 · Reader split, third cut: the sitting focus session moves to useSittingFocus.ts
+- **Done:** The second cut (#338, notes and the offline queue in useNotes.ts) merged and is live as dea5bd6. This third cut moves, with no change in behaviour, the focus session at one sitting (its state, keeping level with the server, start, end, wait, answer) into a hook in useSittingFocus.ts. Reader.tsx is 2,527 lines (was 2,661; target under 1,500). npm run check: 1471 passed, 2 skipped. Whole browser suite on the laptop: 428 passed, 1 failed (e2e/review.spec.ts:184), 1 did not run; that test then passed 8 of 8 repeats at normal speed and is listed in docs/ci-flakes.md with its counts.
+- **Key paths:** app/(reader)/books/[id]/read/useSittingFocus.ts; app/(reader)/books/[id]/read/Reader.tsx; docs/ci-flakes.md; LEARNING_LOG.md (iteration 185)
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line; npx playwright test --ignore-snapshots --reporter=line --project=review -g 'Test yourself questions are cards' --repeat-each=8; npm run check
+- **Known issues / blockers:** e2e/review.spec.ts:184 fails on a slow laptop run (the Where were we? strip is withheld after a minute of reading today, and the test keeps the page open); cause likely but not confirmed from a trace.
+- **Exact next steps:** 1. Fourth cut: reading aloud (highlightWord, showPassage, stopListening and the player effects) into its own hook. 2. Then full screen and the idle bars. 3. Make review.spec.ts:184 independent of how long its page stays open. 4. One shared book-visibility check in lib/. 5. Open-shelf covers within 5 s in WebKit.
 
 ### 2026-11-10 17:03 · Claude Fable 5.2 · Reader split, second cut: notes and the offline queue move to useNotes.ts
 - **Done:** Moved, with no change in behaviour, the code that loads, adds, edits and removes notes and sends notes made offline, from Reader.tsx into a hook (a reusable piece of a page's logic) in useNotes.ts; the small request helper api moved to reader-helpers.ts. Reader.tsx is 2,661 lines (was 2,858; version 2's target is under 1,500). Browser tests on the laptop: 430 passed. npm run check: 1471 passed, 2 skipped.
