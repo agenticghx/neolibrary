@@ -1,5 +1,8 @@
 # What "done" means for Neolibrary version 1
 
+**Version 1 is finished. The goal now is version 2: `docs/version-2.md`.** The rules below for when a milestone
+is done, and the loop, still apply.
+
 Written for: Claude sessions working alone (no one is watching), and Samuel
 when checking progress. Agreed 2026-10-04: Samuel set the goal and stepped
 back; sessions implement, verify and loop until this file's checklist is
