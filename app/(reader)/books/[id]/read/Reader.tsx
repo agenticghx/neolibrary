@@ -1866,7 +1866,7 @@ export function Reader(props: {
       window.removeEventListener(SYNC_EVENT, online);
       clearInterval(timer);
     };
-  }, [props.visitor]);
+  }, [props.visitor, props.readerId]);
 
   const clearSelection = () => {
     selectionDoc.current?.getSelection()?.removeAllRanges();
