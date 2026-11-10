@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After m44-offline-deploy is live: WebKit check at iPad size; then note-saving honesty.
+next_action: Money items from the owner sweep (billed failures count against the cap; read-along audio ceiling); WebKit check once m44-offline-deploy is live.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-10 08:32 · Claude (laptop session) · A failed save, a failed copy and unloaded notes say so; the microphone is opened once
+- **Done:** Owner sweep, fourth item. A highlight, note or sticker the library does not save now shows a notice over the page with the reason and the words typed. Notes that fail to load show a notice instead of an empty book. The three Copy buttons say Could not copy when the browser refuses. The voice recorder cannot open a second microphone while the browser is asking, and closes it if the reader goes Back first. Browser tests: 299 passed with the change; the save test fails on main's code.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx, SelectionBar.tsx, ShareMenu.tsx, components/NotesExport.tsx, components/notes/VoiceRecorder.tsx, lib/copy.ts, e2e/annotations.spec.ts, e2e/notes.spec.ts
+- **Commands that worked:** npx playwright test --ignore-snapshots --project=notes ; npm run check
+- **Known issues / blockers:** The load-failure and microphone tests were not shown failing on main (their group did not start there). The Notes panel's own forms (edit a note, a note about the book) still show no message on a failed save; the text stays in the box. New reference screenshots reader-save-failed-* come from CI.
+- **Exact next steps:** 1. After m44-offline-deploy is live: WebKit check at iPad size. 2. Money items from the owner sweep: count a billed AI answer that failed against the spending cap; a ceiling on audio per read-along import. 3. The Notes panel's forms: a message on a failed save.
 ### 2026-11-10 08:13 · Claude (laptop session) · A downloaded book survives a deploy; downloads leave a signed-out device
 - **Done:** Owner sweep, third item. Service worker: while a device holds a download, the app's own files are saved as they load, so a reader page refreshed after a deploy still opens offline; saving to the cache never decides the answer (the network's answer is returned first); kept app files are emptied with the last download and trimmed to the newest 1,500. The open shelf, seen signed out, clears downloads like the sign-in page. New browser test fails on main's code (0 scripts kept) and passes with the change (332 passed in the offline project's run).
 - **Key paths:** public/sw.js, lib/offline.ts, app/(open)/layout.tsx, components/ClearOffline.tsx, e2e/offline.spec.ts

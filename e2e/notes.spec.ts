@@ -300,3 +300,36 @@ test("Explain it back by voice: the recording is kept as a voice note, and its w
   await expect(voice).toHaveCount(1);
   await expect(voice).toContainText("Test transcript of a voice note");
 });
+
+// The browser's "may this page use the microphone?" can take a while to be answered. A second press of Record, or
+// Back, in that time must not leave a microphone open that nothing ever closes.
+test("the microphone is opened once, and closed if the reader goes back while the browser is still asking", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  // A microphone whose permission answer waits until the test gives it.
+  await page.evaluate(() => {
+    const w = window as unknown as { mic: { asked: number; stopped: number; answer: () => void } };
+    w.mic = { asked: 0, stopped: 0, answer: () => {} };
+    navigator.mediaDevices.getUserMedia = () => {
+      w.mic.asked += 1;
+      return new Promise((resolve) => {
+        w.mic.answer = () => resolve({ getTracks: () => [{ stop: () => (w.mic.stopped += 1) }] } as unknown as MediaStream);
+      });
+    };
+  });
+  const mic = () => page.evaluate(() => (window as unknown as { mic: { asked: number; stopped: number } }).mic);
+  await selectPhrase(page, "a volume of some dry divinity");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Voice note" }).click();
+  const rec = bar.getByRole("group", { name: "Voice note" });
+  await rec.getByRole("button", { name: "Record" }).click();
+  // While the browser is asking, Record cannot be pressed again.
+  await expect(rec.getByRole("button", { name: "Record" })).toBeDisabled();
+  await rec.getByRole("button", { name: "Record" }).click({ force: true });
+  expect((await mic()).asked).toBe(1);
+  // Back, then the browser answers "yes": the microphone it hands over is closed at once.
+  await rec.getByRole("button", { name: "Back" }).click();
+  await page.evaluate(() => (window as unknown as { mic: { answer: () => void } }).mic.answer());
+  await expect.poll(async () => (await mic()).stopped).toBe(1);
+});

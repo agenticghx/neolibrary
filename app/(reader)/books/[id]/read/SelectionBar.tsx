@@ -1,5 +1,6 @@
 "use client";
 
+import { copyText } from "@/lib/copy";
 import { useEffect, useState, type Ref } from "react";
 import type { Color } from "@/lib/library/annotations";
 import { ShareMenu } from "./ShareMenu";
@@ -59,7 +60,7 @@ export function SelectionBar({
   const [picking, setPicking] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [body, setBody] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const busy = noting || recording || drawing;
   useEffect(() => {
     onBusy?.(busy);
@@ -153,11 +154,10 @@ export function SelectionBar({
             type="button"
             className={styles.tool}
             onClick={async () => {
-              await navigator.clipboard?.writeText(`“${selection.exact}”\n— ${title}${author ? `, ${author}` : ""}`).catch(() => {});
-              setCopied(true);
+              setCopied((await copyText(`“${selection.exact}”\n— ${title}${author ? `, ${author}` : ""}`)) ? "yes" : "no");
             }}
           >
-            {copied ? "Copied" : "Copy"}
+            {copied === "yes" ? "Copied" : copied === "no" ? "Could not copy" : "Copy"}
           </button>
           <ShareMenu bookId={bookId} cfi={selection.cfi} quote={selection.exact} title={title} author={author} themeEl={themeEl} />
           <button type="button" className={styles.tool} aria-label="Close" onClick={onClose}>

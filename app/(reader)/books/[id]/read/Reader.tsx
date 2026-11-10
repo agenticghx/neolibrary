@@ -423,6 +423,8 @@ export function Reader(props: {
   const heldCfi = useRef<{ cfi: string | null } | null>(null);
   const [settings, setSettings] = useState<ReaderSettings | null>(null);
   const [toc, setToc] = useState<TocItem[]>([]);
+  // The first load of notes got an error answer: said over the page, so it does not look like "no notes".
+  const [notesFailed, setNotesFailed] = useState(false);
   // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
   const [pageCount, setPageCount] = useState(0);
   const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "genealogy" | "links" | "images" | "picture">("none");
@@ -1128,7 +1130,10 @@ export function Reader(props: {
         if (citationsRef.current) filterCitationCfis(v as never);
         // Highlights: load them, and draw each one when its page is rendered.
         const { Overlayer } = (await import("foliate-js/overlayer.js")) as { Overlayer: { highlight: DrawFn } };
-        const loaded = props.visitor ? [] : withCrossed(await (await fetch(`/api/books/${props.bookId}/annotations`)).json(), crossedAt.current);
+        // An error answer must not look like "this book has no notes": say so (the notes are safe on the server).
+        const answer = props.visitor ? null : await fetch(`/api/books/${props.bookId}/annotations`);
+        if (answer && !answer.ok) setNotesFailed(true);
+        const loaded = answer?.ok ? withCrossed(await answer.json(), crossedAt.current) : [];
         notesRef.current = loaded;
         setNotes(loaded);
         // Send anything made offline earlier, and show what is still waiting (see the sync effect below).
@@ -1873,6 +1878,18 @@ export function Reader(props: {
     setSelection(null);
   };
 
+  // A save the library refused or that failed part-way (not "no connection": those wait on the device). Shown over
+  // the page with what the reader typed, so the words are not lost with the selection bar that held them.
+  const [notSaved, setNotSaved] = useState<{ reason: string; text: string } | null>(null);
+  const orSay = async (work: () => Promise<void>, text = "") => {
+    try {
+      await work();
+      setNotSaved(null);
+    } catch (e) {
+      setNotSaved({ reason: e instanceof Error && e.message ? e.message : "Not saved", text });
+    }
+  };
+
   const highlight = async (color: Color, body: string) => {
     if (!selection) return;
     // Take the selection and clear it first: the reader may select something
@@ -2539,6 +2556,23 @@ export function Reader(props: {
             </button>
           </div>
         ) : null}
+        {notSaved ? (
+          <div className={styles.elsewhere} role="alert" data-testid="save-failed">
+            <p>Not saved. The library said: {notSaved.reason}</p>
+            {notSaved.text ? <p>Your note: “{notSaved.text}”</p> : null}
+            <button type="button" className={styles.tool} onClick={() => setNotSaved(null)}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+        {notesFailed && status === "ready" ? (
+          <div className={styles.elsewhere} role="alert" data-testid="notes-failed">
+            <p>Your notes and highlights could not be loaded. They are safe in the library. Reload the page to see them.</p>
+            <button type="button" className={styles.tool} onClick={() => setNotesFailed(false)}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
         {status === "error" ? (
           <p className={styles.notice} role="alert">
             This book could not be opened. Go back and try again.
@@ -3036,9 +3070,9 @@ export function Reader(props: {
           title={props.title}
           author={props.author}
           themeEl={() => root.current}
-          onHighlight={highlight}
+          onHighlight={(color, body) => orSay(() => highlight(color, body), body)}
           onVoiceNote={saveVoiceNote}
-          onSticker={addSticker}
+          onSticker={(sticker) => orSay(() => addSticker(sticker))}
           onDrawing={saveDrawing}
           onImages={() => {
             setImagesFor(selection.exact.slice(0, 80));
