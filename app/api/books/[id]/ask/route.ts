@@ -8,7 +8,7 @@ import { askBook, AskError, AskNotFound, assertOwnBook, estimateAsk, latestAsk }
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 function errorResponse(e: unknown) {
   if (e instanceof AskNotFound) return Response.json({ error: e.message }, { status: 404 });

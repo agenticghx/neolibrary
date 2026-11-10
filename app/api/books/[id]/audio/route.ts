@@ -10,7 +10,7 @@ import { getStorage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /** A made track with the address it plays from (checked by the sign-in cookie: trackAudioUrl). */
 function withUrl(track: Track | null) {

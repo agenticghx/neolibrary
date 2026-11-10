@@ -55,7 +55,7 @@ export async function libraryLinks(db: Db, ownerId: string, bookId: string, entr
     .groupBy(xrayFacts.bookId, xrayFacts.entryId);
   const firsts = mentions.filter((m) => m.first != null);
   const cfis = firsts.length
-    ? await db.select({ bookId: sections.bookId, position: sections.position, cfi: sections.cfi }).from(sections).where(inArray(sections.position, firsts.map((m) => m.first)))
+    ? await db.select({ bookId: sections.bookId, position: sections.position, cfi: sections.cfi }).from(sections).where(and(inArray(sections.bookId, firsts.map((m) => m.bookId)), inArray(sections.position, firsts.map((m) => m.first))))
     : [];
   return hits
     .map((h) => {

@@ -327,18 +327,6 @@ async function db_entries(db: Db, bookId: string): Promise<XrayEntry[]> {
   return db.select({ id: xrayEntries.id, name: xrayEntries.name, kind: xrayEntries.kind, aliases: xrayEntries.aliases }).from(xrayEntries).where(eq(xrayEntries.bookId, bookId));
 }
 
-/** How many facts an answer offered that were not stored: what it said minus what passed the quote check. */
-export async function droppedFor(db: Db, generationId: string, output: string) {
-  let offered = 0;
-  try {
-    for (const e of (JSON.parse(output) as { entries?: { facts?: unknown[] }[] }).entries ?? []) offered += Array.isArray(e.facts) ? e.facts.length : 0;
-  } catch {
-    return 0;
-  }
-  const kept = await db.select({ id: xrayFacts.id }).from(xrayFacts).where(eq(xrayFacts.generationId, generationId));
-  return Math.max(0, offered - kept.length);
-}
-
 // The whole-book read: one run per reader at a time, in this process (like whole-book narration), chapter by
 // chapter, each call under the caps; a restart forgets a run but not its stored chapters.
 export type XrayStop = { kind: "finished" | "stopped" | "limit" | "error"; message: string };

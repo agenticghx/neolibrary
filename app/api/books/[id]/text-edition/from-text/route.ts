@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   if (!mayMakeTextEditions(user)) return Response.json({ error: OWNER_ONLY }, { status: 403 });
   const bookId = (await params).id;
-  if (!/^[0-9a-f-]{36}$/i.test(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
   try {
     return Response.json(await makeTextEditionFromPdfText({ db: await getDb(), storage: await getStorage() }, user.id, bookId));
   } catch (e) {

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** A part of redraws: the laptop script sends at most about 3 MB of drawings at a time. */
 const MAX_BODY = 4 * 1024 * 1024;
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * M41 R6: a paper's figures redrawn and checked on the owner's own Claude subscription

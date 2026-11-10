@@ -171,7 +171,7 @@ const trimQuote = (q: { exact?: unknown; prefix?: unknown; suffix?: unknown } | 
 });
 
 async function ownsBook(db: Db, ownerId: string, bookId: unknown) {
-  if (typeof bookId !== "string" || !/^[0-9a-f-]{36}$/i.test(bookId)) return false;
+  if (typeof bookId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) return false;
   const [b] = await db
     .select({ id: books.id })
     .from(books)
@@ -289,7 +289,7 @@ async function createTargetNote(
   now: Date,
   id?: string,
 ): Promise<Annotation> {
-  if (typeof targetId !== "string" || !/^[0-9a-f-]{36}$/i.test(targetId)) throw new AnnotationError("Not found.");
+  if (typeof targetId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId)) throw new AnnotationError("Not found.");
   const target =
     targetType === "path"
       ? await db.select({ id: paths.id }).from(paths).where(and(eq(paths.id, targetId), eq(paths.ownerId, ownerId)))
@@ -331,7 +331,7 @@ export async function notesForPath(db: Db, ownerId: string, pathId: string) {
 }
 
 async function versions(db: Db, ownerId: string, annotationId: string) {
-  if (!/^[0-9a-f-]{36}$/i.test(annotationId)) return [];
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(annotationId)) return [];
   return db
     .select()
     .from(annotations)
@@ -458,15 +458,6 @@ export async function listAnnotations(db: Db, ownerId: string, bookId?: string):
 export function readingOrder(a: Annotation, b: Annotation): number {
   if (!a.cfi || !b.cfi) return (a.cfi ? 1 : 0) - (b.cfi ? 1 : 0) || a.createdAt.localeCompare(b.createdAt);
   return CFI.compare(CFI.collapse(a.cfi), CFI.collapse(b.cfi)) || a.createdAt.localeCompare(b.createdAt);
-}
-
-/** All versions of every annotation of a user (for export). */
-export async function allVersions(db: Db, ownerId: string, bookIds?: string[]) {
-  return db
-    .select()
-    .from(annotations)
-    .where(bookIds ? and(eq(annotations.ownerId, ownerId), inArray(annotations.bookId, bookIds)) : eq(annotations.ownerId, ownerId))
-    .orderBy(asc(annotations.createdAt), asc(annotations.annotationId), asc(annotations.version));
 }
 
 /**

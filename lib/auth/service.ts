@@ -115,7 +115,10 @@ export async function acceptInvite(
     const inv = await findOpenInvite(t, token, now);
     if (!inv) throw new AuthError("This invitation is not valid any more. Ask for a new link.");
     const u = await insertUser(t, input.email, input.name, input.password, "reader");
-    await tx.update(invites).set({ usedAt: now, usedBy: u.id }).where(eq(invites.id, inv.id));
+    // Only while it is still unused: of two people accepting one link at the same moment, the second finds no row
+    // to mark, and its new account is undone with the transaction.
+    const marked = await tx.update(invites).set({ usedAt: now, usedBy: u.id }).where(and(eq(invites.id, inv.id), isNull(invites.usedAt))).returning({ id: invites.id });
+    if (!marked.length) throw new AuthError("This invitation is not valid any more. Ask for a new link.");
     return toPublic(u);
   });
 }
@@ -203,7 +206,7 @@ export async function listReaders(db: Db): Promise<ReaderView[]> {
 export async function setReaderDisabled(db: Db, admin: PublicUser, readerId: string, disabled: boolean, now = new Date()) {
   if (admin.role !== "admin") throw new AuthError("Only an admin can change a reader's access.");
   if (readerId === admin.id) throw new AuthError("You cannot disable your own account.");
-  if (!/^[0-9a-f-]{36}$/i.test(readerId)) throw new AuthError("That person is not a reader here.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(readerId)) throw new AuthError("That person is not a reader here.");
   await db.transaction(async (tx) => {
     const t = tx as unknown as Db;
     const [reader] = await t.select().from(users).where(eq(users.id, readerId));

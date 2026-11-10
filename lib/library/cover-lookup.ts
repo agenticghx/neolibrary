@@ -153,7 +153,7 @@ export async function rejectCover(
   bookId: string,
   now: () => Date = () => new Date(),
 ): Promise<"replaced" | "cleared"> {
-  const [book] = /^[0-9a-f-]{36}$/i.test(bookId)
+  const [book] = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)
     ? await db
         .select()
         .from(books)
@@ -217,7 +217,7 @@ export async function chooseCover(
   choice: string,
   now: () => Date = () => new Date(),
 ): Promise<void> {
-  const [book] = /^[0-9a-f-]{36}$/i.test(bookId)
+  const [book] = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)
     ? await db
         .select()
         .from(books)
@@ -275,7 +275,7 @@ export async function uploadCover(
   data: Uint8Array,
   now: () => Date = () => new Date(),
 ): Promise<void> {
-  const [book] = /^[0-9a-f-]{36}$/i.test(bookId)
+  const [book] = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)
     ? await db
         .select()
         .from(books)

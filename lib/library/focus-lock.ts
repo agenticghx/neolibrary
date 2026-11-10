@@ -327,8 +327,6 @@ export function focusJson(s: FocusRow, now = new Date()) {
   };
 }
 
-export type FocusJson = ReturnType<typeof focusJson>;
-
 /**
  * focusJson, and for a whole book (M26 R5) also every id the book goes by (the reader's two editions), the book's
  * own page, and whether the reader has reached its last page by the server's reckoning.

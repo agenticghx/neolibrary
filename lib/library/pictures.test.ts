@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SpendingCapReached, spending } from "@/lib/ai/generate";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
+import { books } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { FakeImageGenerator } from "@/lib/images/generate";
 import { MemoryStorage } from "@/lib/storage";
@@ -54,6 +55,17 @@ describe("generated pictures (M9)", () => {
     expect((await spending(database.db, "openai", bookId)).book).toBeCloseTo(0.2);
     const report = await costReport(database.db, ownerId, new Date(), {});
     expect(report.services.find((s) => s.provider === "openai")).toMatchObject({ spentUsd: 0.2, calls: 1, capUsd: 20 });
+
+    // Another book: its own picture (the prompt names the book), not this one's.
+    const { bookId: other } = await importBook(database.db, storage, ownerId, { name: "notes.md", bytes: new TextEncoder().encode("# Notes\n\nA lamp stood there.\n") });
+    const elsewhere = await makePicture(database.db, storage, gen, ownerId, { bookId: other, subject: "a Victorian gas lamp" });
+    expect(elsewhere.reused).toBe(false);
+    expect(elsewhere.generation.bookId).toBe(other);
+    expect(gen.calls).toHaveLength(2);
+
+    // A text edition of the first book is that book: its picture is re-served there, free.
+    const [edition] = await database.db.insert(books).values({ ownerId, title: "Edition", editionOf: bookId }).returning({ id: books.id });
+    expect((await storedPicture(database.db, ownerId, edition.id, "a Victorian gas lamp"))?.id).toBe(g.id);
   });
 
   it("stops at the picture caps before calling, and refuses empty subjects and other books", async () => {

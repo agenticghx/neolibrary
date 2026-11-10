@@ -23,7 +23,7 @@ export class AgentError extends Error {
   }
 }
 
-const UUID = /^[0-9a-f-]{36}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_NOTE = 10_000;
 
 export type AgentBook = { id: string; title: string; author: string; progress: number; lastOpenedAt: string | null };

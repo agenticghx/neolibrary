@@ -114,7 +114,6 @@ export async function getOpenBook(db: Db, id: string) {
     .where(and(eq(books.id, id), onShelf(ownerId)));
   return book ?? null;
 }
-export type OpenBook = NonNullable<Awaited<ReturnType<typeof getOpenBook>>>;
 
 /** May a visitor have this stored file? The cover of a book on the open shelf, or the file of a book free to read. */
 export async function visitorMayHave(db: Db, key: string): Promise<boolean> {

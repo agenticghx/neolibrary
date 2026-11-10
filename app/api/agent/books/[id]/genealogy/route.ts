@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** A whole book's genealogy: Chip War's is about 0.5 MB, with room to spare. */
 const MAX_BODY = 8 * 1024 * 1024;
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * A book's genealogy read on the owner's own Claude subscription (M43 S2), with an API token:

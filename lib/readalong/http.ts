@@ -1,7 +1,7 @@
 import { ReadalongError } from "./importer";
 
 /** Shared by the read-along routes (M13). */
-export const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+export const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 export function readalongError(e: unknown) {
   if (e instanceof ReadalongError) {

@@ -93,9 +93,18 @@ const text = (v: unknown): string => {
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 
+/** A link's path with its %-escapes read; a "%" that is no escape ("100%.xhtml") is kept as written. */
+function unescapePath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
 function resolve(base: string, href: string): string {
   const parts = (base.includes("/") ? base.slice(0, base.lastIndexOf("/") + 1) : "").split("/").filter(Boolean);
-  for (const seg of decodeURIComponent(href.split("#")[0]).split("/")) {
+  for (const seg of unescapePath(href.split("#")[0]).split("/")) {
     if (seg === "..") parts.pop();
     else if (seg && seg !== ".") parts.push(seg);
   }

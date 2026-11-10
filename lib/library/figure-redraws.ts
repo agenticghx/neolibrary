@@ -156,7 +156,7 @@ export async function figureRedrawsFor(db: Db, book: { id: string; ownerId: stri
 /** One redraw's drawing, if it belongs to this book (or, for a shared paper, to the paper it was shared from). */
 export async function figureRedrawSvg(db: Db, book: { id: string; ownerId: string; sharedFrom: string | null }, id: string): Promise<string | null> {
   const src = await sourceOf(db, book);
-  if (!src || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+  if (!src || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
   const [row] = await db
     .select({ output: generations.output })
     .from(generations)

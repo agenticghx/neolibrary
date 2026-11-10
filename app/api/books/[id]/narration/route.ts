@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
  * can only save money. To anyone but the library's owner it answers 204,
  * without the figures.
  */
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const ownerOnly = () => Response.json({ error: OWNER_ONLY }, { status: 403 });
 
 function errorResponse(e: unknown) {

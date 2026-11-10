@@ -6,7 +6,7 @@ import { setPaperSharing } from "@/lib/library/shared-papers";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /** M41 R3: { id: "<DOI or PubMed ID>" } makes the title that paper, with its details from Crossref or PubMed. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {

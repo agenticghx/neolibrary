@@ -22,8 +22,6 @@ import type { EditionPage } from "./text-epub";
 type Item = { str: string; x: number; y: number; w: number; h: number; font: string };
 type Line = { y: number; x: number; h: number; items: Item[] };
 
-export type PdfFonts = (fontId: string) => string;
-
 /** A page's text as pdf.js gives it (exported for tests): items with their transform, size and font name. */
 export type RawPage = { width: number; height: number; items: Item[] };
 
@@ -81,7 +79,7 @@ function lineText(line: Line, asFootnote: boolean) {
     const text = it.str.replace(/\s+/g, " ");
     // A superscript letter belongs to the word before it: "XVIII" + "e".
     if ((it as Item & { raisedText?: boolean }).raisedText) {
-      out = out.replace(/\*?\s*$/, (m) => (m.includes("*") ? "" : "")) + text.trim() + (italicOpen ? "" : "");
+      out = out.replace(/\*?\s*$/, "") + text.trim();
       first = false;
       continue;
     }

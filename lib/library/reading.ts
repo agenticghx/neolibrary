@@ -18,7 +18,7 @@ export async function savePosition(
   input: { cfi?: unknown; fraction?: unknown },
   now = new Date(),
 ): Promise<boolean> {
-  if (!/^[0-9a-f-]{36}$/i.test(bookId) || !isCfi(input.cfi)) return false;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId) || !isCfi(input.cfi)) return false;
   const fraction = Number(input.fraction);
   if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1) return false;
   const rows = await db
@@ -38,7 +38,7 @@ export async function savePosition(
  * another device, or listening away from it, has moved it. Null if the book is not the owner's.
  */
 export async function readPosition(db: Db, ownerId: string, bookId: string): Promise<{ cfi: string | null; fraction: number } | null> {
-  if (!/^[0-9a-f-]{36}$/i.test(bookId)) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) return null;
   const [row] = await db
     .select({ cfi: books.position, fraction: books.progress })
     .from(books)
