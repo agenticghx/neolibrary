@@ -180,6 +180,13 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-10 15:29 · Claude Fable 5.2 (laptop session) · Checkpoint: owner sweep, nine pull requests live (7c2165c); Reader split is next
+- **Done:** Nothing new since the deploy entry above. State at save: live 7c2165c on both addresses; #329 to #337 merged; migration 0040 applied (40 rows in _migrations); the laptop's main folder on main; docs/version-2.md is the goal. Reader.tsx is 2,858 lines (target under 1,500).
+- **Key paths:** docs/handoffs/2026-11-10-1528-owner-sweep-all-live.md (laptop only); docs/version-2.md
+- **Commands that worked:** curl -s https://library.samuelahuno.com/api/health ; git pull --ff-only (main folder)
+- **Known issues / blockers:** Not checked on the live site: download-then-offline while signed in, a read-along import, an AI call after the migration. readalong.spec.ts:903 failed once in WebKit on main (in docs/ci-flakes.md).
+- **Exact next steps:** 1. Reader split, second cut: notes and the offline queue into a useNotes hook; then focus sessions, reading aloud, full screen. 2. One shared book-visibility check in lib/. 3. Open-shelf covers within 5 s in WebKit. 4. A signed-in live check of download-then-offline. 5. The rest of docs/version-2.md.
+
 ### 2026-11-10 14:37 · Claude Fable 5.2 (laptop session) · Live: 7c2165c (migration 0040), deployed from the laptop after a backup
 - **Done:** At Samuel's go-ahead (2026-11-10). #337 merged as 7c2165c; main's own CI run on it passed. Backup taken before the deploy (33,202,186 bytes, 'dump complete' footer present); an identical-size backup 15 minutes earlier restored into a throwaway Postgres 18 with exit 0 (39 migrations, 261 books, 51 annotations), and migration 0040 ran up, down, up on that copy with exit 0. Deployed from the deploy checkout (clean, at 7c2165c). After: /api/health on both addresses says 7c2165c; /sign-in and /browse answer 200 on both; _migrations holds 40 rows, the newest 0040_spend_and_upload_counts; books still 261; the log says 'Page pictures: ready.'. Also live since earlier today: #329 to #336.
 - **Key paths:** ~/Backups/neolibrary/prod-before-0040-20261110T1930Z.sql (laptop); db/migrations/0040_spend_and_upload_counts.up.sql
