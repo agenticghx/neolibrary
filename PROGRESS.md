@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Money items from the owner sweep (billed failures count against the cap; read-along audio ceiling); WebKit check once m44-offline-deploy is live.
+next_action: Check #332, then the WebKit live check of #331 once 19f3bcd is live, then push m44-guards.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 12:15 · Claude Fable 5.2 (laptop session) · Checkpoint: owner sweep fixes; three merged, one in checks, one branch waiting
+- **Done:** Merged: #329 (unit tests copy one migrated database; CI's unit-test step 815 s to 236 s), #330 (a note waiting offline belongs to its writer; live at 8c8e409), #331 (a downloaded book survives a deploy; merged as 19f3bcd, not yet live at save time). Open: #332 (failed saves and copies say so), checks running. Local, not pushed: branch m44-guards (the empty review workflow removed, @claude limited to owner and collaborators, script guards, expired sessions swept).
+- **Key paths:** docs/handoffs/2026-11-10-1214-owner-sweep-fixes-in-queue.md (laptop only); docs/handoffs/2026-11-10-owner-sweep-feedback.md (laptop only); .claude/worktrees/wf (m44-guards)
+- **Commands that worked:** gh pr checks 332 ; curl -s https://library.samuelahuno.com/api/health ; npx playwright test --ignore-snapshots --project=offline
+- **Known issues / blockers:** The live check of #331 in WebKit at iPad size is not done. The read-along audio ceiling and the spending-cap fix need a migration and are not started. New measured slow path: an open-shelf cover takes about 0.5 s from the server.
+- **Exact next steps:** 1. gh pr checks 332; rebase if it conflicts. 2. When /api/health shows 19f3bcd: signed-out live check in WebKit and Chromium at 1366x1024. 3. After #332 merges: rebase m44-guards, add its log entries, push and open its pull request. 4. Then the Notes panel's forms, the Reader.tsx split, one shared book-visibility check. 5. Last, at Samuel's word with a backup: one migration for read-along bytes and failed paid calls.
 
 ### 2026-11-10 08:32 · Claude (laptop session) · A failed save, a failed copy and unloaded notes say so; the microphone is opened once
 - **Done:** Owner sweep, fourth item. A highlight, note or sticker the library does not save now shows a notice over the page with the reason and the words typed. Notes that fail to load show a notice instead of an empty book. The three Copy buttons say Could not copy when the browser refuses. The voice recorder cannot open a second microphone while the browser is asking, and closes it if the reader goes Back first. Browser tests: 299 passed with the change; the save test fails on main's code.
