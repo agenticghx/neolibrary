@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel reads the audit review list (Open unknowns row 35) and says which remaining findings to fix.
+next_action: Samuel says whether to tidy the five small document items and read the unread parts; otherwise his choices on Open unknowns row 35.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 03:54 · Claude Fable 5.2 · Checkpoint: audit closed; five small document items and the unread parts wait on Samuel's yes
+- **Done:** A stalled session resumed, found the audit already closed on main, changed no file, and verified: no open pull request, CI green on 9482a63, 13 branches on GitHub. The documentation reviewer's late report adds five small items not on the review list (unread CI outputs, four unused .gitignore entries, two stale skill sentences, three closed rows under Open in docs/ci-flakes.md, LEARNING_LOG.md's M14 title and short index); none is checked against current main.
+- **Key paths:** docs/handoffs/2026-11-10-0353-audit-leftover-doc-items.md (gitignored, laptop); docs/handoffs/2026-11-09-audit-review-list.md
+- **Commands that worked:** gh pr list; gh run list --branch main --limit 4; git ls-remote --heads origin | wc -l
+- **Known issues / blockers:** Five parallel reviewers hit the 5-hour usage limit twice; use two at a time. scripts/, tools/readalong/, prompts/, public/sw.js, the e2e helpers and the skills' scripts are still unread.
+- **Exact next steps:** 1. On Samuel's yes: check the five small items against main and fix those still present in one pull request (no site behaviour changes). 2. On Samuel's yes: read the unread parts. 3. Samuel's choices on Open unknowns row 35.
 
 ### 2026-11-10 01:54 · Claude Fable 5.2 · GitHub pruned at Samuel's word: 258 merged branches deleted, ci-screenshots cut to pull requests 305 onward
 - **Done:** Samuel, 2026-11-10: 'Yes to pruning' (Open unknowns row 36, both parts; the row's status in the table is not yet changed to closed). (a) 258 remote branches deleted: each one's tip was exactly the last commit of a merged pull request. 13 remote branches remain: main, ci-screenshots, 4 of closed pull requests, 4 with no pull request, and 3 merged ones that gained commits after their merge (m21-calendar, m26-ai-model-per-feature, m40-deploy-trigger). (b) ci-screenshots replaced by one commit holding the folders of pull requests 305 to 328 (1,938 pictures, 636 MB packed; it held 16,949 pictures, 4.52 GB, in 522 commits). A kept picture still loads (HTTP 200). Screenshot grids in comments on pull requests before 305 no longer show their pictures.
