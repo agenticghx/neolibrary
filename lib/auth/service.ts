@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { invites, sessions, users, type Role, type User } from "@/lib/db/schema";
 import { DUMMY_PASSWORD_HASH, hashPassword, randomToken, sha256, verifyPassword } from "./crypto";
@@ -145,6 +145,8 @@ export async function createSession(db: Db, userId: string, now = new Date()) {
   const token = randomToken();
   const expiresAt = new Date(now.getTime() + SESSION_DAYS * 86_400_000);
   await db.insert(sessions).values({ id: sha256(token), userId, expiresAt });
+  // Sessions past their date can never sign anyone in; nothing else removes them, so each sign-in sweeps them out.
+  await db.delete(sessions).where(lt(sessions.expiresAt, now));
   return { token, expiresAt };
 }
 
