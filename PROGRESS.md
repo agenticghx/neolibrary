@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader.tsx split, first cut: move Segment, JumpTo, TocList and EditionSwitch into their own files.
+next_action: Read main's newest CI run (WebKit, readalong.spec.ts:903), then the second Reader cut.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 13:20 · Claude (laptop session) · Reader split, first cut: controls and stateless helpers in their own files
+- **Done:** Version 2 check 5. Reader.tsx 3,271 lines to 2,859 by pure moves: ReaderControls.tsx (Segment, JumpTo, TocList, EditionSwitch) and reader-helpers.ts (26 helpers and types with no component state). npm run check green; 342 browser tests passed (offline, focus, e-ink projects and what they depend on). #335 (the version 2 goal) merged before this. Main's run on 4ca41f1 (#333) failed in WebKit on e2e/readalong.spec.ts:903 (the audiobook says when it ends); nothing in #333 touches audio; main's next run is the re-run.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx, ReaderControls.tsx, reader-helpers.ts
+- **Commands that worked:** npm run check ; npx playwright test --ignore-snapshots --project=offline --project=focus --project=eink
+- **Known issues / blockers:** Live is still 1fa5057: #333 and #334 wait on a green run of main. If readalong.spec.ts:903 fails again on main in WebKit, investigate before anything else (browser-test-triage skill).
+- **Exact next steps:** 1. Read main's newest CI run; if WebKit fails again at readalong.spec.ts:903, triage it. 2. Reader split, second cut: notes and the offline queue into a useNotes hook. 3. One migration (Samuel's go-ahead 2026-11-10): bytes received per read-along import; failed paid calls counted against the cap; backup before it deploys.
 
 ### 2026-11-10 13:06 · Claude (laptop session) · Version 2 goal written; the laptop's main folder is on main again
 - **Done:** docs/version-2.md: what Neolibrary is for now (a study reader for one serious reader and a few guests), seven checks that define version 2, the rule that a reader's work, privacy and money come before new features, and where each check stands today. Linked from CLAUDE.md, docs/done.md and the ledger's head. Samuel asked for a recommendation ('your greatest recommendation without dodging the work'); he can overrule any line. Also, at his word: the laptop's main folder was moved from m25-scan-compare (175 commits behind) to main; his own uncommitted edits were carried over untouched; a backup of the folder as it was is on the laptop. #334 merged before this.
