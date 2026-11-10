@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { usePlayer } from "@/components/player/PlayerProvider";
-import type { Annotation, Color, Kind } from "@/lib/library/annotations";
-import { addToOutbox, describeRefused, flushOutbox, isOffline, opOf, outboxFor, removeFromOutbox, type OutboxItem } from "@/lib/outbox";
+import type { Annotation, Color } from "@/lib/library/annotations";
+import { describeRefused } from "@/lib/outbox";
 import { downloadBook, downloadedWords } from "@/lib/reader/download";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
@@ -18,6 +18,7 @@ import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
 import { BookFocusLine, EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
 import { useBookFocus } from "./useBookFocus";
+import { useNotes } from "./useNotes";
 import { clearSession as clearFocusSession, DEFAULT_WAIT_MINUTES, type FocusSession, fromServer as focusFromServer, isOver as focusIsOver, loadSession as loadFocusSession, saveSession as saveFocusSession, type ServerFocus } from "@/lib/reader/focus-session";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
@@ -63,7 +64,7 @@ import { placeRedraws, showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
-import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pageOpening, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type Relocate } from "./reader-helpers";
+import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pageOpening, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type Relocate } from "./reader-helpers";
 
 export function Reader(props: {
   /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
@@ -247,12 +248,18 @@ export function Reader(props: {
   const [screen, setScreen] = useState<{ from: string; to: string } | null>(null);
   /** Rewriting each page as it is turned to (M17 R3): for this visit only, never remembered. */
   const [turn, setTurn] = useState<AsYouTurn>(TURN_OFF);
-  const [notes, setNotes] = useState<Annotation[]>([]);
-  const notesRef = useRef<Annotation[]>([]);
   /** The other version's notes (a scan and its text edition) found on this one: their places here, by note id. */
   const crossedAt = useRef(new Map<string, string>());
   /** Places the other version's notes on the pages already shown (set once the book is open). */
   const placeShown = useRef<() => void>(() => {});
+  const { notes, setNotes, notesRef, reload, create, forget, refused, dismissRefused, saveNote, removeNote, removed, undoRemove, addBookNote } = useNotes({
+    bookId: props.bookId,
+    readerId: props.readerId,
+    visitor: !!props.visitor,
+    view,
+    crossedAt,
+    placeShown,
+  });
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const selectionDoc = useRef<Document | null>(null);
   // The selected-text bar (M27 Q1) closes on a tap or click outside it, or on Escape, as its × does; not while a
@@ -1269,7 +1276,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw, notesRef, setNotes]);
 
   // Focus (M21): the book's area changed size or place (the device turned, full screen, a side pane): the ruler's
   // band, drawn over the book, is put back on its line, or on the first line if its place is gone.
@@ -1431,7 +1438,7 @@ export function Reader(props: {
       cancelAnimationFrame(relaid);
       mq.removeEventListener("change", onChange);
     };
-  }, [settings, props.fileType, refocus, showLens]);
+  }, [settings, props.fileType, refocus, showLens, notesRef]);
 
   // Save on leaving; keyboard paging.
   useEffect(() => {
@@ -1444,153 +1451,6 @@ export function Reader(props: {
       flush(true);
     };
   }, [flush, onKey]);
-
-  const setAll = (list: Annotation[]) => {
-    notesRef.current = list;
-    setNotes(list);
-  };
-
-  const api = async (url: string, method: string, body?: unknown) => {
-    const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
-    return res.status === 204 ? null : res.json();
-  };
-
-  /** How a note made offline looks until the server has it (M12). */
-  const localAnnotation = (id: string, body: Record<string, unknown>, savedAt = new Date().toISOString()): Annotation => {
-    const q = (body.quote ?? {}) as { exact?: string; prefix?: string; suffix?: string };
-    return {
-      id,
-      version: 1,
-      kind: body.kind as Kind,
-      targetType: body.cfi ? "passage" : "book",
-      bookId: props.bookId,
-      targetId: null,
-      sectionId: null,
-      cfi: (body.cfi as string | undefined) ?? null,
-      quote: { exact: q.exact ?? "", prefix: q.prefix ?? "", suffix: q.suffix ?? "" },
-      color: body.kind === "highlight" ? ((body.color as Color | undefined) ?? "sage") : null,
-      body: String(body.body ?? ""),
-      voice: null,
-      sticker: (body.sticker as Sticker | undefined) ?? null,
-      drawing: null,
-      picture: null,
-      agent: null,
-      createdAt: savedAt,
-      updatedAt: savedAt,
-      pending: true,
-    };
-  };
-
-  /** The book's notes from the server (or the offline copy), plus any still waiting in the outbox. */
-  const reload = async () => {
-    if (props.visitor) return; // a visitor has no notes on the server
-    let body: Parameters<typeof withCrossed>[0] | null = null;
-    try {
-      body = await api(`/api/books/${props.bookId}/annotations`, "GET");
-    } catch (e) {
-      if (!isOffline(e)) throw e;
-    }
-    const waiting = await outboxFor(props.readerId, props.bookId).catch(() => []);
-    // The other version's notes get their places here, after the last wait: one placed while the outbox was read
-    // would otherwise come back without its place, and stay so, as placing skips a note already placed (the
-    // flaky agents.spec.ts:318, 2026-10-29).
-    const server = body ? withCrossed(body, crossedAt.current) : null;
-    setAll(withOutbox(server ?? notesRef.current, waiting));
-    setRefused(waiting.filter((w) => w.refused));
-    placeShown.current();
-  };
-
-  // Changes the server refused (M20): kept on the device and listed in Notes, never sent again.
-  const [refused, setRefused] = useState<OutboxItem[]>([]);
-  const dismissRefused = async (id: string) => {
-    await removeFromOutbox(id);
-    await reload();
-  };
-
-  const madeOffline = useRef(new Set<string>());
-
-  /** Shows what waits in the outbox on top of the server's list: new notes added, edits applied, removals hidden. */
-  const withOutbox = (base: Annotation[], all: OutboxItem[]) => {
-    // A refused change is not waiting any more: the server's version stands.
-    const waiting = all.filter((w) => !w.refused);
-    const created = waiting.filter((w) => opOf(w) === "create");
-    const createdIds = new Set(created.map((w) => w.id));
-    madeOffline.current = createdIds;
-    let list = [...base.filter((a) => !createdIds.has(a.id)), ...created.map((w) => localAnnotation(w.id, w.body, w.savedAt))];
-    for (const w of waiting) {
-      if (opOf(w) === "edit") list = list.map((a) => (a.id === w.annotationId ? { ...a, ...(w.body as Partial<Annotation>), pending: true } : a));
-      if (opOf(w) === "remove") list = list.filter((a) => a.id !== w.annotationId);
-      // Brought back while offline (M19): shown again at once, as it was.
-      const back = opOf(w) === "restore" ? (w.body.annotation as Annotation | undefined) : undefined;
-      if (back && !list.some((a) => a.id === back.id)) list = [...list, { ...back, pending: true }];
-    }
-    return list;
-  };
-
-  /** Edits or removes a note the server has; with no network the change waits in the outbox (M12). */
-  const change = async (a: Annotation, op: "edit" | "remove" | "restore", body: Record<string, unknown> = {}) => {
-    const changeId = crypto.randomUUID();
-    try {
-      if (op === "edit") await api(`/api/annotations/${a.id}`, "PATCH", { ...body, changeId });
-      else if (op === "restore") await api(`/api/annotations/${a.id}/restore?changeId=${changeId}`, "POST");
-      else await api(`/api/annotations/${a.id}?changeId=${changeId}`, "DELETE");
-      return { changeId, queued: false };
-    } catch (e) {
-      if (!isOffline(e)) throw e;
-      await addToOutbox(props.readerId, { id: changeId, op, annotationId: a.id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
-      return { changeId, queued: true };
-    }
-  };
-
-  /**
-   * A note made offline and not sent yet: its waiting item, if any. Known
-   * from the last reload without asking the device's database, so ordinary
-   * saves go to the server at once.
-   */
-  const waitingCreate = async (id: string) =>
-    madeOffline.current.has(id) ? (await outboxFor(props.readerId, props.bookId).catch(() => [])).find((w) => w.id === id && opOf(w) === "create") : undefined;
-
-  /**
-   * Adds a highlight, note, sticker or bookmark with an id chosen here. With
-   * no network it waits in the outbox and shows at once; it is sent when the
-   * network returns (M12).
-   */
-  const create = async (body: Record<string, unknown>): Promise<Annotation> => {
-    const id = crypto.randomUUID();
-    try {
-      return await api(`/api/books/${props.bookId}/annotations`, "POST", { ...body, id });
-    } catch (e) {
-      if (!isOffline(e)) throw e;
-      await addToOutbox(props.readerId, { id, bookId: props.bookId, body, savedAt: new Date().toISOString() });
-      return localAnnotation(id, body);
-    }
-  };
-
-  const reloadRef = useRef(reload);
-  useEffect(() => {
-    reloadRef.current = reload;
-  });
-
-  // Send notes made offline: when the page opens, when the network returns, and every 30 s while any wait.
-  useEffect(() => {
-    if (props.visitor) return; // nothing of a visitor's waits to be sent
-    const sync = async () => {
-      await flushOutbox(props.readerId).catch(() => ({ sent: 0 }));
-      await reloadRef.current().catch(() => {});
-    };
-    const online = () => void sync();
-    window.addEventListener("online", online);
-    window.addEventListener(SYNC_EVENT, online);
-    const timer = setInterval(() => {
-      if (notesRef.current.some((a) => a.pending)) void sync();
-    }, 30_000);
-    return () => {
-      window.removeEventListener("online", online);
-      window.removeEventListener(SYNC_EVENT, online);
-      clearInterval(timer);
-    };
-  }, [props.visitor, props.readerId]);
 
   const clearSelection = () => {
     selectionDoc.current?.getSelection()?.removeAllRanges();
@@ -1685,62 +1545,6 @@ export function Reader(props: {
     await reload();
     setActiveId(body.annotation.id);
     setPanel("notes");
-  };
-
-  const saveNote = async (a: Annotation, body: string) => {
-    // Made offline and not sent yet: change what will be sent.
-    const waiting = await waitingCreate(a.id);
-    if (waiting) await addToOutbox(props.readerId, { ...waiting, body: { ...waiting.body, body } });
-    else await change(a, "edit", { body });
-    await reload();
-  };
-
-  /** Removes a note: if it was made offline and never sent, it (and its edits) just leave the outbox. */
-  const forget = async (a: Annotation) => {
-    if (await waitingCreate(a.id)) {
-      for (const w of await outboxFor(props.readerId, props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
-    } else await change(a, "remove");
-  };
-
-  // "Note removed · Undo" (M19): the last note removed, and how to bring it back, for ten seconds.
-  const [removed, setRemoved] = useState<{ note: Annotation; undo: () => Promise<void> } | null>(null);
-  const removedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const removeNote = async (a: Annotation) => {
-    let undo: () => Promise<void>;
-    const waiting = await waitingCreate(a.id);
-    if (waiting) {
-      // Made offline and never sent: dropping it from the outbox removes it; Undo puts it back.
-      for (const w of await outboxFor(props.readerId, props.bookId)) if (w.id === a.id || w.annotationId === a.id) await removeFromOutbox(w.id);
-      undo = () => addToOutbox(props.readerId, waiting);
-    } else {
-      const { changeId, queued } = await change(a, "remove");
-      undo = async () => {
-        // The removal is still waiting to be sent: taking it back is enough. Otherwise the server brings the note back.
-        if (queued && (await outboxFor(props.readerId, props.bookId).catch(() => [])).some((w) => w.id === changeId)) await removeFromOutbox(changeId);
-        else await change(a, "restore", { annotation: a });
-      };
-    }
-    if (a.kind === "highlight" && a.cfi) await view.current?.deleteAnnotation({ value: a.cfi });
-    await reload();
-    if (removedTimer.current) clearTimeout(removedTimer.current);
-    setRemoved({ note: a, undo });
-    removedTimer.current = setTimeout(() => setRemoved(null), 10_000);
-  };
-
-  const undoRemove = async () => {
-    const r = removed;
-    if (!r) return;
-    if (removedTimer.current) clearTimeout(removedTimer.current);
-    setRemoved(null);
-    await r.undo();
-    await reload();
-    if (["highlight", "sticker", "drawing", "image"].includes(r.note.kind) && r.note.cfi) await view.current?.addAnnotation({ value: r.note.cfi });
-  };
-
-  const addBookNote = async (body: string) => {
-    await create({ kind: "note", body });
-    await reload();
   };
 
   /** Starts the session on the server (one at a time: it refuses a second); throws its reason for the dialog. */

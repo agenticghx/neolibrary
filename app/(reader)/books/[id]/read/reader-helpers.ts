@@ -278,3 +278,10 @@ export const onFullscreenChange = (changed: () => void) => {
   document.addEventListener("fullscreenchange", changed);
   return () => document.removeEventListener("fullscreenchange", changed);
 };
+
+/** One JSON request to the library; an error answer throws its own words ("Not saved" if it has none). */
+export const api = async (url: string, method: string, body?: unknown) => {
+  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
+  return res.status === 204 ? null : res.json();
+};

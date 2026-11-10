@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader split, second cut: notes and the offline queue into a useNotes hook.
+next_action: Reader split, third cut: the sitting focus session into its own hook.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 17:03 · Claude Fable 5.2 · Reader split, second cut: notes and the offline queue move to useNotes.ts
+- **Done:** Moved, with no change in behaviour, the code that loads, adds, edits and removes notes and sends notes made offline, from Reader.tsx into a hook (a reusable piece of a page's logic) in useNotes.ts; the small request helper api moved to reader-helpers.ts. Reader.tsx is 2,661 lines (was 2,858; version 2's target is under 1,500). Browser tests on the laptop: 430 passed. npm run check: 1471 passed, 2 skipped.
+- **Key paths:** app/(reader)/books/[id]/read/useNotes.ts; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader-helpers.ts; LEARNING_LOG.md (iteration 184)
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line; npm run check; git diff HEAD~1 --color-moved=dimmed-zebra --color-moved-ws=ignore-all-space
+- **Known issues / blockers:** Left as they are, on purpose (a move only): a note can be saved twice; a removed sticker or drawing keeps its mark until reload; the Undo timer is not cleared when the reader leaves.
+- **Exact next steps:** 1. Third cut: the sitting focus session (state and functions around beginFocus, finishFocus, focusWait, answerFocus, syncFocus, showFocus) into its own hook. 2. Then reading aloud, then full screen. 3. One shared book-visibility check in lib/. 4. Open-shelf covers within 5 s in WebKit.
 
 ### 2026-11-10 15:29 · Claude Fable 5.2 (laptop session) · Checkpoint: owner sweep, nine pull requests live (7c2165c); Reader split is next
 - **Done:** Nothing new since the deploy entry above. State at save: live 7c2165c on both addresses; #329 to #337 merged; migration 0040 applied (40 rows in _migrations); the laptop's main folder on main; docs/version-2.md is the goal. Reader.tsx is 2,858 lines (target under 1,500).
