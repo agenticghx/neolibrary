@@ -113,7 +113,7 @@ const monthStart = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.ge
  * A book and its text edition (M25) share one per-book limit: the scan and
  * every edition made from it. For any other book, the book alone.
  */
-async function bookGroup(db: Db, bookId: string) {
+export async function bookGroup(db: Db, bookId: string) {
   const [row] = await db.select({ editionOf: books.editionOf }).from(books).where(eq(books.id, bookId));
   const scanId = row?.editionOf ?? bookId;
   const editions = await db.select({ id: books.id }).from(books).where(eq(books.editionOf, scanId));
@@ -197,12 +197,6 @@ export function assertRoom(spent: Spent, held: Spent, estimate: number, caps: Ca
       `This book's ${label} spending cap (${usd(caps.perBookUsd)}) has been reached (${usd(spent.book)} spent). The owner can raise ${env}_CAP_PER_BOOK_USD.`,
     );
   }
-}
-
-/** Throws if spending `estimate` more would pass a cap. */
-export async function checkCaps(db: Db, provider: string, bookId: string | null, estimate: number, caps: Caps, now: Date, label: string) {
-  if (isOwnKeyProvider(provider)) return; // M34 S4: the asker's own key; the owner's caps are not theirs
-  assertRoom(await spendingWithJobs(db, provider, bookId, now), { month: 0, book: 0 }, estimate, caps, label, bookId);
 }
 
 // Reserves live in this process. The lock only covers the check and the

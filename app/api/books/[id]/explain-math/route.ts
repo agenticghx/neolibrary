@@ -10,7 +10,7 @@ import { isCfi } from "@/lib/library/reading";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 function errorResponse(e: unknown) {
   if (e instanceof ExplainMathError) return Response.json({ error: e.message }, { status: e.message === "Book not found" ? 404 : 400 });

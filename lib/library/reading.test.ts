@@ -38,6 +38,8 @@ describe("reading position", () => {
     expect(await savePosition(database.db, other.id, bookId, { cfi: "epubcfi(/6/2!/4)", fraction: 0.1 })).toBe(false);
     expect(await savePosition(database.db, ownerId, bookId, { cfi: "epubcfi(/6/2!/4)", fraction: 2 })).toBe(false);
     expect(await savePosition(database.db, ownerId, "not-a-uuid", { cfi: "epubcfi(/6/2!/4)", fraction: 0.1 })).toBe(false);
+    // 36 characters of the right alphabet but not an id: refused here, not handed to the database to throw on.
+    expect(await savePosition(database.db, ownerId, "-".repeat(36), { cfi: "epubcfi(/6/2!/4)", fraction: 0.1 })).toBe(false);
   });
 
   // M27 Q2: an open reader asks where the place is now, to offer the one another device saved.

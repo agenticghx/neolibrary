@@ -9,7 +9,7 @@ import { askWorld, entryOf, estimateWorld, libraryLinks, storedWorld } from "@/l
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const isEntry = (s: string) => /^x-[0-9a-f]{12}$/.test(s);
 
 function errorResponse(e: unknown) {

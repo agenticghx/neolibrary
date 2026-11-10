@@ -2979,3 +2979,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** `npm run lint`, `npx tsc --noEmit`, the AI, shared-paper, summary and equation unit tests.
 **Result.** Lint and types clean; 56 passed. No browser test signs in as an invited reader and uses these two features, so that path is checked by reading only.
 **Lesson.** A rule applied route by route misses the routes written before it. `git grep -n "textModel(db" -- app/api` should print nothing but owner-only routes.
+### Iteration 170 · 2026-11-09 (laptop clock) · Audit: six small bugs, each with a failing test first · success
+
+**Hypothesis.** A read of every source file by five reviewers would find small faults the tests do not cover; each is worth fixing only if a test can show it on main.
+**Action.** Four new test cases (formula source with `$'`, a contents link with a bare `%`, the same picture subject in two books, an id of 36 hyphens), then the fixes; unused code removed.
+**Evaluation.** The four cases on main's code, then with the fixes; `npm run check`.
+**Result.** On main: 4 failed, 18 passed. With the fixes: 22 passed; whole suite 1452 passed, 2 skipped.
+**Lesson.** `String.replace` with a string built from outside text is a bug waiting for a `$`; pass a function. A pattern copied into 38 files is one decision made 38 times: the loose id check let 36 hyphens through everywhere.

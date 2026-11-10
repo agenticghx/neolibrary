@@ -377,7 +377,7 @@ export type InkCheck = {
 /**
  * Compares the figure with its redraw, drawn into pixels at the figure's size
  * twice: its lines alone and its words alone. Words are compared as text
- * elsewhere (`tokenDiff`), so here the figure's lettering is set aside where the
+ * elsewhere (`wordDiff`), so here the figure's lettering is set aside where the
  * redraw has words, and only the lines, curves and points are compared, both
  * ways, after thinning both to one pixel.
  */

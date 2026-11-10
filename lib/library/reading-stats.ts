@@ -35,8 +35,8 @@ export async function recordReading(
   input: { sessionId: unknown; bookId: string; startedAt: unknown; activeSeconds: unknown; words: unknown; pages: unknown; chapters?: unknown; focus?: unknown },
   now = new Date(),
 ) {
-  if (typeof input.sessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.sessionId)) throw new StatsError("Bad session.");
-  const [book] = /^[0-9a-f-]{36}$/i.test(input.bookId)
+  if (typeof input.sessionId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.sessionId)) throw new StatsError("Bad session.");
+  const [book] = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.bookId)
     ? await db.select({ id: books.id }).from(books).where(and(eq(books.id, input.bookId), eq(books.ownerId, ownerId)))
     : [];
   if (!book) throw new StatsError("Book not found");

@@ -6,7 +6,7 @@ import { buildXray, listXray, XrayError } from "@/lib/library/xray";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * Who & what (M32 X1): the book's X-ray index, with each entry's trail of

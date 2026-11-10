@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** A part of pages: about 200 KB of text from the script, with room to spare. */
 const MAX_BODY = 4 * 1024 * 1024;
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * Pages of a scanned PDF read on the owner's own Claude subscription

@@ -122,7 +122,7 @@ export const listQuestionBanks = async (db: Db, ownerId: string, bookId: string,
 
 /** Marks one question right or wrong. Adds a row; earlier marks stay. */
 export async function markQuestion(db: Db, ownerId: string, input: { generationId: unknown; index: unknown; correct: unknown }) {
-  if (typeof input.generationId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.generationId)) throw new QuestionsError("Question not found.");
+  if (typeof input.generationId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.generationId)) throw new QuestionsError("Question not found.");
   if (typeof input.correct !== "boolean") throw new QuestionsError("Mark it right or wrong.");
   const [g] = await db
     .select()

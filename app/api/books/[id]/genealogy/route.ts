@@ -7,7 +7,7 @@ import { genealogyNames, genealogyView } from "@/lib/library/genealogy-view";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * Genealogy (M43 S3): the book's stored links and lives as the views draw them, with the reader's chapter

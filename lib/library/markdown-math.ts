@@ -30,7 +30,8 @@ export function mathMl(tex: string, display: boolean): string | null {
   if (!math) return null;
   return math
     .replace(/<annotation encoding="application\/x-tex">[\s\S]*?<\/annotation>/, "")
-    .replace(/^<math /, `<math alttext="${escAttr(tex.trim())}" `);
+    // A function, not a string: in a replacement string "$'" and "$&" stand for parts of the match.
+    .replace(/^<math /, () => `<math alttext="${escAttr(tex.trim())}" `);
 }
 
 export type MathSpan = { start: number; end: number; tex: string };

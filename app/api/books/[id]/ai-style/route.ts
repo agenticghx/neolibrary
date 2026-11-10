@@ -4,7 +4,7 @@ import { getStyles, setStyle, StyleError } from "@/lib/library/ai-style";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /** The style for AI explanations: { user, book, effective }. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

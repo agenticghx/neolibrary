@@ -4,7 +4,7 @@ import { marksFor, XrayError } from "@/lib/library/xray";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * M32 X2: the X-ray marks of one chapter (`?chapter=` is the spine index foliate

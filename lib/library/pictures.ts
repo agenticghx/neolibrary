@@ -1,5 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { capsFromEnv, reserveSpend, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { bookGroup, capsFromEnv, reserveSpend, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
 import { fill, readPrompt, sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations } from "@/lib/db/schema";
@@ -23,7 +23,7 @@ const cleanSubject = (s: unknown) =>
 async function request(db: Db, ownerId: string, bookId: string, subjectIn: unknown) {
   const subject = cleanSubject(subjectIn);
   if (!subject) throw new PictureError("Say what the picture should show.");
-  const [book] = /^[0-9a-f-]{36}$/i.test(bookId)
+  const [book] = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)
     ? await db
         .select({ title: books.title, author: books.author })
         .from(books)
@@ -42,7 +42,9 @@ export async function storedPicture(db: Db, ownerId: string, bookId: string, sub
   const [row] = await db
     .select()
     .from(generations)
-    .where(and(eq(generations.ownerId, ownerId), eq(generations.cacheKey, r.cacheKey)))
+    // This book's picture only (a scan and its text edition are one book): the prompt names the book, so another
+    // book's picture of the same subject is a different one.
+    .where(and(eq(generations.ownerId, ownerId), inArray(generations.bookId, await bookGroup(db, bookId)), eq(generations.cacheKey, r.cacheKey)))
     .orderBy(desc(generations.createdAt))
     .limit(1);
   return row ? toGeneration(row) : null;

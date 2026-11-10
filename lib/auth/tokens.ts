@@ -69,7 +69,7 @@ export async function listApiTokens(db: Db, ownerId: string): Promise<TokenView[
 
 /** Revokes one of the owner's own tokens; anyone else's (or an unknown id) is "not found". */
 export async function revokeApiToken(db: Db, ownerId: string, id: string, now = new Date()) {
-  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new TokenError("Token not found");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new TokenError("Token not found");
   const done = await db
     .update(apiTokens)
     .set({ revokedAt: now })

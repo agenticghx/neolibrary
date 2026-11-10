@@ -3,7 +3,7 @@ import { strToU8, unzipSync, zipSync } from "fflate";
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { detectType, ImportError, readBook, unzipEpub } from "./ebook";
-import { epubDeclaring, epubWithEntries } from "./test-epub";
+import { epubDeclaring, epubWithEntries, readableEpub } from "./test-epub";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`../../fixtures/books/${name}`, import.meta.url)));
 
@@ -61,6 +61,15 @@ describe("reading EPUBs", () => {
     const labels = info.toc.flatMap((t) => [t.label, ...t.children.map((c) => c.label)]);
     expect(labels).toContain("Search for Mr. Hyde");
     expect(labels).toContain("Dr. Lanyon’s Narrative");
+  });
+
+  it("reads an EPUB whose contents link holds a % that is no escape", async () => {
+    const files = unzipSync(readableEpub("Percent", ["<p>One short page.</p>"]));
+    const nav = Object.keys(files).find((k) => /nav/i.test(k))!;
+    files[nav] = strToU8(new TextDecoder().decode(files[nav]).replace(/href="[^"]*"/, 'href="100%.xhtml"'));
+    const info = await readBook(zipSync(files), "p.epub");
+    expect(info.title).toBe("Percent");
+    expect(info.toc.map((t) => t.href).join()).toContain("100%.xhtml");
   });
 
   it("refuses DRM-protected EPUBs but accepts font obfuscation", async () => {

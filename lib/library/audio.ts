@@ -212,7 +212,7 @@ export function trackAudioUrl(audioKey: string): string {
 
 /** The stored file a track address names, for its owner only; null for any other name. */
 export const trackAudioKey = (ownerId: string, bookId: string, file: string) =>
-  /^[0-9a-f-]{36}$/i.test(bookId) && /^[0-9a-f-]{36}\.(mp3|wav|bin)$/i.test(file) ? `audio/${ownerId}/${bookId}/${file}` : null;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId) && /^[0-9a-f-]{36}\.(mp3|wav|bin)$/i.test(file) ? `audio/${ownerId}/${bookId}/${file}` : null;
 
 // Two identical requests at the same moment share one call.
 const inflight = new Map<string, Promise<{ track: Track; reused: boolean }>>();

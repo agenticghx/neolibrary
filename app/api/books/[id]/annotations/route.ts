@@ -17,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
-  if (!/^[0-9a-f-]{36}$/i.test(bookId)) return Response.json({ annotations: [], crossed: [], pages: {} });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) return Response.json({ annotations: [], crossed: [], pages: {} });
   const db = await getDb();
   const list = await listAnnotations(db, user.id, bookId);
   const { crossed, pages } = await notesAcross(db, await getStorage(), user.id, bookId, list);

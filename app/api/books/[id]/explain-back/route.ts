@@ -11,7 +11,7 @@ import { isCfi } from "@/lib/library/reading";
 
 export const dynamic = "force-dynamic";
 
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /** An error as a response: its message for the reader, and the status that fits it. */
 function failure(e: unknown): { status: number; error: string } {

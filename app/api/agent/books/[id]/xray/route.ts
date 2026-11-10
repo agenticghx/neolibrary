@@ -7,7 +7,7 @@ import { nextChapterToRead, saveChapterReadElsewhere, tidyXray, type ReadElsewhe
 export const dynamic = "force-dynamic";
 
 const MAX_BODY = 2 * 1024 * 1024;
-const isId = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /**
  * X-ray read on the owner's own Claude subscription (M32 X5), with an API

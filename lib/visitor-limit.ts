@@ -2,7 +2,7 @@
  * M34 S5: a limit on requests per visitor (someone not signed in) to the open shelf, its files and the AI routes a
  * visitor may use. A fixed window per address and kind: when a window is used up the visitor is told to wait. The
  * counts live in this server process only (Neolibrary runs one), so a restart forgets them; that is fine for a
- * guard against a script hammering the site, which is what it is for. Signed-in people are never limited here.
+ * guard against a script hammering the site, which is what it is for. On /browse pages the signed-in are counted too (proxy.ts); elsewhere signed-in people are never limited here.
  */
 export const VISITOR_LIMITS = {
   /** Pages: the shelf, a book's page, the reader. */
