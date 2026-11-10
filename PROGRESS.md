@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Check #332, then the WebKit live check of #331 once 19f3bcd is live, then push m44-guards.
+next_action: Notes panel forms say when a save fails; then the Reader.tsx split.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 12:18 · Claude (laptop session) · Guards: empty review removed, @claude limited, scripts ask before spending, expired sessions swept
+- **Done:** Owner sweep, fifth item. The automatic Claude review workflow is removed (it posted nothing: last 10 runs failed, a passing run took 36 s and left no comment). claude.yml starts only for the owner, a member or a collaborator. compare-models.ts uses the subscription unless --paid-api; check-prompt-cache.ts needs --paid-api; find-covers-on.ts refuses a database not on this computer unless --not-local. Expired sign-in sessions are deleted at each sign-in. Also checked today: all four earlier fixes are live at 1fa5057; signed out, in WebKit and Chromium at 1366x1024, /browse (twice) and /sign-in load with the new service worker in control.
+- **Key paths:** .github/workflows/claude.yml, .github/workflows/claude-code-review.yml (removed), scripts/compare-models.ts, scripts/check-prompt-cache.ts, scripts/find-covers-on.ts, lib/auth/service.ts, lib/auth/service.test.ts
+- **Commands that worked:** npm run check ; gh run list --workflow claude-code-review.yml --limit 10
+- **Known issues / blockers:** The live check was signed out only: download-then-offline on the live site needs Samuel's sign-in and was not done. The visitor reader was not opened (the first shelf title is not a free book). claude.yml's new condition cannot be tried until someone comments @claude.
+- **Exact next steps:** 1. Notes panel forms: a message on a failed save. 2. Reader.tsx split, starting with notes and the offline queue. 3. One shared book-visibility check. 4. Open-shelf covers: each takes about 0.5 s from the server (measured). 5. Last, at Samuel's word with a backup: one migration for read-along bytes and failed paid calls.
 
 ### 2026-11-10 12:15 · Claude Fable 5.2 (laptop session) · Checkpoint: owner sweep fixes; three merged, one in checks, one branch waiting
 - **Done:** Merged: #329 (unit tests copy one migrated database; CI's unit-test step 815 s to 236 s), #330 (a note waiting offline belongs to its writer; live at 8c8e409), #331 (a downloaded book survives a deploy; merged as 19f3bcd, not yet live at save time). Open: #332 (failed saves and copies say so), checks running. Local, not pushed: branch m44-guards (the empty review workflow removed, @claude limited to owner and collaborators, script guards, expired sessions swept).

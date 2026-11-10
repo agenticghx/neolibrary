@@ -3043,3 +3043,10 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Three browser tests (a 500 answer on save, on load, a refused clipboard, a microphone whose answer waits) and two unit tests; the browser tests on main's code, then with the change.
 **Result.** With the change: 299 passed in the notes project's run. On main: the save test failed (no notice); the other two did not run there, because their group starts only after the annotations group passes. `npm run check` green.
 **Lesson.** `void onSave()` and `.catch(() => {})` followed by a success message are the two shapes of a silent failure here. Search for both before trusting any "saved" or "copied" word on a page.
+### Iteration 180 · 2026-11-10 (laptop clock) · Guards: an empty review removed, @claude limited, scripts that ask before spending, expired sessions swept · success
+
+**Hypothesis.** Four small things cost money or carry risk for nothing: an automatic Claude review that posts nothing, a workflow any stranger's comment could start, three scripts that use the paid API or change a remote database without being asked to, and sign-in sessions that are never deleted.
+**Action.** `claude-code-review.yml` removed. `claude.yml` starts only for the owner, a member or a collaborator. `compare-models.ts` uses the subscription unless `--paid-api`; `check-prompt-cache.ts` needs `--paid-api`; `find-covers-on.ts` refuses a database not on this computer unless `--not-local`. Each sign-in deletes sessions past their date.
+**Evaluation.** The review's run logs; the scripts' refusals run by hand; a unit test for the session sweep; `npm run check`.
+**Result.** Review: last 10 runs failed within a minute, and a run that passed took 36 s, was denied a permission and left "No buffered inline comments". Scripts: `find-covers-on.ts` on a remote address → "not on this computer"; `check-prompt-cache.ts` with no flag → refuses. Unit tests green, with one new test.
+**Lesson.** A check that is green and says nothing is worse than no check: it reads as "reviewed". Open a passing run's log once before trusting any automatic reviewer.
