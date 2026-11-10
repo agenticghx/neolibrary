@@ -25,6 +25,7 @@ export default async function VisitorReadPage({ params }: { params: Promise<{ id
   const fileUrl = (await visitorCoverSigner())(book.fileKey)!;
   return (
     <Reader
+      readerId=""
       bookId={book.id}
       title={book.title}
       author={book.author}

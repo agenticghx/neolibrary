@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Check the unit-test time on CI for m44-ci-fast-tests; then offline safety from the owner sweep's list.
+next_action: Service worker fixes from the owner sweep (m44-offline-deploy), then note-saving honesty.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,12 @@ Never blocks the loop. Newest first.
 
 ## Log
 
+### 2026-11-10 07:56 · Claude (laptop session) · A note waiting offline belongs to the reader who wrote it
+- **Done:** Owner sweep, second item. Each note waiting on the device (made with no connection) now records its writer's account id, and only that reader's session shows or sends it; signing out leaves it waiting for them. Older waiting items with no owner count as the signed-in reader's, as before. New browser test fails on main's code (another reader's words appeared in Notes) and passes with the change.
+- **Key paths:** lib/outbox.ts, lib/outbox.test.ts, app/(reader)/books/[id]/read/Reader.tsx, both read pages (readerId), e2e/offline.spec.ts
+- **Commands that worked:** npx playwright test --ignore-snapshots --project=offline -g 'another reader' ; npm run check
+- **Known issues / blockers:** The test plants the other reader's item in the browser's database; a full two-account run in one browser was not done. Downloaded books still stay on a device after a session expires: next pull request.
+- **Exact next steps:** 1. Merge when green. 2. Service worker pull request (branch m44-offline-deploy): a downloaded book after a deploy, cache writes never decide the response, the app-files cache emptied with the last download, downloads cleared on signed-out pages; then a live WebKit check at iPad size. 3. Note-saving honesty (failed saves say so).
 ### 2026-11-10 07:34 · Claude (laptop session) · Unit tests copy one migrated database
 - **Done:** First item of the owner sweep (2026-11-10). testDatabase() starts from a database migrated once per run (Vitest global setup) instead of replaying 78 migrations per test. Laptop: 805 s of processor time down to 398 s; 1463 tests pass, 2 skipped. A second change (skip the unit checks on ledger-only pushes to main) was taken out before merging: that run's green result starts the deploy, so merged code could have gone live before its own checks finished.
 - **Key paths:** lib/db/test-db.ts, lib/db/test-db-snapshot.ts, lib/db/test-db.test.ts, lib/db/client.ts, vitest.config.mts
