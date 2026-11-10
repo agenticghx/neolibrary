@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Continue the audit's remaining item: stale documents.
+next_action: Check which of pull requests 325 to 328 are merged, and release the rest one at a time.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-09
 shared_copy: none
@@ -367,6 +367,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-09 22:10 · Claude Fable 5.2 · Checkpoint: audit fixes 4 to 8 in a merge queue; #324 merged
+- **Done:** After Samuel said the review items should be done too: #324 (a removed book serves no paragraphs) is merged. Open and queued to merge one at a time: #325 (a chapter's X-ray facts stored once), #326 (export round trip for papers and the open shelf), #327 (documents back in step). #328 (second batch: nine bugs) is open as a draft, not yet in the queue. Each code fix has tests that fail on main's code and pass with the fix.
+- **Key paths:** docs/handoffs/2026-11-09-2209-audit-fixes-merge-queue.md (gitignored, laptop); docs/handoffs/2026-11-09-audit-review-list.md (out of date: several of its items are fixed by #324 to #328); worktrees .claude/worktrees/{live-book,xray-facts,export-papers,docs-audit,batch2}
+- **Commands that worked:** gh pr list --state open --json number,isDraft,title; gh issue view 268 --json comments --jq '.comments[-3:][].body'
+- **Known issues / blockers:** The merge queue is a background script in the laptop session; if that session ended, #325 to #327 need rebasing and marking ready by hand, one at a time. The read-only live-database query was refused by the session's permission settings. claude-review failed on every pull request today (not a required check).
+- **Exact next steps:** 1. Check which of #325 to #328 are merged; rebase and release the rest one at a time. 2. Confirm each on the Deploy log. 3. Update the laptop's review list. 4. Remove the five worktrees and branches.
 
 ### 2026-11-09 21:08 · Claude Fable 5.2 · Audit fix 6: export round trip for papers and the open shelf
 - **Done:** A library export now carries what M34 and M41 added to a book: whether it is on the open shelf, and a paper's kind, authors, journal, year, DOI, PubMed ID and sharing switch. Export then import no longer turns papers into books or puts every title back on the open shelf. An invited reader's export now imports: a copy of a shared paper is accepted when it names a paper in the owner's library with exactly that paper's file and cover, and comes back hidden if the paper is no longer shared. 'Free to read' is never taken from a file. Older export files still import.
