@@ -39,12 +39,32 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # A push to main that changes only PROGRESS.md (a ledger entry: a deploy record or a checkpoint)
+      # has the same code as the commit before it, which these checks already judged. The job still
+      # ends green, so "Start the deploy" below runs as before. Pull requests always run everything.
+      - name: Is this a ledger-only commit on main?
+        id: ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          only=no
+          if [ "${{ github.event_name }}" = "push" ]; then
+            files=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.files[]?.filename' || true)
+            if [ "$files" = "PROGRESS.md" ]; then only=yes; fi
+          fi
+          echo "only=$only" >> "$GITHUB_OUTPUT"
+          if [ "$only" = "yes" ]; then echo "Only PROGRESS.md changed: lint, types and unit tests are not run again."; fi
+      - if: steps.ledger.outputs.only != 'yes'
+        run: npm ci
       - name: Lint (ESLint + design-token rule)
+        if: steps.ledger.outputs.only != 'yes'
         run: npm run lint
       - name: Type check
+        if: steps.ledger.outputs.only != 'yes'
         run: npm run typecheck
       - name: Unit tests (Vitest)
+        if: steps.ledger.outputs.only != 'yes'
         run: npm test
 
   postgres:
