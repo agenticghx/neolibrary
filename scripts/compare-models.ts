@@ -12,11 +12,11 @@
  * Writes report.html and results.json to the output folder, which holds book
  * text: keep it out of git (ground rule 1).
  *
- * Usage (from the repository root, ANTHROPIC_API_KEY set):
- *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--budget 0.9] [--books 5] [--models a,b,c]
- * Or on the reader's Claude subscription instead of the API (no key; the
- * costs shown are what the API would have charged, and --budget is ignored):
- *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> --cli
+ * Usage (from the repository root), on the Claude subscription (no key; the costs shown are what the API would
+ * have charged, and --budget is ignored). --cli is still accepted and means the same:
+ *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--books 5] [--models a,b,c]
+ * Or on the paid API, only when asked for by name (ANTHROPIC_API_KEY set):
+ *   npx tsx scripts/compare-models.ts <backup.sql> <output folder> --paid-api [--budget 0.9]
  * `claude -p` adds about 1,400 tokens of its own to each prompt, and replies
  * with JSON through a tool, so its token counts run a little above the API's.
  */
@@ -107,10 +107,14 @@ type Result = { model: string; answeredBy?: string; output?: string; error?: str
 
 async function main() {
   const [backup, out] = process.argv.slice(2);
-  const cli = process.argv.includes("--cli");
+  // The subscription is the default (project rule: model work outside the app runs on Samuel's subscription).
+  // The paid API is used only when asked for by name.
+  const paid = process.argv.includes("--paid-api");
+  const cli = !paid;
   const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!backup || !out) throw new Error("Usage: npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--cli]");
-  if (!key && !cli) throw new Error("Set ANTHROPIC_API_KEY, or pass --cli to use the Claude subscription.");
+  if (!backup || !out) throw new Error("Usage: npx tsx scripts/compare-models.ts <backup.sql> <output folder> [--paid-api]");
+  if (paid && !key) throw new Error("--paid-api needs ANTHROPIC_API_KEY. Without --paid-api the Claude subscription is used.");
+  console.log(paid ? "Using the paid Anthropic API (--paid-api)." : "Using the Claude subscription (claude -p). Pass --paid-api to spend on the API instead.");
   const budget = cli ? Infinity : Number(arg("budget", "0.9"));
   const makeModel = (name: string): TextModel => (cli ? new ClaudeCliModel(name) : new ClaudeModel(key!, name));
   const want = Number(arg("books", "5"));

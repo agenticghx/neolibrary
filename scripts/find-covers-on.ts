@@ -3,6 +3,10 @@
  * where FILES_DIR (or S3_BUCKET) says: for trying it on a restored copy of the live library before a deploy.
  * Prints each title with what was found. Usage (from the repository root):
  *   DATABASE_URL=postgres://… FILES_DIR=/tmp/covers npx tsx scripts/find-covers-on.ts [--force]
+ *
+ * It changes the database it is pointed at: opening it applies any migration (a script that changes the database
+ * layout) this checkout has and the database lacks, and the covers found are written to it. So it runs only on a
+ * database on this computer, unless --not-local is passed (never for the live library: that needs a backup first).
  */
 import { getDb } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
@@ -11,6 +15,9 @@ import { findMissingCovers } from "@/lib/library/cover-lookup";
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("Set DATABASE_URL to the library to look covers up for.");
+  const host = new URL(process.env.DATABASE_URL).hostname;
+  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !process.argv.includes("--not-local"))
+    throw new Error(`The database is on ${host}, not on this computer. This script changes it (migrations and covers). Pass --not-local if that is meant.`);
   const key = process.env.GOOGLE_BOOKS_API_KEY?.trim();
   // The real catalogues, chosen here: getCoverSource() would hand back the fake under a test runner.
   const source = new CoverSources([new OpenLibraryCovers(), ...(key ? [new GoogleBooksCovers(key)] : [])]);

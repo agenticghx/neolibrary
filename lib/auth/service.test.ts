@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { eq } from "drizzle-orm";
-import { users } from "@/lib/db/schema";
+import { sessions, users } from "@/lib/db/schema";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "./crypto";
 import {
   acceptInvite,
@@ -121,6 +121,18 @@ describe("sign-in and sessions", () => {
     expect(await userForSession(database.db, live.token)).toBeNull();
     expect(await userForSession(database.db, undefined)).toBeNull();
     expect(await userForSession(database.db, "forged")).toBeNull();
+  });
+});
+
+describe("expired sessions", () => {
+  it("are removed at the next sign-in; live ones stay", async () => {
+    const a = await createFirstAdmin(database.db, admin);
+    const old = await createSession(database.db, a.id, new Date("2026-01-01T00:00:00Z"));
+    const live = await createSession(database.db, a.id, new Date("2026-06-01T00:00:00Z"));
+    const rows = async () => (await database.db.select({ id: sessions.id }).from(sessions)).length;
+    expect(await rows()).toBe(1);
+    expect(await userForSession(database.db, old.token, new Date("2026-01-02T00:00:00Z"))).toBeNull();
+    expect(await userForSession(database.db, live.token, new Date("2026-06-02T00:00:00Z"))).toMatchObject({ id: a.id });
   });
 });
 
