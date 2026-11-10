@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 
@@ -281,7 +281,7 @@ export function findCitations(paragraphs: CitationParagraph[], chapters: Chapter
  * list: its chapter labels, and the short paragraphs that say only "References", are read before giving up.
  */
 export async function citationsFor(db: Db, ownerId: string, bookId: string): Promise<PaperCitations> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) return NONE;
   const chapters = await db
     .select({ chapterIndex: sections.chapterIndex, label: sections.label, href: sections.href })

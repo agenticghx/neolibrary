@@ -8,8 +8,10 @@ import { testDatabase } from "@/lib/db/test-db";
 import { FakePapers } from "@/lib/papers/fake";
 import { MemoryStorage } from "@/lib/storage";
 import { createAnnotation, listAnnotations } from "./annotations";
+import { passageFor } from "./audio";
 import { importBook } from "./import";
 import { clearPaper, PaperError, setPaper } from "./papers";
+import { chapterFor } from "./prerequisites";
 import { listRemovedBooks, removeBook, restoreBook } from "./remove-book";
 import { readerMayFetch, setPaperSharing, shareAllWith, sharedBy } from "./shared-papers";
 import { listShelf } from "./shelf";
@@ -96,6 +98,9 @@ describe("shared papers (M41 R3c)", () => {
     expect(await listRemovedBooks(database.db, ann)).toEqual([]);
     await expect(restoreBook(database.db, ann, copy.id)).rejects.toThrow("Book not found.");
     expect(await papersOf(ann)).toEqual([]);
+    // The hidden copy's own paragraphs are not served either (read aloud, rewrites, the X-ray, and the rest ask this way).
+    await expect(passageFor(database.db, ann, copy.id, { cfi: "epubcfi(/6/2)" })).rejects.toThrow("Book not found");
+    await expect(chapterFor(database.db, ann, copy.id, { cfi: "epubcfi(/6/2)" })).rejects.toThrow();
     // A copy left on a shelf by any route still opens no file once sharing is off.
     await database.db.update(books).set({ deletedAt: null }).where(eq(books.id, copy.id));
     expect(await readerMayFetch(database.db, ann, orig.fileKey!, false)).toBe(false);

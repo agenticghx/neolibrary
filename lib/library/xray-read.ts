@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { capsFromEnv, estimateCost, generate, generationCacheKey, spendingWithJobs, SpendingCapReached, type Caps, type GenerationRequest } from "@/lib/ai/generate";
 import { AiError, type TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -297,7 +297,7 @@ async function tidyEntries(db: Db, bookId: string): Promise<number> {
  * anything changed.
  */
 export async function tidyXray(db: Db, ownerId: string, bookId: string): Promise<{ entries: number; changed: number; mentions: number }> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new XrayError("That book was not found.");
   const changed = await tidyEntries(db, bookId);
   let mentions = 0;
@@ -353,7 +353,7 @@ export type XraySummary = {
 
 /** What reading the whole book with Claude involves now: how much is done, what the rest would cost at most, and the caps. */
 export async function xraySummary(db: Db, model: TextModel, ownerId: string, bookId: string, opts: { caps?: Caps; now?: () => Date } = {}): Promise<XraySummary> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new XrayError("That book was not found.");
   const chapters = await bookChapters(db, bookId);
   const read = new Set(
@@ -391,7 +391,7 @@ export async function xraySummary(db: Db, model: TextModel, ownerId: string, boo
  * about $X at most". One run per reader at a time.
  */
 export async function startXray(deps: ReadDeps, ownerId: string, bookId: string, confirm: unknown): Promise<{ started: boolean; finished: Promise<void> }> {
-  const [book] = await deps.db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await deps.db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new XrayError("That book was not found.");
   if (confirm !== true) throw new XrayError("Nothing was started: first confirm that this reads the whole book with Claude, paid as it goes.");
   const key = jobKey(ownerId, bookId);
@@ -457,7 +457,7 @@ export type NextChapter = {
 
 /** The next chapter this reader has not had read, with the request the server would send for it; `chapter` null when every chapter is read. */
 export async function nextChapterToRead(db: Db, ownerId: string, bookId: string): Promise<NextChapter> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new XrayError("That book was not found.");
   const chapters = await bookChapters(db, bookId);
   const read = new Set(
@@ -483,7 +483,7 @@ export type ReadElsewhere = { chapterId: unknown; output: unknown; model: unknow
  * like one. A chapter read twice keeps both answers; the facts come from the newest.
  */
 export async function saveChapterReadElsewhere(db: Db, ownerId: string, bookId: string, input: ReadElsewhere, now = new Date()) {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new XrayError("That book was not found.");
   const chapter = (await bookChapters(db, bookId)).find((c) => c.id === input.chapterId);
   if (!chapter) throw new XrayError("That is not one of this book's chapters.");

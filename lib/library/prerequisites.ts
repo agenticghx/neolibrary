@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { estimateCost, generate, listGenerations, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -48,7 +48,7 @@ export type Chapter = { id: string; label: string; chapterIndex: number };
 
 /** The chapter at a place in the book (a CFI) or with a given id. */
 export async function chapterFor(db: Db, ownerId: string, bookId: string, at: { cfi: string } | { chapterId: string }): Promise<Chapter> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new PrerequisitesError("That chapter was not found.");
   let chapterIndex: number | null = null;
   if ("cfi" in at) {

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, type SQL } from "drizzle-orm";
 import { capsFromEnv, reserveSpend, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
@@ -84,7 +84,7 @@ export type Passage = {
 
 /** The paragraph at a place in the book (a CFI) or with an id, and the one after it (to read on). */
 export async function passageFor(db: Db, ownerId: string, bookId: string, at: { cfi: string } | { sectionId: string }): Promise<Passage> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) throw new AudioError("Book not found");
   // A CFI with no place inside its chapter (no "!") is the top of a chapter,
   // or a whole PDF page: every paragraph of a page has its page's CFI, so

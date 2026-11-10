@@ -12,7 +12,7 @@
  * words in the edition's own file (text-epub.ts pageMark), so notes made
  * before this change, or by an agent, have it too.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { strFromU8, unzipSync } from "fflate";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
@@ -28,7 +28,7 @@ export async function otherVersion(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, editionOf: books.editionOf, fileKey: books.fileKey })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   if (!book) return null;
   if (book.editionOf) return { here: "text" as const, otherId: book.editionOf, editionKey: book.fileKey };
   const [edition] = await db
