@@ -503,3 +503,32 @@ test("notes that cannot be loaded are said, not shown as none", async ({ page, c
   await expect(page.getByTestId("notes-failed")).toContainText("could not be loaded. They are safe in the library.");
   await context.unrouteAll();
 });
+
+// The Notes panel's own forms: a save the library refuses says so, and the words stay in the box.
+test("a note about the book that is not saved says so and keeps the words", async ({ page, context }) => {
+  await openAtRuggedCountenance(page);
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const panel = page.getByRole("navigation", { name: "Notes" });
+  await context.route("**/api/books/*/annotations", (route) =>
+    route.request().method() === "POST" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
+  const box = panel.getByLabel("A note about this book");
+  await box.fill("A thought about the whole book.");
+  await panel.locator("form").filter({ has: page.getByLabel("A note about this book") }).getByRole("button", { name: "Add note" }).click();
+  await expect(panel.getByRole("alert")).toContainText("Not saved. The library said: The library is busy.");
+  await expect(box).toHaveValue("A thought about the whole book.");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await panel.getByRole("alert").scrollIntoViewIfNeeded();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/notes-panel-not-saved-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await context.unrouteAll();
+});
