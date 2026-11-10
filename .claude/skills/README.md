@@ -15,6 +15,7 @@ the repository, on a laptop or in a cloud session.
 | `browser-test-triage` | A browser test fails on the laptop: run it in CI's Linux image, on the branch and on main, to tell "my change" from "main" from "Mac-only" before pushing |
 | `scan-to-text` | Turn a scanned book (page photographs) into a text edition beside the scan |
 | `xray-on-subscription` | Build a book's X-ray (who and what is in it) on a Claude subscription |
+| `genealogy-on-subscription` | Read a book for its genealogy (who founded, led, left or funded whom) on a Claude subscription, every link checked against the book's words |
 | `figures-on-subscription` | Redraw a paper's figures cleanly on a Claude subscription, checked against the printed ones, looked at by eye, sent and checked live |
 | `readalong-audio` | Make a read-along package: audio, the script read aloud, word timings, and where each paragraph is in the book |
 | `book-chapters` | Split an EPUB or PDF into one clean text file per chapter, ready to narrate |

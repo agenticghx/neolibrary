@@ -33,7 +33,7 @@ and museum signage, not a software dashboard.
    written by AI. Book text is serif on paper; the reader's own notes are
    italic serif. These three never look alike.
 5. **The room and its glass** (M24, Samuel's picks of 2026-10-14; the
-   reasoning is in `docs/glass-redo-plan.md`). Behind every app page is a
+   reasoning was in `docs/glass-redo-plan.md`, a file that was never committed). Behind every app page is a
    "room": a soft wash, deep blue-grey sky at the top of the first screen
    fading to cream (dark mode: deep blue and sage shapes on near-black). It
    is one screen tall (`--room-height`) and scrolls away with the page;
@@ -188,10 +188,11 @@ highlight.
 | Token rule | `npm run lint` (stylelint + ESLint) | a raw colour, size, spacing or inline style appears |
 | Contrast of token pairs | `npm test` (`lib/tokens.test.ts`) | a text colour drops below its minimum |
 | Accessibility in the browser | `npx playwright test` (`e2e/a11y.spec.ts`, axe-core) | any WCAG 2.1 A/AA problem on a page |
-| Screenshot comparison | `npx playwright test` (`e2e/visual.spec.ts`) | a page changes by more than 0.2% of its pixels |
+| Screenshot comparison | `npx playwright test` (`e2e/visual.spec.ts`) | a page changes by more than 40 pixels (`maxDiffPixels` in `playwright.config.ts`) |
 | Screenshot grid | CI comment on every PR | (for Samuel's eyes) |
 
-**Changing the look on purpose:** run `npm run test:e2e:update`, look at the
-new images in `e2e/__screenshots__/`, and commit them in the same PR, saying
+**Changing the look on purpose:** the reference images are Linux renders made
+by CI, so do not make them on a Mac: the `merge-train` skill downloads CI's
+new images. Look at them in `e2e/__screenshots__/` and commit them in the same PR, saying
 in the PR what changed and why. Never update reference images to hide a
 change you did not mean.

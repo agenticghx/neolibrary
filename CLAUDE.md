@@ -68,7 +68,8 @@ engineer.
   (`.claude/skills/merge-train/SKILL.md`); `docs/ci-flakes.md` lists the
   known flaky tests. Every other skill this project uses sits beside it in
   `.claude/skills/` (index and rules: `.claude/skills/README.md`):
-  `scan-to-text`, `xray-on-subscription`, `figures-on-subscription`,
+  `scan-to-text`, `xray-on-subscription`, `genealogy-on-subscription`,
+  `figures-on-subscription`, `browser-test-triage`,
   `readalong-audio`,
   `book-chapters`, `plain-english` and `simplified-technical-english`.
   Load the one that fits first.
