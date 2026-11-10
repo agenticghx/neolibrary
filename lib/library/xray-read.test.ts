@@ -160,6 +160,13 @@ describe("reading a chapter with Claude (M32 X3)", () => {
     expect(again.reused).toBe(true);
     expect(model.calls.length).toBe(1);
     expect((await database.db.select().from(xrayFacts).where(eq(xrayFacts.bookId, bookId))).length).toBe(facts.length);
+    // Read again in another style (a new answer for the same chapter): its facts take the place of the first answer's.
+    await setStyle(database.db, ownerId, bookId, { scope: "all", style: "ste-light" });
+    const restyled = await readChapter({ db: database.db, model }, ownerId, bookId, door);
+    expect(restyled.reused).toBe(false);
+    const after = await database.db.select().from(xrayFacts).where(eq(xrayFacts.bookId, bookId));
+    expect(after.length).toBe(restyled.facts);
+    expect(after.every((f) => f.generationId === restyled.generation!.id)).toBe(true);
   });
 
   it("passages are numbered from 1 and cut at the length the cost allows", async () => {
