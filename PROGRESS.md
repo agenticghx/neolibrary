@@ -5,7 +5,7 @@ owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
 next_action: Samuel reads the audit review list (Open unknowns rows 35 and 36) and says which remaining findings to fix and whether to prune GitHub.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
-updated: 2026-11-09
+updated: 2026-11-10
 shared_copy: none
 ---
 
@@ -178,6 +178,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 00:27 · Claude Fable 5.2 · Checkpoint: audit closed; eight fixes live (30d196e)
+- **Done:** All eight audit pull requests are merged and deployed by the Deploy workflow: #321, #323, #322, #324, #325, #326, #327, #328. Deploy log issue 268, 2026-11-10T05:25:45Z: 'Live: 30d196e (was eaca17f). /api/health on every address shows 30d196e; /sign-in 200. No migration.' Main's CI passed on 30d196e. No pull request is open. The nine audit worktrees and their branches, local and on GitHub, are removed.
+- **Key paths:** docs/handoffs/2026-11-09-audit-review-list.md (gitignored, laptop): what is left, with file and line
+- **Commands that worked:** gh issue view 268 --json comments --jq '.comments[-1].body'; gh pr list --state open (empty)
+- **Known issues / blockers:** One browser check on #328 failed once and passed on re-run: e2e/visual.spec.ts:6 'design looks as approved', phone-dark, 230 pixels (run 42755543580 attempt 1): the known /design page-height flake in docs/ci-flakes.md, now seen on phone-dark too; not yet added to that file. lib/library/export.test.ts 'export, wipe, import gives back an identical library' failed once in six local runs (review-queue order): not yet in docs/ci-flakes.md. claude-review failed on all eight pull requests (not a required check; cause not found). Not done: the read-only live-database query (was the shared-paper restore used; how many X-ray facts are doubled), refused by the session's permission settings.
+- **Exact next steps:** Samuel's choices: Open unknowns row 35 (what is left on the review list: reader-page bugs that need a browser, slow paths, the rate-limit header check, unsent notes on a shared device) and row 36 (prune the ci-screenshots branch and 261 merged branches).
 
 ### 2026-11-09 21:18 · Claude Fable 5.2 · Audit fix 8: second batch of nine bugs
 - **Done:** From the audit's review list. With a failing test first: (1) a display equation followed by a full stop or words on its line ('$$x = y$$.') no longer swallows the rest of the book; (2) importing notes adds nothing when one item is refused, where it used to stop half way; (3) Explain it back no longer saves the reader's summary again on each retry after a failed call; (4) chapter labels like CIVIL and DIM are names, not Roman numerals; (5) a read-along package whose chapter names an audio file missing from its list is refused before anything is stored (it used to crash and leave a stuck import), and an unsupported audio type is caught before the first file is stored; (6) a note's quote holding a letter outside the basic plane (a formula's italic x) is found whole in the other version of the book. By reading: a JSON body of null on 24 routes is an empty body, not an error page; a repeated ?q= on Search and Library no longer crashes the page; the whole-book X-ray route answers 404 for an unknown book.
