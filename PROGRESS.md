@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Measure the open shelf's covers on the live site once the memory cache is deployed.
+next_action: Open-shelf covers: load only the covers on screen first, then measure again in WebKit on the live site.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
-updated: 2026-11-10
+updated: 2026-11-11
 shared_copy: none
 ---
 
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-11 00:31 · Claude Fable 5.2 · Checkpoint: Live 93e0fee; Reader.tsx 1,442 lines; covers measured after #347 (WebKit 12.1 s, target 5 s not met)
+- **Done:** Live on both addresses: 93e0fee (#347, covers kept in the server's memory). No pull request open. Reader.tsx is 1,442 lines on main (3,271 on the morning of 2026-11-10). isOwnBook is called by 44 single-book lookups (#344, #345). Open-shelf covers on the live site, all 129, signed out, 1366x1024: before, WebKit 42.7 s and 46.2 s, Chromium 6.3 s; after #347, WebKit 31.7 s on the first visit after the deploy, then 12.1 s and 12.1 s; Chromium 3.8 s, 4.1 s, 3.0 s. Version 2's 'every cover within 5 seconds in WebKit' is not met. The session's worktree and its ten merged local branches are removed; the main folder is level with origin/main.
+- **Key paths:** docs/handoffs/2026-11-11-0030-reader-split-done-covers-measured.md (laptop only); lib/storage/small-file-cache.ts; lib/library/own-book.ts; app/(reader)/books/[id]/read/Reader.tsx; docs/version-2.md
+- **Commands that worked:** curl -s https://library.samuelahuno.com/api/health; node live-covers.mjs 3 (a 30-line Playwright script: opens /browse signed out in WebKit and Chromium and waits for every cover picture)
+- **Known issues / blockers:** docs/version-2.md does not yet carry the cover numbers. The first visit after every deploy is still slow (the memory is empty). Playwright's WebKit loads the covers about one at a time; whether a real iPad does is not known. After #347 only /api/health was checked on the live site.
+- **Exact next steps:** 1. Covers to 5 s in WebKit: load only the covers on screen first (loading=lazy; make the full-page screenshot tests wait for pictures), time the visitor check, consider reading the shelf's covers into memory at server start; then write the numbers into docs/version-2.md. 2. Ask Samuel how long /browse takes on the real iPad, signed out. 3. A signed-in live check of download-then-offline (needs Samuel's browser). 4. A removed sticker or drawing keeps its mark until reload; a note can be saved twice. 5. The Batch API path does not record a billed failure. 6. Shorten what each session must read (archive the Log older than two weeks).
 
 ### 2026-11-10 23:54 · Claude Fable 5.2 · Covers are kept in the server's memory after their first read (open shelf speed)
 - **Done:** Merged: #346 (full screen in useFullScreen.ts; Reader.tsx 1,442 lines; docs/version-2.md's standing updated). Live when this was written: b4d8567 (#345). This change: lib/storage/small-file-cache.ts wraps storage and keeps files under covers/ in memory after their first read (up to the cover size limit each, 64 MB in all, ten minutes each), forgetting one at once when it is written or deleted through it; who may have a file is still checked on every request. Measured before, on the live site: a cover took 0.5 to 1.7 s to start arriving, a request that stops before the bucket 0.14 s; all 129 covers took 42.7 s and 46.2 s in WebKit at iPad size, 6.3 s in Chromium (53.2 s just after a deploy). Unit tests: 8 new. Whole browser suite on the laptop, with the disk storage wrapped too: 430 passed. npm run check: 1481 passed, 2 skipped.
