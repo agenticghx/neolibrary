@@ -68,6 +68,15 @@ import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
 import { OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, isDark, pdfDocsOnScreen, pdfPage, readerClass, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
 
+type NotSaved = { reason: string; text: string; what?: string };
+
+/**
+ * The "not saved" notice after another save or failure. A notice that holds a note's words is the only copy of them:
+ * it stays until the reader dismisses it, unless what just happened carried words itself (the note, tried again). So
+ * a bookmark or a removal, saved or refused, never takes a failed note's words off the page.
+ */
+const keepWords = (was: NotSaved | null, text: string, next: NotSaved | null) => (was?.text && !text ? was : next);
+
 export function Reader(props: {
   /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
   readerId: string;
@@ -905,13 +914,15 @@ export function Reader(props: {
 
   // A save the library refused or that failed part-way (not "no connection": those wait on the device). Shown over
   // the page with what the reader typed, so the words are not lost with the selection bar that held them.
-  const [notSaved, setNotSaved] = useState<{ reason: string; text: string } | null>(null);
-  const orSay = async (work: () => Promise<void>, text = "") => {
+  const [notSaved, setNotSaved] = useState<NotSaved | null>(null);
+  /** Runs a save; if the library refuses it, says so. `what` names what did not happen when it is not a save ("Not removed"). */
+  const orSay = async (work: () => Promise<void>, text = "", what?: string) => {
     try {
       await work();
-      setNotSaved(null);
+      setNotSaved((was) => keepWords(was, text, null));
     } catch (e) {
-      setNotSaved({ reason: e instanceof Error && e.message ? e.message : "Not saved", text });
+      const reason = e instanceof Error && e.message ? e.message : "Not saved";
+      setNotSaved((was) => keepWords(was, text, { reason, text, what }));
     }
   };
 
@@ -1012,18 +1023,23 @@ export function Reader(props: {
   const toggleBookmark = async () => {
     if (!where.cfi || bookmarking.current) return;
     bookmarking.current = true;
-    try {
-      if (bookmarkHere) await forget(bookmarkHere);
-      else
-        await create({
-          kind: "bookmark",
-          cfi: CFI.collapse(where.cfi),
-          quote: { exact: visibleText.current.slice(0, 160) || where.chapter },
-        });
-      await reload();
-    } finally {
-      bookmarking.current = false;
-    }
+    const here = where.cfi;
+    // A bookmark the library refuses says so: the button used to stay as it was, with no word of why.
+    await orSay(
+      async () => {
+        if (bookmarkHere) await forget(bookmarkHere);
+        else
+          await create({
+            kind: "bookmark",
+            cfi: CFI.collapse(here),
+            quote: { exact: visibleText.current.slice(0, 160) || where.chapter },
+          });
+        await reload();
+      },
+      "",
+      bookmarkHere ? "The bookmark was not removed" : "The bookmark was not saved",
+    );
+    bookmarking.current = false;
   };
 
   // The app's read-aloud player (components/player): while the bar shows, this
@@ -1272,9 +1288,9 @@ export function Reader(props: {
               }
             }}
             onSave={saveNote}
-            onDelete={removeNote}
+            onDelete={(a) => orSay(() => removeNote(a), "", "Not removed")}
             removed={removed?.note ?? null}
-            onUndo={() => void undoRemove()}
+            onUndo={() => void orSay(undoRemove, "", "Not brought back")}
             notSaved={refused.map((w) => describeRefused(w, notes))}
             onDismiss={(id) => void dismissRefused(id)}
             onAddBookNote={addBookNote}

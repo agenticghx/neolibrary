@@ -325,3 +325,23 @@ test("the see-it panel is accessible, and looks right on phone and desktop, ligh
     }
   }
 });
+
+// Version 2, check 1: a picture the library does not pin says so.
+test("a picture the library does not pin says so, and is not called pinned", async ({ page, context }) => {
+  await openReader(page);
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const before = await notesButton.textContent();
+  const panel = await seeIt(page, "the clock of the neighbouring church");
+  await panel.getByLabel("Search pictures").fill("silicon wafer");
+  await panel.getByRole("button", { name: "Search" }).click();
+  const first = panel.getByTestId("image-results").locator("li").first();
+  await context.route("**/api/books/*/annotations", (route) =>
+    route.request().method() === "POST" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
+  await first.getByRole("button", { name: "Pin to the passage" }).click();
+  await expect(panel.getByRole("alert")).toContainText("The library is busy.");
+  await expect(first.getByRole("status")).toHaveCount(0);
+  await expect(notesButton).toHaveText(before!);
+  await context.unrouteAll();
+});
+

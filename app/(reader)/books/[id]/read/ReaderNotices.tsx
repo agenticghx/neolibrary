@@ -18,7 +18,7 @@ export function ReaderNotices(props: {
   /** Places this device itself has saved: one of them is never offered as "elsewhere". */
   ownPlaces: RefObject<Set<string>>;
   view: RefObject<FoliateView | null>;
-  notSaved: { reason: string; text: string } | null;
+  notSaved: { reason: string; text: string; what?: string } | null;
   setNotSaved: (failure: null) => void;
   notesFailed: boolean;
   setNotesFailed: (failed: boolean) => void;
@@ -59,7 +59,7 @@ export function ReaderNotices(props: {
       ) : null}
       {notSaved ? (
         <div className={styles.elsewhere} role="alert" data-testid="save-failed">
-          <p>Not saved. The library said: {notSaved.reason}</p>
+          <p>{notSaved.what ?? "Not saved"}. The library said: {notSaved.reason}</p>
           {notSaved.text ? <p>Your note: “{notSaved.text}”</p> : null}
           <button type="button" className={styles.tool} onClick={() => setNotSaved(null)}>
             Dismiss
