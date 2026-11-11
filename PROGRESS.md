@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader split, fourth cut: reading aloud into its own hook.
+next_action: After Samuel's call: finish and open the fourth Reader cut (reading aloud).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 19:55 · Claude Fable 5.2 · Checkpoint: Reader split, cuts 2 and 3 merged (#338, #339); cut 4 (reading aloud) waits for one Safari test run
+- **Done:** Merged: #338 (notes and the offline queue in useNotes.ts, live as dea5bd6) and #339 (the sitting focus session in useSittingFocus.ts; whether it is live was not checked). Cut 4, reading aloud in useReadAloud.tsx, is on the local branch m44-reader-aloud-hook (worktree .claude/worktrees/notes-hook), not pushed: Reader.tsx is 2,393 lines there (main: 2,527; target under 1,500). Types and lint pass on it. Its one browser failure (e2e/readalong.spec.ts:1032, Safari engine, once in a whole-suite run) did not recur in one whole run of the readalong-safari project (411 passed); a second run was stopped when Samuel asked to pause local tests for a call.
+- **Key paths:** docs/handoffs/2026-11-10-1954-reader-split-fourth-cut.md (laptop only); app/(reader)/books/[id]/read/useNotes.ts; app/(reader)/books/[id]/read/useSittingFocus.ts; docs/ci-flakes.md
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line --project=readalong-safari; npm run check; git diff HEAD~1 --color-moved=plain --color-moved-ws=ignore-all-space
+- **Known issues / blockers:** Local browser tests are paused at Samuel's word until he says his call is over. Cut 4 still owes one whole readalong-safari run and npm run check. e2e/review.spec.ts:184 fails on slow laptop runs (listed in docs/ci-flakes.md).
+- **Exact next steps:** 1. When Samuel says the call is over: rebase m44-reader-aloud-hook onto origin/main, run the readalong-safari project once more and npm run check, add learning-log iteration 186 and a ledger entry, open the pull request. 2. Next cut: full screen and the idle bars. 3. Make review.spec.ts:184 independent of how long its page stays open. 4. One shared book-visibility check in lib/. 5. Open-shelf covers within 5 s in WebKit.
 
 ### 2026-11-10 18:12 · Claude Fable 5.2 · Reader split, third cut: the sitting focus session moves to useSittingFocus.ts
 - **Done:** The second cut (#338, notes and the offline queue in useNotes.ts) merged and is live as dea5bd6. This third cut moves, with no change in behaviour, the focus session at one sitting (its state, keeping level with the server, start, end, wait, answer) into a hook in useSittingFocus.ts. Reader.tsx is 2,527 lines (was 2,661; target under 1,500). npm run check: 1471 passed, 2 skipped. Whole browser suite on the laptop: 428 passed, 1 failed (e2e/review.spec.ts:184), 1 did not run; that test then passed 8 of 8 repeats at normal speed and is listed in docs/ci-flakes.md with its counts.
