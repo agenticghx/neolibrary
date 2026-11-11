@@ -77,14 +77,14 @@ helps, and takes its turn after any open item under lines 1 to 4.
 - More kinds of AI answer before the present ones are checked by eye on
   Samuel's real books (the standing verdicts under "Waiting on Samuel").
 
-## Where it stands (2026-11-10)
+## Where it stands (2026-11-10, evening)
 
 | Line | State |
 |---|---|
 | 1. Nothing lost or leaked | Most paths done today (#330, #332, #334). Left: removing a sticker or drawing leaves its mark until reload; double-saved notes. |
 | 2. Works where it is read | Not started as a rule. Covers are slow in WebKit. |
 | 3. Offline | Done today (#330, #331); the signed-in live check of download-then-offline is still to do. |
-| 4. Money | Scripts done (#333). The cap and the upload ceiling need one migration. |
-| 5. Reader page | Not started. |
+| 4. Money | Done: scripts (#333); a billed AI answer that fails now counts against the cap, and read-along audio has one ceiling per reader (migration 0040, #337, live). Left: the Batch API path for scanned pages does not record a billed failure. |
+| 5. Reader page | `Reader.tsx` is under 1,500 lines (#336, #338 to #343, and the full-screen cut), with notes, focus, reading aloud, the ruler and full screen each in their own file. Ownership ("this book, of this reader, not removed") is one function, `isOwnBook`, called by 44 single-book lookups; 7 lookups stay by hand, each with its reason in `lib/library/own-book.test.ts`, which fails on a new one (#344, #345). Not under it: lists of books, raw SQL, and the rules for visitors and shared papers. |
 | 6. The loop | CI's unit tests 815 s to 236 s (#329). Reading load not started. |
 | 7. Audit list | Open unknowns row 35. |

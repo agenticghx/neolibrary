@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Full screen into its own file, then update docs/version-2.md for check 5.
+next_action: Open-shelf covers within 5 s in WebKit: measure first, then fix.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 23:04 · Claude Fable 5.2 · Reader split, last cut: full screen in useFullScreen.ts; version 2's standing updated
+- **Done:** Live: #344 (isOwnBook) as 533987d. Merged: #345 (a removed book takes no new work). This change: full screen and its fading bars in useFullScreen.ts; Reader.tsx is 1,442 lines (3,271 this morning; version 2 asked for under 1,500, with notes, focus, reading aloud and full screen each in their own file: all four are). docs/version-2.md's standing table rewritten for checks 4 and 5. Whole browser suite on the laptop: 430 passed. npm run check: 1474 passed, 2 skipped.
+- **Key paths:** app/(reader)/books/[id]/read/useFullScreen.ts; app/(reader)/books/[id]/read/Reader.tsx; docs/version-2.md; LEARNING_LOG.md (iteration 192)
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line; npm run check
+- **Known issues / blockers:** None met. Version 2's fifth check is met for the file's size and its parts; the ownership function covers single-book lookups only (lists, raw SQL, visitor and shared-paper rules are outside it).
+- **Exact next steps:** 1. Open-shelf covers within 5 s in WebKit (each cover takes about 0.5 s from the server and is cached 300 s; version 2's second check). 2. A signed-in live check of download-then-offline (needs Samuel's browser). 3. A removed sticker or drawing keeps its mark until reload; a note can be saved twice (version 2's first check). 4. The Batch API path does not record a billed failure. 5. Shorten what each session must read (version 2's sixth check).
+
+### 2026-11-10 22:46 · Claude Fable 5.2 · Full screen moves to useFullScreen.ts; docs/version-2.md brought up to date (under test)
+- **Done:** On branch m44-full-screen (on top of #345, which is open): full screen and its fading bars moved from Reader.tsx into a hook in useFullScreen.ts, completing the list in version 2's check 5 (notes, focus, reading aloud, full screen each in their own file). Reader.tsx is 1,442 lines on this branch. docs/version-2.md's standing table now says where checks 4 and 5 stand tonight. Types and lint pass.
+- **Key paths:** app/(reader)/books/[id]/read/useFullScreen.ts; app/(reader)/books/[id]/read/Reader.tsx; docs/version-2.md
+- **Commands that worked:** npx tsc --noEmit; npx eslint 'app/(reader)/books/[id]/read/'
+- **Known issues / blockers:** The whole browser suite and npm run check were still running on this branch when this was written. One dependency list changed: the switch's now names two setters that never change (it had none), so its identity is as before.
+- **Exact next steps:** 1. Read the runs; add learning-log iteration 192; when #345 has merged, rebase, squash, open the pull request. 2. Open-shelf covers within 5 s in WebKit (each cover takes about 0.5 s from the server and is cached 300 s). 3. A signed-in live check of download-then-offline (needs Samuel's browser). 4. A removed sticker or drawing keeps its mark until reload; a note can be saved twice. 5. The Batch API path does not record a billed failure.
 
 ### 2026-11-10 22:44 · Claude Fable 5.2 · A removed book takes no new work: results, and #344 live check pending
 - **Done:** #344 (isOwnBook, 33 places) merged. Pull request B's runs on the laptop: npm run check 1474 passed, 2 skipped; real Postgres 2 passed; whole browser suite 430 passed (16.5 min). Rebased onto main; its tests pass again (7 passed).

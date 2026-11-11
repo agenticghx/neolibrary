@@ -12,6 +12,7 @@ import { ExplainPanel } from "./ExplainPanel";
 import { useReadingTracker } from "./useReadingTracker";
 import { BookFocusLine, EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
 import { useBookFocus } from "./useBookFocus";
+import { useFullScreen } from "./useFullScreen";
 import { ContentsPanel } from "./ContentsPanel";
 import { bindPage } from "./reader-page";
 import { bindMarks, bindScroll } from "./reader-view";
@@ -44,8 +45,7 @@ import type { GenealogyTop } from "./genealogy-views";
 import type { GenealogyView as GenealogyData } from "@/lib/library/genealogy-view";
 import { XrayCard } from "./XrayCard";
 import { type DrawnMark } from "./xray-marks";
-import { FULL_IDLE_MS, fullEvent, wakesBars } from "./fullscreen";
-import { onSidebarChange, setSidebarOpen, sidebarOpen } from "./sidebar";
+import { onSidebarChange, sidebarOpen } from "./sidebar";
 import type { XrayMark } from "@/lib/library/xray";
 import { NotesPanel } from "./NotesPanel";
 import { QuestionsPanel } from "./QuestionsPanel";
@@ -66,7 +66,7 @@ import { showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
-import { OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, isDark, noSubscribe, onFullscreenChange, pdfDocsOnScreen, pdfPage, readerClass, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
+import { OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, isDark, pdfDocsOnScreen, pdfPage, readerClass, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
 
 export function Reader(props: {
   /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
@@ -354,28 +354,11 @@ export function Reader(props: {
   useEffect(() => {
     shortcutsOpen.current = shortcuts;
   }, [shortcuts]);
-  // Full screen (Samuel 2026-10-28: "if I can enjoy Netflix in full screen then I should also enjoy reading in full
-  // screen"): the whole page, so the panels and dialogs come along. The button shows only where the browser allows
-  // it (not on an iPhone, where Safari keeps full screen for videos), and not on a narrow screen, where the bar is
-  // full (it pushed the page 12 px sideways with a note count, CI run on #246). Esc, F or the button leave it.
-  const canFull = useSyncExternalStore(noSubscribe, () => document.fullscreenEnabled === true, () => false);
-  const full = useSyncExternalStore(onFullscreenChange, () => document.fullscreenElement !== null, () => false);
-  const [idle, setIdle] = useState(false);
   const sidebarChosen = useSyncExternalStore(onSidebarChange, sidebarOpen, () => false);
   // A focus session shows only the page (M26 R3): the rail goes with the bars, and comes back after.
   const sidebar = sidebarChosen && !focusSession;
   const rail = useRef<HTMLElement | null>(null);
-  const wake = useRef<(e: Event, top?: number) => void>(() => {});
-  const toggleFull = useCallback(() => {
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    else if (document.fullscreenEnabled) {
-      // Only the book (Samuel 2026-11-01, "is this how you would watch Netflix?"): an open panel or card closes.
-      setPanel("none");
-      setXrayCard(null);
-      setSidebarOpen(false);
-      void document.documentElement.requestFullscreen().catch(() => {});
-    }
-  }, []);
+  const { canFull, full, idle, wake, toggleFull } = useFullScreen({ panel, setPanel, setXrayCard, sidebar });
   const pending = useRef<Relocate | null>(null);
   // M27 Q2 (like Kindle's Whispersync): the places this tab saved itself, the one it opened at and the one saved
   // when it opened (a search result or a shared link opens elsewhere, and the page has not been saved yet). A saved place
@@ -491,31 +474,6 @@ export function Reader(props: {
       }
     }
   }, [dismissSelection, toggleFull]);
-
-  // In full screen only the book is on screen (fullscreen.ts): the bars lie over the page and fade, and come back
-  // when the reader reaches for them (the mouse at the top or bottom edge, a tap, a key that is not a page turn), in
-  // the page or around it. A panel opened in full screen brings the bars back into their rows until it closes.
-  useEffect(() => {
-    if (!full || panel !== "none" || sidebar) return;
-    let timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
-    const wakeUp = (e: Event, top = 0) => {
-      const ev = fullEvent(e, top);
-      if (!ev || !wakesBars(ev, window.innerHeight)) return;
-      setIdle(false);
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => setIdle(true), FULL_IDLE_MS);
-    };
-    wake.current = wakeUp;
-    const events = ["pointermove", "pointerdown", "keydown"] as const;
-    const onEvent = (e: Event) => wakeUp(e);
-    for (const name of events) window.addEventListener(name, onEvent, { passive: true });
-    return () => {
-      window.clearTimeout(timer);
-      wake.current = () => {};
-      for (const name of events) window.removeEventListener(name, onEvent);
-      setIdle(false);
-    };
-  }, [full, panel, sidebar]);
 
   // A sideways swipe on a trackpad turns the page (#235), in Pages and in Scroll; in Pages (and a PDF), so does
   // scrolling up and down. One turner serves the book's frames and the margins around them, so a swipe that crosses
@@ -764,7 +722,7 @@ export function Reader(props: {
       bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw, notesRef, setNotes, lens, lensLine, lensPlace, pointer, spokenBlock, shownOf]);
+  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw, notesRef, setNotes, lens, lensLine, lensPlace, pointer, spokenBlock, shownOf, wake]);
 
   // Focus (M21): the book's area changed size or place (the device turned, full screen, a side pane): the ruler's
   // band, drawn over the book, is put back on its line, or on the first line if its place is gone.
