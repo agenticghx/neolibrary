@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader split, seventh cut: pieces of the effect that opens the book into their own files, to get under 1,500 lines.
+next_action: One shared book-visibility check in lib/, and update docs/version-2.md for the Reader split.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 21:34 · Claude Fable 5.2 · Reader split, seventh cut: Reader.tsx is 1,484 lines, under version 2's target of 1,500
+- **Done:** Live: the fifth cut (#341) as 491ce16. Merged: the sixth cut (#342). This seventh cut moves three groups of listeners out of the block that opens the book, word for word, into reader-page.ts (bindPage) and reader-view.ts (bindMarks, bindScroll). Reader.tsx is 1,484 lines (was 1,713; 3,271 this morning). Also: e2e/review.spec.ts:184 keeps the page's own reading time from the server, removing the cause of its slow-run failure. npm run check: 1471 passed, 2 skipped. Whole browser suite before the test change: 428 passed, 1 failed (review.spec.ts:184), 1 did not run. Review project after it: 311 passed, 1 failed (a different test's sign-up step).
+- **Key paths:** app/(reader)/books/[id]/read/reader-page.ts; app/(reader)/books/[id]/read/reader-view.ts; app/(reader)/books/[id]/read/Reader.tsx; e2e/review.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md (iteration 189)
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line; npx playwright test --ignore-snapshots --reporter=line --project=review; npm run check
+- **Known issues / blockers:** A sign-up step in e2e/review.spec.ts (newReader, line 60) failed once on main's code and once on this branch on the laptop; cause not known; listed in docs/ci-flakes.md. docs/version-2.md still says where check 5 stood before today: update it once this is live.
+- **Exact next steps:** 1. When this is live: update docs/version-2.md (Reader.tsx under 1,500 is met; the one visibility check is not). 2. One shared book-visibility check in lib/ (about 30 places write the same three conditions: this book, this owner, not deleted). 3. Open-shelf covers within 5 s in WebKit. 4. A signed-in live check of download-then-offline. 5. Under version 2's first check: a removed sticker or drawing keeps its mark until reload; a note can be saved twice.
 
 ### 2026-11-10 21:03 · Claude Fable 5.2 · Reader split, sixth cut: notices, the Contents panel, the foot and the ruler move to their own files
 - **Done:** Live: the fourth cut (#340) as a253b95, after main's checks passed with the Safari engine. Merged: the fifth cut (#341). This sixth cut moves the notices over the page (ReaderNotices.tsx), the Contents panel (ContentsPanel.tsx), the foot of the page (ReaderFoot.tsx) and the reading ruler with paragraph focus (useRuler.ts) out of Reader.tsx. Reader.tsx is 1,713 lines (was 2,016; 3,271 this morning; target under 1,500). Whole browser suite on the laptop: 430 passed. npm run check: 1471 passed, 2 skipped.

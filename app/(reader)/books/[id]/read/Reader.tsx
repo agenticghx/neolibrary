@@ -6,14 +6,15 @@ import type { Annotation, Color } from "@/lib/library/annotations";
 import { describeRefused } from "@/lib/outbox";
 import { downloadBook, downloadedWords } from "@/lib/reader/download";
 import type { CrossLink } from "@/lib/library/crosslinks";
-import { STICKERS, type Sticker } from "@/lib/library/stickers";
-import { PEN_PATHS } from "@/lib/library/drawings";
+import { type Sticker } from "@/lib/library/stickers";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ExplainPanel } from "./ExplainPanel";
 import { useReadingTracker } from "./useReadingTracker";
 import { BookFocusLine, EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
 import { useBookFocus } from "./useBookFocus";
 import { ContentsPanel } from "./ContentsPanel";
+import { bindPage } from "./reader-page";
+import { bindMarks, bindScroll } from "./reader-view";
 import { ReaderBar } from "./ReaderBar";
 import { ReaderFoot } from "./ReaderFoot";
 import { ReaderNotices } from "./ReaderNotices";
@@ -25,14 +26,14 @@ import { useRuler } from "./useRuler";
 import { useSittingFocus } from "./useSittingFocus";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
-import { PICTURE_PATHS, type PinnedPicture } from "@/lib/library/pinned";
+import { type PinnedPicture } from "@/lib/library/pinned";
 import { mark } from "@/lib/perf-marks";
 import { withCrossed } from "@/lib/reader/crossed-notes";
 import { rangeForQuote } from "@/lib/reader/find-quote";
 import { spreadForPages, TEXT_LAYER_EVENT } from "@/lib/reader/pdf-book";
-import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
-import { scrollsItself, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
-import { canWrapColumns, SPREAD_SETTLE_MS, spreadAlign, spreadPitch, spreadTurn } from "@/lib/reader/spread-scroll";
+import { turnWithSpine, type SpineBook } from "@/lib/reader/spine-fold";
+import { scrollsItself, wheelTurner } from "@/lib/reader/swipe-turn";
+import { canWrapColumns, spreadPitch, spreadTurn } from "@/lib/reader/spread-scroll";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
 import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
@@ -42,7 +43,7 @@ import { GenealogyView } from "./GenealogyView";
 import type { GenealogyTop } from "./genealogy-views";
 import type { GenealogyView as GenealogyData } from "@/lib/library/genealogy-view";
 import { XrayCard } from "./XrayCard";
-import { drawMarks, entryOfKey, namesOnScreen, type DrawnMark } from "./xray-marks";
+import { type DrawnMark } from "./xray-marks";
 import { FULL_IDLE_MS, fullEvent, wakesBars } from "./fullscreen";
 import { onSidebarChange, setSidebarOpen, sidebarOpen } from "./sidebar";
 import type { XrayMark } from "@/lib/library/xray";
@@ -54,18 +55,18 @@ import { RewrittenPane } from "./RewrittenPane";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { loadSettings, saveSettings, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, withEink } from "./settings";
-import { firstLetter, focusAt, markLine, setFocusMode, type Spot } from "./focus";
+import { firstLetter, markLine, setFocusMode, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { type TocItem } from "./ReaderControls";
 import { FigureView } from "./FigureView";
 import { TableView } from "./TableView";
-import { equationAt, figureAt, markWideTables, tableAt, type Figure, type TappedTable } from "./figure";
-import { filterCitationCfis, wrapCitations, type ReaderCitations } from "./citations";
-import { placeRedraws, showFigures, type ReaderFigure } from "./figure-redraws";
+import { type Figure, type TappedTable } from "./figure";
+import { filterCitationCfis, type ReaderCitations } from "./citations";
+import { showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
-import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
+import { OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, isDark, noSubscribe, onFullscreenChange, pdfDocsOnScreen, pdfPage, readerClass, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
 
 export function Reader(props: {
   /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
@@ -582,118 +583,24 @@ export function Reader(props: {
         setNotes(loaded);
         // Send anything made offline earlier, and show what is still waiting (see the sync effect below).
         window.dispatchEvent(new Event(SYNC_EVENT));
-        /** A chapter's X-ray marks (M32 X2), fetched once per chapter. */
-        const marksOf = (index: number) => {
-          let p = xrayMarks.current.get(index);
-          if (!p) {
-            p = fetch(`/api/books/${props.bookId}/xray/marks?chapter=${index}`)
-              .then((r) => (r.ok ? r.json() : { marks: [] }))
-              .then((b: { marks: XrayMark[] }) => b.marks)
-              .catch(() => []);
-            xrayMarks.current.set(index, p);
-          }
-          return p;
-        };
-        /** The names on the screen now: the marks of the chapter shown that lie inside the visible range. */
-        const showOnPage = (index: number, range?: Range | null) => {
-          const visible = range ?? (v as { lastLocation?: { range?: Range | null } | null }).lastLocation?.range;
-          setOnPage(namesOnScreen(xrayDrawn.current.get(index) ?? [], visible));
-        };
-        v.addEventListener("create-overlay", (e: Event) => {
-          for (const a of notesRef.current) if (["highlight", "sticker", "drawing", "image"].includes(a.kind) && a.cfi) void v.addAnnotation({ value: a.cfi });
-          // The chapter's names, underlined (EPUBs: a PDF's pages have no overlay).
-          const { index } = (e as CustomEvent<{ index: number }>).detail;
-          if (props.visitor || props.fileType === "pdf" || !Number.isInteger(index)) return;
-          void marksOf(index).then((marks) => {
-            if (!root.current) return;
-            const color = getComputedStyle(root.current).getPropertyValue("--accent").trim();
-            xrayDrawn.current.set(index, drawMarks(v, index, marks, color));
-            showOnPage(index);
-          });
-        });
-        v.addEventListener("draw-annotation", (e: Event) => {
-          const { draw, annotation, range } = (e as CustomEvent<{ draw: (f: DrawFn, o: unknown) => void; annotation: { value: string }; range: Range | null }>)
-            .detail;
-          const a = notesRef.current.find((x) => x.cfi === annotation.value);
-          const cs = getComputedStyle(root.current!);
-          const ink = cs.getPropertyValue("--ink-900").trim();
-          // M42 S1: with E-ink on, a passage is underlined in ink (a sticker's, a picture's or a drawing's solid; a
-          // highlight's in its colour's line), and the badges stay, in greys.
-          const passage: DrawFn = einkRef.current ? einkUnderline("solid", ink) : Overlayer.highlight;
-          if (a?.kind === "sticker" && a.sticker) {
-            const fill = cs.getPropertyValue(`--mark-${STICKERS[a.sticker].color}`).trim();
-            draw(drawBadge(STICKERS[a.sticker].paths, fill, ink, passage, range ?? null), {});
-            return;
-          }
-          if (a?.kind === "image") {
-            draw(drawBadge(PICTURE_PATHS, cs.getPropertyValue("--mark-sage").trim(), ink, passage, range ?? null, "right"), {});
-            return;
-          }
-          if (a?.kind === "drawing") {
-            draw(drawBadge(PEN_PATHS, cs.getPropertyValue("--mark-sky").trim(), ink, passage, range ?? null, "right"), {});
-            return;
-          }
-          if (einkRef.current) {
-            draw(einkUnderline(EINK_LINES[a?.color ?? "sage"] ?? "solid", ink), {});
-            return;
-          }
-          const color = cs.getPropertyValue(`--mark-${a?.color ?? "sage"}`).trim();
-          draw(Overlayer.highlight, { color });
-        });
-        v.addEventListener("show-annotation", (e: Event) => {
-          const entry = entryOfKey((e as CustomEvent<{ value: string }>).detail.value);
-          if (entry) {
-            setXrayCard(entry);
-            return;
-          }
-          const a = notesRef.current.find((x) => x.cfi === (e as CustomEvent<{ value: string }>).detail.value);
-          if (a) {
-            setActiveId(a.id);
-            setPanel(a.kind === "image" ? "picture" : "notes");
-          }
+        const { marksOf, showOnPage } = bindMarks({
+          v,
+          props: { bookId: props.bookId, fileType: props.fileType, visitor: !!props.visitor },
+          Overlayer,
+          xrayMarks,
+          xrayDrawn,
+          notesRef,
+          root,
+          einkRef,
+          setOnPage,
+          setXrayCard,
+          setActiveId,
+          setPanel,
         });
         root.current!.className = readerClass(initial) + recallClass.current;
         spreadRef.current = applySettings(v, initial, root.current!);
         setSettings(initial);
-        // Two pages in Scroll: a jump (opening the book, a chapter, a search hit, a new layout) is lined up on the
-        // spread it lands in. foliate places a jump's target again as fonts and pictures arrive, and drops a turn
-        // asked for while one is under way, so the lining up waits until the jump has settled. Scrolling by hand is
-        // left where it stops.
-        // Focus (M21), in Scroll: the ruler stays where it is on screen while the text moves under it, and the line
-        // under it comes into focus, once a frame (a mouse resting on the text: the line under the mouse).
-        // In Pages, the band stays on its line as the page moves (WebKit can report a page's place before it has
-        // finished moving it there: the band then landed a page to the side, 2026-11-08).
-        let rolling = 0;
-        v.renderer.addEventListener("scroll", () => {
-          if (focusRef.current !== "ruler" || rolling) return;
-          rolling = requestAnimationFrame(() => {
-            rolling = 0;
-            const line = lensLine.current;
-            if (v.renderer.getAttribute("flow") !== "scrolled") {
-              if (!line?.doc.defaultView) return;
-              showLensOn(line.doc, line.band, true, false);
-              // Moved off the page shown (its page went by without a relocate): the first line on screen.
-              const at = lens.current;
-              const seen = shownOf(line.doc);
-              const middle = at ? (at.left + at.right) / 2 : NaN;
-              if (at && (!seen || middle < seen.left || middle > seen.right)) refocus();
-            } else if (pointer.current?.inside) refocus();
-            else holdLens("still");
-          });
-        });
-        let lineUp: ReturnType<typeof setTimeout> | undefined;
-        v.renderer.addEventListener("relocate", (e: Event) => {
-          const reason = (e as CustomEvent<{ reason?: string }>).detail?.reason;
-          if (reason === "scroll") clearTimeout(lineUp);
-          if (!spreadRef.current || (reason !== "anchor" && reason !== "navigation")) return;
-          clearTimeout(lineUp);
-          lineUp = setTimeout(() => {
-            const pitch = spreadRef.current;
-            if (!pitch) return;
-            const d = spreadAlign(v.renderer.start ?? 0, pitch);
-            if (Math.abs(d) > 1) void (d > 0 ? v.next(d) : v.prev(-d));
-          }, SPREAD_SETTLE_MS);
-        });
+        bindScroll({ v, focusRef, lensLine, lens, pointer, spreadRef, showLensOn, shownOf, refocus, holdLens });
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
           // A page shown: the other version's notes on it are placed (also when its frame was not reported loading).
@@ -794,175 +701,39 @@ export function Reader(props: {
             else doc.addEventListener(TEXT_LAYER_EVENT, () => placeCrossed(doc, index), { once: true });
           }
         };
-        v.addEventListener("load", (e: Event) => {
-          const { doc, index } = (e as CustomEvent<{ doc: Document; index: number }>).detail;
-          mark("nl:frame-load", { index, page: doc.documentElement.dataset.page ?? null });
-          // M41 R5: a paper's citations wrapped first, before the page is laid out or any note drawn on it.
-          const citations = citationsRef.current;
-          if (citations && props.fileType !== "pdf") {
-            wrapCitations(doc, index, citations, (cfi) => {
-              try {
-                const start = v.resolveCFI(cfi).anchor(doc).startContainer;
-                return start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
-              } catch {
-                return null;
-              }
-            });
-          }
-          // M41 R6: a paper's redrawn figures in place of the printed ones (only their addresses change).
-          if (figuresRef.current.length && props.fileType !== "pdf") {
-            const chapter = (v.book as { sections?: { id?: string }[] } | undefined)?.sections?.[index]?.id;
-            placeRedraws(doc, chapter, figuresRef.current, props.bookId, location.origin, () => figureModeRef.current, loadRedraw);
-          }
-          // A PDF page's text layer is complete (the page was just shown) or
-          // was laid out for a new size: light the spoken word on it again.
-          doc.addEventListener(TEXT_LAYER_EVENT, () => {
-            const w = spokenPdf.current;
-            if (w && doc.documentElement.dataset.page === String(w.page)) recordLit(listenBar.current, lightPdfWord(v, doc, w.at, "text-layer"));
-            placeCrossed(doc, index);
-          });
-          if (props.fileType !== "pdf") placeCrossed(doc, index);
-          doc.addEventListener("keydown", onKey);
-          doc.addEventListener("wheel", onWheel, { passive: false });
-          // A finger swipe turns the page where foliate has no swipe of its own: Scroll, and a PDF's pages (#235).
-          // A swipe that starts on a wide table is the table's.
-          let touchAt: { x: number; y: number; t: number } | null = null;
-          doc.addEventListener(
-            "touchstart",
-            (e) => {
-              const t = e.touches[0];
-              const path = e.composedPath();
-              touchAt = e.touches.length === 1 && t && !scrollsItself(path, "x", 1) && !scrollsItself(path, "x", -1) ? { x: t.clientX, y: t.clientY, t: e.timeStamp } : null;
-            },
-            { passive: true },
-          );
-          doc.addEventListener("touchend", (e) => {
-            const a = touchAt;
-            touchAt = null;
-            const t = e.changedTouches[0];
-            if (!a || !t || v.renderer?.getAttribute("flow") === "paginated") return;
-            const selected = doc.getSelection();
-            if (selected && !selected.isCollapsed) return;
-            const dir = swipeDirection(a, { x: t.clientX, y: t.clientY, t: e.timeStamp });
-            if (dir) turnRef.current(dir);
-          });
-          doc.addEventListener("keydown", () => trackerRef.current.onActivity());
-          // Movement in the page wakes full screen's bars (the page is a frame of its own: its events stay in it).
-          // Its pointer is measured from the frame's top, so the frame's own top is added (the edges are the screen's).
-          for (const name of ["pointermove", "pointerdown", "keydown"])
-            doc.addEventListener(name, (e) => wake.current(e, doc.defaultView?.frameElement?.getBoundingClientRect().top ?? 0), { passive: true });
-          doc.addEventListener("pointerdown", () => {
-            trackerRef.current.onActivity();
-            // A tap or click on the page closes the selected-text bar (M27 Q1); a new selection opens it again.
-            dismissSelection();
-          });
-          if (props.fileType !== "pdf") {
-            // M41: tap a picture (a paper's figure) to see it full screen; not while text is being selected.
-            doc.addEventListener("click", (e) => {
-              const selected = doc.getSelection();
-              if (selected && !selected.isCollapsed) return;
-              // M41 R4b: a displayed equation (with its LaTeX) opens Explain this equation.
-              const m = equationAt(e.target);
-              if (m) {
-                const range = doc.createRange();
-                range.selectNodeContents(m.paragraph as Node);
-                e.preventDefault();
-                setEquation({ cfi: v.getCFI(index, range), latex: m.latex, number: m.number });
-                return;
-              }
-              // M41: a table wider than its column (clipped on the page) is shown whole.
-              const t = tableAt(e.target);
-              if (t) {
-                e.preventDefault();
-                setWholeTable(t);
-                return;
-              }
-              const f = figureAt(e.target);
-              if (!f) return;
-              e.preventDefault();
-              setFigure(f);
-            });
-            // M41: mark the tables wider than the column, and again whenever the page is laid out anew.
-            markWideTables(doc);
-            const View = doc.defaultView as (Window & typeof globalThis) | null;
-            if (View?.ResizeObserver) new View.ResizeObserver(() => markWideTables(doc)).observe(doc.body);
-            // Focus (M21): the line or paragraph under the mouse as it moves (once a frame), or where a finger taps.
-            setFocusMode(doc, focusRef.current, rulerLinesRef.current);
-            let frame = 0;
-            let at = { x: 0, y: 0 };
-            const follow = (e: PointerEvent, now: boolean) => {
-              const box = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
-              if (box) pointer.current = { x: box.left + e.clientX, y: box.top + e.clientY, inside: e.pointerType === "mouse" };
-              // While a paragraph is read aloud, paragraph focus stays on it.
-              if (focusRef.current === "off" || (focusRef.current === "paragraph" && spokenBlock.current)) return;
-              at = { x: e.clientX, y: e.clientY };
-              // The ruler's band goes onto the line, over the book; it stays there (a tap's small settling of the
-              // page is not a turn: refocus).
-              const place = () => {
-                const band = focusAt(doc, at.x, at.y);
-                if (!band || focusRef.current !== "ruler") return;
-                showLensOn(doc, band, true);
-                lensPlace.current = whereCfi.current;
-              };
-              if (now) place();
-              else if (!frame)
-                frame = requestAnimationFrame(() => {
-                  frame = 0;
-                  place();
-                });
-            };
-            // A browser sends mouse events of its own just after a tap, and WebKit again when the text scrolls under
-            // the place last tapped or pointed at (the pointer has not moved on the screen): neither is a mouse
-            // moving on the page.
-            let touched = -Infinity;
-            let last = { x: NaN, y: NaN };
-            const moved = (e: PointerEvent) => {
-              const was = last;
-              last = { x: e.screenX, y: e.screenY };
-              return e.screenX !== was.x || e.screenY !== was.y;
-            };
-            doc.addEventListener("pointermove", (e) => {
-              if (moved(e) && e.pointerType === "mouse" && e.timeStamp - touched > 800) follow(e, false);
-            });
-            doc.addEventListener("pointerdown", (e) => {
-              moved(e);
-              if (e.pointerType !== "mouse") touched = e.timeStamp;
-              follow(e, true);
-            });
-            doc.addEventListener("pointerout", (e) => {
-              if (!e.relatedTarget && pointer.current) pointer.current = { ...pointer.current, inside: false };
-            });
-          }
-          if (props.fileType === "pdf") {
-            pageDocs.current.add(doc);
-            doc.documentElement.toggleAttribute("data-dim", dimRef.current);
-            bindSpineClick(
-              doc,
-              (pageDoc) => {
-                const spread = pdfSpread(v);
-                if (!spread) return null;
-                if (pageDoc === spread.left.doc) return "prev";
-                if (pageDoc === spread.right.doc) return "next";
-                return null;
-              },
-              (dir) => turnRef.current(dir),
-            );
-          }
-          // A text selection opens the selection bar (highlight, note, copy).
-          let t: ReturnType<typeof setTimeout> | null = null;
-          doc.addEventListener("selectionchange", () => {
-            if (t) clearTimeout(t);
-            t = setTimeout(() => {
-              const sel = doc.getSelection();
-              if (!sel || sel.isCollapsed || !sel.rangeCount) return;
-              const range = sel.getRangeAt(0);
-              const quote = quoteOf(doc, range);
-              if (!quote.exact) return;
-              selectionDoc.current = doc;
-              setSelection({ cfi: v.getCFI(index, range), ...quote });
-            }, 250);
-          });
-        });
+        v.addEventListener("load", (e: Event) =>
+          bindPage(e, {
+            v,
+            props: { bookId: props.bookId, fileType: props.fileType },
+            citationsRef,
+            figuresRef,
+            figureModeRef,
+            loadRedraw,
+            spokenPdf,
+            listenBar,
+            placeCrossed,
+            onKey,
+            onWheel,
+            turnRef,
+            trackerRef,
+            wake,
+            dismissSelection,
+            setEquation,
+            setWholeTable,
+            setFigure,
+            focusRef,
+            rulerLinesRef,
+            pointer,
+            spokenBlock,
+            showLensOn,
+            lensPlace,
+            whereCfi,
+            pageDocs,
+            dimRef,
+            selectionDoc,
+            setSelection,
+          }),
+        );
         setToc(v.book.toc ?? []);
         placeShown.current();
         setPageCount(props.fileType === "pdf" ? (v.book.sections?.length ?? 0) : 0);
