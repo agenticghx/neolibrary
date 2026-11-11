@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Open-shelf covers: load only the covers on screen first, then measure again in WebKit on the live site.
+next_action: After the Link-header change is live, measure the live open shelf in WebKit and the simulator's Safari.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-11 05:00 · Claude Fable 5.2 · Open-shelf covers: the page's Link header made Safari's engine fetch covers two at a time; header turned off (live measurement to follow)
+- **Done:** Measured the live open shelf inside the browsers: WebKit (Safari's engine) had 2 covers in flight at once, Chromium up to 100. Real Safari in Xcode's iPad simulator showed the same pace in the host's request log (129 covers over 12.1 s). Trials in Playwright's WebKit against the live site, rewriting the page on its way in, found the cause: the three 'preload this style file' parts of the Link response header that React adds. With only those parts on a bare page: 2 in flight, 10.5 s and 10.8 s; without: 117 in flight, 1.8 to 5.0 s. Not the cause: the service worker, the scripts, fetchpriority. loading=lazy loaded no cover in the WebKit trial and was dropped. Change: reactMaxHeadersLength: 0 in next.config.ts, and a browser test that pages (/sign-in and /library) send no Link header. Local build: 0 Link headers on both pages, 3 style files still named in the head. npm run check: 1481 passed, 2 skipped. Whole browser suite: 431 passed (16.7m).
+- **Key paths:** next.config.ts; e2e/open-shelf.spec.ts; LEARNING_LOG.md (iteration 193 result, iteration 194); docs/version-2.md (standing of check 2); worktree .claude/worktrees/covers, branch m44-covers-on-screen-first
+- **Commands that worked:** npm run check; npx playwright test --ignore-snapshots --reporter=line; curl -sI <site>/browse | grep -i '^link:'; xcrun simctl boot <iPad>; xcrun simctl openurl <iPad> <site>/browse (then read the host's http log for the cover requests)
+- **Known issues / blockers:** Why WebKit does this is not known, only that it does. The live number after the change is not measured yet. The iPad simulator (iPad Air 13-inch) is still booted: shut it down after the live check.
+- **Exact next steps:** 1. When the browser suite passes: commit, push, open the pull request; it merges and deploys itself. 2. Measure the live site: all covers in Playwright's WebKit and in the simulator's Safari (host log); write the numbers in docs/version-2.md and the learning log. 3. xcrun simctl shutdown the simulator; remove the worktree. 4. Then version 2 check 1: a removed sticker or drawing keeps its mark until reload; a note can be saved twice.
 
 ### 2026-11-11 00:31 · Claude Fable 5.2 · Checkpoint: Live 93e0fee; Reader.tsx 1,442 lines; covers measured after #347 (WebKit 12.1 s, target 5 s not met)
 - **Done:** Live on both addresses: 93e0fee (#347, covers kept in the server's memory). No pull request open. Reader.tsx is 1,442 lines on main (3,271 on the morning of 2026-11-10). isOwnBook is called by 44 single-book lookups (#344, #345). Open-shelf covers on the live site, all 129, signed out, 1366x1024: before, WebKit 42.7 s and 46.2 s, Chromium 6.3 s; after #347, WebKit 31.7 s on the first visit after the deploy, then 12.1 s and 12.1 s; Chromium 3.8 s, 4.1 s, 3.0 s. Version 2's 'every cover within 5 seconds in WebKit' is not met. The session's worktree and its ten merged local branches are removed; the main folder is level with origin/main.

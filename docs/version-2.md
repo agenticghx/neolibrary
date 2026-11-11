@@ -82,7 +82,7 @@ helps, and takes its turn after any open item under lines 1 to 4.
 | Line | State |
 |---|---|
 | 1. Nothing lost or leaked | Most paths done today (#330, #332, #334). Left: removing a sticker or drawing leaves its mark until reload; double-saved notes. |
-| 2. Works where it is read | Not started as a rule. Covers are slow in WebKit. |
+| 2. Works where it is read | Not started as a rule. Covers, all 129 on the live open shelf in WebKit at iPad size: 43 to 46 s on 2026-11-10; 12.1 s after covers were kept in the server's memory (#347), and the same in real Safari in Xcode's iPad simulator. Cause of the rest found on 2026-11-11: a "Link" response header made WebKit fetch pictures two at a time; without it a trial took 2 to 4 s. The live number after that change is still to be written here. |
 | 3. Offline | Done today (#330, #331); the signed-in live check of download-then-offline is still to do. |
 | 4. Money | Done: scripts (#333); a billed AI answer that fails now counts against the cap, and read-along audio has one ceiling per reader (migration 0040, #337, live). Left: the Batch API path for scanned pages does not record a billed failure. |
 | 5. Reader page | `Reader.tsx` is under 1,500 lines (#336, #338 to #343, and the full-screen cut), with notes, focus, reading aloud, the ruler and full screen each in their own file. Ownership ("this book, of this reader, not removed") is one function, `isOwnBook`, called by 44 single-book lookups; 7 lookups stay by hand, each with its reason in `lib/library/own-book.test.ts`, which fails on a new one (#344, #345). Not under it: lists of books, raw SQL, and the rules for visitors and shared papers. |
