@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the publish step's time on this pull request's run and check that the screenshot grid's pictures load.
+next_action: Divide the slowest machine's browser tests between two machines and measure the checks' time from start to last check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-11 18:15 · Claude Fable 5.2 · Checkpoint: #353 merged (publishing screenshots 12 to 15 s, was 152 s); live stays 7d699e5 by design
+- **Done:** #353 merged as 43cbb71. On its runs the step 'Publish screenshots to the ci-screenshots branch' took 12, 13 and 15 s (152 s on #352), the last job of the checks 30 s (2.8 minutes on #352), and two published pictures loaded as PNG images. The deploy workflow ran for 43cbb71 and skipped on purpose: 'since 7d699e5, only the ledger, docs, skills, tests or workflows changed; nothing on the site would change.' Both addresses serve 7d699e5; /sign-in 200. #353 needed three attempts for reasons outside its change: attempt 1, GitHub's file upload failed during an Actions outage (all browser tests had passed); attempt 2, e2e/narration.spec.ts:77 timed out once on the readalong machine (Expected 'finished', Received 'running' after 120 s); attempt 3 passed.
+- **Key paths:** .github/workflows/ci.yml (the publish step); docs/handoffs/2026-11-11-1713-pr-353-faster-checks.md (laptop only); docs/version-2.md (check 6)
+- **Commands that worked:** gh run view <run> --json jobs (step times); gh run list --workflow deploy.yml --limit 3; gh run view <deploy run> --log | grep Skipped
+- **Known issues / blockers:** Owed in the next pull request: a docs/ci-flakes.md row for e2e/narration.spec.ts:77 (the run is the one behind gh pr checks 353), and #353's measured times in docs/version-2.md and learning log iteration 199. Start-to-last-check is still above 12 minutes: the slowest machine's browser tests take about 12.5 minutes. Worktree .claude/worktrees/ci to be removed.
+- **Exact next steps:** 1. Divide the 'behavior' group of browser tests between two machines (BROWSER_GROUPS in scripts/ci-browser-needed.mjs), measuring each half; in the same pull request add the narration flake row and #353's times. 2. Version 2 check 2: write the live WebKit check as a rule for every change a reader sees. 3. Check 1 leftovers: answers typed in Review, Where were we? and Ask; a Path note's Remove button. 4. Samuel: time /browse on the real iPad; accept or change docs/version-2.md; rows 35 and 36.
 
 ### 2026-11-11 15:15 · Claude Fable 5.2 · Pull request checks: publishing screenshots no longer downloads the old ones (152 s on #352); where the 16.6 minutes go
 - **Done:** Version 2 check 6, the checks half, first step. Measured #352's run: 16.6 minutes from start to the last check; the slowest machine 13.6 minutes (browser tests 12.7); the last job 2.8 minutes, of which 'Publish screenshots to the ci-screenshots branch' 152 s. That step now checks out only its own new folder and downloads no old picture. Trial on the laptop against the real branch, without pushing: fetch and checkout 1 s, the new commit lists the same 45 top folders, push dry run is a fast-forward. Also removed the unused line behind main's one lint warning (e2e/readalong.spec.ts). The step's time on CI is to be read from this pull request's own run.
