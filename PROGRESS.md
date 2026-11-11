@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader split, sixth cut: the Contents panel and the notices over the page as components.
+next_action: Reader split, seventh cut: pieces of the effect that opens the book into their own files, to get under 1,500 lines.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 21:03 · Claude Fable 5.2 · Reader split, sixth cut: notices, the Contents panel, the foot and the ruler move to their own files
+- **Done:** Live: the fourth cut (#340) as a253b95, after main's checks passed with the Safari engine. Merged: the fifth cut (#341). This sixth cut moves the notices over the page (ReaderNotices.tsx), the Contents panel (ContentsPanel.tsx), the foot of the page (ReaderFoot.tsx) and the reading ruler with paragraph focus (useRuler.ts) out of Reader.tsx. Reader.tsx is 1,713 lines (was 2,016; 3,271 this morning; target under 1,500). Whole browser suite on the laptop: 430 passed. npm run check: 1471 passed, 2 skipped.
+- **Key paths:** app/(reader)/books/[id]/read/ReaderNotices.tsx; app/(reader)/books/[id]/read/ContentsPanel.tsx; app/(reader)/books/[id]/read/ReaderFoot.tsx; app/(reader)/books/[id]/read/useRuler.ts; app/(reader)/books/[id]/read/Reader.tsx; LEARNING_LOG.md (iteration 188)
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line; npm run check
+- **Known issues / blockers:** One change is not a pure move: shownOf in useRuler.ts keeps one identity between renders (useCallback with no dependencies), so the effect that opens the book does not run again on each render. It reads the same values as before.
+- **Exact next steps:** 1. Seventh cut, to get under 1,500 (about 215 lines to go): pieces inside the effect that opens the book (drawing marks, X-ray marks, placing the other version's notes) as functions in their own files. 2. Make review.spec.ts:184 independent of how long its page stays open. 3. One shared book-visibility check in lib/ (about 30 places write the same three conditions). 4. Open-shelf covers within 5 s in WebKit. 5. A signed-in live check of download-then-offline.
 
 ### 2026-11-10 20:41 · Claude Fable 5.2 · Reader split, fifth cut: the settings panel, the sidebar and the top bar move to their own files
 - **Done:** The fourth cut (#340, reading aloud) merged. This fifth cut moves, with no change in what is drawn, three pieces of the reading page's layout into components (pieces of a page in their own files): SettingsPanel.tsx, ReaderRail.tsx (the sidebar of tools) and ReaderBar.tsx (the top bar). Reader.tsx is 2,016 lines (was 2,391; it was 3,271 this morning; target under 1,500). Whole browser suite on the laptop: 430 passed. npm run check: 1471 passed, 2 skipped.
