@@ -6,6 +6,7 @@ import { getSections } from "@/lib/library/sections-store";
 import type { Storage } from "@/lib/storage";
 import { matchToParagraphs } from "./match";
 import { checkPackage, isForBook, PackageError, parsePackage, readPackageZip } from "./package";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * M13 (c2): importing a read-along package into a book.
@@ -129,7 +130,7 @@ const summary = (r: Row): ImportSummary => ({
 });
 
 async function ownedBook(db: Db, ownerId: string, bookId: string) {
-  const [book] = await db.select().from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+  const [book] = await db.select().from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new ReadalongError("Book not found");
   return book;
 }

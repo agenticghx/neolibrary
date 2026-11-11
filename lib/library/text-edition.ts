@@ -516,7 +516,7 @@ export async function makeTextEdition(deps: Pick<TextEditionDeps, "db" | "storag
       coverSource: books.coverSource,
     })
     .from(books)
-    .where(and(eq(books.id, scanId), eq(books.ownerId, ownerId)));
+    .where(isOwnBook(scanId, ownerId));
   if (!scan) throw new TextEditionError("Book not found", 404);
   const rows = await db
     .select({ sectionId: generations.sectionId, output: generations.output, model: generations.model })
@@ -629,7 +629,7 @@ export async function makeTextEditionFromPdfText(deps: Pick<TextEditionDeps, "db
       coverSource: books.coverSource,
     })
     .from(books)
-    .where(and(eq(books.id, book.id), eq(books.ownerId, ownerId)));
+    .where(isOwnBook(book.id, ownerId));
   const file = await deps.storage.get(book.fileKey!);
   if (!file) throw new TextEditionError("This book's file is missing.", 404);
   const raw = await rawPdfPages(file.data);

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, collectionBooks, collections, readalongImports } from "@/lib/db/schema";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /** The library's books with a file: sorted, searched, filtered (M14 D5) and by collection. */
 export const SORTS = {
@@ -121,7 +122,7 @@ export async function setInCollection(db: Db, ownerId: string, collectionId: str
   const [b] = await db
     .select({ id: books.id })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+    .where(isOwnBook(bookId, ownerId));
   if (!c || !b) throw new CollectionError("Not found.");
   if (inside) await db.insert(collectionBooks).values({ collectionId, bookId }).onConflictDoNothing();
   else

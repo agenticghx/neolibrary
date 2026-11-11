@@ -158,7 +158,7 @@ export async function rejectCover(
     ? await db
         .select()
         .from(books)
-        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)))
+        .where(isOwnBook(bookId, ownerId))
     : [];
   if (!book) throw new CoverError("Book not found.");
   if (!book.coverKey || !REPLACEABLE.includes(book.coverSource as (typeof REPLACEABLE)[number])) {

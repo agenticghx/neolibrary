@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, users } from "@/lib/db/schema";
 import { STYLES, isStyle, type Style } from "./levels";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * The style AI explanations are written in (M6): plain English or STE at a
@@ -15,7 +16,7 @@ export async function getStyles(db: Db, ownerId: string, bookId: string) {
     .select({ user: users.aiStyle, book: books.aiStyle })
     .from(books)
     .innerJoin(users, eq(users.id, books.ownerId))
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+    .where(isOwnBook(bookId, ownerId));
   if (!row) throw new StyleError("Book not found");
   return { user: row.user, book: row.book, effective: row.book ?? row.user };
 }
@@ -26,10 +27,10 @@ export async function setStyle(db: Db, ownerId: string, bookId: string, input: {
   if (input.scope === "all") {
     if (!isStyle(input.style)) throw new StyleError(`Choose one of: ${Object.keys(STYLES).join(", ")}.`);
     await db.update(users).set({ aiStyle: input.style }).where(eq(users.id, ownerId));
-    await db.update(books).set({ aiStyle: null }).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+    await db.update(books).set({ aiStyle: null }).where(isOwnBook(bookId, ownerId));
   } else if (input.scope === "book") {
     if (input.style !== null && !isStyle(input.style)) throw new StyleError(`Choose one of: ${Object.keys(STYLES).join(", ")}.`);
-    await db.update(books).set({ aiStyle: input.style as Style | null }).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId)));
+    await db.update(books).set({ aiStyle: input.style as Style | null }).where(isOwnBook(bookId, ownerId));
   } else throw new StyleError('Scope is "all" or "book".');
   return getStyles(db, ownerId, bookId);
 }
