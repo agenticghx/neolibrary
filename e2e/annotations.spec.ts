@@ -481,9 +481,19 @@ test("a note the library does not save is said, with the words typed; a copy the
   }
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });
+  // The notice holds the only copy of the words: a bookmark saved meanwhile (the library answers again) must not
+  // take it away. The bookmark button is then pressed back to where it was.
+  await context.unrouteAll();
+  const bookmark = page.getByRole("button", { name: /^(Bookmark this page|Remove bookmark)$/ });
+  const pressed = await bookmark.getAttribute("aria-pressed");
+  await bookmark.click();
+  await expect(bookmark).toHaveAttribute("aria-pressed", pressed === "true" ? "false" : "true");
+  await expect(failed).toContainText("Words that must not be lost.");
+  await bookmark.click();
+  await expect(bookmark).toHaveAttribute("aria-pressed", pressed!);
+  await expect(failed).toContainText("Words that must not be lost.");
   await failed.getByRole("button", { name: "Dismiss" }).click();
   await expect(failed).toHaveCount(0);
-  await context.unrouteAll();
 
   // The browser refuses the clipboard: the button says so.
   await page.evaluate(() => {
@@ -517,6 +527,107 @@ test("pressing Save note twice quickly on a Path saves the note once", async ({ 
   // Left as it was found (the Path's page is photographed by later tests).
   await aviation.getByRole("button", { name: /^Remove note: Pressed twice/ }).click();
   await expect(aviation.getByText("Pressed twice, kept once.")).toHaveCount(0);
+});
+
+// A Path's note box: a save that fails used to replace the whole page with "This page couldn't load", and the words were gone.
+test("a note on a Path that is not saved says so and keeps the words", async ({ page }) => {
+  await page.goto("/paths/hidden-machinery");
+  const aviation = page.getByTestId("pillar").filter({ has: page.getByRole("heading", { name: "Aviation", exact: true }) });
+  await aviation.getByText("Add note").click();
+  const box = aviation.getByLabel("Note on Aviation");
+  await box.fill("Words that must not be lost.");
+  await page.route("**/paths/hidden-machinery", (route) => (route.request().method() === "POST" ? route.fulfill({ status: 500, body: "busy" }) : route.continue()));
+  await aviation.getByRole("button", { name: "Save note" }).click();
+  await expect(aviation.getByRole("alert")).toContainText("Not saved");
+  await expect(aviation.getByRole("alert")).toContainText("Your words are still in the box.");
+  await expect(box).toHaveValue("Words that must not be lost.");
+  await expect(page.getByRole("heading", { name: "Aviation", exact: true })).toBeVisible();
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await aviation.getByRole("alert").scrollIntoViewIfNeeded();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).include('[data-testid="pillar"]').analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/path-note-not-saved-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  // With the library answering again, the same words are saved by pressing once more; then the note is taken off again.
+  await page.unrouteAll();
+  await aviation.getByRole("button", { name: "Save note" }).click();
+  await expect(aviation.getByText("Notes (1)")).toBeVisible();
+  await expect(aviation.getByRole("alert")).toHaveCount(0);
+  await aviation.getByRole("button", { name: /^Remove note: Words that must/ }).click();
+  await expect(aviation.getByText("Words that must not be lost.")).toHaveCount(0);
+});
+
+// Version 2, check 1: every way of saving says so when the library answers with an error. The note on a passage and
+// the note about the book have their tests beside this one; the drawing and the voice note are in notes.spec.ts and
+// the pinned picture in images.spec.ts.
+test("a sticker, a bookmark, an edited note and a removal the library refuses each say so", async ({ page, context }) => {
+  await openAtRuggedCountenance(page);
+  const busy = { status: 500, json: { error: "The library is busy." } };
+  const failed = page.getByTestId("save-failed");
+  await context.route("**/api/books/*/annotations", (route) => (route.request().method() === "POST" ? route.fulfill(busy) : route.continue()));
+  await context.route("**/api/annotations/**", (route) => (route.request().method() === "GET" ? route.continue() : route.fulfill(busy)));
+
+  // A sticker.
+  const notesBefore = await page.getByRole("button", { name: /^Notes/ }).textContent();
+  await selectPhrase(page, "rugged countenance");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Sticker" }).click();
+  await bar.getByRole("group", { name: "Stickers" }).getByRole("button", { name: "Sticker: Question" }).click();
+  await expect(failed).toContainText("Not saved. The library said: The library is busy.");
+  await expect(page.getByRole("button", { name: /^Notes/ })).toHaveText(notesBefore!);
+  await failed.getByRole("button", { name: "Dismiss" }).click();
+  await expect(failed).toHaveCount(0);
+
+  // A bookmark: put on or taken off, whichever this page offers; the button stays as it was.
+  const bookmark = page.getByRole("button", { name: /^(Bookmark this page|Remove bookmark)$/ });
+  const pressed = await bookmark.getAttribute("aria-pressed");
+  await bookmark.click();
+  await expect(failed).toContainText(pressed === "true" ? "The bookmark was not removed. The library said: The library is busy." : "The bookmark was not saved. The library said: The library is busy.");
+  await expect(bookmark).toHaveAttribute("aria-pressed", pressed!);
+  await failed.getByRole("button", { name: "Dismiss" }).click();
+
+  // An edited note: the words stay in the box.
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const panel = page.getByRole("navigation", { name: "Notes" });
+  // The first note with words of its own, held by its place in the list (its "Edit note" button goes while it is edited).
+  const rows = panel.getByTestId("notes").locator("li");
+  const index = await rows.evaluateAll((lis) => lis.findIndex((li) => [...li.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Edit note")));
+  expect(index, "a note with words to edit").toBeGreaterThanOrEqual(0);
+  const item = rows.nth(index);
+  await item.getByRole("button", { name: "Edit note" }).click();
+  const box = item.getByLabel("Edit note");
+  const words = `${await box.inputValue()} And one more thought.`;
+  await box.fill(words);
+  await item.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(item.getByRole("alert")).toContainText("Not saved. The library said: The library is busy. Your words are still in the box.");
+  await expect(box).toHaveValue(words);
+  await item.getByRole("button", { name: "Cancel" }).click();
+
+  // A removal: the note stays in the list, and the page says it was not removed.
+  const listed = await panel.getByTestId("notes").locator("li").count();
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(failed).toContainText("Not removed. The library said: The library is busy.");
+  await expect(panel.getByTestId("notes").locator("li")).toHaveCount(listed);
+  await failed.getByRole("button", { name: "Dismiss" }).click();
+
+  // Undo: the removal goes through, bringing the note back is refused, and Undo is still there to press again.
+  await context.unrouteAll();
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(panel.getByTestId("notes").locator("li")).toHaveCount(listed - 1);
+  await context.route("**/api/annotations/**", (route) => (route.request().method() === "POST" ? route.fulfill(busy) : route.continue()));
+  await panel.getByRole("button", { name: "Undo" }).click();
+  await expect(failed).toContainText("Not brought back. The library said: The library is busy.");
+  await expect(panel.getByTestId("notes").locator("li")).toHaveCount(listed - 1);
+  await context.unrouteAll();
+  await panel.getByRole("button", { name: "Undo" }).click();
+  await expect(panel.getByTestId("notes").locator("li")).toHaveCount(listed);
 });
 
 // The Notes panel's own forms: a save the library refuses says so, and the words stay in the box.

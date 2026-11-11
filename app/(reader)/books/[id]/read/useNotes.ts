@@ -223,8 +223,9 @@ export function useNotes(props: {
     const r = removed;
     if (!r) return;
     if (removedTimer.current) clearTimeout(removedTimer.current);
-    setRemoved(null);
+    // The offer goes only once the note is back: if the library refuses, Undo is still there to press again.
     await r.undo();
+    setRemoved(null);
     await reload();
     if (DRAWN_KINDS.includes(r.note.kind) && r.note.cfi) {
       // Taken off first: if another note on the same passage kept the mark, adding it a second time would draw it twice.

@@ -454,3 +454,15 @@
   color: var(--ink-900);
 }
 
+/* A note the library did not save (TargetNoteForm.tsx): the same quiet block as the reader's forms. */
+.noteError {
+  justify-self: stretch;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+}
+

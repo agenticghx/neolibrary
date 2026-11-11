@@ -419,3 +419,61 @@ test("pressing twice quickly saves one note about the book and one bookmark, not
   await note.getByRole("button", { name: "Remove" }).click();
   await expect(note).toHaveCount(0);
 });
+
+// Version 2, check 1: a drawing and a voice note the library refuses say so, and what was made is still there to save again.
+test("a drawing and a voice note the library does not save say so, and are kept to try again", async ({ page, context }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const notesButton = page.getByRole("button", { name: /^Notes/ });
+  const before = await notesButton.textContent();
+  const busy = { status: 500, json: { error: "The library is busy." } };
+  await context.route("**/api/books/*/annotations", (route) => (route.request().method() === "POST" ? route.fulfill(busy) : route.continue()));
+  await context.route("**/api/books/*/voice-notes", (route) => route.fulfill(busy));
+
+  await selectPhrase(page, "went into his business room");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Draw" }).click();
+  const pad = page.getByTestId("drawing-pad");
+  const box = (await pad.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(box.x + box.width * (0.2 + i * 0.08), box.y + box.height * (0.5 + (i % 2 ? -0.2 : 0.2)));
+  await page.mouse.up();
+  await expect(pad).toHaveAttribute("aria-label", "Drawing pad, 1 stroke");
+  await bar.getByRole("button", { name: "Save drawing" }).click();
+  await expect(bar.getByRole("alert")).toContainText("The library is busy.");
+  await expect(pad).toHaveAttribute("aria-label", "Drawing pad, 1 stroke");
+  await expect(bar.getByRole("button", { name: "Save drawing" })).toBeEnabled();
+  await bar.getByRole("button", { name: "Back" }).click();
+
+  await bar.getByRole("button", { name: "Voice note" }).click();
+  const rec = bar.getByRole("group", { name: "Voice note" });
+  await rec.getByRole("button", { name: "Record" }).click();
+  await expect(rec).toContainText(/Recording 0:0[0-9]/);
+  await page.waitForTimeout(1200); // record a moment of the fake microphone's tone
+  await rec.getByRole("button", { name: "Stop" }).click();
+  await expect(rec).toContainText(/Recorded 0:0[1-9]\. Save it/);
+  await rec.getByRole("button", { name: "Save voice note" }).click();
+  await expect(rec.getByRole("alert")).toContainText("The library is busy.");
+  await expect(rec.getByRole("button", { name: "Save voice note" })).toBeEnabled();
+  await expect(notesButton).toHaveText(before!);
+
+  // Explain it back by voice sends its recording the same way: refused, it says so and keeps the recording.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Study" }).click();
+  await page.getByRole("tab", { name: "Explain it back" }).click();
+  const explain = page.getByRole("region", { name: "Explain it back" });
+  await explain.getByRole("button", { name: "Say it instead" }).click();
+  const said = explain.getByRole("group", { name: "Voice note" });
+  await said.getByRole("button", { name: "Record" }).click();
+  await page.waitForTimeout(1200);
+  await said.getByRole("button", { name: "Stop" }).click();
+  await said.getByRole("button", { name: "Save voice note" }).click();
+  await expect(said.getByRole("alert")).toContainText("The library is busy.");
+  await expect(said.getByRole("button", { name: "Save voice note" })).toBeEnabled();
+
+  await expect(notesButton).toHaveText(before!);
+  await context.unrouteAll();
+});
+

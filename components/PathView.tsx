@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
+import { removeNoteAction } from "@/app/(app)/actions";
 import type { Annotation } from "@/lib/library/annotations";
 import { availabilityLabel } from "@/lib/library/availability";
 import { KIND_WORDS, partsWord } from "@/lib/library/path-words";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
-import { SubmitOnce } from "./SubmitOnce";
+import { TargetNoteForm } from "./TargetNoteForm";
 import styles from "./PathView.module.css";
 
 const GROUPS: Record<string, string> = {
@@ -54,15 +54,7 @@ function TargetNotes({ targetType, targetId, label, notes }: { targetType: "pill
           ))}
         </ul>
       ) : null}
-      <form action={addTargetNoteAction} className={styles.noteForm}>
-        <input type="hidden" name="targetType" value={targetType} />
-        <input type="hidden" name="targetId" value={targetId} />
-        <label className="visually-hidden" htmlFor={`note-${targetId}`}>
-          {label}
-        </label>
-        <textarea id={`note-${targetId}`} name="body" rows={2} className={styles.noteInput} placeholder="A thought, a pairing, a question…" required />
-        <SubmitOnce className={styles.noteSave}>Save note</SubmitOnce>
-      </form>
+      <TargetNoteForm targetType={targetType} targetId={targetId} label={label} />
     </details>
   );
 }
