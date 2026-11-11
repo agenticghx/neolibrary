@@ -13,6 +13,9 @@ import { SYNC_EVENT, api, type FoliateView } from "./reader-helpers";
  * with no network when the network returns (M12, M19, M20). Moved out of Reader.tsx as it was (the version 2 split);
  * what needs the selection on the page (highlighting, stickers, drawings, voice notes) stays there and calls this.
  */
+/** The kinds of note that are drawn on the page, at their passage. */
+const DRAWN_KINDS: string[] = ["highlight", "sticker", "drawing", "image"];
+
 export function useNotes(props: {
   bookId: string;
   /** The signed-in reader's account id ("" for a visitor): notes made offline wait on the device under it. */
@@ -204,8 +207,13 @@ export function useNotes(props: {
         else await change(a, "restore", { annotation: a });
       };
     }
-    if (a.kind === "highlight" && a.cfi) await view.current?.deleteAnnotation({ value: a.cfi });
+    // Every kind that is drawn on the page loses its mark now (a sticker's, a drawing's and a picture's used to stay
+    // until the page was loaded again). Marks are drawn by place: if another note sits on the same passage, its mark
+    // is drawn again once the list is fresh.
+    const drawn = DRAWN_KINDS.includes(a.kind) && a.cfi ? a.cfi : null;
+    if (drawn) await view.current?.deleteAnnotation({ value: drawn });
     await reload();
+    if (drawn && notesRef.current.some((x) => x.id !== a.id && x.cfi === drawn && DRAWN_KINDS.includes(x.kind))) await view.current?.addAnnotation({ value: drawn });
     if (removedTimer.current) clearTimeout(removedTimer.current);
     setRemoved({ note: a, undo });
     removedTimer.current = setTimeout(() => setRemoved(null), 10_000);
@@ -218,7 +226,11 @@ export function useNotes(props: {
     setRemoved(null);
     await r.undo();
     await reload();
-    if (["highlight", "sticker", "drawing", "image"].includes(r.note.kind) && r.note.cfi) await view.current?.addAnnotation({ value: r.note.cfi });
+    if (DRAWN_KINDS.includes(r.note.kind) && r.note.cfi) {
+      // Taken off first: if another note on the same passage kept the mark, adding it a second time would draw it twice.
+      await view.current?.deleteAnnotation({ value: r.note.cfi });
+      await view.current?.addAnnotation({ value: r.note.cfi });
+    }
   };
 
   const addBookNote = async (body: string) => {

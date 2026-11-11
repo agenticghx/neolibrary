@@ -504,6 +504,21 @@ test("notes that cannot be loaded are said, not shown as none", async ({ page, c
   await context.unrouteAll();
 });
 
+test("pressing Save note twice quickly on a Path saves the note once", async ({ page }) => {
+  await page.goto("/paths/hidden-machinery");
+  const aviation = page.getByTestId("pillar").filter({ has: page.getByRole("heading", { name: "Aviation", exact: true }) });
+  await aviation.getByText("Add note").click();
+  await aviation.getByLabel("Note on Aviation").fill("Pressed twice, kept once.");
+  await aviation.getByRole("button", { name: "Save note" }).dblclick();
+  await expect(aviation.getByText("Pressed twice, kept once.").first()).toBeVisible();
+  await page.reload();
+  await expect(aviation.getByText("Pressed twice, kept once.")).toHaveCount(1);
+  await expect(aviation.getByText("Notes (1)")).toBeVisible();
+  // Left as it was found (the Path's page is photographed by later tests).
+  await aviation.getByRole("button", { name: /^Remove note: Pressed twice/ }).click();
+  await expect(aviation.getByText("Pressed twice, kept once.")).toHaveCount(0);
+});
+
 // The Notes panel's own forms: a save the library refuses says so, and the words stay in the box.
 test("a note about the book that is not saved says so and keeps the words", async ({ page, context }) => {
   await openAtRuggedCountenance(page);
