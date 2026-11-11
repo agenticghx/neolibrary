@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Open-shelf covers within 5 s in WebKit: measure first, then fix.
+next_action: Measure the open shelf's covers on the live site once the memory cache is deployed.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 23:54 · Claude Fable 5.2 · Covers are kept in the server's memory after their first read (open shelf speed)
+- **Done:** Merged: #346 (full screen in useFullScreen.ts; Reader.tsx 1,442 lines; docs/version-2.md's standing updated). Live when this was written: b4d8567 (#345). This change: lib/storage/small-file-cache.ts wraps storage and keeps files under covers/ in memory after their first read (up to the cover size limit each, 64 MB in all, ten minutes each), forgetting one at once when it is written or deleted through it; who may have a file is still checked on every request. Measured before, on the live site: a cover took 0.5 to 1.7 s to start arriving, a request that stops before the bucket 0.14 s; all 129 covers took 42.7 s and 46.2 s in WebKit at iPad size, 6.3 s in Chromium (53.2 s just after a deploy). Unit tests: 8 new. Whole browser suite on the laptop, with the disk storage wrapped too: 430 passed. npm run check: 1481 passed, 2 skipped.
+- **Key paths:** lib/storage/small-file-cache.ts; lib/storage/small-file-cache.test.ts; lib/storage/index.ts (getStorage); docs/ci-flakes.md; LEARNING_LOG.md (iteration 193); scratchpad live-covers.mjs (the live measurement, not in git)
+- **Commands that worked:** npx vitest run lib/storage; npx playwright test --ignore-snapshots --reporter=line; npm run check; node live-covers.mjs 2 (from a folder with playwright installed)
+- **Known issues / blockers:** The effect on the live site is not known until this is deployed: nothing on the laptop or in CI uses the bucket. Every deploy empties the memory, so the first visit after a deploy is as slow as before. A cover changed by another process (a script, a second server) can be served stale for up to ten minutes. Version 2's check (every cover within 5 s in WebKit) is not claimed.
+- **Exact next steps:** 1. When this is live: curl one cover twice (same type and size; the second near 0.14 s), then node live-covers.mjs 2 for WebKit and Chromium, first and second visit; write both in docs/version-2.md. 2. If WebKit is still over 5 s: load only the covers on screen first (loading=lazy), and time the visitor check (visitorMayHave), the one step not timed. 3. A signed-in live check of download-then-offline (needs Samuel's browser). 4. A removed sticker or drawing keeps its mark until reload; a note can be saved twice. 5. The Batch API path does not record a billed failure.
 
 ### 2026-11-10 23:04 · Claude Fable 5.2 · Reader split, last cut: full screen in useFullScreen.ts; version 2's standing updated
 - **Done:** Live: #344 (isOwnBook) as 533987d. Merged: #345 (a removed book takes no new work). This change: full screen and its fading bars in useFullScreen.ts; Reader.tsx is 1,442 lines (3,271 this morning; version 2 asked for under 1,500, with notes, focus, reading aloud and full screen each in their own file: all four are). docs/version-2.md's standing table rewritten for checks 4 and 5. Whole browser suite on the laptop: 430 passed. npm run check: 1474 passed, 2 skipped.

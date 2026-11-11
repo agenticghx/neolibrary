@@ -197,11 +197,14 @@ const g = globalThis as unknown as { __neolibraryStorage?: Storage };
 /** The bucket when S3_BUCKET is set (production); otherwise files on local disk. */
 export async function getStorage(): Promise<Storage> {
   if (!g.__neolibraryStorage) {
+    // Covers are kept in memory after their first read (small-file-cache.ts): the bucket is a network trip away. The
+    // disk storage is wrapped too, so the laptop and the browser tests run the same path as the live site.
+    const { withSmallFileCache } = await import("./small-file-cache");
     if (process.env.S3_BUCKET) {
       const { S3Storage } = await import("./s3");
-      g.__neolibraryStorage = new S3Storage(process.env.S3_BUCKET, process.env);
+      g.__neolibraryStorage = withSmallFileCache(new S3Storage(process.env.S3_BUCKET, process.env));
     } else {
-      g.__neolibraryStorage = new LocalStorage(process.env.FILES_DIR ?? path.join(process.cwd(), ".data", "files"));
+      g.__neolibraryStorage = withSmallFileCache(new LocalStorage(process.env.FILES_DIR ?? path.join(process.cwd(), ".data", "files")));
     }
   }
   return g.__neolibraryStorage;
