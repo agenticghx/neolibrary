@@ -329,6 +329,10 @@ test("Daily review: what Explain it back found missing are cards, the question f
 // Run by the question-card test's reader, not a reader of its own: sign-ups are limited to 10 per 15 minutes from one
 // address, and a full CI run of all the specs that invite readers would pass that (CI run 39360494245, both attempts).
 async function whereWereWe(reader: Page, bookId: string) {
+  // The page's own reading time is kept from the server here. A slow run keeps this page open for more than a minute,
+  // and a sitting of a minute today means the strip is not asked (lib/library/where-were-we.ts): the strip then went
+  // missing after a reload (docs/ci-flakes.md, 2026-11-10). The sittings this test needs are sent by the test itself.
+  await reader.route(`**/api/books/${bookId}/reading`, (route) => route.fulfill({ status: 204 }));
   const { hits } = await (await reader.request.get(`/api/books/${bookId}/search?q=${encodeURIComponent("slowly encompassed frost snow")}`)).json();
   const place = hits[0].cfi as string;
   expect((await reader.request.put(`/api/books/${bookId}/position`, { data: { cfi: place, fraction: 0.02 } })).ok()).toBe(true);
