@@ -7,17 +7,28 @@ engineer.
 ## Start of every session
 
 1. Read `PROGRESS.md` and resume from "Exact next steps". Do not ask Samuel
-   to repeat what it says. Read `docs/handoff.md` too: the plans for the
-   remaining milestones, and the lessons and gotchas earlier sessions hit.
+   to repeat what it says. Its Log holds the newest entries only; older ones
+   are in `docs/ledger-archive/` (one file a month, moved word for word by
+   `scripts/archive-ledger.py`): look there to find why something was done,
+   not at every start.
 1b. Read `docs/version-2.md` (one page): what the project is for now, and
    what comes before new features.
-1a. Read `docs/done.md`: it defines when a milestone and version 1 are done,
-   and the loop to follow. Samuel is not watching (2026-10-04): work alone,
+1a. Samuel is not watching (2026-10-04): work alone,
    implement → verify → merge → loop, and never stop for something only
    Samuel can give; list it under "Waiting on Samuel" and move on.
+1c. That is all a session must read before it starts (2026-11-11; about 400
+   lines, where it had grown to thousands). Read these when the work touches
+   them:
+   - `docs/done.md`, "When a milestone is done" (six points: built, proved
+     by tests, merged green, looks right, ground rules kept, recorded):
+     when you start or finish a milestone step.
+   - `docs/handoff.md` section 5 (lessons and gotchas of earlier sessions):
+     when a tool, a test or the build behaves in a way you do not expect.
+     Its other sections describe October 2026 and are history.
+   - `docs/design.md`: before changing anything a reader sees.
 2. Read the milestone you are working on in `docs/plan.md`, then its own
    build plan in `docs/` (named there, e.g. `docs/scan-to-text-plan.md`,
-   `docs/focus-lock-plan.md`), and `docs/design.md`.
+   `docs/focus-lock-plan.md`).
 2a. Keep `LEARNING_LOG.md` at the repo root for every milestone (format and
    rules in `docs/m14-home-plan.md` §7): one entry per attempt, with its
    hypothesis, the signal, the result as measured, and the lesson. Commit it
@@ -127,3 +138,8 @@ laptop's `ledger-append` tool, so edit `PROGRESS.md` by hand:
 2. Rewrite `## Exact next steps` so the next session can start immediately.
 3. Update `updated` and `next_action` in the header.
 4. Commit `PROGRESS.md` on the same branch as the work.
+
+When the Log has grown past about thirty entries, run
+`python3 scripts/archive-ledger.py` in a pull request: it moves all but the
+newest fifteen to `docs/ledger-archive/`, word for word, and checks that
+before it writes.
