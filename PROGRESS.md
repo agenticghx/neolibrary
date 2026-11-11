@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Reader split, fifth cut: the Reading settings panel into SettingsPanel.tsx.
+next_action: Reader split, sixth cut: the Contents panel and the notices over the page as components.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 20:41 · Claude Fable 5.2 · Reader split, fifth cut: the settings panel, the sidebar and the top bar move to their own files
+- **Done:** The fourth cut (#340, reading aloud) merged. This fifth cut moves, with no change in what is drawn, three pieces of the reading page's layout into components (pieces of a page in their own files): SettingsPanel.tsx, ReaderRail.tsx (the sidebar of tools) and ReaderBar.tsx (the top bar). Reader.tsx is 2,016 lines (was 2,391; it was 3,271 this morning; target under 1,500). Whole browser suite on the laptop: 430 passed. npm run check: 1471 passed, 2 skipped.
+- **Key paths:** app/(reader)/books/[id]/read/SettingsPanel.tsx; app/(reader)/books/[id]/read/ReaderRail.tsx; app/(reader)/books/[id]/read/ReaderBar.tsx; app/(reader)/books/[id]/read/Reader.tsx; app/(reader)/books/[id]/read/reader-helpers.ts (ReaderPanel); LEARNING_LOG.md (iteration 187)
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line; npm run check; git diff --color-moved=plain --color-moved-ws=ignore-all-space
+- **Known issues / blockers:** Whether #340 is live was not checked when this was written. About 520 lines are still to move; the largest block left is the one effect that opens the book (about 480 lines).
+- **Exact next steps:** 1. Sixth cut: the dialogs and notices at the foot of the layout, and the Contents panel, as components. 2. Then the pieces inside the effect that opens the book (drawing marks, X-ray marks, placing the other version's notes) as functions in their own files. 3. Make review.spec.ts:184 independent of how long its page stays open. 4. One shared book-visibility check in lib/. 5. Open-shelf covers within 5 s in WebKit.
 
 ### 2026-11-10 20:20 · Claude Fable 5.2 · Reader split, fourth cut: reading aloud on the page moves to useReadAloud.tsx
 - **Done:** The third cut (#339) is live as b7706ea. This fourth cut moves, with no change in behaviour, reading aloud on the page (lighting the spoken word, turning the page after the voice, joining the page to the player) into a hook in useReadAloud.tsx. Reader.tsx is 2,391 lines (was 2,527; target under 1,500). npm run check: 1471 passed, 2 skipped. Whole browser suite: 406 passed, 1 failed (e2e/readalong.spec.ts:1032, Safari engine), 23 did not run; the Safari read-aloud project then passed whole twice (411 and 411). That test and the stats.spec.ts:72 occurrence on #339 are noted in docs/ci-flakes.md.

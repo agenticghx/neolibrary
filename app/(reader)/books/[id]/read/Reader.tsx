@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as CFI from "foliate-js/epubcfi.js";
 import { usePlayer } from "@/components/player/PlayerProvider";
@@ -9,14 +8,14 @@ import { downloadBook, downloadedWords } from "@/lib/reader/download";
 import type { CrossLink } from "@/lib/library/crosslinks";
 import { STICKERS, type Sticker } from "@/lib/library/stickers";
 import { PEN_PATHS } from "@/lib/library/drawings";
-import { OwnKeysSetting } from "@/components/own-keys/OwnKeysSetting";
-import { AiStyleSetting } from "./AiStyleSetting";
-import { OfflineSetting } from "./OfflineSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ExplainPanel } from "./ExplainPanel";
 import { useReadingTracker } from "./useReadingTracker";
 import { BookFocusLine, EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
 import { useBookFocus } from "./useBookFocus";
+import { ReaderBar } from "./ReaderBar";
+import { ReaderRail } from "./ReaderRail";
+import { SettingsPanel } from "./SettingsPanel";
 import { useNotes } from "./useNotes";
 import { useReadAloud } from "./useReadAloud";
 import { useSittingFocus } from "./useSittingFocus";
@@ -51,10 +50,10 @@ import { RewrittenPane } from "./RewrittenPane";
 import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
-import { loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, withEink, withWidth } from "./settings";
+import { loadSettings, saveSettings, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, withEink } from "./settings";
 import { clearFocus, firstLetter, firstLetterInside, focusAt, focusBlock, markLine, setFocusMode, type Box, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
-import { EditionSwitch, JumpTo, Segment, TocList, type TocItem } from "./ReaderControls";
+import { EditionSwitch, JumpTo, TocList, type TocItem } from "./ReaderControls";
 import { FigureView } from "./FigureView";
 import { TableView } from "./TableView";
 import { equationAt, figureAt, markWideTables, tableAt, type Figure, type TappedTable } from "./figure";
@@ -63,7 +62,7 @@ import { placeRedraws, showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
-import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type Relocate } from "./reader-helpers";
+import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
 
 export function Reader(props: {
   /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
@@ -147,7 +146,7 @@ export function Reader(props: {
   const [notesFailed, setNotesFailed] = useState(false);
   // A PDF's number of pages (each page is a section), for "Go to page" (M20); 0 for an EPUB.
   const [pageCount, setPageCount] = useState(0);
-  const [panel, setPanel] = useState<"none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "genealogy" | "links" | "images" | "picture">("none");
+  const [panel, setPanel] = useState<ReaderPanel>("none");
   // X-ray on the page (M32 X2): the name whose card is open, the names on the screen, and each chapter's marks
   // (fetched once, drawn on its overlay).
   const [xrayCard, setXrayCard] = useState<string | null>(null);
@@ -1631,97 +1630,7 @@ export function Reader(props: {
       {focusSession ? (
         <FocusStrip session={focusSession} onLeave={() => setFocusLeaving(true)} onStay={() => focusWait("DELETE")} />
       ) : (
-      <header className={styles.bar}>
-        {/* Left, as in Kindle: leave the book, and the table of contents. */}
-        <div className={styles.lead}>
-          <Link
-            href={props.visitor?.backHref ?? "/"}
-            className={`${styles.tool} ${styles.leadTool}`}
-            aria-label={props.visitor ? "Back to the shelf" : "Back to your library"}
-            title={props.visitor ? "Back to the shelf" : "Back to your library"}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M10 2.5 4.5 8l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-          <button
-            type="button"
-            className={`${styles.tool} ${styles.leadTool}`}
-            aria-label="Contents"
-            title="Contents"
-            aria-expanded={panel === "contents"}
-            onClick={() => setPanel(panel === "contents" ? "none" : "contents")}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M5.5 3.5h8M5.5 8h8M5.5 12.5h8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              <circle cx="2.5" cy="3.5" r="1" fill="currentColor" />
-              <circle cx="2.5" cy="8" r="1" fill="currentColor" />
-              <circle cx="2.5" cy="12.5" r="1" fill="currentColor" />
-            </svg>
-          </button>
-        </div>
-        <p className={styles.title}>
-          <span className={styles.titleText}>{props.title}</span>
-          {props.author ? <span className={styles.author}> · {props.author}</span> : null}
-        </p>
-        <div className={styles.tools}>
-          {canFull ? (
-            <button
-              type="button"
-              className={`${styles.tool} ${styles.leadTool} ${styles.fullTool}`}
-              aria-pressed={full}
-              aria-label={full ? "Leave full screen" : "Full screen"}
-              title={full ? "Leave full screen (F or Esc)" : "Full screen (F)"}
-              onClick={toggleFull}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d={full ? "M6 2v4H2M10 2v4h4M6 14v-4H2M10 14v-4h4" : "M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={styles.tool}
-            aria-expanded={panel === "settings"}
-            aria-label="Reading settings"
-            onClick={() => setPanel(panel === "settings" ? "none" : "settings")}
-          >
-            Aa
-          </button>
-          <button
-            type="button"
-            className={`${styles.tool} ${styles.leadTool}`}
-            aria-expanded={sidebar}
-            aria-label="Sidebar"
-            title={
-              props.visitor
-                ? sidebar
-                  ? "Hide the sidebar: Study, Rewritten"
-                  : "Show the sidebar: Study, Rewritten"
-                : sidebar
-                  ? "Hide the sidebar: Notes, Study, Rewritten, Bookmark, Focus"
-                  : "Show the sidebar: Notes, Study, Rewritten, Bookmark, Focus"
-            }
-            onClick={() => {
-              if (sidebar && panel !== "settings" && panel !== "contents") setPanel("none");
-              setSidebarOpen(!sidebar);
-            }}
-          >
-            <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
-              <rect x="1.5" y="2" width="15" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M11.5 2v12" stroke="currentColor" strokeWidth="1.4" />
-              {sidebar ? <path d="M11.5 2.7h3.3a1 1 0 0 1 1 1v8.6a1 1 0 0 1-1 1h-3.3z" fill="currentColor" /> : null}
-            </svg>
-          </button>
-        </div>
-      </header>
+      <ReaderBar title={props.title} author={props.author} visitor={props.visitor} panel={panel} setPanel={setPanel} canFull={canFull} full={full} toggleFull={toggleFull} sidebar={sidebar} />
       )}
 
       {/* M28 S3: a row of its own between the bar and the book, so the strip never covers the page's first lines. */}
@@ -1836,111 +1745,19 @@ export function Reader(props: {
 
         {/* The sidebar (sidebar.ts): the reading tools in a rail on the right; a panel opens beside it. */}
         {sidebar ? (
-          <nav ref={rail} id="reader-sidebar" className={styles.rail} aria-label="Reading tools">
-            {/* M34: a visitor gets Study and Rewritten only (no notes, bookmarks or focus: those need an account). */}
-            {props.visitor ? null : (
-            <button
-              type="button"
-              className={styles.railTool}
-              aria-expanded={panel === "notes"}
-              onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                <path d="M4 2.5h7l3 3v10H4z M11 2.5v3h3 M6.5 9h5 M6.5 12h4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" />
-              </svg>
-              <span className={styles.railWord}>
-                Notes{notes.length ? <span> ({notes.length})</span> : null}
-              </span>
-            </button>
-            )}
-            {/* Study (M19 P5): "What do I need to know?", Test yourself, Ask and Explain it back, as tabs. */}
-            <button
-              type="button"
-              className={styles.railTool}
-              aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain"}
-              aria-label="Study"
-              title="Study: what this chapter takes for granted, questions on it, and your own summary of it"
-              onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" ? "none" : "know")}
-            >
-              <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d="M8 4.3C6.4 3.1 4.2 2.8 1.8 3.3v9.4c2.4-.5 4.6-.2 6.2 1 1.6-1.2 3.8-1.5 6.2-1V3.3c-2.4-.5-4.6-.2-6.2 1zM8 4.3v9.4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className={styles.railWord}>Study</span>
-            </button>
-            <button
-              type="button"
-              className={styles.railTool}
-              aria-pressed={rewritten.mode !== "original"}
-              aria-label="Rewritten view"
-              title="Read it rewritten, in your AI explanations style"
-              onClick={() => showRewritten(rewritten.mode !== "original" ? "original" : rewritten.last)}
-            >
-              <svg width="20" height="18" viewBox="0 0 18 16" aria-hidden="true">
-                <rect x="1" y="2" width="7" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
-                <path d="M3 5h3M3 7.5h3M3 10h2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-                <path d="M10.5 2.5h5.5v11h-5.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="1.6 1.4" />
-                <path d="M12.5 5.5h2M12.5 8h2M12.5 10.5h1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-              </svg>
-              <span className={styles.railWord}>Rewritten</span>
-            </button>
-            {/* Who & what (M32), with the names on this page at its top: opened when wanted, never over the text
-                (Samuel, 2026-11-08: the "On this page" strip sometimes hid the reading). Not for a visitor (M34),
-                whose Study has no Who & what tab either. */}
-            {props.visitor ? null : (
-            <button
-              type="button"
-              className={styles.railTool}
-              aria-expanded={panel === "xray"}
-              title="Who & what: the names on this page, and everyone the book has named so far"
-              onClick={() => setPanel(panel === "xray" ? "none" : "xray")}
-            >
-              <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                <circle cx="5.5" cy="5" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.2" />
-                <path d="M1.5 13.5c.4-2.6 2-4 4-4s3.6 1.4 4 4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                <path d="M10.5 4h4M10.5 7h4M12 10h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-              </svg>
-              {/* One short word: "Who & what" wrapped onto two lines on a phone, which made the bar taller and the page shorter. */}
-              <span className={styles.railWord}>Names</span>
-            </button>
-            )}
-            {props.visitor ? null : (
-            <button
-              type="button"
-              className={styles.railTool}
-              aria-pressed={Boolean(bookmarkHere)}
-              aria-label={bookmarkHere ? "Remove bookmark" : "Bookmark this page"}
-              onClick={() => void toggleBookmark()}
-            >
-              <svg width="16" height="18" viewBox="0 0 14 16" aria-hidden="true">
-                <path d="M2 1.5h10v13l-5-3.5-5 3.5z" fill={bookmarkHere ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-              </svg>
-              <span className={styles.railWord}>Bookmark</span>
-            </button>
-            )}
-            {/* A focus session with a question (M26 R3). Not during a whole-book focus (M26 R5): one at a time. */}
-            {bookFocus.focus || props.visitor ? null : (
-              <button
-                type="button"
-                className={styles.railTool}
-                aria-label="Focus session"
-                title="Focus session: write the question you are reading to answer, set a timer, and see only the page"
-                aria-haspopup="dialog"
-                onClick={() => setFocusStart(true)}
-              >
-                <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="8" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
-                  <path d="M8 6v3l2 1.5M6 1.5h4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className={styles.railWord}>Focus</span>
-              </button>
-            )}
-          </nav>
+          <ReaderRail
+            rail={rail}
+            visitor={!!props.visitor}
+            panel={panel}
+            setPanel={setPanel}
+            notes={notes}
+            rewritten={rewritten}
+            showRewritten={showRewritten}
+            bookmarkHere={bookmarkHere}
+            toggleBookmark={toggleBookmark}
+            bookFocus={bookFocus}
+            setFocusStart={setFocusStart}
+          />
         ) : null}
 
         {/* One panel at a time. On a computer it sits in a column beside the book (M19), never over it. */}
@@ -2056,212 +1873,20 @@ export function Reader(props: {
         ) : null}
 
         {panel === "settings" && settings ? (
-          <section className={styles.panel} aria-label="Reading settings">
-            <p className={styles.panelTitle}>Reading settings</p>
-            <fieldset className={styles.group}>
-              <legend>Pages</legend>
-              <Segment
-                value={settings.pages}
-                options={[
-                  ["one", "One page"],
-                  ["two", "Two pages", twoPagesOff],
-                ]}
-                onChange={(pages) => update({ pages })}
-              />
-              {twoPagesOff ? (
-                <p className={styles.hint} data-testid="two-pages-note">
-                  Two pages in Scroll needs Chrome or Edge. In this browser, it works with the Pages layout.
-                </p>
-              ) : null}
-            </fieldset>
-            {props.fileType === "pdf" ? (
-              <p className={styles.hint}>This is a PDF: its pages keep their own layout, so text settings do not apply.</p>
-            ) : (
-              <>
-            <fieldset className={styles.group}>
-              <legend>Layout</legend>
-              <Segment
-                value={settings.flow}
-                options={[
-                  ["paginated", "Pages"],
-                  ["scrolled", "Scroll", settings.eink],
-                ]}
-                onChange={(flow) => update({ flow })}
-              />
-              {settings.eink ? (
-                <p className={styles.hint} data-testid="eink-scroll-note">
-                  E-ink screens smear while scrolling, so E-ink reads in Pages.
-                </p>
-              ) : null}
-            </fieldset>
-            <fieldset className={styles.group}>
-              <legend>Width</legend>
-              <Segment
-                value={settings.width}
-                options={[["comfortable", "Comfortable"], ["wide", "Wide"], ["full", "Full"]]}
-                onChange={(width) => setSettings((s) => (s ? withWidth(s, width) : s))}
-              />
-              <label className={styles.check}>
-                <input type="checkbox" checked={settings.justify} onChange={(e) => update({ justify: e.target.checked })} />
-                Justify (straight edges on both sides)
-              </label>
-              <p className={styles.hint}>
-                Wide and Full use more of a big screen, with bigger text; each width keeps its own text size. On a phone the text
-                already fills the screen.
-              </p>
-            </fieldset>
-            <fieldset className={styles.group}>
-              <legend>Text size</legend>
-              <div className={styles.sizeRow}>
-                <button
-                  type="button"
-                  className={styles.step}
-                  aria-label="Smaller text"
-                  disabled={settings.size === SIZES[0]}
-                  onClick={() => update({ size: SIZES[Math.max(0, SIZES.indexOf(settings.size) - 1)] })}
-                >
-                  A−
-                </button>
-                <span className={styles.sizeValue} data-testid="text-size">
-                  {settings.size}%
-                </span>
-                <button
-                  type="button"
-                  className={styles.step}
-                  aria-label="Larger text"
-                  disabled={settings.size === SIZES.at(-1)}
-                  onClick={() => update({ size: SIZES[Math.min(SIZES.length - 1, SIZES.indexOf(settings.size) + 1)] })}
-                >
-                  A+
-                </button>
-              </div>
-            </fieldset>
-            <fieldset className={styles.group}>
-              <legend>Line spacing</legend>
-              <Segment
-                value={settings.spacing}
-                options={[["compact", "Compact"], ["normal", "Normal"], ["loose", "Loose"]]}
-                onChange={(spacing) => update({ spacing })}
-              />
-            </fieldset>
-            <fieldset className={styles.group}>
-              <legend>Typeface</legend>
-              <Segment
-                value={settings.face}
-                options={[["serif", "Serif"], ["sans", "Sans"], ["book", "Book's own"]]}
-                onChange={(face) => update({ face })}
-              />
-            </fieldset>
-            <fieldset className={styles.group}>
-              <legend>Focus</legend>
-              <Segment
-                value={settings.focus}
-                options={[["off", "Off"], ["ruler", "Ruler"], ["paragraph", "Paragraph"]]}
-                onChange={(focus) => update({ focus })}
-              />
-              <p className={styles.hint}>
-                Ruler: a soft band sits on the line under your pointer, or the line you tap; in Scroll it stays put and the
-                text moves under it. Paragraph: the paragraph you are on stays clear and the rest dims.
-              </p>
-            </fieldset>
-            {settings.focus === "ruler" ? (
-              <fieldset className={styles.group}>
-                <legend>Ruler height</legend>
-                <Segment
-                  value={String(settings.rulerLines) as "1" | "2" | "3"}
-                  options={[["1", "1 line"], ["2", "2 lines"], ["3", "3 lines"]]}
-                  onChange={(n) => update({ rulerLines: Number(n) as RulerLines })}
-                />
-                <p className={styles.hint}>Two or three lines in the band at once: the line you tap and the ones after it.</p>
-              </fieldset>
-            ) : null}
-            {props.figures?.length ? (
-              <fieldset className={styles.group}>
-                <legend>Figures</legend>
-                <Segment
-                  value={settings.figures}
-                  options={[["redrawn", "Redrawn"], ["printed", "As printed"]]}
-                  onChange={(figures) => update({ figures })}
-                />
-                <p className={styles.hint}>
-                  {props.figures.length === 1 ? "One figure is" : `${props.figures.length} figures are`} drawn again cleanly by AI from the
-                  paper&apos;s own, and checked to match it line for line and word for word. Tap a figure to compare it with the printed one.
-                </p>
-              </fieldset>
-            ) : null}
-            {props.citations?.cites.length ? (
-              <fieldset className={styles.group}>
-                <legend>Citations</legend>
-                <Segment
-                  value={settings.citations}
-                  options={[["as-written", "As written"], ["numbered", "Numbered"], ["hidden", "Hidden"]]}
-                  onChange={(citations) => update({ citations })}
-                />
-                <p className={styles.hint}>
-                  Numbered shows each work by its place in the reference list, counted from the top: [12]. On a computer, point at a
-                  number to see the work.
-                  {props.citations.unmatched
-                    ? ` ${props.citations.unmatched} ${props.citations.unmatched === 1 ? "citation names" : "citations name"} a work the list does not hold exactly once, and ${props.citations.unmatched === 1 ? "stays" : "stay"} as written.`
-                    : ""}
-                </p>
-              </fieldset>
-            ) : null}
-              </>
-            )}
-            <fieldset className={styles.group}>
-              <legend>Screen</legend>
-              <label className={styles.check}>
-                <input type="checkbox" checked={settings.eink} onChange={(e) => update({ eink: e.target.checked })} />
-                E-ink (a paper-like screen, such as a Boox or a Kindle)
-              </label>
-              <p className={styles.hint}>
-                Black on white, nothing that moves or fades, and highlights drawn as lines under the words. Kept on this device
-                only.
-              </p>
-            </fieldset>
-            <fieldset className={styles.group}>
-              <legend>Theme</legend>
-              <Segment
-                className={styles.themeChoices}
-                value={settings.theme}
-                options={[...READER_THEMES]}
-                onChange={(theme) => update({ theme })}
-              />
-              <p className={styles.hint}>
-                {settings.eink
-                  ? "With E-ink on, every theme is black on white, and Night is white on black."
-                  : "North Window is cool daylight with a teal mark. Private Press is bright paper with a red mark. Calfskin is warm hide with a gold mark."}
-              </p>
-            </fieldset>
-            {props.fileType === "pdf" ? (
-            <fieldset className={styles.group}>
-              <legend>PDF pages at night</legend>
-              <Segment
-                value={settings.dimPdf ? "dim" : "printed"}
-                options={[
-                  ["dim", "Dimmed"],
-                  ["printed", "As printed"],
-                ]}
-                onChange={(v) => update({ dimPdf: v === "dim" })}
-              />
-            </fieldset>
-          ) : null}
-          <p className={styles.hint}>Auto follows your device&apos;s light or dark setting. Arrow keys turn pages.</p>
-            <button type="button" className={styles.linkButton} onClick={() => setShortcuts(true)}>
-              Keyboard shortcuts
-            </button>
-            {props.ownKeys || props.visitor ? <OwnKeysSetting /> : null}
-            {props.visitor ? null : (
-              <>
-                <AiStyleSetting bookId={props.bookId} />
-                <p className={styles.hint}>
-                  STE is Simplified Technical English: one meaning per word, short sentences. The style is used by the rewritten view,
-                  Study and Rewrite; the Account page sets it for every book.
-                </p>
-                <OfflineSetting bookId={props.bookId} fileUrl={props.fileUrl} fileType={props.fileType} />
-              </>
-            )}
-          </section>
+          <SettingsPanel
+            bookId={props.bookId}
+            fileUrl={props.fileUrl}
+            fileType={props.fileType}
+            settings={settings}
+            setSettings={setSettings}
+            update={update}
+            twoPagesOff={twoPagesOff}
+            setShortcuts={setShortcuts}
+            figures={props.figures}
+            citations={props.citations}
+            ownKeys={props.ownKeys}
+            visitor={!!props.visitor}
+          />
         ) : null}
       </div>
 
