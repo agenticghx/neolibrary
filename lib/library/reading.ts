@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { isOwnBook } from "@/lib/library/own-book";
@@ -25,7 +25,7 @@ export async function savePosition(
   const rows = await db
     .update(books)
     .set({ position: input.cfi, progress: Math.round(fraction * 1000) / 1000, lastOpenedAt: now })
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey)))
+    .where(and(isOwnBook(bookId, ownerId), isNotNull(books.fileKey)))
     .returning({ id: books.id, editionOf: books.editionOf });
   // A text edition (M25) is read in place of its scan, which is the book Home and the shelf show: its progress and
   // last-opened time follow (its place stays its own: a CFI in one is not a place in the other).

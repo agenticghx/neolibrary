@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
 import { books } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -15,6 +14,7 @@ import { signFileUrl } from "@/lib/signed-url";
 import { citationsFor, forReader } from "@/lib/library/citations";
 import { figureRedrawsFor } from "@/lib/library/figure-redraws";
 import { Reader } from "./Reader";
+import { isOwnBook } from "@/lib/library/own-book";
 
 export const metadata: Metadata = { title: "Reading" };
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export default async function ReadPage({
   // (?view=scan) or a place in it (?at=, e.g. a search result).
   // Not while a sitting is on this scan: the text edition would send the reader straight back here.
   if (edition?.current === "scan" && sp.view !== "scan" && !isCfi(at) && !(focus?.kind === "sitting" && focus.bookId === book.id)) {
-    const [own] = await db.select({ position: books.position }).from(books).where(and(eq(books.id, edition.textId), eq(books.ownerId, user.id)));
+    const [own] = await db.select({ position: books.position }).from(books).where(isOwnBook(edition.textId, user.id));
     const scanPage = Number(/^epubcfi\(\/6\/(\d+)/.exec(book.position ?? "")?.[1]) / 2;
     const q = new URLSearchParams();
     if (!own?.position && Number.isInteger(scanPage) && scanPage > 0) q.set("page", String(scanPage));

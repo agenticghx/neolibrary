@@ -24,23 +24,21 @@ describe("isOwnBook", () => {
     expect(query(isOwnBook("book-1", "reader-1")).sql).toContain('"deleted_at" is null');
   });
 
-  // The places that still write "this book, of this reader" by hand, and how many times each. Some must also find
-  // removed books (restoring one); some add their own third condition; the rest are to be judged one by one. A new
-  // place, or one more in a listed file, fails here: use isOwnBook, or add the place to this list and say why.
+  // The places that still write "this book, of this reader" by hand, how many times each, and why. A new place, or
+  // one more in a listed file, fails here: use isOwnBook, or add the place to this list and say why.
   const BY_HAND: Record<string, number> = {
-    "app/(reader)/books/[id]/read/page.tsx": 1,
-    "lib/library/ai-style.ts": 3,
+    // A note made for a book that was removed meanwhile (on another device, or while offline) is still saved, and
+    // comes back with the book: notes are never lost (ground rule 9).
     "lib/library/annotations.ts": 1,
-    "lib/library/cover-lookup.ts": 1,
-    "lib/library/papers.ts": 1,
-    "lib/library/reading-stats.ts": 1,
-    "lib/library/reading.ts": 2,
-    "lib/library/remove-book.ts": 2,
-    "lib/library/shared-papers.ts": 1,
-    "lib/library/shelf.ts": 1,
-    "lib/library/text-edition.ts": 2,
     "lib/library/voice-notes.ts": 1,
-    "lib/readalong/importer.ts": 1,
+    // Reading time already spent on a book counts, whether or not the book was removed since.
+    "lib/library/reading-stats.ts": 1,
+    // A text edition's scan follows its progress; the edition itself is checked with isOwnBook on the line before.
+    "lib/library/reading.ts": 1,
+    // Bringing a removed book back must find removed books.
+    "lib/library/remove-book.ts": 2,
+    // Sharing can be withdrawn whatever state the paper is in; its own condition is "not a copy".
+    "lib/library/shared-papers.ts": 1,
   };
 
   it("no new place looks up one book for its owner by hand", () => {

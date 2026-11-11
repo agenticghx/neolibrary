@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import { authorLine, byline, parsePaperId, PaperLookupUnreachable, type PaperLookup } from "@/lib/papers";
 import { syncSharedPaper } from "./shared-papers";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * M41 R3: a title in the library marked as a research paper, by its DOI or PubMed ID. Its details (title, authors,
@@ -35,7 +36,7 @@ async function ownBook(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, sharedFrom: books.sharedFrom })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
+    .where(and(isOwnBook(bookId, ownerId), isNull(books.editionOf)));
   if (!book) throw new PaperError("Book not found", 404);
   // M41 R3c: a paper shared with this reader keeps the owner's details.
   if (book.sharedFrom) throw new PaperError("This paper is shared with you; only its owner can change its details.");

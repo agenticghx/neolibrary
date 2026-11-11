@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Judge the 18 hand-written book lookups one by one (pull request B).
+next_action: Full screen into its own file, then update docs/version-2.md for check 5.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,20 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 22:44 · Claude Fable 5.2 · A removed book takes no new work: results, and #344 live check pending
+- **Done:** #344 (isOwnBook, 33 places) merged. Pull request B's runs on the laptop: npm run check 1474 passed, 2 skipped; real Postgres 2 passed; whole browser suite 430 passed (16.5 min). Rebased onto main; its tests pass again (7 passed).
+- **Key paths:** lib/library/own-book.test.ts; lib/library/remove-book.test.ts; LEARNING_LOG.md (iteration 191)
+- **Commands that worked:** npm run check; TEST_DATABASE_URL=postgres://postgres:test@localhost:55439/postgres npm run test:postgres; npx playwright test --ignore-snapshots --reporter=line
+- **Known issues / blockers:** None met. Whether #344 is live was not checked when this was written.
+- **Exact next steps:** 1. Full screen and the idle bars into their own file; then update docs/version-2.md (check 5: Reader.tsx is 1,484 lines; ownership is decided in one function for 40 places, with 7 listed exceptions). 2. Open-shelf covers within 5 s in WebKit. 3. A signed-in live check of download-then-offline (needs Samuel's browser). 4. A removed sticker or drawing keeps its mark until reload; a note can be saved twice. 5. The Batch API path does not record a billed failure.
+
+### 2026-11-10 22:26 · Claude Fable 5.2 · A removed book takes no new work: seven more lookups use isOwnBook (pull request B, under test)
+- **Done:** On branch m44-own-book-b (on top of #344, which is open): the 18 book lookups still written by hand were judged one by one. Seven now refuse a removed book by calling isOwnBook: adding it to a collection (shelf.ts), reading or setting its AI style (ai-style.ts, 3), turning down its cover (cover-lookup.ts), starting or listing a read-along import (importer.ts), making a text edition (text-edition.ts, 2 places, one of which sat behind a check already). Two were tidied with no change in behaviour (papers.ts, reading.ts) and one in the reader's page (page.tsx). Seven stay by hand, each with its reason in lib/library/own-book.test.ts. New unit test in remove-book.test.ts: each of its five refusals fails when that file alone is put back to the old code, and passes with the change.
+- **Key paths:** lib/library/shelf.ts; lib/library/ai-style.ts; lib/library/cover-lookup.ts; lib/readalong/importer.ts; lib/library/text-edition.ts; lib/library/papers.ts; lib/library/reading.ts; app/(reader)/books/[id]/read/page.tsx; lib/library/own-book.test.ts; lib/library/remove-book.test.ts
+- **Commands that worked:** npx vitest run lib/library/remove-book.test.ts lib/library/own-book.test.ts; for each changed file: git checkout HEAD~1 -- <file>, run the test (it fails), git checkout HEAD -- <file>
+- **Known issues / blockers:** npm run check, npm run test:postgres and the whole browser suite were still running on this branch when this was written; do not open the pull request before they report. Learning-log iteration 191 is not written yet.
+- **Exact next steps:** 1. Read the three runs; add learning-log iteration 191; when #344 has merged, rebase, squash and open pull request B. 2. Full screen and the idle bars into their own file; then update docs/version-2.md (check 5). 3. Open-shelf covers within 5 s in WebKit. 4. A signed-in live check of download-then-offline. 5. A removed sticker or drawing keeps its mark until reload; a note can be saved twice.
 
 ### 2026-11-10 22:23 · Claude Fable 5.2 · One shared check, isOwnBook, for 'this book, of this reader, not removed'; Reader.tsx is 1,484 lines and live
 - **Done:** Live: the seventh Reader cut (#343) as 2810862; Reader.tsx is 1,484 lines on main (3,271 this morning; version 2 asked for under 1,500). This change: lib/library/own-book.ts holds isOwnBook(bookId, ownerId); the 33 places in 23 files that wrote exactly those three conditions call it (no change in behaviour: a test shows the SQL is identical). A second test lists the 18 places still written by hand and fails on a new one. e2e/readalong.spec.ts:1032 now waits for the book to report its new place. A trial confirmed #343's change to e2e/review.spec.ts:184 (strip missing after 95 s without it, present with it). npm run check: 1473 passed, 2 skipped. Real Postgres: 2 passed. Whole browser suite: 406 passed, 1 failed (readalong.spec.ts:1032, Safari engine, before its change), 23 did not run; that test then passed in both engines (375 passed).

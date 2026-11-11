@@ -7,13 +7,18 @@ import type { Database } from "@/lib/db/client";
 import { books, slots } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
+import { FakeCovers } from "@/lib/covers/sources";
+import { startImport } from "@/lib/readalong/importer";
+import { getStyles, setStyle } from "./ai-style";
 import { createAnnotation, listAnnotations } from "./annotations";
+import { rejectCover } from "./cover-lookup";
 import { exportLibrary, importLibrary, wipeLibrary } from "./export";
 import { importBook } from "./import";
 import { seedPath } from "./paths";
 import { recordReading, statsByBook, statsByWeek } from "./reading-stats";
 import { listRemovedBooks, removeBook, restoreBook } from "./remove-book";
 import { searchLibrary, searchNotes } from "./search";
+import { makeTextEdition } from "./text-edition";
 import { createCollection, listCollections, listShelf, setInCollection } from "./shelf";
 
 // M19 P3b (the site review's third finding): a book can leave the library and come back. Its file, notes and
@@ -31,6 +36,24 @@ beforeEach(async () => {
 afterEach(() => database.raw.close());
 
 describe("removing a book from the library", () => {
+  it("a removed book takes no new work: a collection, an AI style, a cover, a read-along import, a text edition", async () => {
+    const db = database.db;
+    const { bookId } = await importBook(db, storage, ownerId, { name: "tm.epub", bytes: fixture("wells-the-time-machine.epub") });
+    const c = await createCollection(db, ownerId, "Time travel");
+    await removeBook(db, ownerId, bookId);
+    await expect(setInCollection(db, ownerId, c.id, bookId, true)).rejects.toThrow("Not found.");
+    await expect(getStyles(db, ownerId, bookId)).rejects.toThrow("Book not found");
+    await setStyle(db, ownerId, bookId, { scope: "book", style: "ste" }).catch(() => {});
+    await expect(rejectCover(db, storage, new FakeCovers(), ownerId, bookId)).rejects.toThrow("Book not found.");
+    await expect(startImport(db, storage, ownerId, bookId, new Uint8Array([1, 2, 3]))).rejects.toThrow("Book not found");
+    await expect(makeTextEdition({ db, storage, now: () => new Date() }, ownerId, bookId)).rejects.toThrow("Book not found");
+    // Back on the shelf, it is as it was: the style set while it was removed did not land.
+    await restoreBook(db, ownerId, bookId);
+    expect((await getStyles(db, ownerId, bookId)).book).toBeNull();
+    await setInCollection(db, ownerId, c.id, bookId, true);
+    expect((await listCollections(db, ownerId)).find((x) => x.id === c.id)?.count).toBe(1);
+  });
+
   it("leaves every shelf, search, count and per-book statistic, and comes back with its notes", async () => {
     const db = database.db;
     const { bookId } = await importBook(db, storage, ownerId, { name: "tm.epub", bytes: fixture("wells-the-time-machine.epub") });
