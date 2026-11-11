@@ -216,3 +216,13 @@ test("M34: the sign-in page offers the shelf", async ({ browser }) => {
   await expect(visitor.getByRole("link", { name: "Sign in" })).toBeVisible();
   await ctx.close();
 });
+
+test("the open shelf's page sends no Link header: with one, Safari's engine fetched covers two at a time", async ({ request }) => {
+  // Measured on the live site on 2026-11-11 (next.config.ts, reactMaxHeadersLength): React's "Link" response header
+  // (hints to fetch style files early) made WebKit queue the page's pictures; 129 covers took 10.7 s, not 2 to 4 s.
+  for (const path of ["/browse", "/sign-in"]) {
+    const res = await request.get(path);
+    expect(res.status(), path).toBe(200);
+    expect(res.headers()["link"], path).toBeUndefined();
+  }
+});
