@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import * as CFI from "foliate-js/epubcfi.js";
 import type { Db } from "@/lib/db/client";
 import { books, generations, sections, xrayEntries, xrayFacts, xrayMentions, type XrayKind } from "@/lib/db/schema";
 import { sectionForCfi } from "./annotations";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * X-ray (M32): who and what is in a book. X1 builds the index from the text
@@ -412,7 +413,7 @@ export async function positionAt(db: Db, bookId: string, cfi: string | null): Pr
 
 /** The index as the Who & what tab shows it: every entry with its trail, most mentioned so far first. */
 export async function listXray(db: Db, ownerId: string, bookId: string, cfi: string | null): Promise<XrayList> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new XrayError("That book was not found.");
   await ensureXray(db, bookId);
   const position = await positionAt(db, bookId, cfi);
@@ -486,7 +487,7 @@ export type XrayMark = { entryId: string; name: string; sectionId: string; cfi: 
  * text. In reading order.
  */
 export async function marksFor(db: Db, ownerId: string, bookId: string, chapterIndex: number): Promise<XrayMark[]> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new XrayError("That book was not found.");
   await ensureXray(db, bookId);
   const [chapter] = await db

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: One shared book-visibility check in lib/, and update docs/version-2.md for the Reader split.
+next_action: Judge the 18 hand-written book lookups one by one (pull request B).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-10
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-10 22:23 · Claude Fable 5.2 · One shared check, isOwnBook, for 'this book, of this reader, not removed'; Reader.tsx is 1,484 lines and live
+- **Done:** Live: the seventh Reader cut (#343) as 2810862; Reader.tsx is 1,484 lines on main (3,271 this morning; version 2 asked for under 1,500). This change: lib/library/own-book.ts holds isOwnBook(bookId, ownerId); the 33 places in 23 files that wrote exactly those three conditions call it (no change in behaviour: a test shows the SQL is identical). A second test lists the 18 places still written by hand and fails on a new one. e2e/readalong.spec.ts:1032 now waits for the book to report its new place. A trial confirmed #343's change to e2e/review.spec.ts:184 (strip missing after 95 s without it, present with it). npm run check: 1473 passed, 2 skipped. Real Postgres: 2 passed. Whole browser suite: 406 passed, 1 failed (readalong.spec.ts:1032, Safari engine, before its change), 23 did not run; that test then passed in both engines (375 passed).
+- **Key paths:** lib/library/own-book.ts; lib/library/own-book.test.ts; 23 files under lib/ that now call isOwnBook; e2e/readalong.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md (iteration 190)
+- **Commands that worked:** npm run check; docker run -d --rm --name nl-pg-test -e POSTGRES_PASSWORD=test -p 55439:5432 postgres:18 && TEST_DATABASE_URL=postgres://postgres:test@localhost:55439/postgres npm run test:postgres; npx vitest run lib/library/own-book.test.ts; npx playwright test --ignore-snapshots --reporter=line
+- **Known issues / blockers:** Not covered by isOwnBook: lists of books, raw SQL, the rules for visitors and shared papers, and 18 hand-written places (listed in lib/library/own-book.test.ts), about 13 of which leave out the not-removed condition. docs/version-2.md still shows this morning's standing for check 5; full screen is not yet in its own file.
+- **Exact next steps:** 1. Judge the 18 hand-written places one by one: each that should refuse a removed book gets isOwnBook and a test that fails on today's code; each that is deliberate gets a one-line reason in the test's list. 2. Full screen and the idle bars into their own file; then update docs/version-2.md (check 5). 3. Open-shelf covers within 5 s in WebKit. 4. A signed-in live check of download-then-offline. 5. A removed sticker or drawing keeps its mark until reload; a note can be saved twice.
 
 ### 2026-11-10 21:34 · Claude Fable 5.2 · Reader split, seventh cut: Reader.tsx is 1,484 lines, under version 2's target of 1,500
 - **Done:** Live: the fifth cut (#341) as 491ce16. Merged: the sixth cut (#342). This seventh cut moves three groups of listeners out of the block that opens the book, word for word, into reader-page.ts (bindPage) and reader-view.ts (bindMarks, bindScroll). Reader.tsx is 1,484 lines (was 1,713; 3,271 this morning). Also: e2e/review.spec.ts:184 keeps the page's own reading time from the server, removing the cause of its slow-run failure. npm run check: 1471 passed, 2 skipped. Whole browser suite before the test change: 428 passed, 1 failed (review.spec.ts:184), 1 did not run. Review project after it: 311 passed, 1 failed (a different test's sign-up step).

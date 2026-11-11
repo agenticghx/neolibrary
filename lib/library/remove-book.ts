@@ -2,6 +2,7 @@ import { stillShared, syncSharedPaper } from "./shared-papers";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, slots } from "@/lib/db/schema";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * Removing a book from the library (M19 P3b, the site review's third finding). A removed book leaves every shelf,
@@ -29,7 +30,7 @@ export async function removeBook(db: Db, ownerId: string, bookId: string, now = 
   const [book] = await db
     .select({ id: books.id, fileKey: books.fileKey })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book) throw new RemoveBookError("Book not found.");
   if (!book.fileKey) throw new RemoveBookError("A title without its book file is removed from its Path instead.");
   const onPaths = await pathsOfBook(db, ownerId, bookId);

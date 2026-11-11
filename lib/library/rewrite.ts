@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { generate, listGenerations, estimateCost, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -19,6 +19,7 @@ import { sectionForCfi } from "./annotations";
  */
 export { isLevel, LEVELS, STRICTNESS, strictnessFrom, type Level, type Strictness } from "./levels";
 import { LEVELS, STRICTNESS, type Level, type Strictness } from "./levels";
+import { isOwnBook } from "@/lib/library/own-book";
 
 export class RewriteError extends Error {}
 
@@ -33,7 +34,7 @@ export async function paragraphFor(
   bookId: string,
   at: { cfi: string } | { sectionId: string },
 ): Promise<Paragraph> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new RewriteError("That paragraph was not found.");
   const sectionId = "cfi" in at ? await sectionForCfi(db, bookId, at.cfi) : at.sectionId;
   const [row] = sectionId

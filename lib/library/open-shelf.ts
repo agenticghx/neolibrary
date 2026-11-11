@@ -1,6 +1,7 @@
 import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, users } from "@/lib/db/schema";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /*
  * M34, the open shelf (docs/plan.md). Two switches on each of the owner's books:
@@ -27,7 +28,7 @@ export function isPublicDomainEdition(book: Edition) {
 
 /** Turn one switch on or off, on one of the owner's own books. */
 export async function setShelfSwitch(db: Db, ownerId: string, bookId: string, which: "onShelf" | "freeToRead", on: boolean) {
-  const where = and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt));
+  const where = isOwnBook(bookId, ownerId);
   const [book] = await db.select().from(books).where(where);
   if (!book) throw new OpenShelfError("No such book.");
   if (which === "freeToRead" && on && !isPublicDomainEdition(book)) {

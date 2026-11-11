@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /** An EPUB CFI looks like epubcfi(/6/4!/4/2/1:0). Stored as text, never interpreted by the server. */
 export function isCfi(value: unknown): value is string {
@@ -42,7 +43,7 @@ export async function readPosition(db: Db, ownerId: string, bookId: string): Pro
   const [row] = await db
     .select({ cfi: books.position, fraction: books.progress })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   return row ?? null;
 }
 

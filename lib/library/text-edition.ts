@@ -21,7 +21,7 @@
  *   (lib/library/page-check.ts); pages that disagree are listed for a look.
  * - Stop cancels the batches: pages not yet read are not charged.
  */
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getBatchModel } from "@/lib/ai";
 import { batchCostUsd, type BatchRequest, type BatchResult, type TextBatchModel } from "@/lib/ai/batch";
 import { capsFromEnv, generationCacheKey, spendingWithJobs, usd, type Caps } from "@/lib/ai/generate";
@@ -35,6 +35,7 @@ import { buildSections } from "./sections-store";
 import { hasOwnText, pagesFromPdfText, rawPdfPages } from "./pdf-text-pages";
 import { buildTextEdition, type EditionPage } from "./text-epub";
 import { BLANK_INK, openPdfForPictures, pictureTokens, MAX_PICTURE_TOKENS } from "./page-pictures";
+import { isOwnBook } from "@/lib/library/own-book";
 
 export const TRANSCRIBE_KIND = "transcribe";
 export const TRANSCRIBE_FAILED_KIND = "transcribe-failed";
@@ -130,7 +131,7 @@ async function pdfOf(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, title: books.title, fileKey: books.fileKey, fileType: books.fileType, pageCount: books.pageCount })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book) throw new TextEditionError("Book not found", 404);
   if (!book.fileKey) throw new TextEditionError("This book has no file yet: add its PDF first.");
   if (book.fileType !== "pdf") throw new TextEditionError("Only a scanned PDF can be read into a text edition.");
@@ -646,7 +647,7 @@ export async function pdfTextEditionForPage(db: Db, ownerId: string, bookId: str
   const [book] = await db
     .select({ fileType: books.fileType, pageCount: books.pageCount })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book || book.fileType !== "pdf") return null;
   if (!(await pdfHasOwnText(db, bookId, book.pageCount))) return null;
   const edition = await editionOf(db, ownerId, bookId);

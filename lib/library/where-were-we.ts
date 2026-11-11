@@ -1,10 +1,11 @@
-import { and, desc, eq, gte, isNull } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { annotations, books, generations, readingSessions } from "@/lib/db/schema";
 import { partAnchor } from "./explain-back";
 import { chapterFor } from "./prerequisites";
 import { isCfi } from "./reading";
 import { startOfDay } from "./review-schedule";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * "Where were we?" (M28 S3): coming back to a book on a later day, the reader is asked what they remember of the
@@ -38,7 +39,7 @@ export async function whereWereWe(db: Db, ownerId: string, bookId: string, now =
   const [book] = await db
     .select({ position: books.position })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book?.position || !isCfi(book.position)) return null;
   const chapter = await chapterFor(db, ownerId, bookId, { cfi: book.position }).catch(() => null);
   if (!chapter) return null;

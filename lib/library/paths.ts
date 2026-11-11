@@ -5,6 +5,7 @@ import type { SeedPath, SlotKind } from "@/data/paths/types";
 import { availabilityOf, isAvailable, type Availability } from "./availability";
 import { audiobookBookIds, narrationOn } from "./listenable";
 import { isReadingList, STARTER_PATHS } from "./seed";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * Study Paths: a Path holds Pillars in reading order; a Pillar holds ordered
@@ -266,7 +267,7 @@ export async function getBook(db: Db, ownerId: string, id: string, narration: bo
   const [book] = await db
     .select()
     .from(books)
-    .where(and(eq(books.id, id), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(id, ownerId));
   if (!book) return null;
   const places = await db
     .select({ kind: slots.kind, pillar: pillars.title, pillarSlug: pillars.slug, path: paths.title, pathSlug: paths.slug })
@@ -543,7 +544,7 @@ export async function addTitle(
       ? await db
           .select(fields)
           .from(books)
-          .where(and(eq(books.id, input.bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+          .where(isOwnBook(input.bookId, ownerId))
       : [];
     if (!found) throw new PathError("That book was not found.");
     book = found;

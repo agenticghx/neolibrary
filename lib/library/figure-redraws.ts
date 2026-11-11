@@ -10,7 +10,7 @@
  * them; a reader the paper is shared with sees the owner's.
  */
 import { createHash } from "node:crypto";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import { generationCacheKey } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
@@ -18,6 +18,7 @@ import { books, generations } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { checkSvg, FigureError, figuresOf, REDRAW_KIND, REDRAW_PROMPT, TRANSCRIBE_PROMPT } from "./figure-redraw";
 import { SUBSCRIPTION_PROVIDER } from "./text-edition";
+import { isOwnBook } from "@/lib/library/own-book";
 
 export const MAX_FIGURES_A_PART = 200;
 const bytesHash = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -62,7 +63,7 @@ export async function saveFigureRedraws(deps: { db: Db; storage: Storage; now?: 
   const [book] = await db
     .select({ fileKey: books.fileKey, fileType: books.fileType, sharedFrom: books.sharedFrom, deletedAt: books.deletedAt })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book || book.deletedAt || !book.fileKey) throw new FigureRedrawError("Book not found.", 404);
   if (book.sharedFrom) throw new FigureRedrawError("This paper is shared with you; only its owner can send redrawn figures.", 403);
   if (book.fileType !== "epub") throw new FigureRedrawError("Only an EPUB's figures can be redrawn.");

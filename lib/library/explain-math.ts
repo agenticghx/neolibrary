@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, gt, lt } from "drizzle-orm";
 import { estimateCost, generate, listGenerations, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -8,6 +8,7 @@ import { getStyles } from "./ai-style";
 import { sectionForCfi } from "./annotations";
 import { bookLine, steScore, styleInstruction } from "./prerequisites";
 import type { Style } from "./levels";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * Explain an equation (M41 R4b): a tap on a displayed equation in the reader asks AI what it says, what each symbol
@@ -28,7 +29,7 @@ export type Equation = { id: string; latex: string; number: string | null };
 
 /** The equation paragraph at a place in the book (a CFI), with the LaTeX the reader's page holds for it. */
 export async function equationAt(db: Db, ownerId: string, bookId: string, cfi: string, latex: unknown): Promise<Equation> {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new ExplainMathError("Book not found");
   const tex = typeof latex === "string" ? latex.trim() : "";
   if (!tex) throw new ExplainMathError("This equation has no LaTeX to read.");

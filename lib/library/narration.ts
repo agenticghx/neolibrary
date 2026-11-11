@@ -1,10 +1,11 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { capsFromEnv, spending, SpendingCapReached, type Caps } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, sections } from "@/lib/db/schema";
 import { SpeechError, speechCost, usdPer1kChars, type SpeechModel, type Voice } from "@/lib/speech/model";
 import type { Storage } from "@/lib/storage";
 import { AudioError, cacheKeyOf, speakPassage } from "./audio";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * Whole-book AI narration (M14 follow-up V5; Samuel's decision of 2026-10-06,
@@ -123,7 +124,7 @@ async function epubOf(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey, fileType: books.fileType })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book) throw new NarrationError("Book not found", 404);
   if (!book.fileKey) throw new NarrationError("This book has no file yet: add its EPUB first.");
   if (book.fileType !== "epub") throw new NarrationError("Only an EPUB can be narrated whole, for now: in a PDF, the AI voice reads a page at a time as you listen.");
