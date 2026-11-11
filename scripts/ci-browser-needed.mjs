@@ -327,9 +327,16 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  * data its targets use (the owner account, Grace, the uploaded books); a group whose
  * targets are all off for this change does not run at all.
  *
- * - behavior: the screenshots, then the long chain from flows to offline, and open-shelf (it
- *   needs the state the whole chain leaves: alone after uploads, a visitor's new rewrite was
- *   not refused, 2026-11-05). Chromium only.
+ * - behavior: the long chain from flows to images, then home. Chromium only. Each of these needs
+ *   what the ones before it made (tried on 2026-11-11, one cut at a time): audio and images use
+ *   the links between books that the AI tests make, notes use audio the audio tests saved, and
+ *   home's Continue card shows what the chain read last.
+ * - behavior-2: the screenshots (before any test adds data), then, after flows, uploads and
+ *   reader have made the account, the books and the opened PDF: stats, own-paths, agents,
+ *   offline, and open-shelf off stats. Split from behavior on 2026-11-11 so that no machine
+ *   runs more than about eight minutes of tests (one machine took 12.7). Open-shelf once
+ *   needed the whole chain (alone after uploads, a visitor's new rewrite was not refused,
+ *   2026-11-05); tried again on 2026-11-11 it passes alone after flows and uploads, and here.
  * - branches: the projects that hang off stats but make readers and books of their own;
  *   here they wait on uploads only.
  * - readalong: the audiobook file in Chromium, then whole-book narration. It needs the PDF
@@ -342,7 +349,11 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
 export const BROWSER_GROUPS = {
   behavior: {
     support: [],
-    targets: [...VISUAL, "flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "stats", "home", "own-paths", "agents", "offline", "open-shelf"],
+    targets: ["flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "home"],
+  },
+  "behavior-2": {
+    support: ["flows", "uploads", "reader"],
+    targets: [...VISUAL, "stats", "own-paths", "agents", "offline", "open-shelf"],
   },
   branches: {
     support: ["flows", "uploads"],

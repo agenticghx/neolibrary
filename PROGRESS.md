@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Divide the slowest machine's browser tests between two machines and measure the checks' time from start to last check.
+next_action: Read this pull request's run times on GitHub: each machine's browser test step and start to last check.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-11 18:55 · Claude Fable 5.2 · The slowest machine's browser tests run on two machines (behavior and behavior-2)
+- **Done:** Version 2 check 6, second step. The 'behavior' group's browser tests (12.7 minutes on one machine on #352) are divided: 'behavior' = flows, uploads, shell, reader, annotations, ai, audio, notes, images, home; 'behavior-2' = the four screenshot groups first, then stats, own-paths, agents, offline and open-shelf, after flows, uploads and reader have made the data. Where the cut can fall was found by trials on the laptop, running the second half alone: audio.spec.ts:264 and images.spec.ts:181 need the links between books that the AI tests make; home.spec.ts:24 shows what the chain read last; stats passed alone. Both halves pass on the laptop: behavior 168 tests (6.3 minutes), behavior-2 258 tests in three runs (4.3 to 4.4 minutes). Open-shelf, once kept after the whole chain, passes alone after flows and uploads today (45 tests). Unit tests of the grouping rewritten for the new division (30 passed); npm run check 1485 passed, 2 skipped. The workflow needed no change (it reads the machine list from scripts/ci-browser-needed.mjs); this pull request's own file list starts both machines (checked with the plan's --groups command). Also: docs/ci-flakes.md has a row for e2e/narration.spec.ts:77 (timed out once on #353); #353's measured times are in docs/version-2.md and learning log iteration 199.
+- **Key paths:** scripts/ci-browser-needed.mjs (BROWSER_GROUPS); lib/ci-browser-needed.test.ts; docs/ci-flakes.md; docs/version-2.md; LEARNING_LOG.md (iterations 199 and 200); worktree .claude/worktrees/split, branch m44-split-browser-machines
+- **Commands that worked:** CI_BROWSER_GROUP=behavior-2 npx playwright test --ignore-snapshots --reporter=line (one machine's tests on the laptop; stop leftover 'next start -p 3100' and next-server first); node scripts/ci-browser-needed.mjs <changed files> then node scripts/ci-browser-needed.mjs --groups <slices> 1 (which machines a change starts); npx vitest run lib/ci-browser-needed.test.ts
+- **Known issues / blockers:** The time from start to the last check on GitHub is not measured yet; this pull request's run does not include the screenshot tests, so behavior-2 will look about a minute and a half shorter than usual. The margin to 12 minutes is thin: if it lands over, say the target is not met. After the merge, main's run adds the WebKit machine: check it is green.
+- **Exact next steps:** 1. Read this pull request's run: each machine's Playwright step time and start to last check; write them into docs/version-2.md and learning log iteration 200 (next pull request). 2. After the merge: main's run green, including WebKit. 3. Version 2 check 2: the live WebKit check as a rule for every change a reader sees. 4. Check 1 leftovers: answers typed in Review, Where were we? and Ask; a Path note's Remove button.
 
 ### 2026-11-11 18:15 · Claude Fable 5.2 · Checkpoint: #353 merged (publishing screenshots 12 to 15 s, was 152 s); live stays 7d699e5 by design
 - **Done:** #353 merged as 43cbb71. On its runs the step 'Publish screenshots to the ci-screenshots branch' took 12, 13 and 15 s (152 s on #352), the last job of the checks 30 s (2.8 minutes on #352), and two published pictures loaded as PNG images. The deploy workflow ran for 43cbb71 and skipped on purpose: 'since 7d699e5, only the ledger, docs, skills, tests or workflows changed; nothing on the site would change.' Both addresses serve 7d699e5; /sign-in 200. #353 needed three attempts for reasons outside its change: attempt 1, GitHub's file upload failed during an Actions outage (all browser tests had passed); attempt 2, e2e/narration.spec.ts:77 timed out once on the readalong machine (Expected 'finished', Received 'running' after 120 s); attempt 3 passed.
