@@ -14,11 +14,11 @@ import { AiStyleSetting } from "./AiStyleSetting";
 import { OfflineSetting } from "./OfflineSetting";
 import { CrossLinksPanel } from "./CrossLinksPanel";
 import { ExplainPanel } from "./ExplainPanel";
-import { ListenBar } from "./ListenBar";
 import { useReadingTracker } from "./useReadingTracker";
 import { BookFocusLine, EndFocusDialog, FocusStrip, LeaveFocusDialog, StartFocusDialog } from "./FocusSession";
 import { useBookFocus } from "./useBookFocus";
 import { useNotes } from "./useNotes";
+import { useReadAloud } from "./useReadAloud";
 import { useSittingFocus } from "./useSittingFocus";
 import { ImagesPanel } from "./ImagesPanel";
 import { PictureCard } from "./PictureCard";
@@ -31,7 +31,6 @@ import { bindSpineClick, pdfSpread, turnWithSpine, type SpineBook } from "@/lib/
 import { scrollsItself, swipeDirection, wheelTurner } from "@/lib/reader/swipe-turn";
 import { canWrapColumns, SPREAD_SETTLE_MS, spreadAlign, spreadPitch, spreadTurn } from "@/lib/reader/spread-scroll";
 import type { WhereWereWe } from "@/lib/library/where-were-we";
-import { rangeForOffsets } from "@/lib/reader/text-range";
 import { AskPanel } from "./AskPanel";
 import { NeedToKnowPanel } from "./NeedToKnowPanel";
 import { XrayPanel } from "./XrayPanel";
@@ -53,7 +52,7 @@ import { FindInBook } from "./FindInBook";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { loadSettings, READER_THEMES, saveSettings, SIZES, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, withEink, withWidth } from "./settings";
-import { clearFocus, firstLetter, firstLetterInside, focusAt, focusBlock, FOCUS_BLOCKS, markLine, setFocusMode, type Box, type Spot } from "./focus";
+import { clearFocus, firstLetter, firstLetterInside, focusAt, focusBlock, markLine, setFocusMode, type Box, type Spot } from "./focus";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { EditionSwitch, JumpTo, Segment, TocList, type TocItem } from "./ReaderControls";
 import { FigureView } from "./FigureView";
@@ -64,7 +63,7 @@ import { placeRedraws, showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
-import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pageOpening, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type Relocate } from "./reader-helpers";
+import { EINK_LINES, OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, drawBadge, einkUnderline, isDark, lightPdfWord, noSubscribe, onFullscreenChange, pdfDocsOnScreen, pdfPage, quoteOf, readerClass, recordLit, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type Relocate } from "./reader-helpers";
 
 export function Reader(props: {
   /** The signed-in reader's account id: notes made offline wait on the device under it (lib/outbox.ts). "" for a visitor. */
@@ -1495,142 +1494,10 @@ export function Reader(props: {
     await reload();
   };
 
-  // Read aloud: highlight the word being spoken, inside the book's own frame
-  // (CSS Custom Highlight API, so the book's text is not touched), and turn
-  // the page when the voice reaches the end of it.
-  const highlightWord = (passageCfi: string, from: number, to: number, inPage?: [number, number] | null): string | null => {
-    const v = view.current;
-    // Not before the book is open (foliate sets its renderer last), nor in a book that failed to open.
-    if (!v?.renderer) return null;
-    // A PDF (M13 (e)): the word's place on its page in non-space characters,
-    // in the page's text layer; its page is turned to by the player.
-    if (props.fileType === "pdf") {
-      const page = pdfPage(passageCfi);
-      // A word with no place on its page (a scan read aloud from its text edition, where the page's own text has
-      // nothing like it): nothing is lit, rather than the wrong word.
-      if (inPage === null && page >= 0) {
-        spokenPdf.current = null;
-        litCfi.current = passageCfi;
-        for (const d of pdfDocsOnScreen(v)) (d.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
-        return recordLit(listenBar.current, "");
-      }
-      if (!inPage || page < 0) return null;
-      spokenPdf.current = { page, at: inPage };
-      // Going on after a pause returns to this page.
-      litCfi.current = passageCfi;
-      const doc = pdfDocsOnScreen(v).find((d) => d.documentElement.dataset.page === String(page));
-      if (doc) return recordLit(listenBar.current, lightPdfWord(v, doc, inPage, "word"));
-      // Not shown: the reader turned back from it while it is read. Turn to it
-      // again, as an EPUB's pages follow the voice (a page turned to ahead is
-      // left alone). Not while a turn is on its way: foliate shows one page at
-      // a time, and asking again for a page still opening fails.
-      if (!turning.current && pageOpening(v) !== page && page > pdfPage(whereCfi.current ?? "")) {
-        turning.current = true;
-        mark("nl:turn-request", { page, by: "word" });
-        void v
-          .goTo(passageCfi)
-          .catch(() => undefined)
-          .finally(() => {
-            turning.current = false;
-          });
-      }
-      return null;
-    }
-    const { index, anchor } = v.resolveCFI(passageCfi);
-    const doc = v.renderer.getContents().find((c) => c.index === index)?.doc;
-    if (!doc) return null;
-    let range: Range | null = null;
-    let el: Element | null = null;
-    try {
-      const start = anchor(doc).startContainer;
-      el = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
-      range = el ? rangeForOffsets(el, from, to) : null;
-    } catch {
-      // A chapter that is still opening has an empty document for a moment: not there yet.
-      return null;
-    }
-    if (!range) return null;
-    // Paragraph focus (M21) follows the paragraph read aloud.
-    if (el && focusRef.current === "paragraph") {
-      spokenBlock.current = el.closest(FOCUS_BLOCKS) ?? el;
-      focusBlock(doc, spokenBlock.current);
-    }
-    const win = doc.defaultView as (Window & { CSS: typeof CSS; Highlight: typeof Highlight }) | null;
-    win?.CSS.highlights?.set("nl-spoken", new win.Highlight(range));
-    const text = range.toString();
-    mark("nl:lit", { index, at: from, text, via: "word" });
-    recordLit(listenBar.current, text);
-    const wordCfi = v.getCFI(index, range);
-    litCfi.current = wordCfi;
-    const visible = whereCfi.current;
-    if (visible && !turning.current && CFI.compare(wordCfi, CFI.collapse(visible, true)) > 0) {
-      // On to the word's page, however many pages on (after a jump in the
-      // audio it may be several). foliate ignores a turn asked for while it
-      // finishes the last one (about 0.1 s), and then sends no "relocate":
-      // so the flag clears when this request is done or ignored, and the
-      // next word asks again.
-      turning.current = true;
-      void v.goTo(wordCfi).finally(() => {
-        turning.current = false;
-      });
-    }
-    return text;
-  };
-
-  /**
-   * Shows a paragraph read aloud, unless it is already on screen. Going on
-   * after a pause (`resume`), it shows the word that was being read instead:
-   * in a long paragraph that may be on a later page than the paragraph's
-   * start, and turning back to the start would only turn forward again.
-   */
-  const showPassage = (passageCfi: string, opts: { resume?: boolean } = {}) => {
-    const v = view.current;
-    const visible = whereCfi.current;
-    if (!v?.renderer) return;
-    const target = opts.resume && litCfi.current ? litCfi.current : passageCfi;
-    const at = CFI.collapse(target);
-    if (visible && CFI.compare(at, CFI.collapse(visible)) >= 0 && CFI.compare(at, CFI.collapse(visible, true)) <= 0) return;
-    if (props.fileType !== "pdf") {
-      void v.goTo(target);
-      return;
-    }
-    // A PDF page opens in its own frame. Not asked for again while it opens
-    // (foliate fails on that); and until it is open, the word being read does
-    // not ask for it either (see highlightWord).
-    if (pageOpening(v) === pdfPage(target)) return;
-    turning.current = true;
-    mark("nl:turn-request", { page: pdfPage(target), by: "passage" });
-    void v
-      .goTo(target)
-      .catch(() => undefined)
-      .finally(() => {
-        turning.current = false;
-      });
-  };
-
-  const stopListening = () => {
-    litCfi.current = null;
-    spokenPdf.current = null;
-    // Paragraph focus goes back to the pointer, or the top of the page.
-    spokenBlock.current = null;
-    refocus();
-    // The book may still be opening (no renderer yet): stop all the same.
-    for (const { doc } of view.current?.renderer?.getContents() ?? []) {
-      (doc.defaultView as (Window & { CSS: typeof CSS }) | null)?.CSS.highlights?.delete("nl-spoken");
-    }
-    player.stop();
-    setListening(false);
-  };
-
   // The app's read-aloud player (components/player): while the bar shows, this
   // page lights its words, turns its pages and draws its bar. Leaving the
   // reader takes the page away; the audio goes on.
   const listenSlot = useRef<HTMLDivElement>(null);
-  const forPlayer = useRef({ highlightWord, showPassage, stopListening });
-  useEffect(() => {
-    forPlayer.current = { highlightWord, showPassage, stopListening };
-  });
-  const { attach, stop } = player;
   const showsBar = listening && !!where.cfi;
   // On a phone the sidebar's rail is a row under the book, and a panel is a card over the page: the card must end
   // above the rail, or it covers the tools (a tap on Study with Rewrite open did nothing, 2026-11-01). --below-rail is
@@ -1686,29 +1553,26 @@ export function Reader(props: {
   // to a book still read aloud, the bar would show while the book opens, and its calls would fail).
   // (Opened or failed: a book that could not open still shows the bar, so × can stop its audio.)
   const ready = status !== "loading";
-  useEffect(() => {
-    const slot = listenSlot.current;
-    if (!showsBar || !ready || !slot) return;
-    return attach(
-      {
-        slot,
-        onWord: (passageCfi, from, to, inPage) => forPlayer.current.highlightWord(passageCfi, from, to, inPage),
-        onPassage: (passageCfi, opts) => forPlayer.current.showPassage(passageCfi, opts),
-        renderBar: (view) => <ListenBar view={view} ref={listenBar} onClose={() => forPlayer.current.stopListening()} />,
-      },
-      props.bookId,
-      // Where the reader is now: reading aloud starts here (unless this book is already being read aloud).
-      whereCfi.current!,
-      // Home's "Listen from here" means from the reading position, even if this book was being read aloud.
-      !!props.startListening,
-    );
-  }, [showsBar, ready, attach, props.bookId, props.startListening]);
-  // Another book is being read aloud: opening this one stops it, as leaving the reader did before
-  // reading aloud went on from page to page (this reader has no bar for another book).
-  const playingBook = player.bookId;
-  useEffect(() => {
-    if (playingBook && playingBook !== props.bookId) stop();
-  }, [playingBook, props.bookId, stop]);
+  const { stopListening } = useReadAloud({
+    bookId: props.bookId,
+    fileType: props.fileType,
+    startListening: props.startListening,
+    player,
+    setListening,
+    showsBar,
+    ready,
+    refocus,
+    view,
+    whereCfi,
+    turning,
+    litCfi,
+    spokenPdf,
+    spokenBlock,
+    focusRef,
+    listenBar,
+    listenSlot,
+  });
+
 
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? withEink({ ...s, ...patch }) : s));
 
