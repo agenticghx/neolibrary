@@ -285,3 +285,6 @@ export const api = async (url: string, method: string, body?: unknown) => {
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
   return res.status === 204 ? null : res.json();
 };
+
+/** Which panel is open beside the book (one at a time). */
+export type ReaderPanel = "none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "genealogy" | "links" | "images" | "picture";
