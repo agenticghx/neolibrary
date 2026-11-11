@@ -2,6 +2,9 @@ import type { Storage } from "./index";
 
 type Kept = { data: Uint8Array; contentType: string; at: number };
 
+/** How much the memory holds in all (the files read longest ago leave first). */
+export const SMALL_FILE_CACHE_BYTES = 64 * 1024 * 1024;
+
 /**
  * Keeps small files under one prefix (book covers) in this server's memory after they are first read, so a shelf of
  * covers is not fetched from the bucket one picture at a time on every visit. Measured on the live site on
@@ -19,8 +22,11 @@ export function withSmallFileCache(
   const prefix = opts.prefix ?? "covers/";
   // As large as a cover may be where covers are stored (MAX_COVER_BYTES, lib/covers/image.ts): every cover is kept.
   const maxFileBytes = opts.maxFileBytes ?? 3 * 1024 * 1024;
-  const maxTotalBytes = opts.maxTotalBytes ?? 64 * 1024 * 1024;
-  const ttlMs = opts.ttlMs ?? 10 * 60 * 1000;
+  const maxTotalBytes = opts.maxTotalBytes ?? SMALL_FILE_CACHE_BYTES;
+  // A day. A cover's name changes when its picture does (found and uploaded covers carry a hash of the picture; a
+  // book file's cover is written once, through this storage), so an old copy is not a wrong one. Ten minutes, as it
+  // was at first, left the memory empty for most visits. lib/library/warm-covers.ts reads aged-out covers again.
+  const ttlMs = opts.ttlMs ?? 24 * 60 * 60 * 1000;
   const now = opts.now ?? Date.now;
   // A Map keeps the order of insertion: the first key is the one read longest ago (a read moves its key to the end).
   const kept = new Map<string, Kept>();

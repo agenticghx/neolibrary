@@ -34,6 +34,9 @@ export async function register() {
   // M22: covers for titles without one, looked up in the background (COVER_LOOKUP=off switches it off).
   const { scheduleCoverLookups } = await import("./lib/library/cover-job");
   scheduleCoverLookups(getDb, getStorage);
+  // Every cover is read into memory now and kept there, so a shelf never waits on the bucket (lib/library/warm-covers.ts).
+  const { scheduleCoverWarming } = await import("./lib/library/warm-covers");
+  scheduleCoverWarming(getDb, getStorage);
   // M25: text editions of scanned books; batches sent before a restart are picked up again.
   const { scheduleTextEditionPolls } = await import("./lib/library/text-edition");
   scheduleTextEditionPolls(getDb, getStorage);
