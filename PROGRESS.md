@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Look at what makes pull request checks slow.
+next_action: Read the job times of the last three pull requests and find what makes the slowest browser job take 13 to 24 minutes.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-11 15:12 · Claude Fable 5.2 · Checkpoint: live 7d699e5 (#352: every way of saving a note says so when it fails); version 2 checks 1, 2 (covers) and 6 (reading) done as far as counted
+- **Done:** #352 merged and live: both addresses serve 7d699e5, /sign-in 200, all its checks passed (slowest browser job 13m34s). Today, all live: #348 and #349 (open-shelf covers in Safari's engine 2.5 to 3.5 s from the laptop's network, was 12 to 46 s), #350 (a removed sticker's mark leaves at once; a double press saves once; the checks' browser install retries with public name servers), #351 (a session reads 363 lines at the start, not 5,694; old Log entries in docs/ledger-archive/), #352 (a failed bookmark, removal or note on a Path says so and keeps the words; a failure test for each way of saving a note or recording, except Think aloud, which uses the same recorder). Handoff note saved on the laptop.
+- **Key paths:** docs/handoffs/2026-11-11-1439-version-2-checks-1-2-6.md (laptop only); docs/version-2.md (where each check stands); components/TargetNoteForm.tsx; app/(reader)/books/[id]/read/Reader.tsx; lib/library/warm-covers.ts; next.config.ts; scripts/archive-ledger.py
+- **Commands that worked:** curl -s https://<each address>/api/health; gh pr checks 352; node cov-diag.mjs in a folder with playwright (covers in WebKit on the live site); python3 scripts/archive-ledger.py --check
+- **Known issues / blockers:** Not timed on the real iPad. Not recounted under check 1: answers typed in Review, Where were we? and Ask; a Path note's Remove button is a plain page form. A lint warning on main: e2e/readalong.spec.ts:1062 (unused 'there'). Worktree .claude/worktrees/covers to be removed.
+- **Exact next steps:** 1. Version 2 check 6: pull request checks in 12 minutes or less; read the job times first (gh run view <run> --json jobs): the slowest browser job took 24 minutes on #350 and about 13.5 on #351 and #352. 2. Check 2: write the live WebKit check as a rule for every change a reader sees, and where its output goes in a pull request. 3. The check 1 leftovers named under issues. 4. Samuel: time /browse on the real iPad, signed out; accept or change docs/version-2.md; his browser for the download-then-offline check; Open unknowns rows 35 and 36.
 
 ### 2026-11-11 12:56 · Claude Fable 5.2 · Every way of saving says so when it fails: bookmark, removal and Path note fixed; a failure test for each
 - **Done:** Version 2 check 1, the recount. Listed the ways of saving in the reader and on a Path's page (note on a passage, note about the book, sticker, bookmark, edited note, removal, drawing, voice note, pinned picture, note on a Path); two had a test with the library answering an error; now each has one except Think aloud (the same recorder as a voice note) and a Path note.s Remove button. Explain it back by voice is covered too. Three faults found and fixed: a failed bookmark and a failed removal (and Undo) showed nothing, and now show the page's notice saying what did not happen; a failed note on a Path replaced the page with 'This page couldn't load' and lost the words, and now says 'Not saved … Your words are still in the box' (components/TargetNoteForm.tsx; SubmitOnce.tsx removed, the new form also waits while a save is on its way). Old code: the bookmark part failed (notice not found; the removal part was not reached); a probe showed the Path page replaced. A notice holding a failed note.s words now stays when a bookmark or removal succeeds or fails after it; Undo stays on offer when bringing a note back is refused. New code: notes and images projects with their dependencies 312 passed; npm run check 1484 passed, 2 skipped. Whole browser suite: 438 passed (16.7m); after a last small rework of the notice rule (to keep lint clean) the notes project and its dependencies again: 306 passed.
