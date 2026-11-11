@@ -335,8 +335,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # Only this pull request's new folder is put on disk, and no old picture is downloaded: the branch holds
+          # every earlier pull request's pictures, and fetching them all took this step 152 s on #352 (2026-11-11);
+          # a trial of this way took 1 s. The commit still keeps every other folder (it is made from the branch's
+          # own list of files, of which only this folder is checked out).
+          git config remote.origin.promisor true
+          git config remote.origin.partialclonefilter blob:none
+          git sparse-checkout set --cone "$DEST"
           for attempt in 1 2 3; do
-            if git fetch -q --depth 1 origin ci-screenshots; then git checkout -q -B ci-screenshots FETCH_HEAD; else git checkout -q --orphan ci-screenshots; fi
+            if git fetch -q --depth 1 --filter=blob:none origin ci-screenshots; then git checkout -q -B ci-screenshots FETCH_HEAD; else git checkout -q --orphan ci-screenshots; fi
             mkdir -p "$DEST"
             cp "$GITHUB_WORKSPACE"/screenshots/*.png "$DEST"/ 2>/dev/null || true
             # Failed screenshot comparisons: expected / actual / diff, so a
@@ -344,7 +351,7 @@ jobs:
             (cd "$GITHUB_WORKSPACE" && find test-results -name '*-actual.png' -o -name '*-expected.png' -o -name '*-diff.png') | while read -r f; do
               d="$DEST/failures/$(basename "$(dirname "$f")")"; mkdir -p "$d"; cp "$GITHUB_WORKSPACE/$f" "$d/"
             done
-            git add "$DEST"
+            git add --sparse "$DEST"
             git commit -q -m "Screenshots for $DEST" || true
             if git push -q origin ci-screenshots; then exit 0; fi
             sleep $((attempt * 3))
