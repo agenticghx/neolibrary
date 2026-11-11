@@ -1,10 +1,11 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { estimateCost, generate, toGeneration, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations } from "@/lib/db/schema";
 import { bookLine } from "./prerequisites";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * Ask this book (M21): a question answered only from the book's own
@@ -246,7 +247,7 @@ export async function assertOwnBook(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book) throw new AskNotFound("Book not found.");
 }
 

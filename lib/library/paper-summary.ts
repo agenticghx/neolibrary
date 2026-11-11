@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { estimateCost, generate, toGeneration, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -7,6 +7,7 @@ import { books, generations, sections } from "@/lib/db/schema";
 import { getStyles } from "./ai-style";
 import { bookLine, steScore, styleInstruction } from "./prerequisites";
 import type { Style } from "./levels";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * A paper's summary card (M41 R4a): the question it asks, its method, its main finding and its limits, one to three
@@ -39,7 +40,7 @@ async function ownPaper(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, kind: books.kind })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book) throw new PaperSummaryError("Book not found");
   if (book.kind !== "paper") throw new PaperSummaryError("Mark this title as a paper first (its DOI or PubMed ID).");
   return book;

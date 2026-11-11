@@ -10,6 +10,7 @@ import { markdownIn, ZIP_NOT_A_BOOK } from "./zip-names";
 import { pickBook, sameBook, UUID } from "./paths";
 import { buildSections } from "./sections-store";
 import { buildXray } from "./xray";
+import { isOwnBook } from "@/lib/library/own-book";
 
 export type ImportResult = (
   | { status: "added" | "attached"; bookId: string; title: string }
@@ -68,7 +69,7 @@ async function importFile(
       ? await db
           .select({ id: books.id, title: books.title, author: books.author, fileKey: books.fileKey })
           .from(books)
-          .where(and(eq(books.id, opts.attachTo), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+          .where(isOwnBook(opts.attachTo, ownerId))
       : [];
     if (!target) throw new ImportError("That title was not found.");
     if (target.fileKey) throw new ImportError("That title already has its book file.");

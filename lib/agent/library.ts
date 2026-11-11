@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { createAnnotation, listAnnotations, readingOrder, type Annotation } from "@/lib/library/annotations";
@@ -7,6 +7,7 @@ import { listShelf } from "@/lib/library/shelf";
 import { STICKERS } from "@/lib/library/stickers";
 import { editionOf, pdfHasOwnText } from "@/lib/library/text-edition";
 import { listXray, XrayError } from "@/lib/library/xray";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * What an AI agent can do in a reader's library (M11), shared by the HTTP
@@ -76,7 +77,7 @@ async function ownBook(db: Db, userId: string, bookId: string) {
   const [b] = await db
     .select({ id: books.id, title: books.title })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, userId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, userId));
   if (!b) throw new AgentError("Book not found.", 404);
   return b;
 }
@@ -176,7 +177,7 @@ export async function agentBook(db: Db, userId: string, bookId: string): Promise
   const [b] = await db
     .select()
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, userId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, userId));
   if (!b) throw new AgentError("Book not found.", 404);
   const scan = b.fileType === "pdf" && !b.editionOf && !(await pdfHasOwnText(db, b.id, b.pageCount));
   const edition = b.fileType === "pdf" ? await editionOf(db, userId, b.id) : null;
@@ -201,7 +202,7 @@ export async function agentBookFile(db: Db, userId: string, bookId: string) {
   const [b] = await db
     .select({ fileKey: books.fileKey, fileType: books.fileType, fileName: books.fileName, title: books.title })
     .from(books)
-    .where(and(eq(books.id, bookId), eq(books.ownerId, userId), isNull(books.deletedAt)));
+    .where(isOwnBook(bookId, userId));
   if (!b?.fileKey || !b.fileType) throw new AgentError("Book not found, or it has no file yet.", 404);
   return { key: b.fileKey, type: b.fileType, name: b.fileName ?? `${b.title}.${b.fileType}` };
 }

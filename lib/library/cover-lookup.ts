@@ -6,6 +6,7 @@ import { candidateOfChoice, CoverSourceError, CoverSources, type CoverCandidate,
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
+import { isOwnBook } from "@/lib/library/own-book";
 
 /**
  * Covers for titles (M22), found in public catalogues by title and author when
@@ -221,7 +222,7 @@ export async function chooseCover(
     ? await db
         .select()
         .from(books)
-        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+        .where(isOwnBook(bookId, ownerId))
     : [];
   if (!book) throw new CoverError("Book not found.");
   if (book.coverSource === "file") throw new CoverError("This title has the cover inside its book file.");
@@ -279,7 +280,7 @@ export async function uploadCover(
     ? await db
         .select()
         .from(books)
-        .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)))
+        .where(isOwnBook(bookId, ownerId))
     : [];
   if (!book) throw new CoverError("Book not found.");
   if (book.coverSource === "file") throw new CoverError("This title has the cover inside its book file.");

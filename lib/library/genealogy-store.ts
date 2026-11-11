@@ -10,13 +10,14 @@
  *
  * Written for the sessions that build M43 S3 (the views in Study) on top of it.
  */
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { generationCacheKey } from "@/lib/ai/generate";
 import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, genealogyEvents, genealogyLinks, generations, sections, type GenealogyKind } from "@/lib/db/schema";
 import { RELATIONS } from "./genealogy";
 import { findQuote } from "./xray-read";
+import { isOwnBook } from "@/lib/library/own-book";
 
 export class GenealogyError extends Error {}
 
@@ -83,7 +84,7 @@ export async function genealogyStatus(db: Db, ownerId: string, bookId: string) {
 }
 
 async function ownBook(db: Db, ownerId: string, bookId: string) {
-  const [book] = await db.select({ id: books.id }).from(books).where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
+  const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new GenealogyError("That book was not found.");
 }
 
