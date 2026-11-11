@@ -219,10 +219,20 @@ jobs:
       - name: Install the browsers this machine needs
         run: |
           set -euo pipefail
-          if [ "${{ matrix.webkit }}" = "true" ]; then
-            npx playwright install --with-deps chromium webkit
-          else
-            npx playwright install --with-deps chromium
+          if [ "${{ matrix.webkit }}" = "true" ]; then browsers="chromium webkit"; else browsers="chromium"; fi
+          install() { npx playwright install --with-deps $browsers; }
+          # The system packages come from Ubuntu's package servers. On 2026-11-11 this machine's own name lookup failed
+          # for them for hours ("Temporary failure resolving 'azure.archive.ubuntu.com'") while the servers answered
+          # elsewhere, and five runs in a row stopped here. A second try asks public name servers instead.
+          if ! install; then
+            echo "::warning::Installing the browsers' system packages failed; trying again with public name servers."
+            getent hosts azure.archive.ubuntu.com archive.ubuntu.com security.ubuntu.com || echo "this machine cannot look those names up"
+            sudo mkdir -p /etc/systemd/resolved.conf.d
+            printf '[Resolve]\nDNS=1.1.1.1 8.8.8.8\nFallbackDNS=9.9.9.9\nDomains=~.\n' | sudo tee /etc/systemd/resolved.conf.d/public.conf >/dev/null
+            sudo systemctl restart systemd-resolved || true
+            sleep 10
+            getent hosts azure.archive.ubuntu.com || echo "still cannot look the name up"
+            install
           fi
       - name: Playwright (screenshot comparison, axe-core accessibility)
         env:
