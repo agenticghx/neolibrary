@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the job times of the last three pull requests and find what makes the slowest browser job take 13 to 24 minutes.
+next_action: Read the publish step's time on this pull request's run and check that the screenshot grid's pictures load.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-11 15:15 · Claude Fable 5.2 · Pull request checks: publishing screenshots no longer downloads the old ones (152 s on #352); where the 16.6 minutes go
+- **Done:** Version 2 check 6, the checks half, first step. Measured #352's run: 16.6 minutes from start to the last check; the slowest machine 13.6 minutes (browser tests 12.7); the last job 2.8 minutes, of which 'Publish screenshots to the ci-screenshots branch' 152 s. That step now checks out only its own new folder and downloads no old picture. Trial on the laptop against the real branch, without pushing: fetch and checkout 1 s, the new commit lists the same 45 top folders, push dry run is a fast-forward. Also removed the unused line behind main's one lint warning (e2e/readalong.spec.ts). The step's time on CI is to be read from this pull request's own run.
+- **Key paths:** .github/workflows/ci.yml (the publish step); e2e/readalong.spec.ts; docs/version-2.md (check 6); LEARNING_LOG.md (iteration 199); worktree .claude/worktrees/ci, branch m44-faster-checks
+- **Commands that worked:** gh run view <run> --json jobs (step times); gh run view <run> --log | grep 'Browser tests (behavior)' (test times by group); git sparse-checkout set --cone <folder>; git fetch --depth 1 --filter=blob:none origin ci-screenshots; git add --sparse <folder>
+- **Known issues / blockers:** To reach 12 minutes the slowest machine's tests must be divided between two machines; they run as a chain that shares data, so the division needs care (the reader's tests alone are 197 s). Not started. If this pull request's screenshot grid shows broken pictures, the publish change is wrong: revert it.
+- **Exact next steps:** 1. On this pull request's run: read the publish step's time and open the screenshot grid's pictures. 2. Divide the 'behavior' group between two machines (BROWSER_GROUPS in scripts/ci-browser-needed.mjs), measuring each half. 3. Version 2 check 2: the live WebKit check as a rule. 4. Check 1 leftovers: answers typed in Review, Where were we? and Ask; a Path note's Remove button.
 
 ### 2026-11-11 15:12 · Claude Fable 5.2 · Checkpoint: live 7d699e5 (#352: every way of saving a note says so when it fails); version 2 checks 1, 2 (covers) and 6 (reading) done as far as counted
 - **Done:** #352 merged and live: both addresses serve 7d699e5, /sign-in 200, all its checks passed (slowest browser job 13m34s). Today, all live: #348 and #349 (open-shelf covers in Safari's engine 2.5 to 3.5 s from the laptop's network, was 12 to 46 s), #350 (a removed sticker's mark leaves at once; a double press saves once; the checks' browser install retries with public name servers), #351 (a session reads 363 lines at the start, not 5,694; old Log entries in docs/ledger-archive/), #352 (a failed bookmark, removal or note on a Path says so and keeps the words; a failure test for each way of saving a note or recording, except Think aloud, which uses the same recorder). Handoff note saved on the laptop.

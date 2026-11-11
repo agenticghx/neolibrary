@@ -1059,7 +1059,6 @@ test("M13 (d): in a paragraph longer than a page, Pause and Play stay on the pag
   // The word's page is on screen a moment before the book reports its new place (foliate's "relocate" comes once the
   // turn has settled), so the place is waited for, not read at once (docs/ci-flakes.md, 2026-11-10).
   await expect(page.getByTestId("reader")).not.toHaveAttribute("data-cfi", first!);
-  const there = await page.getByTestId("reader").getAttribute("data-cfi");
   const before = (await recording(page)).frames.length;
   await bar.getByRole("button", { name: "Play" }).click();
   await playUntil(page, far.startMs + 1500);
