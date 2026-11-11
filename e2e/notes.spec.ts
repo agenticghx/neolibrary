@@ -333,3 +333,89 @@ test("the microphone is opened once, and closed if the reader goes back while th
   await page.evaluate(() => (window as unknown as { mic: { answer: () => void } }).mic.answer());
   await expect.poll(async () => (await mic()).stopped).toBe(1);
 });
+
+/** How many of the reader's own marks (highlights, stickers, drawings, pictures) are drawn on the pages shown. */
+const marksDrawn = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => {
+    const view = document.querySelector("foliate-view") as unknown as { renderer: { getContents(): { overlayer?: { element: SVGElement } }[] } };
+    return view.renderer.getContents().reduce((n, { overlayer }) => n + (overlayer?.element.querySelectorAll(":scope > g:not([data-xray])").length ?? 0), 0);
+  });
+
+test("a removed sticker's mark leaves the page at once, and Undo draws it again", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const before = await marksDrawn(page);
+
+  await selectPhrase(page, "a volume of some dry divinity");
+  const bar = page.getByRole("toolbar", { name: "Selected text" });
+  await bar.getByRole("button", { name: "Sticker" }).click();
+  await bar.getByRole("group", { name: "Stickers" }).getByRole("button", { name: "Sticker: Important" }).click();
+  await expect(bar).toHaveCount(0);
+  await expect.poll(() => marksDrawn(page)).toBe(before + 1);
+
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const panel = page.getByRole("navigation", { name: "Notes" });
+  const item = panel.locator("li").filter({ hasText: "a volume of some dry divinity" }).filter({ hasText: "Sticker" });
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(item).toHaveCount(0);
+  // The fault: the mark stayed on the page until it was loaded again.
+  await expect.poll(() => marksDrawn(page)).toBe(before);
+
+  await panel.getByRole("button", { name: "Undo" }).click();
+  await expect(item).toHaveCount(1);
+  await expect.poll(() => marksDrawn(page)).toBe(before + 1);
+
+  // A highlight on the same passage: one mark for the two (marks are drawn by place). Removing the sticker leaves the
+  // highlight's mark; removing the highlight takes it off. The page is then as it was found.
+  await selectPhrase(page, "a volume of some dry divinity");
+  await bar.getByRole("button", { name: "Highlight in Amber" }).click();
+  await expect(bar).toHaveCount(0);
+  const highlight = panel.locator("li").filter({ hasText: "a volume of some dry divinity" }).filter({ hasText: "Highlight" });
+  await expect(highlight).toHaveCount(1);
+  await item.getByRole("button", { name: "Remove" }).click();
+  await expect(item).toHaveCount(0);
+  await expect.poll(() => marksDrawn(page)).toBe(before + 1);
+  await highlight.getByRole("button", { name: "Remove" }).click();
+  await expect(highlight).toHaveCount(0);
+  await expect.poll(() => marksDrawn(page)).toBe(before);
+});
+
+test("pressing twice quickly saves one note about the book and one bookmark, not two", async ({ page }) => {
+  await page.goto(`/search?q=${encodeURIComponent('"a volume of some dry divinity"')}`);
+  await page.getByRole("region", { name: /The Strange Case/ }).getByRole("link").filter({ hasText: "divinity" }).first().click();
+  await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  const id = /\/books\/([0-9a-f-]{36})\/read/.exec(page.url())![1];
+  type Note = { kind: string; body: string | null };
+  const saved = async () => ((await (await page.request.get(`/api/books/${id}/annotations`)).json()) as { annotations: Note[] }).annotations;
+  // Each save answers slowly, so the second press lands while the first is still on its way; and each is counted.
+  let saves = 0;
+  await page.route("**/api/books/*/annotations", async (route) => {
+    if (route.request().method() === "POST") {
+      saves += 1;
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    await route.continue();
+  });
+
+  await page.getByRole("button", { name: /^Notes/ }).click();
+  const panel = page.getByRole("navigation", { name: "Notes" });
+  await panel.getByLabel("A note about this book").fill("Pressed twice, kept once.");
+  await panel.locator("form").filter({ has: page.getByLabel("A note about this book") }).getByRole("button", { name: "Add note" }).dblclick();
+  await expect(panel.getByLabel("A note about this book")).toHaveValue("");
+  expect(saves, "saves sent for the note").toBe(1);
+  expect((await saved()).filter((a) => a.body === "Pressed twice, kept once.")).toHaveLength(1);
+
+  const bookmarks = (await saved()).filter((a) => a.kind === "bookmark").length;
+  await page.getByRole("button", { name: "Bookmark this page" }).dblclick();
+  await expect(page.getByRole("button", { name: "Remove bookmark" })).toHaveAttribute("aria-pressed", "true");
+  expect(saves, "saves sent for the note and the bookmark").toBe(2);
+  expect((await saved()).filter((a) => a.kind === "bookmark")).toHaveLength(bookmarks + 1);
+
+  // Left as it was found: the bookmark and the note come off again.
+  await page.getByRole("button", { name: "Remove bookmark" }).click();
+  await expect(page.getByRole("button", { name: "Bookmark this page" })).toBeVisible();
+  const note = panel.locator("li").filter({ hasText: "Pressed twice, kept once." });
+  await note.getByRole("button", { name: "Remove" }).click();
+  await expect(note).toHaveCount(0);
+});

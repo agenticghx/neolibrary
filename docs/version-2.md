@@ -77,12 +77,12 @@ helps, and takes its turn after any open item under lines 1 to 4.
 - More kinds of AI answer before the present ones are checked by eye on
   Samuel's real books (the standing verdicts under "Waiting on Samuel").
 
-## Where it stands (2026-11-10, evening)
+## Where it stands (2026-11-11)
 
 | Line | State |
 |---|---|
-| 1. Nothing lost or leaked | Most paths done today (#330, #332, #334). Left: removing a sticker or drawing leaves its mark until reload; double-saved notes. |
-| 2. Works where it is read | Not started as a rule. Covers, all 129 on the live open shelf, signed out, at iPad size, from the laptop's network: 43 to 46 s in WebKit on 2026-11-10; 12.1 s once covers were kept in the server's memory (#347); 3.2 to 3.5 s once the page stopped sending a "Link" header that made WebKit fetch pictures two at a time (#348, 2026-11-11). Real Safari in Xcode's iPad simulator: the cover requests reach the server within 1.5 s (12.1 s before). Still slow after #348: a visit that found the server's memory empty (after a deploy or ten quiet minutes) took about 30 s; the change that reads every cover into memory at start and keeps it there is to be measured live. Not yet timed on the real iPad. |
+| 1. Nothing lost or leaked | Most paths done on 2026-11-10 (#330, #332, #334). On 2026-11-11: a removed sticker, drawing or picture loses its mark at once, and a double press on the book note form, the bookmark button or a Path's note form saves once. The two leftovers listed here before are fixed. Not done: a recount that every save path has a browser test with the library answering an error. |
+| 2. Works where it is read | Not started as a rule. Covers: the 5-second target is met from the laptop's network (2026-11-11). All 129 covers on the live open shelf, signed out, at iPad size, in WebKit: 43 to 46 s on 2026-11-10; 12.1 s once covers were kept in the server's memory (#347); 2.5 to 3.5 s once the page stopped sending a "Link" header that made WebKit fetch pictures two at a time (#348) and the server read every cover into memory at start (#349), also straight after a deploy and after a quiet spell. Real Safari in Xcode's iPad simulator: the cover requests reach the server within 1.2 s (12.1 s before). Not yet timed on the real iPad. |
 | 3. Offline | Done today (#330, #331); the signed-in live check of download-then-offline is still to do. |
 | 4. Money | Done: scripts (#333); a billed AI answer that fails now counts against the cap, and read-along audio has one ceiling per reader (migration 0040, #337, live). Left: the Batch API path for scanned pages does not record a billed failure. |
 | 5. Reader page | `Reader.tsx` is under 1,500 lines (#336, #338 to #343, and the full-screen cut), with notes, focus, reading aloud, the ruler and full screen each in their own file. Ownership ("this book, of this reader, not removed") is one function, `isOwnBook`, called by 44 single-book lookups; 7 lookups stay by hand, each with its reason in `lib/library/own-book.test.ts`, which fails on a new one (#344, #345). Not under it: lists of books, raw SQL, and the rules for visitors and shared papers. |

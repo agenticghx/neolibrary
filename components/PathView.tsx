@@ -5,6 +5,7 @@ import { availabilityLabel } from "@/lib/library/availability";
 import { KIND_WORDS, partsWord } from "@/lib/library/path-words";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
+import { SubmitOnce } from "./SubmitOnce";
 import styles from "./PathView.module.css";
 
 const GROUPS: Record<string, string> = {
@@ -60,9 +61,7 @@ function TargetNotes({ targetType, targetId, label, notes }: { targetType: "pill
           {label}
         </label>
         <textarea id={`note-${targetId}`} name="body" rows={2} className={styles.noteInput} placeholder="A thought, a pairing, a question…" required />
-        <button type="submit" className={styles.noteSave}>
-          Save note
-        </button>
+        <SubmitOnce className={styles.noteSave}>Save note</SubmitOnce>
       </form>
     </details>
   );

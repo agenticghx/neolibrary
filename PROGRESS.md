@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Version 2 check 1: make a removed sticker or drawing lose its mark at once, and stop a note being saved twice; put the live cover numbers into docs/version-2.md in the same pull request.
+next_action: The Batch API path's missing record of a billed failure.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -179,6 +179,13 @@ Never blocks the loop. Newest first.
 - 2026-10-03 · Design system written in M1 and checked in every milestone · because aesthetics is the top requirement in the vision · by Claude (default)
 
 ## Log
+
+### 2026-11-11 08:40 · Claude Fable 5.2 · A removed sticker's mark leaves the page at once; a double press saves once
+- **Done:** Version 2 check 1, the two listed leftovers. (1) Removing a sticker, drawing or picture now takes its mark off the page at once (only a highlight's did); if another note sits on the same passage its mark is drawn again; Undo draws the mark back once. All removals of drawn notes go through one function (removeNote in useNotes.ts), read to confirm; only the sticker is tested. (2) The book note form, the bookmark button and a Path's Save note ignore a second press while the first save is on its way. Three browser tests, each shown failing on the old code for its part: Path note saved twice (Expected: 1, Received: 2); sticker mark stayed (Expected: 2, Received: 3); book note saved twice (Expected length: 1, Received length: 2); the bookmark half was not reached on the old code. With the fixes: notes project and its dependencies 303 passed; npm run check 1484 passed, 2 skipped. Also in this pull request: the live cover numbers after #348 and #349 in docs/version-2.md (check 2) and learning log iteration 195; iteration 196. Whole browser suite: 434 passed (16.6m).
+- **Key paths:** app/(reader)/books/[id]/read/useNotes.ts; app/(reader)/books/[id]/read/Reader.tsx (toggleBookmark); app/(reader)/books/[id]/read/NotesPanel.tsx; components/SubmitOnce.tsx; components/PathView.tsx; e2e/notes.spec.ts; e2e/annotations.spec.ts; docs/version-2.md; LEARNING_LOG.md; worktree .claude/worktrees/covers, branch m44-marks-and-double-saves
+- **Commands that worked:** npx playwright test --ignore-snapshots --reporter=line --project=notes; npm run check; to show a test fails on old code: git diff -- <files> > fix.patch; git checkout -- <files>; run; git apply fix.patch
+- **Known issues / blockers:** Not done: a recount that every save path has a browser test with the library answering an error (version 2 check 1's own check). The branch has one commit named WIP: squash before pushing. A lint warning in e2e/readalong.spec.ts:1062 (unused 'there') is on main already.
+- **Exact next steps:** 1. When the whole browser suite passes: squash, push, open the pull request; it merges and deploys itself; check /api/health on both addresses. 2. The Batch API path for scanned pages does not record a billed failure. 3. Shorten what each session must read (archive the Log older than two weeks). 4. Pull request checks in 12 minutes or less. 5. Samuel: time /browse on the real iPad, signed out.
 
 ### 2026-11-11 08:11 · Claude Fable 5.2 · Live caa93a1 (#348, #349): open-shelf covers in Safari's engine 2.5 to 3.5 s, also after a deploy and after a quiet spell (was 12 to 46 s)
 - **Done:** #348 (no Link response header) and #349 (every cover read into the server's memory at start and kept) are merged and live as caa93a1 on both addresses; /sign-in 200; /browse sends no Link header; start-up log: 'Covers: 253 kept in memory (8.8 MB).' and 'Page pictures: ready.'. All 129 open-shelf covers, signed out, iPad size, from the laptop's network: Playwright's WebKit 3.2 s about a minute after the deploy (118 pictures in flight; the same run after the previous deploy took 29.5 s) and 2.5 s after twelve quiet minutes (117 in flight; was 31.6 s); Chromium 1.9 s. Real Safari in Xcode's iPad simulator after the quiet spell: the 129 cover requests reached the server within 1.2 s (12.1 s before #348). Version 2's check 2 asked for 5 s in WebKit: met from the laptop's network; the real iPad is not timed. The simulator is shut down.

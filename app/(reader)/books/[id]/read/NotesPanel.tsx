@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { NotesExport } from "@/components/NotesExport";
 import type { Annotation } from "@/lib/library/annotations";
 import type { NotSaved } from "@/lib/outbox";
@@ -47,6 +47,7 @@ export function NotesPanel({
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const addingBookNote = useRef(false);
   const [bookNote, setBookNote] = useState("");
   // The form whose save failed ("book", or the id of the note being edited), with the library's reason.
   const [failed, setFailed] = useState<{ form: string; reason: string } | null>(null);
@@ -95,6 +96,9 @@ export function NotesPanel({
         className={styles.noteForm}
         onSubmit={async (e) => {
           e.preventDefault();
+          // One save at a time: a second press before the first was saved made the note twice.
+          if (addingBookNote.current) return;
+          addingBookNote.current = true;
           // A save that fails says so and leaves the words in the box.
           try {
             await onAddBookNote(bookNote);
@@ -102,6 +106,8 @@ export function NotesPanel({
             setFailed(null);
           } catch (err) {
             setFailed({ form: "book", reason: err instanceof Error && err.message ? err.message : "Not saved" });
+          } finally {
+            addingBookNote.current = false;
           }
         }}
       >

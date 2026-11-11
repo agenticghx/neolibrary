@@ -1007,16 +1007,23 @@ export function Reader(props: {
   // out in Scroll and says why. Settings exist only in the browser, so the check never runs on the server.
   const twoPagesOff = settings?.flow === "scrolled" && props.fileType !== "pdf" && !canWrapColumns();
 
+  // One press at a time: a second press before the first was saved made a second bookmark of the same page.
+  const bookmarking = useRef(false);
   const toggleBookmark = async () => {
-    if (!where.cfi) return;
-    if (bookmarkHere) await forget(bookmarkHere);
-    else
-      await create({
-        kind: "bookmark",
-        cfi: CFI.collapse(where.cfi),
-        quote: { exact: visibleText.current.slice(0, 160) || where.chapter },
-      });
-    await reload();
+    if (!where.cfi || bookmarking.current) return;
+    bookmarking.current = true;
+    try {
+      if (bookmarkHere) await forget(bookmarkHere);
+      else
+        await create({
+          kind: "bookmark",
+          cfi: CFI.collapse(where.cfi),
+          quote: { exact: visibleText.current.slice(0, 160) || where.chapter },
+        });
+      await reload();
+    } finally {
+      bookmarking.current = false;
+    }
   };
 
   // The app's read-aloud player (components/player): while the bar shows, this
