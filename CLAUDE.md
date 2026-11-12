@@ -109,6 +109,17 @@ engineer.
   `PROGRESS.md`, on top of `origin/main` (a fast-forward, never a
   force-push); the steps are in the laptop's `CLAUDE.local.md`. Never open a
   PR only to record a deploy (each costs a CI round).
+- **A change a reader sees is checked where it is read** (version 2, check
+  2; 2026-11-11). Samuel reads on an iPad, whose browsers all use Safari's
+  engine (WebKit). After such a change is live, run
+  `node scripts/live-webkit-check.mjs <the site's address> <the changed pages>`
+  (signed out, reads only: WebKit and Chromium at iPad size) and paste its
+  output in the pull request or the Log entry. A line starting "LOOK" is a
+  failure to explain. A page that needs signing in is checked in Samuel's
+  own browser, with his word; never move his reading place. For how real
+  Safari behaves, Xcode's iPad simulator opens the page
+  (`xcrun simctl openurl <device> <address>`) and the host's request log
+  shows when its requests arrived.
 - `docs/handoffs/` (session handoff notes) and `docs/ideasFeaturesSelf.md`
   (Samuel's own notes) are gitignored on purpose: write there, never
   force-add them.
