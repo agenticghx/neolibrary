@@ -78,7 +78,8 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
   page,
   browser,
 }) => {
-  test.setTimeout(240_000);
+  // Room for a slow machine: the long wait below alone may take five minutes (see the note there).
+  test.setTimeout(480_000);
   await page.goto("/import");
   await page.getByLabel("Choose files").setInputFiles({
     name: "lamps-along-the-quay.epub",
@@ -262,7 +263,10 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
           if (s.running) seen.push(s.saved);
           return s.stoppedBecause?.kind ?? "running";
         },
-        { intervals: [100], timeout: 120_000 },
+        // How long the wait may last, not what is checked. On GitHub's machines the rest of the narration took 59 s
+        // (#350) and, on a day they ran slow, 112 s (#353) and more than the 120 s this allowed (#353 once, #354):
+        // 2026-11-11, docs/ci-flakes.md. Five minutes leaves room for that.
+        { intervals: [100], timeout: 300_000 },
       )
       .toBe("finished");
     const counts = [...new Set(seen)];
