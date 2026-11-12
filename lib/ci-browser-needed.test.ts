@@ -336,15 +336,27 @@ describe("browser groups (one CI machine each)", () => {
     expect(depsOf(webkit, "readalong-safari")).toEqual(["reader"]);
   });
 
-  it("behavior keeps the screenshots and the chain to offline, without the branches, the audiobook or WebKit", async () => {
+  it("behavior keeps the chain from flows to images and home, without the screenshots, the branches, the audiobook or WebKit", async () => {
     const projects = applyBrowserGroup(await allProjects(), "behavior");
-    expect(namesOf(projects)).not.toContain("review");
-    expect(namesOf(projects)).not.toContain("readalong");
-    expect(depsOf(projects, "flows")).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
-    expect(depsOf(projects, "home")).toEqual(["stats"]);
-    expect(depsOf(projects, "offline")).toEqual(["agents"]);
+    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "home"]);
+    expect(depsOf(projects, "flows")).toEqual(["setup"]);
+    expect(depsOf(projects, "audio")).toEqual(["ai"]); // audio and images use the links the AI tests make
+    expect(depsOf(projects, "home")).toEqual(["images"]); // stats runs on the other machine
     expect(namesOf(projects)).not.toContain("safari"); // WebKit's packages on this machine moved Chromium's screenshots
+  });
+
+  it("behavior-2 takes the screenshots first, then stats to offline and the open shelf, after flows, uploads and reader", async () => {
+    const projects = applyBrowserGroup(await allProjects(), "behavior-2");
+    expect(namesOf(projects)).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark", "flows", "uploads", "reader", "stats", "own-paths", "agents", "offline", "open-shelf"]);
+    expect(depsOf(projects, "flows")).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]); // screenshots before any data
+    expect(depsOf(projects, "reader")).toEqual(["uploads"]);
+    expect(depsOf(projects, "stats")).toEqual(["reader"]);
+    expect(depsOf(projects, "own-paths")).toEqual(["stats"]);
+    expect(depsOf(projects, "offline")).toEqual(["agents"]);
     expect(depsOf(projects, "open-shelf")).toEqual(["stats"]);
+    // A change to styles only: this machine alone, with the screenshots alone.
+    expect(namesOf(applyBrowserGroup(applyBrowserSlices(await allProjects(), ["screenshots"]), "behavior-2"))).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
+    expect(applyBrowserGroup(applyBrowserSlices(await allProjects(), ["screenshots"]), "behavior")).toEqual([]);
   });
 
   it("a group whose targets are all off runs nothing, and an unknown or unset group runs everything", async () => {
@@ -355,17 +367,19 @@ describe("browser groups (one CI machine each)", () => {
     expect(namesOf(applyBrowserGroup(all, "no-such-group"))).toEqual(namesOf(all));
   });
 
-  it("starts one machine per group that has work: none for docs, one for a style, three for a PR, four on main", () => {
+  it("starts one machine per group that has work: none for docs, one for a style, four for a PR, five on main", () => {
     expect(browserGroupsToRun([], { skipWebkit: true })).toEqual([]);
-    expect(browserGroupsToRun(["screenshots"], { skipWebkit: true })).toEqual([{ group: "behavior", webkit: false }]);
-    expect(browserGroupsToRun(["behavior"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "branches"]);
+    expect(browserGroupsToRun(["screenshots"], { skipWebkit: true })).toEqual([{ group: "behavior-2", webkit: false }]);
+    expect(browserGroupsToRun(["behavior"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "behavior-2", "branches"]);
     expect(browserGroupsToRun(ALL, { skipWebkit: true })).toEqual([
       { group: "behavior", webkit: false },
+      { group: "behavior-2", webkit: false },
       { group: "branches", webkit: false },
       { group: "readalong", webkit: false },
     ]);
     expect(browserGroupsToRun(ALL)).toEqual([
       { group: "behavior", webkit: false },
+      { group: "behavior-2", webkit: false },
       { group: "branches", webkit: false },
       { group: "readalong", webkit: false },
       { group: "webkit", webkit: true },
@@ -373,9 +387,10 @@ describe("browser groups (one CI machine each)", () => {
     // Safari's highlight test alone (e2e/safari.spec.ts changed) on main: the WebKit machine, without the audiobook file.
     expect(browserGroupsToRun(["behavior", "webkit"])).toEqual([
       { group: "behavior", webkit: false },
+      { group: "behavior-2", webkit: false },
       { group: "branches", webkit: false },
       { group: "webkit", webkit: true },
     ]);
-    expect(browserGroupsToRun(["behavior", "webkit"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "branches"]);
+    expect(browserGroupsToRun(["behavior", "webkit"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "behavior-2", "branches"]);
   });
 });
