@@ -11,7 +11,7 @@ import { setStyle, StyleError } from "./ai-style";
 import { paragraphsBetween } from "./annotations";
 import { importBook } from "./import";
 import { rewriteFor } from "./levels";
-import { rewriteParagraph } from "./rewrite";
+import { estimateRewrite, listRewrites, rewriteParagraph } from "./rewrite";
 import { inStyle, rewriteInStyle, rewrittenView } from "./rewritten";
 import { getSections } from "./sections-store";
 import type { Section } from "./sections";
@@ -129,6 +129,39 @@ describe("read it rewritten, in the book's style (M17)", () => {
     expect(await rewriteInStyle(database.db, model, ownerId, { bookId, sectionId: a.id })).toMatchObject({ reused: true, generation: { id: made.generation.id } });
     expect(model.calls).toHaveLength(1);
   });
+
+  // Audit 2026-11-09: the view looked up each paragraph's rewrites and price one by one (about five queries each, at
+  // every page turn). It now asks once for the page; every answer must stay what each paragraph's own lookups give.
+  it("gives each paragraph on a page the rewrite and price its own lookups give, in every chapter and style", async () => {
+    const model = new FakeModel();
+    const ps = all.filter((s) => s.kind === "paragraph");
+    for (const style of ["plain", "ste-strict", "ste-standard"] as const) {
+      await setStyle(database.db, ownerId, bookId, { scope: "book", style });
+      for (const q of ps.filter((_, k) => k % 7 === (style === "plain" ? 0 : 3))) await rewriteInStyle(database.db, model, ownerId, { bookId, sectionId: q.id });
+    }
+    for (const style of ["plain", "ste-strict", "ste-standard", "ste-light"] as const) {
+      await setStyle(database.db, ownerId, bookId, { scope: "book", style });
+      const want = rewriteFor(style);
+      const chapters = [...new Set(ps.map((q) => q.chapterIndex))];
+      for (const c of chapters) {
+        const inChapter = ps.filter((q) => q.chapterIndex === c);
+        const range = rangeCfi(inChapter[0], inChapter[Math.min(inChapter.length, 30) - 1]);
+        const view = await rewrittenView(database.db, model, ownerId, bookId, { from: range, to: range });
+        const expected = [];
+        for (const q of await paragraphsBetween(database.db, bookId, range, range)) {
+          if (q.form !== "prose") {
+            expected.push({ id: q.id, rewrite: null, estimate: null });
+            continue;
+          }
+          const rewrite = (await listRewrites(database.db, ownerId, bookId, q.id)).filter((g) => inStyle(g, style)).at(-1) ?? null;
+          const estimate = rewrite ? null : await estimateRewrite(database.db, model, ownerId, bookId, q.id, want.level, want.level === "ste" ? want.strictness : undefined);
+          expected.push({ id: q.id, rewrite, estimate });
+        }
+        expect(view.pieces.length).toBeGreaterThan(0);
+        expect(view.pieces.map((x) => ({ id: x.id, rewrite: x.rewrite, estimate: x.estimate }))).toEqual(expected);
+      }
+    }
+  }, 120000);
 
   it("follows the book's style: STE strict asks for Strict, and shows only rewrites at that strictness", async () => {
     const model = new FakeModel();

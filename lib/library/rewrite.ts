@@ -1,5 +1,5 @@
-import { and, eq } from "drizzle-orm";
-import { generate, listGenerations, estimateCost, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
+import { and, eq, inArray } from "drizzle-orm";
+import { generate, listGenerations, listGenerationsFor, estimateCost, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
 import { steCheck } from "@/lib/ai/ste";
@@ -64,6 +64,19 @@ async function buildRequest(
 ): Promise<GenerationRequest> {
   const paragraph = await paragraphFor(db, ownerId, bookId, { sectionId });
   const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  return requestFor(ownerId, bookId, book, { id: sectionId, chapter: paragraph.chapter, text: paragraph.text }, level, strictness);
+}
+
+/** The request for a paragraph already in hand (its text and chapter's name), with no database work. */
+async function requestFor(
+  ownerId: string,
+  bookId: string,
+  book: { title: string; author: string },
+  paragraph: { id: string; chapter: string; text: string },
+  level: Level,
+  strictness: Strictness,
+): Promise<GenerationRequest> {
+  const sectionId = paragraph.id;
   const message = {
     book: book.author ? `${book.title}, by ${book.author}` : book.title,
     chapter: paragraph.chapter,
@@ -137,6 +150,37 @@ export async function estimateRewrite(
   return estimateCost(model, await buildRequest(db, ownerId, bookId, sectionId, level, strictness));
 }
 
+/**
+ * estimateRewrite for the paragraphs of a page at once (the rewritten view, M17): the book and the chapters' names read
+ * once, not per paragraph (audit 2026-11-09). The caller has checked the book is the reader's and that each paragraph is
+ * prose with text.
+ */
+export async function estimateRewrites(
+  db: Db,
+  model: TextModel,
+  ownerId: string,
+  bookId: string,
+  paragraphs: { id: string; text: string; chapterIndex: number }[],
+  level: Level,
+  strictness: Strictness = "standard",
+) {
+  const out = new Map<string, number>();
+  if (!paragraphs.length) return out;
+  const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  const labels = await db
+    .select({ chapterIndex: sections.chapterIndex, label: sections.label })
+    .from(sections)
+    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "chapter"), inArray(sections.chapterIndex, [...new Set(paragraphs.map((p) => p.chapterIndex))])));
+  // The first chapter row of an index, as paragraphFor's query takes it.
+  const chapterOf = new Map<number, string>();
+  for (const l of labels) if (!chapterOf.has(l.chapterIndex)) chapterOf.set(l.chapterIndex, l.label);
+  for (const p of paragraphs) {
+    const req = await requestFor(ownerId, bookId, book, { id: p.id, chapter: chapterOf.get(p.chapterIndex) ?? "", text: p.text }, level, strictness);
+    out.set(p.id, estimateCost(model, req));
+  }
+  return out;
+}
+
 export type RewriteView = Generation & {
   /** The rewrite itself, without the notes. */
   text: string;
@@ -161,3 +205,10 @@ export function viewRewrite(g: Generation): RewriteView {
 
 export const listRewrites = async (db: Db, ownerId: string, bookId: string, sectionId: string) =>
   (await listGenerations(db, ownerId, bookId, sectionId, "rewrite")).map(viewRewrite);
+
+/** listRewrites for the paragraphs of a page, in one query. */
+export async function listRewritesFor(db: Db, ownerId: string, bookId: string, sectionIds: string[]) {
+  const out = new Map<string, RewriteView[]>();
+  for (const [id, list] of await listGenerationsFor(db, ownerId, bookId, sectionIds, "rewrite")) out.set(id, list.map(viewRewrite));
+  return out;
+}

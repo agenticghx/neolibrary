@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Fix the slow path in the rewritten view (lib/library/rewritten.ts, about five queries per paragraph per page turn), test first; or deploy 0041 at Samuel's word.
+next_action: Merge the rewritten-view PR when green, then the next slow path: the cap check's queries per paid call.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 08:42 · Claude Opus 5.5 · Audit slow path: the rewritten view asks once per page, not about five times per paragraph
+- **Done:** lib/library/rewritten.ts reads the page's rewrites in one query (listRewritesFor) and prices them with the book and chapter names read once (estimateRewrites in lib/library/rewrite.ts); lib/library/annotations.ts paragraphsBetween reads places first and only the page's text. A test pins every paragraph's rewrite and price in every chapter and four styles against the per-paragraph lookups (passed on the old code first). 33.2 -> 6.3 ms per page turn in the test database.
+- **Key paths:** lib/library/rewritten.ts; lib/library/rewrite.ts; lib/ai/generate.ts (listGenerationsFor); lib/library/annotations.ts; lib/library/rewritten.test.ts; LEARNING_LOG.md (iteration 214)
+- **Commands that worked:** npx vitest run lib/library/rewritten.test.ts lib/library/rewritten-turn.test.ts lib/library/rewrite.test.ts lib/library/annotations.test.ts (33 passed); mutation (chapter name left out) -> 1 failed; npm run check (1492 passed)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge this PR when green. 2. Remaining slow paths: the sidebar's due count (lib/library/review.ts; a cached count must not go stale after rating), the cap check's queries per paid call. 3. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 
 ### 2026-11-14 08:18 · Claude Opus 5.5 · Checkpoint: live a8ef1b8 (#362-#367, six audit fixes); #361 (migration 0041) still waits for Samuel's word
 - **Done:** Merged one at a time and deployed by the automatic deploy: #362 two-column PDFs no longer glue column two to column one; #363 a book file with no text is read once at start-up, not every start; #364 an X-ray name of a new kind gets its own entry; #365 read aloud asks for a paragraph's neighbours, not the whole book (62.1 -> 5.4 ms per paragraph on a 20,000-paragraph test book); #366 Open Library asked at most once a second across the server; #367 opening a paper lists its figures without their drawings. Six worktrees and branches removed.
