@@ -137,6 +137,27 @@ describe("Open Library", () => {
     await ol.find({ title: "Thinking in Systems: A Primer", author: "Meadows" }); // two searches
     expect(Date.now() - t0).toBeGreaterThanOrEqual(110);
   });
+
+  // Audit 2026-11-09: each request to the site made its own client, with its own count, and two lookups at once both
+  // went straight through, so the one-a-second promise held only inside one lookup.
+  it("keeps the gap between lookups made at the same time, and one client serves every request", async () => {
+    const times: number[] = [];
+    const { fetcher } = openLibraryFake();
+    const timed = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input).includes("search.json")) times.push(Date.now());
+      return fetcher(input, init);
+    }) as typeof fetch;
+    const ol = new OpenLibraryCovers(timed, 120);
+    // Three at once, so two are waiting at the same time.
+    await Promise.all([1, 2, 3].map(() => ol.find({ title: "Seeing Like a State", author: "Scott" })));
+    const gaps = times.slice(1).map((t, i) => t - times[i]);
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(110);
+
+    const live = { GOOGLE_BOOKS_API_KEY: "k" };
+    expect(getCoverSource(live)).toBe(getCoverSource(live));
+    expect(getCoverSource({ GOOGLE_BOOKS_API_KEY: "other" })).not.toBe(getCoverSource(live)); // a new key, a new client
+  });
 });
 
 describe("Google Books", () => {

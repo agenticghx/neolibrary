@@ -88,11 +88,17 @@ const USER_AGENT = "Neolibrary/1.0 (private study library; https://github.com/ag
 /** One request at a time, at least `gapMs` apart: Open Library allows 1 a second from an application it cannot identify, 3 from one it can. */
 class Pacer {
   private last = 0;
+  /** The turn of the last caller: each waits for the one before, so lookups made at the same time queue (audit 2026-11-09). */
+  private queue: Promise<void> = Promise.resolve();
   constructor(private gapMs: number) {}
-  async wait() {
-    const left = this.last + this.gapMs - Date.now();
-    if (left > 0) await new Promise((r) => setTimeout(r, left));
-    this.last = Date.now();
+  wait() {
+    const turn = this.queue.then(async () => {
+      const left = this.last + this.gapMs - Date.now();
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+      this.last = Date.now();
+    });
+    this.queue = turn;
+    return turn;
   }
 }
 
@@ -495,10 +501,18 @@ export class FakeCovers implements CoverSource {
   }
 }
 
-const g = globalThis as unknown as { __neolibraryFakeCovers?: FakeCovers };
+const g = globalThis as unknown as { __neolibraryFakeCovers?: FakeCovers; __neolibraryCovers?: { key: string; source: CoverSource } };
 
+/**
+ * One set of catalogues for the whole server, so their pacing holds across requests and the background lookups:
+ * a client made per request kept its own count and the one-a-second promise held only inside one lookup (audit
+ * 2026-11-09). A changed Google Books key makes a new set.
+ */
 export function getCoverSource(env: Record<string, string | undefined> = process.env): CoverSource {
   if (env.AI_FAKE === "1" || env.VITEST) return (g.__neolibraryFakeCovers ??= new FakeCovers());
-  const key = env.GOOGLE_BOOKS_API_KEY?.trim();
-  return new CoverSources([new OpenLibraryCovers(), ...(key ? [new GoogleBooksCovers(key)] : [])]);
+  const key = env.GOOGLE_BOOKS_API_KEY?.trim() ?? "";
+  if (g.__neolibraryCovers?.key !== key) {
+    g.__neolibraryCovers = { key, source: new CoverSources([new OpenLibraryCovers(), ...(key ? [new GoogleBooksCovers(key)] : [])]) };
+  }
+  return g.__neolibraryCovers.source;
 }

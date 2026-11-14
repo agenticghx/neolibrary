@@ -3286,3 +3286,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The pinning test on the old and new code; the audio, listen and shared-paper tests; `npm run check`; the time per paragraph on a made-up book of 20,000 paragraphs in the test database, old and new.
 **Result.** Pinning test passed on the old code and on the new. 19 audio, listen-related and shared-paper tests passed; `npm run check` 1487 passed (the scan-with-edition read-aloud tests in `listen.test.ts` among them). Time per paragraph: 62.1 ms old, 5.4 ms new (the test database; the live database, over a network, should gain more, since it no longer sends the book's text).
 **Lesson.** For a change that must not change any answer, pin every answer on the old code first, across a whole real input, then change it.
+
+### Iteration 212 · 2026-11-14 (laptop clock) · Open Library is asked at most once a second across the whole server · success
+
+**Hypothesis.** The audit (2026-11-09) read that `getCoverSource` makes a new Open Library client for every request, each with its own one-a-second pacer, so the promise to Open Library held only inside one lookup. Reading the pacer on the way: two callers waiting at the same time both read the same "last request" time and went out together.
+**Action.** Test first in `lib/covers/sources.test.ts`: three lookups at once on one client, the gap between their searches timed; and two calls of `getCoverSource` with the same key. Fix in `lib/covers/sources.ts`: the pacer queues its callers (each waits for the one before); `getCoverSource` keeps one set of catalogues for the server, made again only when the Google Books key changes.
+**Evaluation.** Each half of the test on the old code; the cover tests; `npm run check`.
+**Result.** Old code: two lookups at once went out 0 ms apart (`expected 0 to be greater than or equal to 110`; with only two lookups the test passed on the old code, since only one was ever waiting: three were needed); `getCoverSource` gave two different clients. With the fix: cover tests 44 passed; `npm run check` 1488 passed.
+**Lesson.** A test for "one at a time" needs at least two callers waiting at once, which takes three callers.
