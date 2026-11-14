@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the open audit-fix PRs one at a time, then the next slow path: the rewritten view's queries.
+next_action: Fix the slow path in the rewritten view (lib/library/rewritten.ts, about five queries per paragraph per page turn), test first; or deploy 0041 at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 08:18 · Claude Opus 5.5 · Checkpoint: live a8ef1b8 (#362-#367, six audit fixes); #361 (migration 0041) still waits for Samuel's word
+- **Done:** Merged one at a time and deployed by the automatic deploy: #362 two-column PDFs no longer glue column two to column one; #363 a book file with no text is read once at start-up, not every start; #364 an X-ray name of a new kind gets its own entry; #365 read aloud asks for a paragraph's neighbours, not the whole book (62.1 -> 5.4 ms per paragraph on a 20,000-paragraph test book); #366 Open Library asked at most once a second across the server; #367 opening a paper lists its figures without their drawings. Six worktrees and branches removed.
+- **Key paths:** lib/library/pdf-sections.ts; lib/library/sections-store.ts; lib/library/xray-read.ts; lib/library/audio.ts; lib/covers/sources.ts; lib/library/figure-redraws.ts; LEARNING_LOG.md iterations 208-213
+- **Commands that worked:** curl /api/health on both addresses -> commit a8ef1b8; /sign-in 200 on both; gh run list: CI success and Deploy success on a8ef1b8e; railway logs: 'Ready in 113ms', 'Page pictures: ready.', no errors
+- **Known issues / blockers:** PR checks took 10-14 minutes for the slowest job (check 6's 12-minute target not met). X-ray entries merged wrongly before #364 are not separated (needs one live query). Laptop: macOS grep has no \| in basic regex; use grep -E.
+- **Exact next steps:** 1. If Samuel says 'deploy 0041': backup, restore-check, mark #361 ready, rebase, merge, deploy from the laptop, count _migrations. 2. Remaining slow paths: the rewritten view's queries (lib/library/rewritten.ts), the sidebar's due count (lib/library/review.ts; a cached count must not go stale after rating), the cap check's queries. 3. Check 6: build the site once for every browser machine.
 
 ### 2026-11-14 06:50 · Claude Opus 5.5 · Audit slow path: opening a paper lists its redrawn figures without loading their drawings
 - **Done:** lib/library/figure-redraws.ts figureRedrawsFor selects ids, places, model and date only, not every version's SVG. Same list as before; 7.4 ms -> 0.4 ms on 60 drawings of about 300 KB in the test database (about 18 MB no longer read).
