@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the open audit-fix PRs one at a time, then the next slow path: figure redraws loaded on opening a paper.
+next_action: Merge the open audit-fix PRs one at a time, then the next slow path: the rewritten view's queries.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 06:50 · Claude Opus 5.5 · Audit slow path: opening a paper lists its redrawn figures without loading their drawings
+- **Done:** lib/library/figure-redraws.ts figureRedrawsFor selects ids, places, model and date only, not every version's SVG. Same list as before; 7.4 ms -> 0.4 ms on 60 drawings of about 300 KB in the test database (about 18 MB no longer read).
+- **Key paths:** lib/library/figure-redraws.ts; LEARNING_LOG.md (iteration 213)
+- **Commands that worked:** old vs new comparison script (20 figures x 3 versions); npx vitest run lib/library/figure-redraws.test.ts (9 passed); npm run check (1487 passed)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge the open audit-fix PRs (#363 to this one) when green, one at a time. 2. Next slow paths: the rewritten view's queries (lib/library/rewritten.ts), the sidebar's due count (lib/library/review.ts; a cached count must not go stale after rating), the paid-call cap check's queries. 3. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 
 ### 2026-11-14 06:48 · Claude Opus 5.5 · Audit slow path: Open Library is asked at most once a second across the whole server
 - **Done:** lib/covers/sources.ts: the pacer queues callers, so lookups made at the same time wait their turn; getCoverSource keeps one set of catalogues per server (new only when the Google Books key changes) instead of one per request. Test first: old code sent two lookups 0 ms apart and made a client per call.

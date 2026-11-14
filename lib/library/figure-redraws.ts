@@ -147,7 +147,14 @@ export async function figureRedrawsFor(db: Db, book: { id: string; ownerId: stri
   const src = await sourceOf(db, book);
   if (!src) return [];
   const newest = new Map<string, ReaderFigure>();
-  for (const r of await listRows(db, src.ownerId, src.bookId)) {
+  // Without the drawings: the reader fetches each one as a picture, and loading every version's here made opening a
+  // paper wait on all of them (audit 2026-11-09).
+  const rows = await db
+    .select({ id: generations.id, sectionId: generations.sectionId, model: generations.model, createdAt: generations.createdAt })
+    .from(generations)
+    .where(and(eq(generations.ownerId, src.ownerId), eq(generations.bookId, src.bookId), eq(generations.kind, REDRAW_KIND)))
+    .orderBy(asc(generations.createdAt), asc(generations.id));
+  for (const r of rows) {
     const m = /^(.+)#(\d+)$/.exec(r.sectionId ?? "");
     if (m) newest.set(r.sectionId!, { chapter: m[1], nth: Number(m[2]), id: r.id, model: r.model, at: r.createdAt.toISOString() });
   }
