@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Recount the answers typed in Review, Where were we? and Ask: does each say so when the library answers with an error?
+next_action: Version 2 check 1 leftovers: find how Review, Where were we? and Ask save, and give each a browser test with the library answering an error.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
-updated: 2026-11-11
+updated: 2026-11-13
 shared_copy: none
 ---
 
@@ -20,12 +20,13 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-11 12:20 (laptop clock, from `date`). **All work is live (8adc7d8) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-13 21:50 (laptop clock, from `date`). **All work is live (cc3f084, #355) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Check 1: recount that every way of saving a note, highlight, drawing or recording has a browser test with the library answering an error; add the missing ones.
-2. Check 6: pull request checks in 12 minutes or less (the slowest browser job on #350 took 24 minutes).
-3. Check 2: make "checked on the live site in WebKit at iPad size" a rule for every change a reader sees (the tools: Playwright's WebKit, and real Safari in Xcode's iPad simulator timed from the host's request log).
-4. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; Open unknowns row 35 (audit findings that need a decision) and row 36.
+1. Check 1 leftovers: find how answers typed in Review, "Where were we?" and Ask are saved; give each that saves a browser test with the library answering an error (shown failing on the old code first), and fix any that show nothing, lose the words or replace the page; make a Path note's Remove button say so when it fails instead of replacing the page.
+2. Check 6: read that pull request's start-to-last-check time (it changes a page, so the screenshot tests run); only if it is over 12 minutes, build the site once for every browser machine.
+3. Check 7: recount the 2026-11-09 audit list (laptop only, `docs/handoffs/2026-11-09-audit-review-list.md`) against #329 to #355; mark each item fixed, open or dropped with a reason; fix the open ones in version 2's order.
+4. If `e2e/stats.spec.ts:72` fails again: its message now lists each save's fate; read it before re-running (two possible causes in `docs/ci-flakes.md`).
+5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser. (Open unknowns rows 35 and 36 were settled on 2026-11-10.)
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -186,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-13 21:50 · Claude Opus 5.5 · #355 live (cc3f084); the stats test's lost 30 seconds not reproduced in 70 rounds; the test now says what happened to each save
+- **Done:** #355 merged as cc3f084 after one re-run of the known stats flake; main's checks green; deployed by the workflow: both addresses' /api/health show cc3f084, /sign-in 200. scripts/live-webkit-check.mjs on the live site: all 'ok'; /browse in WebKit 129 of 129 pictures after 5.5 s (Chromium 6.2 s), 4.7 MB. Version 2 step 2 of the 2026-11-13 plan: e2e/stats.spec.ts:72 ('Received 60') investigated. The server keeps the larger total, so an older save cannot overwrite a newer one. A temporary test repeated the test's steps in Playwright's Linux image: 0 of 40 rounds short at normal speed, 0 of 30 with the processor slowed six-fold; the save on leaving never appeared to the test's interception, yet the server had 90 s. GitHub kept no trace of the failed run. Not fixed, so not claimed: the test now records every save (sent, answered, failed, errors its interception hid), finds the sitting by its id, and lists the saves in its failure message. docs/ci-flakes.md row updated; learning log iteration 202. Exact next steps rewritten (Open unknowns rows 35 and 36 were settled 2026-11-10 but still listed). Removed worktree .claude/worktrees/rule.
+- **Key paths:** e2e/stats.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md; lib/library/reading-stats.ts (greatest); app/(reader)/books/[id]/read/useReadingTracker.ts; docs/handoffs/2026-11-13-2121-way-forward-plan.md (laptop only); worktree .claude/worktrees/stats, branch m44-stats-reading-save
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh --env STATS_DIAG_ROUNDS=40 -- --project stats -g DIAG --reporter=line (with a temporary e2e/diag-stats.spec.ts, deleted; STATS_DIAG_CPU=6 slowed the processor via Emulation.setCPUThrottlingRate); node scripts/live-webkit-check.mjs <live address> /browse /sign-in; curl -s https://<each address>/api/health
+- **Known issues / blockers:** The stats failure's cause is still unknown (about 4 in 227 CI runs). Main's run on cc3f084 listed no separate WebKit machine.
+- **Exact next steps:** 1. Check 1 leftovers: Review, Where were we?, Ask; a Path note's Remove button. 2. Check 6: read that pull request's time. 3. Check 7: recount the audit list. 4. If the stats test fails again, read its list of saves before re-running.
 
 ### 2026-11-11 19:51 · Claude Fable 5.2 · A script and a rule for checking a change where it is read (WebKit at iPad size, on the live site)
 - **Done:** Version 2 check 2, the rule. scripts/live-webkit-check.mjs: signed out, reads only; opens each named page of the live site in WebKit and Chromium at iPad size and prints the status, where the page landed, pictures loaded and their time, how many were fetched at once, their size in all, whether the service worker is in control, and failed requests or script errors (requests the browser itself dropped are not counted). CLAUDE.md asks for it after every change a reader sees, its output in the pull request or the Log; signed-in pages stay with Samuel's own browser. Run on the live site (bf60948): every line 'ok'; /browse in WebKit 129 of 129 pictures, up to 100 fetched at once, 4.7 MB in all, after 10.2 to 15.9 s on this evening's laptop connection (measured at about 1 MB a second with a 5 MB test file; earlier the same day on a faster connection the covers took 2.5 to 3.5 s). Also written into docs/version-2.md and the learning log: #354's measured times (12.0 minutes from start to last check, 16.6 on #352; at the target's line, not safely under it).

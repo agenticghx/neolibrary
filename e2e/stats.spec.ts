@@ -79,13 +79,30 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   let release = () => {};
   const left = new Promise<void>((resolve) => (release = resolve));
   let held = false;
+  // Every reading save this page makes, in order, shown if the sitting comes up short.
+  const saves: string[] = [];
+  let sessionId = "";
+  const seconds = (r: { postDataJSON: () => unknown }) => (r.postDataJSON() as { activeSeconds: number }).activeSeconds;
+  const isSave = (r: { url: () => string; method: () => string }) => r.method() === "POST" && /\/api\/books\/[^/]+\/reading$/.test(r.url());
+  page.on("request", (r) => {
+    if (!isSave(r)) return;
+    sessionId = (r.postDataJSON() as { sessionId: string }).sessionId;
+    saves.push(`sent ${seconds(r)} s`);
+  });
+  page.on("requestfinished", async (r) => {
+    if (isSave(r)) saves.push(`answered ${seconds(r)} s: ${(await r.response())?.status()}`);
+  });
+  page.on("requestfailed", (r) => {
+    if (isSave(r)) saves.push(`failed ${seconds(r)} s: ${r.failure()?.errorText}`);
+  });
   await page.route("**/api/books/*/reading", async (route) => {
-    if (!held && (route.request().postDataJSON() as { activeSeconds: number }).activeSeconds >= 90) {
+    if (!held && seconds(route.request()) >= 90) {
       held = true;
+      saves.push("held 90 s");
       await left;
       return route.abort().catch(() => undefined);
     }
-    return route.continue().catch(() => undefined);
+    return route.continue().catch((e: Error) => saves.push(`continue of ${seconds(route.request())} s threw: ${e.message}`));
   });
   await page.clock.install({ time: new Date("2026-10-05T10:00:00Z") });
   await page.goto(`/books/${grid.id}/read`);
@@ -96,9 +113,16 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   release();
   await page.unroute("**/api/books/*/reading");
 
-  type Session = { bookId: string; activeSeconds: number; words: number };
-  const session = async () => ((await exported()).readingSessions as Session[]).find((s) => s.bookId === grid.id);
-  await expect.poll(async () => (await session())?.activeSeconds ?? 0, { timeout: 10_000 }).toBeGreaterThanOrEqual(90);
+  type Session = { id: string; bookId: string; activeSeconds: number; words: number };
+  const session = async () => ((await exported()).readingSessions as Session[]).find((s) => s.id === sessionId);
+  // If the sitting comes up short, the message lists what happened to each save (written after the wait,
+  // so late answers are in it). This test failed 4 times in the 227 CI runs since 2026-11-03 (docs/ci-flakes.md) and
+  // never in 70 rounds on the laptop's Linux image: the list is how the next failure shows its cause.
+  await expect
+    .poll(async () => (await session())?.activeSeconds ?? 0, { timeout: 10_000 })
+    .toBeGreaterThanOrEqual(90)
+    .catch(() => undefined);
+  expect((await session())?.activeSeconds ?? 0, `the sitting's 90 s were saved; the saves seen: ${saves.join("; ")}`).toBeGreaterThanOrEqual(90);
   const g = (await session())!;
   const gridWpm = String(Math.round(g.words / (g.activeSeconds / 60)));
 
