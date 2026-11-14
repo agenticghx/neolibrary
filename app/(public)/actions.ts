@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { FormState } from "@/components/ActionForm";
 import { createRateLimiter } from "@/lib/auth/rate-limit";
+import { visitorAddress } from "@/lib/visitor-limit";
 import { acceptInvite, authenticate, AuthError, createFirstAdmin, normaliseEmail } from "@/lib/auth/service";
 import { safeNext, startSession } from "@/lib/auth/session";
 import { checkSetupCode } from "@/lib/auth/setup-code";
@@ -21,7 +22,8 @@ const wide = createRateLimiter(50, 15 * 60_000);
 const field = (data: FormData, name: string) => String(data.get(name) ?? "");
 
 async function clientAddress() {
-  return (await headers()).get("x-forwarded-for")?.split(",")[0].trim() || "local";
+  // The same address the visitor limits use (lib/visitor-limit.ts): Railway's X-Real-IP first.
+  return visitorAddress(await headers());
 }
 
 /** Runs `fn`; turns AuthError into a message on the form. */
