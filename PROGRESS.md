@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Fix the audit item: books with no extractable text are re-read at every server start (lib/library/sections-store.ts), test first.
+next_action: Fix the audit item: a new X-ray name can merge into an entry of another kind with the same name (lib/library/xray-read.ts), test first.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 06:39 · Claude Opus 5.5 · Audit fix: a book file with no text is read once at start-up, not at every server start
+- **Done:** lib/library/sections-store.ts remembers files read without paragraphs (scanned PDFs, unreadable files) as book id -> file key in app_settings 'sections-none' (no migration) and skips them while the file is the same; the start-up log no longer counts them as built. Test first: old code read the file at every start.
+- **Key paths:** lib/library/sections-store.ts; lib/library/sections-store.test.ts; LEARNING_LOG.md (iteration 209)
+- **Commands that worked:** npx vitest run lib/library/ (613 passed); npm run check (1487 passed); mutation 'always write the row' -> 1 failed
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge #362 (PDF columns) and this PR when green, one at a time. 2. Next audit item: X-ray id clash across kinds (lib/library/xray-read.ts). 3. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 ### 2026-11-14 06:30 · Claude Opus 5.5 · Audit fix: two-column PDFs no longer glue the top of column two to column one
 - **Done:** lib/library/pdf-sections.ts adds a space when the text jumps up a line or more (next column, or a running head drawn after the body), measured from the line, so a raised footnote mark stays on its word. Test first: old code gave 'winter1evenings'. Books already in the library keep their stored text; new uploads get the fix.
 - **Key paths:** lib/library/pdf-sections.ts; lib/library/pdf-sections.test.ts; lib/reader/text-range.test.ts; LEARNING_LOG.md (iteration 208)
