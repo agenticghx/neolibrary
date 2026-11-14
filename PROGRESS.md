@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Plan the sidebar due-count fix (lib/library/review.ts gapRows), or deploy 0041 at Samuel's word.
+next_action: Back up the live database, restore-check it, then deploy migration 0041 from the laptop (Samuel said yes).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 16:15 · Claude Opus 5.5 · Checkpoint: #361 (migration 0041) merged at Samuel's word; deploy from the laptop with a backup is next; live stays aeb8a19
+- **Done:** Samuel said 'yes, deploy 0041'. #361 rebased (its learning-log entry renumbered 215), all checks green, merged as 0a34e5aa at 14:53 UTC. The automatic deploy refuses the migration, as designed, so live is still aeb8a19 and automatic deploys wait until 0041 is deployed by hand. Postgres 18 image ready for the restore check. Main run 43607235200 failed on the stats flake; #356's diagnostics captured it ('sent 90 s; held 90 s'); a second run on the same commit passed.
+- **Key paths:** docs/handoffs/2026-11-14-1614-deploy-0041-next.md (laptop only); db/migrations/0041_removed_by_reader.up.sql; db/migrations/0041_removed_by_reader.down.sql
+- **Commands that worked:** gh pr view 361 -> MERGED 0a34e5aa; curl /api/health on both addresses -> aeb8a19; gh run view 43607235200 --log-failed
+- **Known issues / blockers:** Not deployed yet: no backup taken. Until 0041 is deployed, every merge to main waits for a hand deploy.
+- **Exact next steps:** 1. Back up the live database (CLAUDE.local.md recipe; 'dump complete' footer). 2. Restore-check into a throwaway Postgres 18. 3. Deploy 0a34e5aa (or main's head) from ../neolibrary-deploy with railway up. 4. Check both addresses, /sign-in, 'Page pictures: ready.', count _migrations. 5. Record with ledger-to-main. 6. Then the stats flake: why the 90 s save is held.
 
 ### 2026-11-14 09:13 · Claude Opus 5.5 · Checkpoint: live aeb8a19 (#368, the rewritten view asks once per page); seven audit fixes live today
 - **Done:** #368 merged and deployed by the automatic deploy: the rewritten view reads a page's rewrites and prices in a few queries (about 150 to 6 per page turn; 33.2 to 6.3 ms in the test database), and finding the page no longer reads the whole book's text. Decided to leave the cap check's queries per paid call (about 11 beside a paid call of seconds; it guards money). The sidebar's due count needs its own step.
