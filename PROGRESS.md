@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the three audit-fix PRs one at a time, then start the slow paths from the audit list.
+next_action: Merge the open audit-fix PRs one at a time, then the next slow path: the sidebar's due-for-review count.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 06:45 · Claude Opus 5.5 · Audit slow path: read aloud asks for a paragraph's neighbours, not the whole book's text
+- **Done:** lib/library/audio.ts passageFor: a book that is not a scan with a text edition asks for the paragraphs just before and after (two small queries) instead of every paragraph's text; scans with an edition keep the old route. A test pins every paragraph's answer of a whole book on the old code first. 62.1 ms -> 5.4 ms per paragraph on a 20,000-paragraph test book.
+- **Key paths:** lib/library/audio.ts; lib/library/audio.test.ts; LEARNING_LOG.md (iteration 211)
+- **Commands that worked:** npx vitest run lib/library/audio.test.ts (pinning test passes on old and new); npm run check (1487 passed); timing script in the session scratchpad (20,000 paragraphs)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge #363, #364 and this PR when green, one at a time. 2. Next slow paths: the sidebar's due-for-review count (lib/library/review.ts), figure redraws on opening a paper (lib/library/figure-redraws.ts), the rewritten view's queries (lib/library/rewritten.ts). 3. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 ### 2026-11-14 06:41 · Claude Opus 5.5 · Audit fix: an X-ray name of a new kind gets its own entry, not the same-named entry of another kind
 - **Done:** lib/library/xray-read.ts: a new entry whose usual id (from its name) is taken gets the kind in its id; two entries in one answer join only when their kinds match. Test first: old code gave the person 'Mercury' the place's id. Existing entries keep their ids.
 - **Key paths:** lib/library/xray-read.ts; lib/library/xray-read.test.ts; LEARNING_LOG.md (iteration 210)

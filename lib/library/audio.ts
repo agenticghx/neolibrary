@@ -120,14 +120,31 @@ export async function passageFor(db: Db, ownerId: string, bookId: string, at: { 
       .limit(1);
   }
   if (!row) throw new AudioError("There is nothing to read aloud here.");
-  const all = await db
-    .select({ id: sections.id, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position })
-    .from(sections)
-    .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
-    .orderBy(asc(sections.position));
   // A scan with a text edition (scan-speech.ts): a page read for it is read whole, from its first paragraph;
   // a page found blank is passed over; a page not read is read from its own paragraphs.
   const speech = await scanSpeechOf(db, bookId);
+  const prose = and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose"));
+  const columns = { id: sections.id, text: sections.text, cfi: sections.cfi, chapterIndex: sections.chapterIndex, position: sections.position };
+  if (!speech) {
+    // Any other book: this paragraph and the ones before and after it, not the whole book's text (audit 2026-11-09).
+    const here = row;
+    const [[prev], [next]] = await Promise.all([
+      db.select(columns).from(sections).where(and(prose, lt(sections.position, here.position))).orderBy(desc(sections.position)).limit(1),
+      db.select(columns).from(sections).where(and(prose, gt(sections.position, here.position))).orderBy(asc(sections.position)).limit(1),
+    ]);
+    return {
+      id: here.id,
+      text: here.text,
+      cfi: here.cfi,
+      chapterIndex: here.chapterIndex,
+      position: here.position,
+      nextId: next?.id ?? null,
+      prevId: prev?.id ?? null,
+      previousText: prev ? prev.text.slice(-300) : "",
+      nextText: next ? next.text.slice(0, 300) : "",
+    };
+  }
+  const all = await db.select(columns).from(sections).where(prose).orderBy(asc(sections.position));
   const pageOf = (s: { chapterIndex: number }) => s.chapterIndex + 1;
   const around = speech
     ? all.filter((s, k) => !speech.blank.has(pageOf(s)) && (!speech.read.has(pageOf(s)) || all[k - 1]?.chapterIndex !== s.chapterIndex))
