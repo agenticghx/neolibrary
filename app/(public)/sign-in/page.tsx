@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm, Field } from "@/components/ActionForm";
 import { AuthShell } from "@/components/AuthShell";
-import { ClearOffline } from "@/components/ClearOffline";
+import { ClearOfflineAtLoad } from "@/components/ClearOfflineAtLoad";
 import styles from "@/components/forms.module.css";
 import { currentUser, safeNext } from "@/lib/auth/session";
 import { signInAction } from "../actions";
@@ -24,7 +24,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <p className={styles.note}>
         Or <Link href="/browse">browse the shelf</Link> without signing in.
       </p>
-      <ClearOffline />
+      <ClearOfflineAtLoad />
     </AuthShell>
   );
 }

@@ -169,27 +169,45 @@ test("after a deploy, one online visit keeps the page's new files and the book s
 
 // A session that ended (expired, or switched off by the owner) does not pass the sign-in page: the library sends a
 // signed-out visit to the open shelf. Downloads leave the device there too.
+// The downloads leave as the page loads, before the app's scripts have arrived: they are held back here, as a slow
+// connection would hold them (and as 129 covers sharing the test server's connections did: this test failed on
+// #356 and on main's run of #357, docs/ci-flakes.md).
+// The service worker is blocked in these two tests: requests it answers do not pass page.route.
+async function holdScripts(page: Page) {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await held;
+    await route.continue().catch(() => undefined);
+  });
+  return release;
+}
+
 test("the open shelf, seen signed out, removes downloaded books from the device", async ({ browser }) => {
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block" });
   const page = await ctx.newPage();
   await page.goto("/manifest.webmanifest");
   await page.evaluate(async () => {
     await (await caches.open("neolibrary-offline-books-v1")).put("/books/x/read", new Response("kept?"));
   });
-  await page.goto("/browse");
-  await expect.poll(() => page.evaluate(() => caches.has("neolibrary-offline-books-v1"))).toBe(false);
+  const release = await holdScripts(page);
+  await page.goto("/browse", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => caches.has("neolibrary-offline-books-v1")), { timeout: 3_000 }).toBe(false);
+  release();
   await ctx.close();
 });
 
 test("the sign-in page removes downloaded books from the device", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block" });
   const page = await context.newPage();
   await page.goto("/sign-in");
   await page.evaluate(async () => {
     await (await caches.open("neolibrary-offline-books-v1")).put("/books/x/read", new Response("kept?"));
   });
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => caches.has("neolibrary-offline-books-v1"))).toBe(false);
+  const release = await holdScripts(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => caches.has("neolibrary-offline-books-v1")), { timeout: 3_000 }).toBe(false);
+  release();
   await context.close();
 });
 

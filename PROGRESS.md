@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Make signed-out pages clear downloaded books as the page loads (inline script), with a test that holds the app's scripts back.
+next_action: Merge the downloads-at-load pull request when green, then run the live check on /browse and /sign-in.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,9 +20,9 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 03:45 (laptop clock, from `date`). **All work is live (cc3f084; 3ebc2861 waits for main's re-run) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 04:03 (laptop clock, from `date`). **All work is live (3ebc286; #358 deploying) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Version 2 line 3 (privacy): `e2e/offline.spec.ts:172` failed twice (#356, main on 3ebc2861). Signed-out pages clear downloaded books only once their scripts have loaded; clear them with a small script written into the page (the CSP nonce allows it), test with the app's scripts held back, show the test failing on the old code.
+1. Version 2 line 3: signed-out pages now remove downloads as the page loads (pull request from `m44-clear-downloads-at-load`); after its deploy, run `scripts/live-webkit-check.mjs` on /browse and /sign-in.
 2. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): removing a scanned book leaves its text edition live (privacy); a removed paper comes back when re-shared (needs a migration: backup and Samuel's word to deploy); then the rest.
 3. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 04:03 · Claude Opus 5.5 · Signed-out pages remove downloaded books as the page loads, not after the app's scripts (the privacy test that failed twice)
+- **Done:** Live: 3ebc286 (#357) on both addresses, /sign-in 200, after one re-run of main's checks (e2e/offline.spec.ts:172 failed on main as it had on #356). #358 merged (the Rewrite percentage box asks once). Version 2 line 3: the open shelf and the sign-in page removed downloaded books in an effect that runs only once the app's scripts have loaded; on the test server those scripts shared its connections with 129 covers, so the 5 s check sometimes saw the downloads still there. The two tests now hold the app's scripts back until the check is done (service worker blocked); the old code fails every time (open shelf: Expected false, Received true). components/ClearOfflineAtLoad.tsx writes a small script carrying the page's CSP nonce that deletes both offline caches as the page is read; the old effect stays for moves inside the app. docs/ci-flakes.md row updated with the cause; docs/version-2.md line 3; learning log iteration 205.
+- **Key paths:** components/ClearOfflineAtLoad.tsx; components/ClearOffline.tsx; app/(open)/layout.tsx; app/(public)/sign-in/page.tsx; e2e/offline.spec.ts; lib/offline.ts (BOOKS, ASSETS); proxy.ts (the nonce); docs/ci-flakes.md; docs/version-2.md; LEARNING_LOG.md
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project offline --reporter=line (old code: 1 failed; fix: 344 passed (8.2m)); curl -s https://<each address>/api/health
+- **Known issues / blockers:** After the deploy: run scripts/live-webkit-check.mjs on /browse and /sign-in (both signed out) to see the pages still load in WebKit with the written-in script.
+- **Exact next steps:** 1. Merge this pull request when green; after its deploy, run the live check on /browse and /sign-in. 2. Check 7 in version 2 order: removing a scanned book leaves its text edition live (privacy); a removed paper comes back when re-shared (needs a migration). 3. Check 6: read this pull request's start-to-last-check time.
 
 ### 2026-11-14 03:45 · Claude Opus 5.5 · The Rewrite percentage box asks for one rewrite when the number is finished, not one per key; audit list recounted (12 fixed, 28 open, 3 unclear)
 - **Done:** #357 merged as 3ebc2861 (checks 12.0 minutes from start to last check, screenshot tests included). Main's run on 3ebc2861 failed e2e/offline.spec.ts:172 (the second time in two days, after #356): re-run started; the deploy waits for it. Audit list recounted against 3ebc2861 (laptop-only file, new section): 43 items, 12 fixed, 28 open, 3 unclear; docs/version-2.md line 7 carries the counts. Fixed the first money item: typing a percentage in Rewrite asked for a rewrite at each key. Test first (e2e/ai.spec.ts): typing '85' key by key, the old code asked for ['light', 'standard'] before Enter; now nothing until Enter, then ['standard']. RewritePanel keeps the number while typed and asks on Enter or leaving the box, not while a rewrite is being written. Learning log iteration 204; docs/version-2.md line 4.
