@@ -18,7 +18,11 @@ describe("takeVisitorRequest", () => {
     expect(takeVisitorRequest("ai", "1.2.3.4", now + VISITOR_LIMITS.ai.windowMs).ok).toBe(true);
   });
 
-  it("reads the visitor's address from the first forwarded one", () => {
+  // 2026-11-14, measured on the live site: counted by x-forwarded-for, 130 /browse requests each on a new connection
+  // were all allowed, and over one reused connection 11 of 130 were refused, so that header changes with the
+  // connection there. X-Real-IP is the header Railway documents for the client's address: it comes first.
+  it("reads the visitor's address from X-Real-IP (Railway's), before the first forwarded one", () => {
+    expect(visitorAddress(new Headers({ "x-real-ip": "8.8.8.8", "x-forwarded-for": "8.8.8.8:51234, 10.0.0.1" }))).toBe("8.8.8.8");
     expect(visitorAddress(new Headers({ "x-forwarded-for": "9.9.9.9, 10.0.0.1" }))).toBe("9.9.9.9");
     expect(visitorAddress(new Headers({ "x-real-ip": "8.8.8.8" }))).toBe("8.8.8.8");
     expect(visitorAddress(new Headers())).toBe("unknown");

@@ -3326,3 +3326,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The size of what is sent; the next deploy (from this PR's merge) passing the deploy workflow's live check.
 **Result.** 3.6 MB compressed without them (59.3 MB with). The 0041 upload took 181 s from start to "Deploy complete" with them left out, where three uploads with them had timed out.
 **Lesson.** Look at what a deploy sends before blaming the network: most of it was pictures the site never reads.
+
+### Iteration 216 · 2026-11-14 (laptop clock) · The visitor and sign-in limits count by Railway's X-Real-IP · partial (fix built; to be measured live after deploy)
+
+**Hypothesis.** The audit (2026-11-09, security 3) asked whether the limits, keyed on the first x-forwarded-for value, could be reset by a visitor who sends their own. Measured on the live site first: (a) 130 /browse requests within 30 s, each on a new connection, with an invented x-forwarded-for: all 130 allowed (the page limit is 120 a minute); (b) the same with no header: allowed; (c) 130 over one reused connection: 11 refused ("Too many pages for now"). So the invented value was not what was counted, but the counted value changes with the connection: a script opening a new connection per request is never limited. The proxy runs (its security header is on the page), and Railway's request log shows one source address for all the requests.
+**Action.** Test first in `lib/visitor-limit.test.ts`: with both headers, X-Real-IP (the header Railway's documentation names for the client's address) must win. `visitorAddress` reads X-Real-IP first, then the first x-forwarded-for value (local and test servers), and the sign-in limit (`app/(public)/actions.ts`) now uses the same function instead of its own x-forwarded-for read.
+**Evaluation.** The new test on the old code and with the fix; `npm run check`; after the deploy, (a) again on the live site, expecting refusals after 120.
+**Result.** Old code: `Expected: "8.8.8.8" Received: "8.8.8.8:51234"`. With the fix: 30 passed (limits and sign-in); `npm run check` 1493 passed. Live result: to be added after the deploy.
+**Lesson.** Test a limit on the live site the way an attacker would send requests, a new connection each, not only in a test server where every request has the same address.

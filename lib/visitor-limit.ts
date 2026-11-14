@@ -18,10 +18,14 @@ const windows = new Map<string, { count: number; resetAt: number }>();
 /** Past this many addresses, windows that have ended are dropped (memory stays small). */
 const PRUNE_AT = 10_000;
 
-/** The visitor's address: the first one in x-forwarded-for (Railway's edge sets it), else a shared "unknown". */
-export function visitorAddress(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || headers.get("x-real-ip")?.trim() || "unknown";
+/**
+ * The visitor's address, for the limits here and on sign-in: X-Real-IP, the header Railway's edge documents for the
+ * client's address; else the first x-forwarded-for value (local and test servers); else a shared "unknown".
+ * Measured on the live site on 2026-11-14: counted by x-forwarded-for, the limit never refused a script that opened a
+ * new connection per request (130 of 130 allowed), so that header changes with the connection there.
+ */
+export function visitorAddress(headers: Pick<Headers, "get">): string {
+  return headers.get("x-real-ip")?.trim() || headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
 
 /** Counts one request; says whether it is allowed and, if not, how many seconds until it would be. */

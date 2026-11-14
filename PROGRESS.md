@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After #369 deploys, repeat the 130-request live test on new connections and record the result.
+next_action: After this deploys, repeat the 130-request live test on new connections and record whether the limit now refuses after 120.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -188,6 +188,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 16:52 · Claude Opus 5.5 · Security: the visitor and sign-in limits never refused a script on the live site; they now count by Railway's X-Real-IP
+- **Done:** Measured on the live site: 130 /browse requests in 30 s on new connections, with or without an invented x-forwarded-for, all allowed (limit 120 a minute); over one reused connection 11 of 130 refused. So the limit counted something that changes per connection, and an invented address is not what was counted (the audit's spoofing worry is not the problem). lib/visitor-limit.ts visitorAddress now reads X-Real-IP (Railway's documented client address header) first; the sign-in limit uses the same function. The per-email sign-in backstop (10 tries in 15 minutes) worked throughout.
+- **Key paths:** lib/visitor-limit.ts; lib/visitor-limit.test.ts; app/(public)/actions.ts; LEARNING_LOG.md (iteration 216)
+- **Commands that worked:** seq 1 130 | xargs -P 20 curl -H 'x-forwarded-for: probe-…' /browse -> 130 x 200; curl with 130 URLs on one connection -> 11 'Too many pages'; npx vitest run lib/visitor-limit.test.ts lib/auth (30 passed); npm run check (1493 passed)
+- **Known issues / blockers:** Not yet proven live: whether X-Real-IP is steady per visitor on Railway. Railway's docs name it but give no format.
+- **Exact next steps:** 1. Merge, let it deploy, then repeat the 130-request test on new connections on the live site: refusals after 120 means fixed; none means X-Real-IP varies too (then log a masked shape of both headers once). 2. Then .railwayignore, the stats flake, the money and X-ray live queries.
 ### 2026-11-14 16:54 · Claude Opus 5.5 · Deploys send 3.6 MB, not 59 MB: .railwayignore leaves out test screenshots and design prototypes
 - **Done:** Added .railwayignore (e2e/__screenshots__/, docs/design/). Measured: 3.6 MB compressed instead of 59.3 MB. Live checks done read-only: no scanned page paid twice under two model names (722 transcribe rows, one model, all on the subscription at 0 USD); no invited reader holds any shared-paper copy, so the removed-paper gap was never used; X-ray mix-ups cannot be counted by query (12 books, 890 classified entries, 2816 facts).
 - **Key paths:** .railwayignore; LEARNING_LOG.md (iteration 217)
