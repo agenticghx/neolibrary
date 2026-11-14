@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Wait for Samuel's 'deploy 0041'; meanwhile fix the two-column PDF glue (no migration).
+next_action: Pull main; then, at Samuel's word, deploy migration 0041 (#361) with a backup, or else start the two-column PDF glue audit fix with a failing test.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 06:24 · Claude Opus 5.5 · Checkpoint: live 7410d69 (#356-#360); draft #361 (migration 0041) waits for Samuel's word
+- **Done:** #356 (stats save diagnostics), #357 (Path note Remove says Not removed on failure; error tests for Review, Where were we? and Ask), #358 (Rewrite percentage asks once, on Enter or blur), #359 (signed-out pages clear downloaded books before the app's scripts run), #360 (a scan's text edition is removed and restored with it; test emails unique; offline tests use their own address) merged and live as 7410d69. Draft #361 (migration 0041, books.removed_by_reader: a shared paper the reader removed stays removed) is built and tested but not merged, because a merged migration stops automatic deploys until a hand deploy with a backup.
+- **Key paths:** docs/handoffs/2026-11-14-0622-version-2-fixes-0041-draft.md (laptop only); docs/version-2.md; docs/ci-flakes.md; LEARNING_LOG.md; components/ClearOfflineAtLoad.tsx; lib/library/remove-book.ts; branch m44-reader-removed-paper (worktree .claude/worktrees/paper)
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project <p> (and --ref origin/main for the old code); npx vitest run lib/library/; npm run test:postgres; curl /api/health on both addresses -> 7410d69
+- **Known issues / blockers:** Check 6 not met: #360 took 14.6 minutes start to last check (#357 took 12.0). stats.spec.ts:72 flake not reproduced in 70 rounds. reader.spec.ts:1890 failed once, not investigated.
+- **Exact next steps:** 1. git pull --ff-only in the main folder. 2. If Samuel says deploy 0041: backup, restore-check, mark #361 ready, rebase, merge, deploy from the laptop, count _migrations. 3. Otherwise the audit items that need no migration, tests first: two-column PDF glue (lib/library/pdf-sections.ts), no-text books re-read at every start (lib/library/sections-store.ts), X-ray id clash across kinds (lib/library/xray-read.ts), slow paths. 4. Check 6: build the site once for every browser machine.
 
 ### 2026-11-14 05:32 · Claude Opus 5.5 · Checkpoint: live 7410d69 (#357 to #360); draft #361 (migration 0041) waits for Samuel's 'deploy 0041'
 - **Done:** Live 7410d69: both addresses' /api/health show it, /sign-in 200, main's checks green on every machine. Merged and live today: #356 (the stats test records each save), #357 (a Path note's Remove says so when refused; failure tests for Review, Where were we?, Ask), #358 (the Rewrite percentage asks once), #359 (signed-out pages remove downloads as the page loads; live 2 to 24 ms in WebKit and Chromium with the app's scripts held back), #360 (a scanned book's text edition leaves and returns with its scan; test readers' addresses random; the privacy test's CI failures were the visitor limit answering 429). Draft #361: a shared paper the reader removed stays removed when re-shared (migration 0041, tested up, down and up on Postgres 18); a draft because a merged migration stops automatic deploys; auto-merge skips drafts (.github/workflows/auto-merge.yml, isDraft == false).
