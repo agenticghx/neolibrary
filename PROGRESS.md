@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Back up the live database, restore-check it, then deploy migration 0041 from the laptop (Samuel said yes).
+next_action: On a faster connection, deploy main (with 0041) from ../neolibrary-deploy with railway up; the backup is already taken and checked.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 16:22 · Claude Opus 5.5 · Deploy of 0041 paused: backup taken and restore-checked, but the laptop's upload to Railway timed out twice; live unchanged at aeb8a19
+- **Done:** Backup of the live database taken 2026-11-14 21:16 UTC (33 MB, ends with 'dump complete'), restored into a throwaway Postgres 18 with exit 0 (40 migrations, 261 books, 13,061 sections); 0041 applied, undone and applied again on that copy with no error (261 books, 0 marked removed). Two 'railway up' attempts of 24fae22c from ../neolibrary-deploy timed out while uploading; Railway lists one deploy FAILED with no build. Database unchanged (40 migrations, newest 0040) and live still aeb8a19. NEOLIBRARY_COMMIT was set to 24fae22c, then set back to aeb8a19 so a restart would not report a commit that is not running.
+- **Key paths:** ~/Backups/neolibrary/prod-before-0041-20261114T2116Z.sql (laptop only); ../neolibrary-deploy (detached at 24fae22c, clean)
+- **Commands that worked:** railway ssh Postgres pg_dump (CLAUDE.local.md recipe); docker run postgres:18 + psql -v ON_ERROR_STOP=1 < backup -> exit 0; select count(*), max(id) from _migrations -> 40|0040_spend_and_upload_counts
+- **Known issues / blockers:** The upload is 59 MB compressed and the laptop's upload speed measured 67 KB/s (about 15 minutes); Railway's upload times out first. Until 0041 is deployed, every merge to main waits for a hand deploy.
+- **Exact next steps:** 1. On a faster connection: in ../neolibrary-deploy, git fetch and checkout --detach origin/main; take a fresh backup if main or the data moved much (the one above is from 21:16 UTC); railway variable set NEOLIBRARY_COMMIT=<full sha> --skip-deploys; railway up --service web --environment production --ci. 2. Check both addresses' /api/health and /sign-in, the log's 'Page pictures: ready.', and _migrations = 41 with 0041_removed_by_reader newest. 3. Record with ledger-to-main.
 
 ### 2026-11-14 16:15 · Claude Opus 5.5 · Checkpoint: #361 (migration 0041) merged at Samuel's word; deploy from the laptop with a backup is next; live stays aeb8a19
 - **Done:** Samuel said 'yes, deploy 0041'. #361 rebased (its learning-log entry renumbered 215), all checks green, merged as 0a34e5aa at 14:53 UTC. The automatic deploy refuses the migration, as designed, so live is still aeb8a19 and automatic deploys wait until 0041 is deployed by hand. Postgres 18 image ready for the restore check. Main run 43607235200 failed on the stats flake; #356's diagnostics captured it ('sent 90 s; held 90 s'); a second run on the same commit passed.
