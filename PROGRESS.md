@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the rewritten-view PR when green, then the next slow path: the cap check's queries per paid call.
+next_action: Plan the sidebar due-count fix (lib/library/review.ts gapRows), or deploy 0041 at Samuel's word.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 09:13 · Claude Opus 5.5 · Checkpoint: live aeb8a19 (#368, the rewritten view asks once per page); seven audit fixes live today
+- **Done:** #368 merged and deployed by the automatic deploy: the rewritten view reads a page's rewrites and prices in a few queries (about 150 to 6 per page turn; 33.2 to 6.3 ms in the test database), and finding the page no longer reads the whole book's text. Decided to leave the cap check's queries per paid call (about 11 beside a paid call of seconds; it guards money). The sidebar's due count needs its own step.
+- **Key paths:** lib/library/rewritten.ts; lib/library/rewrite.ts; lib/library/annotations.ts; lib/ai/generate.ts
+- **Commands that worked:** curl /api/health on both addresses -> commit aeb8a19; /sign-in 200 on both
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. If Samuel says 'deploy 0041': backup, restore-check, mark #361 ready, rebase, merge, deploy from the laptop, count _migrations. 2. The sidebar's due count (lib/library/review.ts gapRows: one chapter's text per Explain it back attempt on every page): plan it as its own step. 3. Check 6: build the site once for every browser machine (PR checks take 10-14 minutes).
 
 ### 2026-11-14 08:42 · Claude Opus 5.5 · Audit slow path: the rewritten view asks once per page, not about five times per paragraph
 - **Done:** lib/library/rewritten.ts reads the page's rewrites in one query (listRewritesFor) and prices them with the book and chapter names read once (estimateRewrites in lib/library/rewrite.ts); lib/library/annotations.ts paragraphsBetween reads places first and only the page's text. A test pins every paragraph's rewrite and price in every chapter and four styles against the per-paragraph lookups (passed on the old code first). 33.2 -> 6.3 ms per page turn in the test database.
