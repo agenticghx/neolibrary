@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #360 when green, then start the removed-paper-comes-back fix (a migration, so build and test it; deploy waits for a backup and Samuel's word).
+next_action: Wait for Samuel's 'deploy 0041'; meanwhile fix the two-column PDF glue (no migration).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 05:32 · Claude Opus 5.5 · Checkpoint: live 7410d69 (#357 to #360); draft #361 (migration 0041) waits for Samuel's 'deploy 0041'
+- **Done:** Live 7410d69: both addresses' /api/health show it, /sign-in 200, main's checks green on every machine. Merged and live today: #356 (the stats test records each save), #357 (a Path note's Remove says so when refused; failure tests for Review, Where were we?, Ask), #358 (the Rewrite percentage asks once), #359 (signed-out pages remove downloads as the page loads; live 2 to 24 ms in WebKit and Chromium with the app's scripts held back), #360 (a scanned book's text edition leaves and returns with its scan; test readers' addresses random; the privacy test's CI failures were the visitor limit answering 429). Draft #361: a shared paper the reader removed stays removed when re-shared (migration 0041, tested up, down and up on Postgres 18); a draft because a merged migration stops automatic deploys; auto-merge skips drafts (.github/workflows/auto-merge.yml, isDraft == false).
+- **Key paths:** docs/handoffs/2026-11-13-2121-way-forward-plan.md (laptop only); docs/handoffs/2026-11-09-audit-review-list.md (laptop only, recount at the end); docs/ci-flakes.md; docs/version-2.md
+- **Commands that worked:** curl -s https://<each address>/api/health; node scripts/live-webkit-check.mjs <live address> /browse /sign-in; gh run list --workflow deploy.yml --limit 1
+- **Known issues / blockers:** Check 6 not safely met: #357 12.0 minutes, #360 14.6. #361's Waiting-on-Samuel note and next steps are in the draft's PROGRESS.md, not yet on main.
+- **Exact next steps:** 1. Samuel: 'deploy 0041' when a backup can be taken (then the laptop recipe: pg_dump, restore-check, merge #361, deploy, count _migrations). 2. Audit items with no migration: two-column PDF glue (lib/library/pdf-sections.ts), no-text books re-read at every start (lib/library/sections-store.ts), the X-ray id clash across kinds (lib/library/xray-read.ts), the slow paths. 3. Check 6: build the site once for all browser machines.
 
 ### 2026-11-14 04:52 · Claude Opus 5.5 · Live 1576637 (#358, #359), downloads leave in 2 to 24 ms live; the privacy test's CI failures were the visitor limit (429), not the timing #359 fixed
 - **Done:** #358 and #359 deployed by the workflow: both addresses' /api/health show 1576637, /sign-in 200; main's checks green on every machine. scripts/live-webkit-check.mjs on /browse and /sign-in: all 'ok' (WebKit /browse 129 of 129 pictures after 3.4 s). A one-off check on the live site (scratchpad script, not kept): with the app's scripts held back, downloads removed after 15 ms (WebKit /browse), 4 ms (WebKit /sign-in), 24 ms (Chromium /browse), 2 ms (Chromium /sign-in); no CSP complaint. #360's first run failed e2e/offline.spec.ts:186 again; its trace, and those of the two earlier failures (#356 run 43549182909, main run 43575138716), show /browse answering 429: signed-out pages are limited to 120 a minute per address and the open-shelf tests use it up just before. The two tests now send an address of their own (x-forwarded-for). #359's diagnosis of the CI failures corrected in docs/ci-flakes.md, docs/version-2.md line 3, learning log iteration 207, and a comment on #359; its change stays (real, and works live).
