@@ -466,3 +466,13 @@
   font-size: var(--text-sm);
 }
 
+
+/* Remove on a note: its form takes no box of its own, so the button keeps the note row's second column and a
+   "Not removed" message takes a full row under the note instead of squeezing the note's words. */
+.noteRemoveForm {
+  display: contents;
+}
+
+.noteRowError {
+  grid-column: 1 / -1;
+}

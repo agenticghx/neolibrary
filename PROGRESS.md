@@ -3,9 +3,9 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Version 2 check 1 leftovers: find how Review, Where were we? and Ask save, and give each a browser test with the library answering an error.
+next_action: Merge the check 1 pull request when green and read its check time for version 2 check 6.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
-updated: 2026-11-13
+updated: 2026-11-14
 shared_copy: none
 ---
 
@@ -20,9 +20,9 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-13 21:50 (laptop clock, from `date`). **All work is live (cc3f084, #355) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 03:05 (laptop clock, from `date`). **All work is live (cc3f084; #356 changed only a test) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Check 1 leftovers: find how answers typed in Review, "Where were we?" and Ask are saved; give each that saves a browser test with the library answering an error (shown failing on the old code first), and fix any that show nothing, lose the words or replace the page; make a Path note's Remove button say so when it fails instead of replacing the page.
+1. Check 1 is recounted with none left (2026-11-14). Merge its pull request when green.
 2. Check 6: read that pull request's start-to-last-check time (it changes a page, so the screenshot tests run); only if it is over 12 minutes, build the site once for every browser machine.
 3. Check 7: recount the 2026-11-09 audit list (laptop only, `docs/handoffs/2026-11-09-audit-review-list.md`) against #329 to #355; mark each item fixed, open or dropped with a reason; fix the open ones in version 2's order.
 4. If `e2e/stats.spec.ts:72` fails again: its message now lists each save's fate; read it before re-running (two possible causes in `docs/ci-flakes.md`).
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 03:05 · Claude Opus 5.5 · Answers typed in Review, Where were we? and Ask, and a Path note's Remove, each say so when the library refuses (version 2 check 1 recounted, none left)
+- **Done:** Review (a rating), Where were we? (a typed summary) and Ask (a question) already said so and kept the words or the card when the library refused; each now has a browser test with the library answering 500 (e2e/review.spec.ts, e2e/ai.spec.ts); they pass on the old code too, so they are coverage, not fixes. A Path note's Remove was a plain page form: on the old code its new test failed at 'Not removed' and the page had become 'This page couldn't load'. Now TargetNoteRemove (components/TargetNoteForm.tsx) sends it itself, says 'Not removed: the library could not be reached or refused. The note is still here.' on a row of its own under the note, and ignores a second press; four screenshots, looked at (the first version squeezed the note's words into a narrow column; fixed with the form taking no box of its own). docs/version-2.md line 1 row; learning log iteration 203; three new rows in docs/ci-flakes.md (offline.spec.ts:172 on #356, a sign-up 'already exists' in review.spec.ts:60 and reader.spec.ts:1890, both on the laptop's Linux image). #356 merged as e877961 after one re-run.
+- **Key paths:** components/TargetNoteForm.tsx; components/PathView.tsx; components/PathView.module.css; e2e/annotations.spec.ts; e2e/review.spec.ts; e2e/ai.spec.ts; docs/version-2.md; docs/ci-flakes.md; LEARNING_LOG.md; screenshots/path-note-not-removed-*.png and screenshots/where-were-we-not-saved-*.png (made by the tests, not in git)
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project annotations --project review --project ai --reporter=line; the same with -g 'a note on a Path that is not saved' on the old code (1 failed: Expected substring 'Not removed', element not found); npm run check (1485 passed, 2 skipped)
+- **Known issues / blockers:** Not run on the laptop: the whole browser suite (the three changed projects and their dependencies ran in the Linux image; CI runs the rest). Screenshot comparisons of Path pages with a note may change (the Remove form takes no box now): if CI says so, refresh them with the merge train. These pages need signing in, so the live WebKit check of them is Samuel's.
+- **Exact next steps:** 1. Merge this pull request when green; read its start-to-last-check time (it changes a page, so the screenshot tests run) for version 2 check 6. 2. If over 12 minutes: build the site once for every browser machine. 3. Version 2 check 7: recount the 2026-11-09 audit list against #329 to #357. 4. Investigate offline.spec.ts:172 if it fails again (a privacy check).
 
 ### 2026-11-13 21:50 · Claude Opus 5.5 · #355 live (cc3f084); the stats test's lost 30 seconds not reproduced in 70 rounds; the test now says what happened to each save
 - **Done:** #355 merged as cc3f084 after one re-run of the known stats flake; main's checks green; deployed by the workflow: both addresses' /api/health show cc3f084, /sign-in 200. scripts/live-webkit-check.mjs on the live site: all 'ok'; /browse in WebKit 129 of 129 pictures after 5.5 s (Chromium 6.2 s), 4.7 MB. Version 2 step 2 of the 2026-11-13 plan: e2e/stats.spec.ts:72 ('Received 60') investigated. The server keeps the larger total, so an older save cannot overwrite a newer one. A temporary test repeated the test's steps in Playwright's Linux image: 0 of 40 rounds short at normal speed, 0 of 30 with the processor slowed six-fold; the save on leaving never appeared to the test's interception, yet the server had 90 s. GitHub kept no trace of the failed run. Not fixed, so not claimed: the test now records every save (sent, answered, failed, errors its interception hid), finds the sitting by its id, and lists the saves in its failure message. docs/ci-flakes.md row updated; learning log iteration 202. Exact next steps rewritten (Open unknowns rows 35 and 36 were settled 2026-11-10 but still listed). Removed worktree .claude/worktrees/rule.

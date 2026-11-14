@@ -152,6 +152,16 @@ test("Daily review: the passage, Show, rate with the keys, Again comes back, the
   await expect(answer).toContainText("He has no friend on the voyage.");
   await reader.keyboard.press(" ");
   await expect(progress).toContainText("2 of 3");
+  // Version 2, check 1: a rating the library refuses says so, and the card stays where it was to be rated again.
+  await reader.route("**/api/review", (route) =>
+    route.request().method() === "POST" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
+  await reader.keyboard.press("3");
+  await expect(reader.getByRole("alert").filter({ hasText: "rating" })).toHaveText("That rating was not saved. Check the connection and rate it again.");
+  await expect(progress).toContainText("2 of 3");
+  await expect(card.getByRole("blockquote")).toHaveText(second);
+  await expect(answer).toContainText("He has no friend on the voyage.");
+  await reader.unroute("**/api/review");
   await reader.keyboard.press("3"); // Good
 
   // The first card again, learned from the start.
@@ -403,6 +413,25 @@ async function whereWereWe(reader: Page, bookId: string) {
   await text.fill("Walton is lonely.");
   await expect(save).toBeDisabled();
   await text.fill("Walton is lonely on his voyage north and wishes he had a friend who could share his hopes.");
+  // Version 2, check 1: an answer the library refuses says so and keeps the words; pressing Save again saves them.
+  const refuse = `**/api/books/${bookId}/explain-back`;
+  await reader.route(refuse, (route) =>
+    route.request().method() === "POST" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
+  await save.click();
+  await expect(strip.getByRole("alert")).toHaveText("The library is busy.");
+  await expect(text).toHaveValue("Walton is lonely on his voyage north and wishes he had a friend who could share his hopes.");
+  await mkdir("screenshots", { recursive: true });
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await reader.setViewportSize({ width: w, height: h });
+      await reader.emulateMedia({ colorScheme: scheme });
+      await reader.screenshot({ path: `screenshots/where-were-we-not-saved-${name}-${scheme}.png` });
+    }
+  }
+  await reader.setViewportSize({ width: 1280, height: 800 });
+  await reader.emulateMedia({ colorScheme: "light" });
+  await reader.unroute(refuse);
   await save.click();
   await expect(strip).toContainText(`Saved as your summary of ${chapter.label}.`);
   await expect(strip).toContainText("Claude found 2 things you missed. They come back in Daily review.");
