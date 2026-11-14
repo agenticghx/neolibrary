@@ -105,6 +105,8 @@ export const books = pgTable("books", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  /** The reader removed it themselves (not hidden for them by the library): only they bring it back (migration 0041). */
+  removedByReader: boolean("removed_by_reader").notNull().default(false),
   aiStyle: text("ai_style", { enum: ["plain", "ste-light", "ste-standard", "ste-strict"] }),
   /** M25: set on a text edition (an EPUB made from a scanned PDF's pages): the scan it was made from. Hidden from the library's lists (migration 0027). */
   editionOf: uuid("edition_of").references((): AnyPgColumn => books.id, { onDelete: "cascade" }),
