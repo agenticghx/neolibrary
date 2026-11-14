@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the open audit-fix PRs one at a time, then the next slow path: the sidebar's due-for-review count.
+next_action: Merge the open audit-fix PRs one at a time, then the next slow path: figure redraws loaded on opening a paper.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 06:48 · Claude Opus 5.5 · Audit slow path: Open Library is asked at most once a second across the whole server
+- **Done:** lib/covers/sources.ts: the pacer queues callers, so lookups made at the same time wait their turn; getCoverSource keeps one set of catalogues per server (new only when the Google Books key changes) instead of one per request. Test first: old code sent two lookups 0 ms apart and made a client per call.
+- **Key paths:** lib/covers/sources.ts; lib/covers/sources.test.ts; LEARNING_LOG.md (iteration 212)
+- **Commands that worked:** npx vitest run lib/covers/ lib/library/cover (44 passed); npm run check (1488 passed)
+- **Known issues / blockers:** A reader's cover search can now wait behind one background cover lookup already queued (about a second at most), which is the price of keeping the promise.
+- **Exact next steps:** 1. Merge #363, #364, #365 and this PR when green, one at a time. 2. Next slow paths: the sidebar's due-for-review count (lib/library/review.ts; needs care: a cached count must not go stale after rating), figure redraws on opening a paper, the rewritten view's queries. 3. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 
 ### 2026-11-14 06:45 · Claude Opus 5.5 · Audit slow path: read aloud asks for a paragraph's neighbours, not the whole book's text
 - **Done:** lib/library/audio.ts passageFor: a book that is not a scan with a text edition asks for the paragraphs just before and after (two small queries) instead of every paragraph's text; scans with an edition keep the old route. A test pins every paragraph's answer of a whole book on the old code first. 62.1 ms -> 5.4 ms per paragraph on a 20,000-paragraph test book.
