@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Write the live WebKit check as a rule in docs/version-2.md and CLAUDE.md, with #354's measured times in the same pull request.
+next_action: Recount the answers typed in Review, Where were we? and Ask: does each say so when the library answers with an error?
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-11
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-11 19:51 · Claude Fable 5.2 · A script and a rule for checking a change where it is read (WebKit at iPad size, on the live site)
+- **Done:** Version 2 check 2, the rule. scripts/live-webkit-check.mjs: signed out, reads only; opens each named page of the live site in WebKit and Chromium at iPad size and prints the status, where the page landed, pictures loaded and their time, how many were fetched at once, their size in all, whether the service worker is in control, and failed requests or script errors (requests the browser itself dropped are not counted). CLAUDE.md asks for it after every change a reader sees, its output in the pull request or the Log; signed-in pages stay with Samuel's own browser. Run on the live site (bf60948): every line 'ok'; /browse in WebKit 129 of 129 pictures, up to 100 fetched at once, 4.7 MB in all, after 10.2 to 15.9 s on this evening's laptop connection (measured at about 1 MB a second with a 5 MB test file; earlier the same day on a faster connection the covers took 2.5 to 3.5 s). Also written into docs/version-2.md and the learning log: #354's measured times (12.0 minutes from start to last check, 16.6 on #352; at the target's line, not safely under it).
+- **Key paths:** scripts/live-webkit-check.mjs; CLAUDE.md (While working); docs/version-2.md (checks 2 and 6); LEARNING_LOG.md (iterations 200 and 201); worktree .claude/worktrees/rule, branch m44-live-webkit-rule
+- **Commands that worked:** node scripts/live-webkit-check.mjs <site> /browse /sign-in (exit 0 when every line is ok); curl -s -o /dev/null -w '%{speed_download}' 'https://speed.cloudflare.com/__down?bytes=5000000' (the connection's speed, to read the times against)
+- **Known issues / blockers:** The covers' time depends on the connection: 4.7 MB in all. On a slow connection only fewer or smaller pictures would help (the covers on screen do arrive first). The real iPad is still not timed. The e-ink mode on the Boox is not checked (not arrived).
+- **Exact next steps:** 1. Merge this pull request (no code a reader runs changes). 2. Check 1 leftovers: answers typed in Review, Where were we? and Ask; a Path note's Remove button. 3. Check 6, if 12 minutes must be safely met: build the site once for all browser machines. 4. Samuel: time /browse on the real iPad; accept or change docs/version-2.md; his browser for the download-then-offline check; Open unknowns rows 35 and 36.
 
 ### 2026-11-11 19:45 · Claude Fable 5.2 · Checkpoint: live bf60948 (#354); pull request checks 12.0 minutes from start to last check (16.6 on #352)
 - **Done:** #354 merged and deployed: both addresses serve bf60948, /sign-in 200, /browse sends no Link header (the deploy workflow deployed it because a file under scripts/ changed; nothing a reader runs differs). Main's checks on bf60948 were green on every machine, including Safari's engine (webkit 10.8 min, behavior 13.9, readalong 12.5, behavior-2 9.9, branches 6.2). #354's final pull request run, with GitHub's machines back to normal speed (unit-test step 231 s): 12.0 minutes from start to the last check; browser test steps: behavior 641 s, behavior-2 546 s (without the screenshot tests, which that change did not start), readalong 592 s, branches 396 s; the last job 20 s. The narration test passed (its long step 58 s). Before today's two changes (#352): 16.6 minutes. Version 2's 12-minute target is at the line, not safely met: a change to a page adds the screenshot tests (about a minute and a half) to behavior-2, and main's own run of the same code had behavior at 13.9 minutes.
