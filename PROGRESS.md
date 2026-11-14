@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: On a faster connection, deploy main (with 0041) from ../neolibrary-deploy with railway up; the backup is already taken and checked.
+next_action: Commit a .railwayignore so laptop deploys send about 3 MB instead of 59 MB, then the sidebar due-count step.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 16:31 · Claude Opus 5.5 · Deploy: migration 0041 live (3b7f5d3, from the laptop, at Samuel's word, after a checked backup)
+- **Done:** Deployed main 3b7f5d3 (includes #361, migration 0041 books.removed_by_reader) from ../neolibrary-deploy with railway up. Backup ~/Backups/neolibrary/prod-before-0041-20261114T2116Z.sql was restore-checked first (exit 0), and 0041 was applied, undone and applied again on that copy. The upload had timed out three times on a slow connection (about 67-100 KB/s, and Railway stops after about 90 s), so this upload left out e2e/__screenshots__/ and docs/design/ (56 of 68 MB; pictures nothing in the build reads) through a temporary .railwayignore, removed straight after (deploy folder clean). Automatic deploys can run again.
+- **Key paths:** db/migrations/0041_removed_by_reader.up.sql; ~/Backups/neolibrary/prod-before-0041-20261114T2116Z.sql (laptop only)
+- **Commands that worked:** railway up --service web --environment production --ci -> Deploy complete (181 s); curl /api/health on both addresses -> commit 3b7f5d3; /sign-in 200 on both; _migrations -> 41|0041_removed_by_reader; books 261, removed_by_reader true 0; railway logs -> 'Ready in 103ms', 'Page pictures: ready.'
+- **Known issues / blockers:** A deploy from the laptop sends 59 MB compressed, mostly test screenshots and design prototypes; on a slow connection Railway's upload times out. A committed .railwayignore (e2e/__screenshots__/, docs/design/) would make every laptop deploy about 3 MB.
+- **Exact next steps:** 1. Small PR: commit .railwayignore with e2e/__screenshots__/ and docs/design/ (check the deploy workflow still passes its live check). 2. The sidebar's due count (lib/library/review.ts gapRows) as its own step. 3. The stats flake: why the 90 s save is held (run 43607235200's saves list). 4. Check 6: build the site once for every browser machine.
 
 ### 2026-11-14 16:22 · Claude Opus 5.5 · Deploy of 0041 paused: backup taken and restore-checked, but the laptop's upload to Railway timed out twice; live unchanged at aeb8a19
 - **Done:** Backup of the live database taken 2026-11-14 21:16 UTC (33 MB, ends with 'dump complete'), restored into a throwaway Postgres 18 with exit 0 (40 migrations, 261 books, 13,061 sections); 0041 applied, undone and applied again on that copy with no error (261 books, 0 marked removed). Two 'railway up' attempts of 24fae22c from ../neolibrary-deploy timed out while uploading; Railway lists one deploy FAILED with no build. Database unchanged (40 migrations, newest 0040) and live still aeb8a19. NEOLIBRARY_COMMIT was set to 24fae22c, then set back to aeb8a19 so a restart would not report a commit that is not running.
