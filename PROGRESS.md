@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Pull main; then, at Samuel's word, deploy migration 0041 (#361) with a backup, or else start the two-column PDF glue audit fix with a failing test.
+next_action: Fix the audit item: books with no extractable text are re-read at every server start (lib/library/sections-store.ts), test first.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -186,6 +186,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 06:30 · Claude Opus 5.5 · Audit fix: two-column PDFs no longer glue the top of column two to column one
+- **Done:** lib/library/pdf-sections.ts adds a space when the text jumps up a line or more (next column, or a running head drawn after the body), measured from the line, so a raised footnote mark stays on its word. Test first: old code gave 'winter1evenings'. Books already in the library keep their stored text; new uploads get the fix.
+- **Key paths:** lib/library/pdf-sections.ts; lib/library/pdf-sections.test.ts; lib/reader/text-range.test.ts; LEARNING_LOG.md (iteration 208)
+- **Commands that worked:** npx vitest run lib/library/ lib/reader/ (670 passed); npm run check (1487 passed); old vs new code on fixtures/books/*.pdf (same ids, no text changed)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge this PR when green. 2. Next audit item with no migration: books with no extractable text are re-read at every server start (lib/library/sections-store.ts). 3. Then the X-ray id clash across kinds (lib/library/xray-read.ts). 4. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 
 ### 2026-11-14 06:24 · Claude Opus 5.5 · Checkpoint: live 7410d69 (#356-#360); draft #361 (migration 0041) waits for Samuel's word
 - **Done:** #356 (stats save diagnostics), #357 (Path note Remove says Not removed on failure; error tests for Review, Where were we? and Ask), #358 (Rewrite percentage asks once, on Enter or blur), #359 (signed-out pages clear downloaded books before the app's scripts run), #360 (a scan's text edition is removed and restored with it; test emails unique; offline tests use their own address) merged and live as 7410d69. Draft #361 (migration 0041, books.removed_by_reader: a shared paper the reader removed stays removed) is built and tested but not merged, because a merged migration stops automatic deploys until a hand deploy with a backup.

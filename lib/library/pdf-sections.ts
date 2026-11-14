@@ -53,15 +53,23 @@ export async function extractPdfSections(bytes: Uint8Array): Promise<Section[]> 
       const paragraphs: string[] = [];
       let current = "";
       let lastY: number | null = null;
+      let lineY: number | null = null; // the line's own height on the page, not a raised mark's on it
       for (const it of items) {
         const y = it.transform[5];
+        const up = (typical || it.height) * 0.9;
         if (lastY !== null && y < lastY) {
           if (typical && lastY - y > typical * 1.4 && current.trim()) {
             paragraphs.push(current);
             current = "";
           } else if (!current.endsWith(" ")) current += " ";
+        } else if (lineY !== null && y - lineY >= up && !current.endsWith(" ")) {
+          // The next line is a whole line or more higher: the top of the next column, or a running head
+          // drawn after the body. A space, so its first word is not glued to the last one (audit
+          // 2026-11-09). A footnote mark raised less than a line stays on its word.
+          current += " ";
         }
         current += it.str;
+        if (lineY === null || lastY === null || y < lastY || y - lineY >= up) lineY = y;
         lastY = y;
       }
       if (current.trim()) paragraphs.push(current);
