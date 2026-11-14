@@ -3318,3 +3318,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The unit tests with the test database; the real-Postgres tests, which run every migration up, down and up again, in a throwaway Postgres 18 on the laptop.
 **Result.** Old code: `expected [ Array(1) ] to deeply equal []` at the first re-share. With the fix: all library tests 612 passed; real Postgres 2 passed. Copies removed by readers before the migration cannot be told apart: each still comes back once, at its paper's next re-share.
 **Lesson.** A merged migration stops every automatic deploy until it is deployed by hand. Build it and prove it, but leave it as a draft until the owner can take the backup.
+
+### Iteration 217 · 2026-11-14 (laptop clock) · Deploys send 3.6 MB, not 59 MB · success (measured; proved by the next deploy)
+
+**Hypothesis.** A laptop deploy of migration 0041 timed out three times while uploading: `railway up` sent 59 MB compressed, Railway stops an upload after about 90 s, and the connection gave 67 to 100 KB/s. 56 of the 68 MB are test reference screenshots (`e2e/__screenshots__/`) and design prototypes (`docs/design/`), which nothing in the build or the running site reads (only comments name `docs/design.md`, a single file, which stays).
+**Action.** A `.railwayignore` leaving out those two folders. The 0041 deploy itself went through with the same two folders left out by a temporary file, and the live site was checked after it (health, /sign-in, start-up log, 41 migrations).
+**Evaluation.** The size of what is sent; the next deploy (from this PR's merge) passing the deploy workflow's live check.
+**Result.** 3.6 MB compressed without them (59.3 MB with). The 0041 upload took 181 s from start to "Deploy complete" with them left out, where three uploads with them had timed out.
+**Lesson.** Look at what a deploy sends before blaming the network: most of it was pictures the site never reads.
