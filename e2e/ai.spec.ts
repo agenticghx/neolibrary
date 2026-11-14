@@ -164,9 +164,20 @@ test("STE rewrites: STE light, STE and STE strict, a full-STE score badge and th
   await expect(rewrite(page)).not.toContainText("---notes---");
   await expect(panel(page)).toContainText("Version 4 of 4");
 
-  // A percentage picks the strictness (75% is STE, the standard one) and, with STE showing, asks for it.
-  await dial.getByLabel("or a percentage").fill("75");
+  // A percentage picks the strictness (85% is STE, the standard one) and, with STE showing, asks for it once the
+  // number is finished (Enter, or leaving the box). Typed key by key, "8" alone would mean STE light: it used to ask
+  // for (and pay for) a rewrite at each key (audit 2026-11-09).
+  const asked: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/rewrites")) asked.push((r.postDataJSON() as { strictness?: string }).strictness ?? "");
+  });
+  const percentBox = dial.getByLabel("or a percentage");
+  await percentBox.pressSequentially("85", { delay: 300 });
+  await page.waitForTimeout(500);
+  expect(asked, "no rewrite asked for while the number is typed").toEqual([]);
+  await percentBox.press("Enter");
   await expect(rewrite(page)).toContainText("Rewrite · STE · written by the test AI");
+  expect(asked).toEqual(["standard"]);
   await expect(panel(page)).toContainText("Version 5 of 5");
   await expect(dial.getByRole("button", { name: "STE", exact: true })).toHaveAttribute("aria-pressed", "true");
   // Back to STE strict: the stored version is re-served.

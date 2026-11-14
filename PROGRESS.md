@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the check 1 pull request when green and read its check time for version 2 check 6.
+next_action: Make signed-out pages clear downloaded books as the page loads (inline script), with a test that holds the app's scripts back.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,13 +20,13 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 03:05 (laptop clock, from `date`). **All work is live (cc3f084; #356 changed only a test) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 03:45 (laptop clock, from `date`). **All work is live (cc3f084; 3ebc2861 waits for main's re-run) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Check 1 is recounted with none left (2026-11-14). Merge its pull request when green.
-2. Check 6: read that pull request's start-to-last-check time (it changes a page, so the screenshot tests run); only if it is over 12 minutes, build the site once for every browser machine.
-3. Check 7: recount the 2026-11-09 audit list (laptop only, `docs/handoffs/2026-11-09-audit-review-list.md`) against #329 to #355; mark each item fixed, open or dropped with a reason; fix the open ones in version 2's order.
-4. If `e2e/stats.spec.ts:72` fails again: its message now lists each save's fate; read it before re-running (two possible causes in `docs/ci-flakes.md`).
-5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser. (Open unknowns rows 35 and 36 were settled on 2026-11-10.)
+1. Version 2 line 3 (privacy): `e2e/offline.spec.ts:172` failed twice (#356, main on 3ebc2861). Signed-out pages clear downloaded books only once their scripts have loaded; clear them with a small script written into the page (the CSP nonce allows it), test with the app's scripts held back, show the test failing on the old code.
+2. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): removing a scanned book leaves its text edition live (privacy); a removed paper comes back when re-shared (needs a migration: backup and Samuel's word to deploy); then the rest.
+3. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
+4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
+5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 03:45 · Claude Opus 5.5 · The Rewrite percentage box asks for one rewrite when the number is finished, not one per key; audit list recounted (12 fixed, 28 open, 3 unclear)
+- **Done:** #357 merged as 3ebc2861 (checks 12.0 minutes from start to last check, screenshot tests included). Main's run on 3ebc2861 failed e2e/offline.spec.ts:172 (the second time in two days, after #356): re-run started; the deploy waits for it. Audit list recounted against 3ebc2861 (laptop-only file, new section): 43 items, 12 fixed, 28 open, 3 unclear; docs/version-2.md line 7 carries the counts. Fixed the first money item: typing a percentage in Rewrite asked for a rewrite at each key. Test first (e2e/ai.spec.ts): typing '85' key by key, the old code asked for ['light', 'standard'] before Enter; now nothing until Enter, then ['standard']. RewritePanel keeps the number while typed and asks on Enter or leaving the box, not while a rewrite is being written. Learning log iteration 204; docs/version-2.md line 4.
+- **Key paths:** app/(reader)/books/[id]/read/RewritePanel.tsx; e2e/ai.spec.ts; docs/version-2.md; LEARNING_LOG.md; docs/handoffs/2026-11-09-audit-review-list.md (laptop only, recount section)
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project ai --reporter=line (old code: 1 failed, Received ['light','standard']; fixed: 283 passed (5.9m)); npm run check (1485 passed, 2 skipped)
+- **Known issues / blockers:** e2e/offline.spec.ts:172 failed twice (a privacy check): the signed-out page clears downloads only once its scripts have loaded and run; on the local test server those scripts share connections with 129 cover pictures. Planned fix in its own pull request: clear with a small script written into the page (allowed by the page's CSP nonce), and a test that holds the app's scripts back for 8 s.
+- **Exact next steps:** 1. Merge this pull request when green. 2. Confirm main's re-run and the deploy of 3ebc2861 and this one on both addresses. 3. Offline privacy: clear downloads with an inline script on signed-out pages; test with scripts held back; show it failing on the old code. 4. Next audit items in version 2 order: removing a scanned book leaves its text edition live (privacy); a removed paper comes back on re-share (needs a migration: backup and Samuel's word to deploy).
 
 ### 2026-11-14 03:05 · Claude Opus 5.5 · Answers typed in Review, Where were we? and Ask, and a Path note's Remove, each say so when the library refuses (version 2 check 1 recounted, none left)
 - **Done:** Review (a rating), Where were we? (a typed summary) and Ask (a question) already said so and kept the words or the card when the library refused; each now has a browser test with the library answering 500 (e2e/review.spec.ts, e2e/ai.spec.ts); they pass on the old code too, so they are coverage, not fixes. A Path note's Remove was a plain page form: on the old code its new test failed at 'Not removed' and the page had become 'This page couldn't load'. Now TargetNoteRemove (components/TargetNoteForm.tsx) sends it itself, says 'Not removed: the library could not be reached or refused. The note is still here.' on a row of its own under the note, and ignores a second press; four screenshots, looked at (the first version squeezed the note's words into a narrow column; fixed with the form taking no box of its own). docs/version-2.md line 1 row; learning log iteration 203; three new rows in docs/ci-flakes.md (offline.spec.ts:172 on #356, a sign-up 'already exists' in review.spec.ts:60 and reader.spec.ts:1890, both on the laptop's Linux image). #356 merged as e877961 after one re-run.
