@@ -66,3 +66,20 @@ describe("PDF sections", () => {
     expect(listed.every((p, k) => p.page === paragraphs[k].chapterIndex + 1)).toBe(true);
   });
 });
+
+describe("PDF sections on a two-column page (audit 2026-11-09)", () => {
+  it("puts a space between the last word of column one and the first of column two, and keeps a raised mark on its word", async () => {
+    // A page drawn here (invented text): column one ends low on the page, column two starts at the top,
+    // so the next line is higher, not lower. A footnote mark sits a little above its line.
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.TimesRoman);
+    const page = pdf.addPage([612, 792]);
+    page.drawText("Lamps were lit early in the", { x: 72, y: 700, size: 11, font });
+    page.drawText("long northern winter", { x: 72, y: 686, size: 11, font });
+    page.drawText("1", { x: 72 + font.widthOfTextAtSize("long northern winter", 11), y: 690, size: 7, font });
+    page.drawText("evenings of the valley.", { x: 320, y: 700, size: 11, font });
+    const paragraphs = (await extractPdfSections(await pdf.save())).filter((s) => s.kind === "paragraph");
+    expect(paragraphs.map((p) => p.text)).toEqual(["Lamps were lit early in the long northern winter1 evenings of the valley."]);
+  });
+});

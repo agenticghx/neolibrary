@@ -59,9 +59,10 @@ describe("a word on a PDF page, by non-space characters (M13 (e))", () => {
   it("finds every word of the server's paragraphs in a text layer built like pdf.js's, glued running head and broken word included", async () => {
     // A page drawn here (no copyrighted text): a word broken across lines
     // with a hyphen, a second paragraph, and a running head drawn after the
-    // body at the top, which pdf.js reads last, so the server's text glues
-    // it onto the last word ("irreducibleIntroduction"), as in the Descartes
-    // demo PDF (Samuel's Kuhn draws its running head first).
+    // body at the top, which pdf.js reads last, so the server's text puts
+    // it after the last word ("irreducible Introduction"; glued with no space
+    // before the 2026-11-09 audit), as in the Descartes demo PDF (Samuel's
+    // Kuhn draws its running head first).
     const { PDFDocument, StandardFonts } = await import("pdf-lib");
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.TimesRoman);
@@ -78,7 +79,7 @@ describe("a word on a PDF page, by non-space characters (M13 (e))", () => {
     const paragraphs = (await extractPdfSections(bytes)).filter((s) => s.kind === "paragraph");
     expect(paragraphs.map((p) => p.text)).toEqual([
       "The first paragraph tells how a normal- scientific habit forms over the years.",
-      "A second paragraph follows on the same page, and it ends with the word irreducibleIntroduction x",
+      "A second paragraph follows on the same page, and it ends with the word irreducible Introduction x",
     ]);
 
     // The text layer as pdf.js's TextLayer builds it: one span per text item (none for an empty one), a <br> after an item that ends a line.
