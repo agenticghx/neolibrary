@@ -37,7 +37,7 @@ async function newReader(page: Page, browser: Browser) {
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Ezi Eink");
-  await reader.getByLabel("Email address").fill(`eink-${Date.now()}@example.com`);
+  await reader.getByLabel("Email address").fill(`eink-${crypto.randomUUID()}@example.com`);
   await reader.getByLabel("Password").fill(PASSWORD);
   await reader.getByRole("button", { name: "Join the library" }).click();
   await expect(reader.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();

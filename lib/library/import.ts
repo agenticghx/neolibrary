@@ -8,6 +8,7 @@ import { isMarkdownName, markdownToEpub, type MarkdownBook } from "./markdown-ep
 import { Pictures } from "./markdown-pictures";
 import { markdownIn, ZIP_NOT_A_BOOK } from "./zip-names";
 import { pickBook, sameBook, UUID } from "./paths";
+import { restoreEditions } from "./remove-book";
 import { buildSections } from "./sections-store";
 import { buildXray } from "./xray";
 import { isOwnBook } from "@/lib/library/own-book";
@@ -91,6 +92,7 @@ async function importFile(
     const back = removed.find((b) => sameBook(info.title, info.author, b));
     if (back) {
       await db.update(books).set({ deletedAt: null }).where(eq(books.id, back.id));
+      await restoreEditions(db, ownerId, back.id);
       return { status: "restored", bookId: back.id, title: back.title };
     }
     const waiting = same.filter((b) => !b.fileKey);

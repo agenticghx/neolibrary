@@ -53,7 +53,7 @@ async function fourLooks(page: Page, name: string, ready: () => Promise<void>) {
 }
 
 /** The owner invites a new reader, who joins; returns the reader's page (signed in, on Home). */
-async function newReader(page: Page, browser: Browser, email = `focus-${Date.now()}@example.com`) {
+async function newReader(page: Page, browser: Browser, email = `focus-${crypto.randomUUID()}@example.com`) {
   await page.goto("/admin/invites");
   await page.getByLabel(/Who is it for/).fill("Fola, focus sessions");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
@@ -221,7 +221,7 @@ test("a focus session: a question and a timer, only the page, a reload part-way,
 // (the server's clock), so there is no page.clock here.
 test("leaving a focus session early: an answer of 40 words, or the wait", async ({ page, browser }) => {
   test.setTimeout(180_000);
-  const reader = await newReader(page, browser, `focus-leave-${Date.now()}@example.com`);
+  const reader = await newReader(page, browser, `focus-leave-${crypto.randomUUID()}@example.com`);
   const res = await reader.request.post("/api/books", {
     multipart: { files: { name: "wells-the-time-machine.epub", mimeType: "application/epub+zip", buffer: readFileSync("fixtures/books/wells-the-time-machine.epub") } },
   });
@@ -363,7 +363,7 @@ test("leaving a focus session early: an answer of 40 words, or the wait", async 
 // cannot be wound forward from a test, so this one waits the real two minutes (no page.clock here).
 test("a focus session you cannot walk away from: every page and every browser goes to the focused book until the time is up", async ({ page, browser }) => {
   test.setTimeout(240_000);
-  const email = `focus-lock-${Date.now()}@example.com`;
+  const email = `focus-lock-${crypto.randomUUID()}@example.com`;
   const reader = await newReader(page, browser, email);
   const upload = async (file: string) => {
     const res = await reader.request.post("/api/books", {
@@ -483,7 +483,7 @@ const words = (n: number) => Array.from({ length: n }, (_, i) => `word${i}`).joi
 
 test("whole-book focus: only this book, for days; leaving early takes 150 words or a wait; the last page asks the question", async ({ page, browser }) => {
   test.setTimeout(240_000);
-  const reader = await newReader(page, browser, `book-focus-${Date.now()}@example.com`);
+  const reader = await newReader(page, browser, `book-focus-${crypto.randomUUID()}@example.com`);
   const upload = async (file: string) => {
     const res = await reader.request.post("/api/books", {
       multipart: { files: { name: file, mimeType: "application/epub+zip", buffer: readFileSync(`fixtures/books/${file}`) } },

@@ -54,7 +54,7 @@ async function newReader(page: Page, browser: Browser) {
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Cora Covers");
-  await reader.getByLabel("Email address").fill(`covers-${Date.now()}@example.com`);
+  await reader.getByLabel("Email address").fill(`covers-${crypto.randomUUID()}@example.com`);
   await reader.getByLabel("Password").fill("covers from catalogues");
   await reader.getByRole("button", { name: "Join the library" }).click();
   await expect(reader.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();

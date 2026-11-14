@@ -24,7 +24,7 @@ async function newReader(page: Page, browser: Browser) {
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Kofi Keys");
-  await reader.getByLabel("Email address").fill(`keys-${Date.now()}@example.com`);
+  await reader.getByLabel("Email address").fill(`keys-${crypto.randomUUID()}@example.com`);
   await reader.getByLabel("Password").fill("a key of my own please");
   await reader.getByRole("button", { name: "Join the library" }).click();
   await expect(reader.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();

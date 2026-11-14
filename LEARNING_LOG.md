@@ -3237,3 +3237,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The offline project and its dependencies in Playwright's Linux image, old code and fix.
 **Result.** Old code: the open-shelf test failed (Expected false, Received true), as on CI. Fix: 344 passed (8.2m), the sign-in test included; since the app's scripts were held back, passing also shows the page's security policy runs the written-in script.
 **Lesson.** A privacy step that waits for the app's scripts waits for the slowest connection. Do it in the page itself, and test it with the scripts held back, so timing cannot hide it.
+
+### Iteration 206 · 2026-11-14 (laptop clock) · A scanned book's text edition leaves and comes back with its scan · success
+
+**Hypothesis.** The audit (2026-11-09) read that removing a scanned book marks only the scan as removed: its text edition (a book row of its own, `editionOf` = the scan) stays live, so it can still be opened and searched inside, and its notes and reading time still reach review and stats.
+**Action.** Test first in `lib/library/text-edition.test.ts`: make an edition with the fake batch model, remove the scan, check the edition is marked removed and search inside it finds nothing; restore, check it is back; remove again and upload the scan's file again, check the edition is back. Fix in `lib/library/remove-book.ts` (remove and restore the edition with its scan) and `lib/library/import.ts` (uploading a removed book's file again restores its edition too).
+**Evaluation.** The unit tests with the test database: old code, fix, and the fix without the upload half.
+**Result.** Old code: `expected null not to be null` (the edition's removal date stayed empty). Without the upload half: `expected 2026-11-14T09:07:41.368Z to be null` (uploaded again, the scan came back and its edition stayed removed). With the fix: text-edition, remove-book and import tests, 40 passed.
+**Lesson.** A row that belongs to another row (an edition to its scan) must follow every way its owner leaves and comes back, not just the obvious one: here, restoring from the removed list and uploading the same file again.
