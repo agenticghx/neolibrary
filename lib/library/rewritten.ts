@@ -4,7 +4,7 @@ import type { Db } from "@/lib/db/client";
 import { getStyles } from "./ai-style";
 import { paragraphsBetween } from "./annotations";
 import { rewriteFor, type Style } from "./levels";
-import { estimateRewrite, listRewrites, rewriteParagraph, viewRewrite, type RewriteView } from "./rewrite";
+import { estimateRewrites, listRewritesFor, rewriteParagraph, viewRewrite, type RewriteView } from "./rewrite";
 
 /**
  * Read it rewritten (M17, docs/rewritten-view-plan.md): the paragraphs on
@@ -39,16 +39,17 @@ export async function rewrittenView(db: Db, model: TextModel | null, ownerId: st
   const { effective: style } = await getStyles(db, ownerId, bookId);
   const want = rewriteFor(style);
   const strictness = want.level === "ste" ? want.strictness : undefined;
-  const pieces: Piece[] = [];
-  for (const p of await paragraphsBetween(db, bookId, at.from, at.to)) {
-    if (p.form !== "prose") {
-      pieces.push({ id: p.id, cfi: p.cfi, text: p.text, rewrite: null, estimate: null, form: p.form });
-      continue;
-    }
-    const rewrite = (await listRewrites(db, ownerId, bookId, p.id)).filter((g) => inStyle(g, style)).at(-1) ?? null;
-    const estimate = !rewrite && model ? await estimateRewrite(db, model, ownerId, bookId, p.id, want.level, strictness) : null;
-    pieces.push({ id: p.id, cfi: p.cfi, text: p.text, rewrite, estimate, form: "prose" });
-  }
+  // The page's rewrites and prices in a few queries, not about five per paragraph (audit 2026-11-09).
+  const onScreen = await paragraphsBetween(db, bookId, at.from, at.to);
+  const prose = onScreen.filter((p) => p.form === "prose");
+  const stored = await listRewritesFor(db, ownerId, bookId, prose.map((p) => p.id));
+  const rewriteOf = (id: string) => (stored.get(id) ?? []).filter((g) => inStyle(g, style)).at(-1) ?? null;
+  const prices = model ? await estimateRewrites(db, model, ownerId, bookId, prose.filter((p) => !rewriteOf(p.id)), want.level, strictness) : new Map<string, number>();
+  const pieces: Piece[] = onScreen.map((p) => {
+    if (p.form !== "prose") return { id: p.id, cfi: p.cfi, text: p.text, rewrite: null, estimate: null, form: p.form };
+    const rewrite = rewriteOf(p.id);
+    return { id: p.id, cfi: p.cfi, text: p.text, rewrite, estimate: rewrite ? null : (prices.get(p.id) ?? null), form: "prose" };
+  });
   return { style, pieces };
 }
 

@@ -109,8 +109,10 @@ const MAX_ON_SCREEN = 40;
 export async function paragraphsBetween(db: Db, bookId: string, from: string, to: string) {
   const start = atStart(CFI.collapse(from));
   const end = atStart(CFI.collapse(to, true));
+  // The places first, without the text: finding the page reads every paragraph's place, and the whole book's text
+  // came with it at each page turn (audit 2026-11-09). The text is read below for the page's paragraphs only.
   const rows = await db
-    .select({ id: sections.id, cfi: sections.cfi, text: sections.text, chapterIndex: sections.chapterIndex, form: sections.form })
+    .select({ id: sections.id, cfi: sections.cfi, chapterIndex: sections.chapterIndex, form: sections.form })
     .from(sections)
     .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph")))
     .orderBy(asc(sections.position));
@@ -124,7 +126,11 @@ export async function paragraphsBetween(db: Db, bookId: string, from: string, to
   });
   if (first < 0) first = rows.findIndex((s) => CFI.compare(atStart(s.cfi), start) > 0);
   if (first < 0 || last < first) return [];
-  return rows.slice(first, Math.min(last + 1, first + MAX_ON_SCREEN)).filter((s) => s.text.trim());
+  const page = rows.slice(first, Math.min(last + 1, first + MAX_ON_SCREEN));
+  const texts = new Map(
+    (await db.select({ id: sections.id, text: sections.text }).from(sections).where(and(eq(sections.bookId, bookId), inArray(sections.id, page.map((s) => s.id))))).map((r) => [r.id, r.text]),
+  );
+  return page.map((s) => ({ ...s, text: texts.get(s.id) ?? "" })).filter((s) => s.text.trim());
 }
 
 export async function sectionForCfi(db: Db, bookId: string, cfi: string, quote = ""): Promise<string | null> {

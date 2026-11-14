@@ -3302,3 +3302,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Old and new code on a made-up paper of 20 figures, 3 versions each, drawings of about 300 KB (60 rows); figure tests; `npm run check`.
 **Result.** Same list from both (20 figures). Time per list in the test database: 7.4 ms old, 0.4 ms new; the old one also carried about 18 MB of drawings, which on the live database cross the network. Figure tests 9 passed; `npm run check` 1487 passed.
 **Lesson.** A list that returns ids should not select the large column it never reads.
+
+### Iteration 214 · 2026-11-14 (laptop clock) · The rewritten view asks once per page, not five times per paragraph · success
+
+**Hypothesis.** The audit (2026-11-09) read that the rewritten view (`rewrittenView`, at every page turn) looks up each paragraph's rewrites and price one by one: about five queries each (the stored rewrites; for the price, the book check, the paragraph, its chapter's name, the book's title). Reading on: finding the page's paragraphs (`paragraphsBetween`) also read every paragraph's text in the book, to keep 40 at most.
+**Action.** First a test that pins today's answer: in every chapter of Jekyll and Hyde, in four styles, with rewrites stored in three, each paragraph's rewrite and price must equal what its own lookups give. Then: the page's rewrites in one query (`listRewritesFor`), its prices with the book and the chapters' names read once (`estimateRewrites`, the request built from the paragraph in hand), and `paragraphsBetween` reading the places first and the text of the page's paragraphs only.
+**Evaluation.** The pinning test on the old and new code; a mutation (price with the chapter's name left out); rewrite, rewritten and annotation tests; `npm run check`; time per page turn (30 paragraphs, STE standard, none rewritten) in the test database.
+**Result.** Pinning test passed on the old code and on the new; the mutation failed it. 33 tests passed; `npm run check` 1492 passed. 33.2 ms per page turn old, 6.3 ms new; on the live database about 150 queries per page turn become 6, each of which crossed the network.
+**Lesson.** A per-item helper called in a loop hides its queries; look for the loop before looking for the slow query.

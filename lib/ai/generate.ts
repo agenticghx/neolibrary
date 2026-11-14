@@ -417,6 +417,21 @@ export async function generate(
 }
 
 /** Every stored answer of one kind for one section, oldest first (the versions to flip between). */
+/** listGenerations for several paragraphs in one query: each paragraph's, oldest first (absent: none). */
+export async function listGenerationsFor(db: Db, ownerId: string, bookId: string, sectionIds: string[], kind: string) {
+  const out = new Map<string, Generation[]>();
+  if (!sectionIds.length) return out;
+  const rows = await db
+    .select()
+    .from(generations)
+    .where(
+      and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), inArray(generations.sectionId, sectionIds), eq(generations.kind, kind)),
+    )
+    .orderBy(asc(generations.createdAt), asc(generations.id));
+  for (const r of rows) out.set(r.sectionId!, [...(out.get(r.sectionId!) ?? []), toGeneration(r)]);
+  return out;
+}
+
 export async function listGenerations(db: Db, ownerId: string, bookId: string, sectionId: string, kind: string) {
   const rows = await db
     .select()
