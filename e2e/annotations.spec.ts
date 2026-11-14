@@ -560,8 +560,30 @@ test("a note on a Path that is not saved says so and keeps the words", async ({ 
   await aviation.getByRole("button", { name: "Save note" }).click();
   await expect(aviation.getByText("Notes (1)")).toBeVisible();
   await expect(aviation.getByRole("alert")).toHaveCount(0);
-  await aviation.getByRole("button", { name: /^Remove note: Words that must/ }).click();
+  // Remove was a plain page form too: a removal the library refuses said nothing and replaced the page. Now it says so
+  // beside the note, and the note stays listed.
+  await page.route("**/paths/hidden-machinery", (route) => (route.request().method() === "POST" ? route.fulfill({ status: 500, body: "busy" }) : route.continue()));
+  const remove = aviation.getByRole("button", { name: /^Remove note: Words that must/ });
+  await remove.click();
+  await expect(aviation.getByRole("alert")).toContainText("Not removed");
+  await expect(aviation.getByText("Words that must not be lost.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Aviation", exact: true })).toBeVisible();
+  for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.emulateMedia({ colorScheme: scheme });
+      await aviation.getByRole("alert").scrollIntoViewIfNeeded();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).include('[data-testid="pillar"]').analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => n.target).join(", ")}`)).toEqual([]);
+      await page.screenshot({ path: `screenshots/path-note-not-removed-${name}-${scheme}.png` });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.unrouteAll();
+  await remove.click();
   await expect(aviation.getByText("Words that must not be lost.")).toHaveCount(0);
+  await expect(aviation.getByRole("alert")).toHaveCount(0);
 });
 
 // Version 2, check 1: every way of saving says so when the library answers with an error. The note on a passage and

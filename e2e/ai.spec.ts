@@ -1170,7 +1170,17 @@ test("Ask this book: a question answered from the book's paragraphs, with a [1] 
   await expect(answer).toHaveCount(0);
 
   await askPanel.getByLabel("Your question").fill("What was his rugged countenance like?");
+  // Version 2, check 1: a question the library refuses says so and stays in the box; asking again works.
+  await page.route("**/api/books/*/ask", (route) =>
+    route.request().method() === "POST" ? route.fulfill({ status: 500, json: { error: "The library is busy." } }) : route.continue(),
+  );
   await button.click();
+  await expect(askPanel.getByRole("alert")).toHaveText("The library is busy.");
+  await expect(askPanel.getByLabel("Your question")).toHaveValue("What was his rugged countenance like?");
+  await expect(answer).toHaveCount(0);
+  await page.unroute("**/api/books/*/ask");
+  await button.click();
+  await expect(askPanel.getByRole("alert")).toHaveCount(0);
   await expect(answer).toContainText("Answer from the book · written by the test AI");
   await expect(answer).toContainText("“Mr. Utterson the lawyer was a man of a rugged countenance that…”");
   await expect(answer).toContainText(/fake · \d+ \w+ \d{4} · \$0\.\d+/);

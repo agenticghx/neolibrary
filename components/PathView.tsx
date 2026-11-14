@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { removeNoteAction } from "@/app/(app)/actions";
 import type { Annotation } from "@/lib/library/annotations";
 import { availabilityLabel } from "@/lib/library/availability";
 import { KIND_WORDS, partsWord } from "@/lib/library/path-words";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
-import { TargetNoteForm } from "./TargetNoteForm";
+import { TargetNoteForm, TargetNoteRemove } from "./TargetNoteForm";
 import styles from "./PathView.module.css";
 
 const GROUPS: Record<string, string> = {
@@ -44,12 +43,7 @@ function TargetNotes({ targetType, targetId, label, notes }: { targetType: "pill
           {notes.map((n) => (
             <li key={n.id} className={styles.note}>
               <p className={styles.noteText}>{n.body}</p>
-              <form action={removeNoteAction}>
-                <input type="hidden" name="id" value={n.id} />
-                <button type="submit" className={styles.noteRemove} aria-label={`Remove note: ${n.body.slice(0, 40)}`}>
-                  Remove
-                </button>
-              </form>
+              <TargetNoteRemove id={n.id} body={n.body} />
             </li>
           ))}
         </ul>

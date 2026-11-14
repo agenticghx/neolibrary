@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { addTargetNoteAction } from "@/app/(app)/actions";
+import { addTargetNoteAction, removeNoteAction } from "@/app/(app)/actions";
 import styles from "./PathView.module.css";
 
 /**
@@ -60,6 +60,48 @@ export function TargetNoteForm({ targetType, targetId, label }: { targetType: "p
       <button type="submit" className={styles.noteSave} disabled={saving}>
         Save note
       </button>
+    </form>
+  );
+}
+
+/**
+ * Remove on a note of a pillar or a whole Path. It was a plain page form: a removal the library refused replaced the
+ * whole page with "This page couldn't load" (version 2, check 1). Now a refused removal says so beside the note, the
+ * note stays listed, and a second press while the first is on its way does nothing.
+ */
+export function TargetNoteRemove({ id, body }: { id: string; body: string }) {
+  const [removing, setRemoving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const busy = useRef(false);
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (busy.current) return;
+        busy.current = true;
+        setRemoving(true);
+        try {
+          const data = new FormData();
+          data.set("id", id);
+          await removeNoteAction(data);
+          setFailed(false);
+        } catch {
+          setFailed(true);
+        } finally {
+          busy.current = false;
+          setRemoving(false);
+        }
+      }}
+      className={styles.noteRemoveForm}
+    >
+      <button type="submit" className={styles.noteRemove} disabled={removing} aria-label={`Remove note: ${body.slice(0, 40)}`}>
+        Remove
+      </button>
+      {failed ? (
+        <p className={`${styles.noteError} ${styles.noteRowError}`} role="alert">
+          Not removed: the library could not be reached or refused. The note is still here.
+        </p>
+      ) : null}
     </form>
   );
 }
