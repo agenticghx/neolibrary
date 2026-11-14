@@ -35,7 +35,7 @@ export async function removeBook(db: Db, ownerId: string, bookId: string, now = 
   if (!book.fileKey) throw new RemoveBookError("A title without its book file is removed from its Path instead.");
   const onPaths = await pathsOfBook(db, ownerId, bookId);
   if (onPaths.length) throw new RemoveBookError(`This book is part of ${onPaths.join(" and ")}, so it stays in your library.`);
-  await db.update(books).set({ deletedAt: now }).where(eq(books.id, bookId));
+  await db.update(books).set({ deletedAt: now, removedByReader: true }).where(eq(books.id, bookId));
   // A scanned book's text edition leaves with it (audit 2026-11-09: it stayed live, searched inside, reviewed and counted).
   await db
     .update(books)
@@ -52,7 +52,7 @@ export async function restoreBook(db: Db, ownerId: string, bookId: string) {
   if (copy?.sharedFrom && !(await stillShared(db, copy.sharedFrom))) throw new RemoveBookError("Book not found.");
   const done = await db
     .update(books)
-    .set({ deletedAt: null })
+    .set({ deletedAt: null, removedByReader: false })
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey)))
     .returning({ id: books.id });
   if (!done.length) throw new RemoveBookError("Book not found.");
