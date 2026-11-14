@@ -36,6 +36,11 @@ export async function removeBook(db: Db, ownerId: string, bookId: string, now = 
   const onPaths = await pathsOfBook(db, ownerId, bookId);
   if (onPaths.length) throw new RemoveBookError(`This book is part of ${onPaths.join(" and ")}, so it stays in your library.`);
   await db.update(books).set({ deletedAt: now }).where(eq(books.id, bookId));
+  // A scanned book's text edition leaves with it (audit 2026-11-09: it stayed live, searched inside, reviewed and counted).
+  await db
+    .update(books)
+    .set({ deletedAt: now })
+    .where(and(eq(books.editionOf, bookId), eq(books.ownerId, ownerId), isNull(books.deletedAt)));
   // M41 R3c: an owner's shared paper leaves the readers' libraries too (nothing happens for any other book).
   await syncSharedPaper(db, bookId);
 }
@@ -51,7 +56,16 @@ export async function restoreBook(db: Db, ownerId: string, bookId: string) {
     .where(and(eq(books.id, bookId), eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey)))
     .returning({ id: books.id });
   if (!done.length) throw new RemoveBookError("Book not found.");
+  await restoreEditions(db, ownerId, bookId);
   await syncSharedPaper(db, bookId);
+}
+
+/** A scanned book's text edition comes back with it (here, and when its file is uploaded again). */
+export async function restoreEditions(db: Db, ownerId: string, bookId: string) {
+  await db
+    .update(books)
+    .set({ deletedAt: null })
+    .where(and(eq(books.editionOf, bookId), eq(books.ownerId, ownerId), isNotNull(books.deletedAt)));
 }
 
 /** The reader's removed books, newest removal first. Titles taken off a Path (no file) are not listed: they were never on a shelf. */

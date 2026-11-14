@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the downloads-at-load pull request when green, then run the live check on /browse and /sign-in.
+next_action: Merge #360 when green, then start the removed-paper-comes-back fix (a migration, so build and test it; deploy waits for a backup and Samuel's word).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,13 +20,12 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 04:03 (laptop clock, from `date`). **All work is live (3ebc286; #358 deploying) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 05:00 (laptop clock, from `date`). **All work is live (1576637, #358 and #359) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Version 2 line 3: signed-out pages now remove downloads as the page loads (pull request from `m44-clear-downloads-at-load`); after its deploy, run `scripts/live-webkit-check.mjs` on /browse and /sign-in.
-2. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): removing a scanned book leaves its text edition live (privacy); a removed paper comes back when re-shared (needs a migration: backup and Samuel's word to deploy); then the rest.
-3. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
-4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
-5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
+1. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): a removed paper comes back when re-shared (needs a migration: a reverse step, a backup and Samuel's word to deploy); then two-column PDF glue, no-text books re-read at every start, the X-ray id clash across kinds, the slow paths.
+2. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
+3. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
+4. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -187,6 +186,20 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 04:52 · Claude Opus 5.5 · Live 1576637 (#358, #359), downloads leave in 2 to 24 ms live; the privacy test's CI failures were the visitor limit (429), not the timing #359 fixed
+- **Done:** #358 and #359 deployed by the workflow: both addresses' /api/health show 1576637, /sign-in 200; main's checks green on every machine. scripts/live-webkit-check.mjs on /browse and /sign-in: all 'ok' (WebKit /browse 129 of 129 pictures after 3.4 s). A one-off check on the live site (scratchpad script, not kept): with the app's scripts held back, downloads removed after 15 ms (WebKit /browse), 4 ms (WebKit /sign-in), 24 ms (Chromium /browse), 2 ms (Chromium /sign-in); no CSP complaint. #360's first run failed e2e/offline.spec.ts:186 again; its trace, and those of the two earlier failures (#356 run 43549182909, main run 43575138716), show /browse answering 429: signed-out pages are limited to 120 a minute per address and the open-shelf tests use it up just before. The two tests now send an address of their own (x-forwarded-for). #359's diagnosis of the CI failures corrected in docs/ci-flakes.md, docs/version-2.md line 3, learning log iteration 207, and a comment on #359; its change stays (real, and works live).
+- **Key paths:** e2e/offline.spec.ts (ownAddress); lib/visitor-limit.ts; docs/ci-flakes.md; docs/version-2.md; LEARNING_LOG.md
+- **Commands that worked:** node scripts/live-webkit-check.mjs <live address> /browse /sign-in; unzip a run's playwright-report artifact, then the failing test's trace.zip, and read <n>-trace.network for the /browse status (python3 -I)
+- **Known issues / blockers:** A signed-out visitor who hits the 429 limit gets no page, so nothing removes downloads on that request (the next page that loads does). Not changed; worth a thought.
+- **Exact next steps:** 1. Merge #360 when green. 2. Next audit item: a removed paper comes back when re-shared (needs a migration: a reverse step, a backup and Samuel's word to deploy). 3. Check 6: read #360's start-to-last-check time.
+
+### 2026-11-14 04:32 · Claude Opus 5.5 · A scanned book's text edition leaves and comes back with its scan; test readers' addresses no longer collide
+- **Done:** #359 merged as 1576637d after one re-run (#358 merged before it); main's checks and the deploy of both being watched. Audit item (privacy): removing a scanned book marked only the scan as removed; its text edition stayed live. Test first in lib/library/text-edition.test.ts (old code: 'expected null not to be null'); lib/library/remove-book.ts removes the edition with its scan and restores it with it (restoreEditions); lib/library/import.ts restores it when the scan's file is uploaded again (without that line: 'expected 2026-11-14T09:07:41.368Z to be null'). Also: the sign-up failure 'An account with this email already exists.' (review.spec.ts:60; laptop once, #359's first run) explained from #359's trace: one join request, refused at once; tests run side by side and test readers' addresses came from the clock in milliseconds. All nine such addresses (six files) now take crypto.randomUUID(). docs/ci-flakes.md row: cause and fix. Learning log iteration 206.
+- **Key paths:** lib/library/remove-book.ts; lib/library/import.ts; lib/library/text-edition.test.ts; e2e/review.spec.ts; e2e/focus.spec.ts; e2e/covers.spec.ts; e2e/eink.spec.ts; e2e/own-keys.spec.ts; e2e/shared-papers.spec.ts; docs/ci-flakes.md; LEARNING_LOG.md
+- **Commands that worked:** npx vitest run lib/library/text-edition.test.ts lib/library/remove-book.test.ts lib/library/import.test.ts (40 passed); zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project review --project focus --project covers --project eink --project own-keys --project shared-papers (330 passed (9.9m)); unzip a CI trace.zip and read <n>-trace.network for POST requests (python3 -I)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge this pull request when green. 2. After the deploy of #358 and #359: scripts/live-webkit-check.mjs on /browse and /sign-in. 3. Next audit item: a removed paper comes back when re-shared (needs a migration: a reverse step, a backup and Samuel's word to deploy); then two-column PDF glue, no-text books re-read at start, the X-ray id clash across kinds. 4. Check 6: read this pull request's start-to-last-check time.
 
 ### 2026-11-14 04:03 · Claude Opus 5.5 · Signed-out pages remove downloaded books as the page loads, not after the app's scripts (the privacy test that failed twice)
 - **Done:** Live: 3ebc286 (#357) on both addresses, /sign-in 200, after one re-run of main's checks (e2e/offline.spec.ts:172 failed on main as it had on #356). #358 merged (the Rewrite percentage box asks once). Version 2 line 3: the open shelf and the sign-in page removed downloaded books in an effect that runs only once the app's scripts have loaded; on the test server those scripts shared its connections with 129 covers, so the 5 s check sometimes saw the downloads still there. The two tests now hold the app's scripts back until the check is done (service worker blocked); the old code fails every time (open shelf: Expected false, Received true). components/ClearOfflineAtLoad.tsx writes a small script carrying the page's CSP nonce that deletes both offline caches as the page is read; the old effect stays for moves inside the app. docs/ci-flakes.md row updated with the cause; docs/version-2.md line 3; learning log iteration 205.

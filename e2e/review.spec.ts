@@ -54,7 +54,7 @@ async function newReader(page: Page, browser: Browser) {
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Rhea Reviewer");
-  await reader.getByLabel("Email address").fill(`review-${Date.now()}@example.com`);
+  await reader.getByLabel("Email address").fill(`review-${crypto.randomUUID()}@example.com`);
   await reader.getByLabel("Password").fill("spaced repetition works");
   await reader.getByRole("button", { name: "Join the library" }).click();
   await expect(reader.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();

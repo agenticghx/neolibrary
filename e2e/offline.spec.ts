@@ -172,6 +172,11 @@ test("after a deploy, one online visit keeps the page's new files and the book s
 // The downloads leave as the page loads, before the app's scripts have arrived: they are held back here, as a slow
 // connection would hold them (and as 129 covers sharing the test server's connections did: this test failed on
 // #356 and on main's run of #357, docs/ci-flakes.md).
+// A visitor address of their own for these two tests: signed-out pages are limited to 120 a minute per address
+// (lib/visitor-limit.ts), and on CI the open-shelf tests running beside them used that up, so /browse answered 429
+// and never loaded (#360's first run, seen in its trace; docs/ci-flakes.md).
+const ownAddress = () => ({ "x-forwarded-for": `offline-test-${crypto.randomUUID()}` });
+
 // The service worker is blocked in these two tests: requests it answers do not pass page.route.
 async function holdScripts(page: Page) {
   let release = () => {};
@@ -184,7 +189,7 @@ async function holdScripts(page: Page) {
 }
 
 test("the open shelf, seen signed out, removes downloaded books from the device", async ({ browser }) => {
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block" });
+  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block", extraHTTPHeaders: ownAddress() });
   const page = await ctx.newPage();
   await page.goto("/manifest.webmanifest");
   await page.evaluate(async () => {
@@ -198,7 +203,7 @@ test("the open shelf, seen signed out, removes downloaded books from the device"
 });
 
 test("the sign-in page removes downloaded books from the device", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block" });
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block", extraHTTPHeaders: ownAddress() });
   const page = await context.newPage();
   await page.goto("/sign-in");
   await page.evaluate(async () => {

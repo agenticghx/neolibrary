@@ -14,6 +14,7 @@ import { books, generations, textEditionJobs } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
+import { listRemovedBooks, removeBook, restoreBook } from "./remove-book";
 import { searchLibrary } from "./search";
 import { listShelf } from "./shelf";
 import { getSections } from "./sections-store";
@@ -279,6 +280,34 @@ describe("the text edition in the library", () => {
     // "disagree throughout" is only in the edition (Claude's reading of page 2), so across the library nothing is found.
     expect(await searchLibrary(database.db, ownerId, "disagree throughout")).toEqual([]);
     expect((await searchLibrary(database.db, ownerId, "disagree throughout", 60, edition.id)).map((h) => h.bookId)).toEqual([edition.id]);
+  });
+
+  // Audit 2026-11-09: removing a scanned book left its text edition live (searched inside, reviewed, counted).
+  it("leaves the library with its scan, and comes back with it", async () => {
+    const bookId = await scannedBook();
+    const model = new FakeBatchModel({ answer });
+    await (await startTextEdition(deps(model), ownerId, bookId, true)).done;
+    await pollTextEditions(deps(model));
+    const [edition] = await database.db.select().from(books).where(eq(books.editionOf, bookId));
+    const removedAt = async () => (await database.db.select({ d: books.deletedAt }).from(books).where(eq(books.id, edition.id)))[0].d;
+    const inside = async () => (await searchLibrary(database.db, ownerId, "disagree throughout", 60, edition.id)).map((h) => h.bookId);
+    expect(await inside()).toEqual([edition.id]);
+
+    await removeBook(database.db, ownerId, bookId);
+    expect(await removedAt()).not.toBeNull();
+    expect(await inside()).toEqual([]);
+    expect((await listRemovedBooks(database.db, ownerId)).map((b) => b.id)).toEqual([bookId]); // the scan is listed, not its edition
+
+    await restoreBook(database.db, ownerId, bookId);
+    expect(await removedAt()).toBeNull();
+    expect(await inside()).toEqual([edition.id]);
+
+    // Uploading the scan's file again, once removed, brings it back with its edition too.
+    await removeBook(database.db, ownerId, bookId);
+    const again = await importBook(database.db, storage, ownerId, { name: "again.pdf", bytes: new Uint8Array(readFileSync(new URL("../../fixtures/books/scanned-meditation.pdf", import.meta.url))) });
+    expect(again).toMatchObject({ status: "restored", bookId });
+    expect(await removedAt()).toBeNull();
+    expect(await inside()).toEqual([edition.id]);
   });
 
   it("is never taken for its scan: adding the scan's file again finds the scan", async () => {
