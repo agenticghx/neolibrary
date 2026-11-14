@@ -3245,3 +3245,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The unit tests with the test database: old code, fix, and the fix without the upload half.
 **Result.** Old code: `expected null not to be null` (the edition's removal date stayed empty). Without the upload half: `expected 2026-11-14T09:07:41.368Z to be null` (uploaded again, the scan came back and its edition stayed removed). With the fix: text-edition, remove-book and import tests, 40 passed.
 **Lesson.** A row that belongs to another row (an edition to its scan) must follow every way its owner leaves and comes back, not just the obvious one: here, restoring from the removed list and uploading the same file again.
+
+### Iteration 207 · 2026-11-14 (laptop clock) · The privacy test's failures on CI were the visitor limit, not the timing #359 fixed · partial (cause found; #359's diagnosis of CI corrected)
+
+**Hypothesis.** #359 (iteration 205) said `e2e/offline.spec.ts:172` failed on CI because the downloads were removed only after the app's scripts loaded. Yet the same test failed on #360, which includes #359's fix.
+**Action.** Read the trace of #360's failure, then of the two earlier failures (#356, and main's run of #357), for the request to `/browse`.
+**Evaluation.** The status of `/browse` in each trace.
+**Result.** 429 Too Many Requests in all three. Signed-out pages are limited to 120 a minute per address; every test request comes from one address, and since #354 the open-shelf tests run just before on the same machine. The page never loaded. The two tests now use an address of their own. #359's change stays: the slowness it fixed is real (its test fails on the old code every time) and it works on the live site (2 to 24 ms), but it was not the cause on CI.
+**Lesson.** Read the failing run's trace before naming a cause. A test that can be made to fail one way ("hold the scripts back") proves that way exists, not that it was what failed. Iteration 205 named the cause without opening the trace, and the trace was there all along.
