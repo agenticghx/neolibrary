@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #360 when green, then start the removed-paper-comes-back fix (a migration, so build and test it; deploy waits for a backup and Samuel's word).
+next_action: While 0041 waits for Samuel, fix the two-column PDF glue (no migration needed).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,10 +20,10 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 05:00 (laptop clock, from `date`). **All work is live (1576637, #358 and #359) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 05:18 (laptop clock, from `date`). **All work is live (1576637; #360 changed only tests and the server's book removal, deploying) except this draft (a migration).** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): a removed paper comes back when re-shared (needs a migration: a reverse step, a backup and Samuel's word to deploy); then two-column PDF glue, no-text books re-read at every start, the X-ray id clash across kinds, the slow paths.
-2. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
+1. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): the removed-paper fix is a draft waiting for Samuel's "deploy 0041" (a migration); next, with no migration: two-column PDF glue, no-text books re-read at every start, the X-ray id clash across kinds, the slow paths.
+2. Check 6: #357 took 12.0 minutes from start to last check (screenshot tests included); #360 took 14.6 (every machine started). Over the target: build the site once for all browser machines.
 3. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
 4. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
 
@@ -33,6 +33,7 @@ Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log
 
 Never blocks the loop. Newest first.
 
+- **A database migration to deploy (2026-11-14; nothing else blocks).** The draft pull request from `m44-reader-removed-paper` stops a shared paper a reader removed from coming back when you share it again (audit 2026-11-09). It adds one column (migration 0041, with its reverse step; tested up, down and up on Postgres 18). It is a draft because merging it would stop every automatic deploy until it is deployed by hand. When you can: say "deploy 0041", and the session takes the backup, checks it restores, merges, deploys from the laptop and counts `_migrations`.
 - **Chip War's X-ray and the Get help page (M32 X5/X6 and M33, 2026-10-23; nothing blocks).** (1) Open *Chip War* on the live site, Study > Who & what, and check twenty entries by eye (the names, their kinds, a few facts against the page); the plan's Done when asks for your verdict, and Open unknowns row 27 (the name in the app, the argument X-ray, when to pay, the world layer) defaults on 2026-10-29. (2) Open Get help from the account menu and say in one line what is missing or unclear. (3) To read another book the same way, no key needed: the `xray-on-subscription` skill, or `npx tsx scripts/xray-on-subscription.ts read <site> <book id>` in a terminal (about an hour for a 54-chapter book).
 - **Covers (M22, 2026-10-11; nothing blocks).** (1) On **/covers**, turn down any cover that is a poor picture ("Not this cover": the next match takes its place, or the drawn cover comes back). (2) ~~A Google Books key~~ **Given 2026-10-11 and live** (on Railway `web` since the 357d746 deploy): 12 of the 14 titles found; two more weak ones to judge on /covers (How Buildings Learn, The Gift Relationship). (3) Covers are looked up for every reader, your invited reader too; say if it should be you only.
 
@@ -186,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 05:18 · Claude Opus 5.5 · Draft (migration 0041): a shared paper the reader removed stays removed when the owner shares it again; #360 merged
+- **Done:** #360 merged (first full run green; 14.6 minutes from start to last check, behavior about 13.5, over the 12-minute target). Audit item (shown 2026-11-09): a reader's copy of a shared paper, removed by the reader, came back when the owner marked the paper again, turned sharing off and on, or removed and restored it. Test first in lib/library/shared-papers.test.ts (old code: 'expected [ Array(1) ] to deeply equal []'). Migration 0041 adds books.removed_by_reader with its reverse step; set when a reader removes a book, cleared when they bring it back (removed list or upload again); syncSharedPaper brings back only copies without it; the export carries it (remove-book round-trip test extended). Library tests 613 passed; real Postgres (up, down, up on Postgres 18 in a throwaway container) 2 passed. Draft on purpose: a merged migration stops automatic deploys until deployed by hand. Waiting on Samuel item added; learning log iteration 208.
+- **Key paths:** db/migrations/0041_removed_by_reader.up.sql; db/migrations/0041_removed_by_reader.down.sql; lib/db/schema.ts; lib/library/shared-papers.ts; lib/library/remove-book.ts; lib/library/import.ts; lib/library/export.ts; lib/library/shared-papers.test.ts; lib/library/remove-book.test.ts
+- **Commands that worked:** npx vitest run lib/library/ (613 passed); docker run -d --name nl-pg-test -e POSTGRES_PASSWORD=postgres -p 55432:5432 public.ecr.aws/docker/library/postgres:18, then TEST_DATABASE_URL=postgres://postgres:postgres@localhost:55432/postgres npm run test:postgres (2 passed), then docker rm -f nl-pg-test
+- **Known issues / blockers:** Copies removed by readers before 0041 cannot be told apart: each still comes back once at its paper's next re-share. Deploy needs Samuel: backup, restore-check, merge, deploy from the laptop (CLAUDE.local.md).
+- **Exact next steps:** 1. Samuel: say 'deploy 0041' when a backup can be taken. 2. Meanwhile, audit items with no migration: two-column PDF glue (lib/library/pdf-sections.ts), no-text books re-read at every start (lib/library/sections-store.ts), the X-ray id clash across kinds (lib/library/xray-read.ts), then the slow paths. 3. Check 6: #360 took 14.6 minutes; consider building the site once for all browser machines.
 
 ### 2026-11-14 04:52 · Claude Opus 5.5 · Live 1576637 (#358, #359), downloads leave in 2 to 24 ms live; the privacy test's CI failures were the visitor limit (429), not the timing #359 fixed
 - **Done:** #358 and #359 deployed by the workflow: both addresses' /api/health show 1576637, /sign-in 200; main's checks green on every machine. scripts/live-webkit-check.mjs on /browse and /sign-in: all 'ok' (WebKit /browse 129 of 129 pictures after 3.4 s). A one-off check on the live site (scratchpad script, not kept): with the app's scripts held back, downloads removed after 15 ms (WebKit /browse), 4 ms (WebKit /sign-in), 24 ms (Chromium /browse), 2 ms (Chromium /sign-in); no CSP complaint. #360's first run failed e2e/offline.spec.ts:186 again; its trace, and those of the two earlier failures (#356 run 43549182909, main run 43575138716), show /browse answering 429: signed-out pages are limited to 120 a minute per address and the open-shelf tests use it up just before. The two tests now send an address of their own (x-forwarded-for). #359's diagnosis of the CI failures corrected in docs/ci-flakes.md, docs/version-2.md line 3, learning log iteration 207, and a comment on #359; its change stays (real, and works live).

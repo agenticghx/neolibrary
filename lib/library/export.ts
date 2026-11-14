@@ -77,6 +77,8 @@ export type LibraryExport = {
     lastOpenedAt: string | null;
     /** When the reader removed it from the library (M19); absent or null when it is on the shelves. */
     deletedAt?: string | null;
+    /** The reader removed it themselves, not the library for them (migration 0041); absent: false. */
+    removedByReader?: boolean;
     /** M34: on the open shelf (the owner's books). Absent in older exports: on, the column's default. */
     onShelf?: boolean;
     /**
@@ -376,6 +378,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
         aiStyle: b.aiStyle,
         lastOpenedAt: iso(b.lastOpenedAt),
         ...(b.deletedAt ? { deletedAt: b.deletedAt.toISOString() } : {}),
+        ...(b.removedByReader ? { removedByReader: true } : {}),
         onShelf: b.onShelf,
         kind: b.kind,
         authors: b.authors,
@@ -793,6 +796,7 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
         lastOpenedAt: date(b.lastOpenedAt),
         // A copy of a paper its owner no longer shares comes back hidden, with the reader's notes (ground rule 9).
         deletedAt: typeof b.deletedAt === "string" ? date(b.deletedAt) : hiddenCopies.has(b.id) ? new Date() : null,
+        removedByReader: b.removedByReader === true,
         // Absent in a file from before M34 or M41: the columns' defaults. Free to read is never taken from a file.
         onShelf: b.onShelf !== false,
         kind: b.kind === "paper" ? "paper" : "book",
