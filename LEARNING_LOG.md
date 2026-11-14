@@ -3230,6 +3230,7 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The ai project in Playwright's Linux image, on the old code and with the fix.
 **Result.** Old code: the requests were `["light", "standard"]` before Enter. The first run of the old code failed earlier for a reason of the test run, not the code: filtered by the test's name, the earlier tests that make versions 1 and 2 did not run ("Version 3 of 3" not found). With the fix: the ai project and its dependencies, 283 passed (5.9m); the requests were none until Enter, then `["standard"]`.
 **Lesson.** Filter a chained test project by name only to look, never to judge: the tests before it make its data. The browser-test-triage skill says so; it cost one run to relearn.
+
 ### Iteration 205 · 2026-11-14 (laptop clock) · Signed-out pages remove downloaded books as the page loads · success
 
 **Hypothesis.** `e2e/offline.spec.ts:172` failed twice in two days (#356; main on 3ebc2861) with the downloads cache still there after 5 s. The open shelf and the sign-in page removed downloads in an effect, which runs only once the app's scripts have loaded and run; on the test server those scripts shared its few connections with 129 cover pictures. If so, holding the scripts back makes the old code fail every time, and removing the downloads in a script written into the page fixes it.
@@ -3269,3 +3270,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The new test on the old code and with the fix; a mutation (always write the row); library tests; `npm run check`.
 **Result.** Old code: `expected 1 to be +0` (the first pass even counted the empty book as built, so the start-up log's "Built sections for N book(s)" counted it at every start). With the fix: 2 passed. Mutation: 1 failed (the row's time changed). Library 613 passed; `npm run check` 1487 passed. On the way, Postgres stores JSON keys in its own order, so comparing the list as text would have rewritten the row at every start; the entries are compared sorted.
 **Lesson.** A pass that runs "for every row still missing X" must remember the rows where X can never be made, or it is not a backfill but a tax on every start.
+
+### Iteration 210 · 2026-11-14 (laptop clock) · An X-ray name of a new kind gets its own entry, not the other kind's · success
+
+**Hypothesis.** The audit (2026-11-09) showed that a new X-ray entry's id is made from its name alone. A name of one kind (the person "Mercury") is rightly not joined to an entry of another kind (the place "Mercury"), but it gets the same id, and storing it updates the place: the person's facts land on the place.
+**Action.** Test first in `lib/library/xray-read.test.ts`: the place from an earlier chapter, then the person; and both in one answer. Fix in `lib/library/xray-read.ts`: when a new entry's usual id is already used (by a known entry or an earlier one in the same answer), the kind goes into the id; two entries in one answer join over a shared name only when their kinds match, as known entries already did. An entry whose id was free keeps the id it always had.
+**Evaluation.** The new test on the old code and with the fix; the X-ray tests; `npm run check`.
+**Result.** Old code: `expected 'x-f3aa85ef7295' not to be 'x-f3aa85ef7295'`. With the fix: X-ray tests 34 passed; `npm run check` 1487 passed. Both callers of `checkAnswer` pass the book's full entry list, so a used id is always seen.
+**Lesson.** When a join refuses two things, check the key they are stored under refuses them too.

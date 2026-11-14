@@ -125,6 +125,24 @@ describe("alias hygiene on an answer (M32 X7)", () => {
   });
 });
 
+describe("X-ray names of two kinds (audit 2026-11-09)", () => {
+  it("gives a new name its own entry when an entry of another kind has the same name, in an earlier chapter or the same answer", () => {
+    const entry = (name: string, kind: string) => ({ name, kind, aliases: [name], same_as: null, facts: [] });
+    const [place] = checkAnswer(JSON.stringify({ entries: [entry("Mercury", "place")] }), [], []).entries;
+    const known = [{ id: place.id, name: "Mercury", kind: "place" as const, aliases: ["Mercury"] }];
+    // An earlier chapter made the place; this one names the person.
+    const [person] = checkAnswer(JSON.stringify({ entries: [entry("Mercury", "person")] }), [], known).entries;
+    expect(person).toMatchObject({ name: "Mercury", kind: "person", isNew: true });
+    expect(person.id).not.toBe(place.id);
+    // Both in one answer: two entries, two ids.
+    const both = checkAnswer(JSON.stringify({ entries: [entry("Mercury", "place"), entry("Mercury", "person")] }), [], []).entries;
+    expect(both.map((e) => e.kind)).toEqual(["place", "person"]);
+    expect(new Set(both.map((e) => e.id)).size).toBe(2);
+    // A name of the same kind still joins, and a first entry keeps the id it always had.
+    expect(checkAnswer(JSON.stringify({ entries: [entry("Mercury", "place")] }), [], known).entries[0]).toMatchObject({ id: place.id, isNew: false });
+  });
+});
+
 describe("reading a chapter with Claude (M32 X3)", () => {
   it("reads one chapter once, stores facts with offsets that match their quotes, counts the planted fact, and re-serves the answer", async () => {
     const model = new FakeModel();

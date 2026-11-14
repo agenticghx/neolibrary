@@ -208,7 +208,8 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
     const otherNames = namesToAvoid(name, kind, [...known, ...rawEntries]).filter((n) => !(sameAsEntry && same(n, sameAsEntry.name)));
     const aliases = tidyAliases(name, Array.isArray(r.aliases) ? r.aliases.map((a) => clean(a, 120)) : [], otherNames);
     const names = sameAs ? [sameAs, ...aliases] : aliases;
-    const earlier = entries.find((e) => e.aliases.some((a) => names.some((b) => same(a, b))));
+    // Two answers for one entry in this chapter join by a shared name, of the same kind only (as with known entries).
+    const earlier = entries.find((e) => e.kind === kind && e.aliases.some((a) => names.some((b) => same(a, b))));
     const target = sameAsEntry ?? findKnown(name, aliases, kind);
     const facts: CheckedFact[] = [];
     for (const f of Array.isArray(r.facts) ? (r.facts as { passage?: unknown; fact?: unknown; quote?: unknown }[]) : []) {
@@ -228,8 +229,12 @@ export function checkAnswer(output: string, passages: Passage[], known: XrayEntr
       earlier.facts = [...earlier.facts, ...facts].slice(0, MAX_FACTS);
       continue;
     }
+    // A new entry's id comes from its name. If an entry of another kind already has that id (a place "Mercury" and now
+    // the person), the kind goes into the id too, or the person's facts would be stored on the place (audit 2026-11-09).
+    const plain = `x-${hash(name.toLowerCase())}`;
+    const taken = (id: string) => known.some((k) => k.id === id) || entries.some((e) => e.id === id);
     entries.push({
-      id: target?.id ?? `x-${hash(name.toLowerCase())}`,
+      id: target?.id ?? (taken(plain) ? `x-${hash(`${kind}:${name.toLowerCase()}`)}` : plain),
       name,
       kind,
       aliases: target ? tidyAliases(target.name, [...target.aliases, ...aliases], otherNames) : aliases,

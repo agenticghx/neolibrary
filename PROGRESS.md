@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Fix the audit item: a new X-ray name can merge into an entry of another kind with the same name (lib/library/xray-read.ts), test first.
+next_action: Merge the three audit-fix PRs one at a time, then start the slow paths from the audit list.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 06:41 · Claude Opus 5.5 · Audit fix: an X-ray name of a new kind gets its own entry, not the same-named entry of another kind
+- **Done:** lib/library/xray-read.ts: a new entry whose usual id (from its name) is taken gets the kind in its id; two entries in one answer join only when their kinds match. Test first: old code gave the person 'Mercury' the place's id. Existing entries keep their ids.
+- **Key paths:** lib/library/xray-read.ts; lib/library/xray-read.test.ts; LEARNING_LOG.md (iteration 210)
+- **Commands that worked:** npx vitest run lib/library/xray (34 passed); npm run check (1487 passed)
+- **Known issues / blockers:** Entries already merged wrongly on the live site are not separated by this; how many there are needs one live query (audit 'unclear' item).
+- **Exact next steps:** 1. Merge #362, #363 and this PR when green, one at a time (rebase, keep both sides of PROGRESS.md and LEARNING_LOG.md). 2. Next audit items: the slow paths. 3. Migration 0041 (#361) still waits for Samuel's word: 'deploy 0041'.
 ### 2026-11-14 06:39 · Claude Opus 5.5 · Audit fix: a book file with no text is read once at start-up, not at every server start
 - **Done:** lib/library/sections-store.ts remembers files read without paragraphs (scanned PDFs, unreadable files) as book id -> file key in app_settings 'sections-none' (no migration) and skips them while the file is the same; the start-up log no longer counts them as built. Test first: old code read the file at every start.
 - **Key paths:** lib/library/sections-store.ts; lib/library/sections-store.test.ts; LEARNING_LOG.md (iteration 209)
