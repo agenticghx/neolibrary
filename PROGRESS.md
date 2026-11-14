@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After this deploys, repeat the 130-request live test on new connections and record whether the limit now refuses after 120.
+next_action: Stats flake only if it fails again (needs a server-side view of the save on leaving); otherwise the sidebar due-count step.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 18:04 · Claude Opus 5.5 · Live 851f71b: the visitor limit now refuses after 120 a minute; the stats flake's fix attempt weakened the test and was dropped
+- **Done:** #369 (visitor and sign-in limits count by X-Real-IP) merged as 851f71b and deployed by the automatic deploy; both addresses show 851f71b, /sign-in 200. Live test, signed out, 130 requests to /browse on new connections: 120 answered 200, 10 refused 429 (before #369: none refused). #370 (.railwayignore) is merged. Stats flake (e2e/stats.spec.ts:72), in Playwright's Linux image: (1) moving page.unroute before leaving the reader let the held 90 s save reach the server ('held 90 s; answered 90 s: 204'), so the test passed even with every save on leaving removed: it weakened the test and was dropped, no PR. (2) main's test with every save on leaving removed fails with exactly CI run 43607235200's message ('sent 30 s; answered 30 s: 204; sent 60 s; answered 60 s: 204; sent 90 s; held 90 s'), so main's test does guard that save. (3) a passing run of main's test logs the same list: the save on leaving is sent outside the test's sight, so the list cannot tell a pass from a failure. In the CI failures the save on leaving did not reach the server within the 10 s wait; why is still open. Worktrees realip and railwayignore removed; the main folder fast-forwarded to 851f71b (Samuel's own edits untouched).
+- **Key paths:** lib/visitor-limit.ts; app/(public)/actions.ts; .railwayignore; e2e/stats.spec.ts; app/(reader)/books/[id]/read/useReadingTracker.ts; docs/ci-flakes.md
+- **Commands that worked:** seq 1 130 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' https://<site>/browse | sort | uniq -c  (120 200, 10 429); zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project stats (full log: newest linux-run* in TMPDIR; a temporary console.log of the saves list, removed after)
+- **Known issues / blockers:** Stats flake cause still open (about 4 in 227 CI runs). The test cannot see the save on leaving (a keepalive request sent as the page unloads), so its saves list is the same in a pass and a failure.
+- **Exact next steps:** 1. Stats flake, if it fails again: a way to see the save on leaving arrive at the server (a server-side log of the sitting's saves in the test database, or the browser's own network log), not the page's request events. 2. The sidebar due count (lib/library/review.ts gapRows) as its own step. 3. Check 6: CI time (build once for all browser machines). 4. Samuel's own: the iPad checks listed in Waiting on Samuel.
 
 ### 2026-11-14 16:52 · Claude Opus 5.5 · Security: the visitor and sign-in limits never refused a script on the live site; they now count by Railway's X-Real-IP
 - **Done:** Measured on the live site: 130 /browse requests in 30 s on new connections, with or without an invented x-forwarded-for, all allowed (limit 120 a minute); over one reused connection 11 of 130 refused. So the limit counted something that changes per connection, and an invented address is not what was counted (the audit's spoofing worry is not the problem). lib/visitor-limit.ts visitorAddress now reads X-Real-IP (Railway's documented client address header) first; the sign-in limit uses the same function. The per-email sign-in backstop (10 tries in 15 minutes) worked throughout.
