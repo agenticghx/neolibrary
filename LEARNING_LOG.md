@@ -3278,3 +3278,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The new test on the old code and with the fix; the X-ray tests; `npm run check`.
 **Result.** Old code: `expected 'x-f3aa85ef7295' not to be 'x-f3aa85ef7295'`. With the fix: X-ray tests 34 passed; `npm run check` 1487 passed. Both callers of `checkAnswer` pass the book's full entry list, so a used id is always seen.
 **Lesson.** When a join refuses two things, check the key they are stored under refuses them too.
+
+### Iteration 211 · 2026-11-14 (laptop clock) · Read aloud asks for three paragraphs, not the whole book · success
+
+**Hypothesis.** The audit (2026-11-09) read that every paragraph read aloud (`passageFor`, `lib/library/audio.ts`) loads the text of every paragraph in the book, only to find the one before and the one after. For a book that is not a scan with a text edition, two small queries give the same answer.
+**Action.** First a test that pins today's answer for every prose paragraph of a whole book (Jekyll and Hyde, over 200 paragraphs: its text, place, neighbours and their opening and closing words), run on the old code. Then the change: a book without a scan's text edition asks for the paragraph just before and just after; a scan with one keeps the whole list, since its pages are read whole and blank pages passed over.
+**Evaluation.** The pinning test on the old and new code; the audio, listen and shared-paper tests; `npm run check`; the time per paragraph on a made-up book of 20,000 paragraphs in the test database, old and new.
+**Result.** Pinning test passed on the old code and on the new. 19 audio, listen-related and shared-paper tests passed; `npm run check` 1487 passed (the scan-with-edition read-aloud tests in `listen.test.ts` among them). Time per paragraph: 62.1 ms old, 5.4 ms new (the test database; the live database, over a network, should gain more, since it no longer sends the book's text).
+**Lesson.** For a change that must not change any answer, pin every answer on the old code first, across a whole real input, then change it.

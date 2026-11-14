@@ -101,6 +101,26 @@ describe("reading aloud (M7)", () => {
     await expect(passageFor(database.db, ownerId, bookId, { sectionId: "nope" })).rejects.toThrow("nothing to read");
   });
 
+  it("gives every paragraph of a book with the ones before and after it, as read from the whole list (audit 2026-11-09)", async () => {
+    // Read aloud used to load the whole book's text to find a paragraph's neighbours; it now asks for the three it
+    // needs. Every paragraph of the book must come out the same as from the whole list, ends included.
+    const prose = all.filter((s) => s.kind === "paragraph" && s.form === "prose");
+    expect(prose.length).toBeGreaterThan(200);
+    for (const [k, s] of prose.entries()) {
+      expect(await passageFor(database.db, ownerId, bookId, { sectionId: s.id })).toEqual({
+        id: s.id,
+        text: s.text,
+        cfi: s.cfi,
+        chapterIndex: s.chapterIndex,
+        position: s.position,
+        nextId: prose[k + 1]?.id ?? null,
+        prevId: prose[k - 1]?.id ?? null,
+        previousText: prose[k - 1]?.text.slice(-300) ?? "",
+        nextText: prose[k + 1]?.text.slice(0, 300) ?? "",
+      });
+    }
+  });
+
   it("stops at the voice caps before calling, counts voice spending per book and month, and refuses unknown voices", async () => {
     const voice = new FakeSpeech();
     const [a, b] = paragraphs();
