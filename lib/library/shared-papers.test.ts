@@ -89,6 +89,34 @@ describe("shared papers (M41 R3c)", () => {
     expect(await papersOf(ann)).toEqual([]);
   });
 
+  // Audit 2026-11-09: a copy the reader removed came back whenever the owner marked the paper again or turned its
+  // sharing off and on. The reader's removal is theirs: only they bring it back.
+  it("keeps a copy the reader removed out of their library when the owner shares the paper again", async () => {
+    const ann = await invite("ann@example.com");
+    await setPaper(database.db, new FakePapers(), ownerId, paperId, "10.5555/12345678");
+    const [copy] = await database.db.select().from(books).where(and(eq(books.ownerId, ann), eq(books.sharedFrom, paperId)));
+    await removeBook(database.db, ann, copy.id);
+    expect(await papersOf(ann)).toEqual([]);
+
+    await setPaper(database.db, new FakePapers(), ownerId, paperId, "10.5555/12345678"); // marked again
+    expect(await papersOf(ann)).toEqual([]);
+    await setPaperSharing(database.db, ownerId, paperId, false);
+    await setPaperSharing(database.db, ownerId, paperId, true); // sharing off and on
+    expect(await papersOf(ann)).toEqual([]);
+    await removeBook(database.db, ownerId, paperId);
+    await restoreBook(database.db, ownerId, paperId); // the owner removes and restores it
+    expect(await papersOf(ann)).toEqual([]);
+    // Still in her removed books while it is shared, and she can bring it back herself.
+    expect((await listRemovedBooks(database.db, ann)).map((b) => b.id)).toEqual([copy.id]);
+    await restoreBook(database.db, ann, copy.id);
+    expect(await papersOf(ann)).toHaveLength(1);
+    // Brought back by her, it follows the owner's sharing again.
+    await setPaperSharing(database.db, ownerId, paperId, false);
+    expect(await papersOf(ann)).toEqual([]);
+    await setPaperSharing(database.db, ownerId, paperId, true);
+    expect(await papersOf(ann)).toHaveLength(1);
+  });
+
   it("does not let a reader bring back a copy of a paper the owner stopped sharing", async () => {
     const ann = await invite("ann@example.com");
     await setPaper(database.db, new FakePapers(), ownerId, paperId, "10.5555/12345678");

@@ -91,7 +91,7 @@ async function importFile(
       .where(and(eq(books.ownerId, ownerId), isNotNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)));
     const back = removed.find((b) => sameBook(info.title, info.author, b));
     if (back) {
-      await db.update(books).set({ deletedAt: null }).where(eq(books.id, back.id));
+      await db.update(books).set({ deletedAt: null, removedByReader: false }).where(eq(books.id, back.id));
       await restoreEditions(db, ownerId, back.id);
       return { status: "restored", bookId: back.id, title: back.title };
     }

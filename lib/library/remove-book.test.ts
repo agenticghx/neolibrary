@@ -137,9 +137,12 @@ describe("removing a book from the library", () => {
     await removeBook(db, ownerId, bookId);
     const file = await exportLibrary(db, ownerId);
     expect(file.books.find((b) => b.id === bookId)?.deletedAt).toEqual(expect.any(String));
+    expect(file.books.find((b) => b.id === bookId)?.removedByReader).toBe(true);
     await wipeLibrary(db, ownerId);
     await importLibrary(db, ownerId, JSON.parse(JSON.stringify(file)));
     expect((await listRemovedBooks(db, ownerId)).map((b) => b.id)).toEqual([bookId]);
+    // The reader's own removal travels too (migration 0041): a shared paper's copy stays removed when shared again.
+    expect((await db.select({ r: books.removedByReader }).from(books).where(eq(books.id, bookId)))[0].r).toBe(true);
     expect(await listShelf(db, ownerId)).toEqual([]);
     expect((await listAnnotations(db, ownerId, bookId)).map((a) => a.body)).toEqual(["Travels with the book"]);
     // A removal date that is not a date is refused, and nothing is written.

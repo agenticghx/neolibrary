@@ -3310,3 +3310,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The pinning test on the old and new code; a mutation (price with the chapter's name left out); rewrite, rewritten and annotation tests; `npm run check`; time per page turn (30 paragraphs, STE standard, none rewritten) in the test database.
 **Result.** Pinning test passed on the old code and on the new; the mutation failed it. 33 tests passed; `npm run check` 1492 passed. 33.2 ms per page turn old, 6.3 ms new; on the live database about 150 queries per page turn become 6, each of which crossed the network.
 **Lesson.** A per-item helper called in a loop hides its queries; look for the loop before looking for the slow query.
+
+### Iteration 215 · 2026-11-14 (laptop clock) · A shared paper the reader removed stays removed when the owner shares it again · success (built; deploying waits for a backup and Samuel's word)
+
+**Hypothesis.** The audit (2026-11-09, shown) found that a reader's copy of a shared paper, removed by the reader, came back whenever the owner marked the paper again, turned its sharing off and on, or removed and restored it: the sync brought back every hidden copy, and nothing told "the reader removed it" from "the library hid it".
+**Action.** Test first in `lib/library/shared-papers.test.ts`. Migration 0041 adds `books.removed_by_reader` (with its reverse step), set when a reader removes a book and cleared when they bring it back (from the removed list or by uploading the file again); the sync brings back only copies it is not set on. The export carries it (ground rule 7).
+**Evaluation.** The unit tests with the test database; the real-Postgres tests, which run every migration up, down and up again, in a throwaway Postgres 18 on the laptop.
+**Result.** Old code: `expected [ Array(1) ] to deeply equal []` at the first re-share. With the fix: all library tests 612 passed; real Postgres 2 passed. Copies removed by readers before the migration cannot be told apart: each still comes back once, at its paper's next re-share.
+**Lesson.** A merged migration stops every automatic deploy until it is deployed by hand. Build it and prove it, but leave it as a draft until the owner can take the backup.
