@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Commit a .railwayignore so laptop deploys send about 3 MB instead of 59 MB, then the sidebar due-count step.
+next_action: After #369 deploys, repeat the 130-request live test on new connections and record the result.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 16:54 · Claude Opus 5.5 · Deploys send 3.6 MB, not 59 MB: .railwayignore leaves out test screenshots and design prototypes
+- **Done:** Added .railwayignore (e2e/__screenshots__/, docs/design/). Measured: 3.6 MB compressed instead of 59.3 MB. Live checks done read-only: no scanned page paid twice under two model names (722 transcribe rows, one model, all on the subscription at 0 USD); no invited reader holds any shared-paper copy, so the removed-paper gap was never used; X-ray mix-ups cannot be counted by query (12 books, 890 classified entries, 2816 facts).
+- **Key paths:** .railwayignore; LEARNING_LOG.md (iteration 217)
+- **Commands that worked:** git archive minus the two folders | gzip | wc -c -> 3.6 MB; railway ssh Postgres psql (read-only selects on generations, books, xray_entries, xray_facts)
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. After #369 deploys, repeat the 130-request live test. 2. The stats flake: the 90 s save is held when the test checks (run 43607235200). 3. The sidebar's due count as its own step.
 
 ### 2026-11-14 16:31 · Claude Opus 5.5 · Deploy: migration 0041 live (3b7f5d3, from the laptop, at Samuel's word, after a checked backup)
 - **Done:** Deployed main 3b7f5d3 (includes #361, migration 0041 books.removed_by_reader) from ../neolibrary-deploy with railway up. Backup ~/Backups/neolibrary/prod-before-0041-20261114T2116Z.sql was restore-checked first (exit 0), and 0041 was applied, undone and applied again on that copy. The upload had timed out three times on a slow connection (about 67-100 KB/s, and Railway stops after about 90 s), so this upload left out e2e/__screenshots__/ and docs/design/ (56 of 68 MB; pictures nothing in the build reads) through a temporary .railwayignore, removed straight after (deploy folder clean). Automatic deploys can run again.

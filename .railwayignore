@@ -1,0 +1,6 @@
+# What `railway up` does not send (laptop and CI deploys). Written for whoever deploys.
+# Test reference screenshots and design prototypes: about 56 of 68 MB, and nothing in the build or the running site
+# reads them. On 2026-11-14 a deploy from the laptop timed out three times sending them on a slow connection
+# (Railway stops an upload after about 90 s); without them it is about 3 MB.
+e2e/__screenshots__/
+docs/design/
