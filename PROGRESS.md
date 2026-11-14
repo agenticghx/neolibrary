@@ -23,9 +23,9 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 Written 2026-11-14 05:00 (laptop clock, from `date`). **All work is live (1576637, #358 and #359) except the pull request this entry came in.** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
 1. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): a removed paper comes back when re-shared (needs a migration: a reverse step, a backup and Samuel's word to deploy); then two-column PDF glue, no-text books re-read at every start, the X-ray id clash across kinds, the slow paths.
-3. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
-4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
-5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
+2. Check 6: #357 took 12.0 minutes from start to last check with the screenshot tests; one more pull request that changes a page, then decide on building the site once.
+3. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
+4. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
