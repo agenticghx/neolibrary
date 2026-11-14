@@ -94,7 +94,11 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
   // A percentage while an STE rewrite is showing asks for the strictness it maps to.
   const pickStrictness = (next: Strictness) => {
     setStrictness(next);
-    if (current?.options.level === "ste" && current.options.strictness !== next) void ask("ste", false, next, `ste-${next}`);
+    if (busy === null && current?.options.level === "ste" && current.options.strictness !== next) void ask("ste", false, next, `ste-${next}`);
+  };
+  const pickPercent = () => {
+    const next = strictnessFrom(percent);
+    if (next) pickStrictness(next);
   };
   const estimate = data?.estimates ? Math.max(...Object.values(data.estimates)) : null;
 
@@ -143,11 +147,13 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
                   placeholder="%"
                   className={styles.percentInput}
                   value={percent}
-                  onChange={(e) => {
-                    setPercent(e.target.value);
-                    const next = strictnessFrom(e.target.value);
-                    if (next) pickStrictness(next);
+                  onChange={(e) => setPercent(e.target.value)}
+                  // Asked for once the number is finished (Enter, or leaving the box), not at each key: typed key by
+                  // key, "8" of "85" would have asked for (and paid for) an STE light rewrite (audit 2026-11-09).
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") pickPercent();
                   }}
+                  onBlur={pickPercent}
                 />
               </label>
             </div>

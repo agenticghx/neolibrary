@@ -3222,3 +3222,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Each test in Playwright's Linux image; the Remove test on the old code; screenshots of the two new messages at phone and desktop size, light and dark.
 **Result.** Review, "Where were we?" and Ask already said so and kept the words or the card: their tests pass on the old code too, so they are coverage, not fixes. Remove on the old code: the test failed at "Not removed", and the page had become "This page couldn't load". With the change: annotations, review and ai with their dependencies passed (one run had a test fault of mine: Next.js puts an empty "alert" region on every page, so a test must pick its message by its words). Three unrelated failures met on the way are in `docs/ci-flakes.md`.
 **Lesson.** A plain page form calling a server action has no way to say it failed: the error replaces the page. Any button that changes a reader's data should be a client form that catches the failure.
+
+### Iteration 204 · 2026-11-14 (laptop clock) · The Rewrite percentage box asks for one rewrite when the number is finished · success
+
+**Hypothesis.** The audit (2026-11-09) read that typing a percentage in Rewrite sends a paid request per keystroke. If so, typing "85" asks for STE light at "8" (under 70) and then STE at "85".
+**Action.** Test first: type "85" key by key with STE strict showing, count the requests to write a rewrite, then press Enter. Fix: the box keeps the number while it is typed and asks on Enter or on leaving the box, and not while a rewrite is being written.
+**Evaluation.** The ai project in Playwright's Linux image, on the old code and with the fix.
+**Result.** Old code: the requests were `["light", "standard"]` before Enter. The first run of the old code failed earlier for a reason of the test run, not the code: filtered by the test's name, the earlier tests that make versions 1 and 2 did not run ("Version 3 of 3" not found). With the fix: the ai project and its dependencies, 283 passed (5.9m); the requests were none until Enter, then `["standard"]`.
+**Lesson.** Filter a chained test project by name only to look, never to judge: the tests before it make its data. The browser-test-triage skill says so; it cost one run to relearn.
