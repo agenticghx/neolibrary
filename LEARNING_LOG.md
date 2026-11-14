@@ -3294,3 +3294,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Each half of the test on the old code; the cover tests; `npm run check`.
 **Result.** Old code: two lookups at once went out 0 ms apart (`expected 0 to be greater than or equal to 110`; with only two lookups the test passed on the old code, since only one was ever waiting: three were needed); `getCoverSource` gave two different clients. With the fix: cover tests 44 passed; `npm run check` 1488 passed.
 **Lesson.** A test for "one at a time" needs at least two callers waiting at once, which takes three callers.
+
+### Iteration 213 · 2026-11-14 (laptop clock) · Opening a paper lists its redrawn figures without their drawings · success
+
+**Hypothesis.** The audit (2026-11-09) read that `figureRedrawsFor` (run when a paper opens) selects every version of every redrawn figure with its drawing (the SVG text, often hundreds of KB), though it returns only each figure's newest id; the reader fetches each drawing as a picture anyway.
+**Action.** The list's query no longer selects the drawing. No new test: the change cannot alter what is returned, and the existing figure tests check the list; an old-against-new comparison checks it on a bigger case.
+**Evaluation.** Old and new code on a made-up paper of 20 figures, 3 versions each, drawings of about 300 KB (60 rows); figure tests; `npm run check`.
+**Result.** Same list from both (20 figures). Time per list in the test database: 7.4 ms old, 0.4 ms new; the old one also carried about 18 MB of drawings, which on the live database cross the network. Figure tests 9 passed; `npm run check` 1487 passed.
+**Lesson.** A list that returns ids should not select the large column it never reads.
