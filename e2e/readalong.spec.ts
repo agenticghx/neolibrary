@@ -8,6 +8,7 @@ import { LOOK_BACK_MS } from "@/lib/player/session";
 import { buildPackage, SECONDS_PER_CHAR } from "@/lib/readalong/fixture";
 import { SKIP_GAP_MS, WORD_TAIL_MS } from "@/lib/readalong/player";
 import { expectEveryWordOnTime, expectNoStall, instrument, recording, recordPlayer, reportTiming, type Frame, type Spoken } from "./listen";
+import { ensureDiscourse } from "./discourse";
 import { ADMIN_STATE, TEST_MAX_RANGE } from "./pages";
 
 // M13 (c2): uploading a read-along package through the real server: the
@@ -271,6 +272,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const path = await import("node:path");
+  await ensureDiscourse(page); // CI's read-along machine does not run reader.spec.ts, which uploads it (e2e/discourse.ts).
   await page.goto("/library");
   const books = (await (await page.request.get("/api/export")).json()).books as { id: string; title: string; fileType?: string }[];
   const bookId = books.find((b) => b.title.startsWith("The Strange Case"))!.id;
@@ -1615,6 +1617,7 @@ test("M13 (e): on a PDF page printed sideways, the word being read is lit over i
 });
 
 test("M13 (e): a PDF page whose picture could not be drawn (no canvas memory left) is drawn when asked for again at the same size", async ({ page }) => {
+  await ensureDiscourse(page); // CI's read-along machine does not run reader.spec.ts, which uploads it (e2e/discourse.ts).
   // The page's picture gets no canvas until the test says so, as when an iPhone has used up its canvas memory.
   await page.addInitScript(() => {
     const w = window as unknown as { noCanvas_: boolean };
