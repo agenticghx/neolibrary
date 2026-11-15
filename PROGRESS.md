@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the check-6 PR (reader off two machines) and read its machine times against 625 s.
+next_action: Merge the check-6 times PR; confirm check 6 on the next ordinary PRs; recount the audit list for check 7.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,13 +20,13 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 22:09 (laptop clock, from `date`). Merged: #375 (links keep the page; live as 5667e04), #376 (housekeeping), #377 (security updates; Dependabot shows alerts 20 to 28 fixed, none open), #378 (Home counts the review cards once), #379 (documents back in step); they deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 22:21 (laptop clock, from `date`). Merged today, all without a migration, each deploying itself after main's run: #375 (links keep the page), #376 (housekeeping), #377 (security updates; Dependabot shows none open), #378 (Home counts the review cards once), #379 (documents back in step), #380 (check 6: two machines stop running the reader tests to make data). Live at the time of writing: 0717120 (#377). The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Merge this pull request (check 6: behavior-2 and read-along no longer run the reader tests to make data) when green. Read its machine times (`gh run view <run> --json jobs`) against about 625 s; put them in the PR and in `docs/version-2.md` check 6's row.
-2. Check 6 before this PR: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. If behavior-2 is still over after this PR: its four screenshot projects (about 130 s) are its first block. Not tried: keeping Next's build cache between runs (about 76 s of each machine is the build).
-3. Check 7: pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word). Open unknowns rows 1, 12, 13 and 27(3) are past their dates but are about money or access, so they wait for Samuel.
+1. Merge this pull request (#380's times written into `docs/version-2.md`, `docs/ci-time.md`, the learning log). Then check the Deploy log issue or `/api/health` shows main's newest commit on both addresses.
+2. Check 6, met on #380's own run (10.8 minutes, every machine; behavior 545 s is now the slowest). Confirm on the next two or three ordinary pull requests (`gh run view <run> --json jobs`); if one goes over, behavior's chain is the place to look.
+3. Check 7: what is left needs Samuel: pruning again (Open unknowns row 37), the answers-table lookup (a migration), three audit items that need one look at the live database or at Railway. Recount the laptop audit list (`docs/handoffs/2026-11-09-audit-review-list.md`) and correct check 7's row in `docs/version-2.md`.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
-5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); three audit items need one look at the live database or at Railway.
+5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); Open unknowns rows 1, 12, 13 and 27(3) (past their dates; money or access, so never closed by the seven-day rule).
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -189,6 +189,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 22:21 · Claude Opus 5.5 (laptop) · Check 6 met on #380's own run: 10.8 minutes with every machine (14.1 before)
+- **Done:** #380 merged. Its own CI run (43671053886, every machine): behavior 545 s, behavior-2 417 s (750 before), read-along 406 s (682), branches 338 s; 10.8 minutes from start to the last job. Written into docs/version-2.md check 6, docs/ci-time.md and LEARNING_LOG iteration 226 (now success). One run: to be confirmed on the next ordinary PRs.
+- **Key paths:** docs/version-2.md; docs/ci-time.md; LEARNING_LOG.md
+- **Commands that worked:** gh run view 43671053886 --json jobs (Playwright step per machine); gh pr comment 380 (the table)
+- **Known issues / blockers:** One run only; behavior is now the slowest machine (545 s).
+- **Exact next steps:** 1. Merge this when green. 2. Confirm check 6 on the next two or three ordinary PRs. 3. Recount the laptop audit list and correct check 7's row.
 
 ### 2026-11-14 21:58 · Claude Opus 5.5 (laptop) · Check 6: behavior-2 and read-along no longer run the reader tests to make data
 - **Done:** e2e/discourse.ts builds and uploads the PDF Discourse on the Method; reader.spec.ts uses it; the read-along tests and the offline PDF test upload it when missing. BROWSER_GROUPS: annotations back to behavior; behavior-2 and readalong support flows and uploads only (reader was 235 s and 229 s of tests there in #376's run). Unit tests and docs/ci-time.md updated.
