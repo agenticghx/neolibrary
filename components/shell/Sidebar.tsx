@@ -2,10 +2,8 @@ import Form from "next/form";
 import Link from "next/link";
 import { Mark } from "@/components/Mark";
 import { currentUser } from "@/lib/auth/session";
-import { getDb } from "@/lib/db";
 import { partsWord } from "@/lib/library/path-words";
-import { focusedBookIds } from "@/lib/library/focus-lock";
-import { dueCount } from "@/lib/library/review";
+import { dueToday } from "@/lib/library/due-today";
 import { AccountMenu } from "./AccountMenu";
 import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
@@ -42,12 +40,12 @@ function Item({ href, icon, label, meta }: { href: string; icon: IconName; label
 
 /**
  * Daily review (M21), with how many cards wait today. The layout (not ours to change) does not pass the
- * count, so the item reads it itself; currentUser() is cached for the request. A failed count shows no count.
+ * count, so the item reads it itself; currentUser() and dueToday() are cached for the request (Home shows the same
+ * count and does not count again). A failed count shows no count.
  */
 async function ReviewItem() {
   const user = await currentUser();
-  // During a whole-book focus (M26 R5), only that book's cards.
-  const due = user ? await getDb().then(async (db) => dueCount(db, user.id, new Date(), await focusedBookIds(db, user.id))).catch(() => 0) : 0;
+  const due = user ? await dueToday(user.id) : 0;
   return <Item href="/review" icon="review" label="Review" meta={due > 0 ? `${due} due today` : undefined} />;
 }
 

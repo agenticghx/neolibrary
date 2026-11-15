@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the security updates, then the due count, then the documents PR; then check 6 (behavior-2 and read-along over 625 s).
+next_action: Merge the due-count PR after #376; then the security updates (Dependabot alerts 20 to 28).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,10 +20,10 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 21:29 (laptop clock, from `date`). Merged since the last deploy: #375 (links keep the page) and #376 (housekeeping); both deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 21:49 (laptop clock, from `date`). Merged: #375 (links keep the page; live as 5667e04), #376 (housekeeping), #377 (security updates); #376 and #377 deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Merge the security updates (`m44-security-updates`; Dependabot alerts 20 to 28) when green, then the due count (`m44-home-due-once`, built and measured), then documents (`m44-docs-match`: plan headings for M15, M16, M21, M24, M38, M39 and M44; design.md's sidebar; merge-train's deploy step and `attempt-log.sh` for several machines). One at a time, each rebased onto main. After the security merge, check the alerts closed (`gh api repos/agenticghx/neolibrary/dependabot/alerts`).
-2. Check 6, not met: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. With read-along not needed (#375), 11.8 minutes. Both behavior-2 and read-along must come under about 625 s. Not tried: keeping Next's build cache between runs (about 76 s of each machine is the build); moving one project from behavior-2 to behavior.
+1. Merge this pull request (the due count, `m44-home-due-once`) when green, then documents (`m44-docs-match`), one at a time, each rebased onto main. Check Dependabot's alerts closed after #377 (`gh api repos/agenticghx/neolibrary/dependabot/alerts`).
+2. Check 6, not met: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. Being tried on `m44-ci-support` (laptop worktree `.claude/worktrees/ci-support`): behavior-2 and read-along no longer run reader (229 to 235 s of tests each, there only to upload the PDF "Discourse on the Method"); the tests that need it upload it when missing (`e2e/discourse.ts`); annotations back to behavior. Each group run alone in the Linux image before the PR.
 3. Check 7: pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word). Open unknowns rows 1, 12, 13 and 27(3) are past their dates but are about money or access, so they wait for Samuel.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
 5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); three audit items need one look at the live database or at Railway.
@@ -196,6 +196,13 @@ Older entries are in `docs/ledger-archive/`, one file a month, newest first (mov
 - **Commands that worked:** npm install --save-exact fast-xml-parser@5.12.0; npm update hono @hono/node-server --before 2026-11-08; npm audit -> found 0 vulnerabilities; npm run check -> 1496 passed; npx playwright test --project uploads --project agents --ignore-snapshots -> 332 passed (7.4m)
 - **Known issues / blockers:** None. Dependabot closes its alerts itself once main has the fixed versions; check after the merge.
 - **Exact next steps:** 1. Merge after #376 and the due-count PR. 2. Check the alerts closed (gh api repos/agenticghx/neolibrary/dependabot/alerts). 3. Check 6 times on the next PRs.
+
+### 2026-11-14 21:19 · Claude Opus 5.5 (laptop) · Home counts the review cards once per load, not twice
+- **Done:** lib/library/due-today.ts: dueToday(ownerId), cached for the request (React cache), keeps to a whole-book focus; the sidebar and Home use it. Measured on the built test server with a temporary log line: Home 2 calls -> 1 (library 1, review 1 unchanged); with the cache taken out, Home 2 again. Home is redirected during a whole-book focus, so the old difference in arguments was never seen.
+- **Key paths:** lib/library/due-today.ts; components/shell/Sidebar.tsx; app/(app)/page.tsx; LEARNING_LOG.md (iteration 223)
+- **Commands that worked:** count-due.sh (scratchpad): build, next start on 3177, playwright --project setup, curl /, /library, /review with the saved cookie, grep -c 'DBG dueCount'; npx playwright test --project review --ignore-snapshots -> 319 passed (6.8m); npm run check -> 1496 passed
+- **Known issues / blockers:** No lasting test: React's cache does nothing outside a server request, so a unit test cannot see the saving; the measurement is in the PR.
+- **Exact next steps:** 1. Merge when green, after #376. 2. Security updates: fast-xml-parser 5.11.2 -> 5.12.x (reads uploaded EPUBs; Dependabot alerts 20, 21), hono and @hono/node-server inside @modelcontextprotocol/sdk (alerts 22 to 28). 3. Check 6 times on the next PRs.
 
 ### 2026-11-14 21:06 · Claude Opus 5.5 (laptop) · Housekeeping: playwright listed in place of the unused playwright-core; pruning again asked as row 37
 - **Done:** package.json lists playwright 1.64.1 (imported by scripts/live-webkit-check.mjs) in place of playwright-core, which no file imports; installed packages unchanged. Counted: ci-screenshots holds 66 pull requests' pictures (7.2 GB before packing), 44 remote branches of merged pull requests with tips exactly at their last commit. Deleting needs Samuel's word: Open unknowns row 37 (turn on GitHub's delete-on-merge; CI keeps the newest 30 pull requests' pictures). claude.yml skipped by design. Major upgrades left as their own steps.

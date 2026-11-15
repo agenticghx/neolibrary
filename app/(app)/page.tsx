@@ -14,7 +14,7 @@ import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { continueBooks, latestNotes, libraryItems, notYetAvailable } from "@/lib/library/home";
 import { chapterFor } from "@/lib/library/prerequisites";
-import { dueCount } from "@/lib/library/review";
+import { dueToday } from "@/lib/library/due-today";
 import { listShelf, parseSort } from "@/lib/library/shelf";
 import { addSampleBooksAction } from "./actions";
 
@@ -30,7 +30,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     listShelf(db, user.id, { sort }),
     notYetAvailable(db, user.id),
     continueBooks(db, user.id, 2),
-    dueCount(db, user.id).catch(() => 0),
+    dueToday(user.id),
   ]);
   const sign = await coverSigner();
   // One pass for both lists: the notes and audiobook look-ups run once.
