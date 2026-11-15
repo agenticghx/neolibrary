@@ -8,7 +8,7 @@ import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { failedSpend, generations } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
-import { ASK_AGAIN_USD, goAhead, mustAskAgain, paidFor, TURN_OFF } from "@/lib/library/rewritten-turn";
+import { ASK_AGAIN_USD, goAhead, mayPay, paidFor, TURN_OFF } from "@/lib/library/rewritten-turn";
 import { fakeProvider, onInsert, rewriteRequest, until } from "./fakes";
 
 let database: Database;
@@ -111,12 +111,15 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
 });
 
 describe("RewriteAsYouTurn.tla's numbers, in lib/library/rewritten-turn.ts", () => {
-  it("asks again once AskAt (the config's cents) has been paid since the go-ahead, and not before", () => {
+  it("MayPay: pays without asking while the total with the next paragraph stays within AskAt (the config's cents), or just after a press", () => {
     const cfg = readFileSync(new URL("../RewriteAsYouTurn.cfg", import.meta.url), "utf8");
     const askAt = Number(/AskAt = (\d+)/.exec(cfg)?.[1]);
+    const cost = Number(/Cost = (\d+)/.exec(cfg)?.[1]);
     expect(askAt).toBe(Math.round(ASK_AGAIN_USD * 100));
-    expect(mustAskAgain((askAt - 1) / 100)).toBe(false);
-    expect(mustAskAgain(askAt / 100)).toBe(true);
+    expect(mayPay((askAt - cost) / 100, cost / 100, false)).toBe(true);
+    expect(mayPay((askAt - cost + 1) / 100, cost / 100, false)).toBe(false);
+    expect(mayPay(0, (askAt + 20) / 100, false)).toBe(false);
+    expect(mayPay(0, (askAt + 20) / 100, true)).toBe(true);
   });
 
   it("goAhead turns it on and starts the count again; paidFor adds a paid paragraph to it", () => {

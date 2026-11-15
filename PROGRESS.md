@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel chooses which formal-check findings to fix; until then, check 7's rest waits on him.
+next_action: Merge the rewrite-pane fix, then review the spending-holds and outbox fixes.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 14:55 · Claude Opus 5.5 · Rewrite as you turn asks before passing $1, keeps one live total, and Stop reaches every loop (verify-spending findings 8-10 fixed)
+- **Done:** mayPay and turnStore in lib/library/rewritten-turn.ts; RewrittenPane.tsx reads the store; Reader.tsx keeps it. Model, SKILL.md and chart updated; replays became app/(reader)/books/[id]/read/RewrittenPane.test.ts.
+- **Key paths:** lib/library/rewritten-turn.ts; app/(reader)/books/[id]/read/RewrittenPane.tsx; app/(reader)/books/[id]/read/RewrittenPane.test.ts; app/(reader)/books/[id]/read/Reader.tsx; .claude/skills/verify-spending/RewriteAsYouTurn.tla; .claude/skills/verify-spending/rewrite-as-you-turn-flow.mmd
+- **Commands that worked:** npx vitest run 'app/(reader)/books/[id]/read/RewrittenPane.test.ts' → 8 passed (old code: 6 failed); npm run check → 1514 passed; linux-run.sh -- --project ai --project images → 313 passed (7.2m)
+- **Known issues / blockers:** verify-spending's sync commit still names the commit before this change (check.sh exits 3 until the spending-holds PR sets it). ai.spec.ts:662 no longer exercises the new rule (fake costs differ from shown prices).
+- **Exact next steps:** 1. Merge this PR when green. 2. Review the spending and outbox fix agents' work, run browser tests one at a time, merge in turn. 3. Then narration findings 1-3 on top of the spending holds.
 
 ### 2026-11-15 10:20 · Claude Opus 5.5 · verify-spending: two TLA+ models (checked by TLC) of the AI spending limits and Rewrite as you turn; 10 findings (not fixed)
 - **Done:** .claude/skills/verify-spending/ (two models, 23 configs, check.sh, replays on the real code, two charts). Sync commit moved to af958c2b on main. Skills index row. No product code changed.

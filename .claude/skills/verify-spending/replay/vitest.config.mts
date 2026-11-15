@@ -9,7 +9,8 @@ export default defineConfig({
   root,
   resolve: { alias: { "@": root } },
   test: {
-    include: [".claude/skills/verify-spending/replay/*.replay.ts"],
+    // The pane's own tests (findings 8-10, fixed) run under `npm test` too; they are here so that check.sh runs them.
+    include: [".claude/skills/verify-spending/replay/*.replay.ts", "app/**/read/RewrittenPane.test.ts"],
     environment: "node",
     globalSetup: ["./lib/db/test-db-snapshot.ts"],
     testTimeout: 30_000,

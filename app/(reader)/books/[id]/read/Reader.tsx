@@ -54,7 +54,7 @@ import { RewritePanel } from "./RewritePanel";
 import { RewrittenPane } from "./RewrittenPane";
 import { SideDivider } from "./SideDivider";
 import { readSideWidth, subscribeSideWidth, writeSideWidth } from "./side-width";
-import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
+import { turnStore } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { loadSettings, saveSettings, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, withEink } from "./settings";
 import { firstLetter, markLine, setFocusMode, type Spot } from "./focus";
@@ -252,7 +252,7 @@ export function Reader(props: {
   /** The place on screen for the rewritten view: an EPUB's visible range, or a PDF's first and last page shown. */
   const [screen, setScreen] = useState<{ from: string; to: string } | null>(null);
   /** Rewriting each page as it is turned to (M17 R3): for this visit only, never remembered. */
-  const [turn, setTurn] = useState<AsYouTurn>(TURN_OFF);
+  const [turns] = useState(turnStore);
   const [selection, setSelection] = useState<PendingSelection | null>(null);
   const selectionDoc = useRef<Document | null>(null);
   // The selected-text bar (M27 Q1) closes on a tap or click outside it, or on Escape, as its × does; not while a
@@ -1266,7 +1266,7 @@ export function Reader(props: {
           setNotesFailed={setNotesFailed}
         />
         {paneMode && screen ? (
-          <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} turn={turn} setTurn={setTurn} />
+          <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} turns={turns} />
         ) : null}
         {paneMode === "side" && screen ? (
           <SideDivider
