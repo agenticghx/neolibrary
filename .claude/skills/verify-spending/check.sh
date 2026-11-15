@@ -53,6 +53,10 @@ fi
 
 echo "== Covered code since the sync commit =="
 sync=$(sed -n 's/^Sync commit: `\([0-9a-f]*\)`.*/\1/p' "$here/SKILL.md" | head -1)
+if ! git cat-file -e "$sync^{commit}" 2>/dev/null; then
+  bad=1
+  echo "WRONG the sync commit in SKILL.md ($sync) is not in this repository (a squash-merge changes hashes): set it to the commit the models were checked at"
+fi
 set -f
 changed=$(GIT_LITERAL_PATHSPECS=1 git diff --name-only "$sync" -- $covered)
 set +f

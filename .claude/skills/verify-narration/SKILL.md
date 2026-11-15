@@ -36,7 +36,7 @@ or (in the worst case) a whole book.
 
 ## Covered code
 
-Sync commit: `af958c2b` (on `main`). At that commit the model below describes these files. Move the sync commit
+Sync commit: `dfdfa4c0` (M44, branch m44-fix-spending; set it to the merge commit on `main` after the merge). At that commit the model below describes these files. Move the sync commit
 forward only after you have confirmed that the model describes the code at the new commit (see "When the code
 changes").
 
@@ -225,7 +225,7 @@ for two) fails if a wait comes between looking at the runs list and adding to it
 
 ## When the code changes
 
-1. `git diff af958c2b -- lib/library/narration.ts lib/library/audio.ts lib/ai/generate.ts lib/speech/index.ts 'app/api/books/[id]/narration/route.ts' 'app/api/books/[id]/audio/route.ts' 'app/(app)/import/WholeBookNarration.tsx' package.json`
+1. `git diff <sync commit> -- lib/library/narration.ts lib/library/audio.ts lib/ai/generate.ts lib/speech/index.ts 'app/api/books/[id]/narration/route.ts' 'app/api/books/[id]/audio/route.ts' 'app/(app)/import/WholeBookNarration.tsx' package.json`
    (and any new server start or signal handling). Nothing changed: the model still describes the code.
 2. For each change, find the step or guard in the tables above. Ask: does it add or remove a wait (`await` on the
    database, the voice, storage or a lock), a check, or a place where state is kept (memory or database)?
