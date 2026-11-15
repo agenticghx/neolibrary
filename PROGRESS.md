@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the workflow-versions PR; confirm check 6 on the next ordinary PRs; check 7 waits on Samuel.
+next_action: Confirm check 6 on the next ordinary PRs; check 7 waits on Samuel.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -190,6 +190,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 22:57 · Claude Opus 5.5 (laptop) · Checkpoint: #375 to #382 merged and live (640ea73); check 6 met on one run; check 7's rest is Samuel's
+- **Done:** Merged and deployed: #375 links, #376 housekeeping, #377 security updates (Dependabot 0 open), #378 Home counts once, #379 documents, #380 CI (behavior-2 and read-along without reader), #381 times, #382 workflow versions. Live 640ea73 on both addresses; #382's deploy check (43674529494) ran checkout@v5 and skipped the upload (workflows only). Check 6: 10.8 minutes on #380's run, every machine.
+- **Key paths:** docs/handoffs/2026-11-14-2257-check6-met-check7-samuels.md; docs/version-2.md; docs/ci-time.md
+- **Commands that worked:** curl /api/health on both addresses -> 640ea73; gh run view 43674529494 (deploy steps); gh api repos/agenticghx/neolibrary/dependabot/alerts -> 0 open; git grep conflict markers on origin/main -> 0
+- **Known issues / blockers:** #382 briefly carried conflict markers in docs/version-2.md (fixed before merge). setup-node@v5 in deploy.yml not yet exercised by a real deploy.
+- **Exact next steps:** 1. Read the next real Deploy run's setup-node@v5 step. 2. Confirm check 6 on the next two or three ordinary PRs. 3. Check 7's remaining items are Samuel's (docs/version-2.md); ask before new features.
 
 ### 2026-11-14 22:24 · Claude Opus 5.5 (laptop) · Workflow versions in step with ci.yml; check 7's row rewritten: what is left waits on Samuel
 - **Done:** deploy.yml, claude.yml, claude-issue.yml and ci.yml's Start the deploy job: checkout@v5, setup-node@v5, ubuntu-24.04. docs/version-2.md check 7: fixed since the recount (#358, #360 to #369, #371, #375, #376, #379, this PR); dropped as not faults (Decisions 2026-11-14); still open, each Samuel's: live addresses in tracked files (history rewrite), pruning (row 37), answers-table lookup (migration), two live-database looks, four past-date Open unknowns, two extra laptop checkouts.
