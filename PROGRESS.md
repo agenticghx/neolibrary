@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel answers Open unknowns rows 38-40; check 7's rest waits on him.
+next_action: Confirm #393 is live, then report the fixes and rows 38-40 to Samuel.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -195,6 +195,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 17:43 · Claude Opus 5.5 · Checkpoint: formal checks merged (#387-#389) and their fixes merged (#390-#394); #393 deploy pending
+- **Done:** verify-narration, verify-outbox, verify-spending skills; fixes #390 (Rewrite as you turn), #391 (offline notes), #392 (spending holds in the database), #393 (narration paid once), #394 (sync commits on main). #390-#392 deployed. Flow-charts page updated.
+- **Key paths:** docs/handoffs/2026-11-15-1743-formal-checks-and-fixes.md (laptop only); .claude/skills/verify-*/SKILL.md; scripts/tlc.sh
+- **Commands that worked:** sh .claude/skills/verify-spending/check.sh → all as expected; sh .claude/skills/verify-outbox/check.sh → as recorded; sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla → exit 0
+- **Known issues / blockers:** Open unknowns 38 (two-tab note path), 39 (text-edition holds, fallback billing; money), 40 (Railway draining setting for narration; finding 4 migration) wait on Samuel.
+- **Exact next steps:** 1. Confirm #393/#394 deployed (Deploy workflow, /api/health). 2. Report to Samuel in plain English with the flow-charts link. 3. Samuel: rows 38-40; iPad look at #385.
 
 ### 2026-11-15 16:43 · Claude Opus 5.5 · verify-spending and verify-narration sync commits set to 7d1213b1 on main (#393 as merged)
 - **Done:** Sync commit lines in .claude/skills/verify-spending/SKILL.md and .claude/skills/verify-narration/SKILL.md; verify-outbox already on f5fe466d.
