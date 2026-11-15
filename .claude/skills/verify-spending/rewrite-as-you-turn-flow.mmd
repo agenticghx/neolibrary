@@ -15,22 +15,17 @@ stateDiagram-v2
   s0: Off: the price is shown
   s1: Rewriting the page on screen
   s2: The AI is rewriting a paragraph
-  s3: On: waiting for the next page
-  s4: #36;1 paid: it asks before paying more
+  s3: The next paragraph would pass #36;1: it asks first
   [*] --> s0
   s0 --> s1: you ask for a rewrite
   s1 --> s2: the next paragraph is sent to the AI
   s2 --> s0: the limit is reached, or the call fails
   s2 --> s1: the AI is paid#59; the rewrite shows
-  s1 --> s3: the page is done or it stops: you turned the page
+  s1 --> s3: it stops: the next paragraph would pass #36;1 since you said go ahead
   s3 --> s0: you press Stop
   s1 --> s0: it stops: you pressed Stop
-  s3 --> s1: the page arrives
-  s1 --> s4: it stops: #36;1 paid since you said go ahead
-  s4 --> s0: you press Stop
-  s4 --> s1: you press Keep rewriting
+  s3 --> s1: the page arrives or you press Keep rewriting
   class s0 tan
   class s1 blue
   class s2 orange
-  class s3 blue
-  class s4 purple
+  class s3 purple
