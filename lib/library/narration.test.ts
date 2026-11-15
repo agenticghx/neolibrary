@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spending, spendingWithJobs } from "@/lib/ai/generate";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
@@ -453,6 +454,21 @@ describe("no paragraph's words are paid for twice (verify-narration rule PaidOnc
     expect(await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada")).toMatchObject({ saved: 3, stoppedBecause: { kind: "finished" } });
     // Counted once: three tracks, no hold and no failed payment left.
     expect((await spendingWithJobs(database.db, "elevenlabs", bookId)).book).toBeCloseTo(cost(0) + cost(1) + cost(2), 9);
+  });
+
+  it("finding 2: kept audio is saved under the paragraph that asks for it, so a book deleted meanwhile does not block it", async () => {
+    const voice = new SentSpeech();
+    const [one] = lampTexts(1);
+    const first = await lampBook([one], "First Lamps");
+    const failing = new FailingStorage(1);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(speakPassage(database.db, failing, voice, ownerId, { bookId: first.bookId, sectionId: first.paragraphs[0].id, voice: "fake-ada" }, { saveRetryMs: [] })).rejects.toThrow("storage is down");
+    err.mockRestore();
+    await database.db.delete(books).where(eq(books.id, first.bookId));
+    const second = await lampBook([one], "Second Lamps");
+    const out = await speakPassage(database.db, failing, voice, ownerId, { bookId: second.bookId, sectionId: second.paragraphs[0].id, voice: "fake-ada" }, { saveRetryMs: [] });
+    expect(out).toMatchObject({ reused: false, track: { sectionId: second.paragraphs[0].id } });
+    expect(voice.sent).toEqual([one]);
   });
 
   it("finding 1: on SIGTERM a run saves the paragraph being paid for, then stops; Continue pays for none twice", async () => {

@@ -48,11 +48,11 @@ changes").
 | File | What the model takes from it |
 |---|---|
 | `lib/library/narration.ts` | `startNarration` (248-282), `run` (284-311), `stopNarration` (318-326), `stopNarrationsForShutdown` (337-344), the runs list on `globalThis` (122-124), `narrationSummary`'s cost to make (the cost box) |
-| `lib/library/audio.ts` | `speakPassage` and its in-flight list, keyed by owner and text (241, 276-296), `speak` (298-347), the kept paid audio (`kept`, `keep`, 261-262, 390-399), `saveTrack` and its retries (`SAVE_RETRY_MS`, 265, 350-388), `storedTrack`, `cacheKeyOf` (saved means: same owner, voice, model and text, in any book) |
+| `lib/library/audio.ts` | `speakPassage` and its in-flight list, keyed by owner and text (241, 278-298), `speak` (300-352), the kept paid audio (`kept`, `keep`, 263-264, 395-404), `saveTrack` and its retries (`SAVE_RETRY_MS`, 267, 355-393), `storedTrack`, `cacheKeyOf` (saved means: same owner, voice, model and text, in any book) |
 | `lib/ai/generate.ts` | `reserveSpend` and the hold it returns (`release`, `billed`), `withSpendLock` (the Postgres advisory lock), `assertRoom`, `spending`, `heldByCalls` (the hold rows in `failed_spend`, kind `spend-hold`) |
 | `app/api/books/[id]/narration/route.ts` | POST: only the owner (60), then `startNarration` (66) and `after(() => done)` (69); DELETE: `stopNarration` (84) |
 | `app/api/books/[id]/audio/route.ts` | POST: the Listen bar calls `speakPassage` (65) with the same voice model as the run |
-| `instrumentation.ts` | the SIGTERM listener (9): `stopNarrationsForShutdown` |
+| `instrumentation.ts` | the SIGTERM listener (9): `stopNarrationsOnSigterm` (narration.ts 347-353), which calls `stopNarrationsForShutdown` |
 | `lib/speech/index.ts` | `getSpeechModel` (15): the owner's Listen bar and the run get the same voice model |
 | `app/(app)/import/WholeBookNarration.tsx` | the cost box: Create sends `confirm: agreed` (183). The model trusts only the server's check of it. |
 | Next.js `next start` (`node_modules/next/dist/server/lib/start-server.js`, `cleanup`; `next-server.js`, `close`) | on SIGTERM it stops taking requests, waits for open ones, then for its after() work (the run), then exits |
@@ -156,16 +156,16 @@ has two steps, and anything (Stop, the Listen bar, a restart) may happen between
 |---|---|---|
 | `YouPressCreate(who, b, confirm)` | you tick the cost box and press Create | narration/route.ts 60 (owner only), narration.ts 255-281: after the awaits for the book (255) and the voices (258), the look at the runs list and the add are one step (260-279) |
 | `RunReadsSaved(k)` | the run reads which paragraphs are saved | narration.ts 291-292 (`paragraphsOf`, `savedKeys`), then the loop up to the first wait (see `MoveOn`) |
-| `MoveOn` (part of the step that ends a paragraph) | | narration.ts 293-298: the Stop check (294), skipping saved paragraphs (297), and entering `speakPassage` up to its first wait, `passageFor` (audio.ts 284) |
-| `RunJoins(k)`, `ListenJoins` | (not drawn) | audio.ts 286-290: after `passageFor`, the in-flight look by owner and text, and the add, with no wait between |
-| `RunLooksUp(k)`, `ListenLooksUp` | the paragraph is not saved yet / is saved already / audio paid for earlier is saved now | audio.ts 309-317: the voices, then the kept audio of these words (313-314, no wait), else `storedTrack` |
-| `RunPays(k)`, `ListenPays` | a paragraph is paid for / a limit is reached | audio.ts 318-333: `reserveSpend` (under `withSpendLock`, one Postgres advisory lock for every server: read what is spent and held, check, insert the hold row), then `model.speak` sends the request; the voice bills it then |
-| `RunSaves(k)`, `ListenSaves` | the paragraph is saved | audio.ts 338-341: `saveTrack` (339: `storage.put` and the `audio_tracks` insert, tried again after 0.5 s and 2 s), `hold.release()` (340, the hold row is deleted), then narration.ts 299 and on to the next paragraph |
-| `RunSaveFails(k)`, `ListenSaveFails` | saving the paid paragraph fails | audio.ts 342-346: every try failed; `keep` keeps the audio and its hold in this server's memory; narration.ts 303-310 ends the run |
+| `MoveOn` (part of the step that ends a paragraph) | | narration.ts 293-298: the Stop check (294), skipping saved paragraphs (297), and entering `speakPassage` up to its first wait, `passageFor` (audio.ts 286) |
+| `RunJoins(k)`, `ListenJoins` | (not drawn) | audio.ts 288-292: after `passageFor`, the in-flight look by owner and text, and the add, with no wait between |
+| `RunLooksUp(k)`, `ListenLooksUp` | the paragraph is not saved yet / is saved already / audio paid for earlier is saved now | audio.ts 311-322: the voices, then the kept audio of these words (315-320, no wait; saved under the paragraph asking now), else `storedTrack` |
+| `RunPays(k)`, `ListenPays` | a paragraph is paid for / a limit is reached | audio.ts 323-338: `reserveSpend` (under `withSpendLock`, one Postgres advisory lock for every server: read what is spent and held, check, insert the hold row), then `model.speak` sends the request; the voice bills it then |
+| `RunSaves(k)`, `ListenSaves` | the paragraph is saved | audio.ts 343-346: `saveTrack` (344: `storage.put` and the `audio_tracks` insert, tried again after 0.5 s and 2 s), `hold.release()` (345, the hold row is deleted), then narration.ts 299 and on to the next paragraph |
+| `RunSaveFails(k)`, `ListenSaveFails` | saving the paid paragraph fails | audio.ts 347-351: every try failed; `keep` keeps the audio and its hold in this server's memory; narration.ts 303-310 ends the run |
 | `YouPressStop(b)` | you press Stop | narration/route.ts 84, narration.ts 319-322 (sets `stopRequested` on the run in this server's list) |
-| `YouPressListen(i)` | you press Listen on a paragraph | audio/route.ts 65, audio.ts 284 (`passageFor`, then `ListenJoins`) |
+| `YouPressListen(i)` | you press Listen on a paragraph | audio/route.ts 65, audio.ts 286 (`passageFor`, then `ListenJoins`) |
 | `TheSiteRestarts` | the site restarts | a deploy: the new server takes every request. Without `OldServerLingers` the old one gets SIGTERM at once (see `TheOldServerGetsSigterm`) |
-| `TheOldServerGetsSigterm` | the old server is told to stop | `HostGrace = FALSE` (Railway today): SIGKILL at once, memory gone (runs, in-flight list, kept audio, the spending lock's queue), holds kept in the database and counted from then on. `HostGrace = TRUE`: instrumentation.ts 9 sets `stopRequested` on every run; `next start` stops taking requests |
+| `TheOldServerGetsSigterm` | the old server is told to stop | `HostGrace = FALSE` (Railway today): SIGKILL at once, memory gone (runs, in-flight list, kept audio, the spending lock's queue), holds kept in the database and counted from then on. `HostGrace = TRUE`: instrumentation.ts 9 (narration.ts 337-353) sets `stopRequested` on every run; `next start` stops taking requests |
 | `TheOldServerExits` | the old server stops | `next start`'s cleanup: after open requests and the after() work (the runs) are done, `process.exit` |
 | `TheOldServerIsKilled` | the old server is ended mid-paragraph | only with the guard `stop at SIGTERM` off: the run outlasts the draining time and SIGKILL ends it |
 
@@ -179,14 +179,14 @@ config; every committed config has `Broken = {}`). Each row was tried on 2026-11
 | `one run per reader` | narration.ts 263-264 | OneRunAtATime (NoKnownCauses) |
 | `same run carries on` | narration.ts 262 | none alone (264 still refuses); with `one run per reader` off too, OneRunAtATime |
 | `stop check` | narration.ts 294 | StopPaysAtMostOneMore (NoKnownCauses) |
-| `stored check` | audio.ts 316-317 | SavedNeverPaidAgain (NoKnownCauses) |
+| `stored check` | audio.ts 321-322 | SavedNeverPaidAgain (NoKnownCauses) |
 | `skip saved` | narration.ts 297 | none alone (`storedTrack` catches it); with `stored check` off too, NoMoreThanYouConfirmed |
-| `limits` | audio.ts 318 | WithinLimits (NoKnownCauses) |
-| `share in-flight` | audio.ts 287-288 | PaidOnce (NoKnownCauses: the Listen bar on the run's own paragraph) |
-| `in-flight by text` | audio.ts 286: the key is the owner and `cacheKeyOf` (M44, finding 3) | PaidOnce (NoKnownCauses: the Listen bar on a repeat of the run's paragraph) |
-| `keep paid audio` | audio.ts 313-314 and 344 (M44, finding 2) | PaidOnce (NoKnownCauses: a failed save, then Continue) |
+| `limits` | audio.ts 323 | WithinLimits (NoKnownCauses) |
+| `share in-flight` | audio.ts 289-290 | PaidOnce (NoKnownCauses: the Listen bar on the run's own paragraph) |
+| `in-flight by text` | audio.ts 288: the key is the owner and `cacheKeyOf` (M44, finding 3) | PaidOnce (NoKnownCauses: the Listen bar on a repeat of the run's paragraph) |
+| `keep paid audio` | audio.ts 315-320 and 349 (M44, finding 2) | PaidOnce (NoKnownCauses: a failed save, then Continue) |
 | `holds in database` | generate.ts `reserveSpend` (M44): the hold is a row under the advisory lock | WithinLimits (Narration.cfg: the holds of before M44, in one server's memory) |
-| `stop at SIGTERM` | instrumentation.ts 9, narration.ts 337-344 (M44, finding 1) | PaidOnce (NarrationGrace) |
+| `stop at SIGTERM` | instrumentation.ts 9, narration.ts 337-353 (M44, finding 1) | PaidOnce (NarrationGrace) |
 | `wait for the run` | narration/route.ts 69, `after(() => done)` (M44, finding 1) | PaidOnce (NarrationGrace) |
 
 ## Known findings
@@ -213,19 +213,24 @@ was fixed in M44 too.
    **The fix (M44).** The narration route hands each run to `after()`; on SIGTERM `next start` stops taking
    requests, waits for open ones and then for its after() work, then exits. A SIGTERM listener
    (instrumentation.ts) stops every run before its next paragraph, so the one being paid for is saved first. Checked
-   on a real `next start` (Next 16.4.1, a scratch app built with webpack; the wait is in the server, not the
-   bundler): with after(), the process exited 1,989 ms after SIGTERM, once the paragraph in progress was saved;
-   without it, 25 ms after, with the paragraph lost. Test: narration.test.ts "finding 1" (Stop at SIGTERM, then
+   on a real `next start` (Next 16.4.1, a scratch app whose "paragraph" takes 3 s, built with Turbopack and again
+   with webpack): with after(), the process exited 1,985 ms (webpack: 1,989 ms) after SIGTERM, once the paragraph in
+   progress was saved; without it, 13 ms (25 ms) after, with the paragraph lost. Test: narration.test.ts "finding 1" (Stop at SIGTERM, then
    Continue on a new server pays for nothing twice); route.test.ts checks the after() hand-off.
 
    **What is left.** With Railway as it is today, nothing changes: each deploy during a run costs the paragraph
    being paid for, once more (one paragraph's price, e.g. $0.30 for 1,000 characters at $0.30 per 1,000), plus any
    Listen bar paragraph on its way (one per reader on an EPUB, up to two on a PDF, which looks one page ahead). All
    of it is counted against the limits. **Setting that closes it:** `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` longer
-   than the slowest paragraph and its save (an EPUB paragraph takes a few seconds; a PDF page about half a minute,
-   lib/player/session.ts), for example 60. An idle server still exits at once. With it set, a paragraph can still
-   be paid twice if you press Create or Listen for it in the seconds while the old server finishes it
-   (`AskWhileDraining`, finding 4's window), or if one paragraph outlasts the draining time.
+   than the paragraph being made and its save. No value is sure to be long enough: one voice request may take up to
+   240 s per try and is tried three times (the ElevenLabs SDK's default timeout; lib/speech/elevenlabs.ts sets
+   `maxRetries: 2`), and the save up to three tries 2.5 s apart. How long a paragraph usually takes was not
+   measured (no paid voice is called); the Listen bar's comment says a PDF page takes about half a minute
+   (lib/player/session.ts). A server with nothing going on still exits at once. With it set, a paragraph can still
+   be paid twice if you press Continue or Listen for those words in the seconds while the old server finishes it
+   (`AskWhileDraining`, finding 4's window): the Import page asks every second while a run goes on and offers
+   Continue as soon as the new server answers, so this is easy to do if you are watching. It can also happen if one
+   paragraph outlasts the draining time.
 
    This finding assumes that the voice bills a request whose answer never arrives. ElevenLabs was not asked or
    tested (Samuel's rule: no paid voice); finding 2 does not need the assumption.
@@ -253,9 +258,9 @@ was fixed in M44 too.
 
    **What is left, and its size:** for as long as the overlap lasts, the old run pays on (about one paragraph per
    few seconds) and Continue or Listen on the new server can pay for the same words again; after the overlap, the
-   SIGTERM fix stops the old run after one paragraph (if the draining time is set). **Setting that shrinks it:**
+   SIGTERM fix stops the old run after one paragraph (if the draining time is set). **Setting that may shrink it:**
    `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS=0`, so SIGTERM comes as soon as the new server is live; then only finding 1's
-   few-second window is left. **What would close it** (a migration, not built; a proposal for Samuel):
+   few-second window is left. Not confirmed: that Railway accepts 0, and what the default is (it may be 0 already). **What would close it** (a migration, not built; a proposal for Samuel):
    - a table `narration_runs` (owner, book, voice, started, heartbeat, stop requested, ended, why), with a unique
      index on the owner for runs not ended. `startNarration` adds a row (a second one for the owner is refused, or
      joined if it is the same book and voice; a row whose heartbeat is minutes old belonged to a server that died,
@@ -265,9 +270,11 @@ was fixed in M44 too.
      key. Under the spending lock, `speak` would first look for a hold of the same owner and words younger than a
      few minutes, and wait for that track instead of paying (PaidOnce across servers). A hold older than that is a
      dead server's; its audio is gone, and paying again is finding 1's residual. Reverse step: drop the column.
-   A session-level Postgres advisory lock held for the whole run was looked at instead (no migration): it needs one
-   pooled connection pinned for hours, and on PGlite (tests and local use: one connection) a transaction held that
-   long blocks every other query, so it was not built.
+   Without a migration, a Postgres advisory lock per owner held for the whole run would make OneRunAtATime hold
+   across servers (not Stop). A transaction-scoped one cannot work on PGlite (tests and local use have one
+   connection: a transaction held for hours blocks every other query). A session-scoped one on a connection
+   reserved for the run (postgres.js `reserve()`, outside drizzle) was not tried; on PGlite it would always succeed,
+   so only `npm run test:postgres` could test it.
 
 ## Real bug or modeling error?
 

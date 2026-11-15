@@ -343,6 +343,15 @@ export function stopNarrationsForShutdown() {
   return Promise.all(going.map((j) => j.done));
 }
 
+/** Calls stopNarrationsForShutdown on SIGTERM (instrumentation.ts, once when the server starts). */
+export function stopNarrationsOnSigterm() {
+  process.once("SIGTERM", () => {
+    void stopNarrationsForShutdown().then((runs) => {
+      if (runs.length) console.log(`  Shutting down: ${runs.length} narration run(s) stopped after saving their paragraph.`);
+    });
+  });
+}
+
 /** The owner's run going on in this server, if any (one at a time: see startNarration); the Import page shows it when it opens. */
 export function runningNarrations(ownerId: string) {
   return [...jobs().values()].filter((j) => j.ownerId === ownerId && j.running).map((j) => ({ bookId: j.bookId, voice: j.voice }));

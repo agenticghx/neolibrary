@@ -255,6 +255,8 @@ type Paid = {
   bookId: string;
   sectionId: string;
   voice: string;
+  /** The voice model that made it (written on its failed_spend row if it is dropped). */
+  model: string;
   text: string;
   why: string;
 };
@@ -311,8 +313,11 @@ async function speak(
   // Paid already, but not saved (finding 2): save it now, without paying again. Taken out of the list before any
   // wait, so that no other request takes it too; put back if this save fails as well.
   let paid = kept.get(key);
-  if (paid) kept.delete(key);
-  else {
+  if (paid) {
+    kept.delete(key);
+    // Saved under the paragraph that asks now (same words): the one it was paid for may be gone with its book.
+    paid = { ...paid, bookId, sectionId: passage.id, audioKey: `audio/${ownerId}/${bookId}/${paid.id}.${EXT[paid.result.mime] ?? "bin"}` };
+  } else {
     const stored = await storedTrack(db, ownerId, model, voice, passage);
     if (stored) return { track: stored, reused: true };
     const hold = await reserveSpend(
@@ -333,7 +338,7 @@ async function speak(
     }
     const id = crypto.randomUUID();
     const audioKey = `audio/${ownerId}/${bookId}/${id}.${EXT[result.mime] ?? "bin"}`;
-    paid = { result, hold, id, audioKey, bookId, sectionId: passage.id, voice, text: passage.text, why: "" };
+    paid = { result, hold, id, audioKey, bookId, sectionId: passage.id, voice, model: model.model, text: passage.text, why: "" };
   }
   try {
     const row = await saveTrack(db, storage, model, ownerId, paid, now, opts.saveRetryMs ?? SAVE_RETRY_MS);
@@ -341,7 +346,7 @@ async function speak(
     return { track: toTrack(row), reused: false };
   } catch (e) {
     // Paid, but the audio could not be kept in storage or the database: keep it here, with its hold, for the next ask.
-    keep(key, { ...paid, why: e instanceof Error ? e.message : String(e) }, model);
+    keep(key, { ...paid, why: e instanceof Error ? e.message : String(e) });
     throw e;
   }
 }
@@ -387,14 +392,14 @@ async function saveTrack(db: Db, storage: Storage, model: SpeechModel, ownerId: 
   }
 }
 
-function keep(key: string, paid: Paid, model: SpeechModel) {
+function keep(key: string, paid: Paid) {
   kept.set(key, paid);
   while (kept.size > KEEP_MAX) {
     const [oldest, dropped] = kept.entries().next().value!;
     kept.delete(oldest);
     // No longer kept: the money was spent for nothing, so the hold becomes the paid cost (failed_spend).
     const reason = `Paid, but the audio could not be saved: ${dropped.why}`;
-    void dropped.hold.billed({ model: model.model, costUsd: speechCost(dropped.result.characters), reason }).catch(keptHold);
+    void dropped.hold.billed({ model: dropped.model, costUsd: speechCost(dropped.result.characters), reason }).catch(keptHold);
   }
 }
 
