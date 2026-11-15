@@ -20,6 +20,10 @@ const at = vi.hoisted(() => ({
   storage: null as MemoryStorage | null,
 }));
 vi.mock("@/lib/auth/session", () => ({ currentUser: async () => at.user }));
+// after() works only inside a real request; here it collects what the route hands it (each run's `done`), which
+// `next start` waits for when it shuts down (verify-narration finding 1).
+const afterTasks = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: (task: () => unknown) => void afterTasks.push(task) }));
 vi.mock("@/lib/db", async (original) => ({ ...(await original<typeof import("@/lib/db")>()), getDb: async () => at.database!.db }));
 vi.mock("@/lib/speech", async (original) => ({ ...(await original<typeof import("@/lib/speech")>()), getSpeechModel: () => at.voice! }));
 vi.mock("@/lib/storage", async (original) => ({ ...(await original<typeof import("@/lib/storage")>()), getStorage: async () => at.storage! }));
@@ -52,6 +56,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   at.user = null;
+  afterTasks.length = 0;
   forgetNarrationsForTests();
   await at.database!.raw.close();
 });
@@ -108,7 +113,10 @@ describe("POST /api/books/[id]/narration: only the library's owner can start who
     const started = await post(adminBook, { voice: "fake-ada", confirm: true });
     expect(started.status).toBe(202);
     expect(await started.json()).toMatchObject({ book: { id: adminBook, title: "Eight Lamps" }, voice: "fake-ada", paragraphs: 8 });
-    await vi.waitFor(() => expect(runningNarrations(admin.id)).toEqual([]), { timeout: 10_000 });
+    // The run is handed to after(), so a shutdown waits for it: what after() waits for ends when the run ends.
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]();
+    expect(runningNarrations(admin.id)).toEqual([]);
     const after = await get(adminBook, "fake-ada");
     expect(await after.json()).toMatchObject({ saved: 8, running: false, stoppedBecause: { kind: "finished" } });
     expect(at.voice!.calls).toHaveLength(8);

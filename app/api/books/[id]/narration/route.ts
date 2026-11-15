@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { mayNarrateWholeBooks, narrationSummary, NarrationError, OWNER_ONLY, startNarration, stopNarration } from "@/lib/library/narration";
@@ -62,7 +63,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const db = await getDb();
     const model = getSpeechModel();
     const voice = typeof body.voice === "string" ? body.voice : "";
-    const { started } = await startNarration({ db, storage: await getStorage(), model }, at.user.id, at.bookId, voice, body.confirm);
+    const { started, done } = await startNarration({ db, storage: await getStorage(), model }, at.user.id, at.bookId, voice, body.confirm);
+    // The run goes on after this answer. after() makes `next start`, when it shuts down (SIGTERM, a deploy), wait
+    // for it; the SIGTERM listener (instrumentation.ts) stops it after the paragraph being paid for is saved.
+    after(() => done);
     // 202: started, going on in the background; 200: it was going on already.
     return Response.json(await narrationSummary(db, model, at.user.id, at.bookId, voice), { status: started ? 202 : 200 });
   } catch (e) {

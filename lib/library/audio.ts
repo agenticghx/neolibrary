@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
-import { capsFromEnv, keptHold, reserveSpend, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, keptHold, reserveSpend, type Caps, type SpendHold } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, readalongImports, sections } from "@/lib/db/schema";
 import { nonSpaceBefore } from "@/lib/reader/text-range";
-import { speechCost, type SpeechModel } from "@/lib/speech/model";
+import { speechCost, type SpeechModel, type SpeechResult } from "@/lib/speech/model";
 import { wordTimings, type WordTiming } from "@/lib/speech/timings";
 import type { Storage } from "@/lib/storage";
 import { sectionForCfi } from "./annotations";
@@ -232,8 +232,45 @@ export function trackAudioUrl(audioKey: string): string {
 export const trackAudioKey = (ownerId: string, bookId: string, file: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId) && /^[0-9a-f-]{36}\.(mp3|wav|bin)$/i.test(file) ? `audio/${ownerId}/${bookId}/${file}` : null;
 
-// Two identical requests at the same moment share one call.
+/**
+ * The paid calls going on in this server, by owner and text (verify-narration finding 3): two requests for the same
+ * words at the same moment, for one paragraph or for two that read alike (in any of the owner's books), share one
+ * call. The key is how a saved track is found again (cacheKeyOf), so nothing the cache would serve is paid for twice
+ * because two requests came at once.
+ */
 const inflight = new Map<string, Promise<{ track: Track; reused: boolean }>>();
+
+/**
+ * Paid audio whose save failed on every try (verify-narration finding 2), kept in this server's memory with its
+ * spending hold, by the same key as `inflight`. The next request for those words (Continue, or the Listen bar) saves
+ * it instead of paying the voice again; the hold counts the money meanwhile. A restart loses what is kept here (its
+ * hold stays counted in the database). At most KEEP_MAX are kept: the oldest then becomes a billed failure.
+ */
+type Paid = {
+  result: SpeechResult;
+  hold: SpendHold;
+  /** The track's id and file, the same on every try: a retried insert that was written already is found by its id. */
+  id: string;
+  audioKey: string;
+  bookId: string;
+  sectionId: string;
+  voice: string;
+  text: string;
+  why: string;
+};
+const kept = new Map<string, Paid>();
+const KEEP_MAX = 20;
+
+/** How long to wait before each new try of a failed save (storage.put, then the audio_tracks insert), in ms. */
+export const SAVE_RETRY_MS: readonly number[] = [500, 2000];
+
+/** Forgets every paid call and kept audio of this server, as a restart does. Tests only. */
+export function forgetPaidAudioForTests() {
+  inflight.clear();
+  kept.clear();
+}
+
+type SpeakOptions = { caps?: Caps; now?: () => Date; saveRetryMs?: readonly number[] };
 
 /** Reads a paragraph aloud, or re-serves the stored track. */
 export async function speakPassage(
@@ -242,12 +279,14 @@ export async function speakPassage(
   model: SpeechModel,
   ownerId: string,
   input: { bookId: string; sectionId: string; voice: string },
-  opts: { caps?: Caps; now?: () => Date } = {},
+  opts: SpeakOptions = {},
 ): Promise<{ track: Track; reused: boolean }> {
-  const key = `${ownerId}|${input.bookId}|${input.sectionId}|${input.voice}|${model.model}`;
+  const passage = await passageFor(db, ownerId, input.bookId, { sectionId: input.sectionId });
+  // From here to inflight.set nothing waits: two requests cannot both find no call going on and both start one.
+  const key = `${ownerId}|${cacheKeyOf(model, input.voice, passage.text)}`;
   const running = inflight.get(key);
   if (running) return { track: (await running).track, reused: true };
-  const job = speak(db, storage, model, ownerId, input, opts);
+  const job = speak(db, storage, model, ownerId, input.bookId, input.voice, passage, key, opts);
   inflight.set(key, job);
   try {
     return await job;
@@ -261,64 +300,101 @@ async function speak(
   storage: Storage,
   model: SpeechModel,
   ownerId: string,
-  input: { bookId: string; sectionId: string; voice: string },
-  opts: { caps?: Caps; now?: () => Date } = {},
+  bookId: string,
+  voice: string,
+  passage: Passage,
+  key: string,
+  opts: SpeakOptions,
 ): Promise<{ track: Track; reused: boolean }> {
-  const passage = await passageFor(db, ownerId, input.bookId, { sectionId: input.sectionId });
-  if (!(await model.voices()).some((v) => v.id === input.voice)) throw new AudioError("Choose one of the voices on offer.");
-  const stored = await storedTrack(db, ownerId, model, input.voice, passage);
-  if (stored) return { track: stored, reused: true };
+  if (!(await model.voices()).some((v) => v.id === voice)) throw new AudioError("Choose one of the voices on offer.");
   const now = opts.now?.() ?? new Date();
-  const hold = await reserveSpend(
-    db,
-    model.provider,
-    { ownerId, bookId: input.bookId, model: model.model, kind: "speech" },
-    estimateSpeech(passage),
-    opts.caps ?? capsFromEnv(process.env, "VOICE"),
-    now,
-    "voice",
-  );
-  let result: Awaited<ReturnType<SpeechModel["speak"]>>;
-  try {
-    result = await model.speak({ text: passage.text, voiceId: input.voice, previousText: passage.previousText, nextText: passage.nextText });
-  } catch (e) {
-    await hold.release().catch(keptHold);
-    throw e;
+  // Paid already, but not saved (finding 2): save it now, without paying again. Taken out of the list before any
+  // wait, so that no other request takes it too; put back if this save fails as well.
+  let paid = kept.get(key);
+  if (paid) kept.delete(key);
+  else {
+    const stored = await storedTrack(db, ownerId, model, voice, passage);
+    if (stored) return { track: stored, reused: true };
+    const hold = await reserveSpend(
+      db,
+      model.provider,
+      { ownerId, bookId, model: model.model, kind: "speech" },
+      estimateSpeech(passage),
+      opts.caps ?? capsFromEnv(process.env, "VOICE"),
+      now,
+      "voice",
+    );
+    let result: SpeechResult;
+    try {
+      result = await model.speak({ text: passage.text, voiceId: voice, previousText: passage.previousText, nextText: passage.nextText });
+    } catch (e) {
+      await hold.release().catch(keptHold);
+      throw e;
+    }
+    const id = crypto.randomUUID();
+    const audioKey = `audio/${ownerId}/${bookId}/${id}.${EXT[result.mime] ?? "bin"}`;
+    paid = { result, hold, id, audioKey, bookId, sectionId: passage.id, voice, text: passage.text, why: "" };
   }
   try {
-    const words = wordTimings(passage.text, result.alignment);
-    const id = crypto.randomUUID();
-    const audioKey = `audio/${ownerId}/${input.bookId}/${id}.${EXT[result.mime] ?? "bin"}`;
-    await storage.put(audioKey, result.audio, result.mime);
-    const [row] = await db
-      .insert(audioTracks)
-      .values({
-        id,
-        ownerId,
-        bookId: input.bookId,
-        sectionId: passage.id,
-        source: "tts",
-        provider: model.provider,
-        model: model.model,
-        voice: input.voice,
-        cacheKey: cacheKeyOf(model, input.voice, passage.text),
-        inputHash: sha256(passage.text),
-        characters: result.characters,
-        costUsd: speechCost(result.characters),
-        audioKey,
-        mime: result.mime,
-        durationMs: Math.round(Math.max(...result.alignment.ends, 0) * 1000),
-        words,
-        createdAt: now,
-      })
-      .returning();
-    await hold.release().catch(keptHold);
+    const row = await saveTrack(db, storage, model, ownerId, paid, now, opts.saveRetryMs ?? SAVE_RETRY_MS);
+    await paid.hold.release().catch(keptHold);
     return { track: toTrack(row), reused: false };
   } catch (e) {
-    // Paid, but the audio could not be kept: its cost still counts.
-    const reason = `Paid, but the audio could not be saved: ${e instanceof Error ? e.message : String(e)}`;
-    await hold.billed({ model: model.model, costUsd: speechCost(result.characters), reason }).catch(keptHold);
+    // Paid, but the audio could not be kept in storage or the database: keep it here, with its hold, for the next ask.
+    keep(key, { ...paid, why: e instanceof Error ? e.message : String(e) }, model);
     throw e;
+  }
+}
+
+/** Saves paid audio: its file, then its audio_tracks row; each try again after SAVE_RETRY_MS while it fails. */
+async function saveTrack(db: Db, storage: Storage, model: SpeechModel, ownerId: string, paid: Paid, now: Date, retryMs: readonly number[]) {
+  const { result } = paid;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      if (attempt > 0) {
+        // An earlier try may have written the row although it reported a failure: then that row is this audio's.
+        const [written] = await db.select().from(audioTracks).where(eq(audioTracks.id, paid.id));
+        if (written) return written;
+      }
+      await storage.put(paid.audioKey, result.audio, result.mime);
+      const [row] = await db
+        .insert(audioTracks)
+        .values({
+          id: paid.id,
+          ownerId,
+          bookId: paid.bookId,
+          sectionId: paid.sectionId,
+          source: "tts",
+          provider: model.provider,
+          model: model.model,
+          voice: paid.voice,
+          cacheKey: cacheKeyOf(model, paid.voice, paid.text),
+          inputHash: sha256(paid.text),
+          characters: result.characters,
+          costUsd: speechCost(result.characters),
+          audioKey: paid.audioKey,
+          mime: result.mime,
+          durationMs: Math.round(Math.max(...result.alignment.ends, 0) * 1000),
+          words: wordTimings(paid.text, result.alignment),
+          createdAt: now,
+        })
+        .returning();
+      return row;
+    } catch (e) {
+      if (attempt >= retryMs.length) throw e;
+      await new Promise((resolve) => setTimeout(resolve, retryMs[attempt]));
+    }
+  }
+}
+
+function keep(key: string, paid: Paid, model: SpeechModel) {
+  kept.set(key, paid);
+  while (kept.size > KEEP_MAX) {
+    const [oldest, dropped] = kept.entries().next().value!;
+    kept.delete(oldest);
+    // No longer kept: the money was spent for nothing, so the hold becomes the paid cost (failed_spend).
+    const reason = `Paid, but the audio could not be saved: ${dropped.why}`;
+    void dropped.hold.billed({ model: model.model, costUsd: speechCost(dropped.result.characters), reason }).catch(keptHold);
   }
 }
 

@@ -5,7 +5,7 @@ import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database, Db } from "@/lib/db/client";
 import { audioTracks, books, failedSpend, generations } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
-import { speakPassage } from "@/lib/library/audio";
+import { forgetPaidAudioForTests, speakPassage } from "@/lib/library/audio";
 import { costReport } from "@/lib/library/costs";
 import { importBook } from "@/lib/library/import";
 import { makePicture } from "@/lib/library/pictures";
@@ -13,6 +13,7 @@ import { getSections } from "@/lib/library/sections-store";
 import { forgetTextEditionsForTests, startTextEdition, textEditionSummary } from "@/lib/library/text-edition";
 import { FakeImageGenerator, imageUsd } from "@/lib/images/generate";
 import { FakeSpeech } from "@/lib/speech/fake";
+import { speechCost } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
 import { FakeBatchModel } from "./batch";
 import { estimateCost, generate, HOLD_KIND, heldByCalls, holdCost, resetSpendHoldsForTests, spending, SpendingCapReached, type GenerationRequest } from "./generate";
@@ -33,6 +34,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   forgetTextEditionsForTests();
+  forgetPaidAudioForTests();
   resetSpendHoldsForTests();
   await database.raw.close();
 });
@@ -214,18 +216,45 @@ describe("a paid result that cannot be saved still counts (finding 4)", () => {
     expect((await spending(database.db, "anthropic", null, now)).month).toBeCloseTo(paid);
   });
 
-  it("speak: the voice's cost is written when the track cannot be saved", async () => {
+  it("speak: the voice's cost stays counted when the track cannot be saved: its hold is kept with the audio, which the next ask saves (verify-narration finding 2)", async () => {
     const file = new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url)));
     const { bookId } = await importBook(database.db, new MemoryStorage(), ownerId, { name: "jh.epub", bytes: file });
     const [p] = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph");
     const voice = new FakeSpeech();
-    await expect(speakPassage(insertsFail(database.db, audioTracks), new MemoryStorage(), voice, ownerId, { bookId, sectionId: p.id, voice: "fake-ada" }, { now: () => now })).rejects.toThrow(
-      "not reachable",
-    );
+    const input = { bookId, sectionId: p.id, voice: "fake-ada" };
+    await expect(speakPassage(insertsFail(database.db, audioTracks), new MemoryStorage(), voice, ownerId, input, { now: () => now, saveRetryMs: [] })).rejects.toThrow("not reachable");
+    const paid = speechCost(p.text.length);
     const [row] = await database.db.select().from(failedSpend);
-    expect(row).toMatchObject({ kind: "speech", provider: "elevenlabs", bookId });
-    expect(row.costUsd).toBeGreaterThan(0);
-    expect(row.reason).toMatch(/^Paid, but the audio could not be saved/);
+    expect(row).toMatchObject({ kind: HOLD_KIND, provider: "elevenlabs", bookId });
+    expect(row.costUsd).toBeCloseTo(paid, 9);
+    expect((await heldByCalls(database.db, "elevenlabs", bookId, now)).month).toBeCloseTo(paid, 9);
+    // The database is back: the kept audio is saved, the voice is not paid again, and the cost is counted once.
+    const out = await speakPassage(database.db, new MemoryStorage(), voice, ownerId, input, { now: () => now });
+    expect(out.reused).toBe(false);
+    expect(voice.calls).toHaveLength(1);
+    expect(await database.db.select().from(failedSpend)).toEqual([]);
+    expect((await spending(database.db, "elevenlabs", bookId, now)).month).toBeCloseTo(paid, 9);
+  });
+
+  it("speak: kept audio that this server can no longer keep becomes a failed_spend row of the voice's cost", async () => {
+    const file = new Uint8Array(readFileSync(new URL("../../fixtures/books/stevenson-jekyll-and-hyde.epub", import.meta.url)));
+    const { bookId } = await importBook(database.db, new MemoryStorage(), ownerId, { name: "jh.epub", bytes: file });
+    const paragraphs = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph");
+    const texts = new Set<string>();
+    const distinct = paragraphs.filter((s) => !texts.has(s.text) && texts.add(s.text)).slice(0, 21);
+    const voice = new FakeSpeech();
+    const failing = insertsFail(database.db, audioTracks);
+    const caps = { perBookUsd: 1000, perMonthUsd: 1000 };
+    for (const s of distinct) {
+      await expect(speakPassage(failing, new MemoryStorage(), voice, ownerId, { bookId, sectionId: s.id, voice: "fake-ada" }, { now: () => now, saveRetryMs: [], caps })).rejects.toThrow("not reachable");
+    }
+    // Twenty are kept; the first, dropped, is a billed failure of its real cost, with why.
+    await vi.waitFor(async () => expect((await database.db.select().from(failedSpend)).filter((r) => r.kind === "speech")).toHaveLength(1));
+    const rows = await database.db.select().from(failedSpend);
+    expect(rows.filter((r) => r.kind === HOLD_KIND)).toHaveLength(20);
+    const [dropped] = rows.filter((r) => r.kind === "speech");
+    expect(dropped.costUsd).toBeCloseTo(speechCost(distinct[0].text.length), 9);
+    expect(dropped.reason).toBe("Paid, but the audio could not be saved: the database is not reachable");
   });
 
   it("makePicture: the picture's cost is written when it cannot be saved", async () => {
