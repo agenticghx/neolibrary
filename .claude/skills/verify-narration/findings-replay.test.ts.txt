@@ -10,7 +10,7 @@
 // it is paid for), newServer() (a restart: fresh modules, so a new in-flight list and new spending holds, and a new
 // list of runs). The runs list itself is on globalThis.__neolibraryNarrations.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { spending } from "@/lib/ai/generate";
+import { spending, spendingWithJobs } from "@/lib/ai/generate";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
@@ -160,7 +160,7 @@ describe("one run at a time (holds today; the model takes startNarration 255-275
 });
 
 describe("finding 1: the site restarts while a paragraph is being paid for", () => {
-  it("Continue pays for that paragraph again, and the first payment is never counted", async () => {
+  it("Continue pays for that paragraph again; since M44 the first payment stays counted, as a hold", async () => {
     const voice = new Voice();
     voice.never.add(1);
     const { bookId, paragraphs } = await book(lamps(4));
@@ -170,30 +170,16 @@ describe("finding 1: the site restarts while a paragraph is being paid for", () 
     await (await after.startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true)).done;
     console.log("F1 sent:", voice.sent.map((t) => t.slice(0, 6)));
     expect(voice.sent.filter((t) => t === paragraphs[0].text)).toHaveLength(2);
-    const recorded = (await spending(database.db, "elevenlabs", bookId)).book;
-    console.log("F1 billed", billed(voice).toFixed(4), "recorded", recorded.toFixed(4));
-    expect(billed(voice)).toBeGreaterThan(recorded + 1e-9);
+    const counted = (await spendingWithJobs(database.db, "elevenlabs", bookId)).book;
+    console.log("F1 billed", billed(voice).toFixed(4), "counted (spent and held)", counted.toFixed(4));
+    expect(counted).toBeGreaterThanOrEqual(billed(voice) - 1e-9);
   });
-
-  it("with the book's limit nearly used, what the voice bills passes the limit", async () => {
-    const voice = new Voice();
-    voice.never.add(2); // paragraph 2's request is on its way when the site restarts
-    const { bookId, paragraphs } = await book(lamps(4));
-    const cost = (i: number) => speechCost(paragraphs[i].text.length);
-    const caps = { perBookUsd: cost(0) + cost(1) + cost(2) / 2, perMonthUsd: 100 };
-    await startNarration({ db: database.db, storage, model: voice, caps }, ownerId, bookId, "fake-ada", true);
-    await vi.waitFor(() => expect(voice.sent).toHaveLength(2));
-    const after = await newServer();
-    await (await after.startNarration({ db: database.db, storage, model: voice, caps }, ownerId, bookId, "fake-ada", true)).done;
-    const s = await after.narrationSummary(database.db, voice, ownerId, bookId, "fake-ada", { caps });
-    console.log("F1-limit sent:", voice.sent.map((t) => t.slice(0, 6)), "billed", billed(voice).toFixed(4), "cap", caps.perBookUsd.toFixed(4), "ended:", s.stoppedBecause?.kind);
-    expect(voice.sent.filter((t) => t === paragraphs[1].text)).toHaveLength(2);
-    expect(billed(voice)).toBeGreaterThan(caps.perBookUsd);
-  });
+  // "with the book's limit nearly used, what the voice bills passes the limit": fixed in M44 (the paragraph's hold
+  // stays in the database); now a real test in lib/library/narration.test.ts.
 });
 
 describe("finding 2: saving a paid paragraph fails", () => {
-  it("the run stops with an error, the payment is not counted, and Continue pays again", async () => {
+  it("the run stops with an error, the payment is counted (since M44), and Continue pays again", async () => {
     class FailingOnce extends MemoryStorage {
       failed = false;
       async put(key: string, data: Uint8Array, type: string) {
@@ -212,7 +198,7 @@ describe("finding 2: saving a paid paragraph fails", () => {
     err.mockRestore();
     const s = await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada");
     expect(s.stoppedBecause?.kind).toBe("error");
-    expect((await spending(database.db, "elevenlabs", bookId)).book).toBe(0);
+    expect((await spending(database.db, "elevenlabs", bookId)).book).toBeCloseTo(speechCost(paragraphs[0].text.length));
     await (await startNarration({ db: database.db, storage: failing, model: voice }, ownerId, bookId, "fake-ada", true)).done;
     console.log("F2 sent:", voice.sent.map((t) => t.slice(0, 6)));
     expect(voice.sent.filter((t) => t === paragraphs[0].text)).toHaveLength(2);

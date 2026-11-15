@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FakeModel } from "@/lib/ai/fake";
-import { generate, SpendingCapReached, spending } from "@/lib/ai/generate";
+import { generate, holdCost, SpendingCapReached, spending } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
@@ -9,7 +9,7 @@ import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { importBook } from "./import";
 import { steCheck } from "@/lib/ai/ste";
-import { estimateRewrite, listRewrites, paragraphFor, rewriteParagraph, strictnessFrom, viewRewrite } from "./rewrite";
+import { buildRequest, estimateRewrite, listRewrites, paragraphFor, rewriteParagraph, strictnessFrom, viewRewrite } from "./rewrite";
 import { getSections } from "./sections-store";
 
 let database: Database;
@@ -278,7 +278,10 @@ describe("spending caps (ground rule 8)", () => {
     const est = await estimateRewrite(database.db, model, ownerId, bookId, paragraphs[0].id, "plain");
     expect(est).toBeGreaterThan(0);
     expect(est).toBeLessThan(0.1);
-    const caps = { perBookUsd: est * 2.5, perMonthUsd: 100 };
+    // Room for two rewrites at their worst case (M44: what a call holds while it runs), which the shown estimate is below.
+    const worst = holdCost(model, await buildRequest(database.db, ownerId, bookId, paragraphs[0].id, "plain", "standard"));
+    expect(worst).toBeGreaterThan(est);
+    const caps = { perBookUsd: worst * 2.5, perMonthUsd: 100 };
     await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: paragraphs[0].id, level: "plain" }, { caps });
     await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: paragraphs[1].id, level: "plain" }, { caps });
     const spent = await spending(database.db, "anthropic", bookId);
@@ -299,9 +302,9 @@ describe("spending caps (ground rule 8)", () => {
     const sept = () => new Date("2026-09-30T23:00:00Z");
     await rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: paragraphs[0].id, level: "plain" }, { now: sept });
     const { month } = await spending(database.db, "anthropic", null, sept());
-    const est = await estimateRewrite(database.db, model, ownerId, bookId, paragraphs[1].id, "plain");
-    // Enough for one more rewrite in a fresh month, not on top of September's spending.
-    const caps = { perBookUsd: 100, perMonthUsd: est + month / 2 };
+    const worst = holdCost(model, await buildRequest(database.db, ownerId, bookId, paragraphs[1].id, "plain", "standard"));
+    // Enough for one more rewrite (at its worst case, what it holds) in a fresh month, not on top of September's spending.
+    const caps = { perBookUsd: 100, perMonthUsd: worst + month / 2 };
     await expect(
       rewriteParagraph(database.db, model, ownerId, { bookId, sectionId: paragraphs[1].id, level: "plain" }, { caps, now: sept }),
     ).rejects.toThrow("This month's AI spending cap ($");

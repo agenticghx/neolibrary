@@ -38,7 +38,8 @@ Guards == {"owner only",          \* narration/route.ts 59: if (!mayNarrateWhole
            "skip saved",          \* narration.ts 292: if (saved.has(key)) continue
            "stored check",        \* audio.ts 269-270: const stored = await storedTrack(...); if (stored) return ...
            "limits",              \* audio.ts 272: await reserveSpend(...) (generate.ts 260-265: assertRoom under the lock)
-           "share in-flight"}     \* audio.ts 248-251: const running = inflight.get(key); if (running) return ...
+           "share in-flight",     \* audio.ts 248-251: const running = inflight.get(key); if (running) return ...
+           "holds in database"}   \* generate.ts reserveSpend (M44): the hold is a failed_spend row, under the advisory lock
 On(g) == g \notin Broken
 
 ASSUME Broken \subseteq Guards
@@ -48,7 +49,8 @@ VARIABLES
   runs,         \* the narration runs (narration.ts Job), each in the memory of the server that started it
   listen,       \* the owner's Listen bar: its one request for a paragraph (audio route POST -> speakPassage)
   stored,       \* texts whose audio is saved in the voice (audio_tracks rows, found by cacheKeyOf): kept across restarts
-  spent,        \* book -> what the database records as spent on it (audio_tracks.cost_usd), in paragraphs
+  spent,        \* book -> what the database counts against it, in paragraphs: audio_tracks.cost_usd, failed_spend
+                \* (a paid paragraph that could not be saved), and holds left by a restart (at their estimate)
   billed,       \* text -> how many times the voice was paid for it
   money,        \* book -> what the voice billed for it, in paragraphs, recorded or not
   est,          \* book -> the paragraphs left to make that the cost box stated at your last Create
@@ -83,10 +85,18 @@ Inflight(s) ==
   {Section(runs[k]) : k \in {k \in DOMAIN runs : runs[k].srv = s /\ runs[k].pc \in Making}}
     \cup (IF listen.srv = s /\ listen.pc \in Making THEN {Section(listen)} ELSE {})
 
-(* generate.ts 214 spendHolds, one per server: a call reserved and not yet released (released in the same step as its save). *)
+(* generate.ts reserveSpend: a call reserved and not yet settled holds its estimate (released in the same step
+   as its save). The hold is a row in the database (M44): every server sees it. Guard "holds in database" broken:
+   the holds of before M44, in each server's memory (spendHolds), seen by that server only. *)
 HoldsOn(s, b) ==
-  Cardinality({k \in DOMAIN runs : runs[k].srv = s /\ runs[k].book = b /\ runs[k].pc = "calling"})
-    + (IF listen.srv = s /\ listen.book = b /\ listen.pc = "calling" THEN 1 ELSE 0)
+  Cardinality({k \in DOMAIN runs : (runs[k].srv = s \/ On("holds in database")) /\ runs[k].book = b /\ runs[k].pc = "calling"})
+    + (IF (listen.srv = s \/ On("holds in database")) /\ listen.book = b /\ listen.pc = "calling" THEN 1 ELSE 0)
+(* The paragraphs of book b being paid for by runs that a restart (or the old server stopping) ends: their holds
+   stay in the database, counted at their estimate. Before M44 they were lost with the memory. *)
+LostHolds(keep(_), b) ==
+  IF On("holds in database")
+  THEN Cardinality({k \in DOMAIN runs : ~keep(runs[k]) /\ runs[k].book = b /\ runs[k].pc = "calling"})
+  ELSE 0
 Holds(s) == SumOver([b \in BookIds |-> HoldsOn(s, b)], BookIds)
 
 (* generate.ts 260-265 reserveSpend -> assertRoom: what is recorded (spending, 128), plus what is held here, plus this paragraph. *)
@@ -228,15 +238,17 @@ RunSaves(k) ==
   /\ Finish(<<"run", k>>, r.srv, Section(r), "made")
   /\ UNCHANGED <<server, billed, money, est, sinceCreate, stopPressed, afterStop, saveFails>>
 
-(* audio.ts 278-300: paid for, but storage.put or the insert throws; no row, so nothing records the cost; narration.ts 300 ends the run. *)
+(* audio.ts speak: paid for, but storage.put or the insert throws; hold.billed turns the hold into the paid cost
+   (failed_spend, M44; before, nothing recorded it); narration.ts ends the run. *)
 RunSaveFails(k) ==
   LET r == runs[k] IN
   /\ k \in DOMAIN runs
   /\ r.pc = "calling"
   /\ saveFails < MaxSaveFails
   /\ saveFails' = saveFails + 1
+  /\ spent' = IF On("holds in database") THEN [spent EXCEPT ![r.book] = @ + 1] ELSE spent
   /\ Finish(<<"run", k>>, r.srv, Section(r), "error")
-  /\ UNCHANGED <<server, stored, spent, billed, money, est, sinceCreate, stopPressed, afterStop>>
+  /\ UNCHANGED <<server, stored, billed, money, est, sinceCreate, stopPressed, afterStop>>
 
 (* The Listen bar asks for paragraph i (audio/route.ts 65 -> speakPassage, with the same voice model as the run: speech/index.ts 31). *)
 YouPressListen(i) ==
@@ -275,8 +287,9 @@ ListenSaveFails ==
   /\ listen.pc = "calling"
   /\ saveFails < MaxSaveFails
   /\ saveFails' = saveFails + 1
+  /\ spent' = IF On("holds in database") THEN [spent EXCEPT ![listen.book] = @ + 1] ELSE spent
   /\ Finish(<<"listen">>, listen.srv, Section(listen), "error")
-  /\ UNCHANGED <<server, stored, spent, billed, money, est, sinceCreate, stopPressed, afterStop>>
+  /\ UNCHANGED <<server, stored, billed, money, est, sinceCreate, stopPressed, afterStop>>
 
 (***************************************************************************)
 (* The site restarts (a deploy). Memory is lost: the runs, the in-flight   *)
@@ -292,14 +305,16 @@ TheSiteRestarts ==
   /\ OldServerLingers \/ listen.pc = "idle"
   /\ server' = server + 1
   /\ runs' = IF OldServerLingers THEN runs ELSE <<>>
-  /\ UNCHANGED <<listen, stored, spent, billed, money, est, sinceCreate, stopPressed, afterStop, saveFails>>
+  /\ spent' = IF OldServerLingers THEN spent ELSE [b \in BookIds |-> spent[b] + LostHolds(LAMBDA r : FALSE, b)]
+  /\ UNCHANGED <<listen, stored, billed, money, est, sinceCreate, stopPressed, afterStop, saveFails>>
 
 TheOldServerStops ==
   /\ OldServerLingers
   /\ \E k \in DOMAIN runs : runs[k].srv < server
   /\ ~(listen.srv < server /\ listen.pc # "idle")
   /\ runs' = SelectSeq(runs, LAMBDA r : r.srv = server)
-  /\ UNCHANGED <<server, listen, stored, spent, billed, money, est, sinceCreate, stopPressed, afterStop, saveFails>>
+  /\ spent' = [b \in BookIds |-> spent[b] + LostHolds(LAMBDA r : r.srv = server, b)]
+  /\ UNCHANGED <<server, listen, stored, billed, money, est, sinceCreate, stopPressed, afterStop, saveFails>>
 
 Next ==
   \/ \E who \in {"owner", "reader"}, b \in BookIds, confirm \in BOOLEAN : YouPressCreate(who, b, confirm)

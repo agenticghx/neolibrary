@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { bookGroup, capsFromEnv, reserveSpend, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
+import { bookGroup, capsFromEnv, keptHold, reserveSpend, toGeneration, type Caps, type Generation } from "@/lib/ai/generate";
 import { fill, readPrompt, sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations } from "@/lib/db/schema";
@@ -65,9 +65,23 @@ export async function makePicture(
   const stored = await storedPicture(db, ownerId, input.bookId, r.subject);
   if (stored) return { generation: stored, reused: true };
   const now = opts.now?.() ?? new Date();
-  const release = await reserveSpend(db, generator.provider, input.bookId, imageUsd(), opts.caps ?? capsFromEnv(process.env, "IMAGE"), now, "image");
+  const hold = await reserveSpend(
+    db,
+    generator.provider,
+    { ownerId, bookId: input.bookId, model: generator.model, kind: "image" },
+    imageUsd(),
+    opts.caps ?? capsFromEnv(process.env, "IMAGE"),
+    now,
+    "image",
+  );
+  let picture: Awaited<ReturnType<ImageGenerator["generate"]>>;
   try {
-    const picture = await generator.generate(r.prompt);
+    picture = await generator.generate(r.prompt);
+  } catch (e) {
+    await hold.release().catch(keptHold);
+    throw e;
+  }
+  try {
     const id = crypto.randomUUID();
     const key = `images/${ownerId}/${input.bookId}/${id}.png`;
     await storage.put(key, picture.data, picture.mime);
@@ -91,8 +105,12 @@ export async function makePicture(
         createdAt: now,
       })
       .returning();
+    await hold.release().catch(keptHold);
     return { generation: toGeneration(row), reused: false };
-  } finally {
-    await release();
+  } catch (e) {
+    // Paid, but the picture could not be kept: its cost still counts.
+    const reason = `Paid, but the picture could not be saved: ${e instanceof Error ? e.message : String(e)}`;
+    await hold.billed({ model: generator.model, costUsd: imageUsd(), reason }).catch(keptHold);
+    throw e;
   }
 }

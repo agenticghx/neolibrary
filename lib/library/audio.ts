@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, gte, inArray, lt, type SQL } from "drizzle-orm";
-import { capsFromEnv, reserveSpend, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, keptHold, reserveSpend, type Caps } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, readalongImports, sections } from "@/lib/db/schema";
@@ -269,9 +269,23 @@ async function speak(
   const stored = await storedTrack(db, ownerId, model, input.voice, passage);
   if (stored) return { track: stored, reused: true };
   const now = opts.now?.() ?? new Date();
-  const release = await reserveSpend(db, model.provider, input.bookId, estimateSpeech(passage), opts.caps ?? capsFromEnv(process.env, "VOICE"), now, "voice");
+  const hold = await reserveSpend(
+    db,
+    model.provider,
+    { ownerId, bookId: input.bookId, model: model.model, kind: "speech" },
+    estimateSpeech(passage),
+    opts.caps ?? capsFromEnv(process.env, "VOICE"),
+    now,
+    "voice",
+  );
+  let result: Awaited<ReturnType<SpeechModel["speak"]>>;
   try {
-    const result = await model.speak({ text: passage.text, voiceId: input.voice, previousText: passage.previousText, nextText: passage.nextText });
+    result = await model.speak({ text: passage.text, voiceId: input.voice, previousText: passage.previousText, nextText: passage.nextText });
+  } catch (e) {
+    await hold.release().catch(keptHold);
+    throw e;
+  }
+  try {
     const words = wordTimings(passage.text, result.alignment);
     const id = crypto.randomUUID();
     const audioKey = `audio/${ownerId}/${input.bookId}/${id}.${EXT[result.mime] ?? "bin"}`;
@@ -298,9 +312,13 @@ async function speak(
         createdAt: now,
       })
       .returning();
+    await hold.release().catch(keptHold);
     return { track: toTrack(row), reused: false };
-  } finally {
-    await release();
+  } catch (e) {
+    // Paid, but the audio could not be kept: its cost still counts.
+    const reason = `Paid, but the audio could not be saved: ${e instanceof Error ? e.message : String(e)}`;
+    await hold.billed({ model: model.model, costUsd: speechCost(result.characters), reason }).catch(keptHold);
+    throw e;
   }
 }
 

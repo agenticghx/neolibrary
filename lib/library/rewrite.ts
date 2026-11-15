@@ -54,7 +54,7 @@ export async function paragraphFor(
   return { id: row.id, text: row.text, cfi: row.cfi, chapter: chapter?.label ?? "" };
 }
 
-async function buildRequest(
+export async function buildRequest(
   db: Db,
   ownerId: string,
   bookId: string,

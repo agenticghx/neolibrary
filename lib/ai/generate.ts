@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { isOwnKeyProvider } from "./own-key";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, failedSpend, generations, textEditionJobs } from "@/lib/db/schema";
-import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel } from "./model";
+import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel, type TextResult } from "./model";
 import { sha256 } from "./prompts";
 
 /**
@@ -12,11 +12,13 @@ import { sha256 } from "./prompts";
  * - The same request (same kind, options, prompt fingerprint and input text,
  *   for the same reader) is answered from the `generations` table, without a
  *   second call. `fresh: true` asks again on purpose and adds a new version.
- * - Before any call, the estimated cost is reserved against what has been
- *   spent this month (all readers: one API key pays) and on this book. A
- *   second call at the same moment sees that reserve. If either cap would
- *   be passed, nothing is called. The reserve is released once the cost is
- *   recorded. The paid call itself is not inside the lock.
+ * - Before any call, the most it can cost (holdCost) is reserved against what has been
+ *   spent this month (all readers: one API key pays) and on this book. The
+ *   reserve (a hold) is a row in the database, so a second call at the same
+ *   moment, on any copy of the server, sees it, and a restart keeps it. If
+ *   either cap would be passed, nothing is called. The hold is replaced by
+ *   the real cost once it is written. The paid call itself is not inside the
+ *   lock.
  */
 export type Caps = { perBookUsd: number; perMonthUsd: number };
 
@@ -95,14 +97,38 @@ export const generationCacheKey = (kind: string, options: Record<string, string>
 const cacheKeyOf = (req: GenerationRequest) => generationCacheKey(req.kind, req.options, req.promptHash, sha256(req.input));
 
 /**
- * The estimated cost of a request, in US dollars: generous, so the cap errs on
- * the safe side. It assumes the prompt cache misses and the system prompt is
- * written to it, the dearest case (1.25 times the input price).
+ * The likely cost of a request, in US dollars: the price a reader is shown
+ * ("about $X"). It assumes the prompt cache misses and the system prompt is
+ * written to it (1.25 times the input price), and an answer of twice the
+ * input plus 1,000 tokens. A call can cost more (all of maxTokens): what is
+ * held against the cap while it runs is holdCost, not this.
  */
 export function estimateCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "input" | "maxTokens">) {
   const output = Math.min(req.maxTokens, estimateTokens(req.input) * 2 + 1000);
   const system = estimateTokens(req.system);
   return costUsd(PRICES[model.model] ? model.model : "unknown", system + estimateTokens(req.prompt), output, { write: system, read: 0 });
+}
+
+/**
+ * Tokens allowed, on top of the text, for what the API adds to a request: the
+ * message framing, and the instructions it adds for a JSON schema. Not
+ * measured (the API does not say); generous on purpose (M44, SKILL.md).
+ */
+export const HOLD_OVERHEAD_TOKENS = 2000;
+
+/**
+ * The most one call can be billed, in US dollars (M44, finding 1): what
+ * reserveSpend holds against the caps while the call runs. Output: all of
+ * maxTokens (thinking counts within it). Input: no more tokens than the
+ * request's bytes (a token is at least one byte), plus HOLD_OVERHEAD_TOKENS,
+ * all priced as written to the prompt cache (the dearest input price). Not
+ * covered: a refusal rescued by the API's fallback model, billed on top
+ * (SKILL.md, finding 1, what is left).
+ */
+export function holdCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "maxTokens" | "schema">) {
+  const bytes = (s: string) => Buffer.byteLength(s, "utf8");
+  const input = bytes(req.system) + bytes(req.prompt) + (req.schema ? bytes(JSON.stringify(req.schema)) : 0) + HOLD_OVERHEAD_TOKENS;
+  return costUsd(PRICES[model.model] ? model.model : "unknown", input, req.maxTokens, { write: input, read: 0 });
 }
 
 export const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(2)}`;
@@ -121,8 +147,19 @@ export async function bookGroup(db: Db, bookId: string) {
 }
 
 /**
+ * Holds (M44): while a paid call runs, the most it can cost (holdCost, for `generate`) is a row in `failed_spend` of this kind, so every
+ * copy of the server sees it, and a restart does not lose it. It is replaced by the real cost when the
+ * call ends (the `generations` row, or a `failed_spend` row of the call's own kind), or deleted when
+ * nothing was billed. A hold that stays means the server stopped, or the database failed, mid-call:
+ * the provider may have billed it, so it stays counted in full (the costs page shows it).
+ */
+export const HOLD_KIND = "spend-hold";
+const HOLD_REASON =
+  "Held while a paid call runs: the most it can cost counts until its real cost is written. If this row stays, the server stopped or the database failed mid-call; the call may have been billed, so this amount stays counted.";
+
+/**
  * Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever
- * (a scan and its text edition counted together).
+ * (a scan and its text edition counted together). Holds of calls still running are not spending: see heldByCalls.
  * Rows brought back from a library file are left out: that money was not spent here.
  */
 export async function spending(db: Db, provider: string, bookId: string | null, now = new Date()) {
@@ -140,20 +177,40 @@ export async function spending(db: Db, provider: string, bookId: string | null, 
       );
     return Number(r[0]?.usd ?? 0);
   };
-  // Calls that were billed but gave nothing usable (failed_spend) count too.
-  const failed = async (book: boolean) => {
+  // Calls that were billed but gave nothing usable (failed_spend) count too; holds are counted apart.
+  const failed = async (book: boolean, holds: boolean) => {
     const r = await db
       .select({ usd: sql<number>`coalesce(sum(${failedSpend.costUsd}), 0)::float8` })
       .from(failedSpend)
-      .where(and(eq(failedSpend.provider, provider), book && bookId ? inArray(failedSpend.bookId, group) : gte(failedSpend.createdAt, monthStart(now))));
+      .where(
+        and(
+          eq(failedSpend.provider, provider),
+          holds ? eq(failedSpend.kind, HOLD_KIND) : ne(failedSpend.kind, HOLD_KIND),
+          book && bookId ? inArray(failedSpend.bookId, group) : gte(failedSpend.createdAt, monthStart(now)),
+        ),
+      );
     return Number(r[0]?.usd ?? 0);
   };
-  const month = (await sum(generations, false)) + (await sum(audioTracks, false)) + (await failed(false));
-  const book = bookId ? (await sum(generations, true)) + (await sum(audioTracks, true)) + (await failed(true)) : 0;
+  const month = (await sum(generations, false)) + (await sum(audioTracks, false)) + (await failed(false, false));
+  const book = bookId ? (await sum(generations, true)) + (await sum(audioTracks, true)) + (await failed(true, false)) : 0;
   return { month, book };
 }
 
 type Spent = { month: number; book: number };
+
+/** What the holds of paid calls still running (or left by a restart) hold: this month's, and this book group's ever. */
+export async function heldByCalls(db: Db, provider: string, bookId: string | null, now = new Date()): Promise<Spent> {
+  const sum = async (where: ReturnType<typeof and>) => {
+    const [r] = await db
+      .select({ usd: sql<number>`coalesce(sum(${failedSpend.costUsd}), 0)::float8` })
+      .from(failedSpend)
+      .where(and(eq(failedSpend.provider, provider), eq(failedSpend.kind, HOLD_KIND), where));
+    return Number(r?.usd ?? 0);
+  };
+  const month = await sum(gte(failedSpend.createdAt, monthStart(now)));
+  const book = bookId ? await sum(inArray(failedSpend.bookId, await bookGroup(db, bookId))) : 0;
+  return { month, book };
+}
 
 /**
  * What text-edition jobs going on (M25) still hold against the caps: each
@@ -180,19 +237,25 @@ export async function heldByJobs(db: Db, provider: string, bookId: string | null
   return held;
 }
 
-/** What has been spent, plus what jobs going on still hold: what a new request must fit beside. */
+/** What text-edition jobs and paid calls going on hold together. */
+export async function heldNow(db: Db, provider: string, bookId: string | null, now = new Date()): Promise<Spent> {
+  const jobs = await heldByJobs(db, provider, bookId);
+  const calls = await heldByCalls(db, provider, bookId, now);
+  return { month: jobs.month + calls.month, book: jobs.book + calls.book };
+}
+
+/** What has been spent, plus what jobs and calls going on still hold: what a new request must fit beside. */
 export async function spendingWithJobs(db: Db, provider: string, bookId: string | null, now = new Date()): Promise<Spent> {
   const spent = await spending(db, provider, bookId, now);
-  const held = await heldByJobs(db, provider, bookId);
+  const held = await heldNow(db, provider, bookId, now);
   return { month: spent.month + held.month, book: spent.book + held.book };
 }
-type ReadSpend = (db: Db, provider: string, bookId: string | null, now: Date) => Promise<Spent>;
 
 function capEnv(label: string) {
   return label === "AI" ? "AI" : label === "image" ? "IMAGE" : "VOICE";
 }
 
-/** Throws if `estimate` more, on top of what is already reserved, would pass a cap. */
+/** Throws if `estimate` more, on top of what is spent and held, would pass a cap. */
 export function assertRoom(spent: Spent, held: Spent, estimate: number, caps: Caps, label: string, bookId: string | null) {
   const env = capEnv(label);
   if (spent.month + held.month + estimate > caps.perMonthUsd) {
@@ -207,24 +270,12 @@ export function assertRoom(spent: Spent, held: Spent, estimate: number, caps: Ca
   }
 }
 
-// Reserves live in this process. The lock only covers the check and the
-// reserve, not the paid call, so one Listen does not wait for another's
-// network call. A second copy of the server would not see them.
+// The spending lock: a Postgres advisory lock per provider, taken inside a transaction (it goes when the
+// transaction ends, or its connection does), so every copy of the server takes turns. In front of it, each
+// process queues its own turns (spendTails), so at most one of its connections waits for the lock: the
+// production pool has five. The lock covers the check and the hold, and the hold's settling, not the paid call.
+const SPEND_LOCK = 1_313_166_675; // the advisory lock's first key: this app's spending lock
 const spendTails = new Map<string, Promise<void>>();
-const spendHolds = new Map<string, number>();
-
-const monthKey = (provider: string) => `${provider}\0month`;
-const bookKey = (provider: string, bookId: string) => `${provider}\0book\0${bookId}`;
-
-function holdOf(key: string) {
-  return spendHolds.get(key) ?? 0;
-}
-
-function addHold(key: string, estimate: number) {
-  const next = holdOf(key) + estimate;
-  if (Math.abs(next) < 1e-9) spendHolds.delete(key);
-  else spendHolds.set(key, next);
-}
 
 function lockSpend<T>(provider: string, fn: () => Promise<T>): Promise<T> {
   const prev = spendTails.get(provider) ?? Promise.resolve();
@@ -233,45 +284,89 @@ function lockSpend<T>(provider: string, fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/** Clears the in-process reserves. Tests only. */
-export function resetSpendHoldsForTests() {
-  spendTails.clear();
-  spendHolds.clear();
+/**
+ * Runs `fn` in a transaction that holds the provider's spending lock. Every query inside must use `tx`, never
+ * the outer `db`: on PGlite (one connection) the outer one waits for the transaction, and in production it takes
+ * a second connection from the pool.
+ */
+export function withSpendLock<T>(db: Db, provider: string, fn: (tx: Db) => Promise<T>): Promise<T> {
+  return lockSpend(provider, () =>
+    db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${SPEND_LOCK}::int4, hashtext(${provider}))`);
+      return fn(tx as unknown as Db);
+    }),
+  );
 }
 
+/** Forgets this process's queue for the spending lock, as a restart would. Holds are rows: each test database has its own. Tests only. */
+export function resetSpendHoldsForTests() {
+  spendTails.clear();
+}
+
+/** Who and what a hold is for: written on its row, so the costs page and a later look can tell. */
+export type HoldFor = { ownerId: string; bookId: string | null; model: string; kind: string };
+
+/** A paid call's real cost, when it was billed but its result is not kept. */
+export type BilledCost = { model: string; inputTokens?: number; outputTokens?: number; costUsd: number; reason: string };
+
 /**
- * Reserves `estimate` against the caps, or throws when it would pass one.
- * Call the returned function after the cost is recorded (or the call failed)
- * so the reserve is not counted twice. Two callers at the same moment cannot
- * both pass a check that only one of them fits.
+ * A call's hold. Settle it once, after the call: `release()` once its cost is written elsewhere (its
+ * `generations` or `audio_tracks` row) or when nothing was billed; `billed()` when the provider billed it
+ * but nothing is kept, so the hold becomes a `failed_spend` row of the real cost. Either is a no-op after
+ * the first. If the database fails meanwhile, the hold stays, counted at its estimate.
+ */
+export type SpendHold = { release(): Promise<void>; billed(cost: BilledCost): Promise<void> };
+
+const NO_HOLD: SpendHold = { release: () => Promise.resolve(), billed: () => Promise.resolve() };
+
+/**
+ * Reserves `estimate` against the caps, or throws when it would pass one. Two callers at the same moment,
+ * on any copy of the server, cannot both pass a check that only one of them fits.
  */
 export async function reserveSpend(
   db: Db,
   provider: string,
-  bookId: string | null,
+  holdFor: HoldFor,
   estimate: number,
   caps: Caps,
   now: Date,
   label: string,
-  read: ReadSpend = spendingWithJobs,
-): Promise<() => Promise<void>> {
+): Promise<SpendHold> {
   // M34 S4: a call on the asker's own key spends nothing of the owner's, so no cap of the owner's applies to it.
-  if (isOwnKeyProvider(provider)) return () => Promise.resolve();
-  await lockSpend(provider, async () => {
-    const spent = await read(db, provider, bookId, now);
-    const held = { month: holdOf(monthKey(provider)), book: bookId ? holdOf(bookKey(provider, bookId)) : 0 };
+  if (isOwnKeyProvider(provider)) return NO_HOLD;
+  const { bookId } = holdFor;
+  const id = await withSpendLock(db, provider, async (tx) => {
+    const spent = await spending(tx, provider, bookId, now);
+    const held = await heldNow(tx, provider, bookId, now);
     assertRoom(spent, held, estimate, caps, label, bookId);
-    addHold(monthKey(provider), estimate);
-    if (bookId) addHold(bookKey(provider, bookId), estimate);
+    const [row] = await tx
+      .insert(failedSpend)
+      .values({ ownerId: holdFor.ownerId, bookId, provider, model: holdFor.model, kind: HOLD_KIND, costUsd: estimate, reason: `${HOLD_REASON} For: ${holdFor.kind}.`, createdAt: now })
+      .returning({ id: failedSpend.id });
+    return row.id;
   });
-  let released = false;
-  return () => {
-    if (released) return Promise.resolve();
-    released = true;
-    return lockSpend(provider, async () => {
-      addHold(monthKey(provider), -estimate);
-      if (bookId) addHold(bookKey(provider, bookId), -estimate);
-    });
+  let settled = false;
+  const settle = async (change: (tx: Db) => Promise<unknown>) => {
+    if (settled) return;
+    settled = true;
+    await withSpendLock(db, provider, change);
+  };
+  return {
+    release: () => settle((tx) => tx.delete(failedSpend).where(eq(failedSpend.id, id))),
+    billed: (cost) =>
+      settle((tx) =>
+        tx
+          .update(failedSpend)
+          .set({
+            model: cost.model,
+            kind: holdFor.kind,
+            inputTokens: cost.inputTokens ?? 0,
+            outputTokens: cost.outputTokens ?? 0,
+            costUsd: cost.costUsd,
+            reason: cost.reason.slice(0, 300),
+          })
+          .where(eq(failedSpend.id, id)),
+      ),
   };
 }
 
@@ -335,8 +430,11 @@ export async function copyShared(db: Db, req: GenerationRequest, now: Date) {
   return toGeneration(row);
 }
 
+/** A hold that could not be settled stays counted at its estimate: say so in the log, and go on. */
+export const keptHold = (e: unknown) => console.error("Spending: a hold could not be settled and stays counted at its estimate:", e instanceof Error ? e.message : e);
+
 // Two identical requests at the same moment share one call.
-const inflight = new Map<string, Promise<Generation>>();
+const inflight = new Map<string, Promise<{ generation: Generation; reused: boolean }>>();
 
 export async function generate(
   db: Db,
@@ -344,28 +442,60 @@ export async function generate(
   req: GenerationRequest,
   opts: { fresh?: boolean; caps?: Caps; now?: () => Date } = {},
 ): Promise<{ generation: Generation; reused: boolean }> {
+  const savedAnswer = async () => (await findStored(db, req.ownerId, req)) ?? (await copyShared(db, req, opts.now?.() ?? new Date()));
   if (!opts.fresh) {
-    const stored = await findStored(db, req.ownerId, req);
-    if (stored) return { generation: stored, reused: true };
-    const shared = await copyShared(db, req, opts.now?.() ?? new Date());
-    if (shared) return { generation: shared, reused: true };
+    const saved = await savedAnswer();
+    if (saved) return { generation: saved, reused: true };
   }
   const key = `${req.ownerId}|${cacheKeyOf(req)}|${opts.fresh ? Math.random() : ""}`;
   const running = inflight.get(key);
-  if (running) return { generation: await running, reused: true };
+  if (running) return { generation: (await running).generation, reused: true };
   const job = (async () => {
+    // M44, finding 7: look again, now that this request is in the in-flight map. An identical request that
+    // finished after the first look (its answer saved, then its entry deleted) is found here, not paid again.
+    if (!opts.fresh) {
+      const saved = await savedAnswer();
+      if (saved) return { generation: saved, reused: true };
+    }
     const caps = opts.caps ?? capsFromEnv();
     const now = opts.now?.() ?? new Date();
-    const release = await reserveSpend(db, model.provider, req.bookId, estimateCost(model, req), caps, now, "AI");
+    const hold = await reserveSpend(
+      db,
+      model.provider,
+      { ownerId: req.ownerId, bookId: req.bookId, model: model.model, kind: req.kind },
+      holdCost(model, req),
+      caps,
+      now,
+      "AI",
+    );
+    let result: TextResult;
     try {
-      const result = await model.generate({
+      result = await model.generate({
         system: req.system,
         prompt: req.prompt,
         maxTokens: req.maxTokens,
         effort: req.effort,
         ...(req.schema ? { schema: req.schema } : {}),
       });
-      const [row] = await db
+    } catch (e) {
+      // Billed but unusable: the hold becomes the real cost (one UPDATE), so the next call's cap check sees it.
+      if (e instanceof AiError && e.billed) {
+        await hold
+          .billed({
+            model: e.billed.model,
+            inputTokens: e.billed.inputTokens,
+            outputTokens: e.billed.outputTokens,
+            costUsd: costUsd(e.billed.model, e.billed.inputTokens, e.billed.outputTokens, e.billed.cache),
+            reason: e.message,
+          })
+          .catch(keptHold);
+      } else await hold.release().catch(keptHold);
+      throw e;
+    }
+    const cost = costUsd(result.model, result.inputTokens, result.outputTokens, result.cache);
+    let row: Row;
+    try {
+      [row] = await db
         .insert(generations)
         .values({
           ownerId: req.ownerId,
@@ -381,36 +511,31 @@ export async function generate(
           inputHash: sha256(req.input),
           inputTokens: result.inputTokens,
           outputTokens: result.outputTokens,
-          costUsd: costUsd(result.model, result.inputTokens, result.outputTokens, result.cache),
+          costUsd: cost,
           output: result.text,
           createdAt: now,
         })
         .returning();
-      return toGeneration(row);
     } catch (e) {
-      // Billed but unusable: written before the hold is released, so the next call's cap check already sees it.
-      if (e instanceof AiError && e.billed) {
-        await db.insert(failedSpend).values({
-          ownerId: req.ownerId,
-          bookId: req.bookId,
-          provider: model.provider,
-          model: e.billed.model,
-          kind: req.kind,
-          inputTokens: e.billed.inputTokens,
-          outputTokens: e.billed.outputTokens,
-          costUsd: costUsd(e.billed.model, e.billed.inputTokens, e.billed.outputTokens, e.billed.cache),
-          reason: e.message.slice(0, 300),
-          createdAt: now,
-        });
-      }
+      // Paid, but the answer could not be saved: its cost is still counted, as a billed failure.
+      await hold
+        .billed({
+          model: result.model,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          costUsd: cost,
+          reason: `Paid, but the answer could not be saved: ${e instanceof Error ? e.message : String(e)}`,
+        })
+        .catch(keptHold);
       throw e;
-    } finally {
-      await release();
     }
+    // The answer and its cost are saved: the hold goes. Should that fail, the hold stays counted beside the cost (too much, never too little).
+    await hold.release().catch(keptHold);
+    return { generation: toGeneration(row), reused: false };
   })();
   inflight.set(key, job);
   try {
-    return { generation: await job, reused: false };
+    return await job;
   } finally {
     inflight.delete(key);
   }
