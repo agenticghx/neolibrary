@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the outbox fix, then open the spending-holds PR.
+next_action: Merge the spending-holds PR, then fix narration findings 1-3.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -134,6 +134,7 @@ Never blocks the loop. Newest first.
 | 36 | **GitHub housekeeping (audit 2026-11-09).** (a) The `ci-screenshots` branch holds 16,949 pictures, 4.52 GB of the repository's 4.65 GB, and is never pruned: reset it to recent pull requests only? (b) 261 remote branches belong to merged pull requests: delete them? Both are hard to undo, so neither is done without Samuel's yes. | Samuel | 2026-11-16 | **closed 2026-11-10:** done at Samuel's word (258 merged branches deleted, `ci-screenshots` cut to pull requests 305 onward; Log entry of that date). |
 | 37 | **Pruning again, and keeping it pruned (2026-11-14).** Since the pruning of 2026-11-10 (row 36) the `ci-screenshots` branch has grown back to 66 pull requests' pictures (7.2 GB before packing; it was 24 after the pruning), and 44 remote branches of merged pull requests are back (each one's tip is exactly the merged pull request's last commit, so GitHub's "Restore branch" on the pull request brings it back). Recommended: (a) turn on GitHub's "Automatically delete head branches" (Settings > General), which deletes a branch when its pull request merges, and delete the 44; (b) a step in CI that keeps only the newest 30 pull requests' pictures on `ci-screenshots` (screenshot grids on older pull requests stop showing). Not done without your yes: both delete things. | Samuel | 2026-11-21 | **closed 2026-11-15:** done at Samuel's word ("yes"): 52 merged branches deleted, "Automatically delete head branches" on, `ci-screenshots` cut to pull requests 350 onward and kept to the newest 30 by CI (Log entry of that date). |
 | 38 | **Offline notes: a refused edit sent again from a second tab (verify-outbox F7, 2026-11-15).** After the fixes, one rare path remains: two tabs both read the outbox, an old edit of a note removed on another device is refused in tab 1, the reader brings the note back with Undo and edits it, and tab 2's copy of the old edit arrives last and replaces the newer words. Two full fixes: (a) a lock across tabs (Web Locks), but a frozen background iPad tab holding it could stop every tab's notes from being sent; (b) the library keeps a refused edit's id by storing an edit of a removed note as a removed version, which changes what a reader sees. Default: leave it recorded in `.claude/skills/verify-outbox/SKILL.md` (it needs two tabs, a removal on another device and an edit within one flush). | Samuel | 2026-11-22 | open (default applies) |
+| 39 | **AI spending: two places where a call can still cost more than its hold (verify-spending finding 1, 2026-11-15).** (a) Text editions hold 1,000 answer tokens a page but allow 8,000: on Sonnet 5.5 a 300-page scan holds $3.06 but could cost up to $13.56 against the $5 per-book limit. Holding the worst case would refuse every scan of more than about 110 pages under today's limit. Options: hold the worst case (and raise the per-book limit for scans yourself), lower the page allowance, or keep it as it is. (b) When Claude declines and the API's fallback model answers in the same call, both attempts are billed but only the second is recorded. Default: no change; both stay recorded in `.claude/skills/verify-spending/SKILL.md`. Money question: not closed by the seven-day rule. | Samuel | 2026-11-22 | open |
 
 ## Decisions
 
@@ -193,6 +194,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 15:37 · Claude Opus 5.5 · Spending holds are database rows under one lock and hold the most a call can cost (verify-spending 2-6 fixed; 1, 4, 7 partly)
+- **Done:** lib/ai/generate.ts: holds as failed_spend rows (kind spend-hold) under pg_advisory_xact_lock; holdCost; second look before paying. Callers in audio.ts, pictures.ts, voice-notes.ts, text-edition.ts; costs page shows holds. Models and SKILL.md for verify-spending and verify-narration. Open unknowns row 39.
+- **Key paths:** lib/ai/generate.ts; lib/ai/spend-holds.test.ts; lib/library/text-edition.ts; lib/library/audio.ts; lib/library/pictures.ts; lib/library/voice-notes.ts; lib/library/costs.ts; app/(app)/admin/costs/page.tsx; .claude/skills/verify-spending/
+- **Commands that worked:** npx vitest run lib/ai/spend-holds.test.ts → 11 passed; TEST_DATABASE_URL=… npm run test:postgres → 3 passed; npm run check → 1539 passed; sh .claude/skills/verify-spending/check.sh → all as expected; narration Narration.cfg exit 0; linux-run.sh -- --project audio --project narration → 383 passed (12.3m)
+- **Known issues / blockers:** Partly fixed: text editions hold less than they may cost and fallback rescue bills twice (row 39); two server copies can both pay for one answer. A hold left by a crash stays counted (SQL to clear it in SKILL.md). Sync commits in verify-spending, verify-narration and verify-outbox name branch commits: reset them to main in the next PR.
+- **Exact next steps:** 1. Merge this PR when green. 2. Narration findings 1-3 (paid twice) on top of it, and reset every verify skill's sync commit to main in that PR. 3. Report to Samuel.
 
 ### 2026-11-15 15:21 · Claude Opus 5.5 · Offline notes: every change queued in order and sent only as its own reader (verify-outbox F1-F4, F6, F8 fixed; F5, F7 narrowed)
 - **Done:** lib/reader/note-sender.ts (sending moved out of useNotes.ts, then fixed); lib/outbox.ts; lib/reader-header.ts on the four note routes; addVersion keeps a repeated removal; verify-outbox model, configs, SKILL.md, chart; Open unknowns row 38 (F7's remaining path).
