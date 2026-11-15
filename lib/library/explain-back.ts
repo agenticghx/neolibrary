@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, or } from "drizzle-orm";
 import { estimateCost, findStored, generate, toGeneration, type Caps, type Generation, type GenerationRequest } from "@/lib/ai/generate";
 import type { TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -79,14 +79,11 @@ export function cleanSummary(summary: unknown) {
   return s;
 }
 
-/** The part's paragraphs, numbered in reading order, each cut to a limit, until the part's limit is reached. */
-export async function partPassages(db: Db, bookId: string, chapter: Chapter): Promise<Passage[]> {
-  const rows = await db
-    .select({ id: sections.id, cfi: sections.cfi, text: sections.text })
-    .from(sections)
-    // M41 R1c: prose only (no equations or table cells).
-    .where(and(eq(sections.bookId, bookId), eq(sections.chapterIndex, chapter.chapterIndex), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
-    .orderBy(asc(sections.position));
+/** A part of a book (an EPUB chapter, a PDF page), as its paragraphs name it. */
+export type Part = { bookId: string; chapterIndex: number };
+
+/** The paragraphs Claude is shown of one part: numbered in reading order, each cut to a limit, until the part's limit is reached. */
+function numberPassages(rows: { id: string; cfi: string; text: string }[]): Passage[] {
   const out: Passage[] = [];
   let total = 0;
   for (const r of rows) {
@@ -97,6 +94,44 @@ export async function partPassages(db: Db, bookId: string, chapter: Chapter): Pr
     total += kept.length;
     out.push({ n: out.length + 1, sectionId: r.id, cfi: r.cfi, chapter: "", text: kept });
   }
+  return out;
+}
+
+/**
+ * The passages of several parts, read in one query (the sidebar's count of Daily review cards reads every part with
+ * an Explain it back attempt on every page): for each part, what `partPassages` gives, or [] when it has no text.
+ */
+export async function partsPassages(db: Db, parts: Part[]): Promise<(part: Part) => Passage[]> {
+  // Postgres gives a uuid back in lower case, whatever case the caller named it in.
+  const key = (p: Part) => `${p.bookId.toLowerCase()}:${p.chapterIndex}`;
+  const wanted = [...new Map(parts.map((p) => [key(p), p])).values()];
+  const byPart = new Map<string, { id: string; cfi: string; text: string }[]>();
+  if (wanted.length) {
+    const rows = await db
+      .select({ bookId: sections.bookId, chapterIndex: sections.chapterIndex, id: sections.id, cfi: sections.cfi, text: sections.text })
+      .from(sections)
+      .where(
+        and(
+          eq(sections.kind, "paragraph"),
+          // M41 R1c: prose only (no equations or table cells).
+          eq(sections.form, "prose"),
+          or(...wanted.map((p) => and(eq(sections.bookId, p.bookId), eq(sections.chapterIndex, p.chapterIndex)))),
+        ),
+      )
+      .orderBy(asc(sections.bookId), asc(sections.chapterIndex), asc(sections.position));
+    for (const r of rows) {
+      const k = key(r);
+      if (!byPart.has(k)) byPart.set(k, []);
+      byPart.get(k)!.push(r);
+    }
+  }
+  const passages = new Map([...byPart].map(([k, rows]) => [k, numberPassages(rows)]));
+  return (p) => passages.get(key(p)) ?? [];
+}
+
+/** The part's paragraphs, numbered in reading order, each cut to a limit, until the part's limit is reached. */
+export async function partPassages(db: Db, bookId: string, chapter: Chapter): Promise<Passage[]> {
+  const out = (await partsPassages(db, [{ bookId, chapterIndex: chapter.chapterIndex }]))({ bookId, chapterIndex: chapter.chapterIndex });
   if (!out.length) throw new ExplainBackError("This part has no text to compare with.");
   return out;
 }

@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
-import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { and, eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeModel } from "@/lib/ai/fake";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
-import { generations } from "@/lib/db/schema";
+import { generations, sections } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MemoryStorage } from "@/lib/storage";
 import { createAnnotation, deleteAnnotation, restoreAnnotation, updateAnnotation } from "./annotations";
@@ -330,5 +330,237 @@ describe("What Explain it back found missing, as cards (M28 S2)", () => {
     await removeBook(database.db, ownerId, bookId);
     expect((await reviewQueue(database.db, ownerId, DAY0)).total).toBe(0);
     await expect(rateCard(database.db, ownerId, `g:${a.id}:0`, "good", DAY0)).rejects.toThrow("Card not found.");
+  });
+});
+
+describe("Gap cards of many parts at once (the sidebar's count, 2026-11-14)", () => {
+  let frankId: string;
+  const T0 = at("2026-10-10T08:00:00Z");
+  const DAY = at("2026-10-12T09:00:00Z");
+  const words = (text: string, from: number, n: number) => text.trim().split(/\s+/).slice(from, from + n).join(" ");
+  const item = (passage: number, quote: string, question: string, why = "Why it matters.") => ({ kind: "missed", passage, quote, why, question });
+
+  beforeEach(async () => {
+    const bytes = new Uint8Array(readFileSync(new URL("../../fixtures/books/shelley-frankenstein.epub", import.meta.url)));
+    frankId = (await importBook(database.db, new MemoryStorage(), ownerId, { name: "f.epub", bytes })).bookId;
+  });
+
+  /** A part's chapter row and its paragraph rows (prose or not), in reading order. */
+  async function part(book: string, chapterIndex: number) {
+    const all = await getSections(database.db, ownerId, book);
+    return {
+      chapter: all.find((s) => s.kind === "chapter" && s.chapterIndex === chapterIndex)!,
+      rows: all.filter((s) => s.kind === "paragraph" && s.chapterIndex === chapterIndex),
+    };
+  }
+
+  /** An Explain it back attempt on a part, made at `when`, whose stored answer is `items`. */
+  async function stored(book: string, chapterIndex: number, items: unknown[], when = T0) {
+    const { chapter } = await part(book, chapterIndex);
+    const out = await explainBack(database.db, new FakeModel(), ownerId, { bookId: book, chapterId: chapter.id, summary: `${summary} (${chapterIndex})` }, { now: () => when });
+    expect(out.error).toBeNull();
+    await database.db.update(generations).set({ createdAt: when, output: JSON.stringify({ items }) }).where(eq(generations.id, out.attempt!.id));
+    return out.attempt!.id;
+  }
+  const summary = "The part sets out who the people are, what they want, and what stands in their way, in some detail.";
+
+  const setText = (book: string, id: string, text: string) =>
+    database.db.update(sections).set({ text }).where(and(eq(sections.bookId, book), eq(sections.id, id)));
+
+  /** Every card as one short line, attempts and paragraphs named so the lines read the same on every run. */
+  async function view(names: Record<string, string>, onlyBooks: string[] | null = null) {
+    const places = new Map<string, string>();
+    for (const [b, tag] of [[bookId, "J"], [frankId, "F"]] as const)
+      for (const s of await getSections(database.db, ownerId, b)) if (s.kind === "paragraph") places.set(s.cfi, `${tag}${s.chapterIndex}:${s.position}`);
+    const name = (id: string) => Object.entries(names).reduce((s, [k, v]) => s.replace(k, v), id);
+    const q = await reviewQueue(database.db, ownerId, DAY, undefined, undefined, onlyBooks);
+    return {
+      count: await dueCount(database.db, ownerId, DAY, onlyBooks),
+      total: q.total,
+      nextDueAt: q.nextDueAt,
+      cards: q.cards.map((c) =>
+        c.kind === "gap"
+          ? `${name(c.id)} at ${places.get(c.cfi!) ?? c.cfi} quote="${c.quote.slice(0, 24)}" answer="${c.answer.slice(0, 24)}" ${c.isNew ? "new" : c.dueAt}`
+          : `${c.kind} ${c.isNew ? "new" : c.dueAt}`,
+      ),
+    };
+  }
+
+  it("give the same cards, count and next date as before the change, whatever the parts hold", async () => {
+    // 18 highlights, so the day's 20 new cards are not enough for all. Each attempt has its own minute, so the
+    // cards' order does not hang on their random ids.
+    for (let i = 40; i < 58; i++) await highlight(i, at("2026-10-10T09:00:00Z"));
+
+    // Jekyll part 3: a blank paragraph and an equation before the first passage, items Claude got wrong in each way.
+    const j3 = await part(bookId, 3);
+    const j3a = await stored(bookId, 3, [
+      item(1, words(j3.rows[2].text, 0, 8), "What opens the part?"),
+      item(3, "He loved the theatre above all things.", "What did he love?"),
+      item(999, words(j3.rows[10].text, 2, 8), "Where is this said?"),
+      item(999, words(j3.rows[1].text, 0, 6), "Is the equation quoted?"),
+      item(2, words(j3.rows[3].text, 0, 8), `What follows "${words(j3.rows[3].text, 0, 8)}"?`),
+      item(1, words(j3.rows[2].text, 0, 8), "No reason given?", ""),
+      item(4, words(j3.rows[5].text, 0, 8), "The fifth item kept?"),
+      item(5, words(j3.rows[6].text, 0, 8), "Past the five items?"),
+    ], at("2026-10-10T08:00:00Z"));
+    await setText(bookId, j3.rows[0].id, "  \n\t  ");
+    await database.db.update(sections).set({ form: "equation", text: "E = mc squared, the energy of the body" }).where(and(eq(sections.bookId, bookId), eq(sections.id, j3.rows[1].id)));
+
+    // Frankenstein part 3 has the same chapter number in another book.
+    const f3 = await part(frankId, 3);
+    const f3a = await stored(frankId, 3, [
+      item(1, words(f3.rows[0].text, 0, 8), "How does the preface open?"),
+      item(6, words(f3.rows[5].text, 0, 6), "How does it end?"),
+      item(7, "Words nobody wrote in the preface at all.", "Is there a seventh?"),
+    ], at("2026-10-10T08:01:00Z"));
+
+    // Jekyll part 9, made longer than the 60,000 characters Claude is shown: passage 15 is the last one.
+    const j9 = await part(bookId, 9);
+    const long = (t: string) => `${t.trim()} ${"filler words that pad the paragraph out ".repeat(140)}the very last words here`;
+    const original = j9.rows.map((r) => r.text);
+    const j9a = await stored(bookId, 9, [
+      item(15, words(j9.rows[14].text, 0, 8), "What is the fifteenth passage?"),
+      item(16, "A line in a passage past the limit.", "Past the limit?"),
+      item(999, words(j9.rows[20].text, 0, 8), "Found past the limit?"),
+      item(2, "the very last words here", "Cut from the passage?"),
+    ], at("2026-10-10T08:02:00Z"));
+    for (const r of j9.rows) await setText(bookId, r.id, long(r.text));
+
+    // Frankenstein part 9's paragraphs are gone (as after a library import, before the rebuild).
+    const f9a = await stored(frankId, 9, [item(1, words((await part(frankId, 9)).rows[0].text, 0, 8), "Gone?")], at("2026-10-10T08:03:00Z"));
+    await database.db.delete(sections).where(and(eq(sections.bookId, frankId), eq(sections.chapterIndex, 9), eq(sections.kind, "paragraph")));
+
+    // Jekyll part 4: an attempt stored before questions existed.
+    const j4 = await part(bookId, 4);
+    const j4a = await stored(bookId, 4, [{ kind: "missed", passage: 1, quote: words(j4.rows[0].text, 0, 8), why: "No question." }], at("2026-10-10T08:04:00Z"));
+
+    const names = { [j3a]: "J3", [f3a]: "F3", [j9a]: "J9", [f9a]: "F9", [j4a]: "J4" };
+    expect(await view(names)).toMatchInlineSnapshot(`
+      {
+        "cards": [
+          "note new",
+          "g:J3:0 at J3:40 quote="With that he blew out hi" answer="With that he blew out hi" new",
+          "g:J3:1 at J3:42 quote="" answer="After a little rambling " new",
+          "g:J3:2 at J3:48 quote="Lanyon. “No. Never heard" answer="“Hyde?” repeated Lanyon." new",
+          "g:J3:6 at J3:43 quote="I suppose, Lanyon,” said" answer="“I suppose, Lanyon,” sai" new",
+          "note new",
+          "g:F3:0 at F3:28 quote="The event on which this " answer="The event on which this " new",
+          "g:F3:1 at F3:33 quote="Marlow, September, 1817." answer="Marlow, September, 1817." new",
+          "note new",
+          "g:J9:0 at J9:208 quote="Well, sir,” he said, “he" answer="“Well, sir,” he said, “h" new",
+          "g:J9:3 at J9:195 quote="" answer="“Bless me, Poole, what b" new",
+          "note new",
+          "note new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+        ],
+        "count": 20,
+        "nextDueAt": "2026-10-13T00:00:00.000Z",
+        "total": 31,
+      }
+    `);
+    expect(await view(names, [frankId])).toMatchInlineSnapshot(`
+      {
+        "cards": [
+          "note new",
+          "g:F3:0 at F3:28 quote="The event on which this " answer="The event on which this " new",
+          "g:F3:1 at F3:33 quote="Marlow, September, 1817." answer="Marlow, September, 1817." new",
+          "note new",
+        ],
+        "count": 4,
+        "nextDueAt": null,
+        "total": 4,
+      }
+    `);
+
+    // A rated gap card leaves today's count at once.
+    await rateCard(database.db, ownerId, `g:${j3a}:0`, "good", DAY);
+    expect(await view(names)).toMatchInlineSnapshot(`
+      {
+        "cards": [
+          "note new",
+          "g:J3:1 at J3:42 quote="" answer="After a little rambling " new",
+          "g:J3:2 at J3:48 quote="Lanyon. “No. Never heard" answer="“Hyde?” repeated Lanyon." new",
+          "g:J3:6 at J3:43 quote="I suppose, Lanyon,” said" answer="“I suppose, Lanyon,” sai" new",
+          "note new",
+          "g:F3:0 at F3:28 quote="The event on which this " answer="The event on which this " new",
+          "g:F3:1 at F3:33 quote="Marlow, September, 1817." answer="Marlow, September, 1817." new",
+          "note new",
+          "g:J9:0 at J9:208 quote="Well, sir,” he said, “he" answer="“Well, sir,” he said, “h" new",
+          "g:J9:3 at J9:195 quote="" answer="“Bless me, Poole, what b" new",
+          "note new",
+          "note new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+        ],
+        "count": 19,
+        "nextDueAt": "2026-10-13T00:00:00.000Z",
+        "total": 31,
+      }
+    `);
+
+    // The sections are rebuilt between two counts: part 9 is short again, so passages 16 and 21 are back.
+    for (const [i, r] of j9.rows.entries()) await setText(bookId, r.id, original[i]);
+    expect(await view(names)).toMatchInlineSnapshot(`
+      {
+        "cards": [
+          "note new",
+          "g:J3:1 at J3:42 quote="" answer="After a little rambling " new",
+          "g:J3:2 at J3:48 quote="Lanyon. “No. Never heard" answer="“Hyde?” repeated Lanyon." new",
+          "g:J3:6 at J3:43 quote="I suppose, Lanyon,” said" answer="“I suppose, Lanyon,” sai" new",
+          "note new",
+          "g:F3:0 at F3:28 quote="The event on which this " answer="The event on which this " new",
+          "g:F3:1 at F3:33 quote="Marlow, September, 1817." answer="Marlow, September, 1817." new",
+          "note new",
+          "g:J9:0 at J9:208 quote="Well, sir,” he said, “he" answer="“Well, sir,” he said, “h" new",
+          "g:J9:1 at J9:209 quote="" answer="“Amen, Poole,” said the " new",
+          "g:J9:2 at J9:214 quote="They’re all afraid,” sai" answer="“They’re all afraid,” sa" new",
+          "g:J9:3 at J9:195 quote="" answer="“Bless me, Poole, what b" new",
+          "note new",
+          "note new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+          "highlight new",
+        ],
+        "count": 19,
+        "nextDueAt": "2026-10-13T00:00:00.000Z",
+        "total": 33,
+      }
+    `);
+  });
+
+  it("are counted with the same number of database queries for one attempt or many", async () => {
+    const client = (database.db as unknown as { $client: { query: (...a: unknown[]) => unknown } }).$client;
+    const queries = async () => {
+      const spy = vi.spyOn(client, "query");
+      await dueCount(database.db, ownerId, DAY);
+      const n = spy.mock.calls.length;
+      spy.mockRestore();
+      return n;
+    };
+    await stored(bookId, 3, [item(1, "With that he blew out his candle", "What opens the part?")]);
+    const one = await queries();
+    for (const i of [4, 5, 6]) await stored(bookId, i, [item(1, "Not quoted from the book at all.", "A question?")]);
+    for (const i of [3, 7]) await stored(frankId, i, [item(1, "Not quoted from the book at all.", "A question?")]);
+    expect(await queries()).toBe(one);
+  });
+
+  it("read a part the same whatever case its book's id is written in", async () => {
+    const { chapter } = await part(bookId, 3);
+    const passages = await partPassages(database.db, bookId, chapter);
+    expect(passages.length).toBeGreaterThan(10);
+    expect(await partPassages(database.db, bookId.toUpperCase(), chapter)).toEqual(passages);
   });
 });
