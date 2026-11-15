@@ -1,0 +1,82 @@
+---
+title: "A note you write offline, and what the outbox does with it"
+---
+stateDiagram-v2
+  direction LR
+  state "Legend" as legend {
+    lg0: Not written
+    lg1: In between
+    lg2: Saved
+    lg3: Removed
+    lg4: Breaks NewNoteKept or RemovalKept
+    lg5: Path to the NewNoteKept or RemovalKept bug
+  }
+  class lg0 blue
+  class lg1 yellow
+  class lg2 teal
+  class lg3 tan
+  class lg4 breaks
+  class lg5 bugPath
+  state "At the same time" as all {
+    state "Network" as r0 {
+      s0: Online
+      s1: Offline
+      [*] --> s0
+      s0 --> s1: the network drops
+      s1 --> s0: the network comes back
+    }
+    --
+    state "Your new note" as r1 {
+      s2: Not written yet
+      s3: On the library#59; a copy still waits here
+      s4: Saved on the library
+      s5: Removed#59; a copy of the removal still waits here
+      s6: Removed
+      s7: Waits on this device
+      s8: Library has the old words#59; the new words wait here
+      s9: Removed here#59; the removal waits on this device
+      s10: Removed here, but the library still has it
+      s11: Your new words are lost
+      [*] --> s2
+      s2 --> s3: you write a note#59; the library stores it but its answer is lost [when Online]
+      s2 --> s4: you write a note [when Online]
+      s4 --> s5: you remove your new note#59; the library takes it but its answer is lost [when Online]
+      s4 --> s6: you remove your new note [when Online]
+      s4 --> s3: you edit your new note#59; the library stores it but its answer is lost [when Online]
+      s2 --> s7: you write a note [when Offline]
+      s4 --> s8: you edit your new note [when Offline]
+      s4 --> s9: you remove your new note [when Offline]
+      s3 --> s10: you remove your new note
+      s3 --> s8: you give it new words before it is sent
+      s3 --> s4: the library's answer reaches the page#59; the copy here is deleted [when Online]
+      s7 --> s6: you remove your new note
+      s5 --> s6: the library's answer reaches the page#59; the copy here is deleted [when Online]
+      s7 --> s3: the library takes the new note [when Online]
+      s8 --> s11: the library's answer reaches the page#59; the copy here is deleted [when Online]
+      s8 --> s3: the library takes an edit [when Online]
+      s9 --> s5: the library takes a removal [when Online]
+      s4 --> s10: you remove your new note [as the page sends it]
+      s4 --> s8: you give it new words [as the page sends the old ones]
+      s7 --> s8: the library takes the new note, a copy read before your last change [when Online]
+      s6 --> s10: the library takes the new note, a copy read before your last change [when Online]
+    }
+  }
+  classDef breaks fill:#ffecee,stroke:#e72e3b,stroke-width:2.5px,color:#cd2834
+  class s0 bugPath
+  class s2 blue
+  class s2 bugPath
+  class s3 yellow
+  class s3 bugPath
+  class s4 teal
+  class s5 tan
+  class s6 tan
+  class s7 yellow
+  class s8 yellow
+  class s8 bugPath
+  class s9 tan
+  class s10 tan
+  class s10 breaks
+  class s10 bugPath
+  class s11 yellow
+  class s11 breaks
+  class s11 bugPath
