@@ -71,4 +71,5 @@ if [ -n "$changed" ]; then
   echo "verify-spending: as expected, but the covered code changed since the sync commit"
   exit 3
 fi
-echo "verify-spending: all as expected"
+open=$(ls "$here"/*-finding-*.cfg | wc -l | tr -d ' ')
+echo "verify-spending: all as expected (the $open finding configs still break their rules: the known findings in SKILL.md are still in the code)"

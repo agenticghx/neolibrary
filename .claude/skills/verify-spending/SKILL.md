@@ -42,7 +42,8 @@ pinned versions; the first run downloads them) and compares each result with the
 line at the top of that config; runs the replays in `replay/` with vitest; and says whether the
 covered code changed since the sync commit. Its last line is the verdict:
 
-- `verify-spending: all as expected` (exit 0).
+- `verify-spending: all as expected (the 11 finding configs still break their rules: …)` (exit 0).
+  "As expected" includes the known findings below: it does not mean spending is safe.
 - `verify-spending: NOT as expected` (exit 1): a `WRONG` line names the config or replay.
 - `verify-spending: as expected, but the covered code changed since the sync commit` (exit 3):
   read "When the covered code changed" below.
@@ -147,7 +148,10 @@ the voice and picture caps (same steps, other numbers); the Anthropic SDK's own 
 (`maxRetries: 2`: an attempt that is billed but returns no usage is not counted anywhere); a
 voice note's cost, which comes from the duration the browser reports; `fresh: true` (always
 pays, by design); two tabs or devices (each counts its own $1, by design: "each visit starts
-off").
+off"). Not replayed on the real code (tied to it only by the `LOOK` line): `makeMissing`'s
+`running` guard (`OneLoopAtATime`), and the server's text-edition, audio, picture and voice-note
+paths beyond the findings above. `PaidOncePerAnswer` and `NeverPastOneDollar` are checked only
+in their findings' configs (7 and 8): the code does not keep them.
 
 ## Known findings
 
@@ -254,8 +258,8 @@ When a config's result differs from its `Expected:` line:
    or add the guard the code has), and say so in the commit. Until a replay shows otherwise, treat
    the model as wrong, not the code.
 
-When a replay in `replay/conformance.replay.ts` fails, the code no longer takes a step the models
-assume; each test names its action.
+When a replay in `replay/conformance.replay.ts`, or a "steps" test in `replay/client.replay.ts`,
+fails, the code no longer takes a step the models assume; each test names its action.
 
 ## When the covered code changed
 
@@ -263,7 +267,9 @@ assume; each test names its action.
 
 1. Read `git diff <sync commit> -- <the files>`.
 2. For each change, find the action it touches in the step table. Change that action (or add one)
-   so that the model takes the steps the code now takes. Keep the rules as they are, unless Samuel
+   so that the model takes the steps the code now takes. If the change is one of the "Broken
+   variants" below, set `Mutant` in the main config to that variant to see which rule breaks, and
+   do not commit that setting. Keep the rules as they are, unless Samuel
    changed the promise itself (then change the rule, or a number such as `AskAt`, and say so).
 3. Run `check.sh`. A main config that now breaks a rule is a finding: replay it, report it.
 4. Update the replays to the new code; a finding's replay that now fails means the bug is gone.
@@ -286,8 +292,9 @@ None yet.
 - `spend-cap-view.mjs`, `rewrite-as-you-turn-view.mjs`: the words for /pstack:statechart.
 - `rewrite-as-you-turn-flow.mmd`, `concurrent-paid-calls.mmd`: the charts.
 - `check.sh`: the one command.
-- `replay/`: `conformance.replay.ts` (the code takes the models' steps), `findings.replay.ts` and
-  `client.replay.ts` (each finding on the real code), `fakes.ts`, `vitest.config.mts`. Their names
+- `replay/`: `conformance.replay.ts` and the "steps" tests of `client.replay.ts` (the code takes
+  the models' steps), `findings.replay.ts` and the "findings" tests of `client.replay.ts` (each
+  finding on the real code), `fakes.ts`, `vitest.config.mts`. Their names
   end in `.replay.ts`, so `npm test` does not run them; `check.sh` does. `tsc` skips folders whose
   names start with a dot, so `npm run check` does not type-check them either: after editing one,
   run `check.sh` (vitest reports a wrong import or name when it runs them).

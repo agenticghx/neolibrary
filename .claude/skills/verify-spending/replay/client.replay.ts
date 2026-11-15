@@ -1,6 +1,8 @@
-// Findings 9 and 10 (RewriteAsYouTurn), replayed on the real RewrittenPane: React 19 renders it into
-// linkedom's document in Node (no browser), and every request to the server is answered by hand.
-// Each test PASSES WHILE THE BUG IS THERE (see findings.replay.ts).
+// The real RewrittenPane: React 19 renders it into linkedom's document in Node (no browser), and every
+// request to the server is answered by hand. Two kinds of test:
+// - "steps": the pane takes the steps RewriteAsYouTurn.tla assumes; they pass on the code as it is
+//   (like conformance.replay.ts). One that fails means the code changed under the model.
+// - "findings" 9 and 10: each PASSES WHILE THE BUG IS THERE (see findings.replay.ts).
 import { parseHTML } from "linkedom";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -87,6 +89,46 @@ function press(text: string) {
   const props = Object.entries(button).find(([k]) => k.startsWith("__reactProps"))?.[1] as { onClick: () => void };
   props.onClick();
 }
+
+const paidPost = async (label: string) => {
+  const post = await take(isPost, label);
+  post.reply(201, made(post.body?.sectionId as string));
+  await sleep(20);
+  return post.body?.sectionId;
+};
+const noPost = async () => {
+  await sleep(300);
+  return pending.filter(isPost).map((p) => p.body?.sectionId);
+};
+
+describe("RewriteAsYouTurn.tla's steps, in the real RewrittenPane", () => {
+  it("TheLoopDecides stops at AskAt: two 60-cent paragraphs are paid ($1.20), then it asks before the third", async () => {
+    pending.length = 0;
+    const { root } = await mount();
+    (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2", "a3"]));
+    await sleep(20);
+    press("Rewrite this page");
+    expect([await paidPost("a1"), await paidPost("a2")]).toEqual(["a1", "a2"]);
+    expect(await noPost()).toEqual([]);
+    expect(document.body.textContent).toContain("Keep rewriting?");
+    root.unmount();
+  });
+
+  it("YouPressStop: Stop while a paragraph is with the AI; after its answer, nothing more is sent", async () => {
+    pending.length = 0;
+    const { root } = await mount();
+    (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2"]));
+    await sleep(20);
+    press("Rewrite this page");
+    const a1 = await take(isPost, "a1");
+    await sleep(20);
+    press("Stop");
+    await sleep(20);
+    a1.reply(201, made("a1"));
+    expect(await noPost()).toEqual([]);
+    root.unmount();
+  });
+});
 
 describe("RewriteAsYouTurn findings, on the real RewrittenPane", () => {
   it("Finding 9 (RewriteAsYouTurn-finding-stale-turn): the next page's view arrives before React copies the new total, and a paragraph is paid past $1 without asking", async () => {
