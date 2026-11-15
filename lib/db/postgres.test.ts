@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FakeModel } from "@/lib/ai/fake";
 import { createFirstAdmin } from "@/lib/auth/service";
 import { createApiToken, revokeApiToken, userForApiToken } from "@/lib/auth/tokens";
@@ -22,6 +22,7 @@ import { FakeSpeech, wav } from "@/lib/speech/fake";
 import { FakeTranscriber } from "@/lib/speech/transcribe";
 import { MemoryStorage } from "@/lib/storage";
 import { openDatabase, type Database } from "./client";
+import { users } from "./schema";
 import { loadMigrations, migrateDown, migrateUp } from "./migrate";
 
 /**
@@ -190,4 +191,36 @@ describe.skipIf(!base)("on a real Postgres (production's database library)", () 
     await importLibrary(db, ownerId, JSON.parse(JSON.stringify(before)));
     expect({ ...(await exportLibrary(db, ownerId)), exportedAt: "" }).toEqual({ ...before, exportedAt: "" });
   }, 120_000);
+
+  it("the spending lock (M44): two copies of the server, each with its own pool, never both pass a cap only one fits", async () => {
+    // Each copy of lib/ai/generate has its own in-process queue; only the advisory lock in Postgres keeps their
+    // turns apart. Twenty reserves at once, from five copies, through two pools of five connections.
+    const url = new URL(base!);
+    url.pathname = `/${name}`;
+    const other = await openDatabase({ DATABASE_URL: url.toString() });
+    try {
+      const [owner] = await database.db.select({ id: users.id }).from(users).limit(1);
+      // Five copies of the server (each its own in-process queue), over the two pools.
+      const copies: (typeof import("@/lib/ai/generate"))[] = [];
+      for (let i = 0; i < 5; i++) {
+        vi.resetModules();
+        copies.push(await import("@/lib/ai/generate"));
+      }
+      const pools = [database.db, other.db];
+      // Open every connection first, so that no copy's first turn is delayed by connecting.
+      await Promise.all(pools.flatMap((db) => Array.from({ length: 5 }, () => db.select({ id: users.id }).from(users).limit(1))));
+      const caps = { perBookUsd: 100, perMonthUsd: 1.5 };
+      const now = new Date("2026-11-15T12:00:00Z");
+      const holdFor = { ownerId: owner.id, bookId: null, model: "m", kind: "lock-test" };
+      const tries = await Promise.allSettled(
+        Array.from({ length: 20 }, (_, i) => copies[i % copies.length].reserveSpend(pools[i % 2], "lock-test", holdFor, 1, caps, now, "AI")),
+      );
+      expect(tries.filter((t) => t.status === "fulfilled")).toHaveLength(1);
+      expect(tries.filter((t) => t.status === "rejected").every((t) => String((t as PromiseRejectedResult).reason).includes("spending cap"))).toBe(true);
+      await (tries.find((t) => t.status === "fulfilled") as PromiseFulfilledResult<{ release(): Promise<void> }>).value.release();
+      expect((await copies[0].heldByCalls(database.db, "lock-test", null, now)).month).toBe(0);
+    } finally {
+      await other.raw.close();
+    }
+  }, 60_000);
 });

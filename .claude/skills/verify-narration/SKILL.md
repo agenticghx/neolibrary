@@ -15,9 +15,11 @@ Create; one runs at a time; it never pays for a paragraph that is already saved;
 paragraph being made; it pays for no more than the cost the box stated; no paragraph is paid for twice; and what the
 voice bills never passes the spending limits.
 
-**What passes today.** Six of these promises hold within the bounds below (`Narration.cfg` exits 0). Two do not: a
-paragraph can be paid for twice (PaidOnce) and the voice's bill can pass a limit (WithinLimits). The code breaks
-them (findings 1-3, replayed against the real code); `NarrationFindings.cfg` keeps them failing until they are fixed.
+**What passes today.** Seven of these promises hold within the bounds below (`Narration.cfg` exits 0). One does
+not: a paragraph can be paid for twice (PaidOnce). The code breaks it (findings 1-3, replayed against the real
+code); `NarrationFindings.cfg` keeps it failing until it is fixed. The voice's bill passing a limit (WithinLimits)
+was fixed in M44: a paragraph's hold (its reserved estimate) is now a row in the database, which a restart, a failed
+save or a second server no longer loses.
 
 **The harm if broken.** Samuel pays ElevenLabs for more narration than he chose: a paragraph twice, past his limit,
 or (in the worst case) a whole book.
@@ -42,7 +44,7 @@ changes").
 |---|---|
 | `lib/library/narration.ts` | `startNarration` (244-277), `run` (279-306), `stopNarration` (313-321), the runs list on `globalThis` (118-120), `narrationSummary`'s cost to make (the cost box) |
 | `lib/library/audio.ts` | `speakPassage` and its in-flight list (236-257), `speak` (259-305), `storedTrack`, `cacheKeyOf` (saved means: same owner, voice, model and text, in any book) |
-| `lib/ai/generate.ts` | `reserveSpend` (248-280), `assertRoom` (196), `spending` (128), the spend holds (214) |
+| `lib/ai/generate.ts` | `reserveSpend` and the hold it returns (`release`, `billed`), `withSpendLock` (the Postgres advisory lock), `assertRoom`, `spending`, `heldByCalls` (the hold rows in `failed_spend`, kind `spend-hold`) |
 | `app/api/books/[id]/narration/route.ts` | POST: only the owner (59), then `startNarration` (65); DELETE: `stopNarration` (80) |
 | `app/api/books/[id]/audio/route.ts` | POST: the Listen bar calls `speakPassage` (65) with the same voice model as the run |
 | `lib/speech/index.ts` | `getSpeechModel` (31): the owner's Listen bar and the run get the same voice model |
@@ -56,7 +58,7 @@ Files in this folder:
 | `Narration.tla` | the model: steps, guards, rules, and the books used as bounds |
 | `Narration.cfg` | the main check: every rule that holds today (expect exit 0) |
 | `NarrationNoKnownCauses.cfg` | the second check: all eight rules with the known findings' causes switched off (expect exit 0) |
-| `NarrationFindings.cfg` | the two rules the code breaks today, findings 1-3 (expect exit 12) |
+| `NarrationFindings.cfg` | the one rule the code breaks today, findings 1-3 (expect exit 12) |
 | `NarrationOverlap.cfg` | every rule, when the old server runs on after a restart, finding 4 (expect exit 12) |
 | `NarrationFlow.cfg` | small bounds for the chart |
 | `narration-view.mjs` | labels for states and steps in Samuel's words, for the statechart skill |
@@ -73,7 +75,7 @@ sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla
 sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla .claude/skills/verify-narration/NarrationNoKnownCauses.cfg
 ```
 
-The first prints `Model checking completed. No error has been found.` (246,846 distinct states, about 4 seconds).
+The first prints `Model checking completed. No error has been found.` (76,606 distinct states, about 4 seconds).
 The second prints the same line (11,623 distinct states). Exit 12 means a rule broke; the line
 `Error: Invariant <Rule> is violated.` names it. Exit 11 is a deadlock. Exit 150 or more means the model itself is
 wrong (a TLA+ error, not a finding).
@@ -93,11 +95,13 @@ the config that lists only the rules not yet broken.
 
 | Config | Exit today | Rules that break today | Rules that hold |
 |---|---|---|---|
-| `Narration.cfg` | 0 | none | OnlyTheOwnerStarts, OnlyAfterYouConfirm, OneRunAtATime, StopPaysAtMostOneMore, SavedNeverPaidAgain, NoMoreThanYouConfirmed |
+| `Narration.cfg` | 0 | none | OnlyTheOwnerStarts, OnlyAfterYouConfirm, OneRunAtATime, StopPaysAtMostOneMore, SavedNeverPaidAgain, NoMoreThanYouConfirmed, WithinLimits |
 | `NarrationNoKnownCauses.cfg` | 0 | none | all eight |
-| `NarrationFindings.cfg` | 12 | PaidOnce (findings 1, 2, 3), WithinLimits (findings 1, 2) | |
-| `NarrationOverlap.cfg` | 12 | OneRunAtATime, StopPaysAtMostOneMore, NoMoreThanYouConfirmed, PaidOnce, WithinLimits (finding 4) | OnlyTheOwnerStarts, OnlyAfterYouConfirm, SavedNeverPaidAgain |
-| `NarrationFlow.cfg` (the chart only) | 12 | PaidOnce, WithinLimits (finding 1) | the other six |
+| `NarrationFindings.cfg` | 12 | PaidOnce (findings 1, 2, 3) | WithinLimits (since M44) |
+| `NarrationOverlap.cfg` | 12 | OneRunAtATime, StopPaysAtMostOneMore, NoMoreThanYouConfirmed, PaidOnce (finding 4) | OnlyTheOwnerStarts, OnlyAfterYouConfirm, SavedNeverPaidAgain, WithinLimits (since M44) |
+| `NarrationFlow.cfg` (the chart only) | 0 | none (since M44: the hold left by the restart fills the month's limit of one paragraph, so paragraph 1 is not paid again in these bounds) | all eight |
+
+Each row was settled rule by rule (one scratch config per rule) on 2026-11-15, M44.
 
 A change is safe for these rules when both checks exit 0 and the other configs break no rule beyond the table.
 `NarrationNoKnownCauses.cfg` matters because a known-broken rule can break again for a new reason, and the two
@@ -135,12 +139,12 @@ has two steps, and anything (Stop, the Listen bar, a restart) may happen between
 | `RunReadsSaved(k)` | the run reads which paragraphs are saved | narration.ts 286-287 (`paragraphsOf`, `savedKeys`), then the loop up to the first wait (see `MoveOn`) |
 | `MoveOn` (part of the step that ends a paragraph) | | narration.ts 288-293: the Stop check (289), skipping saved paragraphs (292), and entering `speakPassage` up to `inflight.set` (audio.ts 247-251) happen with no wait |
 | `RunLooksUp(k)`, `ListenLooksUp` | the paragraph is not saved yet / is saved already | audio.ts 267-270 (`passageFor`, `storedTrack`) |
-| `RunPays(k)`, `ListenPays` | a paragraph is paid for / a limit is reached | audio.ts 272-274: `reserveSpend` (generate.ts 260-265, check and hold under one lock), then `model.speak` sends the request; the voice bills it then |
-| `RunSaves(k)`, `ListenSaves` | the paragraph is saved | audio.ts 275-303: answer, `storage.put`, the `audio_tracks` insert, `release()`, then narration.ts 294 and on to the next paragraph |
-| `RunSaveFails(k)`, `ListenSaveFails` | saving the paid paragraph fails | audio.ts 278-300 throws; narration.ts 298-305 ends the run |
+| `RunPays(k)`, `ListenPays` | a paragraph is paid for / a limit is reached | audio.ts `speak`: `reserveSpend` (under `withSpendLock`, one Postgres advisory lock for every server: read what is spent and held, check, insert the hold row), then `model.speak` sends the request; the voice bills it then |
+| `RunSaves(k)`, `ListenSaves` | the paragraph is saved | audio.ts `speak`: answer, `storage.put`, the `audio_tracks` insert, `hold.release()` (the hold row is deleted), then narration.ts 294 and on to the next paragraph |
+| `RunSaveFails(k)`, `ListenSaveFails` | saving the paid paragraph fails | audio.ts `speak` throws after `hold.billed()` turns the hold row into the paid cost (`failed_spend`); narration.ts 298-305 ends the run |
 | `YouPressStop(b)` | you press Stop | narration/route.ts 80, narration.ts 314-317 (sets `stopRequested` on the run in this server's list) |
 | `YouPressListen(i)` | you press Listen on a paragraph | audio/route.ts 65, audio.ts 247-251 (joins a call already going on for the same paragraph) |
-| `TheSiteRestarts` | the site restarts | a deploy: the server's memory (runs list, in-flight list, spend holds) is gone; the database is kept |
+| `TheSiteRestarts` | the site restarts | a deploy: the server's memory (runs list, in-flight list, the spending lock's queue) is gone; the database is kept, and with it the hold of a paragraph being paid for (counted in `spent` from then on, at its estimate) |
 | `TheOldServerStops` | the old server stops | only with `OldServerLingers = TRUE` |
 
 The guards, with the rule each one protects (switch one off with `Broken = {"stop check"}` in a scratch copy of a
@@ -157,30 +161,33 @@ config; every committed config has `Broken = {}`):
 | `skip saved` | narration.ts 292 | none alone (`storedTrack` catches it); with `stored check` off too, NoMoreThanYouConfirmed |
 | `limits` | audio.ts 272 | WithinLimits |
 | `share in-flight` | audio.ts 248-251 | PaidOnce (the Listen bar on the run's own paragraph) |
+| `holds in database` | generate.ts `reserveSpend` (M44): the hold is a row under the advisory lock; `speak` calls `hold.billed` when saving fails | WithinLimits (switched off: the holds of before M44, in one server's memory; tried on 2026-11-15 with `Narration.cfg`: exit 12, a failed save then two Listen payments) |
 
 ## Known findings
 
 Each was replayed against the real code with the fake voice (`findings-replay.test.ts.txt`; every replay passes,
-so every finding is real). Not fixed as of the sync commit.
+so every finding is real). The part of findings 1, 2 and 4 that passed a limit (WithinLimits) was fixed in M44; what
+is left is below.
 
-1. **A restart while a paragraph is being paid for.** (PaidOnce, WithinLimits)
+1. **A restart while a paragraph is being paid for.** (PaidOnce; WithinLimits fixed in M44)
    1. You press Create; `run` comes to paragraph 1; `speak` finds no saved track, `reserveSpend` holds its estimate,
       `model.speak` sends the request (billed).
-   2. The site restarts (a deploy). `next start` waits for open requests, not for the run, and exits. No audio,
-      no `audio_tracks` row, and the hold is gone with the memory: nothing records that paragraph 1 was paid for.
-   3. You press Continue (or the Listen bar asks for paragraph 1). `savedKeys` and `storedTrack` find nothing;
-      `spending` does not count the lost payment, so `reserveSpend` finds room; `model.speak` pays for paragraph 1
-      again.
+   2. The site restarts (a deploy). `next start` waits for open requests, not for the run, and exits. No audio and
+      no `audio_tracks` row; since M44 the hold row stays, so paragraph 1's estimate stays counted against the limits.
+   3. You press Continue (or the Listen bar asks for paragraph 1). `savedKeys` and `storedTrack` find nothing; if the
+      limits leave room beside the kept hold, `model.speak` pays for paragraph 1 again.
 
    This finding assumes that the voice bills a request whose answer never arrives. ElevenLabs was not asked or
    tested (Samuel's rule: no paid voice); finding 2 does not need the assumption.
 
-   Replay: 4-paragraph book, paragraph 1 billed twice, $0.1050 billed against $0.0840 recorded; with a book limit of
-   $0.0525, $0.0630 billed. Deploys are automatic after every merge to `main`, and a run spends most of its time
-   inside the paid call, so each deploy during a run very likely costs one paragraph.
+   Replay: 4-paragraph book, paragraph 1 billed twice (the second payment is counted beside the kept hold). Before
+   M44, with a book limit of $0.0525, $0.0630 was billed; that is now a real test
+   (`lib/library/narration.test.ts`, "a restart while a paragraph is being paid for"), which stops at the limit.
+   Deploys are automatic after every merge to `main`, and a run spends most of its time inside the paid call, so
+   each deploy during a run very likely costs one paragraph, never past a limit.
 2. **Saving a paid paragraph fails** (`storage.put` or the insert throws). The same as finding 1 without a restart:
-   the run ends with "Stopped by an error", no row, nothing counted (the text AI path records such money in
-   `failed_spend`; the voice path does not), and Continue pays again. Replay: paragraph 1 billed twice.
+   the run ends with "Stopped by an error", no audio, and Continue pays again. Since M44 the paid paragraph is
+   counted (`hold.billed` writes it to `failed_spend`). Replay: paragraph 1 billed twice, both counted.
 3. **Two paragraphs with the same text.** (PaidOnce) The in-flight list is keyed by paragraph (owner, book,
    section, voice, model: audio.ts 247) but "saved" is by text (`cacheKeyOf`).
    1. The run is paying for paragraph 1 (`model.speak` sent).
@@ -190,10 +197,10 @@ so every finding is real). Not fixed as of the sync commit.
    Replay: the text billed twice. The same paragraph is safe: the Listen bar joins the run's call (replayed: paid
    once).
 4. **If the old server runs on after a restart** (OneRunAtATime, StopPaysAtMostOneMore, NoMoreThanYouConfirmed,
-   PaidOnce, WithinLimits). The runs list, the in-flight list and the spend holds live in one server's memory. If a
+   PaidOnce; WithinLimits fixed in M44). The runs list and the in-flight list live in one server's memory. If a
    deploy lets the old server finish its work while the new one already takes requests, then Continue starts a second
-   run, both pay for the same paragraphs, Stop on the new server cannot reach the old run, and neither server sees
-   the other's holds. Replay (two copies of the modules in one process): two runs at once, paragraph 1 billed
+   run, both pay for the same paragraphs, and Stop on the new server cannot reach the old run. Since M44 both see
+   each other's holds (rows in the database, under one advisory lock), so together they stop at the limits. Replay (two copies of the modules in one process): two runs at once, paragraph 1 billed
    twice, 3 paragraphs paid after Stop. Whether the host keeps the old server running, and for how long, is not in
    the repository: this finding holds only if it does.
 
@@ -212,8 +219,9 @@ for two) fails if a wait comes between looking at the runs list and adding to it
 - The bug does not happen: assume the model is wrong until you show it is not. Look for a step that the model
   splits but the code runs without a wait (or the other way round), a guard the model lacks, or a value the model
   reads at the wrong moment. Fix the model, rerun, replay again.
-- One vitest process shares the in-flight list, the spend holds and the runs list. `forgetNarrationsForTests()`
-  clears only the runs list, so a restart replay without `newServer()` wrongly shows "paid once".
+- One vitest process shares the in-flight list and the runs list. `forgetNarrationsForTests()` clears only the runs
+  list, so a restart replay without `newServer()` wrongly shows "paid once". The holds are rows in the test
+  database: a "restart" keeps them, as a real one does.
 
 ## When the code changes
 
@@ -253,8 +261,8 @@ passed once the change was undone (`Stop sent: [ 'Lamp 1' ] ended: stopped`).
 - Bounds (`NarrationNoKnownCauses.cfg`): the same, but Lamps has three different texts, and there is no restart and
   no failed save.
 - One server at a time, unless `OldServerLingers`. The narration route and the audio route share one copy of
-  `audio.ts` and `generate.ts` in a server, so the run and the Listen bar share the in-flight list and the spend
-  holds. This was checked in a production build (Turbopack): both routes load the same chunk through one runtime.
+  `audio.ts` and `generate.ts` in a server, so the run and the Listen bar share the in-flight list (the spend holds
+  are rows in the database, shared by every server since M44). This was checked in a production build (Turbopack): both routes load the same chunk through one runtime.
   It came from an earlier build, not from the sync commit; rebuild and look again if the build setup changes.
 - A request sent to the voice is billed even if the server dies before the answer comes.
 - On a restart, open requests (the Listen bar's) finish first (Next.js closes the server, which waits for them); the
@@ -275,8 +283,9 @@ passed once the change was undone (`Stop sent: [ 'Lamp 1' ] ended: stopped`).
 ## The chart
 
 `narration-flow.mmd` shows one book of two paragraphs, a monthly limit of one paragraph and one restart
-(`NarrationFlow.cfg`, 93 states). States marked *mayBreak* can break PaidOnce or WithinLimits (finding 1); the
-marked path is the restart, then Continue, then paragraph 1 paid again. The view hides "the site restarts" from
+(`NarrationFlow.cfg`). It was drawn before M44: its states marked *mayBreak* (the restart, then Continue, then
+paragraph 1 paid again) no longer break a rule in these bounds, because the kept hold fills the month's limit (75
+states, every rule holds). Redraw it with `/pstack:statechart` when that skill is at hand. The view hides "the site restarts" from
 states where no run is going on (it changes nothing a reader sees) and does not draw steps that stay in one state
 (for example the payment made while "Stopping"). These bounds never reach "Done", the book's limit, an error, the
 Listen bar or a second server; the other configs check those.

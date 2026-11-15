@@ -326,3 +326,33 @@ describe("making the whole book in the background (M14 follow-up V5)", () => {
     expect(voice.calls).toHaveLength(0);
   });
 });
+
+describe("a restart while a paragraph is being paid for (verify-narration finding 1, M44)", () => {
+  it("keeps that paragraph's hold, so what the voice bills stays within the book's limit", async () => {
+    const texts = Array.from({ length: 4 }, (_, i) => `Lamp ${i + 1} is lit at dusk by the keeper, who walks the length of the quay.`);
+    const bytes = readableEpub("Four Lamps", [`<h1>The lamps</h1>${texts.map((t) => `<p>${t}</p>`).join("")}`], "Iris Wick");
+    const bookId = (await importBook(database.db, storage, ownerId, { name: "lamps.epub", bytes })).bookId;
+    /** The fake voice, counting each request when it is sent (when the voice bills it); the second is never answered. */
+    class Voice extends FakeSpeech {
+      sent: string[] = [];
+      async speak(req: SpeechRequest) {
+        this.sent.push(req.text);
+        if (this.sent.length === 2) return new Promise<never>(() => {}); // on its way when the server dies
+        return super.speak(req);
+      }
+    }
+    const voice = new Voice();
+    const cost = (i: number) => speechCost(texts[i].length);
+    const caps = { perBookUsd: cost(0) + cost(1) + cost(2) / 2, perMonthUsd: 100 };
+    await startNarration({ db: database.db, storage, model: voice, caps }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(2));
+    // The site restarts: fresh modules (a new in-flight list and spending lock queue) and no runs.
+    delete (globalThis as { __neolibraryNarrations?: unknown }).__neolibraryNarrations;
+    vi.resetModules();
+    const after = await import("./narration");
+    await (await after.startNarration({ db: database.db, storage, model: voice, caps }, ownerId, bookId, "fake-ada", true)).done;
+    const billed = voice.sent.reduce((n, t) => n + speechCost(t.length), 0);
+    expect(billed).toBeLessThanOrEqual(caps.perBookUsd);
+    expect((await after.narrationSummary(database.db, voice, ownerId, bookId, "fake-ada", { caps })).stoppedBecause?.message).toMatch(/^This book.s voice spending cap/);
+  });
+});

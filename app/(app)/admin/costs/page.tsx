@@ -58,6 +58,12 @@ export default async function CostsPage() {
               {s.calls} paid {s.calls === 1 ? "request" : "requests"} · cap per book {usd(s.perBookCapUsd)} · set with{" "}
               <code>{s.caps}_CAP_PER_MONTH_USD</code> and <code>{s.caps}_CAP_PER_BOOK_USD</code>
             </p>
+            {s.heldUsd > 0 ? (
+              <p className={own.meta} data-testid={`held-${s.provider}`}>
+                Also held against the cap: {usd(s.heldUsd)} for calls not finished (still running, or cut off when the
+                server restarted; those may have been charged, so they stay counted).
+              </p>
+            ) : null}
           </div>
         ))}
       </section>

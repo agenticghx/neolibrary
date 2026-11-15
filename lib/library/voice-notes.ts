@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { capsFromEnv, reserveSpend, SpendingCapReached, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, keptHold, reserveSpend, SpendingCapReached, type Caps, type SpendHold } from "@/lib/ai/generate";
 import { sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations } from "@/lib/db/schema";
@@ -56,14 +56,22 @@ export async function createVoiceNote(
 
   let transcript = "";
   let problem: string | null = null;
-  let releaseSpend: (() => Promise<void>) | null = null;
+  let hold: SpendHold | null = null;
   if (transcriber) {
     try {
-      releaseSpend = await reserveSpend(db, transcriber.provider, input.bookId, sttCost(durationMs), opts.caps ?? capsFromEnv(process.env, "VOICE"), now, "voice");
+      hold = await reserveSpend(
+        db,
+        transcriber.provider,
+        { ownerId, bookId: input.bookId, model: transcriber.model, kind: "transcript" },
+        sttCost(durationMs),
+        opts.caps ?? capsFromEnv(process.env, "VOICE"),
+        now,
+        "voice",
+      );
       transcript = await transcriber.transcribe(input.audio, mime);
     } catch (e) {
-      if (releaseSpend) await releaseSpend();
-      releaseSpend = null;
+      if (hold) await hold.release().catch(keptHold);
+      hold = null;
       if (!(e instanceof SpeechError || e instanceof SpendingCapReached)) throw e;
       problem = `Saved without a transcript: ${e.message}`;
     }
@@ -98,8 +106,12 @@ export async function createVoiceNote(
         createdAt: now,
       });
     }
+    await hold?.release().catch(keptHold);
     return { annotation, transcribed: !problem, problem };
-  } finally {
-    if (releaseSpend) await releaseSpend();
+  } catch (e) {
+    // Paid for the transcript, but the note or its transcript could not be saved: its cost still counts.
+    const reason = `Paid, but the voice note's transcript could not be saved: ${e instanceof Error ? e.message : String(e)}`;
+    await hold?.billed({ model: transcriber?.model ?? "", costUsd: sttCost(durationMs), reason }).catch(keptHold);
+    throw e;
   }
 }

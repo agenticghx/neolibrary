@@ -38,20 +38,14 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
     await first;
   });
 
-  it("TakeLockAndReadSpending: reserve turns run one at a time (the read of what was spent is inside the lock)", async () => {
-    let reading = 0;
-    let most = 0;
-    const read = async () => {
-      reading += 1;
-      most = Math.max(most, reading);
-      await new Promise((r) => setTimeout(r, 10));
-      reading -= 1;
-      return { month: 0, book: 0 };
-    };
-    const caps = { perBookUsd: 100, perMonthUsd: 100 };
-    const releases = await Promise.all([1, 2, 3].map(() => reserveSpend(database.db, "anthropic", null, 1, caps, now, "AI", read)));
-    expect(most).toBe(1);
-    await Promise.all(releases.map((r) => r()));
+  it("TakeLockAndReadSpending: reserve turns run one at a time (the read of what was spent and held is inside the lock)", async () => {
+    // Three reserves at once, room for one: one passes, two see its hold. (On a real Postgres, with two pools and
+    // five copies of the server: lib/db/postgres.test.ts, "the spending lock".)
+    const caps = { perBookUsd: 100, perMonthUsd: 1.5 };
+    const holdFor = { ownerId, bookId: null, model: "m", kind: "rewrite" };
+    const tries = await Promise.allSettled([1, 2, 3].map(() => reserveSpend(database.db, "anthropic", holdFor, 1, caps, now, "AI")));
+    expect(tries.filter((t) => t.status === "fulfilled")).toHaveLength(1);
+    expect(tries.filter((t) => t.status === "rejected").every((t) => (t as PromiseRejectedResult).reason instanceof SpendingCapReached)).toBe(true);
   });
 
   it("SaveTheAnswer before ReleaseTheHold: while the answer and its cost are being written, the hold is still in place", async () => {
@@ -62,7 +56,7 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
     let checkedDuringSave: unknown = "not run";
     const db = onInsert(database.db, generations, async () => {
       // The insert has not reached the database yet: only the hold can stop this second reserve.
-      checkedDuringSave = await reserveSpend(database.db, "anthropic", null, estimate, caps, now, "AI").then(
+      checkedDuringSave = await reserveSpend(database.db, "anthropic", { ownerId, bookId: null, model: "m", kind: "rewrite" }, estimate, caps, now, "AI").then(
         () => "passed",
         (e) => e,
       );
@@ -74,12 +68,13 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
     expect(checkedDuringSave).toBeInstanceOf(SpendingCapReached);
   });
 
-  it("RecordTheBilledFailure: a billed failure is written to failed_spend with its cost, and counts", async () => {
+  it("RecordTheBilledFailure: the hold row becomes the billed failure's real cost (one row), and counts", async () => {
     const ai = fakeProvider();
     const call = generate(database.db, ai.model, rewriteRequest(ownerId), { now: () => now });
     await until(() => ai.waiting.length === 1, "the call to reach the AI");
     ai.waiting[0].fail(ai.billedFailure());
     await expect(call).rejects.toThrow("cut off");
+    expect(await database.db.select().from(failedSpend)).toHaveLength(1);
     const [row] = await database.db.select().from(failedSpend);
     expect(row.costUsd).toBeGreaterThan(0);
     expect((await spending(database.db, "anthropic", null, now)).month).toBeCloseTo(row.costUsd);
@@ -94,8 +89,8 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
     await until(() => ai.waiting.length === 1, "the call to reach the AI");
     ai.waiting[0].fail(new Error("529 overloaded"));
     await expect(call).rejects.toThrow("529");
-    const release = await reserveSpend(database.db, "anthropic", null, estimate, caps, now, "AI");
-    await release();
+    const hold = await reserveSpend(database.db, "anthropic", { ownerId, bookId: null, model: "m", kind: "rewrite" }, estimate, caps, now, "AI");
+    await hold.release();
   });
 
   it("CheckSameRequestInFlight: two identical requests at the same moment make one paid call", async () => {

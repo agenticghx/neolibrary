@@ -8,6 +8,7 @@ const words = {
   calling: "Reserved: the AI is working",
   saving: "The AI is paid: cost not written yet",
   recordingFailure: "The AI is paid: cost not written yet",
+  recordingLost: "Paid, the answer not saved: cost not written yet",
   releasing: "Cost written: reservation still held",
   releasingEarly: "The AI is paid: cost not written yet",
   savingLate: "Paid, cost not written: reservation already released",
@@ -25,7 +26,7 @@ const label = (v, c) => {
     if (v.billed[c] === 0) return "Failed unpaid: reservation still held";
     if (unwritten) return "Paid, cost not written: reservation still held";
   }
-  if (pc === "done" && unwritten) return "Done: paid, but the cost was never written";
+  if (pc === "done" && unwritten) return v.holdRow?.[c] ? "Done: the cost could not be written, its hold stays" : "Done: paid, but the cost was never written";
   return words[pc];
 };
 
@@ -63,6 +64,12 @@ export const step = (action, from, to) => {
       return "the answer and its cost are saved";
     case "RecordTheBilledFailure":
       return "the failed call's cost is written";
+    case "RecordTheLostAnswer":
+      return "the cost of the answer that could not be saved is written";
+    case "TheRecordFailsToo":
+      return "writing the cost fails too: the hold stays";
+    case "ReleaseFails":
+      return "releasing the hold fails: it stays";
     case "ReleaseTheHold":
       return "the reservation is released";
     case "ReleaseEarly":

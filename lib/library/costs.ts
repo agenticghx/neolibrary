@@ -1,5 +1,5 @@
-import { and, eq, gte, sql } from "drizzle-orm";
-import { capsFromEnv, spending } from "@/lib/ai/generate";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
+import { capsFromEnv, heldByCalls, HOLD_KIND, spending } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, failedSpend, generations } from "@/lib/db/schema";
 
@@ -23,6 +23,8 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
   const services = [];
   for (const s of SERVICES) {
     const { month } = await spending(db, s.provider, null, now);
+    // Holds of paid calls not yet settled: running now, or left by a restart (counted at their estimate).
+    const held = (await heldByCalls(db, s.provider, null, now)).month;
     const count = async (table: typeof generations | typeof audioTracks) =>
       Number(
         (
@@ -35,6 +37,7 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
     services.push({
       ...s,
       spentUsd: month,
+      heldUsd: held,
       capUsd: capsFromEnv(env, s.caps).perMonthUsd,
       perBookCapUsd: capsFromEnv(env, s.caps).perBookUsd,
       calls: (await count(generations)) + (await count(audioTracks)),
@@ -66,7 +69,7 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
   const f = await db
     .select({ bookId: failedSpend.bookId, provider: failedSpend.provider, usd: sql<number>`sum(${failedSpend.costUsd})::float8` })
     .from(failedSpend)
-    .where(gte(failedSpend.createdAt, since))
+    .where(and(gte(failedSpend.createdAt, since), ne(failedSpend.kind, HOLD_KIND)))
     .groupBy(failedSpend.bookId, failedSpend.provider);
   for (const r of f) add(r.bookId, r.provider, Number(r.usd));
 

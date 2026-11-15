@@ -24,7 +24,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getBatchModel } from "@/lib/ai";
 import { batchCostUsd, type BatchRequest, type BatchResult, type TextBatchModel } from "@/lib/ai/batch";
-import { capsFromEnv, generationCacheKey, spendingWithJobs, usd, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, generationCacheKey, spendingWithJobs, usd, withSpendLock, type Caps } from "@/lib/ai/generate";
 import { readPrompt, sha256 } from "@/lib/ai/prompts";
 import type { Db } from "@/lib/db/client";
 import { books, generations, sections, textEditionJobs, type TextEditionBatch, type TextEditionCheck, type TextEditionProblem } from "@/lib/db/schema";
@@ -260,6 +260,15 @@ export async function textEditionForPage(
   }
 }
 
+/** Why reading `pagesLeft` pages for `estimateUsd` does not fit beside what is spent and held, or null when it fits. */
+function overLimitOf(spent: { book: number; month: number }, estimateUsd: number, caps: Caps, pagesLeft: number) {
+  if (spent.book + estimateUsd > caps.perBookUsd)
+    return `Reading the ${pagesLeft} pages left costs up to ${usd(estimateUsd)}, more than this book's AI limit allows (${usd(caps.perBookUsd)}, with ${usd(spent.book)} spent). The owner can raise AI_CAP_PER_BOOK_USD.`;
+  if (spent.month + estimateUsd > caps.perMonthUsd)
+    return `Reading the ${pagesLeft} pages left costs up to ${usd(estimateUsd)}, more than this month's AI limit allows (${usd(caps.perMonthUsd)}, with ${usd(spent.month)} spent). It resets on the 1st, or the owner can raise AI_CAP_PER_MONTH_USD.`;
+  return null;
+}
+
 /** What reading the book involves, before anything is sent: pages, cost, the limits, and the latest job. */
 export async function textEditionSummary(deps: TextEditionDeps, ownerId: string, bookId: string): Promise<TextEditionSummary> {
   const { db } = deps;
@@ -272,13 +281,7 @@ export async function textEditionSummary(deps: TextEditionDeps, ownerId: string,
   const spent = await spendingWithJobs(db, deps.model.provider, bookId, deps.now?.() ?? new Date());
   const job = await latestJob(db, ownerId, bookId);
   const active = job && (ACTIVE as readonly string[]).includes(job.status);
-  let overLimit: string | null = null;
-  if (!active) {
-    if (spent.book + estimateUsd > caps.perBookUsd)
-      overLimit = `Reading the ${pageCount - done} pages left costs up to ${usd(estimateUsd)}, more than this book's AI limit allows (${usd(caps.perBookUsd)}, with ${usd(spent.book)} spent). The owner can raise AI_CAP_PER_BOOK_USD.`;
-    else if (spent.month + estimateUsd > caps.perMonthUsd)
-      overLimit = `Reading the ${pageCount - done} pages left costs up to ${usd(estimateUsd)}, more than this month's AI limit allows (${usd(caps.perMonthUsd)}, with ${usd(spent.month)} spent). It resets on the 1st, or the owner can raise AI_CAP_PER_MONTH_USD.`;
-  }
+  const overLimit = active ? null : overLimitOf(spent, estimateUsd, caps, pageCount - done);
   const edition = await editionOf(db, ownerId, bookId);
   return { bookId, title: book.title, pageCount, done, estimateUsd, caps, spent, overLimit, job: job ? await view(db, job) : null, editionId: edition?.id ?? null };
 }
@@ -320,23 +323,33 @@ export async function startTextEdition(deps: TextEditionDeps, ownerId: string, b
   if (summary.overLimit) throw new TextEditionError(summary.overLimit, 402);
   if (summary.done >= summary.pageCount) throw new TextEditionError("Every page of this book has been read already.");
   const { hash } = await prompt();
+  const now = deps.now?.() ?? new Date();
+  const caps = deps.caps ?? capsFromEnv();
   let job: JobRow;
   try {
-    [job] = await db
-      .insert(textEditionJobs)
-      .values({
-        ownerId,
-        bookId,
-        provider: deps.model.provider,
-        model: deps.model.model,
-        promptHash: hash,
-        status: "preparing",
-        pageCount: summary.pageCount,
-        estimateUsd: summary.estimateUsd,
-        createdAt: deps.now?.() ?? new Date(),
-      })
-      .returning();
+    // Under the spending lock: what is spent and held is read again (a paid call in flight holds its estimate)
+    // and the job row, which holds this estimate, is written before any other check can run.
+    job = await withSpendLock(db, deps.model.provider, async (tx) => {
+      const over = overLimitOf(await spendingWithJobs(tx, deps.model.provider, bookId, now), summary.estimateUsd, caps, summary.pageCount - summary.done);
+      if (over) throw new TextEditionError(over, 402);
+      const [row] = await tx
+        .insert(textEditionJobs)
+        .values({
+          ownerId,
+          bookId,
+          provider: deps.model.provider,
+          model: deps.model.model,
+          promptHash: hash,
+          status: "preparing",
+          pageCount: summary.pageCount,
+          estimateUsd: summary.estimateUsd,
+          createdAt: now,
+        })
+        .returning();
+      return row;
+    });
   } catch (e) {
+    if (e instanceof TextEditionError) throw e;
     // Two starts at once: the database lets one job per book go on.
     const going = await latestJob(db, ownerId, bookId);
     if (going && (ACTIVE as readonly string[]).includes(going.status)) return { started: false, jobId: going.id, done: preparing().get(going.id) ?? Promise.resolve() };

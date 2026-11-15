@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
+import { failedSpend } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { importBook } from "@/lib/library/import";
 import { rewriteParagraph } from "@/lib/library/rewrite";
@@ -72,13 +73,19 @@ describe("who pays", () => {
 
 describe("spending on your own key", () => {
   it("is not held to the owner's caps", async () => {
-    const db = {} as never;
-    const now = new Date("2026-11-02T00:00:00Z");
-    const caps = { perBookUsd: 0, perMonthUsd: 0 };
-    const read = async () => ({ month: 100, book: 100 });
-    await expect(reserveSpend(db, "anthropic", "b", 0.5, caps, now, "AI", read)).rejects.toThrow(SpendingCapReached);
-    const release = await reserveSpend(db, "anthropic-own-key", "b", 0.5, caps, now, "AI", read);
-    await release();
+    const database = await testDatabase();
+    try {
+      const ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
+      const now = new Date("2026-11-02T00:00:00Z");
+      const caps = { perBookUsd: 0, perMonthUsd: 0 };
+      const holdFor = { ownerId, bookId: null, model: "claude-sonnet-5-5", kind: "rewrite" };
+      await expect(reserveSpend(database.db, "anthropic", holdFor, 0.5, caps, now, "AI")).rejects.toThrow(SpendingCapReached);
+      const hold = await reserveSpend(database.db, "anthropic-own-key", holdFor, 0.5, caps, now, "AI");
+      await hold.release();
+      expect(await database.db.select().from(failedSpend)).toEqual([]);
+    } finally {
+      await database.raw.close();
+    }
   });
 
   it("is saved like any answer but never counted in the owner's spending", async () => {
