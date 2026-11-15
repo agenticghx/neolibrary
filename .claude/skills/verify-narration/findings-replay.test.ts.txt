@@ -19,7 +19,7 @@ import { speechCost, type SpeechRequest } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
 import { speakPassage } from "./audio";
 import { importBook } from "./import";
-import { forgetNarrationsForTests, narrationSummary, startNarration, stopNarration } from "./narration";
+import { forgetNarrationsForTests, narrationSummary, runningNarrations, startNarration, stopNarration } from "./narration";
 import { getSections } from "./sections-store";
 import { readableEpub } from "./test-epub";
 
@@ -28,7 +28,7 @@ let storage: MemoryStorage;
 let ownerId: string;
 
 const lamps = (n: number) => Array.from({ length: n }, (_, i) => `Lamp ${i + 1} is lit at dusk by the keeper, who walks the length of the quay.`);
-const epub = (texts: string[]) => readableEpub("Eight Lamps", [`<h1>The lamps</h1>${texts.map((t) => `<p>${t}</p>`).join("")}`], "Iris Wick");
+const epub = (texts: string[], title = "Eight Lamps") => readableEpub(title, [`<h1>The lamps</h1>${texts.map((t) => `<p>${t}</p>`).join("")}`], "Iris Wick");
 
 beforeEach(async () => {
   database = await testDatabase();
@@ -40,8 +40,9 @@ afterEach(async () => {
   await database.raw.close();
 });
 
-async function book(texts: string[]) {
-  const bookId = (await importBook(database.db, storage, ownerId, { name: "lamps.epub", bytes: epub(texts) })).bookId;
+/** A book of these paragraphs; a second book needs its own title (the import treats the same title as the same book). */
+async function book(texts: string[], title = "Eight Lamps") {
+  const bookId = (await importBook(database.db, storage, ownerId, { name: "lamps.epub", bytes: epub(texts, title) })).bookId;
   const paragraphs = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph");
   expect(paragraphs.map((p) => p.text)).toEqual(texts);
   return { bookId, paragraphs };
@@ -117,6 +118,44 @@ describe("the Stop rule (holds today; it fails if the Stop check in run() goes)"
     console.log("Stop sent:", voice.sent.map((t) => t.slice(0, 6)), "ended:", s.stoppedBecause?.kind);
     expect(voice.sent).toEqual([paragraphs[0].text]);
     expect(s.stoppedBecause?.kind).toBe("stopped");
+  });
+});
+
+describe("one run at a time (holds today; the model takes startNarration 255-275 as one step)", () => {
+  it("two tabs press Create for the same book at once: one run starts, the other joins it", async () => {
+    const voice = new Voice();
+    const { bookId, paragraphs } = await book(lamps(2));
+    const h = held();
+    const deps = { db: database.db, storage, model: voice, speak: h.speak };
+    const [a, b] = await Promise.all([
+      startNarration(deps, ownerId, bookId, "fake-ada", true),
+      startNarration(deps, ownerId, bookId, "fake-ada", true),
+    ]);
+    const going = runningNarrations(ownerId).length;
+    h.open();
+    await Promise.all([a.done, b.done]);
+    console.log("Two tabs, same book: started", [a.started, b.started], "runs going", going, "sent", voice.sent.map((t) => t.slice(0, 6)));
+    expect([a.started, b.started].filter(Boolean)).toHaveLength(1);
+    expect(going).toBe(1);
+    expect(voice.sent).toEqual(paragraphs.map((p) => p.text));
+  });
+
+  it("two tabs press Create for two books at once: one run starts, the other is refused", async () => {
+    const voice = new Voice();
+    const one = await book(lamps(2));
+    const two = await book(["A boat is rowed out past the quay at dawn by the ferryman, who sings to the gulls."], "One Boat");
+    const h = held();
+    const deps = { db: database.db, storage, model: voice, speak: h.speak };
+    const [a, b] = await Promise.allSettled([
+      startNarration(deps, ownerId, one.bookId, "fake-ada", true),
+      startNarration(deps, ownerId, two.bookId, "fake-ada", true),
+    ]);
+    const going = runningNarrations(ownerId).length;
+    h.open();
+    for (const r of [a, b]) if (r.status === "fulfilled") await r.value.done;
+    console.log("Two tabs, two books:", [a.status, b.status], "runs going", going);
+    expect([a.status, b.status].sort()).toEqual(["fulfilled", "rejected"]);
+    expect(going).toBe(1);
   });
 });
 

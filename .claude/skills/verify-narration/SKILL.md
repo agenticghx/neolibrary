@@ -1,6 +1,6 @@
 ---
 name: verify-narration
-description: Formal check (a TLA+ model run by the TLC model checker) that whole-book narration never pays the voice (ElevenLabs) more than the owner chose. Use before and after any change to lib/library/narration.ts, to speakPassage, speak, storedTrack or cacheKeyOf in lib/library/audio.ts, to reserveSpend, assertRoom, spending or the spend holds in lib/ai/generate.ts, to app/api/books/[id]/narration/route.ts or app/api/books/[id]/audio/route.ts, to how the server starts or stops (package.json "start", a custom server, signal handling), or when someone asks whether narration can pay twice, run twice, ignore Stop or pass a spending limit.
+description: Formal check (a TLA+ model run by the TLC model checker) that whole-book narration never pays the voice (ElevenLabs) more than the owner chose. Use before and after any change to lib/library/narration.ts, to speakPassage, speak, storedTrack or cacheKeyOf in lib/library/audio.ts, to reserveSpend, assertRoom, spending or the spend holds in lib/ai/generate.ts, to app/api/books/[id]/narration/route.ts or app/api/books/[id]/audio/route.ts, to app/(app)/import/WholeBookNarration.tsx, to getSpeechModel in lib/speech/index.ts, to how the server starts or stops (package.json "start", a custom server, signal handling), or when someone asks whether narration can pay twice, run twice, ignore Stop or pass a spending limit.
 ---
 
 # Verify whole-book narration
@@ -14,6 +14,10 @@ reads the plain-English parts and the chart; say results to him in those words.
 Create; one runs at a time; it never pays for a paragraph that is already saved; Stop ends it after at most the one
 paragraph being made; it pays for no more than the cost the box stated; no paragraph is paid for twice; and what the
 voice bills never passes the spending limits.
+
+**What passes today.** Six of these promises hold within the bounds below (`Narration.cfg` exits 0). Two do not: a
+paragraph can be paid for twice (PaidOnce) and the voice's bill can pass a limit (WithinLimits). The code breaks
+them (findings 1-3, replayed against the real code); `NarrationFindings.cfg` keeps them failing until they are fixed.
 
 **The harm if broken.** Samuel pays ElevenLabs for more narration than he chose: a paragraph twice, past his limit,
 or (in the worst case) a whole book.
@@ -40,7 +44,8 @@ changes").
 | `lib/library/audio.ts` | `speakPassage` and its in-flight list (236-257), `speak` (259-305), `storedTrack`, `cacheKeyOf` (saved means: same owner, voice, model and text, in any book) |
 | `lib/ai/generate.ts` | `reserveSpend` (248-280), `assertRoom` (196), `spending` (128), the spend holds (214) |
 | `app/api/books/[id]/narration/route.ts` | POST: only the owner (59), then `startNarration` (65); DELETE: `stopNarration` (80) |
-| `app/api/books/[id]/audio/route.ts` | POST: the Listen bar calls `speakPassage` (65) with the same voice model as the run (`lib/speech/index.ts` 31) |
+| `app/api/books/[id]/audio/route.ts` | POST: the Listen bar calls `speakPassage` (65) with the same voice model as the run |
+| `lib/speech/index.ts` | `getSpeechModel` (31): the owner's Listen bar and the run get the same voice model |
 | `app/(app)/import/WholeBookNarration.tsx` | the cost box: Create sends `confirm: agreed` (183). The model trusts only the server's check of it. |
 | Next.js `next start` (`node_modules/next/dist/server/lib/start-server.js`, `cleanup`) | on a restart it waits for open requests, then exits; a background run is not a request |
 
@@ -167,6 +172,9 @@ so every finding is real). Not fixed as of the sync commit.
       `spending` does not count the lost payment, so `reserveSpend` finds room; `model.speak` pays for paragraph 1
       again.
 
+   This finding assumes that the voice bills a request whose answer never arrives. ElevenLabs was not asked or
+   tested (Samuel's rule: no paid voice); finding 2 does not need the assumption.
+
    Replay: 4-paragraph book, paragraph 1 billed twice, $0.1050 billed against $0.0840 recorded; with a book limit of
    $0.0525, $0.0630 billed. Deploys are automatic after every merge to `main`, and a run spends most of its time
    inside the paid call, so each deploy during a run very likely costs one paragraph.
@@ -195,8 +203,9 @@ Every counterexample is a list of model steps. Before you call it a bug, replay 
 per model step, in a vitest with the fake voice (`lib/speech/fake`; never ElevenLabs or any paid voice). Start from
 `findings-replay.test.ts.txt` (its header says how to run it): its `Voice` counts each request when it is sent and
 can hold requests or leave one unanswered, `held()` holds the run at each paragraph before it is paid for (to press
-Stop there), and `newServer()` simulates a restart. Its first test, "the Stop rule", passes today and fails if the
-Stop check goes.
+Stop there), and `newServer()` simulates a restart. Its first tests pass today and protect rules that hold: "the
+Stop rule" fails if the Stop check goes, and "one run at a time" (two tabs press Create at once, for one book and
+for two) fails if a wait comes between looking at the runs list and adding to it.
 
 - The bug happens in the replay: it is a finding. Report it with the steps in the code's words. Do not weaken the
   rule or the model to make the check pass, and do not change product code unless asked.
@@ -208,7 +217,7 @@ Stop check goes.
 
 ## When the code changes
 
-1. `git diff af958c2b -- lib/library/narration.ts lib/library/audio.ts lib/ai/generate.ts 'app/api/books/[id]/narration/route.ts' 'app/api/books/[id]/audio/route.ts' 'app/(app)/import/WholeBookNarration.tsx' package.json`
+1. `git diff af958c2b -- lib/library/narration.ts lib/library/audio.ts lib/ai/generate.ts lib/speech/index.ts 'app/api/books/[id]/narration/route.ts' 'app/api/books/[id]/audio/route.ts' 'app/(app)/import/WholeBookNarration.tsx' package.json`
    (and any new server start or signal handling). Nothing changed: the model still describes the code.
 2. For each change, find the step or guard in the tables above. Ask: does it add or remove a wait (`await` on the
    database, the voice, storage or a lock), a check, or a place where state is kept (memory or database)?
@@ -219,7 +228,7 @@ Stop check goes.
 5. If the change was meant to fix a finding: the replay's test for it should now fail; turn it into a real test in
    `lib/library/narration.test.ts`, move the rule to `Narration.cfg`, and update the table and the findings.
 6. Redraw the chart if a step's label or the flow changed: `/pstack:statechart` on `Narration.tla` with
-   `NarrationFlow.cfg` and `narration-view.mjs`; save its `chart.mmd` here as `narration-flow.mmd`.
+   `NarrationFlow.cfg` and `narration-view.mjs`; save the chart it draws here as `narration-flow.mmd`.
 7. Update the line numbers in this file and move the sync commit to the commit you checked. Do this only for a
    change that breaks no rule beyond the table; a change that breaks one is a finding (see "Run it").
 
@@ -269,4 +278,5 @@ passed once the change was undone (`Stop sent: [ 'Lamp 1' ] ended: stopped`).
 (`NarrationFlow.cfg`, 93 states). States marked *mayBreak* can break PaidOnce or WithinLimits (finding 1); the
 marked path is the restart, then Continue, then paragraph 1 paid again. The view hides "the site restarts" from
 states where no run is going on (it changes nothing a reader sees) and does not draw steps that stay in one state
-(for example the payment made while "Stopping").
+(for example the payment made while "Stopping"). These bounds never reach "Done", the book's limit, an error, the
+Listen bar or a second server; the other configs check those.
