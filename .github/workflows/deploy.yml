@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
@@ -51,7 +51,7 @@ jobs:
       SITES: ${{ vars.DEPLOY_SITES }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: main
@@ -103,7 +103,7 @@ jobs:
           SHA: ${{ steps.gate.outputs.sha }}
         run: git checkout --detach "$SHA" && test -z "$(git status --porcelain)"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.gate.outputs.go == 'yes'
         with:
           node-version: 22
