@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the verify-narration PR, then open the outbox and spending verification PRs.
+next_action: Merge the verify-outbox PR, then open the spending verification PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 10:10 · Claude Opus 5.5 · verify-outbox: a TLA+ model (checked by TLC) of the offline note outbox; 7 findings where a reader's notes are lost or go astray (not fixed)
+- **Done:** .claude/skills/verify-outbox/ (model, three configs, check.sh, chart, replays of the findings against the real code). Skills index row. No product code changed.
+- **Key paths:** .claude/skills/verify-outbox/SKILL.md; .claude/skills/verify-outbox/Outbox.tla; .claude/skills/verify-outbox/check.sh; .claude/skills/verify-outbox/replay.ts; .claude/skills/README.md; LEARNING_LOG.md (iteration 234)
+- **Commands that worked:** sh .claude/skills/verify-outbox/check.sh → exit 0, 'as recorded: 2 scenarios hold every listed rule; 9 known findings still break' (26 s); npx vitest run --config .claude/skills/verify-outbox/replay.config.mts → 10 passed
+- **Known issues / blockers:** Findings, for Samuel to decide (not fixed): F1 new words lost when a note's first save answer was lost; F2 a removed note stays on the library in that state; F3 Undo of a removal whose answer was lost does nothing; F4 an older offline edit replaces a newer one; F5 after sign-out in another tab, an open page sends notes under the next reader's sign-in, kept as refused for good; F6 an item saved before owners were recorded (before 2026-11-10) gets the next reader's name; F7 a refused change is sent once more from a second tab (harmless).
+- **Exact next steps:** 1. Merge this PR when green. 2. Review the spending skill and open its PR after this one. 3. Samuel: say which findings (narration 1-3, outbox F1-F6) to fix.
 
 ### 2026-11-15 09:56 · Claude Opus 5.5 · verify-narration: a TLA+ model (checked by TLC) that whole-book narration never pays the voice more than the owner chose; 6 of 8 rules hold, 2 broken by the code (4 findings, not fixed)
 - **Done:** scripts/tlc.sh (TLC 1.7.4, Java temurin-25, via mise, pinned and checksum-checked). .claude/skills/verify-narration/ (model, five configs, chart, labels, replays of the findings). Skills index row. Check 7's row: the laptop's extra checkouts removed at Samuel's word. No product code changed.
