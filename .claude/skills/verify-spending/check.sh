@@ -16,7 +16,7 @@ lib/library/pictures.ts lib/library/voice-notes.ts"
 
 bad=0
 log=$(mktemp -d "${TMPDIR:-/tmp}/verify-spending.XXXXXX")
-trap 'rm -r "$log"' EXIT
+trap '[ "$bad" -eq 0 ] && rm -r "$log"' EXIT
 
 echo "== Models (TLC) =="
 for cfg in "$here"/*.cfg; do
@@ -34,7 +34,10 @@ for cfg in "$here"/*.cfg; do
   else
     bad=1
     echo "WRONG $name: expected ${want:-every rule to hold}; TLC exit $code${broke:+, $broke breaks}. Output: $log/$name.out"
-    tail -25 "$log/$name.out" | sed 's/^/      /'
+    # The path TLC found, one action per line (read it in a reader's words with /pstack:statechart).
+    grep -E '^Error: (Invariant|Deadlock|Parsing|Semantic)' "$log/$name.out" | head -1 | sed 's/^/      /'
+    sed -n 's/^State \([0-9]*\): <\([A-Za-z]*\).*/\1. \2/p' "$log/$name.out" | sed 's/^/      /'
+    grep -q '^Error:' "$log/$name.out" || tail -15 "$log/$name.out" | sed 's/^/      /'
   fi
 done
 
@@ -44,7 +47,8 @@ if npx vitest run --config "$here/replay/vitest.config.mts" >"$log/replays.out" 
 else
   bad=1
   echo "WRONG replays:"
-  grep -E '✓|×|FAIL|Tests ' "$log/replays.out" | sed 's/^/      /'
+  grep -E '×|FAIL|Tests |AssertionError|Error:' "$log/replays.out" | sed 's/^/      /'
+  echo "      Full output: $log/replays.out"
 fi
 
 echo "== Covered code since the sync commit =="

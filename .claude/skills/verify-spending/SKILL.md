@@ -216,6 +216,13 @@ Each has a config that breaks its rule and a replay on the real code (`replay/fi
 | `RewriteAsYouTurn-mutant-ignore-stop` | the loop's `break` test without `!turnRef.current.on` | `StopStopsPaying` |
 | `RewriteAsYouTurn-mutant-no-running-guard` | `makeMissing` without `if (running.current) return` | `OneLoopAtATime` |
 
+Tried on the real code (2026-11-15, then undone). Moving `await release()` above the
+`generations` insert made the replay "SaveTheAnswer before ReleaseTheHold" fail; with
+`Mutant = "releaseBeforeSave"` in `SpendCap.cfg`, the main check broke `ChargedMoneyAlwaysCounted`
+and `CapNeverPassed`. Setting `ASK_AGAIN_USD = 2` made two replays fail; with
+`Mutant = "askAtTwoDollars"` in `RewriteAsYouTurn.cfg`, the main check broke
+`AsksBeforePayingPastOneDollar`. Each time `check.sh` exited 1.
+
 ## Reading a result
 
 Read every result with the /pstack:statechart skill. Give it the spec, the config, and the view

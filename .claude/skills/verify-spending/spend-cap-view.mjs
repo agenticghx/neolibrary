@@ -10,7 +10,7 @@ const words = {
   recordingFailure: "The AI is paid: cost not written yet",
   releasing: "Cost written: reservation still held",
   releasingEarly: "The AI is paid: cost not written yet",
-  savingLate: "The AI is paid: cost not written yet",
+  savingLate: "Paid, cost not written: reservation already released",
   orphan: "Lost in a restart",
   done: "Done: reservation released",
   reused: "Served free: a saved or shared answer",
@@ -65,6 +65,10 @@ export const step = (action, from, to) => {
       return "the failed call's cost is written";
     case "ReleaseTheHold":
       return "the reservation is released";
+    case "ReleaseEarly":
+      return "the reservation is released before the cost is written";
+    case "SaveLate":
+      return "the answer and its cost are saved, after the release";
     case "AllFinished":
       return null;
     case "ServerRestarts":
