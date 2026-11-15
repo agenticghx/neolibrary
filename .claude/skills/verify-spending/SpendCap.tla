@@ -13,6 +13,7 @@
 (* One call runs generate():                                               *)
 (*   findStored / copyShared  -> LookForSavedAnswer                        *)
 (*   inflight.get / .set      -> CheckSameRequestInFlight                  *)
+(*   findStored / copyShared again, in the job -> LookAgain                *)
 (*   reserveSpend: withSpendLock takes the lock and `spendingWithJobs`     *)
 (*     reads (hold rows included) -> TakeLockAndReadSpending; then         *)
 (*     assertRoom + insert the hold row, commit -> DecideAndHold           *)
@@ -53,7 +54,7 @@ CONSTANTS
 
 ASSUME Mutant \in {"none", "noLock", "releaseBeforeSave", "noFailedSpendRecord", "releaseOnlyOnSuccess",
                    "holdsInMemory", "textEditionOutsideLock", "lostAnswerNotRecorded",
-                   "holdTheLikelyCost"}
+                   "holdTheLikelyCost", "noSecondLook"}
 
 \* What reserveSpend holds for each call: holdCost, the most it can be billed (M44, finding 1).
 \* Mutant "holdTheLikelyCost" (the code before the fix): estimateCost, the likely cost.
@@ -154,15 +155,29 @@ LookForSavedAnswer(c) ==
                    answered, path, restarted>> /\ UnchangedTe
 
 \* inflight.get(key): the same request already running in this server is shared, free.
-\* Otherwise inflight.set(key, job), and the job queues for reserveSpend's lock (no await between).
+\* Otherwise the job starts and inflight.set(key, job) (no await between).
+\* Mutant "noSecondLook" (the code before the fix of finding 7): the job goes straight to reserveSpend.
 CheckSameRequestInFlight(c) ==
     LET s == ServerOf(c) IN
     /\ pc[c] = "looked"
     /\ IF inflight[s][KeyOf(c)] # Free
          THEN /\ pc' = [pc EXCEPT ![c] = "reused"]
               /\ UNCHANGED inflight
-         ELSE /\ pc' = [pc EXCEPT ![c] = "waitLock"]
+         ELSE /\ pc' = [pc EXCEPT ![c] = IF Mutant = "noSecondLook" THEN "waitLock" ELSE "lookingAgain"]
               /\ inflight' = [inflight EXCEPT ![s][KeyOf(c)] = c]
+    /\ UNCHANGED <<lock, holdRow, left, seen, billed, recorded, saved, answered,
+                   path, restarted>> /\ UnchangedTe
+
+\* The job's first step (M44, finding 7): findStored / copyShared again. An identical request that
+\* finished since the first look saved its answer before it left the in-flight map: found here, free;
+\* generate's finally deletes this call's entry. Otherwise the job queues for reserveSpend's lock.
+LookAgain(c) ==
+    /\ pc[c] = "lookingAgain"
+    /\ IF KeyOf(c) \in saved
+         THEN /\ pc' = [pc EXCEPT ![c] = "reused"]
+              /\ inflight' = [inflight EXCEPT ![ServerOf(c)][KeyOf(c)] = Free]
+         ELSE /\ pc' = [pc EXCEPT ![c] = "waitLock"]
+              /\ UNCHANGED inflight
     /\ UNCHANGED <<lock, holdRow, left, seen, billed, recorded, saved, answered,
                    path, restarted>> /\ UnchangedTe
 
@@ -324,7 +339,7 @@ SaveLate(c) ==
 (* back and their advisory locks go; calls in it stop. The hold rows stay in the database.        *)
 (* Mutant "holdsInMemory": the holds were in that memory, and go too.                             *)
 
-Running == {"looked", "waitLock", "deciding", "calling", "saving", "recordingFailure", "recordingLost",
+Running == {"looked", "lookingAgain", "waitLock", "deciding", "calling", "saving", "recordingFailure", "recordingLost",
             "releasing", "releasingEarly", "savingLate"}
 
 ServerRestarts ==
@@ -417,6 +432,7 @@ Next ==
     \/ \E c \in Calls :
          \/ LookForSavedAnswer(c)
          \/ CheckSameRequestInFlight(c)
+         \/ LookAgain(c)
          \/ TakeLockAndReadSpending(c)
          \/ DecideAndHold(c)
          \/ TheAiAnswers(c)
@@ -461,7 +477,7 @@ ChargedMoneyAlwaysCounted ==
 \* has none, unless it was left behind on purpose (its server stopped mid-call, or the database failed
 \* while its cost was being written): that one stays counted at its estimate.
 ReservationReleasedOnce ==
-    /\ \A c \in Calls : holdRow[c] => pc[c] \notin {"new", "looked", "waitLock", "deciding", "refused", "reused"}
+    /\ \A c \in Calls : holdRow[c] => pc[c] \notin {"new", "looked", "lookingAgain", "waitLock", "deciding", "refused", "reused"}
     /\ \A c \in Calls : pc[c] \in Finished /\ holdRow[c] => left[c]
 
 \* A finished call has written exactly what it was charged, once, billed failures included; or, when
@@ -471,12 +487,15 @@ EveryChargeRecordedOnce ==
         \/ recorded[c] = billed[c]
         \/ (left[c] /\ holdRow[c] /\ recorded[c] = 0 /\ billed[c] <= Hold)
 
-\* The same request from one reader is paid for once: two identical requests share one call.
+\* The same request from one reader is paid for once: two identical requests share one call, or the
+\* second finds the first's saved answer. An answer that was paid for and then lost (its save failed,
+\* or its server stopped) may be paid for again: the reader never got it.
+Kept(c) == answered[c] /\ path[c] # "failed" /\ pc[c] # "lost"
 PaidOncePerAnswer ==
-    \A k \in Keys : Cardinality({c \in Calls : KeyOf(c) = k /\ answered[c]}) <= 1
+    \A k \in Keys : Cardinality({c \in Calls : KeyOf(c) = k /\ Kept(c)}) <= 1
 
 TypeOK ==
-    /\ pc \in [Calls -> {"new", "looked", "waitLock", "deciding", "calling", "saving",
+    /\ pc \in [Calls -> {"new", "looked", "lookingAgain", "waitLock", "deciding", "calling", "saving",
                          "recordingFailure", "recordingLost", "releasing", "releasingEarly",
                          "savingLate", "orphan"} \cup Finished]
     /\ holdRow \in [Calls -> BOOLEAN]

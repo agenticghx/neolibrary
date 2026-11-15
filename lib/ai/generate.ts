@@ -434,7 +434,7 @@ export async function copyShared(db: Db, req: GenerationRequest, now: Date) {
 export const keptHold = (e: unknown) => console.error("Spending: a hold could not be settled and stays counted at its estimate:", e instanceof Error ? e.message : e);
 
 // Two identical requests at the same moment share one call.
-const inflight = new Map<string, Promise<Generation>>();
+const inflight = new Map<string, Promise<{ generation: Generation; reused: boolean }>>();
 
 export async function generate(
   db: Db,
@@ -442,16 +442,21 @@ export async function generate(
   req: GenerationRequest,
   opts: { fresh?: boolean; caps?: Caps; now?: () => Date } = {},
 ): Promise<{ generation: Generation; reused: boolean }> {
+  const savedAnswer = async () => (await findStored(db, req.ownerId, req)) ?? (await copyShared(db, req, opts.now?.() ?? new Date()));
   if (!opts.fresh) {
-    const stored = await findStored(db, req.ownerId, req);
-    if (stored) return { generation: stored, reused: true };
-    const shared = await copyShared(db, req, opts.now?.() ?? new Date());
-    if (shared) return { generation: shared, reused: true };
+    const saved = await savedAnswer();
+    if (saved) return { generation: saved, reused: true };
   }
   const key = `${req.ownerId}|${cacheKeyOf(req)}|${opts.fresh ? Math.random() : ""}`;
   const running = inflight.get(key);
-  if (running) return { generation: await running, reused: true };
+  if (running) return { generation: (await running).generation, reused: true };
   const job = (async () => {
+    // M44, finding 7: look again, now that this request is in the in-flight map. An identical request that
+    // finished after the first look (its answer saved, then its entry deleted) is found here, not paid again.
+    if (!opts.fresh) {
+      const saved = await savedAnswer();
+      if (saved) return { generation: saved, reused: true };
+    }
     const caps = opts.caps ?? capsFromEnv();
     const now = opts.now?.() ?? new Date();
     const hold = await reserveSpend(
@@ -526,11 +531,11 @@ export async function generate(
     }
     // The answer and its cost are saved: the hold goes. Should that fail, the hold stays counted beside the cost (too much, never too little).
     await hold.release().catch(keptHold);
-    return toGeneration(row);
+    return { generation: toGeneration(row), reused: false };
   })();
   inflight.set(key, job);
   try {
-    return { generation: await job, reused: false };
+    return await job;
   } finally {
     inflight.delete(key);
   }

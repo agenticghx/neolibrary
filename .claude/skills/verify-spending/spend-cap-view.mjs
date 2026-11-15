@@ -48,6 +48,10 @@ export const step = (action, from, to) => {
       const c = Object.keys(to.pc).find((k) => from.pc[k] === "looked" && to.pc[k] !== "looked");
       return to.pc[c] === "reused" ? "it shares the identical request running" : "no identical request is running";
     }
+    case "LookAgain": {
+      const c = Object.keys(to.pc).find((k) => from.pc[k] === "lookingAgain" && to.pc[k] !== "lookingAgain");
+      return to.pc[c] === "reused" ? "it looks again and finds the saved answer" : "it looks again: still no saved answer";
+    }
     case "TakeLockAndReadSpending":
       return "it reads what has been spent";
     case "DecideAndHold": {

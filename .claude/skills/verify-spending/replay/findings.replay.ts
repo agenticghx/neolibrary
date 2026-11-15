@@ -3,8 +3,9 @@
 // that finding to "Fixed" in SKILL.md, delete its test, and make its config expect exit 0.
 // Findings 2 to 6 were fixed in M44 (holds are rows in the database), and finding 1 for generate (the hold
 // is holdCost, the most a call can cost): their tests are now real tests, in lib/ai/spend-holds.test.ts and
-// lib/db/postgres.test.ts. What is left of finding 1 is replayed here.
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+// lib/db/postgres.test.ts; finding 7 for one server (the job looks for a saved answer again) in
+// lib/ai/spend-holds.test.ts. What is left of findings 1 and 7 is replayed here.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { batchCostUsd } from "@/lib/ai/batch";
 import { ClaudeModel } from "@/lib/ai/claude";
 import { generate, resetSpendHoldsForTests } from "@/lib/ai/generate";
@@ -15,7 +16,7 @@ import { generations } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { MAX_PICTURE_TOKENS } from "@/lib/library/page-pictures";
 import { MAX_TOKENS, pageEstimateUsd } from "@/lib/library/text-edition";
-import { fakeProvider, firstReadArrivesLate, rewriteRequest, until } from "./fakes";
+import { fakeProvider, rewriteRequest, until } from "./fakes";
 
 let database: Database;
 let ownerId: string;
@@ -62,26 +63,21 @@ describe("SpendCap findings", () => {
     expect(batchCostUsd(model, MAX_PICTURE_TOKENS + 400, MAX_TOKENS)).toBeGreaterThan(pageEstimateUsd(model));
   });
 
-  it("Finding 7 (SpendCap-finding-paid-twice): two identical requests, and the AI is paid twice for one answer", async () => {
+  it("Finding 7, what is left (SpendCap-finding-paid-twice-two-servers): two identical requests on two copies of the server both pay", async () => {
+    vi.resetModules();
+    const second = await import("@/lib/ai/generate");
     const ai = fakeProvider("claude-opus-5-5");
     const ask = rewriteRequest(ownerId, { kind: "ask", options: {}, promptName: "ask" }); // a kind not shared between readers
-    // 1-5. request 1: no saved answer, nothing in flight; reserved; the AI is working.
-    const first = generate(database.db, ai.model, ask, { now: () => now });
+    // 1-5. request 1, on the first server: no saved answer, nothing in flight; it holds; the AI is working.
+    const one = generate(database.db, ai.model, ask, { now: () => now });
     await until(() => ai.waiting.length === 1, "request 1 to reach the AI");
-    // 6. request 2 looks for a saved answer (none yet); the answer is slow to come back from the database.
-    let arrive = () => {};
-    const gate = new Promise<void>((r) => (arrive = r));
-    const second = generate(firstReadArrivesLate(database.db, gate), ai.model, ask, { now: () => now });
-    await new Promise((r) => setTimeout(r, 20));
-    // 7-8. request 1's answer is saved, its hold released, and it leaves the in-flight map.
-    ai.waiting[0].answer();
-    await first;
-    // 9. request 2 hears "no saved answer" and finds nothing in flight. 10-12. it is reserved, and the AI is paid again.
-    arrive();
+    // 6-8. request 2, on the second server: no saved answer (twice), nothing in its own in-flight map; it holds and pays.
+    const two = second.generate(database.db, ai.model, ask, { now: () => now });
     await until(() => ai.waiting.length === 2, "request 2 to reach the AI");
+    ai.waiting[0].answer();
     ai.waiting[1].answer();
-    expect((await second).reused).toBe(false);
-    expect(ai.charged).toHaveLength(2);
+    expect([(await one).reused, (await two).reused]).toEqual([false, false]);
     expect(await database.db.select().from(generations)).toHaveLength(2);
+    second.resetSpendHoldsForTests();
   });
 });

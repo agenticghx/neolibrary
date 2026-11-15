@@ -89,7 +89,9 @@ code.
 - `EveryChargeRecordedOnce`: a finished call has written exactly what it was charged, once, billed
   failures and paid answers that could not be saved included; or, when the database failed while
   writing it, its hold row still counts at least that.
-- `PaidOncePerAnswer`: two identical requests from one reader pay for one answer.
+- `PaidOncePerAnswer`: two identical requests from one reader pay for one answer (they share one call,
+  or the second finds the first's saved answer). An answer paid for and then lost (its save failed, or its
+  server stopped) may be paid for again: the reader never got it.
 
 `RewriteAsYouTurn.tla`:
 
@@ -118,7 +120,8 @@ code between two `await`s.
 | Model action | Code |
 |---|---|
 | `LookForSavedAnswer` | `findStored`, then `copyShared` (the database reads) |
-| `CheckSameRequestInFlight` | `inflight.get(key)`; if empty, `inflight.set` and the call queues for `lockSpend` (no `await` between) |
+| `CheckSameRequestInFlight` | `inflight.get(key)`; if empty, the job starts and `inflight.set(key, job)` (no `await` between) |
+| `LookAgain` | the job's first step: `savedAnswer()` again (`findStored`, then `copyShared`); found: returned as reused, and `generate`'s `finally` deletes the `inflight` entry; else the job calls `reserveSpend` |
 | `TakeLockAndReadSpending` | `reserveSpend`: `withSpendLock` (this process's `lockSpend` turn, then a transaction that takes `pg_advisory_xact_lock`), then `spending` and `heldNow` on the transaction (hold rows of every server included). Other calls' `generations` inserts may land meanwhile (not under the lock); their holds stay until their release, which waits for the lock |
 | `DecideAndHold` | `assertRoom(spent, held, holdCost(model, req), …)`; passing: insert the hold row (`failed_spend`, kind `spend-hold`); the transaction commits and the lock goes. Refused: `SpendingCapReached`, and `generate`'s `finally` deletes the `inflight` entry |
 | `TheAiAnswers` / `TheAiFailsButBills` / `TheAiFailsUnbilled` | `model.generate` returns / throws an `AiError` with `billed` / throws without `billed` |
@@ -153,8 +156,8 @@ each a finding when dropped (finding 1, what is left): no fallback model rescues
 (`CanFallBack = FALSE`), and a text edition is billed no more than its estimate
 (`TextEditionMaxCost = TextEditionEstimate`). `holdCost` bounds a call's input tokens by its bytes (a
 token is at least one byte) plus `HOLD_OVERHEAD_TOKENS` (2,000) for what the API adds (message framing,
-a JSON schema's instructions): an allowance, not measured. `PaidOncePerAnswer` is checked only in
-finding 7's config. The lock is
+a JSON schema's instructions): an allowance, not measured. `PaidOncePerAnswer` is checked in the main
+config since M44 (finding 7: requests 1 and 2 are identical and on one server). The lock is
 modelled as "one at a time", not first-come-first-served: that allows more orders than the code,
 never fewer. A restart does not touch a text-edition start (it runs in a request, which `next
 start` lets finish).
@@ -186,7 +189,6 @@ voice note's cost, which comes from the duration the browser reports; `fresh: tr
 pays, by design); two tabs or devices (each counts its own $1, by design: "each visit starts
 off"). Not replayed on the real code (tied to it only by the `LOOK` line): the server's
 text-edition, audio, picture and voice-note paths beyond the findings above.
-`PaidOncePerAnswer` is checked only in its finding's config (7): the code does not keep it.
 
 ## Known findings
 
@@ -211,17 +213,20 @@ that passes while the bug is there. Steps are in the code's words.
 Findings 2 to 6 were fixed in M44 (see "Fixed" below). Their numbers are kept, so that the
 numbers in older notes still point at the right finding.
 
-7. **Two identical requests can both pay** (`SpendCap-finding-paid-twice`, `PaidOncePerAnswer`).
-   1. request 1 reserves; the AI is working. 2. request 2's `findStored` runs (nothing saved yet),
-   but its answer reaches the code late (in production the database has a pool of 5 connections;
-   the tests' PGlite answers in order, so ordinary tests never see this). 3. request 1 saves,
-   releases, `inflight.delete`. 4. request 2: `inflight.get` is empty: it reserves and pays again.
+7. **Partly fixed in M44: two identical requests can both pay.** On one server the job now looks for a
+   saved answer again (see "Fixed"). What is left (`SpendCap-finding-paid-twice-two-servers`,
+   `PaidOncePerAnswer`): two copies of the server. 1. request 1, on the first, holds; the AI is working.
+   2. request 2, on the second, looks twice (nothing saved yet) and finds nothing in its own `inflight`
+   map. 3. it holds and pays too. It needs two copies of the web server at once (Railway replicas, or a
+   deploy whose old and new copies overlap); closing it needs the in-flight claim in the database (a
+   row per cache key, or an advisory lock on it).
 
 ## Broken variants (proof the rules can fail)
 
 | Config | Change to the code it stands for | Rule that breaks |
 |---|---|---|
 | `SpendCap-mutant-no-lock` | `reserveSpend` without `withSpendLock` | `CapNeverPassed` |
+| `SpendCap-mutant-no-second-look` | the job goes from `inflight.set` straight to `reserveSpend`, as before M44 (finding 7 comes back) | `PaidOncePerAnswer` |
 | `SpendCap-mutant-hold-the-likely-cost` | `generate` holds `estimateCost` (the likely cost) instead of `holdCost`, as before M44 (finding 1 comes back) | `CapNeverPassed` |
 | `SpendCap-mutant-release-before-save` | `hold.release()` before `insert generations` | `ChargedMoneyAlwaysCounted` |
 | `SpendCap-mutant-release-only-on-success` | `hold.release()` only after a saved answer | `ReservationReleasedOnce` |
@@ -257,6 +262,9 @@ out of three (`expected … to have a length of 1 but got 5`: five holds passed 
 Finding 1: with `generate` holding `estimateCost(model, req)` again, the test "a call that may use all of
 maxTokens holds that much…" failed ("the second call reached the AI: it was not refused … got 2"); with
 `Mutant = "holdTheLikelyCost"` in `SpendCap.cfg`, the main check broke `ChargedMoneyAlwaysCounted`.
+Finding 7: with `lib/ai/generate.ts` as it was before the second look, the test "a second request whose
+first look was answered late…" failed ("request 2 reached the AI: the answer was paid for twice … got 2");
+with `Mutant = "noSecondLook"` in `SpendCap.cfg`, the main check broke `PaidOncePerAnswer`.
 
 ## Reading a result
 
@@ -346,6 +354,11 @@ No migration: the table already counted toward `spending`.
 - **6. Two copies of the server**: one advisory lock and one table for all. Tests: "finding 6" (two copies
   of the module on one PGlite) and `lib/db/postgres.test.ts`, "the spending lock" (five copies of the
   module over two pools of five connections on a real Postgres, twenty reserves, room for one).
+- **7. Two identical requests (on one server)**: in `generate`, the job looks for a saved answer again
+  (`findStored`, then `copyShared`) after it is in the `inflight` map and before it holds. An identical
+  request that finished after the first look saved its answer before it left the map, so it is found.
+  Test: `lib/ai/spend-holds.test.ts`, "a second request whose first look was answered late…". What is left:
+  two copies of the server (under "Known findings"). Cost: one more database read for each paid call.
 
 8. **The total could pass $1 by one paragraph** (was `RewriteAsYouTurn-finding-paid-past-one-dollar`).
    The loop tested `mustAskAgain(sinceOk)` (what was paid) before each paragraph, so 60c + 60c =

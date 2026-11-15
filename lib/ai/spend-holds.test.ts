@@ -248,3 +248,73 @@ describe("a paid result that cannot be saved still counts (finding 4)", () => {
     expect(await database.db.select().from(failedSpend)).toEqual([]);
   });
 });
+
+type Then = (ok: (v: unknown) => unknown, bad: (e: unknown) => unknown) => Promise<unknown>;
+
+/**
+ * The database as one request sees it when its first SELECT runs at once but its answer arrives only after
+ * `gate` opens (a slow connection in production's pool of five; PGlite answers in order, so ordinary tests
+ * never see this). Everything else goes straight through.
+ */
+function firstReadArrivesLate(db: Db, gate: Promise<void>): Db {
+  let used = false;
+  const late = (builder: unknown): unknown =>
+    typeof builder !== "object" || builder === null
+      ? builder
+      : new Proxy(builder, {
+          get(target, key) {
+            const value = Reflect.get(target, key);
+            if (key === "then") return ((ok, bad) => (value as Then).call(target, (v: unknown) => gate.then(() => v), (e: unknown) => gate.then(() => Promise.reject(e))).then(ok, bad)) as Then;
+            return typeof value === "function" ? (...args: unknown[]) => late(value.apply(target, args)) : value;
+          },
+        });
+  return new Proxy(db, {
+    get(target, key) {
+      const value = Reflect.get(target, key);
+      if (key === "select")
+        return (...args: unknown[]) => {
+          const builder = (value as (...a: unknown[]) => unknown).apply(target, args);
+          if (used) return builder;
+          used = true;
+          return late(builder);
+        };
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }) as Db;
+}
+
+describe("an identical request is paid for once (finding 7)", () => {
+  it("a second request whose first look was answered late finds the first's saved answer, and does not pay again", async () => {
+    const ai = waitingProvider();
+    const ask = request({ kind: "ask", options: {}, promptName: "ask" }); // a kind not shared between readers
+    // Request 1: no saved answer, nothing in flight; it holds, and the AI is working.
+    const first = generate(database.db, ai.model, ask, { now: () => now });
+    await until(() => ai.waiting.length === 1, "request 1 to reach the AI");
+    // Request 2 looks for a saved answer (none yet), but the database's answer is slow to come back.
+    let arrive = () => {};
+    const gate = new Promise<void>((r) => (arrive = r));
+    const second = generate(firstReadArrivesLate(database.db, gate), ai.model, ask, { now: () => now });
+    await new Promise((r) => setTimeout(r, 20));
+    // Request 1's answer is saved, its hold released, and it leaves the in-flight map.
+    ai.waiting[0].answer();
+    await first;
+    // Request 2 hears "no saved answer" and finds nothing in flight: it must look again before it pays.
+    arrive();
+    const result = await refusedOrAnswered(second, ai);
+    expect(ai.waiting, "request 2 reached the AI: the answer was paid for twice").toHaveLength(1);
+    expect(result).toMatchObject({ reused: true });
+    expect(await database.db.select().from(generations)).toHaveLength(1);
+  });
+});
+
+/** What `call` returned, or a note that it reached the AI (so the old code fails here, not by a timeout). */
+async function refusedOrAnswered(call: Promise<unknown>, ai: ReturnType<typeof waitingProvider>) {
+  let result: unknown = undefined;
+  let settled = false;
+  call.then(
+    (v) => ((settled = true), (result = v)),
+    (e) => ((settled = true), (result = e)),
+  );
+  await until(() => settled || ai.waiting.length > 1, "request 2 to end or reach the AI");
+  return result;
+}

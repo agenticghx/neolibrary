@@ -9,7 +9,7 @@ import type { Database } from "@/lib/db/client";
 import { failedSpend, generations } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { ASK_AGAIN_USD, goAhead, mayPay, paidFor, TURN_OFF } from "@/lib/library/rewritten-turn";
-import { fakeProvider, onInsert, rewriteRequest, until } from "./fakes";
+import { fakeProvider, firstReadArrivesLate, onInsert, rewriteRequest, until } from "./fakes";
 
 let database: Database;
 let ownerId: string;
@@ -102,6 +102,22 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
     const [one, two] = await both;
     expect(ai.waiting).toHaveLength(1);
     expect([one.reused, two.reused].sort()).toEqual([false, true]);
+  });
+
+  it("LookAgain: once in the in-flight map, the job looks for a saved answer again before it holds", async () => {
+    const ai = fakeProvider();
+    const a = rewriteRequest(ownerId, { kind: "ask", options: {}, promptName: "ask" });
+    const first = generate(database.db, ai.model, a, { now: () => now });
+    await until(() => ai.waiting.length === 1, "request 1 to reach the AI");
+    let arrive = () => {};
+    const gate = new Promise<void>((r) => (arrive = r));
+    const second = generate(firstReadArrivesLate(database.db, gate), ai.model, a, { now: () => now });
+    await new Promise((r) => setTimeout(r, 20));
+    ai.waiting[0].answer();
+    await first;
+    arrive();
+    expect((await second).reused).toBe(true);
+    expect(ai.waiting).toHaveLength(1);
   });
 });
 
