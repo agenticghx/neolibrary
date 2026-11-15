@@ -77,7 +77,11 @@ test("rewrite a paragraph at two levels, flip between versions, and get them bac
   await expect(panel(page)).toContainText("Version 1 of 1");
   // M21: the reading level of the paragraph and of its rewrite (Flesch-Kincaid grade), the same numbers seen and heard.
   // The fake rewrite is the paragraph's first two sentences, so it need not be easier: only the shape is checked.
+  // Behind the AI mark since 2026-11-15 (Samuel: only the rewrite shows until asked), with the model line.
   const level = rewrite(page).getByTestId("readability");
+  await expect(level).toBeHidden();
+  await rewrite(page).getByTestId("ai-note").locator(":scope > summary").click();
+  await expect(level).toBeVisible();
   const shown = level.locator('summary [data-part="shown"]');
   await expect(shown).toHaveText(/^Grade \d+\s+\d+$/); // the arrow between them is drawn
   await expect(shown.locator("svg")).toBeVisible();
@@ -158,9 +162,15 @@ test("STE rewrites: STE light, STE and STE strict, a full-STE score badge and th
   await dial.getByRole("button", { name: "STE strict" }).click();
   await expect(rewrite(page)).toContainText("Rewrite · STE strict · written by the test AI");
   await expect(dial.getByRole("button", { name: "STE strict" })).toHaveAttribute("aria-pressed", "true");
-  await expect(rewrite(page)).toContainText(/STE \d+% \(full-STE score\)/);
-  await expect(rewrite(page)).toContainText("Meaning changes");
-  await expect(rewrite(page).getByRole("listitem")).toHaveText(["The test AI chose no meanings; this note shows where real ones go."]);
+  // The score, the meaning choices and where it came from wait behind the AI mark (Samuel, 2026-11-15); the dot
+  // on the mark says there is a meaning choice to see.
+  const note = rewrite(page).getByTestId("ai-note");
+  await expect(note.getByText(/STE \d+% \(full-STE score\)/)).toBeHidden();
+  await expect(note.getByTestId("ai-note-dot")).toBeVisible();
+  await note.locator(":scope > summary").click();
+  await expect(note.getByText(/STE \d+% \(full-STE score\)/)).toBeVisible();
+  await expect(note).toContainText("1 meaning choice");
+  await expect(note.getByRole("listitem")).toHaveText(["The test AI chose no meanings; this note shows where real ones go."]);
   await expect(rewrite(page)).not.toContainText("---notes---");
   await expect(panel(page)).toContainText("Version 4 of 4");
 
@@ -466,14 +476,32 @@ test("read it rewritten: beside the page, made once at the price shown, kept acr
   const pieces = pane(page).getByTestId("rewritten-piece");
   await expect(pieces).toHaveCount(missing);
   await expect(ask).toHaveCount(0);
-  await expect(pieces.first()).toContainText("STE strict · written by the test AI");
   await expect(pieces.first()).toContainText("Fake rewrite (ste, strict (full ste)): ");
-  await expect(pieces.first()).toContainText(/STE \d+% \(full-STE score\)/);
-  await expect(pieces.first()).toContainText("1 meaning choice");
-  await expect(pieces.first()).toContainText(/fake · \d+ \w+ \d{4} · \$\d/);
-  // M21: each rewritten paragraph carries its reading-level badge too.
-  await expect(pieces.first().getByTestId("readability")).toContainText(/Reading level: original grade \d+, this rewrite grade \d+/);
+  // Only the rewritten text shows (Samuel, 2026-11-15): who wrote it, the score, the reading level, the meaning
+  // choice and the model, date and cost are behind the AI mark in the block's corner, with a dot for the meaning choice.
+  const first = pieces.first();
+  const note = first.getByTestId("ai-note");
+  await expect(note.locator(":scope > summary")).toBeVisible();
+  await expect(note.getByTestId("ai-note-dot")).toBeVisible();
+  for (const hidden of ["STE strict · written by the test AI", /STE \d+% \(full-STE score\)/, "1 meaning choice", /fake · \d+ \w+ \d{4} · \$\d/]) {
+    await expect(first.getByText(hidden, { exact: true })).toBeHidden();
+  }
+  await expect(first.getByTestId("readability")).toBeHidden();
+  // No line of the rewrite runs under the mark.
+  const mark = (await note.locator(":scope > summary").boundingBox())!;
+  const text = (await first.locator("p").first().boundingBox())!;
+  expect(text.x + text.width).toBeLessThanOrEqual(mark.x + 1);
+  await note.locator(":scope > summary").click();
+  await expect(first.getByText("STE strict · written by the test AI", { exact: true })).toBeVisible();
+  await expect(first.getByText(/STE \d+% \(full-STE score\)/)).toBeVisible();
+  await expect(first.getByText("1 meaning choice", { exact: true })).toBeVisible();
+  await expect(first.getByText(/fake · \d+ \w+ \d{4} · \$\d/)).toBeVisible();
+  // M21: each rewritten paragraph carries its reading-level badge too, behind the mark.
+  await expect(first.getByTestId("readability")).toBeVisible();
+  await expect(first.getByTestId("readability")).toContainText(/Reading level: original grade \d+, this rewrite grade \d+/);
   await expect(pieces.getByTestId("readability")).toHaveCount(missing);
+  await note.locator(":scope > summary").click();
+  await expect(first.getByText(/STE \d+% \(full-STE score\)/)).toBeHidden();
   expect(made.n).toBe(missing);
   // Stop rewriting as you turn (the next test covers it): from here on, only what is saved shows.
   await pane(page).getByTestId("as-you-turn").getByRole("button", { name: "Stop" }).click();
@@ -522,6 +550,69 @@ test("read it rewritten: beside the page, made once at the price shown, kept acr
   await expect.poll(async () => (await (await page.request.get("/api/account/preferences")).json()).rewrittenView).toBe("original");
   await page.reload();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(pane(page)).toHaveCount(0);
+});
+
+// Samuel, 2026-11-15: the line between the book and its rewrite is dragged to give either more room. It is kept on
+// this device, moves with the keyboard, never makes either side narrower than 20rem, and a double click puts the
+// layout's own split back.
+test("the line between the page and its rewrite: dragged, kept after a reload, moved with the keys, and put back", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAtPhrase(page, "London was startled by a crime of singular ferocity");
+  await openSide(page);
+  const line = page.getByTestId("side-divider");
+  await expect(line).toBeVisible();
+  await expect(line).toHaveAttribute("role", "separator");
+  const width = async () => (await pane(page).boundingBox())!.width;
+  const bookWidth = async () => (await page.locator("foliate-view").boundingBox())!.width;
+  const start = await width();
+  const bookStart = await bookWidth();
+
+  // Dragged 150px to the left: the rewrite is 150px wider and the book 150px narrower.
+  const at = (await line.boundingBox())!;
+  const y = at.y + at.height / 2;
+  await page.mouse.move(at.x + at.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(at.x + at.width / 2 - 75, y, { steps: 5 });
+  await page.mouse.move(at.x + at.width / 2 - 150, y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(width).toBeCloseTo(start + 150, -1);
+  await expect.poll(bookWidth).toBeLessThan(bookStart - 100);
+  const dragged = await width();
+
+  // Kept on this device: the same after a reload.
+  await page.reload();
+  await expect(pane(page)).toBeVisible();
+  await expect.poll(width).toBeCloseTo(dragged, -1);
+
+  // The keys: Right narrows the rewrite by 32px; End takes it to its narrowest, 20rem.
+  await line.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(width).toBeCloseTo(dragged - 32, -1);
+  await page.keyboard.press("End");
+  await expect.poll(width).toBeCloseTo(320, -1);
+  // Dragged far to the left, the book keeps 20rem.
+  const now = (await line.boundingBox())!;
+  await page.mouse.move(now.x + now.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(10, y, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(async () => Math.round(await bookWidth())).toBeGreaterThanOrEqual(319);
+  await expect(line).toHaveAttribute("aria-valuenow", /^\d+$/);
+
+  // A double click: the layout's own split again, also after a reload.
+  await line.dblclick();
+  await expect.poll(width).toBeCloseTo(start, -1);
+  await page.reload();
+  await expect(pane(page)).toBeVisible();
+  await expect.poll(width).toBeCloseTo(start, -1);
+
+  // On a phone the rewrite is under the page: there is no line.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(line).toBeHidden();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  // Leave the account on Original, as the test before this one did: the PDF test after it relies on that.
+  await show(page).getByRole("button", { name: "Original" }).click();
   await expect(pane(page)).toHaveCount(0);
 });
 
@@ -678,6 +769,17 @@ test("the rewritten view is accessible, and looks right beside the page and alon
         expect(results.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
         await page.waitForTimeout(500);
         await page.screenshot({ path: `screenshots/reader-rewritten-${mode === "Rewritten" ? "alone" : "side"}-${name}-${scheme}.png` });
+        if (mode === "Side by side") {
+          // The AI mark opened on the first paragraph: who wrote it, the score, the level, the meaning choice and the cost.
+          const note = pane(page).getByTestId("ai-note").first();
+          await note.locator(":scope > summary").click();
+          await expect(note.getByText(/STE \d+% \(full-STE score\)/)).toBeVisible();
+          const open = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
+          expect(open.violations.map((v) => `${v.id}: ${v.help} ${v.nodes.map((n) => `${n.target} ${n.failureSummary}`).join(" | ")}`)).toEqual([]);
+          await page.waitForTimeout(300);
+          await page.screenshot({ path: `screenshots/reader-rewritten-note-${name}-${scheme}.png` });
+          await note.locator(":scope > summary").click();
+        }
       }
       await show(page).getByRole("button", { name: "Side by side" }).click();
     }
@@ -1102,8 +1204,9 @@ test("the AI and cross-book panels are accessible, and look right on phone and d
       await page.waitForTimeout(500);
       await page.screenshot({ path: `screenshots/reader-rewrite-${name}-${scheme}.png` });
 
-      // M21: the reading-level badge, opened to show its note.
+      // M21: the reading-level badge, opened to show its note (behind the AI mark since 2026-11-15).
       const level = rewrite(page).getByTestId("readability");
+      await rewrite(page).getByTestId("ai-note").locator(":scope > summary").click();
       await level.locator("summary").click();
       await expect(level.getByText("not meaning", { exact: false })).toBeVisible();
       await level.scrollIntoViewIfNeeded();

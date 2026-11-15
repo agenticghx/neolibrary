@@ -161,7 +161,7 @@
 
 /* M17, read it rewritten: the rewrite beside the page, as a fourth column (under it on a phone). */
 .stageSide {
-  grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(20rem, 42%);
+  grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(20rem, var(--side-track, 42%));
 }
 
 .rewritten {
@@ -188,6 +188,73 @@
 }
 
 /*
+ * The line between the book and its rewrite (SideDivider.tsx): drag it to give either more room. --side-track
+ * (set by Reader.tsx, a share of the reading area) is the rewrite's width; without it, the split above. The
+ * handle is a 12px strip over the rewrite's left rule, which thickens and shows a grip on hover, focus or drag.
+ */
+.sideDivider {
+  position: relative;
+  z-index: var(--z-raised);
+  grid-row: 1;
+  grid-column: 4;
+  justify-self: start;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  transform: translateX(-50%);
+  touch-action: none;
+}
+
+.sideDivider::before {
+  position: absolute;
+  inset: 0 5px;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  content: "";
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.sideDivider::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  background-color: var(--rule);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.sideDivider:hover::before,
+.sideDivider:focus-visible::before,
+.stage[data-resizing] .sideDivider::before {
+  background-color: var(--accent);
+}
+
+.sideDivider:hover::after,
+.sideDivider:focus-visible::after,
+.stage[data-resizing] .sideDivider::after {
+  background-color: var(--accent);
+}
+
+.sideDivider:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* While the line is dragged, the book's frame does not take the pointer and nothing is selected. */
+.stage[data-resizing] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.stage[data-resizing] iframe,
+.stage[data-resizing] foliate-view {
+  pointer-events: none;
+}
+
+/*
  * M19: on a computer a panel (Notes, Rewrite, Reading settings…) takes a column beside the book, so it never
  * covers the text; the book narrows and lays itself out again. With Side by side on, the panel is a third column
  * and the page and the rewrite share the rest, so a change of style in Reading settings shows in the rewrite.
@@ -199,7 +266,7 @@
   }
 
   .stageSide.stagePanel {
-    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(0, 1fr) 22rem;
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(0, var(--side-track, 1fr)) 22rem;
   }
 
   .stage > .panel:not(.panelLeft) {
@@ -228,11 +295,11 @@
   }
 
   .stageSide.stageRail {
-    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(20rem, 42%) var(--rail-width);
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(20rem, var(--side-track, 42%)) var(--rail-width);
   }
 
   .stageSide.stageRail.stagePanel {
-    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(0, 1fr) 22rem var(--rail-width);
+    grid-template-columns: var(--space-8) minmax(0, 1fr) var(--space-8) minmax(0, var(--side-track, 1fr)) 22rem var(--rail-width);
   }
 
   .stage.stageRail {
@@ -1131,6 +1198,7 @@
 }
 
 .machine {
+  position: relative;
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
@@ -1141,6 +1209,11 @@
   font-family: var(--font-sans);
   font-size: var(--text-md);
   line-height: var(--leading-read);
+}
+
+/* A block with the AI mark (AiNote.tsx) in its top corner: room for it on the right. */
+.machineNoted {
+  padding-right: var(--space-6);
 }
 
 .machineLabel,
@@ -1550,6 +1623,11 @@
   .stageSide {
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-columns: var(--space-6) minmax(0, 1fr) var(--space-6);
+  }
+
+  /* On a phone the rewrite is under the page: there is no line to drag. */
+  .sideDivider {
+    display: none;
   }
 
   .stageSide .rewritten {

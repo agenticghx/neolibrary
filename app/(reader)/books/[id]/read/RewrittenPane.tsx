@@ -8,7 +8,7 @@ import type { Piece } from "@/lib/library/rewritten";
 import { goAhead, mustAskAgain, paidFor, soFar, usd, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { STYLE_NAMES } from "@/lib/library/levels";
 import { STYLE_EVENT } from "./AiStyleSetting";
-import { ReadabilityBadge } from "./ReadabilityBadge";
+import { AiNote } from "./AiNote";
 import type { RewrittenMode } from "./settings";
 import styles from "./reader.module.css";
 import { aiFetch } from "@/lib/own-keys";
@@ -20,8 +20,6 @@ const MODES: [RewrittenMode, string][] = [
   ["side", "Side by side"],
   ["rewritten", "Rewritten"],
 ];
-
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 /**
  * Read it rewritten (M17, docs/rewritten-view-plan.md): the paragraphs on
@@ -241,35 +239,17 @@ export function RewrittenPane(props: {
                     {p.kept}
                   </p>
                 ) : p.rewrite ? (
-              <aside key={p.id} className={styles.machine} aria-label="Machine-written rewrite" data-testid="rewritten-piece">
-                <p className={styles.machineLabel}>
-                  {name} · written by {data.fake ? "the test AI" : "AI"}
-                </p>
+              <aside key={p.id} className={`${styles.machine} ${styles.machineNoted}`} aria-label="Machine-written rewrite" data-testid="rewritten-piece">
                 {p.rewrite.text.split(/\n{2,}/).map((para, i) => (
                   <p key={i}>{para}</p>
                 ))}
-                {p.rewrite.ste ? (
-                  <p className={styles.steBadge} title="Measured by the STE checker against full STE, whatever level was asked for">
-                    STE {Math.round(p.rewrite.ste.score)}% (full-STE score)
-                  </p>
-                ) : null}
-                <ReadabilityBadge original={p.text} rewrite={p.rewrite.text} />
-                {p.rewrite.meaningChanges.length ? (
-                  <details className={styles.meaning}>
-                    <summary className={styles.machineLabel}>
-                      {p.rewrite.meaningChanges.length === 1 ? "1 meaning choice" : `${p.rewrite.meaningChanges.length} meaning choices`}
-                    </summary>
-                    <ul>
-                      {p.rewrite.meaningChanges.map((m, i) => (
-                        <li key={i}>{m}</li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
-                <p className={styles.provenance}>
-                  {p.rewrite.provenance.model} · {when(p.rewrite.provenance.createdAt)} · $
-                  {p.rewrite.provenance.costUsd.toFixed(p.rewrite.provenance.costUsd < 0.01 ? 4 : 2)}
-                </p>
+                <AiNote
+                  label={`${name} · written by ${data.fake ? "the test AI" : "AI"}`}
+                  ste={p.rewrite.ste}
+                  readability={{ original: p.text, rewrite: p.rewrite.text }}
+                  meaningChanges={p.rewrite.meaningChanges}
+                  provenance={p.rewrite.provenance}
+                />
               </aside>
             ) : props.mode === "rewritten" ? (
               // Rewritten alone: the book's own words, until this paragraph is rewritten.

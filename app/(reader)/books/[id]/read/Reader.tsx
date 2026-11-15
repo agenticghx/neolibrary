@@ -52,6 +52,8 @@ import { QuestionsPanel } from "./QuestionsPanel";
 import { WhereWereWeStrip } from "./WhereWereWe";
 import { RewritePanel } from "./RewritePanel";
 import { RewrittenPane } from "./RewrittenPane";
+import { SideDivider } from "./SideDivider";
+import { readSideWidth, subscribeSideWidth, writeSideWidth } from "./side-width";
 import { TURN_OFF, type AsYouTurn } from "@/lib/library/rewritten-turn";
 import { SelectionBar, type PendingSelection } from "./SelectionBar";
 import { loadSettings, saveSettings, type FigureMode, type FocusMode, type ReaderSettings, type RewrittenMode, type RulerLines, withEink } from "./settings";
@@ -1124,6 +1126,10 @@ export function Reader(props: {
 
   const update = (patch: Partial<ReaderSettings>) => setSettings((s) => (s ? withEink({ ...s, ...patch }) : s));
 
+  // The rewrite's width beside the page, as the reader dragged it (SideDivider.tsx), kept on this device; the
+  // server cannot see it, so it renders the layout's own split.
+  const sideWidth = useSyncExternalStore(subscribeSideWidth, readSideWidth, () => null);
+
   // Read it rewritten (M17): a change here is the account's view too (also on the Account page), so every
   // book and device opens in it. Shown at once; if it cannot be saved, it still holds in this reader.
   const showRewritten = (mode: RewrittenMode) => {
@@ -1136,6 +1142,14 @@ export function Reader(props: {
     }).catch(() => {});
   };
   const paneMode = rewritten.mode !== "original" && screen ? rewritten.mode : null;
+  // The dragged width, on the reading area (reader.module.css, --side-track); without one, the layout's own split.
+  const sideTrack = paneMode === "side" ? sideWidth : null;
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    if (sideTrack === null) el.style.removeProperty("--side-track");
+    else el.style.setProperty("--side-track", `${sideTrack}%`);
+  }, [sideTrack]);
   const percent = Math.round(where.fraction * 100);
   // A panel beside the book on a computer (M19): the same conditions that draw each panel below. Contents is not
   // one of them: it stays over the page on the left and closes once a chapter is picked.
@@ -1218,7 +1232,11 @@ export function Reader(props: {
         />
       ) : null}
       {/* With Focus on, the X-ray's dotted underlines are quieter too (xray-marks.ts): a custom highlight cannot dim them (.stage[data-focus]). */}
-      <div ref={stage} className={stageClass} data-focus={settings && settings.focus !== "off" ? "" : undefined}>
+      <div
+        ref={stage}
+        className={stageClass}
+        data-focus={settings && settings.focus !== "off" ? "" : undefined}
+      >
         <button type="button" className={`${styles.turn} ${styles.turnPrev}`} aria-label="Previous page" onClick={() => turnRef.current("prev")}>
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M11 3 5 9l6 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -1249,6 +1267,12 @@ export function Reader(props: {
         />
         {paneMode && screen ? (
           <RewrittenPane bookId={props.bookId} from={screen.from} to={screen.to} mode={paneMode} onMode={showRewritten} turn={turn} setTurn={setTurn} />
+        ) : null}
+        {paneMode === "side" && screen ? (
+          <SideDivider
+            stage={stage}
+            onChange={writeSideWidth}
+          />
         ) : null}
 
         {/* The sidebar (sidebar.ts): the reading tools in a rail on the right; a panel opens beside it. */}
