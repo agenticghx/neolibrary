@@ -21,6 +21,7 @@ the repository, on a laptop or in a cloud session.
 | `book-chapters` | Split an EPUB or PDF into one clean text file per chapter, ready to narrate |
 | `plain-english` | Rewrite or check text in plain English (the app's "Plain" level) |
 | `simplified-technical-english` | Rewrite or check text in ASD-STE100 Simplified Technical English (the app's STE levels) |
+| `verify-narration` | Before and after any change to whole-book narration, the Listen bar's paid voice or the spending limits: a TLA+ model checked by TLC (`sh scripts/tlc.sh …`) that the voice is never paid more than the owner chose. Lists what it covers, the rules that hold, and four known findings |
 
 ## Where the app keeps its own copies
 

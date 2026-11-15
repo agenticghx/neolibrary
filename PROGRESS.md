@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Samuel looks at the draggable line and the AI mark on the iPad; check 7's rest waits on him.
+next_action: Merge the verify-narration PR, then open the outbox and spending verification PRs.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 09:56 · Claude Opus 5.5 · verify-narration: a TLA+ model (checked by TLC) that whole-book narration never pays the voice more than the owner chose; 6 of 8 rules hold, 2 broken by the code (4 findings, not fixed)
+- **Done:** scripts/tlc.sh (TLC 1.7.4, Java temurin-25, via mise, pinned and checksum-checked). .claude/skills/verify-narration/ (model, five configs, chart, labels, replays of the findings). Skills index row. Check 7's row: the laptop's extra checkouts removed at Samuel's word. No product code changed.
+- **Key paths:** scripts/tlc.sh; .claude/skills/verify-narration/SKILL.md; .claude/skills/verify-narration/Narration.tla; .claude/skills/README.md; docs/version-2.md; LEARNING_LOG.md (iteration 233)
+- **Commands that worked:** sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla → exit 0, 246,846 distinct states; ...NarrationNoKnownCauses.cfg → exit 0, 11,623; ...NarrationFindings.cfg → exit 12 (PaidOnce); scratch copy with Broken = {"stop check"} → exit 12 (StopPaysAtMostOneMore)
+- **Known issues / blockers:** Findings, for Samuel to decide (not fixed): (1) a restart while a paragraph is being paid loses the payment record and the hold, so Continue pays again and can pass the limit; (2) a failed save after payment is not recorded, so Continue pays again; (3) two paragraphs with the same text: the Listen bar pays again during a run (in-flight key per paragraph, saved key per text, lib/library/audio.ts); (4) only if the host keeps the old server running after a deploy (not known for Railway): a second run, and Stop cannot reach the old one.
+- **Exact next steps:** 1. Merge this PR when green (no migration; deploy changes nothing a reader sees). 2. Review and open the outbox and spending skills' PRs, rebased after this one. 3. Samuel: say whether to fix findings 1-3 (each is a small change in lib/library/audio.ts or narration.ts).
 
 ### 2026-11-15 08:27 · Claude Opus 5.5 · Rule written: read every test that names what changed before the first browser run (browser-test-triage, CLAUDE.md)
 - **Done:** Samuel asked how long #385 took (1 h 12 min from 'go for it' to live: 49 min on the laptop, 11 min PR checks, 12 min main's run and deploy) and, of the 49, which parts are fixed. Reading 2½ min, code 5, tests 1½, five Linux runs of the AI chain 36 (first one 14, about 9 of it installing the Linux packages), checks and PR 2; about 23 min were four reruns for tests still expecting the old layout. At Samuel's 'yes, write it in': browser-test-triage has a 'Before the first run' section (list what changed, grep e2e/ for it, fix the tests, leave serial-test state as found), its description and the skills index say so, and CLAUDE.md has one line pointing there. A saved test database for faster reruns was set aside (risk of tests passing on stale data).
