@@ -1,0 +1,196 @@
+// Replays of the known findings (SKILL.md, "Known findings") against the real code, with the fake voice only
+// (never ElevenLabs). Kept as .txt so that vitest, tsc and eslint leave it alone. To run it:
+//   cp .claude/skills/verify-narration/findings-replay.test.ts.txt lib/library/zz-verify-narration-replay.test.ts
+//   npx vitest run lib/library/zz-verify-narration-replay.test.ts --silent=false
+//   rm lib/library/zz-verify-narration-replay.test.ts
+// Each test passes while its finding is still in the code. After a fix, its test should fail: then turn it round
+// into a real test of the fix (in lib/library/narration.test.ts), and update SKILL.md.
+// Tools for a new replay: Voice (counts each request when sent, which is when the voice bills it; can hold requests
+// or leave one unanswered, as a server that died), newServer() (a restart: fresh modules, so a new in-flight list and
+// new spending holds, and a new list of runs).
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spending } from "@/lib/ai/generate";
+import { createFirstAdmin } from "@/lib/auth/service";
+import type { Database } from "@/lib/db/client";
+import { testDatabase } from "@/lib/db/test-db";
+import { FakeSpeech } from "@/lib/speech/fake";
+import { speechCost, type SpeechRequest } from "@/lib/speech/model";
+import { MemoryStorage } from "@/lib/storage";
+import { speakPassage } from "./audio";
+import { importBook } from "./import";
+import { forgetNarrationsForTests, narrationSummary, startNarration } from "./narration";
+import { getSections } from "./sections-store";
+import { readableEpub } from "./test-epub";
+
+let database: Database;
+let storage: MemoryStorage;
+let ownerId: string;
+
+const lamps = (n: number) => Array.from({ length: n }, (_, i) => `Lamp ${i + 1} is lit at dusk by the keeper, who walks the length of the quay.`);
+const epub = (texts: string[]) => readableEpub("Eight Lamps", [`<h1>The lamps</h1>${texts.map((t) => `<p>${t}</p>`).join("")}`], "Iris Wick");
+
+beforeEach(async () => {
+  database = await testDatabase();
+  storage = new MemoryStorage();
+  ownerId = (await createFirstAdmin(database.db, { email: "o@example.com", name: "O", password: "long enough pw" })).id;
+});
+afterEach(async () => {
+  forgetNarrationsForTests();
+  await database.raw.close();
+});
+
+async function book(texts: string[]) {
+  const bookId = (await importBook(database.db, storage, ownerId, { name: "lamps.epub", bytes: epub(texts) })).bookId;
+  const paragraphs = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph");
+  expect(paragraphs.map((p) => p.text)).toEqual(texts);
+  return { bookId, paragraphs };
+}
+
+/** The fake voice, counting each request when it is sent (that is when the voice bills it). */
+class Voice extends FakeSpeech {
+  sent: string[] = [];
+  hold = false;
+  never = new Set<number>();
+  private gates: (() => void)[] = [];
+  get waiting() {
+    return this.gates.length;
+  }
+  release() {
+    this.gates.shift()?.();
+  }
+  releaseAll() {
+    this.hold = false;
+    while (this.gates.length) this.release();
+  }
+  async speak(req: SpeechRequest) {
+    this.sent.push(req.text);
+    if (this.never.has(this.sent.length)) return new Promise<never>(() => {}); // the server died with it on its way
+    if (this.hold) await new Promise<void>((resolve) => this.gates.push(resolve));
+    return super.speak(req);
+  }
+}
+const billed = (v: Voice) => v.sent.reduce((n, t) => n + speechCost(t.length), 0);
+
+/** A new server: fresh modules (its own in-flight list and spending holds) and its own list of runs. */
+async function newServer() {
+  delete (globalThis as { __neolibraryNarrations?: unknown }).__neolibraryNarrations;
+  vi.resetModules();
+  return await import("./narration");
+}
+
+describe("finding 1: the site restarts while a paragraph is being paid for", () => {
+  it("Continue pays for that paragraph again, and the first payment is never counted", async () => {
+    const voice = new Voice();
+    voice.never.add(1);
+    const { bookId, paragraphs } = await book(lamps(4));
+    await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
+    const after = await newServer();
+    await (await after.startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true)).done;
+    console.log("F1 sent:", voice.sent.map((t) => t.slice(0, 6)));
+    expect(voice.sent.filter((t) => t === paragraphs[0].text)).toHaveLength(2);
+    const recorded = (await spending(database.db, "elevenlabs", bookId)).book;
+    console.log("F1 billed", billed(voice).toFixed(4), "recorded", recorded.toFixed(4));
+    expect(billed(voice)).toBeGreaterThan(recorded + 1e-9);
+  });
+
+  it("with the book's limit nearly used, what the voice bills passes the limit", async () => {
+    const voice = new Voice();
+    voice.never.add(2); // paragraph 2's request is on its way when the site restarts
+    const { bookId, paragraphs } = await book(lamps(4));
+    const cost = (i: number) => speechCost(paragraphs[i].text.length);
+    const caps = { perBookUsd: cost(0) + cost(1) + cost(2) / 2, perMonthUsd: 100 };
+    await startNarration({ db: database.db, storage, model: voice, caps }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(2));
+    const after = await newServer();
+    await (await after.startNarration({ db: database.db, storage, model: voice, caps }, ownerId, bookId, "fake-ada", true)).done;
+    const s = await after.narrationSummary(database.db, voice, ownerId, bookId, "fake-ada", { caps });
+    console.log("F1-limit sent:", voice.sent.map((t) => t.slice(0, 6)), "billed", billed(voice).toFixed(4), "cap", caps.perBookUsd.toFixed(4), "ended:", s.stoppedBecause?.kind);
+    expect(voice.sent.filter((t) => t === paragraphs[1].text)).toHaveLength(2);
+    expect(billed(voice)).toBeGreaterThan(caps.perBookUsd);
+  });
+});
+
+describe("finding 2: saving a paid paragraph fails", () => {
+  it("the run stops with an error, the payment is not counted, and Continue pays again", async () => {
+    class FailingOnce extends MemoryStorage {
+      failed = false;
+      async put(key: string, data: Uint8Array, type: string) {
+        if (!this.failed) {
+          this.failed = true;
+          throw new Error("storage is down");
+        }
+        return super.put(key, data, type);
+      }
+    }
+    const voice = new Voice();
+    const { bookId, paragraphs } = await book(lamps(3));
+    const failing = new FailingOnce();
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await (await startNarration({ db: database.db, storage: failing, model: voice }, ownerId, bookId, "fake-ada", true)).done;
+    err.mockRestore();
+    const s = await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada");
+    expect(s.stoppedBecause?.kind).toBe("error");
+    expect((await spending(database.db, "elevenlabs", bookId)).book).toBe(0);
+    await (await startNarration({ db: database.db, storage: failing, model: voice }, ownerId, bookId, "fake-ada", true)).done;
+    console.log("F2 sent:", voice.sent.map((t) => t.slice(0, 6)));
+    expect(voice.sent.filter((t) => t === paragraphs[0].text)).toHaveLength(2);
+  });
+});
+
+describe("finding 3: two paragraphs with the same text", () => {
+  it("the Listen bar on the repeat, while the run pays for the first, pays for the same text again", async () => {
+    const voice = new Voice();
+    voice.hold = true;
+    const texts = lamps(2);
+    const { bookId, paragraphs } = await book([texts[0], texts[1], texts[0]]);
+    const run = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
+    const listen = speakPassage(database.db, storage, voice, ownerId, { bookId, sectionId: paragraphs[2].id, voice: "fake-ada" });
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(2));
+    voice.releaseAll();
+    await listen;
+    await run.done;
+    console.log("F3 sent:", voice.sent.map((t) => t.slice(0, 6)));
+    expect(voice.sent.filter((t) => t === texts[0])).toHaveLength(2);
+  });
+
+  it("(the model's assumption) the Listen bar on the same paragraph as the run shares its call: paid once", async () => {
+    const voice = new Voice();
+    voice.hold = true;
+    const { bookId, paragraphs } = await book(lamps(2));
+    const run = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
+    const listen = speakPassage(database.db, storage, voice, ownerId, { bookId, sectionId: paragraphs[0].id, voice: "fake-ada" });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(voice.sent).toHaveLength(1);
+    voice.releaseAll();
+    expect((await listen).reused).toBe(true);
+    await run.done;
+    expect(voice.sent).toEqual([paragraphs[0].text, paragraphs[1].text]);
+  });
+});
+
+describe("finding 4 (if the old server runs on after a deploy)", () => {
+  it("two runs at once, both pay for paragraph 1, and Stop on the new server does not stop the old run", async () => {
+    const voice = new Voice();
+    voice.hold = true;
+    const { bookId, paragraphs } = await book(lamps(4));
+    const old = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
+    const after = await newServer();
+    const second = await after.startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    expect(second.started).toBe(true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(2));
+    expect(voice.sent[1]).toBe(paragraphs[0].text);
+    const stopping = after.stopNarration(database.db, ownerId, bookId, "fake-ada", 50);
+    await stopping;
+    const atStop = voice.sent.length;
+    voice.releaseAll();
+    await second.done;
+    await old.done;
+    console.log("F4 sent:", voice.sent.map((t) => t.slice(0, 6)), "paid after Stop:", voice.sent.length - atStop);
+    expect(voice.sent.length - atStop).toBeGreaterThan(1);
+  });
+});
+
