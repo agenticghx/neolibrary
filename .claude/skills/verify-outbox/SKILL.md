@@ -54,8 +54,8 @@ to describe these files:
 | `app/(reader)/books/[id]/read/Reader.tsx` | `SYNC_EVENT` sent when the page opens, 554 |
 | `app/(reader)/books/[id]/read/page.tsx` | `readerId={user.id}` 79: fixed when the page loads |
 | `app/api/books/[id]/annotations/route.ts` | POST: with `id`, `createAnnotationOnce` (201 new, 200 already there) 48-49; `AnnotationError` gives 400, 54 |
-| `app/api/annotations/[id]/route.ts`, `.../restore/route.ts` | PATCH and DELETE with `changeId`; not found gives 404, other errors 400 |
-| `lib/library/annotations.ts` | `ownsBook` 221, `createAnnotationOnce` 277, `addVersion` 355 (change id already done 361-362, not found 366, restore of a note that is there adds nothing 367) |
+| `app/api/annotations/[id]/route.ts`, `.../restore/route.ts` | `fail` 8 (not found gives 404, other errors 400), PATCH 22, DELETE 33 (204 at 39), both with `changeId`; restore POST 8 |
+| `lib/library/annotations.ts` | `ownsBook` 179 (checked by `createAnnotation` at 221), `createAnnotationOnce` 277, `addVersion` 355 (change id already done 361-362, not found 366, restore of a note that is there adds nothing 367) |
 | `db/migrations/0007_annotations.up.sql` | `id` PRIMARY KEY 7, `UNIQUE (annotation_id, version)` 24: the loser of two racing inserts fails |
 | `app/(app)/actions.ts` | `signOutAction` 20: the cookie goes; open tabs are not told |
 | `public/sw.js` | 52: requests that are not GET pass straight to the network |
