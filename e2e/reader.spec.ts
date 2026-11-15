@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import * as CFI from "foliate-js/epubcfi.js";
 import { readableEpub } from "../lib/library/test-epub";
+import { uploadDiscourse } from "./discourse";
 import { ADMIN_STATE } from "./pages";
 
 // The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
@@ -899,24 +900,7 @@ test("the margins around the text follow a change of theme without a reload", as
 });
 
 test("a PDF opens in the reader, turns pages, and its text is searchable", async ({ page }) => {
-  const { PDFDocument, StandardFonts } = await import("pdf-lib");
-  const doc = await PDFDocument.create();
-  doc.setTitle("Discourse on the Method");
-  doc.setAuthor("René Descartes");
-  const font = await doc.embedFont(StandardFonts.TimesRoman);
-  const lines = [
-    "Good sense is, of all things among men, the most equally distributed.",
-    "The diversity of our opinions does not arise from some being endowed with a larger share of reason.",
-    "It is not enough to have a vigorous mind; the prime requisite is rightly to apply it.",
-  ];
-  lines.forEach((text, i) => {
-    const p = doc.addPage([612, 792]);
-    p.drawText(`Part ${i + 1}`, { x: 72, y: 700, size: 18, font });
-    p.drawText(text, { x: 72, y: 660, size: 11, font });
-  });
-  await page.goto("/import");
-  await page.getByLabel("Choose files").setInputFiles({ name: "discourse.pdf", mimeType: "application/pdf", buffer: Buffer.from(await doc.save()) });
-  await expect(page.getByTestId("upload-results").getByText("Added to your library")).toBeVisible();
+  await uploadDiscourse(page);
   await page.goto("/library");
   // Labelled by what each title offers: the AI voice reads PDFs too (Part A2), so this PDF says
   // Read and listen, as an EPUB does (the tests' fake voice counts as narration).

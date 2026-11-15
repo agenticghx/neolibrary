@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { DISCOURSE_TITLE, ensureDiscourse } from "./discourse";
 import { ADMIN_STATE } from "./pages";
 
 // The reading tools (Notes, Study, Rewritten view, Bookmark, Focus session) live in the reader's sidebar
@@ -551,7 +552,8 @@ test("a waiting note of another reader is not sent, and stays on the device for 
 
 // PDF books too: the PDF viewer's files are kept with the first PDF downloaded.
 test("a PDF downloaded for offline opens with the network off, pages and all", async ({ page, context }) => {
-  const discourse = await bookId(page, "Discourse on the Method");
+  await ensureDiscourse(page); // CI's behavior-2 machine does not run reader.spec.ts, which uploads it (e2e/discourse.ts).
+  const discourse = await bookId(page, DISCOURSE_TITLE);
   await page.goto(`/books/${discourse}/read`);
   const reader = page.getByTestId("reader");
   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });

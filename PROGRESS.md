@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge #377, then the due-count PR, then this documents PR.
+next_action: Merge the check-6 PR (reader off two machines) and read its machine times against 625 s.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,10 +20,10 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 22:02 (laptop clock, from `date`). Merged: #375 (links keep the page; live as 5667e04), #376 (housekeeping), #377 (security updates; Dependabot shows alerts 20 to 28 fixed, none open), #378 (Home counts the review cards once); the last three deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 22:09 (laptop clock, from `date`). Merged: #375 (links keep the page; live as 5667e04), #376 (housekeeping), #377 (security updates; Dependabot shows alerts 20 to 28 fixed, none open), #378 (Home counts the review cards once), #379 (documents back in step); they deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Merge this pull request (documents, `m44-docs-match`) when green; then the check-6 change (`m44-ci-support`, committed on the laptop, next item), rebased onto main.
-2. Check 6, not met: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. Being tried on `m44-ci-support` (laptop worktree `.claude/worktrees/ci-support`): behavior-2 and read-along no longer run reader (229 to 235 s of tests each, there only to upload the PDF "Discourse on the Method"); the tests that need it upload it when missing (`e2e/discourse.ts`); annotations back to behavior. Each group run alone in the Linux image before the PR.
+1. Merge this pull request (check 6: behavior-2 and read-along no longer run the reader tests to make data) when green. Read its machine times (`gh run view <run> --json jobs`) against about 625 s; put them in the PR and in `docs/version-2.md` check 6's row.
+2. Check 6 before this PR: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. If behavior-2 is still over after this PR: its four screenshot projects (about 130 s) are its first block. Not tried: keeping Next's build cache between runs (about 76 s of each machine is the build).
 3. Check 7: pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word). Open unknowns rows 1, 12, 13 and 27(3) are past their dates but are about money or access, so they wait for Samuel.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
 5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); three audit items need one look at the live database or at Railway.
@@ -190,6 +190,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 21:58 · Claude Opus 5.5 (laptop) · Check 6: behavior-2 and read-along no longer run the reader tests to make data
+- **Done:** e2e/discourse.ts builds and uploads the PDF Discourse on the Method; reader.spec.ts uses it; the read-along tests and the offline PDF test upload it when missing. BROWSER_GROUPS: annotations back to behavior; behavior-2 and readalong support flows and uploads only (reader was 235 s and 229 s of tests there in #376's run). Unit tests and docs/ci-time.md updated.
+- **Key paths:** e2e/discourse.ts; e2e/reader.spec.ts; e2e/readalong.spec.ts; e2e/offline.spec.ts; scripts/ci-browser-needed.mjs; lib/ci-browser-needed.test.ts; docs/ci-time.md; LEARNING_LOG.md (iteration 226)
+- **Commands that worked:** linux-run.sh --env CI_BROWSER_GROUP=behavior-2 -> 237 passed (2.7m; the first try failed offline.spec.ts:553, missing PDF); CI_BROWSER_GROUP=readalong -> 80 passed (4.9m); CI_BROWSER_GROUP=behavior -> 152 passed (6.6m); npx vitest run lib/ci-browser-needed.test.ts -> 30 passed
+- **Known issues / blockers:** The CI times are measured on this PR's own run (every machine runs: e2e files changed).
+- **Exact next steps:** 1. Read this PR's machine times against about 625 s; record them in the PR and docs/version-2.md check 6. 2. If behavior-2 is still over: the screenshot projects (about 130 s) are its first block.
 ### 2026-11-14 21:34 · Claude Opus 5.5 (laptop) · Documents back in step: plan headings for seven milestones, design.md's sidebar, merge-train's deploy step and attempt-log.sh
 - **Done:** docs/plan.md: headings for M15, M16, M21, M24, M38, M39, M44, each recorded from its merged pull requests. docs/design.md: the sidebar, account menu, hide button and phone tab bar replace the app bar. merge-train SKILL.md step 6: deploy.yml deploys main itself; only a migration is deployed from the laptop. attempt-log.sh: each failed browser machine, logs via curl, a note for a failed job with no test results.
 - **Key paths:** docs/plan.md; docs/design.md; .claude/skills/merge-train/SKILL.md; .claude/skills/merge-train/scripts/attempt-log.sh; LEARNING_LOG.md (iteration 225)

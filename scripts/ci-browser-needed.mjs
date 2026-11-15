@@ -331,19 +331,23 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  *   what the ones before it made (tried on 2026-11-11, one cut at a time): audio and images use
  *   the links between books that the AI tests make, notes use audio the audio tests saved, and
  *   home's Continue card shows what the chain read last.
- *   Shell and annotations moved to behavior-2 on 2026-11-14: nothing after them on this machine
- *   needs what they make (each group run alone from an empty database), and behavior was the
- *   slowest machine on every pull request (568 to 846 s of tests, the others 330 to 518).
- * - behavior-2: the screenshots (before any test adds data), then, after flows, uploads and
- *   reader have made the account, the books and the opened PDF: shell, annotations, stats,
- *   own-paths, agents, offline, and open-shelf off stats. Split from behavior on 2026-11-11 so
+ *   Shell moved to behavior-2 on 2026-11-14: nothing after it on this machine needs what it makes
+ *   (each group run alone from an empty database), and behavior was the slowest machine on every
+ *   pull request (568 to 846 s of tests, the others 330 to 518). Annotations went too, then came
+ *   back the same day: it needs the book reader opens, and it was the one reason behavior-2 ran reader.
+ * - behavior-2: the screenshots (before any test adds data), then, after flows and uploads have
+ *   made the account and the books: shell, stats, own-paths, agents, offline, and open-shelf off
+ *   stats. Without reader since 2026-11-14 (it was 235 s of tests here only to make data): the
+ *   offline test uploads the PDF "Discourse on the Method" itself when it is missing (e2e/discourse.ts). Split from behavior on 2026-11-11 so
  *   that no machine runs more than about eight minutes of tests (one machine took 12.7). Open-shelf once
  *   needed the whole chain (alone after uploads, a visitor's new rewrite was not refused,
  *   2026-11-05); tried again on 2026-11-11 it passes alone after flows and uploads, and here.
  * - branches: the projects that hang off stats but make readers and books of their own;
  *   here they wait on uploads only.
- * - readalong: the audiobook file in Chromium, then whole-book narration. It needs the PDF
- *   "Discourse on the Method", which reader.spec.ts uploads, so reader runs here too.
+ * - readalong: the audiobook file in Chromium, then whole-book narration, after flows and uploads.
+ *   It needs the PDF "Discourse on the Method", which reader.spec.ts uploads in the chain; since
+ *   2026-11-14 the audiobook file uploads it itself when it is missing (e2e/discourse.ts), so
+ *   reader (229 s of tests) no longer runs here.
  * - webkit: everything in Safari's engine, on one machine (main and the night run only):
  *   Safari's highlight test and the audiobook file, after reader. (Tried on 2026-11-05 as a
  *   fix for the design screenshot's 2 px wobble on main; it was not the cause, see
@@ -352,18 +356,18 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
 export const BROWSER_GROUPS = {
   behavior: {
     support: [],
-    targets: ["flows", "uploads", "reader", "ai", "audio", "notes", "images", "home"],
+    targets: ["flows", "uploads", "reader", "annotations", "ai", "audio", "notes", "images", "home"],
   },
   "behavior-2": {
-    support: ["flows", "uploads", "reader"],
-    targets: [...VISUAL, "shell", "annotations", "stats", "own-paths", "agents", "offline", "open-shelf"],
+    support: ["flows", "uploads"],
+    targets: [...VISUAL, "shell", "stats", "own-paths", "agents", "offline", "open-shelf"],
   },
   branches: {
     support: ["flows", "uploads"],
     targets: ["review", "covers", "own-keys", "eink", "focus", "shared-papers"],
   },
   readalong: {
-    support: ["flows", "uploads", "reader"],
+    support: ["flows", "uploads"],
     targets: ["readalong", "narration"],
   },
   webkit: {
