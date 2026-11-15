@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the rewrite-pane fix, then review the spending-holds and outbox fixes.
+next_action: Merge the outbox fix, then open the spending-holds PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -133,6 +133,7 @@ Never blocks the loop. Newest first.
 | 35 | **Audit 2026-11-09: findings not fixed.** Five reviewers read `lib/`, `app/`, `components/`, the migrations and the docs. Three pull requests fixed what was certain (#321, #322, #323). The rest needs Samuel's choices: bugs that need a migration or a product decision (export round trip for papers, doubled X-ray facts, a removed shared copy that returns), slow paths, and documents that no longer match the code. The full list, with file and line for each, is on the laptop: `docs/handoffs/2026-11-09-audit-review-list.md` (gitignored: it also holds security items, which do not belong in this public file). Samuel says which to fix and in what order. | Samuel | 2026-11-16 | **answered 2026-11-10:** Samuel handed the call over ("this codebase is yours"; "go"; "keep going in that order"). The order is in `docs/version-2.md`; done so far: #329 to #336 and migration 0040. What is left of the list is version 2's check 7. |
 | 36 | **GitHub housekeeping (audit 2026-11-09).** (a) The `ci-screenshots` branch holds 16,949 pictures, 4.52 GB of the repository's 4.65 GB, and is never pruned: reset it to recent pull requests only? (b) 261 remote branches belong to merged pull requests: delete them? Both are hard to undo, so neither is done without Samuel's yes. | Samuel | 2026-11-16 | **closed 2026-11-10:** done at Samuel's word (258 merged branches deleted, `ci-screenshots` cut to pull requests 305 onward; Log entry of that date). |
 | 37 | **Pruning again, and keeping it pruned (2026-11-14).** Since the pruning of 2026-11-10 (row 36) the `ci-screenshots` branch has grown back to 66 pull requests' pictures (7.2 GB before packing; it was 24 after the pruning), and 44 remote branches of merged pull requests are back (each one's tip is exactly the merged pull request's last commit, so GitHub's "Restore branch" on the pull request brings it back). Recommended: (a) turn on GitHub's "Automatically delete head branches" (Settings > General), which deletes a branch when its pull request merges, and delete the 44; (b) a step in CI that keeps only the newest 30 pull requests' pictures on `ci-screenshots` (screenshot grids on older pull requests stop showing). Not done without your yes: both delete things. | Samuel | 2026-11-21 | **closed 2026-11-15:** done at Samuel's word ("yes"): 52 merged branches deleted, "Automatically delete head branches" on, `ci-screenshots` cut to pull requests 350 onward and kept to the newest 30 by CI (Log entry of that date). |
+| 38 | **Offline notes: a refused edit sent again from a second tab (verify-outbox F7, 2026-11-15).** After the fixes, one rare path remains: two tabs both read the outbox, an old edit of a note removed on another device is refused in tab 1, the reader brings the note back with Undo and edits it, and tab 2's copy of the old edit arrives last and replaces the newer words. Two full fixes: (a) a lock across tabs (Web Locks), but a frozen background iPad tab holding it could stop every tab's notes from being sent; (b) the library keeps a refused edit's id by storing an edit of a removed note as a removed version, which changes what a reader sees. Default: leave it recorded in `.claude/skills/verify-outbox/SKILL.md` (it needs two tabs, a removal on another device and an edit within one flush). | Samuel | 2026-11-22 | open (default applies) |
 
 ## Decisions
 
@@ -192,6 +193,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 15:21 · Claude Opus 5.5 · Offline notes: every change queued in order and sent only as its own reader (verify-outbox F1-F4, F6, F8 fixed; F5, F7 narrowed)
+- **Done:** lib/reader/note-sender.ts (sending moved out of useNotes.ts, then fixed); lib/outbox.ts; lib/reader-header.ts on the four note routes; addVersion keeps a repeated removal; verify-outbox model, configs, SKILL.md, chart; Open unknowns row 38 (F7's remaining path).
+- **Key paths:** lib/reader/note-sender.ts; lib/reader/note-sender.test.ts; lib/outbox.ts; lib/reader-header.ts; app/api/books/[id]/annotations/route.ts; app/api/annotations/[id]/route.ts; app/api/annotations/[id]/restore/route.ts; lib/library/annotations.ts; .claude/skills/verify-outbox/
+- **Commands that worked:** npx vitest run lib/reader/note-sender.test.ts lib/library/annotations.test.ts → 20 passed (old code: 11 of 12 failed); npm run check → 1526 passed; sh .claude/skills/verify-outbox/check.sh → as recorded, 3 known findings; linux-run.sh -- --project annotations --project notes --project offline → 345 passed (8.6m)
+- **Known issues / blockers:** F5 rule still recorded (a request can leave with another reader's cookie; the server now refuses it untouched). F7 narrowed, rare path left (row 38). verify-outbox's sync commit names a branch commit; reset it to main after the squash merge.
+- **Exact next steps:** 1. Merge this PR when green. 2. Review the spending-holds branch (m44-fix-spending), open its PR. 3. Narration findings 1-3 on top of it. 4. One last PR resets every verify skill's sync commit to main.
 
 ### 2026-11-15 14:55 · Claude Opus 5.5 · Rewrite as you turn asks before passing $1, keeps one live total, and Stop reaches every loop (verify-spending findings 8-10 fixed)
 - **Done:** mayPay and turnStore in lib/library/rewritten-turn.ts; RewrittenPane.tsx reads the store; Reader.tsx keeps it. Model, SKILL.md and chart updated; replays became app/(reader)/books/[id]/read/RewrittenPane.test.ts.
