@@ -49,7 +49,8 @@ Files in this folder:
 | File | What it is |
 |---|---|
 | `Narration.tla` | the model: steps, guards, rules, and the books used as bounds |
-| `Narration.cfg` | the check: every rule that holds today (expect exit 0) |
+| `Narration.cfg` | the main check: every rule that holds today (expect exit 0) |
+| `NarrationNoKnownCauses.cfg` | the second check: all eight rules with the known findings' causes switched off (expect exit 0) |
 | `NarrationFindings.cfg` | the two rules the code breaks today, findings 1-3 (expect exit 12) |
 | `NarrationOverlap.cfg` | every rule, when the old server runs on after a restart, finding 4 (expect exit 12) |
 | `NarrationFlow.cfg` | small bounds for the chart |
@@ -59,17 +60,20 @@ Files in this folder:
 
 ## Run it
 
-From the repository's root folder (it needs `mise`; the first run downloads Java and TLC):
+Run these from the repository's root folder (they need `mise`; the first run downloads Java and TLC). The two
+checks must exit 0:
 
 ```sh
 sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla
+sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla .claude/skills/verify-narration/NarrationNoKnownCauses.cfg
 ```
 
-Expect exit code 0 and the line `Model checking completed. No error has been found.` (246,846 distinct states, about
-4 seconds). Exit 12 means a rule broke; the line `Error: Invariant <Rule> is violated.` names it. Exit 11 is a
-deadlock and 150 or more means the model itself is wrong (a TLA+ error, not a finding).
+The first prints `Model checking completed. No error has been found.` (246,846 distinct states, about 4 seconds).
+The second prints the same line (11,623 distinct states). Exit 12 means a rule broke; the line
+`Error: Invariant <Rule> is violated.` names it. Exit 11 is a deadlock. Exit 150 or more means the model itself is
+wrong (a TLA+ error, not a finding).
 
-Then check that the known findings are still exactly the known ones (each takes a second):
+The two configs below keep the known findings in view. They must break the rules in the table and no others:
 
 ```sh
 sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla .claude/skills/verify-narration/NarrationFindings.cfg
@@ -77,21 +81,29 @@ sh scripts/tlc.sh .claude/skills/verify-narration/Narration.tla .claude/skills/v
 ```
 
 TLC stops at the first broken rule, so read every result with the `/pstack:statechart` skill: give it
-`Narration.tla`, the config you ran, and `narration-view.mjs` as the view. It checks every rule, gives each broken
-rule's shortest path in Samuel's words, and draws a chart. Compare its list of broken rules with this table:
+`Narration.tla`, the config you ran, and `narration-view.mjs` as the view. It gives each broken rule's shortest path
+in Samuel's words, and draws a chart when the states fit. After the first broken rule it explores only part of the
+states and can list some rules under "Rules not checked". Settle each such rule with plain TLC on a scratch copy of
+the config that lists only the rules not yet broken.
 
 | Config | Exit today | Rules that break today | Rules that hold |
 |---|---|---|---|
 | `Narration.cfg` | 0 | none | OnlyTheOwnerStarts, OnlyAfterYouConfirm, OneRunAtATime, StopPaysAtMostOneMore, SavedNeverPaidAgain, NoMoreThanYouConfirmed |
+| `NarrationNoKnownCauses.cfg` | 0 | none | all eight |
 | `NarrationFindings.cfg` | 12 | PaidOnce (findings 1, 2, 3), WithinLimits (findings 1, 2) | |
 | `NarrationOverlap.cfg` | 12 | OneRunAtATime, StopPaysAtMostOneMore, NoMoreThanYouConfirmed, PaidOnce, WithinLimits (finding 4) | OnlyTheOwnerStarts, OnlyAfterYouConfirm, SavedNeverPaidAgain |
-| `NarrationFlow.cfg` | 12 | PaidOnce, WithinLimits (finding 1) | the other six |
+| `NarrationFlow.cfg` (the chart only) | 12 | PaidOnce, WithinLimits (finding 1) | the other six |
 
-A change is safe for these rules when the first command still exits 0 and the other configs break no rule beyond
-the table. A rule in the table that stops breaking means a finding was fixed: confirm it with the replay, then move
-the rule into `Narration.cfg` and update the table. The shortest path of a known-broken rule can change when the
-model changes; to see whether a known-broken rule has a new cause, run it with its known causes switched off in a
-scratch copy of the config (`Books <- DistinctBooks`, `MaxRestarts = 0`, `MaxSaveFails = 0`): it must then hold.
+A change is safe for these rules when both checks exit 0 and the other configs break no rule beyond the table.
+`NarrationNoKnownCauses.cfg` matters because a known-broken rule can break again for a new reason, and the two
+findings configs would not show it: it switches off restarts, failed saves and repeated text, so every rule must
+hold there. `NarrationFlow.cfg` is too small to show findings 2 to 4; it is for the chart.
+
+To check a change before it is merged (nobody has to be asked): copy this whole folder to a scratch folder and edit
+the copy. `scripts/tlc.sh` runs TLC in the model's folder and reads the config by its file name only, so the model
+and its configs must sit in one folder. Change the copy only as "When the code changes" says. If the change breaks a
+rule, report it with the counterexample and the replay; do not change the committed model, the rules or the sync
+commit for it.
 
 ## The rules
 
@@ -182,7 +194,9 @@ so every finding is real). Not fixed as of the sync commit.
 Every counterexample is a list of model steps. Before you call it a bug, replay it against the real code, one step
 per model step, in a vitest with the fake voice (`lib/speech/fake`; never ElevenLabs or any paid voice). Start from
 `findings-replay.test.ts.txt` (its header says how to run it): its `Voice` counts each request when it is sent and
-can hold requests or leave one unanswered, and `newServer()` simulates a restart.
+can hold requests or leave one unanswered, `held()` holds the run at each paragraph before it is paid for (to press
+Stop there), and `newServer()` simulates a restart. Its first test, "the Stop rule", passes today and fails if the
+Stop check goes.
 
 - The bug happens in the replay: it is a finding. Report it with the steps in the code's words. Do not weaken the
   rule or the model to make the check pass, and do not change product code unless asked.
@@ -201,21 +215,34 @@ can hold requests or leave one unanswered, and `newServer()` simulates a restart
 3. Change `Narration.tla` to match: a removed check is a guard to delete (or a step that no longer tests it), a new
    wait splits a step in two, a new kind of saved state is a new variable. Keep each comment's line numbers right.
    Never change a rule to make it pass; a new promise is a new rule.
-4. Run the three commands above and read each with `/pstack:statechart`. A new broken rule: replay it (above).
+4. Run the four commands above and read each with `/pstack:statechart`. A new broken rule: replay it (above).
 5. If the change was meant to fix a finding: the replay's test for it should now fail; turn it into a real test in
    `lib/library/narration.test.ts`, move the rule to `Narration.cfg`, and update the table and the findings.
 6. Redraw the chart if a step's label or the flow changed: `/pstack:statechart` on `Narration.tla` with
    `NarrationFlow.cfg` and `narration-view.mjs`; save its `chart.mmd` here as `narration-flow.mmd`.
-7. Update the line numbers in this file and move the sync commit to the commit you checked.
+7. Update the line numbers in this file and move the sync commit to the commit you checked. Do this only for a
+   change that breaks no rule beyond the table; a change that breaks one is a finding (see "Run it").
 
 To see a rule fail on purpose (to check that the check can still fail), put a guard in `Broken` in a scratch copy
-of `Narration.cfg`: each rule above breaks within a few steps.
+of `NarrationNoKnownCauses.cfg`: TLC exits 12 for every guard that the guards table says breaks a rule alone. It
+names the first rule it reaches, which can differ from the table when several break.
+
+## Proof that the check catches a bug
+
+On 2026-11-15 the Stop check (narration.ts 289, `if (job.stopRequested) return end(...)`) was deleted in a scratch
+change to the real code. A session that had not seen this work followed this file: it mapped the deletion to the
+`stop check` guard, switched it off in a scratch copy of the model, and `Narration.cfg` exited 12 with
+`Error: Invariant StopPaysAtMostOneMore is violated.` (Create, Stop, then two paragraphs paid). The replay's
+"Stop rule" test failed on the changed code (`Stop sent: [ 'Lamp 1', 'Lamp 2', 'Lamp 3' ] ended: finished`) and
+passed once the change was undone (`Stop sent: [ 'Lamp 1' ] ended: stopped`).
 
 ## Bounds and assumptions
 
 - Bounds (`Narration.cfg`): two books ("Lamps", three paragraphs, the third with the first's text; "Boats", one
   paragraph), one voice, the owner's Listen bar on Lamps (one request at a time), one restart, one failed save, a
   limit of 2 paragraphs per book and 2 per month. Every paragraph costs the same. A pass covers these bounds.
+- Bounds (`NarrationNoKnownCauses.cfg`): the same, but Lamps has three different texts, and there is no restart and
+  no failed save.
 - One server at a time, unless `OldServerLingers`. The narration route and the audio route share one copy of
   `audio.ts` and `generate.ts` in a server, so the run and the Listen bar share the in-flight list and the spend
   holds. This was checked in a production build (Turbopack): both routes load the same chunk through one runtime.

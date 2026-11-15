@@ -6,8 +6,9 @@
 // Each test passes while its finding is still in the code. After a fix, its test should fail: then turn it round
 // into a real test of the fix (in lib/library/narration.test.ts), and update SKILL.md.
 // Tools for a new replay: Voice (counts each request when sent, which is when the voice bills it; can hold requests
-// or leave one unanswered, as a server that died), newServer() (a restart: fresh modules, so a new in-flight list and
-// new spending holds, and a new list of runs).
+// after they are sent, or leave one unanswered, as a server that died), held() (holds the run at each paragraph before
+// it is paid for), newServer() (a restart: fresh modules, so a new in-flight list and new spending holds, and a new
+// list of runs). The runs list itself is on globalThis.__neolibraryNarrations.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spending } from "@/lib/ai/generate";
 import { createFirstAdmin } from "@/lib/auth/service";
@@ -18,7 +19,7 @@ import { speechCost, type SpeechRequest } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
 import { speakPassage } from "./audio";
 import { importBook } from "./import";
-import { forgetNarrationsForTests, narrationSummary, startNarration } from "./narration";
+import { forgetNarrationsForTests, narrationSummary, startNarration, stopNarration } from "./narration";
 import { getSections } from "./sections-store";
 import { readableEpub } from "./test-epub";
 
@@ -71,12 +72,53 @@ class Voice extends FakeSpeech {
 }
 const billed = (v: Voice) => v.sent.reduce((n, t) => n + speechCost(t.length), 0);
 
+/**
+ * speakPassage, held for each paragraph until release() (or open()): to do something, such as press Stop, after the
+ * run has come to a paragraph and before it is paid for. Pass it as `speak` in startNarration's deps.
+ */
+function held() {
+  const gates: (() => void)[] = [];
+  let shut = true;
+  const speak: typeof speakPassage = async (...args) => {
+    if (shut) await new Promise<void>((resolve) => gates.push(resolve));
+    return speakPassage(...args);
+  };
+  return {
+    speak,
+    waiting: () => gates.length,
+    release: () => gates.shift()?.(),
+    open: () => {
+      shut = false;
+      while (gates.length) gates.shift()?.();
+    },
+  };
+}
+
 /** A new server: fresh modules (its own in-flight list and spending holds) and its own list of runs. */
 async function newServer() {
   delete (globalThis as { __neolibraryNarrations?: unknown }).__neolibraryNarrations;
   vi.resetModules();
   return await import("./narration");
 }
+
+describe("the Stop rule (holds today; it fails if the Stop check in run() goes)", () => {
+  it("Stop pressed after the run came to paragraph 1, before it was paid for: it is paid for, then the run stops", async () => {
+    const voice = new Voice();
+    const { bookId, paragraphs } = await book(lamps(3));
+    const h = held();
+    const run = await startNarration({ db: database.db, storage, model: voice, speak: h.speak }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(h.waiting()).toBe(1));
+    const stopping = stopNarration(database.db, ownerId, bookId, "fake-ada", 3_000);
+    await vi.waitFor(async () => expect((await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada")).stopping).toBe(true));
+    h.open();
+    await stopping;
+    await run.done;
+    const s = await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada");
+    console.log("Stop sent:", voice.sent.map((t) => t.slice(0, 6)), "ended:", s.stoppedBecause?.kind);
+    expect(voice.sent).toEqual([paragraphs[0].text]);
+    expect(s.stoppedBecause?.kind).toBe("stopped");
+  });
+});
 
 describe("finding 1: the site restarts while a paragraph is being paid for", () => {
   it("Continue pays for that paragraph again, and the first payment is never counted", async () => {

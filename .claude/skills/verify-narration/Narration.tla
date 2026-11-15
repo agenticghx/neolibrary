@@ -353,6 +353,6 @@ WithinLimits == /\ \A b \in BookIds : money[b] <= CapBook
 CheckBooks == [b \in {"Lamps", "Boats"} |-> IF b = "Lamps" THEN <<"lamp 1", "lamp 2", "lamp 1">> ELSE <<"boat 1">>]
 \* NarrationFlow.cfg (the chart, narration-flow.mmd): one book of two paragraphs.
 FlowBooks == [b \in {"Lamps"} |-> <<"lamp 1", "lamp 2">>]
-\* Diagnostic only (SKILL.md, "Known findings"): the same books with no repeated text.
+\* NarrationNoKnownCauses.cfg: the same books with no repeated text.
 DistinctBooks == [b \in {"Lamps", "Boats"} |-> IF b = "Lamps" THEN <<"lamp 1", "lamp 2", "lamp 3">> ELSE <<"boat 1">>]
 =============================================================================
