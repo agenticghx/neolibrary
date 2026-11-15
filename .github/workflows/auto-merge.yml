@@ -46,7 +46,16 @@ jobs:
             exit 0
           fi
           echo "CI passed on $SHA; merging PR #$pr."
-          gh pr merge "$pr" --repo "$REPO" --squash --match-head-commit "$SHA"
+          # The branch is deleted with the merge (Open unknowns row 37, Samuel's yes 2026-11-15). GitHub's
+          # "Automatically delete head branches" setting is on, but it did not act on a merge made with this
+          # workflow's token (#383, 2026-11-15). A branch that another open pull request is based on is kept:
+          # deleting it would close that pull request.
+          delete=--delete-branch
+          if [ -n "$(gh pr list --repo "$REPO" --base "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "An open PR is based on $BRANCH; keeping the branch."
+            delete=
+          fi
+          gh pr merge "$pr" --repo "$REPO" --squash --match-head-commit "$SHA" $delete
           # A merge made with this workflow's token starts no CI run on main (GitHub's rule against
           # workflows starting workflows), but a dispatch does. Pull requests skip Safari's engine,
           # so this run on main is where WebKit is checked after the merge (2026-10-09).

@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the screenshot-pruning PR; confirm check 6 on the next ordinary PRs.
+next_action: After the next auto-merge, check its branch was deleted; confirm check 6 on ordinary PRs.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 05:41 · Claude Opus 5.5 · #383 merged (screenshot branch kept to 30 pull requests, verified in CI); the auto-merge workflow now deletes the merged branch
+- **Done:** #383 merged (133870f1) by the auto-merge workflow after every check passed. Its own run was the first CI push of a pruned commit: ci-screenshots is one commit holding pull requests 351 to 383 (pr-383 in, pr-350 out), the publish step took 5 s (10:39:05 to 10:39:10 UTC), and the grid picture in the PR comment loads (200). GitHub's delete-on-merge setting (true) did not delete #383's branch 68 s after the merge made with the workflow's token; deleted by hand. This PR: auto-merge.yml passes --delete-branch, except when an open PR is based on the branch.
+- **Key paths:** .github/workflows/auto-merge.yml; scripts/ci-screenshots-keep.sh
+- **Commands that worked:** git fetch --depth 1 --filter=blob:none origin ci-screenshots; git rev-list --count FETCH_HEAD -> 1; gh api repos/agenticghx/neolibrary/actions/jobs/<job> --jq '.steps[]'; git push origin --delete m44-keep-screenshots-pruned; bash -n on the step
+- **Known issues / blockers:** The new merge step runs from the next PR the workflow merges (workflow_run uses main's copy); this PR's own branch may need deleting by hand.
+- **Exact next steps:** 1. After the next PR auto-merges, check its branch is gone (git ls-remote --heads origin <branch>) and the run's log. 2. Confirm check 6 on the next ordinary PRs. 3. Read the next real Deploy run's setup-node@v5 step. 4. Check 7's rest waits on Samuel.
 
 ### 2026-11-15 05:19 · Claude Opus 5.5 · Pruning done at Samuel's word and kept up by CI: 52 merged branches deleted, delete-on-merge on, ci-screenshots cut to 30 pull requests with no history
 - **Done:** Samuel, 2026-11-15: 'yes' (Open unknowns row 37, now closed). (a) 52 remote branches deleted, each one's tip exactly its merged pull request's last commit (#329 to #382); 14 remain (main, ci-screenshots, closed or no-PR ones, and 4 merged ones with later commits). GitHub's 'Automatically delete head branches' is on (delete_branch_on_merge true). (b) ci-screenshots replaced by one commit with no parent holding pull requests 350 to 382 (30 folders, 15,345 pictures; it held 72 folders, 38,621 pictures, 72 commits, 1.64 GiB counted locally). A kept picture loads (200), a dropped one does not (404). (c) This pull request: CI's publish step pushes a parentless commit of the newest 30 pull requests every run (scripts/ci-screenshots-keep.sh), with a lease on the commit it fetched.

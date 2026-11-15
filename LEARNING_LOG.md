@@ -3429,3 +3429,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The Postgres test (3,000 answers; the plan must name the new index) passed with the migration and failed without it. On the restored copy (Postgres 18.6 live, 14,389 answers, all of one reader): `EXPLAIN ANALYZE` of the lookup, five times before and after.
 **Result.** Before the index Postgres did not read the whole table: it used the existing index on (owner, cache key) by skip scan (new in Postgres 18), 0.05 ms for a key that exists and 0.04 ms for one that does not. With the index: 0.025 and 0.02 ms. The lookup runs only before a paid call that takes seconds, and a migration has to be deployed by hand and stops automatic deploys until then, so it was not deployed. The test pinned the index's name, not the speed: it would have passed on a change worth nothing.
 **Lesson.** Measure on a copy of the real data before building the fix: the audit's reading of the plan was right for older Postgres, not for the version the site runs.
+
+### Iteration 230 · 2026-11-15 (laptop clock) · Branches deleted on merge by the auto-merge workflow itself · success (pending its first use)
+
+**Hypothesis.** With GitHub's "Automatically delete head branches" on (row 37), a merged pull request's branch disappears on its own.
+**Action.** Watched #383's branch after its merge; then `gh pr merge --delete-branch` in `.github/workflows/auto-merge.yml`, kept back when an open pull request is based on the branch.
+**Evaluation.** `git ls-remote --heads origin m44-keep-screenshots-pruned` 68 s after the merge (merged by app/github-actions at 10:39:24 UTC); `bash -n` on the step; the base-branch query run by hand (empty for main and for this branch).
+**Result.** The branch was still there (1fc34d77), with the setting reading true: the setting did not act on a merge made with the workflow's token. Deleted by hand. The workflow change acts from the next pull request it merges (workflow_run runs main's copy of the workflow, so this pull request's own merge still uses the old one).
+**Lesson.** Check a repository setting against the way merges are actually made here (by a workflow), not against GitHub's description of it.
