@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the due-count PR when green; then prove and open the CI balance PR.
+next_action: Merge the CI balance PR when green; then read the next PRs' machine times against the 12-minute target.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 19:26 · Claude Opus 5.5 · CI: shell and annotations move from the behavior machine to behavior-2; building once measured and not built
+- **Done:** #371 merged (54c0f838): the sidebar's due count reads every Explain it back part in one query. Version 2 check 6: in 12 recent PR runs the behavior machine was always the slowest (568-846 s of tests; behavior-2 398-518, branches 331-408). Building the site once was measured and not built: about 76 s per machine, but each machine would wait for the shared build, so the wait would not shorten. Moved shell and annotations (about 108 s on CI) to behavior-2, which already repeats flows, uploads and reader. Each changed group passed alone from an empty database in the Linux image: behavior 137 passed (6.1 min), behavior-2 289 passed (5.8 min); main's old behavior 168 passed (6.9 min).
+- **Key paths:** scripts/ci-browser-needed.mjs (BROWSER_GROUPS); lib/ci-browser-needed.test.ts; docs/ci-time.md
+- **Commands that worked:** gh run view <run> --json jobs (step times); linux-run.sh --env CI_BROWSER_GROUP=<group>; linux-run.sh --ref origin/main --env CI_BROWSER_GROUP=behavior; npx vitest run lib/ci-browser-needed.test.ts (30 passed)
+- **Known issues / blockers:** This PR touches the selector, so its CI runs every browser machine; compare the behavior and behavior-2 step times with the 12 runs above on the next ordinary PRs. Home still asks for the due count twice per page (not changed).
+- **Exact next steps:** 1. Merge this PR when green. 2. On the next few PRs, read the behavior and behavior-2 Playwright step times and the total; record whether a PR now finishes in 12 minutes or less (version 2 check 6). 3. If the build is still a large share, try caching Next's build cache between runs (not tried). 4. Check #371 is live (/api/health shows its commit).
 
 ### 2026-11-14 19:04 · Claude Opus 5.5 · The sidebar's count of Daily review cards reads every Explain it back part in one query
 - **Done:** gapRows (lib/library/review.ts) read each Explain it back attempt's part with its own query, on every page (the sidebar's count). Now partsPassages (lib/library/explain-back.ts) reads all parts in one query; partPassages calls it, so the numbering rules exist once. Pinned first: the whole review queue over hard cases (blank and equation paragraphs, the 60,000-character limit, two books with the same chapter number, a part without paragraphs, a rated card, paragraphs changed between counts) passed 5/5 on the old code; a query-count test failed there (expected 11 to be 6). New code 27/27 x5; five mutations each caught. On a local copy of the live database (pre-0041 backup, removed afterwards) with 60 fake attempts: identical queue for every reader on two days; 62.8 ms old, 23.8 ms new. The live site has no attempts yet: this guards growth.
