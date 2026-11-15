@@ -3509,3 +3509,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** `lib/library/narration.test.ts` finding tests failed on the old code (e.g. Continue paid again: `['Lamp 1', 'Lamp 1']`) and pass; narration and spend-hold tests 29 passed; `npm run check` 1545 passed. TLC: Narration, NoKnownCauses and Grace exit 0; Findings exit 12 (PaidOnce, Railway's 0 s); Overlap exit 12 (finding 4). A real `next start`: exit 1,985 ms after SIGTERM with the paragraph saved; 13 ms and lost without `after()`. Browser, Linux image, `--project audio --project narration --project home`: 383 passed (12.5 min).
 **Result.** 3 and 2 fixed (2's residual: a deploy before the next request loses kept audio). 1 works only when Railway gives the old server time after SIGTERM; Railway gives 0 s unless `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` is set (Open unknowns row 40). 4 needs a migration (proposed in SKILL.md, row 40).
 **Lesson.** A fix that depends on the host must be checked against the host's real settings; the model's "the host waits" was an assumption until Railway's default (0 s) was read.
+
+### Iteration 240 · 2026-11-15 (laptop clock) · Every verify skill's sync commit on main · success
+
+**Hypothesis.** A sync commit (the commit at which a check's model was last confirmed against the code) must exist on main, or the next session cannot compare against it: the auto-merge squashes a pull request into one new commit, so branch hashes vanish.
+**Action.** verify-spending and verify-narration set to 7d1213b1 (#393 as merged: both models were confirmed against that content on its branch); verify-outbox was set to f5fe466d in #393.
+**Evaluation.** `sh .claude/skills/verify-spending/check.sh`: "ok no covered file changed since 7d1213b1…", "all as expected".
+**Result.** All three checks name a commit on main.
+**Lesson.** Set a sync commit in the pull request after the one that changes covered code, or record content rather than a commit; a branch hash does not survive a squash merge.

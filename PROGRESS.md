@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the narration fix, then set the two sync commits to its merge commit.
+next_action: Samuel answers Open unknowns rows 38-40; check 7's rest waits on him.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -195,6 +195,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 16:43 · Claude Opus 5.5 · verify-spending and verify-narration sync commits set to 7d1213b1 on main (#393 as merged)
+- **Done:** Sync commit lines in .claude/skills/verify-spending/SKILL.md and .claude/skills/verify-narration/SKILL.md; verify-outbox already on f5fe466d.
+- **Key paths:** .claude/skills/verify-spending/SKILL.md; .claude/skills/verify-narration/SKILL.md
+- **Commands that worked:** sh .claude/skills/verify-spending/check.sh → ok no covered file changed since 7d1213b1, all as expected
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Merge when green. 2. Samuel: Open unknowns rows 38 (offline notes, rare two-tab path), 39 (text-edition holds, fallback billing; money), 40 (Railway draining setting for narration; finding 4 migration). 3. Samuel looks at the draggable line and the AI mark on the iPad.
 
 ### 2026-11-15 16:29 · Claude Opus 5.5 · Narration pays for a paragraph's words once: calls shared by text, paid audio kept until saved, runs stop cleanly at SIGTERM (verify-narration 2, 3 fixed; 1 needs a Railway setting; 4 a migration)
 - **Done:** lib/library/audio.ts (shared calls by text, save retries, kept audio); lib/library/narration.ts and instrumentation.ts (stop at SIGTERM); narration route hands runs to after(); verify-narration model, NarrationGrace.cfg, SKILL.md, chart; verify-outbox sync commit f5fe466d; Open unknowns row 40.
