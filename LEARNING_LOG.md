@@ -3381,3 +3381,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** `npm audit`; `npm run check` (the EPUB, Markdown and text-edition tests parse XML; `lib/agent/mcp.test.ts` drives the agent connection); the uploads and agents browser chains.
 **Result.** `npm audit`: found 0 vulnerabilities. `npm run check`: 1496 passed. Uploads and agents chains: 332 passed (7.4 min, Mac).
 **Lesson.** The audit's "no open alerts" was true on its day only: alerts arrive weekly, so read them at the start of a housekeeping step.
+
+### Iteration 223 · 2026-11-14 (laptop clock) · Home counts the review cards once, not twice · success
+
+**Hypothesis.** The audit (2026-11-09) found Home asking for the Daily review count twice on each load: once for its own line ("Review: 2 cards due today") and once in the sidebar, each a full pass over the review queue. One function, kept for the length of a request (React's `cache`, as `currentUser()` already is), used by both, counts once. The two calls differed in one argument (the sidebar keeps to the book of a whole-book focus, Home did not), but Home is sent to the focused book's page during such a focus (`lib/library/focus-redirect.ts:36`), so no reader saw the two differ.
+**Action.** `lib/library/due-today.ts` (`dueToday`, cached, with the focus); `components/shell/Sidebar.tsx` and `app/(app)/page.tsx` use it.
+**Evaluation.** A temporary log line in `dueCount`; the test server built and started on the laptop, signed in by the setup project, then Home, the library and the review page loaded once each, counting the lines. Then the same with the cache taken out (the mutation). The review browser tests (they read both counts); `npm run check`.
+**Result.** Old code: Home 2 calls, library 1, review 1. New code: 1, 1, 1. Cache taken out: 2, 1, 1. Review browser chain: 319 passed (6.8 min, Mac). `npm run check`: 1496 passed. The temporary line removed (`grep -c DBG lib/library/review.ts` prints 0).
+**Lesson.** A count shown in two places on one page is computed twice unless one function is shared and cached for the request; count the calls on the built server, since React's cache does nothing outside a server request (in unit tests).

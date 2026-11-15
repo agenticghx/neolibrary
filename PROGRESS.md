@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the security updates, then the due count, then the documents PR; then check 6 (behavior-2 and read-along over 625 s).
+next_action: Merge the due-count PR after #376; then the security updates (Dependabot alerts 20 to 28).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -189,6 +189,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 21:19 · Claude Opus 5.5 (laptop) · Home counts the review cards once per load, not twice
+- **Done:** lib/library/due-today.ts: dueToday(ownerId), cached for the request (React cache), keeps to a whole-book focus; the sidebar and Home use it. Measured on the built test server with a temporary log line: Home 2 calls -> 1 (library 1, review 1 unchanged); with the cache taken out, Home 2 again. Home is redirected during a whole-book focus, so the old difference in arguments was never seen.
+- **Key paths:** lib/library/due-today.ts; components/shell/Sidebar.tsx; app/(app)/page.tsx; LEARNING_LOG.md (iteration 223)
+- **Commands that worked:** count-due.sh (scratchpad): build, next start on 3177, playwright --project setup, curl /, /library, /review with the saved cookie, grep -c 'DBG dueCount'; npx playwright test --project review --ignore-snapshots -> 319 passed (6.8m); npm run check -> 1496 passed
+- **Known issues / blockers:** No lasting test: React's cache does nothing outside a server request, so a unit test cannot see the saving; the measurement is in the PR.
+- **Exact next steps:** 1. Merge when green, after #376. 2. Security updates: fast-xml-parser 5.11.2 -> 5.12.x (reads uploaded EPUBs; Dependabot alerts 20, 21), hono and @hono/node-server inside @modelcontextprotocol/sdk (alerts 22 to 28). 3. Check 6 times on the next PRs.
 
 ### 2026-11-14 21:29 · Claude Opus 5.5 (laptop) · Security updates: fast-xml-parser, hono and @hono/node-server (Dependabot alerts 20 to 28)
 - **Done:** fast-xml-parser 5.11.2 -> 5.12.0 (reads uploaded EPUBs; alerts 20, 21), hono 4.13.13 -> 4.13.17 and @hono/node-server 2.1.3 -> 2.1.6 inside @modelcontextprotocol/sdk (alerts 22 to 28). Versions a week old or more (npm update --before 2026-11-08). No code changes.
