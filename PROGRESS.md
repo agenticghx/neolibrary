@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the CI balance PR when green; then read the next PRs' machine times against the 12-minute target.
+next_action: Read the next ordinary PRs' CI times against the 12-minute target; then check 7's remaining items with no migration.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,12 +20,13 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 05:18 (laptop clock, from `date`). **All work is live (1576637; #360 changed only tests and the server's book removal, deploying) except this draft (a migration).** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 19:42 (laptop clock, from `date`). **All merged work is live (54c0f83, #371; #372 changed only CI and deploys itself after main's run).** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Check 7, open items in version 2's order (the recount is in the laptop-only audit file): the removed-paper fix is a draft waiting for Samuel's "deploy 0041" (a migration); next, with no migration: two-column PDF glue, no-text books re-read at every start, the X-ray id clash across kinds, the slow paths.
-2. Check 6: #357 took 12.0 minutes from start to last check (screenshot tests included); #360 took 14.6 (every machine started). Over the target: build the site once for all browser machines.
-3. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; read it before re-running.
-4. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway (laptop-only audit file).
+1. Check 6: on the next ordinary pull requests, read each browser machine's Playwright step time and the whole run's time (`gh run view <run> --json jobs`), against the 12-minute target. #372's own run (every machine) took 14.0 minutes; its behavior machine's projects summed to 603 s (766 s before). If still over: try keeping Next's build cache between runs (not tried); building once was measured and set aside (`docs/ci-time.md`).
+2. Check 7, still open with no migration (laptop-only audit file): plain links reload the page; housekeeping (screenshot branch size, merged branches, unused playwright-core, old major versions); documents. The answers-table lookup needs a migration (Samuel's word).
+3. Home asks for the due count twice per page (`app/(app)/page.tsx:33` and the sidebar, different focus arguments): small, its own step if worth it.
+4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
+5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway.
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -187,6 +188,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 19:42 · Claude Opus 5.5 · Checkpoint: due count live (54c0f83, #371); CI's slowest machine rebalanced (#372)
+- **Done:** #371 merged and live on both addresses (/api/health 54c0f83, /sign-in 200): the sidebar's due count reads all Explain it back parts in one query (62.8 to 23.8 ms with 60 attempts on a local copy of the live database; same queue). #372 merged (9b6fb852): shell and annotations moved from the behavior machine to behavior-2; its own run (every machine) took 14.0 min, behavior 665 s step (projects 603 s, 766 s before), behavior-2 744 s (with screenshots), readalong 739 s, branches 332 s. Building once measured and set aside. Exact next steps rewritten.
+- **Key paths:** lib/library/explain-back.ts; lib/library/review.ts; scripts/ci-browser-needed.mjs; docs/ci-time.md; laptop-only docs/handoffs/2026-11-09-audit-review-list.md
+- **Commands that worked:** curl -s https://<each address>/api/health; gh run view 43658161526 --json jobs; linux-run.sh --env CI_BROWSER_GROUP=<group>
+- **Known issues / blockers:** Not yet known whether ordinary PRs now finish in 12 minutes (#372's own run ran every machine). The due-count change is not visible to readers, so no WebKit live check was run.
+- **Exact next steps:** See Exact next steps: 1. CI times on the next ordinary PRs. 2. Check 7's remaining items with no migration. 3. Home's double due count. 4. Stats flake only if it fails again.
 
 ### 2026-11-14 19:26 · Claude Opus 5.5 · CI: shell and annotations move from the behavior machine to behavior-2; building once measured and not built
 - **Done:** #371 merged (54c0f838): the sidebar's due count reads every Explain it back part in one query. Version 2 check 6: in 12 recent PR runs the behavior machine was always the slowest (568-846 s of tests; behavior-2 398-518, branches 331-408). Building the site once was measured and not built: about 76 s per machine, but each machine would wait for the shared build, so the wait would not shorten. Moved shell and annotations (about 108 s on CI) to behavior-2, which already repeats flows, uploads and reader. Each changed group passed alone from an empty database in the Linux image: behavior 137 passed (6.1 min), behavior-2 289 passed (5.8 min); main's old behavior 168 passed (6.9 min).
