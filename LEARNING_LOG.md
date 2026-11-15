@@ -3382,7 +3382,7 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Result.** `npm audit`: found 0 vulnerabilities. `npm run check`: 1496 passed. Uploads and agents chains: 332 passed (7.4 min, Mac).
 **Lesson.** The audit's "no open alerts" was true on its day only: alerts arrive weekly, so read them at the start of a housekeeping step.
 
-### Iteration 223 · 2026-11-14 (laptop clock) · Home counts the review cards once, not twice · success
+### Iteration 224 · 2026-11-14 (laptop clock) · Home counts the review cards once, not twice · success
 
 **Hypothesis.** The audit (2026-11-09) found Home asking for the Daily review count twice on each load: once for its own line ("Review: 2 cards due today") and once in the sidebar, each a full pass over the review queue. One function, kept for the length of a request (React's `cache`, as `currentUser()` already is), used by both, counts once. The two calls differed in one argument (the sidebar keeps to the book of a whole-book focus, Home did not), but Home is sent to the focused book's page during such a focus (`lib/library/focus-redirect.ts:36`), so no reader saw the two differ.
 **Action.** `lib/library/due-today.ts` (`dueToday`, cached, with the focus); `components/shell/Sidebar.tsx` and `app/(app)/page.tsx` use it.
