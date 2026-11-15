@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the due-count PR after #376; then the security updates (Dependabot alerts 20 to 28).
+next_action: Merge #377, then the due-count PR, then this documents PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,9 +20,9 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 21:49 (laptop clock, from `date`). Merged: #375 (links keep the page; live as 5667e04), #376 (housekeeping), #377 (security updates); #376 and #377 deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 22:02 (laptop clock, from `date`). Merged: #375 (links keep the page; live as 5667e04), #376 (housekeeping), #377 (security updates; Dependabot shows alerts 20 to 28 fixed, none open), #378 (Home counts the review cards once); the last three deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Merge this pull request (the due count, `m44-home-due-once`) when green, then documents (`m44-docs-match`), one at a time, each rebased onto main. Check Dependabot's alerts closed after #377 (`gh api repos/agenticghx/neolibrary/dependabot/alerts`).
+1. Merge this pull request (documents, `m44-docs-match`) when green; then the check-6 change (`m44-ci-support`, committed on the laptop, next item), rebased onto main.
 2. Check 6, not met: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. Being tried on `m44-ci-support` (laptop worktree `.claude/worktrees/ci-support`): behavior-2 and read-along no longer run reader (229 to 235 s of tests each, there only to upload the PDF "Discourse on the Method"); the tests that need it upload it when missing (`e2e/discourse.ts`); annotations back to behavior. Each group run alone in the Linux image before the PR.
 3. Check 7: pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word). Open unknowns rows 1, 12, 13 and 27(3) are past their dates but are about money or access, so they wait for Samuel.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
@@ -189,6 +189,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 21:34 · Claude Opus 5.5 (laptop) · Documents back in step: plan headings for seven milestones, design.md's sidebar, merge-train's deploy step and attempt-log.sh
+- **Done:** docs/plan.md: headings for M15, M16, M21, M24, M38, M39, M44, each recorded from its merged pull requests. docs/design.md: the sidebar, account menu, hide button and phone tab bar replace the app bar. merge-train SKILL.md step 6: deploy.yml deploys main itself; only a migration is deployed from the laptop. attempt-log.sh: each failed browser machine, logs via curl, a note for a failed job with no test results.
+- **Key paths:** docs/plan.md; docs/design.md; .claude/skills/merge-train/SKILL.md; .claude/skills/merge-train/scripts/attempt-log.sh; LEARNING_LOG.md (iteration 225)
+- **Commands that worked:** zsh .claude/skills/merge-train/scripts/attempt-log.sh 43660154334 1 -> the branches machine's failed design screenshot; on 43665868091 -> no failed browser job; the old script on 43660154334 printed five job ids and stopped
+- **Known issues / blockers:** Open unknowns rows 1, 12, 13, 27(3) are past their dates but concern money or access: they wait for Samuel.
+- **Exact next steps:** 1. Merge after #377 and the due-count PR. 2. Check 6: behavior-2 and read-along over 625 s with every machine running.
 
 ### 2026-11-14 21:29 · Claude Opus 5.5 (laptop) · Security updates: fast-xml-parser, hono and @hono/node-server (Dependabot alerts 20 to 28)
 - **Done:** fast-xml-parser 5.11.2 -> 5.12.0 (reads uploaded EPUBs; alerts 20, 21), hono 4.13.13 -> 4.13.17 and @hono/node-server 2.1.3 -> 2.1.6 inside @modelcontextprotocol/sdk (alerts 22 to 28). Versions a week old or more (npm update --before 2026-11-08). No code changes.

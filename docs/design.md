@@ -153,8 +153,20 @@ highlight.
   `components/forms.module.css`): labelled inputs, one primary button, and
   errors shown in a sunken box with an accent rule (`role="alert"`), never in
   red.
-- **App bar** (`app/(app)/layout.tsx`): mark + wordmark on the left; Library,
-  Invite (admins only) and Sign out on the right, in quiet ink.
+- **Sidebar** (`components/shell/Sidebar.tsx`; desktop; M14, glass since
+  M24): mark and wordmark, a search box, then Home and Review (with "N due
+  today"); Library (Books, Want to Read, Finished, Papers, Import); Paths
+  (each with how many of its parts are started, then New path); Collections
+  (then New collection). The account sits at the foot: the initial, the name
+  and an arrow, and its menu opens above them (Account, Reading stats, Your
+  data, Get help; Invite for admins; `components/shell/AccountMenu.tsx`, M18).
+  One button at the top left hides or shows the sidebar, in the same place
+  either way (`components/shell/SidebarToggle.tsx`, M24). The sidebar replaced
+  the app bar of version 1 (mark and wordmark on the left; Library, Invite and
+  Sign out on the right).
+- **Tab bar** (`components/shell/TabBar.tsx`; phone; M14): five tabs at the
+  foot of the screen: Home, Library, Paths, Search, Import. The account menu
+  is reached from Home.
 
 - **Command palette** (`components/palette/CommandPalette.tsx`, M21): Cmd+K
   (Ctrl+K on Windows and Linux) anywhere signed in, the reader included. A

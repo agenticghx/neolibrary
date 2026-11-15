@@ -605,6 +605,14 @@ reaches the database and gets an error page instead of "not found". Use the
 shared `UUID` check from `lib/library/paths.ts` everywhere. Not reachable
 from the app's own pages.
 
+### M15 · Listen to PDFs, and CI after each merge (2026-10-09 to 10-10)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* The AI voice reads PDF books, each word lit on the page (#126); in Two pages view only the word being read is lit (#130); Listen keeps a running total and asks "Keep reading?" before paying past $1 (#133). CI: pull requests skip Safari's engine and main's run after each merge checks it (#131, #132); read-aloud tests forgive only the words the machine skipped (#128). The repository moved to `agenticghx/neolibrary` (#129). 8 pull requests, #126 to #133.
+
+### M16 · PDFs as audiobooks (2026-10-10)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* A PDF says "Read and listen" when the AI voice is on (#134); making a PDF audiobook on the laptop from the app's own text of a PDF (#135); "How books are heard" says any book, EPUB or PDF, can be read aloud (#136); AI-voice audio plays after a long pause, with no expiring link (#137). 4 pull requests.
+
 ### M17 · Read it rewritten (asked for by Samuel 2026-10-10)
 
 The "AI explanations" style (Plain, STE light, STE, STE strict) rewrites the
@@ -671,6 +679,10 @@ without the titles not available yet, the phone reader's top bar, and a
 password reset he issues. The PDF page-turn pause (row 15) was decided
 2026-10-12: make the next page while this one plays (M23).
 
+### M21 · Study tools in the reader (2026-10-11, then reader requests to 11-08)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* Six features were built side by side on 2026-10-11, with no plan document: Reading stats' calendar and streaks (#161), a reading-level badge on rewrites (#162), the Cmd+K palette (#163), Ask this book (#164), Daily review of highlights and notes, by spaced repetition (#165), and the reading ruler, paragraph focus and Keyboard shortcuts (#166). Reader requests were later built under the same number: swipe or scroll to turn pages (#236), Two pages in Scroll (#237), full-screen reading (#246, #247, #255), the reader's sidebar (#256), arrow keys and Space turn pages (#258, #272), and the ruler that stands still and covers 2 or 3 lines (#303, #304, #307). 21 pull requests, #161 to #307.
+
 ### M22 · Covers for every title (asked for by Samuel 2026-10-11)
 
 Samuel: "how can I automatically get book covers, starting with the titles in
@@ -734,6 +746,10 @@ at each page turn, while the next page was made (measured 32 s and 38 s on
 starts to play. One ahead. The cost counts toward the $1 "Keep reading?"
 question. An EPUB and an uploaded audiobook are unchanged. The rules and
 the "Done when" are Part B of `docs/pdf-narration-plan.md`.
+
+### M24 · The glass look and the book carousel (2026-10-15 to 10-28)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* The room and glass colours (#177); a glass sidebar with a hide button and a frosted phone tab bar (#178); page cards in glass (#179); the library's grid becomes a carousel, with Spines as the other view (#180); glass pop-ups and mini-player (#181); scanned PDFs show their pages (#182); the carousel drifts slowly and stops under the mouse (#243, #244). The tokens are in `docs/design.md`. 8 pull requests.
 
 ### M25 · Scanned books become flowing books (Samuel, 2026-10-15)
 
@@ -1402,6 +1418,14 @@ Claude session in the repo lists the moved skills with the laptop copies of
 `readalong-audio` and `book-chapters` removed.
 
 
+### M38 · Security updates (2026-10-30)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* The 16 Dependabot alerts of that day fixed: Next.js 16.4.1, zod 4.6.6 and indirect packages (#252).
+
+### M39 · The reader waits for its typeface (2026-10-30)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* The reader says "ready" only after the book's typeface has arrived, which fixed main's failing `shell.spec.ts` (#253).
+
 ### M40 · Samuel out of the loop: sessions take over the gates (Samuel, 2026-11-01)
 
 Samuel asked where he is the bottleneck and said "do #1-6". The ledger showed 19 deploys made "at Samuel's word",
@@ -1931,6 +1955,10 @@ detail is in `docs/genealogy-plan.md`.
   *Done when:* browser tests open each view on a fixture book and the slider
   hides later chapters.
 - **S4 · Across books.** Decided with Samuel after S3 is in use.
+
+### M44 · The audit's fixes and version 2 (2026-11-10 onward)
+
+*Recorded 2026-11-14 from its merged pull requests; it had no heading here before.* The audit of 2026-11-09 (its list stays on the laptop: it names security weaknesses) and the goal it led to, `docs/version-2.md` (#335), whose seven checks set the order of work. The branches are named `m44-…`. Among them: notes and saves that say when they fail (#332, #334, #352, #357); a removed book takes no new work (#344, #345); the reader split into files, `Reader.tsx` under 1,500 lines (#336, #338 to #343, #346); covers load faster (#347 to #349); a shared paper a reader removed stays removed (#361, migration 0041); visitor limits by the real address (#369); the review count in one query (#371); faster CI (#329, #353, #354, #372); links that keep the page (#375). 53 pull requests by 2026-11-14 (counting this one); the newest are in the Log of `PROGRESS.md`.
 
 ## How a cloud session works on this repo
 
