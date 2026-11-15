@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Stats flake only if it fails again (needs a server-side view of the save on leaving); otherwise the sidebar due-count step.
+next_action: Merge the due-count PR when green; then prove and open the CI balance PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -187,6 +187,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 19:04 · Claude Opus 5.5 · The sidebar's count of Daily review cards reads every Explain it back part in one query
+- **Done:** gapRows (lib/library/review.ts) read each Explain it back attempt's part with its own query, on every page (the sidebar's count). Now partsPassages (lib/library/explain-back.ts) reads all parts in one query; partPassages calls it, so the numbering rules exist once. Pinned first: the whole review queue over hard cases (blank and equation paragraphs, the 60,000-character limit, two books with the same chapter number, a part without paragraphs, a rated card, paragraphs changed between counts) passed 5/5 on the old code; a query-count test failed there (expected 11 to be 6). New code 27/27 x5; five mutations each caught. On a local copy of the live database (pre-0041 backup, removed afterwards) with 60 fake attempts: identical queue for every reader on two days; 62.8 ms old, 23.8 ms new. The live site has no attempts yet: this guards growth.
+- **Key paths:** lib/library/explain-back.ts (numberPassages, partsPassages); lib/library/review.ts (gapRows); lib/library/review.test.ts (the pin and the query test)
+- **Commands that worked:** npx vitest run lib/library/review.test.ts lib/library/explain-back.test.ts; npm run check (1496 passed); zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project review --project focus (323 passed)
+- **Known issues / blockers:** Home asks for the count twice per page (app/(app)/page.tsx and the sidebar, with different focus arguments); not changed here.
+- **Exact next steps:** 1. Merge this PR when green. 2. CI balance (m44-ci-balance): prove the new behavior and behavior-2 groups alone in the Linux image, then PR.
 
 ### 2026-11-14 18:04 · Claude Opus 5.5 · Live 851f71b: the visitor limit now refuses after 120 a minute; the stats flake's fix attempt weakened the test and was dropped
 - **Done:** #369 (visitor and sign-in limits count by X-Real-IP) merged as 851f71b and deployed by the automatic deploy; both addresses show 851f71b, /sign-in 200. Live test, signed out, 130 requests to /browse on new connections: 120 answered 200, 10 refused 429 (before #369: none refused). #370 (.railwayignore) is merged. Stats flake (e2e/stats.spec.ts:72), in Playwright's Linux image: (1) moving page.unroute before leaving the reader let the held 90 s save reach the server ('held 90 s; answered 90 s: 204'), so the test passed even with every save on leaving removed: it weakened the test and was dropped, no PR. (2) main's test with every save on leaving removed fails with exactly CI run 43607235200's message ('sent 30 s; answered 30 s: 204; sent 60 s; answered 60 s: 204; sent 90 s; held 90 s'), so main's test does guard that save. (3) a passing run of main's test logs the same list: the save on leaving is sent outside the test's sight, so the list cannot tell a pass from a failure. In the CI failures the save on leaving did not reach the server within the 10 s wait; why is still open. Worktrees realip and railwayignore removed; the main folder fast-forwarded to 851f71b (Samuel's own edits untouched).

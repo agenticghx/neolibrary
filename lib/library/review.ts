@@ -1,7 +1,7 @@
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { reviewCards } from "@/lib/db/schema";
-import { checkItems, partPassages } from "./explain-back";
+import { checkItems, partsPassages } from "./explain-back";
 import { parseQuestions } from "./questions";
 import { dayAfter, intervals, isRating, schedule, startOfDay, type Rating, type Schedule } from "./review-schedule";
 
@@ -269,10 +269,15 @@ async function gapRows(db: Db, ownerId: string, delayDays: number): Promise<Row[
   );
   if (!attempts.length) return [];
   const schedules = await cardSchedules(db, ownerId, "g");
+  // Every part's paragraphs in one query, not one query a part: this runs for the sidebar's count on every page.
+  const passagesOf = await partsPassages(
+    db,
+    attempts.map((a) => ({ bookId: a.bookId as string, chapterIndex: Number(a.chapterIndex) })),
+  );
   const rows: Row[] = [];
   for (const a of attempts) {
     const chapter = { id: a.chapterId as string, label: (a.chapter as string) ?? "", chapterIndex: Number(a.chapterIndex) };
-    const passages = await partPassages(db, a.bookId as string, chapter).catch(() => []);
+    const passages = passagesOf({ bookId: a.bookId as string, chapterIndex: chapter.chapterIndex });
     const createdAt = asDate(a.createdAt)!;
     for (const item of checkItems(a.output as string, passages)) {
       if (!item.question) continue;
