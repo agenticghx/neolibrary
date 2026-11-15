@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the housekeeping PR when green; then Home's double due count.
+next_action: Merge the security updates, then the due count, then the documents PR; then check 6 (behavior-2 and read-along over 625 s).
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,11 +20,11 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 21:16 (laptop clock, from `date`). #375 (links within the app keep the page) merged as 5667e04 and deploys itself after main's run. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 21:50 (laptop clock, from `date`). Merged since the last deploy: #375 (links keep the page) and #376 (housekeeping); both deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Merge the housekeeping PR (`m44-housekeeping`) when green; then Home's double due count (`m44-home-due-once`, built and measured on the laptop: Home counted twice per load, once with the change, twice again with the cache removed).
-2. Check 6: read each browser machine's Playwright step and the whole run's time on the next ordinary pull requests (`gh run view <run> --json jobs`). #375: 11.8 minutes, slowest machine 614 s (behavior-2), read-along not needed. #372 (every machine): 14.0 minutes. If still over with read-along running: try keeping Next's build cache between runs (not tried).
-3. Check 7, still open with no migration (laptop-only audit file): documents that no longer match. Pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word).
+1. Merge the security updates (`m44-security-updates`; Dependabot alerts 20 to 28) when green, then the due count (`m44-home-due-once`, built and measured), then documents (`m44-docs-match`: plan headings for M15, M16, M21, M24, M38, M39 and M44; design.md's sidebar; merge-train's deploy step and `attempt-log.sh` for several machines). One at a time, each rebased onto main. After the security merge, check the alerts closed (`gh api repos/agenticghx/neolibrary/dependabot/alerts`).
+2. Check 6, not met: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. With read-along not needed (#375), 11.8 minutes. Both behavior-2 and read-along must come under about 625 s. Not tried: keeping Next's build cache between runs (about 76 s of each machine is the build); moving one project from behavior-2 to behavior.
+3. Check 7: pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word). Open unknowns rows 1, 12, 13 and 27(3) are past their dates but are about money or access, so they wait for Samuel.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
 5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); three audit items need one look at the live database or at Railway.
 
@@ -189,6 +189,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 21:29 · Claude Opus 5.5 (laptop) · Security updates: fast-xml-parser, hono and @hono/node-server (Dependabot alerts 20 to 28)
+- **Done:** fast-xml-parser 5.11.2 -> 5.12.0 (reads uploaded EPUBs; alerts 20, 21), hono 4.13.13 -> 4.13.17 and @hono/node-server 2.1.3 -> 2.1.6 inside @modelcontextprotocol/sdk (alerts 22 to 28). Versions a week old or more (npm update --before 2026-11-08). No code changes.
+- **Key paths:** package.json; package-lock.json; LEARNING_LOG.md (iteration 224)
+- **Commands that worked:** npm install --save-exact fast-xml-parser@5.12.0; npm update hono @hono/node-server --before 2026-11-08; npm audit -> found 0 vulnerabilities; npm run check -> 1496 passed; npx playwright test --project uploads --project agents --ignore-snapshots -> 332 passed (7.4m)
+- **Known issues / blockers:** None. Dependabot closes its alerts itself once main has the fixed versions; check after the merge.
+- **Exact next steps:** 1. Merge after #376 and the due-count PR. 2. Check the alerts closed (gh api repos/agenticghx/neolibrary/dependabot/alerts). 3. Check 6 times on the next PRs.
 
 ### 2026-11-14 21:06 · Claude Opus 5.5 (laptop) · Housekeeping: playwright listed in place of the unused playwright-core; pruning again asked as row 37
 - **Done:** package.json lists playwright 1.64.1 (imported by scripts/live-webkit-check.mjs) in place of playwright-core, which no file imports; installed packages unchanged. Counted: ci-screenshots holds 66 pull requests' pictures (7.2 GB before packing), 44 remote branches of merged pull requests with tips exactly at their last commit. Deleting needs Samuel's word: Open unknowns row 37 (turn on GitHub's delete-on-merge; CI keeps the newest 30 pull requests' pictures). claude.yml skipped by design. Major upgrades left as their own steps.
