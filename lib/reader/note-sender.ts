@@ -1,5 +1,5 @@
 import type { Annotation } from "@/lib/library/annotations";
-import { addToOutbox, flushOutbox, isOffline, opOf, outboxFor, type OutboxItem } from "@/lib/outbox";
+import { addToOutbox, flushOutbox, isOffline, noteHeaders, opOf, outboxFor, type OutboxItem } from "@/lib/outbox";
 
 /**
  * How the reader page sends one reader's notes on one book: at once, or, with no network, through the outbox
@@ -7,9 +7,12 @@ import { addToOutbox, flushOutbox, isOffline, opOf, outboxFor, type OutboxItem }
  * real code with the real routes (lib/reader/note-sender.test.ts) and checked by the verify-outbox skill.
  */
 
-/** One JSON request to the library; an error answer throws its own words ("Not saved" if it has none). */
-export const noteRequest = async (url: string, method: string, body?: unknown) => {
-  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+/**
+ * One JSON request to the library for `reader` (named in its header: sent while another reader is signed in, it is
+ * turned away untouched); an error answer throws its own words ("Not saved" if it has none).
+ */
+export const noteRequest = async (reader: string, url: string, method: string, body?: unknown) => {
+  const res = await fetch(url, { method, headers: noteHeaders(reader), body: body ? JSON.stringify(body) : undefined });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
   return res.status === 204 ? null : res.json();
 };
@@ -42,9 +45,9 @@ export function noteSender(readerId: string, bookId: string, soon: () => void = 
       return { changeId, queued: true };
     }
     try {
-      if (op === "edit") await noteRequest(`/api/annotations/${a.id}`, "PATCH", { ...body, changeId });
-      else if (op === "restore") await noteRequest(`/api/annotations/${a.id}/restore?changeId=${changeId}`, "POST");
-      else await noteRequest(`/api/annotations/${a.id}?changeId=${changeId}`, "DELETE");
+      if (op === "edit") await noteRequest(readerId, `/api/annotations/${a.id}`, "PATCH", { ...body, changeId });
+      else if (op === "restore") await noteRequest(readerId, `/api/annotations/${a.id}/restore?changeId=${changeId}`, "POST");
+      else await noteRequest(readerId, `/api/annotations/${a.id}?changeId=${changeId}`, "DELETE");
       return { changeId, queued: false };
     } catch (e) {
       if (!isOffline(e)) throw e;
@@ -64,7 +67,7 @@ export function noteSender(readerId: string, bookId: string, soon: () => void = 
     create: async (body: Record<string, unknown>): Promise<{ id: string; annotation: Annotation | null }> => {
       const id = crypto.randomUUID();
       try {
-        return { id, annotation: await noteRequest(`/api/books/${bookId}/annotations`, "POST", { ...body, id }) };
+        return { id, annotation: await noteRequest(readerId, `/api/books/${bookId}/annotations`, "POST", { ...body, id }) };
       } catch (e) {
         if (!isOffline(e)) throw e;
         await addToOutbox(readerId, { id, bookId, body, savedAt: new Date().toISOString() });
@@ -90,6 +93,6 @@ export function noteSender(readerId: string, bookId: string, soon: () => void = 
     },
 
     /** Sends what waits (when the page opens, when the network returns, and every 30 s while any wait). */
-    flush: () => flushOutbox(readerId),
+    flush: () => flushOutbox(readerId, bookId),
   };
 }

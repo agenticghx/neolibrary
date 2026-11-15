@@ -72,9 +72,13 @@ Del(b, k) == [j \in DOMAIN b \ {k} |-> b[j]]                                   \
 (* removeFromOutbox(item.id) inside flushOutbox (the ghost notes who removed it). *)
 FlushDrop(k) == box' = Del(box, k) /\ flushDropped' = flushDropped \cup {k}
 
-(* mine(items, owner) in lib/outbox.ts: an item with no owner counts as the  *)
-(* signed-in reader's.                                                       *)
-Mine(owner, reader) == owner = "none" \/ owner = reader
+(* mine(items, owner, ownBook) in lib/outbox.ts: the reader's own items, and *)
+(* an item with no owner only on the page of its own book. A reader page      *)
+(* opens only the reader's own books (getBook, isOwnBook), and every note of  *)
+(* the model is on a book of A's, so an item with no owner is A's: B's page   *)
+(* (on a book of B's) never picks it.                                        *)
+BookOwner == Writer
+Mine(owner, reader) == owner = reader \/ (owner = "none" /\ reader = BookOwner)
 
 (* flushOutbox's list: outboxFor(owner) (one getAll, then mine), then        *)
 (* .filter((i) => !i.refused), sorted by savedAt.                            *)
@@ -99,17 +103,22 @@ Waits(x) == \E k \in DOMAIN box : box[k].note = x /\ ~box[k].refused /\ Mine(box
 (* then insert; the primary key on annotations.id and UNIQUE (annotation_id, *)
 (* version) make the loser of two racing requests fail with a 5xx, which the *)
 (* model covers with "the library fails" in FlushSends.                      *)
-Handle(i, who) ==
+(* who: the browser's sign-in (the cookie); meant: the reader whose page sent *)
+(* it (the x-neolibrary-reader header). A request meant for another reader is *)
+(* turned away untouched (401). acted: the library did something as `who`    *)
+(* (stored, found it already there, or refused it).                          *)
+Handle(i, who, meant) ==
     LET x == i.note
         k == i.id
         has == srv[x].state # "none" /\ who = Writer   \* versions(db, who, x) finds it: the note is A's
-        keep(st) == [st |-> st, srv |-> srv, stored |-> stored, older |-> FALSE, twice |-> FALSE]
+        keep(st) == [st |-> st, srv |-> srv, stored |-> stored, older |-> FALSE, twice |-> FALSE, acted |-> st # 401]
         put(st, v) == [st |-> st, srv |-> [srv EXCEPT ![x] = v], stored |-> stored \cup {k},
-                       older |-> (i.op = "edit" /\ i.seq < srv[x].words), twice |-> k \in stored]
+                       older |-> (i.op = "edit" /\ i.seq < srv[x].words), twice |-> k \in stored, acted |-> TRUE]
         changed == IF i.op = "edit" THEN [srv[x] EXCEPT !.words = i.seq]
                    ELSE IF i.op = "remove" THEN [srv[x] EXCEPT !.state = "gone"]
                    ELSE [srv[x] EXCEPT !.state = "live"]
     IN IF who = "nobody" THEN keep(401)                                         \* Sign in required
+       ELSE IF who # meant THEN keep(401)                                       \* Signed in as another reader.
        ELSE IF i.op = "create"
        THEN IF k \in stored THEN keep(IF who = Writer THEN 200 ELSE 400)        \* createAnnotationOnce: the id exists
             ELSE IF who = Writer THEN put(201, [state |-> "live", words |-> i.seq])   \* createAnnotation
@@ -130,14 +139,16 @@ Handle(i, who) ==
 (*   "lost":     the library handled it but the answer was lost: TypeError,  *)
 (*               so the item is put in the outbox as well, under the same id. *)
 DirectOutcomes == IF net = "down" THEN {"queued"} ELSE {"answered", "lost"}
-DirectOk(i, o) == o # "answered" \/ ResOk(Handle(i, session).st)
+(* Sent from tab t1 (A's page): the header names page["t1"].                  *)
+DirectOk(i, o) == o # "answered" \/ ResOk(Handle(i, session, page["t1"]).st)
 Direct(i, o) ==
-    LET h == Handle(i, session)
+    LET h == Handle(i, session, page["t1"])
         reached == o \in {"answered", "lost"}
     IN /\ srv' = IF reached THEN h.srv ELSE srv
        /\ stored' = IF reached THEN h.stored ELSE stored
        /\ box' = IF o \in {"queued", "lost"} THEN Put(box, i) ELSE box
-       /\ flags' = [flags EXCEPT !.older = @ \/ (reached /\ h.older), !.twice = @ \/ (reached /\ h.twice)]
+       /\ flags' = [flags EXCEPT !.older = @ \/ (reached /\ h.older), !.twice = @ \/ (reached /\ h.twice),
+                                 !.actedOther = @ \/ (reached /\ h.acted /\ session # Writer)]
 
 (* What the reader last did to a note: there or removed (state), which words *)
 (* it has (named by the change that wrote them), which change last set its   *)
@@ -166,7 +177,7 @@ Init ==
     /\ flushDropped = {}
     /\ refusedIds = {}
     /\ flags = [older |-> FALSE, twice |-> FALSE, otherSession |-> FALSE, otherPage |-> FALSE,
-                resent |-> FALSE, refusedForOther |-> FALSE]
+                resent |-> FALSE, refusedForOther |-> FALSE, actedOther |-> FALSE]
 
 -----------------------------------------------------------------------------
 (* Reader A's actions, in tab t1 (useNotes.ts).                              *)
@@ -277,7 +288,8 @@ FlushReads(t) ==
     /\ fl' = [fl EXCEPT ![t] = [IdleFlush EXCEPT !.pc = "send", !.todo = SortByAt(Snapshot(page[t]))]]
     /\ UNCHANGED <<net, session, page, box, ui, offer, srv, stored, want, made, Ghosts, flags>>
 
-(* One fetch for the item at the head of the list, with the browser's cookie. *)
+(* One fetch for the item at the head of the list, with the browser's cookie  *)
+(* and the header naming the page's reader.                                   *)
 SentFlags(t, i) ==
     [flags EXCEPT !.otherSession = @ \/ session \notin {Writer, "nobody"},
                   !.otherPage = @ \/ (i.owner # "none" /\ i.owner # page[t]),
@@ -286,7 +298,7 @@ SentFlags(t, i) ==
 FlushSends(t) ==
     /\ page[t] # "closed" /\ fl[t].pc = "send"
     /\ LET i == Head(fl[t].todo)
-           h == Handle(i, session)
+           h == Handle(i, session, page[t])
        IN \/ \* no network: fetch throws, the loop breaks
              /\ net = "down"
              /\ fl' = [fl EXCEPT ![t] = IdleFlush]
@@ -295,7 +307,8 @@ FlushSends(t) ==
              /\ net = "up"
              /\ srv' = h.srv /\ stored' = h.stored
              /\ fl' = [fl EXCEPT ![t].pc = "answer", ![t].cur = i, ![t].st = h.st, ![t].as = session]
-             /\ flags' = [SentFlags(t, i) EXCEPT !.older = @ \/ h.older, !.twice = @ \/ h.twice]
+             /\ flags' = [SentFlags(t, i) EXCEPT !.older = @ \/ h.older, !.twice = @ \/ h.twice,
+                                               !.actedOther = @ \/ (h.acted /\ session # Writer)]
           \/ \* the library fails (5xx, or it loses a race on the primary key): the loop breaks
              /\ net = "up"
              /\ fl' = [fl EXCEPT ![t] = IdleFlush]
@@ -379,6 +392,7 @@ RemovalKept == \A x \in Notes : want[x].last = "remove" => KeptOrSaved(x)
 UndoKept == \A x \in Notes : want[x].last = "undo" => KeptOrSaved(x)
 NewerWins == ~flags.older
 OnlyYourSession == ~flags.otherSession
+ActedOnlyAsYou == ~flags.actedOther
 OnlyYourPage == ~flags.otherPage
 StaysYours == \A k \in DOMAIN box : Yours(box[k].owner)
 StoredOnce == ~flags.twice

@@ -9,9 +9,13 @@
  * Two people can use one browser; without the owner, the second person's
  * session would send the first person's waiting notes, the library would
  * refuse them (not their book), and they would never be sent again. So every
- * function here takes the signed-in reader's id and only sees their items.
- * Signing out does not empty the outbox: the notes wait for their owner.
+ * function here takes the reader's id and only sees their items. Signing out
+ * does not empty the outbox: the notes wait for their owner. Every request
+ * names its reader (READER_HEADER): sent while another reader is signed in
+ * (a page left open in a second tab), it is turned away and waits.
  */
+import { READER_HEADER } from "./reader-header";
+
 /**
  * - create: a new annotation; `id` is its id, `body` what to POST.
  * - edit: a change to `annotationId` (`body` = { body?, color? }); `id` is the change's id.
@@ -65,16 +69,27 @@ async function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) =>
 
 /**
  * The items that are `owner`'s. One with no owner was saved before owners
- * were recorded; it counts as the signed-in reader's, as it did then (the
- * other choice, never sending it, would lose a note for certain).
+ * were recorded; it counts as `owner`'s only on the page of its own book,
+ * `ownBook`: a reader page opens only the reader's own books, and every note
+ * on a book is its owner's. So another reader on the same browser never sends
+ * it, never has it refused under their name, and never sees it (verify-outbox
+ * F6); it waits until its writer opens that book.
  */
-export const mine = (items: OutboxItem[], owner: string) => items.filter((i) => i.owner === undefined || i.owner === owner);
+export const mine = (items: OutboxItem[], owner: string, ownBook?: string) =>
+  items.filter((i) => i.owner === owner || (i.owner === undefined && ownBook !== undefined && i.bookId === ownBook));
+
+/** The headers of a note request sent for `reader`. */
+export const noteHeaders = (reader: string, json = true): Record<string, string> => ({
+  ...(json ? { "content-type": "application/json" } : {}),
+  ...(reader ? { [READER_HEADER]: reader } : {}),
+});
 
 export const addToOutbox = (owner: string, item: OutboxItem) => run("readwrite", (s) => s.put({ ...item, owner })).then(() => undefined);
 export const removeFromOutbox = (id: string) => run("readwrite", (s) => s.delete(id)).then(() => undefined);
 
+/** `owner`'s items, oldest first; with `bookId` (a book of the reader's own), only that book's, owner-less ones included. */
 export async function outboxFor(owner: string, bookId?: string): Promise<OutboxItem[]> {
-  const all = mine(await run<OutboxItem[]>("readonly", (s) => s.getAll()), owner);
+  const all = mine(await run<OutboxItem[]>("readonly", (s) => s.getAll()), owner, bookId);
   return all.filter((i) => !bookId || i.bookId === bookId).sort((a, b) => a.savedAt.localeCompare(b.savedAt));
 }
 
@@ -86,13 +101,17 @@ export const isOffline = (e: unknown) => e instanceof TypeError;
  * already has) leaves the outbox. One it refuses (4xx) stays, marked with
  * the server's reason, so the reader can see it and copy what they wrote;
  * it is not sent again, since that cannot help (until M20 it was dropped
- * with no word). On a network failure it stops and keeps the rest.
+ * with no word). On a network failure it stops and keeps the rest; so it does
+ * when the library says another reader is signed in (401).
+ * `ownBook`: the book whose page sends it, a book of the reader's own; its
+ * items saved before owners were recorded are sent too (see `mine`).
  * Returns how many were sent and refused.
  */
-export async function flushOutbox(owner: string): Promise<{ sent: number; refused: number }> {
+export async function flushOutbox(owner: string, ownBook?: string): Promise<{ sent: number; refused: number }> {
   let sent = 0;
   let refused = 0;
-  for (const item of (await outboxFor(owner)).filter((i) => !i.refused)) {
+  const all = mine(await run<OutboxItem[]>("readonly", (s) => s.getAll()), owner, ownBook);
+  for (const item of all.sort((a, b) => a.savedAt.localeCompare(b.savedAt)).filter((i) => !i.refused)) {
     let res: Response;
     try {
       const op = opOf(item);
@@ -100,18 +119,18 @@ export async function flushOutbox(owner: string): Promise<{ sent: number; refuse
         op === "create"
           ? await fetch(`/api/books/${item.bookId}/annotations`, {
               method: "POST",
-              headers: { "content-type": "application/json" },
+              headers: noteHeaders(owner),
               body: JSON.stringify({ ...item.body, id: item.id }),
             })
           : op === "edit"
             ? await fetch(`/api/annotations/${item.annotationId}`, {
                 method: "PATCH",
-                headers: { "content-type": "application/json" },
+                headers: noteHeaders(owner),
                 body: JSON.stringify({ ...item.body, changeId: item.id }),
               })
             : op === "restore"
-              ? await fetch(`/api/annotations/${item.annotationId}/restore?changeId=${item.id}`, { method: "POST" })
-              : await fetch(`/api/annotations/${item.annotationId}?changeId=${item.id}`, { method: "DELETE" });
+              ? await fetch(`/api/annotations/${item.annotationId}/restore?changeId=${item.id}`, { method: "POST", headers: noteHeaders(owner, false) })
+              : await fetch(`/api/annotations/${item.annotationId}?changeId=${item.id}`, { method: "DELETE", headers: noteHeaders(owner, false) });
     } catch {
       break;
     }

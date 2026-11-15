@@ -193,44 +193,6 @@ beforeEach(async () => {
 afterEach(() => db.raw.close());
 
 describe("verify-outbox findings, replayed on the real code", () => {
-  it("F5: a page of A's left open sends A's notes under B's sign-in; they are kept as refused for good", async () => {
-    const you = page(A, bookId);
-    offline = true;
-    const a = await you.create({ kind: "note", body: "Written on the train." });
-    offline = false;
-    the.who = null; // A signs out (signOutAction): the open page is not told
-    the.who = { id: B }; // B signs in on the same browser
-    await you.sync(); // A's page: flushOutbox(A) sends A's note with B's cookie
-    expect(sent.at(-1)).toMatchObject({ method: "POST", as: B });
-    const [item] = await waitingFor(A);
-    expect(item.refused).toMatchObject({ status: 400, reason: "Book not found." });
-    the.who = { id: A }; // A signs in again
-    await you.sync();
-    expect(sent.filter((s) => s.method === "POST")).toHaveLength(1); // never sent again
-    expect(await onLibrary(a.id)).toBeUndefined();
-  });
-
-  it("F6: B's page sends an owner-less item of A's, and its refusal puts B's name on it", async () => {
-    const you = page(A, bookId);
-    const a = await you.create({ kind: "note", body: "Saved." });
-    // An edit A queued before owners were recorded (before 2026-11-10): no owner.
-    idb.set("0f0f0f0f-0000-4000-8000-000000000001", {
-      id: "0f0f0f0f-0000-4000-8000-000000000001",
-      op: "edit",
-      annotationId: a.id,
-      bookId,
-      body: { body: "Old offline words." },
-      savedAt: "2026-11-01T10:00:00.000Z",
-    });
-    the.who = { id: B };
-    await flushOutbox(B); // B's page: mine() counts the owner-less item as B's
-    expect(sent.at(-1)).toMatchObject({ method: "PATCH", as: B });
-    expect([...idb.values()][0]).toMatchObject({ owner: B, refused: { status: 404 } });
-    the.who = { id: A };
-    expect(await waitingFor(A)).toEqual([]); // A never sees or sends it again
-    expect((await onLibrary(a.id))?.body).toBe("Saved.");
-  });
-
   it("F7: a second tab whose list was read before a refusal sends the refused change again", async () => {
     const you = page(A, bookId);
     const kept = await you.create({ kind: "note", body: "Kept." });

@@ -41,7 +41,13 @@ describe("mine", () => {
     expect(mine(items, "bea").map((i) => i.id)).toEqual(["b"]);
   });
 
-  it("counts an item saved before owners were recorded as the signed-in reader's", () => {
-    expect(mine([waiting({ id: "old" })], "ada").map((i) => i.id)).toEqual(["old"]);
+  // verify-outbox F6: it used to count as whoever was signed in, so another reader's page sent it, had it refused
+  // and put their own name on it. Every note on a book is its owner's, and a reader page opens only the reader's own
+  // books: the item is the reader's whose page is on its book.
+  it("counts an item saved before owners were recorded as the reader's only on the page of its own book", () => {
+    const old = [waiting({ id: "old", bookId: "b1" })];
+    expect(mine(old, "ada", "b1").map((i) => i.id)).toEqual(["old"]);
+    expect(mine(old, "bea", "b2")).toEqual([]);
+    expect(mine(old, "ada")).toEqual([]);
   });
 });

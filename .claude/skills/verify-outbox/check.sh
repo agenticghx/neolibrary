@@ -9,8 +9,6 @@ set -u
 
 # id, rule, scenario (the config whose CONSTANTS it runs with). Keep in step with "Known findings" in SKILL.md.
 FINDINGS='F5 OnlyYourSession Readers
-F5 RefusedOnlyForYou Readers
-F6 StaysYours Readers
 F7 RefusedNotResent Outbox'
 
 here=$(cd "$(dirname "$0")" && pwd)

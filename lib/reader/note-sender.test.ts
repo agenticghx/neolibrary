@@ -251,3 +251,52 @@ describe("the order of changes", () => {
     expect(await outboxFor(A)).toEqual([]);
   });
 });
+
+describe("two readers on one browser", () => {
+  it("F5: a page of A's left open after B signs in keeps A's note waiting, then sends it once A is back", async () => {
+    const you = page(A, bookId);
+    offline = true;
+    const a = await you.create({ kind: "note", body: "Written on the train." });
+    offline = false;
+    the.who = null; // A signs out in another tab (signOutAction): the open page is not told
+    the.who = { id: B }; // B signs in on the same browser
+    await you.sync(); // A's page flushes (the 30 s timer)
+    // Nothing of A's is stored or refused under B's sign-in.
+    expect(sent.filter((s) => s.as === B).every((s) => s.status === 401)).toBe(true);
+    const [item] = await outboxFor(A);
+    expect(item).toMatchObject({ id: a.id, owner: A });
+    expect(item.refused).toBeUndefined();
+    the.who = { id: A }; // A signs in again
+    await you.sync();
+    expect((await onLibrary(a.id))?.body).toBe("Written on the train.");
+    expect(await outboxFor(A)).toEqual([]);
+  });
+
+  it("F5: a change made on A's page while B is signed in is not stored under B", async () => {
+    const you = page(A, bookId);
+    const a = await you.create({ kind: "note", body: "Mine." });
+    the.who = { id: B };
+    await expect(you.edit(a, "Still mine.")).rejects.toThrow();
+    expect(sent.at(-1)).toMatchObject({ as: B, status: 401 });
+    the.who = { id: A };
+    expect((await onLibrary(a.id))?.body).toBe("Mine.");
+  });
+
+  it("F6: an item of A's saved before owners were recorded is left alone by B's page and sent by A's", async () => {
+    const you = page(A, bookId);
+    const a = await you.create({ kind: "note", body: "Saved." });
+    // An edit A queued before owners were recorded (before 2026-11-10): no owner.
+    const old = "0f0f0f0f-0000-4000-8000-000000000001";
+    idb.set(old, { id: old, op: "edit", annotationId: a.id, bookId, body: { body: "Old offline words." }, savedAt: "2026-11-01T10:00:00.000Z" });
+    the.who = { id: B };
+    await page(B, bBook).sync(); // B's page, on B's own book
+    expect(sent.filter((s) => s.method === "PATCH")).toEqual([]);
+    expect(idb.get(old)?.owner).toBeUndefined();
+    expect(idb.get(old)?.refused).toBeUndefined();
+    expect(await outboxFor(B, bBook)).toEqual([]); // B's page does not show it
+    the.who = { id: A };
+    await you.sync(); // A's page of that book sends it
+    expect((await onLibrary(a.id))?.body).toBe("Old offline words.");
+    expect(idb.size).toBe(0);
+  });
+});

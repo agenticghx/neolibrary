@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { AnnotationError, deleteAnnotation, history, updateAnnotation } from "@/lib/library/annotations";
+import { meantForAnother, signedInAsAnother } from "@/lib/reader-header";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   try {
     return Response.json(await updateAnnotation(await getDb(), user.id, (await params).id, await req.json().catch(() => ({}))));
   } catch (e) {
@@ -33,6 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   try {
     const changeId = new URL(req.url).searchParams.get("changeId") ?? undefined;
     await deleteAnnotation(await getDb(), user.id, (await params).id, new Date(), changeId);
