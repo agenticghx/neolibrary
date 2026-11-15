@@ -9,7 +9,8 @@ set -u
 
 # id, rule, scenario (the config whose CONSTANTS it runs with). Keep in step with "Known findings" in SKILL.md.
 FINDINGS='F5 OnlyYourSession Readers
-F7 RefusedNotResent Outbox'
+F7 RefusedNotResent Outbox
+F7 EditKept Longer'
 
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(git rev-parse --show-toplevel 2>/dev/null) || root=$(cd "$here/../../.." && pwd)

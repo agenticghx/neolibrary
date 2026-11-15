@@ -36,6 +36,7 @@ an earlier change of the same note that still waits.
 | `Outbox.tla` | The model: the outbox, two tabs, the network, who is signed in, removals made on another device, and the library, as the code has them at the sync commit |
 | `Outbox.cfg` | Scenario "one reader, two tabs", with the rules the code keeps today |
 | `Readers.cfg` | Scenario "two readers, one browser", with the rules the code keeps today |
+| `Longer.cfg` | As `Outbox.cfg` with 3 changes; used only for the finding F7 `EditKept` |
 | `Flow.cfg` | A scenario small enough to draw every state (one tab, one new note); used for `outbox-flow.mmd`. Every rule holds in it (194 states, 2026-11-15) |
 | `check.sh` | The one command (below) |
 | `view.ts` | The words the chart uses for each state and step (for the `/pstack:statechart` skill) |
@@ -55,7 +56,7 @@ on main replaces it: put its hash here). At that commit the model was confirmed 
 |---|---|
 | `lib/outbox.ts` | `mine` 78 (owner-less items only for `ownBook`), `noteHeaders` 82, `addToOutbox` 87, `removeFromOutbox` 88, `outboxFor` 91, `isOffline` 97, `flushOutbox` 110 (reads the item again 117, skips it if gone or refused 118, `catch { break }` 138, `res.ok` then `removeFromOutbox(item.id)` 141-143, refused test 144, refused `addToOutbox(owner, …)` 148, `else break` 149) |
 | `lib/reader/note-sender.ts` | `noteRequest` 14 (the reader header; a failed fetch throws `TypeError`, an answer that is not ok throws), `waitsFor` 23, `change` 36 (reads the outbox, `savedAt` after every waiting item 40, behind a waiting change of the note 42 then `soon()` 44, otherwise sent at once), `create` 67, `edit` 79, `forget` 82, `remove` and its Undo 88-91, `flush` 96 |
-| `app/(reader)/books/[id]/read/useNotes.ts` | the sender, with `soon` sending `SYNC_EVENT`, 35; `reload` 71; the sync effect 128-146 (`online` 136, 30 s timer 138); `saveNote` 148, `forget` 154, `removeNote` 160, `undoRemove` 174 |
+| `app/(reader)/books/[id]/read/useNotes.ts` | the sender, with `soon` sending `SYNC_EVENT`, 35; `reload` 71; the sync effect 129-146 (`online` 136, 30 s timer 138); `saveNote` 148, `forget` 154, `removeNote` 160, `undoRemove` 174 |
 | `app/(reader)/books/[id]/read/Reader.tsx` | `SYNC_EVENT` sent when the page opens, 554 |
 | `app/(reader)/books/[id]/read/page.tsx` | `readerId={user.id}` 79: fixed when the page loads; the page opens only the reader's own books (`getBook`, `isOwnBook`) |
 | `lib/reader-header.ts` | `READER_HEADER`, `meantForAnother`, `signedInAsAnother` (401) |
@@ -92,11 +93,11 @@ sh .claude/skills/verify-outbox/check.sh
 ```
 
 It needs Java and TLC, which `scripts/tlc.sh` fetches at pinned versions on
-first use (mise, Temurin 25, TLC 1.7.4). It takes about half a minute and
+first use (mise, Temurin 25, TLC 1.7.4). It takes about two minutes and
 ends, when nothing has changed, with:
 
 ```
-verify-outbox: as recorded: 2 scenarios hold every listed rule; 2 known findings still break
+verify-outbox: as recorded: 2 scenarios hold every listed rule; 3 known findings still break
 ```
 
 and exit 0. What it does: it runs `Outbox.cfg` and `Readers.cfg` and expects
@@ -158,7 +159,10 @@ Then decide whether the path is a real bug or a modeling error:
    as `YouEditANote` and `YouFinishChange` are split.
 2. Do not touch the rules (the operators from `Yours` down to `TypeOK`) or
    the ghost variables they read (`want`, `okIds`, `flushDropped`,
-   `refusedIds`, `flags`) unless the promise itself changed. A rule must not
+   `refusedIds`, `flags`) unless the promise itself changed. (Two actions
+   write `want` because they are what the reader does: the reader's own
+   actions, and `RemovedElsewhere`, which marks the saved note "removed
+   elsewhere" so the rules stop asking this browser to keep it there.) A rule must not
    use the operator that mirrors the code it checks (that is why `StaysYours`
    uses `Yours`, not `Mine`).
 3. Run `check.sh`. If a rule breaks, read the result as above. If a known
@@ -273,8 +277,13 @@ bound to the page, which is a change to how signing in works.
 4. The route answers 401 "Signed in as another reader."; the item stays, not refused, and is sent once A signs in.
 Replay: reproduced (`replay.ts`).
 
-**F7, `RefusedNotResent` (Outbox scenario; does no harm).** A refused change
-can still be sent once more.
+**F7, `RefusedNotResent` (Outbox scenario) and `EditKept` (Longer scenario).**
+A refused change can still be sent once more. Usually harmless (refused
+again), but with three changes it can land: an old edit of a note removed on
+another device is refused in tab 1, the reader brings the note back with Undo
+and edits it, and tab 2's copy of the old edit, already on its way, then
+arrives and replaces the newer words. It needs two tabs, a removal on another
+device, Undo and a new edit, all while one request is in flight.
 1. Two tabs of A's are open; an edit of a saved note waits; A removes the note on another device.
 2. Both tabs start a flush (the `online` event reaches every tab at once); each reads the edit again and finds it not refused.
 3. Tab 1's request reaches the library first: 404; tab 1 keeps it as refused.
@@ -283,18 +292,21 @@ Before the fix, any tab whose list was read before the refusal sent it, however
 much later; the read just before each request closes that. A resent removal
 adds nothing (F8). A lock across tabs (Web Locks) held over the request would
 close this too, but on the iPad a background tab frozen while holding it would
-stop every other tab's notes from being sent.
-Replay: reproduced (`replay.ts`, the second tab's request held on its way).
+stop every other tab's notes from being sent. The other full fix is the
+library keeping a refused edit's change id (as F8 does for removals), which
+means storing an edit of a removed note in a removed version instead of
+refusing it: a change in what the reader sees, left for Samuel to decide.
+Replay: reproduced for `RefusedNotResent` (`replay.ts`, the second tab's
+request held on its way); the `EditKept` path is not replayed.
 
 ## Bounds and assumptions
 
 - Reader A makes at most 2 changes per run (`MaxActions`): write, edit,
   remove or Undo, on one new note and one note the library already has.
-  Once, on 2026-11-15, `Outbox.cfg` with `MaxActions = 3` was run: with
-  `NewNoteKept`, `RemovalKept` and `UndoKept` they held (4,046,200 states,
-  97 s); with `EditKept` listed, it broke along F7's path (an old edit,
-  refused, resent by a second tab after Undo and a newer edit; that model had
-  no read before each request, which narrows the path but does not close it).
+  With 3 changes (`Longer.cfg`, 2026-11-15): `EditKept` breaks along F7's
+  path (recorded in `check.sh`). Before the read before each request and the
+  reader header were modelled, `NewNoteKept`, `RemovalKept` and `UndoKept`
+  held with 3 changes (4,046,200 states, 97 s); not re-run since.
 - Two tabs at most. Only tab 1 makes changes; tab 2 only flushes. Reader B
   makes no notes.
 - `RemovedElsewhere` (constant `Elsewhere`): A may remove the saved note once
