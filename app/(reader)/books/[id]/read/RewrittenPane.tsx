@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Style } from "@/lib/library/levels";
 import type { RewriteView } from "@/lib/library/rewrite";
 import { keptRuns } from "@/lib/library/kept-runs";
 import type { Piece } from "@/lib/library/rewritten";
-import { goAhead, mustAskAgain, paidFor, soFar, usd, type AsYouTurn } from "@/lib/library/rewritten-turn";
+import { goAhead, mayPay, paidFor, soFar, usd, type TurnStore } from "@/lib/library/rewritten-turn";
 import { STYLE_NAMES } from "@/lib/library/levels";
 import { STYLE_EVENT } from "./AiStyleSetting";
 import { AiNote } from "./AiNote";
@@ -37,10 +37,10 @@ export function RewrittenPane(props: {
   mode: Exclude<RewrittenMode, "original">;
   onMode: (mode: RewrittenMode) => void;
   /** Rewriting as you turn: kept by the reader for this visit, so closing this view does not lose it. */
-  turn: AsYouTurn;
-  setTurn: Dispatch<SetStateAction<AsYouTurn>>;
+  turns: TurnStore;
 }) {
-  const { bookId, from, to } = props;
+  const { bookId, from, to, turns } = props;
+  const turn = useSyncExternalStore(turns.subscribe, turns.get, turns.get);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
@@ -48,18 +48,33 @@ export function RewrittenPane(props: {
   const body = useRef<HTMLDivElement>(null);
   const place = `${from}|${to}`;
   // For the rewriting loop, which outlives a render: the place now on screen, the latest page's
-  // paragraphs, the as-you-turn state, whether a loop runs, and the loop itself.
+  // paragraphs, whether this pane is still open, and the loop itself. What has been paid, whether
+  // it is on, and whether a loop runs are in `turns`, which outlives the pane.
   const placeRef = useRef(place);
   const latest = useRef<{ pieces: Piece[]; at: string } | null>(null);
-  const turnRef = useRef(props.turn);
-  const running = useRef(false);
-  const makeRef = useRef<(pieces: Piece[], at: string, since: number) => Promise<void>>(async () => {});
+  const self = useRef(true);
+  const makeRef = useRef<(pieces: Piece[], at: string, justAsked: boolean) => Promise<void>>(async () => {});
   useEffect(() => {
     placeRef.current = place;
   }, [place]);
+  // Closed (Original): a loop this pane started stops before its next paragraph.
   useEffect(() => {
-    turnRef.current = props.turn;
-  });
+    self.current = true;
+    return () => {
+      self.current = false;
+    };
+  }, []);
+  // When a loop ends, in this pane or in one closed before it opened, this pane goes on with the page on
+  // screen, unless that loop has just ended on this very page (all written, or it stopped to ask).
+  useEffect(() => {
+    const goOn = (ended: { by: object; at: string }) => {
+      const now = latest.current;
+      if (!now || now.at !== placeRef.current || !turns.get().on) return;
+      if (ended.by === self && ended.at === now.at) return;
+      void makeRef.current(now.pieces, now.at, false);
+    };
+    return turns.onEnd(goOn);
+  }, [turns]);
 
   // The style changed under Aa: show the rewrites in the new one.
   useEffect(() => {
@@ -83,11 +98,10 @@ export function RewrittenPane(props: {
           setError(null);
           setData(b);
           body.current?.scrollTo({ top: 0 });
-          // Rewriting as you turn: this page too, unless it must ask first.
+          // Rewriting as you turn: this page too (the loop asks first if the next paragraph would pass $1).
           const at = `${from}|${to}`;
           latest.current = { pieces: b.pieces, at };
-          const t = turnRef.current;
-          if (t.on && !mustAskAgain(t.sinceOk)) void makeRef.current(b.pieces, at, t.sinceOk);
+          if (turns.get().on) void makeRef.current(b.pieces, at, false);
         })
         .catch(() => live && setError("The rewrite could not be loaded."));
     }, 250);
@@ -95,7 +109,7 @@ export function RewrittenPane(props: {
       live = false;
       clearTimeout(t);
     };
-  }, [bookId, from, to, reload]);
+  }, [bookId, from, to, reload, turns]);
 
   // M41 R1c: equations and table cells are kept as in the book: never missing, priced or written.
   const missing = data?.pieces.filter((p) => !p.rewrite && p.form === "prose") ?? [];
@@ -106,21 +120,21 @@ export function RewrittenPane(props: {
   /**
    * Rewrites the paragraphs of a page that have none, one after another,
    * showing each as it comes. Stops when the page is turned (the rest waits
-   * until the reader is back: each is paid once either way), on Stop, and
-   * before paying on once $1 has been paid since the last go-ahead. One loop
-   * at a time; when it ends on a turned page, the page now on screen is next.
+   * until the reader is back: each is paid once either way), on Stop, when
+   * this pane is closed, and before a paragraph whose price would take what
+   * was paid since the last go-ahead past $1 (`justAsked`: the reader has just
+   * pressed for this page, so its first paragraph goes ahead at the price shown).
+   * One loop at a time, in any pane; when it ends, the open pane goes on (goOn).
    */
-  const makeMissing = async (pieces: Piece[], at: string, since: number) => {
-    if (running.current) return;
-    const todo = pieces.filter((p) => !p.rewrite && p.estimate !== null).map((p) => p.id);
-    if (!todo.length) return;
-    running.current = true;
-    let sinceOk = since;
+  const makeMissing = async (pieces: Piece[], at: string, justAsked: boolean) => {
+    const todo = pieces.filter((p) => !p.rewrite && p.estimate !== null);
+    if (!todo.length || !turns.begin()) return;
     setError(null);
     setBusy({ done: 0, total: todo.length });
     try {
-      for (const [i, sectionId] of todo.entries()) {
-        if (placeRef.current !== at || !turnRef.current.on || mustAskAgain(sinceOk)) break;
+      for (const [i, { id: sectionId, estimate }] of todo.entries()) {
+        const t = turns.get();
+        if (!self.current || placeRef.current !== at || !t.on || !mayPay(t.sinceOk, estimate ?? 0, justAsked && i === 0)) break;
         const res = await aiFetch(`/api/books/${bookId}/rewritten`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -131,8 +145,7 @@ export function RewrittenPane(props: {
         const made = b.generation;
         if (!b.reused) {
           const cost = made.provenance.costUsd;
-          sinceOk += cost;
-          props.setTurn((t) => paidFor(t, cost));
+          turns.change((t) => paidFor(t, cost));
         }
         setData((d) => (d && d.style === b.style ? { ...d, pieces: d.pieces.map((p) => (p.id === sectionId ? { ...p, rewrite: made } : p)) } : d));
         setBusy({ done: i + 1, total: todo.length });
@@ -140,15 +153,10 @@ export function RewrittenPane(props: {
     } catch (e) {
       setError((e as Error).message);
       // A failure (the spending limit, no connection) stops rewriting as you turn: it would only fail again.
-      turnRef.current = { ...turnRef.current, on: false };
-      props.setTurn((t) => ({ ...t, on: false }));
+      turns.change((t) => ({ ...t, on: false }));
     } finally {
-      running.current = false;
       setBusy(null);
-    }
-    const now = latest.current;
-    if (now && now.at !== at && now.at === placeRef.current && turnRef.current.on && !mustAskAgain(sinceOk)) {
-      void makeRef.current(now.pieces, now.at, sinceOk);
+      turns.end({ by: self, at });
     }
   };
   useEffect(() => {
@@ -158,15 +166,13 @@ export function RewrittenPane(props: {
   /** "Rewrite this page" or "Keep rewriting": the reader's go-ahead for this page and the pages turned to after it. */
   const start = () => {
     if (!data) return;
-    turnRef.current = goAhead(turnRef.current);
-    props.setTurn(goAhead);
-    void makeMissing(data.pieces, place, 0);
+    turns.change(goAhead);
+    void makeMissing(data.pieces, place, true);
   };
-  const stop = () => {
-    turnRef.current = { ...turnRef.current, on: false };
-    props.setTurn((t) => ({ ...t, on: false }));
-  };
-  const asking = props.turn.on && mustAskAgain(props.turn.sinceOk) && priced.length > 0 && !busy;
+  const stop = () => turns.change((t) => ({ ...t, on: false }));
+  // It asks when the next paragraph to write would take what was paid since the go-ahead past $1 (mayPay).
+  const next = priced[0];
+  const asking = turn.on && !busy && next !== undefined && !mayPay(turn.sinceOk, next.estimate ?? 0, false);
 
   return (
     <section className={`${styles.rewritten} ${props.mode === "rewritten" ? styles.rewrittenOver : ""}`} aria-label="Rewritten" data-testid="rewritten">
@@ -195,24 +201,24 @@ export function RewrittenPane(props: {
           {data && missing.length > 0 && priced.length === 0 ? (
             <p className={styles.hint}>No AI key for new rewrites here: add your own Anthropic key in Reading settings (Aa). Saved rewrites still show.</p>
           ) : null}
-          {data && !props.turn.on && priced.length > 0 ? (
+          {data && !turn.on && priced.length > 0 ? (
             <div className={styles.rewrittenAsk}>
               <button type="button" className={styles.primaryTool} disabled={busy !== null} onClick={start}>
                 {busy ? `Writing… (${busy.done} of ${busy.total})` : `Rewrite this page in ${name}`}
               </button>
               <p className={styles.hint}>
-                {`It costs ${usd(price)}, once; saved rewrites are free. Then each page you turn to is rewritten too, until you press Stop, and it asks again after every $1.${soFar(props.turn)}`}
+                {`It costs ${usd(price)}, once; saved rewrites are free. Then each page you turn to is rewritten too, until you press Stop, and it asks again after every $1.${soFar(turn)}`}
               </p>
             </div>
           ) : null}
-          {data && props.turn.on ? (
+          {data && turn.on ? (
             <div className={styles.rewrittenAsk} data-testid="as-you-turn" aria-live="polite">
               {asking ? (
-                <p className={styles.rewrittenQuestion}>{`Keep rewriting? This page costs ${usd(price)}.${soFar(props.turn)}`}</p>
+                <p className={styles.rewrittenQuestion}>{`Keep rewriting? This page costs ${usd(price)}.${soFar(turn)}`}</p>
               ) : (
                 <p className={styles.hint}>
                   {busy ? `Writing… (${busy.done} of ${busy.total}).` : "Rewriting each page as you turn to it."}
-                  {soFar(props.turn)}
+                  {soFar(turn)}
                 </p>
               )}
               <div className={styles.askRow}>

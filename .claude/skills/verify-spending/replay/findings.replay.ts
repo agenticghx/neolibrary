@@ -12,7 +12,6 @@ import type { Database } from "@/lib/db/client";
 import { books, failedSpend, generations } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { importBook } from "@/lib/library/import";
-import { goAhead, mustAskAgain, paidFor, TURN_OFF } from "@/lib/library/rewritten-turn";
 import { forgetTextEditionsForTests, startTextEdition, textEditionSummary } from "@/lib/library/text-edition";
 import { MemoryStorage } from "@/lib/storage";
 import { fakeProvider, firstReadArrivesLate, MODEL, onInsert, rewriteRequest, until } from "./fakes";
@@ -178,19 +177,5 @@ describe("SpendCap findings", () => {
     expect((await second).reused).toBe(false);
     expect(ai.charged).toHaveLength(2);
     expect(await database.db.select().from(generations)).toHaveLength(2);
-  });
-});
-
-describe("RewriteAsYouTurn findings", () => {
-  it("Finding 8 (RewriteAsYouTurn-finding-paid-past-one-dollar, by design): the check before each paragraph lets the total pass $1 by one paragraph", () => {
-    // The loop's own check (RewrittenPane.tsx makeMissing), with the real functions: paragraphs of 60 cents.
-    let turn = goAhead(TURN_OFF);
-    let sinceOk = 0;
-    while (!mustAskAgain(sinceOk)) {
-      sinceOk += 0.6;
-      turn = paidFor(turn, 0.6);
-    }
-    expect(turn.sinceOk).toBeCloseTo(1.2);
-    expect(turn.sinceOk).toBeGreaterThan(1);
   });
 });

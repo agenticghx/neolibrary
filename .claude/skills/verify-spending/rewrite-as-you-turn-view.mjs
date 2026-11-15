@@ -2,6 +2,7 @@
 // Written for: whoever reads the chart, in the reader's own words.
 const loops = (v) => Object.values(v.loop).filter((l) => l.pc !== "idle");
 const asksAt = 100; // ASK_AGAIN_USD in cents, as in the configs
+const cost = 60; // a paragraph's price in the chart's config
 
 export const title = "Rewrite as you turn";
 
@@ -10,14 +11,14 @@ export const state = (v) => {
   if (running.some((l) => l.pc === "posting")) return "The AI is rewriting a paragraph";
   if (running.length) return "Rewriting the page on screen";
   if (!v.turn.on) return "Off: the price is shown";
-  if (v.turn.since >= asksAt) return "$1 paid: it asks before paying more";
+  if (v.turn.since + cost > asksAt) return "The next paragraph would pass $1: it asks first";
   return "On: waiting for the next page";
 };
 
 export const group = (v) => {
   const s = state(v);
   if (s === "The AI is rewriting a paragraph") return "The AI is paid";
-  if (s === "$1 paid: it asks before paying more") return "It asks before paying more";
+  if (s === "The next paragraph would pass $1: it asks first") return "It asks before paying more";
   if (s === "Off: the price is shown") return "Rewriting is off";
   return "Rewriting is on";
 };
@@ -49,8 +50,8 @@ export const step = (action, from, to) => {
       if (loops(to).some((l) => l.pc === "posting")) return "the next paragraph is sent to the AI";
       const was = loops(from).find((l) => l.pc === "deciding");
       if (loops(to).length >= loops(from).length) return "it goes on with the page now on screen";
-      if (was && !from.ref[was.pane].on) return "it stops: you pressed Stop";
-      if (was && was.since >= asksAt) return "it stops: $1 paid since you said go ahead";
+      if (was && !from.turn.on) return "it stops: you pressed Stop";
+      if (was && from.turn.since + cost > asksAt) return "it stops: the next paragraph would pass $1 since you said go ahead";
       if (was && from.place[was.pane] !== was.at) return "it stops: you turned the page";
       return "the page is done";
     }
