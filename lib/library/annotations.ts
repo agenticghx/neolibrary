@@ -363,7 +363,11 @@ async function addVersion(db: Db, ownerId: string, annotationId: string, change:
       return toAnnotation(latest, all[all.length - 1]);
     }
   }
-  if (!latest || (latest.deleted && !restoring)) throw new AnnotationError("Annotation not found.");
+  // A removal of a note already removed (on another device, say), sent with a change id, is not refused: it adds a
+  // second removed version under that id, so the same removal sent again (by a tab that read its outbox earlier),
+  // even after the note is brought back, adds nothing (verify-outbox F8).
+  const removingAgain = latest?.deleted && change.deleted === true && changeId !== undefined;
+  if (!latest || (latest.deleted && !restoring && !removingAgain)) throw new AnnotationError("Annotation not found.");
   if (restoring && !latest.deleted) return toAnnotation(latest, all[all.length - 1]); // already back: nothing to add
   const { id: _id, version, createdAt: _c, ...rest } = latest;
   void _id;

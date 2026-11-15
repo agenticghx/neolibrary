@@ -31,7 +31,8 @@ export function useNotes(props: {
 }) {
   const { view, crossedAt, placeShown } = props;
   // Sends the notes, at once or through the outbox (lib/reader/note-sender.ts, checked by the verify-outbox skill).
-  const sender = useMemo(() => noteSender(props.readerId, props.bookId), [props.readerId, props.bookId]);
+  // A change put behind one that still waits is sent at once, not at the next 30 s tick (the sync effect below).
+  const sender = useMemo(() => noteSender(props.readerId, props.bookId, () => window.dispatchEvent(new Event(SYNC_EVENT))), [props.readerId, props.bookId]);
   const [notes, setNotes] = useState<Annotation[]>([]);
   const notesRef = useRef<Annotation[]>([]);
 

@@ -155,6 +155,15 @@ describe("notes on paths and pillars", () => {
     // Without the same change id, a removed note stays "not found".
     await expect(deleteAnnotation(database.db, ownerId, note.id)).rejects.toThrow("Annotation not found.");
 
+    // verify-outbox F8: a removal sent with its own change id when the note is already removed (on another device)
+    // is kept under that id, so the same removal arriving again after the note is brought back adds nothing.
+    const late = "1a2b3c4d-0000-4000-8000-0000000000d2";
+    await deleteAnnotation(database.db, ownerId, note.id, new Date(), late);
+    expect((await history(database.db, ownerId, note.id)).map((v) => v.deleted)).toEqual([false, false, false, true, true]);
+    await restoreAnnotation(database.db, ownerId, note.id);
+    await deleteAnnotation(database.db, ownerId, note.id, new Date(), late); // a tab that read its outbox earlier sends it again
+    expect((await listAnnotations(database.db, ownerId, bookId)).find((a) => a.id === note.id)?.body).toBe("Edited at home.");
+
     // A change id used on one note cannot be reused on another, and must be a uuid.
     const other = await createAnnotation(database.db, ownerId, { kind: "note", bookId, body: "Other." });
     await expect(updateAnnotation(database.db, ownerId, other.id, { body: "x", changeId: edit })).rejects.toThrow("already taken");

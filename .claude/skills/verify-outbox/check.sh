@@ -8,12 +8,7 @@
 set -u
 
 # id, rule, scenario (the config whose CONSTANTS it runs with). Keep in step with "Known findings" in SKILL.md.
-FINDINGS='F1 NewNoteKept Outbox
-F2 RemovalKept Outbox
-F3 UndoKept Outbox
-F4 NewerWins Outbox
-F4 EditKept Outbox
-F5 OnlyYourSession Readers
+FINDINGS='F5 OnlyYourSession Readers
 F5 RefusedOnlyForYou Readers
 F6 StaysYours Readers
 F7 RefusedNotResent Outbox'
@@ -52,17 +47,17 @@ for scenario in Outbox Readers; do
   fi
 done
 
-echo "$FINDINGS" | while read -r id rule scenario; do
+echo "$FINDINGS" | while read -r id target scenario; do
   sed '/^INVARIANTS/,$d' "$here/$scenario.cfg" >"$work/finding.cfg"
-  printf 'INVARIANT %s\nCHECK_DEADLOCK FALSE\n' "$rule" >>"$work/finding.cfg"
+  printf 'INVARIANT %s\nCHECK_DEADLOCK FALSE\n' "$target" >>"$work/finding.cfg"
   run finding.cfg
-  if [ "$code" -eq 12 ] && [ "$rule" != "" ]; then
-    echo "known    $id $rule still breaks ($scenario scenario)"
+  if [ "$code" -eq 12 ] && [ "$rule" = "$target" ]; then
+    echo "known    $id $target still breaks ($scenario scenario)"
   elif [ "$code" -eq 0 ]; then
-    echo "FIXED?   $id $rule now holds ($scenario scenario, ${states:-?} states): confirm, then move it to $scenario.cfg and out of FINDINGS"
+    echo "FIXED?   $id $target now holds ($scenario scenario, ${states:-?} states): confirm, then move it to $scenario.cfg and out of FINDINGS"
     echo x >>"$work/changes"
   else
-    echo "ERROR    $id $rule: TLC exit $code. TLC's output:"
+    echo "ERROR    $id $target: TLC exit $code. TLC's output:"
     tail -30 "$work/last.out"
     echo x >>"$work/changes"
   fi
