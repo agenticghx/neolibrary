@@ -20,7 +20,7 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 21:50 (laptop clock, from `date`). Merged since the last deploy: #375 (links keep the page) and #376 (housekeeping); both deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 21:29 (laptop clock, from `date`). Merged since the last deploy: #375 (links keep the page) and #376 (housekeeping); both deploy themselves after main's runs. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
 1. Merge the security updates (`m44-security-updates`; Dependabot alerts 20 to 28) when green, then the due count (`m44-home-due-once`, built and measured), then documents (`m44-docs-match`: plan headings for M15, M16, M21, M24, M38, M39 and M44; design.md's sidebar; merge-train's deploy step and `attempt-log.sh` for several machines). One at a time, each rebased onto main. After the security merge, check the alerts closed (`gh api repos/agenticghx/neolibrary/dependabot/alerts`).
 2. Check 6, not met: with every machine running (#376's run), 14.1 minutes; behavior-2 750 s (with the screenshot tests), read-along 682 s, behavior 534 s, branches 328 s. With read-along not needed (#375), 11.8 minutes. Both behavior-2 and read-along must come under about 625 s. Not tried: keeping Next's build cache between runs (about 76 s of each machine is the build); moving one project from behavior-2 to behavior.
