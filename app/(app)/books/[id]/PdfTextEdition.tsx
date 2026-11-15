@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import forms from "@/components/forms.module.css";
@@ -44,9 +45,9 @@ export function PdfTextEdition({ bookId, editionId }: { bookId: string; editionI
       </p>
       {made ? (
         <p className={styles.line}>
-          <a className={styles.readText} href={`/books/${made}/read`}>
+          <Link className={styles.readText} href={`/books/${made}/read`}>
             Read the flowing text
-          </a>{" "}
+          </Link>{" "}
           <span className={styles.quietText}>In the reader, Scan | Text switches between them.</span>
         </p>
       ) : null}

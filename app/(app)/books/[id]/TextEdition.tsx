@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import forms from "@/components/forms.module.css";
 import type { TextEditionSummary } from "@/lib/library/text-edition";
@@ -30,6 +31,19 @@ export function TextEdition({ bookId, initial }: { bookId: string; initial: Text
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/books/${bookId}/text-edition`, { cache: "no-store" }).catch(() => null);
     if (res?.ok) setS((await res.json()) as TextEditionSummary);
+  }, [bookId]);
+
+  // Once on opening: Back to this page shows the app's copy of it from the first visit (links within the app keep
+  // that copy), which can predate an edition made since.
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/books/${bookId}/text-edition`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => live && v && setS(v as TextEditionSummary))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
   }, [bookId]);
 
   useEffect(() => {
@@ -68,9 +82,9 @@ export function TextEdition({ bookId, initial }: { bookId: string; initial: Text
 
       {s.editionId ? (
         <p className={styles.line}>
-          <a className={styles.readText} href={`/books/${s.editionId}/read`}>
+          <Link className={styles.readText} href={`/books/${s.editionId}/read`}>
             Read the text edition
-          </a>{" "}
+          </Link>{" "}
           <span className={styles.quietText}>The same book as flowing text; in the reader, Scan | Text switches between them.</span>
         </p>
       ) : null}
@@ -148,7 +162,7 @@ export function TextEdition({ bookId, initial }: { bookId: string; initial: Text
           <ul className={styles.pages}>
             {job.toCheck.map((c) => (
               <li key={c.page}>
-                <a href={scanAt(bookId, c.page)}>Page {c.page}</a>
+                <Link href={scanAt(bookId, c.page)}>Page {c.page}</Link>
               </li>
             ))}
           </ul>
@@ -163,7 +177,7 @@ export function TextEdition({ bookId, initial }: { bookId: string; initial: Text
           <ul className={styles.problems}>
             {job.problems.map((p) => (
               <li key={p.page}>
-                <a href={scanAt(bookId, p.page)}>Page {p.page}</a>: {p.message}
+                <Link href={scanAt(bookId, p.page)}>Page {p.page}</Link>: {p.message}
               </li>
             ))}
           </ul>
