@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { AnnotationError, restoreAnnotation } from "@/lib/library/annotations";
+import { meantForAnother, signedInAsAnother } from "@/lib/reader-header";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   try {
     const changeId = new URL(req.url).searchParams.get("changeId") ?? undefined;
     return Response.json(await restoreAnnotation(await getDb(), user.id, (await params).id, new Date(), changeId));

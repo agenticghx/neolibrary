@@ -2,6 +2,7 @@ import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { AnnotationError, createAnnotation, createAnnotationOnce, listAnnotations, type Annotation } from "@/lib/library/annotations";
 import { notesAcross } from "@/lib/library/notes-across";
+import { meantForAnother, signedInAsAnother } from "@/lib/reader-header";
 import { serverSecret } from "@/lib/secrets";
 import { signFileUrl } from "@/lib/signed-url";
 import { getStorage } from "@/lib/storage";
@@ -39,6 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   const body = await req.json().catch(() => ({}));
   try {
     if (body?.kind === "voice") return Response.json({ error: "Send voice notes to /voice-notes." }, { status: 400 });
