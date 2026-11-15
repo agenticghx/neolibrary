@@ -12,7 +12,7 @@ type Vars = {
   page: Record<string, string>;
   box: Record<string, Item> | Item[];
   fl: Record<string, Flush>;
-  ui: { act: string; note: string };
+  ui: { act: string; op: string; note: string; behind: boolean };
   offer: { kind: string };
   srv: Record<string, Note>;
   want: Record<string, Want>;
@@ -106,24 +106,23 @@ export function step(action: string, from: Vars, to: Vars): string | null {
     case "YouWriteANote":
       if (to.srv.n.state === "live" && grew) return "you write a note; the library stores it but its answer is lost";
       return "you write a note";
-    case "YouEditANote": {
-      const x = noteOf(from, to);
-      if (JSON.stringify(to.srv[x]) !== JSON.stringify(from.srv[x]) && grew) return `you edit ${NAME[x]}; the library stores it but its answer is lost`;
-      return `you edit ${NAME[x]}`;
-    }
-    case "YouFinishEditing":
-      // saveNote read the waiting copy, then wrote the new words back after an await.
-      return items(from).some((i) => i.note === "n") ? "you give it new words before it is sent" : "you give it new words [as the page sends the old ones]";
+    case "YouEditANote":
+      return `you start editing ${NAME[noteOf(from, to)]}`;
     case "YouRemoveANote":
-    case "YouFinishRemoving": {
-      const x = noteOf(from, to);
-      const racing = from.ui.act === "drop" && !items(from).some((i) => i.note === "n");
-      if (JSON.stringify(to.srv[x]) !== JSON.stringify(from.srv[x]) && grew) return `you remove ${NAME[x]}; the library takes it but its answer is lost`;
-      return racing ? `you remove ${NAME[x]} [as the page sends it]` : `you remove ${NAME[x]}`;
-    }
+      return `you start removing ${NAME[noteOf(from, to)]}`;
     case "YouPressUndo":
-    case "YouFinishUndo":
       return "you press Undo [within 10 seconds]";
+    case "YouFinishChange": {
+      const x = from.ui.note;
+      const verb = from.ui.op === "edit" ? "the edit" : from.ui.op === "remove" ? "the removal" : "the return";
+      if (from.ui.behind) return `${verb} goes behind the change of ${NAME[x]} that still waits`;
+      if (JSON.stringify(to.srv[x]) !== JSON.stringify(from.srv[x]) && grew) return `the library takes ${verb} but its answer is lost; it waits here too`;
+      return grew ? `no network: ${verb} waits here` : `${verb} is sent at once`;
+    }
+    case "RemovedElsewhere":
+      return "you remove your saved note on another device";
+    case "FlushRechecks":
+      return `${tab} reads the next item again before sending it`;
     case "FlushReads":
       return `${tab} starts sending what waits`;
     case "FlushSends": {

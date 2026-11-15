@@ -3,8 +3,8 @@
 (* Neolibrary's offline note outbox, as the code has it at the sync commit  *)
 (* named in SKILL.md (that file maps each operator below to its code):      *)
 (*   lib/outbox.ts               the queue in IndexedDB; flushOutbox sends it *)
-(*   app/(reader)/books/[id]/read/useNotes.ts   the reader's side: create,   *)
-(*                               saveNote, removeNote, Undo, when it flushes  *)
+(*   lib/reader/note-sender.ts   the reader's side: create, change (edit,    *)
+(*                               remove, Undo); useNotes.ts says when to flush *)
 (*   lib/library/annotations.ts  the library stores a note id and a change id *)
 (*                               once (createAnnotationOnce, addVersion)      *)
 (* Reader A works in tab t1. A second tab (t2) may be open on the same      *)
@@ -131,7 +131,7 @@ Handle(i, who, meant) ==
        ELSE put(200, changed)
 
 (* A request the reader's page sends itself: create() or change() in        *)
-(* useNotes.ts, through api() in reader-helpers.ts. Outcomes:                *)
+(* note-sender.ts, through noteRequest(). Outcomes:                          *)
 (*   "queued":   no network: fetch throws TypeError, so the item is put in   *)
 (*               the outbox (addToOutbox).                                   *)
 (*   "answered": the library answers; an answer that is not ok throws, and   *)
@@ -180,7 +180,7 @@ Init ==
                 resent |-> FALSE, refusedForOther |-> FALSE, actedOther |-> FALSE]
 
 -----------------------------------------------------------------------------
-(* Reader A's actions, in tab t1 (useNotes.ts).                              *)
+(* Reader A's actions, in tab t1 (useNotes.ts calling note-sender.ts).       *)
 
 (* create(): POST with an id chosen here; with no network it waits (M12).    *)
 YouWriteANote ==

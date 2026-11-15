@@ -349,8 +349,9 @@ test("a note edited and a note removed offline are changed on the server when th
   await server.dispose();
 });
 
-// M19 P3a: Undo works offline too. A removal still waiting in the outbox is simply taken back; a removal the server
-// already has is brought back by a restore that waits in the outbox, shows at once, and is sent once.
+// M19 P3a: Undo works offline too. Undo is always a change of its own (a restore), which waits in the outbox, shows at
+// once, and is sent once. A removal made offline is not taken back out of the outbox: the library may already have
+// it (verify-outbox F3), so it is sent, and the restore after it.
 test("a note removed and brought back while offline is still there when the network returns", async ({ page, context, playwright }) => {
   const frankenstein = await bookId(page, "Frankenstein");
   const server = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL, storageState: ADMIN_STATE });
@@ -378,20 +379,20 @@ test("a note removed and brought back while offline is still there when the netw
   // Undo of a removal the server already has: a restore waits in the outbox, and the note shows at once.
   await status.getByRole("button", { name: "Undo" }).click();
   await expect(notes.getByRole("listitem").filter({ hasText: late.body })).toHaveCount(1);
-  // Undo of a removal made offline: the waiting removal is taken back.
+  // Undo of a removal made offline: a restore waits behind the waiting removal.
   await notes.getByRole("listitem").filter({ hasText: early.body }).getByRole("button", { name: "Remove" }).click();
   await expect(notes.getByRole("listitem").filter({ hasText: early.body })).toHaveCount(0);
   await status.getByRole("button", { name: "Undo" }).click();
   await expect(notes.getByRole("listitem").filter({ hasText: early.body })).toHaveCount(1);
 
-  // Network back: both are on the server; the early note was never removed there, the late one was brought back once.
+  // Network back: both are on the server, each removed and then brought back once.
   await context.unrouteAll();
   await context.setOffline(false);
   await expect.poll(async () => (await onServer()).some((a) => a.id === late.id), { timeout: 15_000 }).toBe(true);
   await page.reload();
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  expect((await onServer()).some((a) => a.id === early.id)).toBe(true);
-  expect(await versions(early.id)).toBe(1);
+  // (Polled: the early note's removal and its return are sent after the late note's return, and may still be on their way.)
+  await expect.poll(async () => (await onServer()).some((a) => a.id === early.id) && (await versions(early.id)), { timeout: 15_000 }).toBe(3);
   expect(await versions(late.id)).toBe(3);
   await server.dispose();
 });
