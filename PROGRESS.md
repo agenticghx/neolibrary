@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the check-6 times PR; confirm check 6 on the next ordinary PRs; recount the audit list for check 7.
+next_action: Merge the workflow-versions PR; confirm check 6 on the next ordinary PRs; check 7 waits on Samuel.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,13 +20,13 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 22:21 (laptop clock, from `date`). Merged today, all without a migration, each deploying itself after main's run: #375 (links keep the page), #376 (housekeeping), #377 (security updates; Dependabot shows none open), #378 (Home counts the review cards once), #379 (documents back in step), #380 (check 6: two machines stop running the reader tests to make data). Live at the time of writing: 0717120 (#377). The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 22:28 (laptop clock, from `date`). Merged today, all without a migration, each deploying itself after main's run: #375 (links keep the page), #376 (housekeeping), #377 (security updates; Dependabot shows none open), #378 (Home counts the review cards once), #379 (documents back in step), #380 (check 6: two machines stop running the reader tests to make data), #381 (#380's times written down). The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Merge this pull request (#380's times written into `docs/version-2.md`, `docs/ci-time.md`, the learning log). Then check the Deploy log issue or `/api/health` shows main's newest commit on both addresses.
+1. Merge this pull request (workflow versions; check 7's row). Then read the Deploy log issue or `/api/health` for main's newest commit on both addresses, and the next real Deploy run's "setup-node" step (first use of `setup-node@v5` there).
 2. Check 6, met on #380's own run (10.8 minutes, every machine; behavior 545 s is now the slowest). Confirm on the next two or three ordinary pull requests (`gh run view <run> --json jobs`); if one goes over, behavior's chain is the place to look.
-3. Check 7: what is left needs Samuel: pruning again (Open unknowns row 37), the answers-table lookup (a migration), three audit items that need one look at the live database or at Railway. Recount the laptop audit list (`docs/handoffs/2026-11-09-audit-review-list.md`) and correct check 7's row in `docs/version-2.md`.
+3. Check 7: everything left waits on Samuel (its row in `docs/version-2.md`): live addresses in tracked files (removing them rewrites the ledger archive and the history), pruning again (Open unknowns row 37), the answers-table lookup (a migration), two items that need one look at the live database, four past-date Open unknowns rows (money or access), the laptop's two extra checkouts.
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
-5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); Open unknowns rows 1, 12, 13 and 27(3) (past their dates; money or access, so never closed by the seven-day rule).
+5. Samuel's to answer, none blocking: the check 7 items above; time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going).
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -136,6 +136,7 @@ Never blocks the loop. Newest first.
 
 ## Decisions
 
+- 2026-11-14 · Audit items dropped from check 7, each not a fault: the cap check's queries before a paid call (about 11, beside a call of seconds; it guards money, so not worth the risk); `claude.yml` skipped on every comment without "@claude" (as built); the three scripts referenced by nothing (kept by choice, 2026-11-09); the finished M14 documents (history); major-version upgrades of @anthropic-ai/sdk, eslint, postgres, stylelint and typescript (each its own step when needed, with its own tests); a note saved offline before 2026-11-10 goes to whoever signs in next, since it carries no writer and the other choice loses a note for certain (`lib/outbox.ts:66-71`) · by Claude (default; Samuel can overrule)
 - 2026-11-08 · M42: the e-ink tablet for S4 and S5 is a Boox (Open unknowns row 34) · by Samuel ("i'll go for boox")
 - 2026-11-08 · M42 E-ink reading mode is planned (`docs/plan.md` M42, `docs/eink-reading-plan.md`): test Neolibrary on a bought e-ink tablet for a month before planning hardware of our own · by Samuel ("yep, plan the e-ink reading mode as suggested")
 - 2026-11-08 · Row 3: the Path page stays as drawn; the two Home extras (a question, threads) stay out · default stands
@@ -190,6 +191,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 22:24 · Claude Opus 5.5 (laptop) · Workflow versions in step with ci.yml; check 7's row rewritten: what is left waits on Samuel
+- **Done:** deploy.yml, claude.yml, claude-issue.yml and ci.yml's Start the deploy job: checkout@v5, setup-node@v5, ubuntu-24.04. docs/version-2.md check 7: fixed since the recount (#358, #360 to #369, #371, #375, #376, #379, this PR); dropped as not faults (Decisions 2026-11-14); still open, each Samuel's: live addresses in tracked files (history rewrite), pruning (row 37), answers-table lookup (migration), two live-database looks, four past-date Open unknowns, two extra laptop checkouts.
+- **Key paths:** .github/workflows/deploy.yml; .github/workflows/claude.yml; .github/workflows/claude-issue.yml; .github/workflows/ci.yml; docs/version-2.md; PROGRESS.md (Decisions); LEARNING_LOG.md (iteration 227)
+- **Commands that worked:** grep -rn '@v4\|ubuntu-latest' .github/workflows/ (only artifact/cache actions and one comment left); gh pr view 358 and 360 to 369 -> all MERGED
+- **Known issues / blockers:** deploy.yml's setup-node@v5 is first exercised by the next real deploy; read that Deploy run.
+- **Exact next steps:** 1. Merge after #381. 2. Read the Deploy run after the next code merge (setup-node@v5). 3. Confirm check 6 on the next ordinary PRs. 4. Samuel: the check 7 items in docs/version-2.md.
 ### 2026-11-14 22:21 · Claude Opus 5.5 (laptop) · Check 6 met on #380's own run: 10.8 minutes with every machine (14.1 before)
 - **Done:** #380 merged. Its own CI run (43671053886, every machine): behavior 545 s, behavior-2 417 s (750 before), read-along 406 s (682), branches 338 s; 10.8 minutes from start to the last job. Written into docs/version-2.md check 6, docs/ci-time.md and LEARNING_LOG iteration 226 (now success). One run: to be confirmed on the next ordinary PRs.
 - **Key paths:** docs/version-2.md; docs/ci-time.md; LEARNING_LOG.md
