@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the links PR when green; then check 7 housekeeping.
+next_action: Merge the housekeeping PR when green; then Home's double due count.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -20,13 +20,13 @@ Version 1 is finished. The goal now is version 2: `docs/version-2.md` (seven che
 
 ## Exact next steps
 
-Written 2026-11-14 19:42 (laptop clock, from `date`). **All merged work is live (54c0f83, #371; #372 changed only CI and deploys itself after main's run).** The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
+Written 2026-11-14 21:16 (laptop clock, from `date`). #375 (links within the app keep the page) merged as 5667e04 and deploys itself after main's run. The order of work is `docs/version-2.md` (seven checks; its table says where each stands).
 
-1. Check 6: on the next ordinary pull requests, read each browser machine's Playwright step time and the whole run's time (`gh run view <run> --json jobs`), against the 12-minute target. #372's own run (every machine) took 14.0 minutes; its behavior machine's projects summed to 603 s (766 s before). If still over: try keeping Next's build cache between runs (not tried); building once was measured and set aside (`docs/ci-time.md`).
-2. Check 7, still open with no migration (laptop-only audit file): plain links reload the page; housekeeping (screenshot branch size, merged branches, unused playwright-core, old major versions); documents. The answers-table lookup needs a migration (Samuel's word).
-3. Home asks for the due count twice per page (`app/(app)/page.tsx:33` and the sidebar, different focus arguments): small, its own step if worth it.
+1. Merge the housekeeping PR (`m44-housekeeping`) when green; then Home's double due count (`m44-home-due-once`, built and measured on the laptop: Home counted twice per load, once with the change, twice again with the cache removed).
+2. Check 6: read each browser machine's Playwright step and the whole run's time on the next ordinary pull requests (`gh run view <run> --json jobs`). #375: 11.8 minutes, slowest machine 614 s (behavior-2), read-along not needed. #372 (every machine): 14.0 minutes. If still over with read-along running: try keeping Next's build cache between runs (not tried).
+3. Check 7, still open with no migration (laptop-only audit file): documents that no longer match. Pruning again is Open unknowns row 37 (Samuel). The answers-table lookup needs a migration (Samuel's word).
 4. If `e2e/stats.spec.ts:72` fails again: its message lists each save's fate; the cause needs a server-side view of the save sent on leaving (Log, 2026-11-14 18:04).
-5. Samuel's to answer, none blocking: time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; three audit items need one look at the live database or at Railway.
+5. Samuel's to answer, none blocking: Open unknowns row 37 (pruning); time `/browse` on the real iPad, signed out; accept or change `docs/version-2.md`; a signed-in check of download-then-offline in his browser; on the iPad, Listen then Scan | Text (the voice should keep going); three audit items need one look at the live database or at Railway.
 
 Older versions of this section are in git (`git log -p -- PROGRESS.md`); the Log's older entries are in `docs/ledger-archive/`.
 
@@ -132,6 +132,7 @@ Never blocks the loop. Newest first.
 | 34 | **E-ink reading (M42): which tablet, if any, to buy?** M42 is the cheap test of a reading device of your own: Neolibrary in the browser of an e-ink tablet you can already buy, used daily for a month (`docs/eink-reading-plan.md`). Candidates: a Boox (Android, Chrome, page buttons on some models, many sizes) or a Daylight (a paper-like screen that redraws fast enough for smooth scrolling and video, Android). A Kindle's browser is too limited. S4 (the device's buttons) and S5 (the month) need the device; S1 to S3 do not. Default while open: build S1 to S3 and test them in Chrome on a computer; nothing is bought. Never closed by the seven-day rule: it is about money. | Samuel | 2026-11-22 | **answered 2026-11-08: a Boox** ("i'll go for boox"). Model not named yet; S4 records it and the keys its buttons send. |
 | 35 | **Audit 2026-11-09: findings not fixed.** Five reviewers read `lib/`, `app/`, `components/`, the migrations and the docs. Three pull requests fixed what was certain (#321, #322, #323). The rest needs Samuel's choices: bugs that need a migration or a product decision (export round trip for papers, doubled X-ray facts, a removed shared copy that returns), slow paths, and documents that no longer match the code. The full list, with file and line for each, is on the laptop: `docs/handoffs/2026-11-09-audit-review-list.md` (gitignored: it also holds security items, which do not belong in this public file). Samuel says which to fix and in what order. | Samuel | 2026-11-16 | **answered 2026-11-10:** Samuel handed the call over ("this codebase is yours"; "go"; "keep going in that order"). The order is in `docs/version-2.md`; done so far: #329 to #336 and migration 0040. What is left of the list is version 2's check 7. |
 | 36 | **GitHub housekeeping (audit 2026-11-09).** (a) The `ci-screenshots` branch holds 16,949 pictures, 4.52 GB of the repository's 4.65 GB, and is never pruned: reset it to recent pull requests only? (b) 261 remote branches belong to merged pull requests: delete them? Both are hard to undo, so neither is done without Samuel's yes. | Samuel | 2026-11-16 | **closed 2026-11-10:** done at Samuel's word (258 merged branches deleted, `ci-screenshots` cut to pull requests 305 onward; Log entry of that date). |
+| 37 | **Pruning again, and keeping it pruned (2026-11-14).** Since the pruning of 2026-11-10 (row 36) the `ci-screenshots` branch has grown back to 66 pull requests' pictures (7.2 GB before packing; it was 24 after the pruning), and 44 remote branches of merged pull requests are back (each one's tip is exactly the merged pull request's last commit, so GitHub's "Restore branch" on the pull request brings it back). Recommended: (a) turn on GitHub's "Automatically delete head branches" (Settings > General), which deletes a branch when its pull request merges, and delete the 44; (b) a step in CI that keeps only the newest 30 pull requests' pictures on `ci-screenshots` (screenshot grids on older pull requests stop showing). Not done without your yes: both delete things. | Samuel | 2026-11-21 | open (default: nothing is deleted) |
 
 ## Decisions
 
@@ -189,6 +190,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-14 21:06 · Claude Opus 5.5 (laptop) · Housekeeping: playwright listed in place of the unused playwright-core; pruning again asked as row 37
+- **Done:** package.json lists playwright 1.64.1 (imported by scripts/live-webkit-check.mjs) in place of playwright-core, which no file imports; installed packages unchanged. Counted: ci-screenshots holds 66 pull requests' pictures (7.2 GB before packing), 44 remote branches of merged pull requests with tips exactly at their last commit. Deleting needs Samuel's word: Open unknowns row 37 (turn on GitHub's delete-on-merge; CI keeps the newest 30 pull requests' pictures). claude.yml skipped by design. Major upgrades left as their own steps.
+- **Key paths:** package.json; package-lock.json; LEARNING_LOG.md (iteration 222); PROGRESS.md (Open unknowns row 37)
+- **Commands that worked:** npm uninstall playwright-core && npm install --save-dev --save-exact playwright@1.64.1; node -e "import('playwright').then(m=>console.log(typeof m.webkit.launch))" -> function; npm run check -> 1496 passed; gh pr list --state all + git ls-remote --heads origin (44 merged, tip=last)
+- **Known issues / blockers:** None in this PR. Pruning waits for Samuel (row 37).
+- **Exact next steps:** 1. Merge this when green. 2. Check 6: read CI times on the next PRs against about 625 s for the slowest machine. 3. Home's double due count (app/(app)/page.tsx:33 and the sidebar). 4. Documents that no longer match (laptop audit list).
 ### 2026-11-14 21:02 · Claude Opus 5.5 · Links within the app no longer load a whole new page (which stopped reading aloud)
 - **Done:** Seven plain links inside the app became next/link: Scan, Text and Scan page N in the reader's footer (ReaderControls.tsx); Read the text edition and the Page N links to check (TextEdition.tsx); Read the flowing text (PdfTextEdition.tsx). The text edition panel now fetches its state once when it opens, since Back after a link within the app shows the app's earlier copy of the book page. Tests first: a mark left on the page must survive each click (e2e/reader.spec.ts, e2e/uploads.spec.ts); old code failed (Read the flowing text, then Text); a Page link made plain again failed (Page 2). Reader chain in the Linux image 247 passed; npm run check 1496 passed.
 - **Key paths:** app/(reader)/books/[id]/read/ReaderControls.tsx; app/(app)/books/[id]/TextEdition.tsx; app/(app)/books/[id]/PdfTextEdition.tsx; e2e/reader.spec.ts; e2e/uploads.spec.ts
