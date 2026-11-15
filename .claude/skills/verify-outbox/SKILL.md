@@ -40,7 +40,7 @@ an earlier change of the same note that still waits.
 | `Flow.cfg` | A scenario small enough to draw every state (one tab, one new note); used for `outbox-flow.mmd`. Every rule holds in it (194 states, 2026-11-15) |
 | `check.sh` | The one command (below) |
 | `view.ts` | The words the chart uses for each state and step (for the `/pstack:statechart` skill) |
-| `outbox-flow.mmd` | The chart of `Flow.cfg` as the code was at af958c2b, before the fixes: it still shows the old steps (rewriting a waiting note) and where F1 and F2 broke. Not redrawn since: the `/pstack:statechart` skill was not available to the fixing session. Redraw it before relying on it |
+| `outbox-flow.mmd` | The chart of `Flow.cfg` after the fixes (redrawn 2026-11-15 with `/pstack:statechart`: 194 states, 10 drawn, 22 arrows; every rule holds, so no state is marked) |
 | `replay.ts`, `replay.config.mts` | Each finding still recorded, replayed on the real code (the outbox, `note-sender.ts`, the routes, the database of the unit tests) |
 
 The fixed findings are tested where `npm test` runs them: `lib/reader/note-sender.test.ts` (F1-F7, on the real
