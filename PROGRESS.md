@@ -193,6 +193,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-15 08:27 · Claude Opus 5.5 · Rule written: read every test that names what changed before the first browser run (browser-test-triage, CLAUDE.md)
+- **Done:** Samuel asked how long #385 took (1 h 12 min from 'go for it' to live: 49 min on the laptop, 11 min PR checks, 12 min main's run and deploy) and, of the 49, which parts are fixed. Reading 2½ min, code 5, tests 1½, five Linux runs of the AI chain 36 (first one 14, about 9 of it installing the Linux packages), checks and PR 2; about 23 min were four reruns for tests still expecting the old layout. At Samuel's 'yes, write it in': browser-test-triage has a 'Before the first run' section (list what changed, grep e2e/ for it, fix the tests, leave serial-test state as found), its description and the skills index say so, and CLAUDE.md has one line pointing there. A saved test database for faster reruns was set aside (risk of tests passing on stale data).
+- **Key paths:** .claude/skills/browser-test-triage/SKILL.md; .claude/skills/README.md; CLAUDE.md; LEARNING_LOG.md
+- **Commands that worked:** session record timestamps (cca79d54 jsonl); docker volume inspect nl_linux_nm_86f97143ab7b -> created 2026-11-15T06:43:15-05:00; gh pr view 385 --json createdAt,mergedAt
+- **Known issues / blockers:** none encountered
+- **Exact next steps:** 1. Samuel looks at the draggable line and the AI mark on the iPad. 2. Next change a reader sees: follow 'Before the first run' and note the number of browser runs in its learning-log entry. 3. Check 7's rest waits on Samuel.
+
 ### 2026-11-15 07:52 · Claude Opus 5.5 · Checkpoint: #385 live (fb5e370); the auto-merge workflow deleted its branch; setup-node@v5 ran on a real deploy
 - **Done:** #385 (draggable line in Side by side; AI blocks show only their text, details behind one mark) merged and deployed by the Deploy workflow (completed 2026-11-15 12:46 UTC). /api/health on both addresses shows fb5e370, /sign-in 200 on both. #384's change worked: #385's branch was deleted by the auto-merge workflow (git ls-remote: none left). The Deploy run's 'Run actions/setup-node@v5' step succeeded (first real use). #385's CI run took 11 minutes (check 6's target is 12).
 - **Key paths:** app/(reader)/books/[id]/read/SideDivider.tsx; app/(reader)/books/[id]/read/AiNote.tsx; .github/workflows/auto-merge.yml

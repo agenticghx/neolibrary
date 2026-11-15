@@ -1,6 +1,6 @@
 ---
 name: browser-test-triage
-description: Decide, on the laptop and before pushing, whether a failing Neolibrary browser (Playwright) test is caused by the change, already broken on main, a Mac-only difference, or a flake, by running it in Playwright's own Linux image (what CI uses) on the branch and on main. Use whenever a browser test fails locally, before writing "fails on main too", "Mac-only", "flaky" or "CI will judge" anywhere (chat, PR, ledger), when a test passes on the Mac but fails on CI or the other way round, when many unrelated tests fail in a new worktree, or when the user says "it fails on my Mac", "is it my change?", "why does this keep happening", "is this a flake". Load it before merge-train when the failure was seen locally.
+description: Decide, on the laptop and before pushing, whether a failing Neolibrary browser (Playwright) test is caused by the change, already broken on main, a Mac-only difference, or a flake, by running it in Playwright's own Linux image (what CI uses) on the branch and on main. Use before the first browser run of any change to what the reader sees (read every test that names what changed), whenever a browser test fails locally, before writing "fails on main too", "Mac-only", "flaky" or "CI will judge" anywhere (chat, PR, ledger), when a test passes on the Mac but fails on CI or the other way round, when many unrelated tests fail in a new worktree, or when the user says "it fails on my Mac", "is it my change?", "why does this keep happening", "is this a flake". Load it before merge-train when the failure was seen locally.
 ---
 
 # Browser test triage
@@ -16,6 +16,20 @@ On 2026-11-01 that was wrong. Two reader tests failed on the Mac with and withou
 ## The rule
 
 Never write "fails on main too", "Mac-only", "flaky" or "CI will judge" about a test until it has been run in the Linux image **on the branch and on main**. Quote both summary lines.
+
+## Before the first run: read every test that touches what you changed
+
+A browser run costs 5 to 6 minutes in the Linux image (the AI tests need the 262 tests before them to make their data), so a test that still expects the old page costs a whole run to find. On 2026-11-15 (#385, the AI mark and the line between book and rewrite) the code took 9 minutes and the five browser runs 36: four of the five failed, each on a test still expecting the old layout, found one per run. Reading the tests first would have found all four in about two minutes.
+
+Before the first run of a change to what the reader sees:
+
+1. List what you changed that a test can name: each label and text shown, each `data-testid`, each role and accessible name, and anything that moved behind a click or out of view.
+2. Search the tests for each: `grep -rn "<text or test id>" e2e/`. Search for the words inside the text too: Playwright's `getByText("…")` matches part of a text unless given `{ exact: true }`, so a hidden screen-reader label containing the same words is a second match.
+3. For each test found, read what it does there and fix it now: a check on something now behind a click opens it first (and checks it was hidden before); a locator that may now match two elements (a disclosure inside another, two summaries) is made exact (`:scope > summary`, `{ exact: true }`).
+4. A test file whose tests run one after another (`mode: "serial"`) shares the account's settings between tests. A new test leaves what it changed (a view, a style, a setting) as the test before it left it: read the next test's first lines to see what it expects.
+5. Then run the chain once. A failure after this is news, not a leftover.
+
+The Linux image's packages are installed again when `package-lock.json` changes: the first run after that takes about 9 minutes more. Start it early and read the tests while it runs.
 
 ## Step 0: is the laptop set up right? (one minute)
 
