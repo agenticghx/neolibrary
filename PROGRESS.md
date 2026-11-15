@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the next ordinary PRs' CI times against the 12-minute target; then check 7's remaining items with no migration.
+next_action: Read the next ordinary PRs' CI times against the 625 s step target; then check 7's remaining items with no migration.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 20:13 · Claude Opus 5.5 · Check 6: moving the screenshot tests to the branches machine (#373) dropped; version 2's row corrected
+- **Done:** #373 moved the four screenshot projects from behavior-2 to branches. Its run: behavior 663 s, behavior-2 492 s, readalong 640 s; but the design page's screenshot failed on branches in attempt 1 (phone-light, 248 pixels) and in the re-run (desktop-light, unstable; the book strip's covers at another tilt). Counted from the logs of all 34 failed browser jobs in 150 CI runs since 2026-11-07: that test failed twice before (2026-11-10, 11-11, old behavior machine), never on behavior-2. #373 closed. This PR keeps only documents: check 6's row in docs/version-2.md (building once set aside; the 12-minute target means a slowest Playwright step of about 625 s; not met), docs/ci-time.md, a docs/ci-flakes.md row. Main's run of #372 (9b6fb852, with WebKit) passed.
+- **Key paths:** docs/version-2.md (check 6 row); docs/ci-time.md; docs/ci-flakes.md; LEARNING_LOG.md (iteration 220)
+- **Commands that worked:** gh api repos/agenticghx/neolibrary/actions/runs/<id>/attempts/<n>/jobs; curl the job log with gh auth token (gh api refuses logs with escape codes); PIL ImageChops.difference on the expected and actual pictures
+- **Known issues / blockers:** Check 6 not met: slowest step about 665 s (behavior) to 744 s (behavior-2 with screenshots) against about 625 s. Why the design screenshot is unstable on the branches machine is not known.
+- **Exact next steps:** 1. Read the next ordinary PRs' slowest Playwright step against about 625 s. 2. Remaining levers: the build (about 76 s a machine; Next's build cache between runs, untried); the reader project (234-251 s, on the behavior machine's path). 3. Check 7's remaining items with no migration.
 
 ### 2026-11-14 19:42 · Claude Opus 5.5 · Checkpoint: due count live (54c0f83, #371); CI's slowest machine rebalanced (#372)
 - **Done:** #371 merged and live on both addresses (/api/health 54c0f83, /sign-in 200): the sidebar's due count reads all Explain it back parts in one query (62.8 to 23.8 ms with 60 attempts on a local copy of the live database; same queue). #372 merged (9b6fb852): shell and annotations moved from the behavior machine to behavior-2; its own run (every machine) took 14.0 min, behavior 665 s step (projects 603 s, 766 s before), behavior-2 744 s (with screenshots), readalong 739 s, branches 332 s. Building once measured and set aside. Exact next steps rewritten.
