@@ -3365,3 +3365,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** The new checks on the old code and the new in Playwright's Linux image; one deliberate break (a Page link plain again); `npm run check`.
 **Result.** Old code: `Read the flowing text opened a whole new page` (uploads), then, with that check set aside, `Text opened a whole new page` (reader). New code before the panel fix: timeout waiting for "Read the text edition" after Back. Fixed: reader chain 247 passed (4.3m). A Page link plain again: `Page 2 opened a whole new page`. `npm run check` 1496 passed. The two `/api/export` links stay plain: they download a file.
 **Lesson.** A link within the app keeps the page it left in memory, so Back can show an old copy: anything on the page that changed since must ask again when it opens.
+
+### Iteration 222 · 2026-11-14 (laptop clock) · Housekeeping: the browser package a script imports is listed · success
+
+**Hypothesis.** The audit (2026-11-09) found `playwright-core` listed in `package.json` but imported by no file. The one script that drives browsers outside the tests, `scripts/live-webkit-check.mjs`, imports `playwright`, which was installed only because `@playwright/test` needs it. Listing `playwright` (the same version, 1.64.1) in place of `playwright-core` changes nothing that is installed and makes the script's import a listed one.
+**Action.** `npm uninstall playwright-core`; `npm install --save-dev --save-exact playwright@1.64.1`.
+**Evaluation.** The lock file's diff; the script's import resolves; `npm run check`.
+**Result.** `package-lock.json` changed in one line (the root's list), `node_modules/playwright-core` is still there at 1.64.1 (needed by `playwright`), and `import('playwright')` gives `webkit` and `chromium`. The other housekeeping items: the screenshot branch has grown back to 66 pull requests' pictures and 44 merged branches are back; deleting them needs Samuel's word (Open unknowns row 37). `claude.yml` is skipped on every comment without "@claude", as it was built to be. Major-version upgrades (@anthropic-ai/sdk, eslint, postgres, stylelint, typescript) are each their own step with their own tests, not housekeeping.
+**Lesson.** An "unused package" can stand in for one that is used without being listed: check what the code imports before removing it.
