@@ -2,6 +2,7 @@
 
 // The reader's small controls, moved out of Reader.tsx unchanged (2026-11-10, the Reader split): a segmented
 // choice, "go to page", the table of contents, and the Scan | Text switch. Each takes only what it is handed.
+import Link from "next/link";
 import { useState } from "react";
 import styles from "./reader.module.css";
 
@@ -98,7 +99,8 @@ export function TocList({ items, onPick, current }: { items: TocItem[]; onPick: 
 /**
  * Scan | Text (M25, Samuel's C1): a scanned PDF and its text edition, side by side in the footer. Each opens at the
  * page being read: the scan at that page, the text edition at that page's marker. In the text edition, a link names
- * the scan's page, to check a word against the printed page.
+ * the scan's page, to check a word against the printed page. Links within the app, not whole new pages: a new page
+ * stops reading aloud (audit 2026-11-09).
  */
 export function EditionSwitch({ edition, scanPage }: { edition: { scanId: string; textId: string; current: "scan" | "text" }; scanPage: number | null }) {
   // view=scan: the scan itself, asked for (a scan with a text edition otherwise opens the edition).
@@ -112,28 +114,28 @@ export function EditionSwitch({ edition, scanPage }: { edition: { scanId: string
             Scan
           </span>
         ) : (
-          <a className={styles.editionOff} href={scanHref}>
+          <Link className={styles.editionOff} href={scanHref}>
             Scan
-          </a>
+          </Link>
         )}
         {edition.current === "text" ? (
           <span className={styles.editionOn} aria-current="page">
             Text
           </span>
         ) : (
-          <a className={styles.editionOff} href={textHref} title="The same book as flowing text, read from the scan by Claude">
+          <Link className={styles.editionOff} href={textHref} title="The same book as flowing text, read from the scan by Claude">
             Text
-          </a>
+          </Link>
         )}
       </span>
       {edition.current === "text" && scanPage ? (
-        <a className={styles.scanPage} href={scanHref} aria-label={`Scan page ${scanPage}`}>
+        <Link className={styles.scanPage} href={scanHref} aria-label={`Scan page ${scanPage}`}>
           <span className={styles.scanPageWord}>Scan page </span>
           <span className={styles.scanPageShort} aria-hidden="true">
             p.{" "}
           </span>
           {scanPage}
-        </a>
+        </Link>
       ) : null}
     </>
   );

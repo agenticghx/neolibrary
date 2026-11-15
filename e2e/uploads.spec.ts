@@ -878,9 +878,12 @@ test("a PDF with text of its own is laid out again as flowing text, without AI",
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });
 
-  // The flowing text opens in the reader, chapter by chapter, with Scan | Text.
+  // The flowing text opens in the reader, chapter by chapter, with Scan | Text; within the app, not as a whole new
+  // page (which would stop reading aloud; audit 2026-11-09): a mark left on the page is still there.
+  await page.evaluate(() => ((window as unknown as { __nlStay?: number }).__nlStay = 1));
   await panel.getByRole("link", { name: "Read the flowing text" }).click();
   await expect(page.getByTestId("reader")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  expect(await page.evaluate(() => (window as unknown as { __nlStay?: number }).__nlStay), "Read the flowing text opened a whole new page").toBe(1);
   await expect(page.getByRole("button", { name: "Scan" }).or(page.getByRole("link", { name: "Scan" })).first()).toBeVisible();
   await page.getByRole("button", { name: "Contents" }).click();
   for (const name of ["About this edition", "I. The Tower", "II. The Ships"]) await expect(page.getByText(name, { exact: true }).first()).toBeVisible();

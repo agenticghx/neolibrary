@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the next ordinary PRs' CI times against the 625 s step target; then check 7's remaining items with no migration.
+next_action: Merge the links PR when green; then check 7 housekeeping.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 21:02 · Claude Opus 5.5 · Links within the app no longer load a whole new page (which stopped reading aloud)
+- **Done:** Seven plain links inside the app became next/link: Scan, Text and Scan page N in the reader's footer (ReaderControls.tsx); Read the text edition and the Page N links to check (TextEdition.tsx); Read the flowing text (PdfTextEdition.tsx). The text edition panel now fetches its state once when it opens, since Back after a link within the app shows the app's earlier copy of the book page. Tests first: a mark left on the page must survive each click (e2e/reader.spec.ts, e2e/uploads.spec.ts); old code failed (Read the flowing text, then Text); a Page link made plain again failed (Page 2). Reader chain in the Linux image 247 passed; npm run check 1496 passed.
+- **Key paths:** app/(reader)/books/[id]/read/ReaderControls.tsx; app/(app)/books/[id]/TextEdition.tsx; app/(app)/books/[id]/PdfTextEdition.tsx; e2e/reader.spec.ts; e2e/uploads.spec.ts
+- **Commands that worked:** zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project reader; npm run check
+- **Known issues / blockers:** No visual change (the links look the same), so no new screenshots. The /api/export links stay plain (file downloads).
+- **Exact next steps:** 1. Merge when green; after the deploy, run the live WebKit check on a book page signed out is not possible (signed in only): note it for Samuel. 2. Then housekeeping (check 7): the screenshot branch size, merged branches, unused playwright-core.
 
 ### 2026-11-14 20:13 · Claude Opus 5.5 · Check 6: moving the screenshot tests to the branches machine (#373) dropped; version 2's row corrected
 - **Done:** #373 moved the four screenshot projects from behavior-2 to branches. Its run: behavior 663 s, behavior-2 492 s, readalong 640 s; but the design page's screenshot failed on branches in attempt 1 (phone-light, 248 pixels) and in the re-run (desktop-light, unstable; the book strip's covers at another tilt). Counted from the logs of all 34 failed browser jobs in 150 CI runs since 2026-11-07: that test failed twice before (2026-11-10, 11-11, old behavior machine), never on behavior-2. #373 closed. This PR keeps only documents: check 6's row in docs/version-2.md (building once set aside; the 12-minute target means a slowest Playwright step of about 625 s; not met), docs/ci-time.md, a docs/ci-flakes.md row. Main's run of #372 (9b6fb852, with WebKit) passed.

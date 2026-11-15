@@ -29,6 +29,14 @@ test.use({ storageState: ADMIN_STATE });
 test.describe.configure({ mode: "serial" });
 
 const reader = (page: Page) => page.getByTestId("reader");
+
+/**
+ * Leaves a mark on the open page; `stillHere` says whether it is still there. A link that loads a whole new page
+ * wipes it, and stops anything the app keeps across pages, such as reading aloud (audit 2026-11-09). A link within the
+ * app keeps it.
+ */
+const markPage = (page: Page) => page.evaluate(() => ((window as unknown as { __nlStay?: number }).__nlStay = 1));
+const stillHere = (page: Page) => page.evaluate(() => (window as unknown as { __nlStay?: number }).__nlStay === 1);
 const cfiStart = (cfi: string | null) => (cfi ?? "").split(",")[0];
 
 async function openJekyll(page: Page) {
@@ -1008,11 +1016,13 @@ test("Scan | Text: a scanned book's text edition opens at the same page, and lea
   await page.getByRole("button", { name: "Next page" }).click();
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
 
-  // To the text edition, at the scan's page 2.
+  // To the text edition, at the scan's page 2, within the app (no new page: reading aloud would stop).
+  await markPage(page);
   await edition.getByRole("link", { name: "Text" }).click();
   await expect(page).toHaveURL(/\/read\?page=2$/);
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(edition.getByText("Text")).toHaveAttribute("aria-current", "page");
+  expect(await stillHere(page), "Text opened a whole new page").toBe(true);
   const back = page.getByRole("link", { name: "Scan page 2" });
   await expect(back).toBeVisible();
   // It is an EPUB in the reader: the text size changes (and is put back for the tests after this one).
@@ -1038,11 +1048,25 @@ test("Scan | Text: a scanned book's text edition opens at the same page, and lea
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ colorScheme: "light" });
 
-  // Back to the printed page: the scan opens at page 2.
+  // Back to the printed page: the scan opens at page 2, within the app.
+  await markPage(page);
   await back.click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
   await expect(edition.getByText("Scan")).toHaveAttribute("aria-current", "page");
+  expect(await stillHere(page), "Scan page opened a whole new page").toBe(true);
+
+  // Scan, in the footer, within the app too: the text edition, then the scan at the page being read.
+  await edition.getByRole("link", { name: "Text" }).click();
+  await expect(edition.getByText("Text")).toHaveAttribute("aria-current", "page");
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(back).toBeVisible();
+  await markPage(page);
+  await edition.getByRole("link", { name: "Scan" }).click();
+  await expect(edition.getByText("Scan")).toHaveAttribute("aria-current", "page");
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  expect(await stillHere(page), "Scan opened a whole new page").toBe(true);
 });
 
 // M25 S7: the text edition panel on a scanned book's page, for the library's owner: what it is and costs, nothing
@@ -1091,9 +1115,18 @@ test("a scanned book's page makes its text edition, says what it costs first, an
   await expect(panel.getByRole("button", { name: "Make a text edition" })).toHaveCount(0); // every page is read
   await looks("text-edition-after");
 
+  // A page to check, and the edition, open within the app (no new page: reading aloud would stop).
+  await markPage(page);
+  await panel.getByRole("link", { name: "Page 2" }).click();
+  await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
+  expect(await stillHere(page), "Page 2 opened a whole new page").toBe(true);
+  await page.goBack();
+  await markPage(page);
   await panel.getByRole("link", { name: "Read the text edition" }).click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(page.getByRole("group", { name: "Edition" }).getByText("Text")).toHaveAttribute("aria-current", "page");
+  expect(await stillHere(page), "Read the text edition opened a whole new page").toBe(true);
 });
 
 // M20 Q8: a large book on a slow connection. The reader says how much of the file has arrived, and it waits as long
