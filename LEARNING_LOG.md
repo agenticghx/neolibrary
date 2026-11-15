@@ -3349,3 +3349,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Each changed group alone from an empty database in Playwright's Linux image (`linux-run.sh --env CI_BROWSER_GROUP=<group>`); main's old `behavior` group the same way for comparison; the group unit tests.
 **Result.** New `behavior`: 137 passed (6.1 min). New `behavior-2`: 289 passed (5.8 min). Main's old `behavior`: 168 passed (6.9 min). Group unit tests: 30 passed. The CI times of this PR are in its description.
 **Lesson.** Before building a speed-up, measure which machine sets the pace: building once saves machine time, not waiting time.
+
+### Iteration 220 · 2026-11-14 (laptop clock) · The screenshot tests on the branches machine · failure (dropped)
+
+**Hypothesis.** #372's own run ran every machine: `behavior-2` was the slowest (744 s), its first 130 s the four screenshot projects; `branches` was the lightest (332 s). With the screenshots on `branches` (where `flows` waits on them, so the pictures are still taken before any data), the slowest machine should be near `behavior`'s 665 s for every kind of change.
+**Action.** #373: `BROWSER_GROUPS` and its unit tests. The `branches` group alone in the Linux image passed (205 passed, 3.9 min; local runs skip the pixel comparison).
+**Evaluation.** #373's CI run, attempt 1 and a re-run of the failed machine; the design test's failures in the 150 CI runs since 2026-11-07 (the logs of all 34 failed browser jobs).
+**Result.** `behavior-2` fell to 492 s, but on `branches` the design page's screenshot failed both times (248 pixels; then two unstable captures, the book strip's covers at a different tilt). Before: two failures in 150 runs, both before the split, none in more than 100 runs on `behavior-2`. No set-up difference found (same dependencies, same two workers). #373 closed; the screenshots stay; check 6's row in `docs/version-2.md` corrected (building once set aside, the 625 s target, not met).
+**Lesson.** Count a "known flake" before re-running it again: two failures in two runs against none in a hundred is a change in the odds, even when no mechanism is found.
