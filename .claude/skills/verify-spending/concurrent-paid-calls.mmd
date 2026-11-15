@@ -1,0 +1,46 @@
+---
+title: "Two paid requests at once, one spending limit"
+---
+stateDiagram-v2
+  direction LR
+  state "At the same time" as all {
+    state "Request 1" as r0 {
+      s0: Asked
+      s1: Checking the limit
+      s2: Reserved: the AI is working
+      s3: The AI is paid: cost not written yet
+      s4: Failed unpaid: reservation still held
+      s5: Done: reservation released
+      s6: Cost written: reservation still held
+      s7: The limit is reached
+      [*] --> s0
+      s0 --> s1: it reads what has been spent [unless Checking the limit]
+      s1 --> s2: the estimate fits: it is reserved [when Asked or Done: reservation released]
+      s2 --> s3: the AI fails, and is paid anyway or the AI answers, and is paid
+      s2 --> s4: the AI fails, unpaid
+      s3 --> s6: the failed call's cost is written or the answer and its cost are saved
+      s4 --> s5: the reservation is released [unless Checking the limit]
+      s6 --> s5: the reservation is released [unless Checking the limit]
+      s1 --> s7: the estimate does not fit [unless Asked]
+    }
+    --
+    state "Request 2" as r1 {
+      s8: Asked
+      s9: Checking the limit
+      s10: Reserved: the AI is working
+      s11: The AI is paid: cost not written yet
+      s12: Failed unpaid: reservation still held
+      s13: Done: reservation released
+      s14: Cost written: reservation still held
+      s15: The limit is reached
+      [*] --> s8
+      s8 --> s9: it reads what has been spent [unless Checking the limit]
+      s9 --> s10: the estimate fits: it is reserved [when Asked or Done: reservation released]
+      s10 --> s11: the AI fails, and is paid anyway or the AI answers, and is paid
+      s10 --> s12: the AI fails, unpaid
+      s11 --> s14: the failed call's cost is written or the answer and its cost are saved
+      s12 --> s13: the reservation is released [unless Checking the limit]
+      s14 --> s13: the reservation is released [unless Checking the limit]
+      s9 --> s15: the estimate does not fit [unless Asked]
+    }
+  }
