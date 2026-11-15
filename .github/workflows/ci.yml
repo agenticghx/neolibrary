@@ -342,8 +342,17 @@ jobs:
           git config remote.origin.promisor true
           git config remote.origin.partialclonefilter blob:none
           git sparse-checkout set --cone "$DEST"
+          # The branch keeps only the newest 30 pull requests' folders and no history (Open unknowns row 37,
+          # Samuel's yes, 2026-11-15): each run pushes a commit with no parent in place of the branch, made by
+          # scripts/ci-screenshots-keep.sh. The lease is the commit this run fetched (empty: the branch must not
+          # exist yet), so a run that pushed in between is never overwritten; this one fetches and tries again.
+          # Screenshot grids on older pull requests stop showing their pictures.
+          # Keep the fetch shallow (--depth 1): only from a shallow clone does git push count the fetched commit's
+          # folders as already on GitHub when the new commit has no parent, and send about 200 bytes. From a full
+          # clone the same push sent every kept picture again (792 MB measured on the laptop, 2026-11-15).
           for attempt in 1 2 3; do
-            if git fetch -q --depth 1 --filter=blob:none origin ci-screenshots; then git checkout -q -B ci-screenshots FETCH_HEAD; else git checkout -q --orphan ci-screenshots; fi
+            base=""
+            if git fetch -q --depth 1 --filter=blob:none origin ci-screenshots; then base=$(git rev-parse FETCH_HEAD); git checkout -q -B ci-screenshots "$base"; else git checkout -q --orphan ci-screenshots; fi
             mkdir -p "$DEST"
             cp "$GITHUB_WORKSPACE"/screenshots/*.png "$DEST"/ 2>/dev/null || true
             # Failed screenshot comparisons: expected / actual / diff, so a
@@ -353,7 +362,8 @@ jobs:
             done
             git add --sparse "$DEST"
             git commit -q -m "Screenshots for $DEST" || true
-            if git push -q origin ci-screenshots; then exit 0; fi
+            kept=$(sh "$GITHUB_WORKSPACE/scripts/ci-screenshots-keep.sh" HEAD 30)
+            if git push -q --force-with-lease="ci-screenshots:$base" origin "${kept}:refs/heads/ci-screenshots"; then exit 0; fi
             sleep $((attempt * 3))
           done
           exit 1
