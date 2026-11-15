@@ -23,6 +23,7 @@ the repository, on a laptop or in a cloud session.
 | `simplified-technical-english` | Rewrite or check text in ASD-STE100 Simplified Technical English (the app's STE levels) |
 | `verify-narration` | Before and after any change to whole-book narration, the Listen bar's paid voice or the spending limits: a TLA+ model checked by TLC (`sh scripts/tlc.sh …`) that the voice is never paid more than the owner chose. Lists what it covers, the rules that hold, and four known findings |
 | `verify-outbox` | Before and after any change to the offline note outbox (`lib/outbox.ts`, how notes are saved, removed or undone, the note routes, sign-out): a TLA+ model checked by TLC (`sh .claude/skills/verify-outbox/check.sh`, about 30 s) that a note made offline is saved in the end, in order, under the reader who made it. Lists what it covers, the rules that hold, and seven known findings |
+| `verify-spending` | Before and after any change to what paid AI costs or how it is held to the limits (`lib/ai/generate.ts`, text editions, "Rewrite as you turn"): two TLA+ models checked by TLC plus replays on the real code (`sh .claude/skills/verify-spending/check.sh`, about 20 s). Lists what it covers, the rules that hold, and ten known findings |
 
 ## Where the app keeps its own copies
 

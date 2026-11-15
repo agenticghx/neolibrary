@@ -57,8 +57,8 @@ proves the rule can fail at all. The `*-chart.cfg` configs are small versions fo
 
 ## Covered code
 
-Sync commit: `741d19076272362e45bc80a857cc2f3bfcef53a5` (the models were last confirmed to
-describe the code at this commit).
+Sync commit: `af958c2b7558f6268a51b24cce642f17a193262b` (the models were last confirmed to
+describe the code at this commit; on main, as merged in #386).
 
 | File | What the models cover |
 |---|---|

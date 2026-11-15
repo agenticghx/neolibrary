@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the verify-outbox PR, then open the spending verification PR.
+next_action: Samuel chooses which formal-check findings to fix; until then, check 7's rest waits on him.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 10:20 · Claude Opus 5.5 · verify-spending: two TLA+ models (checked by TLC) of the AI spending limits and Rewrite as you turn; 10 findings (not fixed)
+- **Done:** .claude/skills/verify-spending/ (two models, 23 configs, check.sh, replays on the real code, two charts). Sync commit moved to af958c2b on main. Skills index row. No product code changed.
+- **Key paths:** .claude/skills/verify-spending/SKILL.md; .claude/skills/verify-spending/SpendCap.tla; .claude/skills/verify-spending/RewriteAsYouTurn.tla; .claude/skills/verify-spending/check.sh; .claude/skills/verify-spending/replay/; .claude/skills/README.md; LEARNING_LOG.md (iteration 235)
+- **Commands that worked:** sh .claude/skills/verify-spending/check.sh → exit 0, Tests 20 passed (20), 'all as expected (the 11 finding configs still break their rules…)'
+- **Known issues / blockers:** Findings, for Samuel to decide (not fixed): 1 a call can cost more than its estimate; 2 scan and text edition share a limit, not their holds; 3 a text edition's start misses calls in flight; 4 a paid answer that cannot be saved is counted nowhere; 5 a restart mid-call loses the hold; 6 two server copies miss each other's holds; 7 two identical requests can both pay; 8 (by design) Rewrite as you turn passes $1 by one paragraph; 9 (rare) a stale total restarts the count; 10 closing the pane mid-loop leaves a loop Stop cannot reach.
+- **Exact next steps:** 1. Merge this PR when green. 2. Samuel: say which findings to fix (narration 1-3, outbox F1-F6, spending 1-7, 9, 10); each fix comes with its replay turned into a real test. 3. Samuel looks at the draggable line and the AI mark on the iPad.
 
 ### 2026-11-15 10:10 · Claude Opus 5.5 · verify-outbox: a TLA+ model (checked by TLC) of the offline note outbox; 7 findings where a reader's notes are lost or go astray (not fixed)
 - **Done:** .claude/skills/verify-outbox/ (model, three configs, check.sh, chart, replays of the findings against the real code). Skills index row. No product code changed.
