@@ -1,120 +1,27 @@
 // The offline note outbox on the real code: lib/reader/note-sender.ts (what the reader page does) and lib/outbox.ts,
-// over a small in-memory IndexedDB, sending to the library's real note routes on the unit tests' database. The fetch
-// is the test's: it answers, fails ("no network"), loses the answer (the library acted, the page never hears) or holds
-// the answer until the test releases it. Each test is one path the verify-outbox skill's model found (F1-F7 in
+// in a pretend browser (./outbox-test-kit.ts) whose requests go to the library's real note routes on the unit tests'
+// database. Each test is one path the verify-outbox skill's model found (F1-F8 in
 // .claude/skills/verify-outbox/SKILL.md), and checks that the reader's change ends up on the library, in order,
 // under that reader.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const the = vi.hoisted(() => ({ who: null as { id: string } | null, db: undefined as unknown }));
-vi.mock("@/lib/auth/session", () => ({ currentUser: async () => the.who }));
+const the = vi.hoisted(() => ({ db: undefined as unknown }));
+// Who is signed in: the pretend browser's one cookie (read when asked, so the mock imports nothing).
+vi.mock("@/lib/auth/session", () => ({ currentUser: async () => signedIn() }));
 vi.mock("@/lib/db", () => ({ getDb: async () => the.db }));
 
-import * as noteRoute from "@/app/api/annotations/[id]/route";
-import * as restoreRoute from "@/app/api/annotations/[id]/restore/route";
-import * as bookNotesRoute from "@/app/api/books/[id]/annotations/route";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
 import { listAnnotations } from "@/lib/library/annotations";
 import { importBook } from "@/lib/library/import";
-import { outboxFor, type OutboxItem } from "@/lib/outbox";
+import { outboxFor } from "@/lib/outbox";
 import { MemoryStorage } from "@/lib/storage";
 import { noteRequest, noteSender } from "./note-sender";
+import { browser, page, release, resetBrowser, signedIn, until } from "./outbox-test-kit";
 
-// ---- IndexedDB: one "outbox" store, keyPath "id"; each request finishes on a later turn, as in a browser.
-const idb = new Map<string, OutboxItem>();
-const later = (f: () => void) => setTimeout(f, 0);
-function request<T>(work: () => T) {
-  const req = { result: undefined as T | undefined, error: null as unknown, onsuccess: null as null | (() => void), onerror: null as null | (() => void) };
-  later(() => {
-    try {
-      req.result = work();
-      req.onsuccess?.();
-    } catch (e) {
-      req.error = e;
-      req.onerror?.();
-    }
-  });
-  return req;
-}
-const store = {
-  put: (v: OutboxItem) => request(() => (idb.set(v.id, structuredClone(v)), v.id)),
-  delete: (k: string) => request(() => void idb.delete(k)),
-  get: (k: string) => request(() => (idb.has(k) ? structuredClone(idb.get(k)!) : undefined)),
-  getAll: () => request(() => [...idb.keys()].sort().map((k) => structuredClone(idb.get(k)!))),
-};
-const database = { createObjectStore: () => store, transaction: () => ({ objectStore: () => store }), close: () => {} };
-globalThis.indexedDB = {
-  open: () => {
-    const req = { result: database, error: null, onupgradeneeded: null, onsuccess: null as null | (() => void), onerror: null };
-    later(() => req.onsuccess?.());
-    return req;
-  },
-} as unknown as IDBFactory;
-
-// ---- The network and the library.
-type Way = "answer" | "offline" | "lose" | "hold";
-let ways: Way[] = []; // how the next requests go, in order; after that, "answer" (or "offline" while offline)
-let offline = false;
-let held: (() => void)[] = [];
-let sent: { method: string; path: string; as: string | null; status: number }[] = [];
-
-async function library(url: string, init: RequestInit): Promise<Response> {
-  const u = new URL(url, "http://library.test");
-  const req = new Request(u, init);
-  const at = (id: string) => ({ params: Promise.resolve({ id }) });
-  let m: RegExpMatchArray | null;
-  if ((m = u.pathname.match(/^\/api\/books\/([^/]+)\/annotations$/))) return bookNotesRoute.POST(req, at(m[1]));
-  if ((m = u.pathname.match(/^\/api\/annotations\/([^/]+)\/restore$/))) return restoreRoute.POST(req, at(m[1]));
-  if ((m = u.pathname.match(/^\/api\/annotations\/([^/]+)$/))) return init.method === "PATCH" ? noteRoute.PATCH(req, at(m[1])) : noteRoute.DELETE(req, at(m[1]));
-  throw new Error(`no route for ${init.method} ${url}`);
-}
-
-globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
-  const way = ways.shift() ?? (offline ? "offline" : "answer");
-  if (way === "offline") throw new TypeError("Failed to fetch");
-  const res = await library(String(url), init);
-  sent.push({ method: init.method ?? "GET", path: String(url), as: the.who?.id ?? null, status: res.status });
-  if (way === "lose") throw new TypeError("Failed to fetch");
-  if (way === "hold") return new Promise<Response>((resolve) => held.push(() => resolve(res)));
-  return res;
-}) as typeof fetch;
-
-const until = async (done: () => boolean) => {
-  for (let i = 0; i < 1000 && !done(); i++) await new Promise((r) => setTimeout(r, 1));
-  if (!done()) throw new Error("the test waited too long");
-};
-const release = () => held.shift()!();
-
-/** One open reader page of `readerId` on `bookId`, as useNotes.ts drives the sender. */
-function page(readerId: string, bookId: string) {
-  const s = noteSender(readerId, bookId);
-  return {
-    ...s,
-    // Every caller of create() reloads after it (Reader.tsx highlight(), addBookNote()).
-    create: async (body: Record<string, unknown>) => {
-      const { id } = await s.create(body);
-      await s.waiting();
-      return { id };
-    },
-    edit: async (a: { id: string }, words: string) => {
-      await s.edit(a, words);
-      await s.waiting();
-    },
-    remove: async (a: { id: string }) => {
-      const undo = await s.remove(a);
-      await s.waiting();
-      return undo;
-    },
-    // The sync effect: flush, then reload.
-    sync: async () => {
-      await s.flush().catch(() => ({ sent: 0 }));
-      await s.waiting();
-    },
-  };
-}
+const { idb } = browser;
 
 // ---- Two readers, A and B, each with a book.
 let db: Database;
@@ -133,19 +40,15 @@ beforeEach(async () => {
   B = (await acceptInvite(db.db, token, { email: "b@example.com", name: "B", password: "long enough pw" })).id;
   bookId = (await importBook(db.db, new MemoryStorage(), A, { name: "j.epub", bytes: jekyll() })).bookId;
   bBook = (await importBook(db.db, new MemoryStorage(), B, { name: "j.epub", bytes: jekyll() })).bookId;
-  the.who = { id: A };
-  idb.clear();
-  ways = [];
-  offline = false;
-  held = [];
-  sent = [];
+  resetBrowser();
+  browser.who = { id: A };
 });
 afterEach(() => db.raw.close());
 
 describe("a note whose create may already be on the library", () => {
   it("F1: new words given to a note whose create answer was lost reach the library", async () => {
     const you = page(A, bookId);
-    ways = ["lose"]; // the library stores the note; its answer never arrives, so create() keeps it in the outbox
+    browser.ways = ["lose"]; // the library stores the note; its answer never arrives, so create() keeps it in the outbox
     const a = await you.create({ kind: "note", body: "First words." });
     await you.edit(a, "Second words.");
     await you.sync();
@@ -155,12 +58,12 @@ describe("a note whose create may already be on the library", () => {
 
   it("F1: new words given while a flush is sending the note written offline reach the library", async () => {
     const you = page(A, bookId);
-    offline = true;
+    browser.offline = true;
     const a = await you.create({ kind: "note", body: "First words." });
-    offline = false;
-    ways = ["hold"];
+    browser.offline = false;
+    browser.ways = ["hold"];
     const flushing = you.flush(); // sends the create with "First words."; its answer waits
-    await until(() => held.length === 1);
+    await until(() => browser.held.length === 1);
     await you.edit(a, "Second words.");
     release();
     await flushing;
@@ -171,7 +74,7 @@ describe("a note whose create may already be on the library", () => {
 
   it("F2: a note removed after its create answer was lost leaves the library", async () => {
     const you = page(A, bookId);
-    ways = ["lose"];
+    browser.ways = ["lose"];
     const a = await you.create({ kind: "note", body: "Remove me." });
     await you.remove(a);
     await you.sync();
@@ -181,12 +84,12 @@ describe("a note whose create may already be on the library", () => {
 
   it("F2: a note removed while a flush is sending it leaves the library", async () => {
     const you = page(A, bookId);
-    offline = true;
+    browser.offline = true;
     const a = await you.create({ kind: "note", body: "Remove me." });
-    offline = false;
-    ways = ["hold"];
+    browser.offline = false;
+    browser.ways = ["hold"];
     const flushing = you.flush();
-    await until(() => held.length === 1);
+    await until(() => browser.held.length === 1);
     await you.remove(a);
     release();
     await flushing;
@@ -197,11 +100,11 @@ describe("a note whose create may already be on the library", () => {
 
   it("a note written and removed offline, then brought back with Undo, is on the library once", async () => {
     const you = page(A, bookId);
-    offline = true;
+    browser.offline = true;
     const a = await you.create({ kind: "note", body: "Back again." });
     const undo = await you.remove(a);
     await undo();
-    offline = false;
+    browser.offline = false;
     await you.sync();
     expect((await onLibrary(a.id))?.body).toBe("Back again.");
     expect(await outboxFor(A)).toEqual([]);
@@ -212,7 +115,7 @@ describe("Undo of a removal the library may already have", () => {
   it("F3: Undo after the removal's answer was lost brings the note back", async () => {
     const you = page(A, bookId);
     const a = await you.create({ kind: "note", body: "Bring me back." });
-    ways = ["lose"]; // the library removes it; the answer is lost, so the removal waits
+    browser.ways = ["lose"]; // the library removes it; the answer is lost, so the removal waits
     const undo = await you.remove(a);
     await undo();
     await you.sync();
@@ -223,12 +126,12 @@ describe("Undo of a removal the library may already have", () => {
   it("F3: Undo while a flush is sending the removal made offline brings the note back", async () => {
     const you = page(A, bookId);
     const a = await you.create({ kind: "note", body: "Bring me back." });
-    offline = true;
+    browser.offline = true;
     const undo = await you.remove(a);
-    offline = false;
-    ways = ["hold"];
+    browser.offline = false;
+    browser.ways = ["hold"];
     const flushing = you.flush(); // the library removes the note; the answer is on its way
-    await until(() => held.length === 1);
+    await until(() => browser.held.length === 1);
     await undo();
     release();
     await flushing;
@@ -242,9 +145,9 @@ describe("the order of changes", () => {
   it("F4: an older edit waiting offline does not replace a newer edit made once the network is back", async () => {
     const you = page(A, bookId);
     const a = await you.create({ kind: "note", body: "Words one." });
-    offline = true;
+    browser.offline = true;
     await you.edit(a, "Words two, offline.");
-    offline = false; // the browser did not notice: no "online" event, so nothing has flushed yet
+    browser.offline = false; // the browser did not notice: no "online" event, so nothing has flushed yet
     await you.edit(a, "Words three.");
     await you.sync(); // the 30 s timer
     expect((await onLibrary(a.id))?.body).toBe("Words three.");
@@ -255,18 +158,18 @@ describe("the order of changes", () => {
 describe("two readers on one browser", () => {
   it("F5: a page of A's left open after B signs in keeps A's note waiting, then sends it once A is back", async () => {
     const you = page(A, bookId);
-    offline = true;
+    browser.offline = true;
     const a = await you.create({ kind: "note", body: "Written on the train." });
-    offline = false;
-    the.who = null; // A signs out in another tab (signOutAction): the open page is not told
-    the.who = { id: B }; // B signs in on the same browser
+    browser.offline = false;
+    browser.who = null; // A signs out in another tab (signOutAction): the open page is not told
+    browser.who = { id: B }; // B signs in on the same browser
     await you.sync(); // A's page flushes (the 30 s timer)
     // Nothing of A's is stored or refused under B's sign-in.
-    expect(sent.filter((s) => s.as === B).every((s) => s.status === 401)).toBe(true);
+    expect(browser.sent.filter((s) => s.as === B).every((s) => s.status === 401)).toBe(true);
     const [item] = await outboxFor(A);
     expect(item).toMatchObject({ id: a.id, owner: A });
     expect(item.refused).toBeUndefined();
-    the.who = { id: A }; // A signs in again
+    browser.who = { id: A }; // A signs in again
     await you.sync();
     expect((await onLibrary(a.id))?.body).toBe("Written on the train.");
     expect(await outboxFor(A)).toEqual([]);
@@ -275,10 +178,10 @@ describe("two readers on one browser", () => {
   it("F5: a change made on A's page while B is signed in is not stored under B", async () => {
     const you = page(A, bookId);
     const a = await you.create({ kind: "note", body: "Mine." });
-    the.who = { id: B };
+    browser.who = { id: B };
     await expect(you.edit(a, "Still mine.")).rejects.toThrow();
-    expect(sent.at(-1)).toMatchObject({ as: B, status: 401 });
-    the.who = { id: A };
+    expect(browser.sent.at(-1)).toMatchObject({ as: B, status: 401 });
+    browser.who = { id: A };
     expect((await onLibrary(a.id))?.body).toBe("Mine.");
   });
 
@@ -288,15 +191,39 @@ describe("two readers on one browser", () => {
     // An edit A queued before owners were recorded (before 2026-11-10): no owner.
     const old = "0f0f0f0f-0000-4000-8000-000000000001";
     idb.set(old, { id: old, op: "edit", annotationId: a.id, bookId, body: { body: "Old offline words." }, savedAt: "2026-11-01T10:00:00.000Z" });
-    the.who = { id: B };
+    browser.who = { id: B };
     await page(B, bBook).sync(); // B's page, on B's own book
-    expect(sent.filter((s) => s.method === "PATCH")).toEqual([]);
+    expect(browser.sent.filter((s) => s.method === "PATCH")).toEqual([]);
     expect(idb.get(old)?.owner).toBeUndefined();
     expect(idb.get(old)?.refused).toBeUndefined();
     expect(await outboxFor(B, bBook)).toEqual([]); // B's page does not show it
-    the.who = { id: A };
+    browser.who = { id: A };
     await you.sync(); // A's page of that book sends it
     expect((await onLibrary(a.id))?.body).toBe("Old offline words.");
     expect(idb.size).toBe(0);
+  });
+});
+
+describe("two tabs of one reader", () => {
+  it("F7: a tab whose list was read before another tab's refusal does not send the refused change again", async () => {
+    const you = page(A, bookId);
+    const kept = await you.create({ kind: "note", body: "Kept." });
+    const gone = await you.create({ kind: "note", body: "Gone." });
+    browser.offline = true;
+    await you.edit(kept, "Kept, edited offline.");
+    await you.edit(gone, "Gone, edited offline.");
+    browser.offline = false;
+    await noteRequest(A, `/api/annotations/${gone.id}?changeId=${crypto.randomUUID()}`, "DELETE"); // removed elsewhere: its edit will be refused
+    const goneEdit = (await outboxFor(A)).find((w) => w.annotationId === gone.id)!;
+    browser.ways = ["hold"];
+    const secondTab = noteSender(A, bookId).flush(); // reads both edits; its first request waits for its answer
+    await until(() => browser.held.length === 1);
+    await you.flush(); // the first tab sends both: the edit of the removed note is refused and kept
+    expect((await outboxFor(A)).find((w) => w.id === goneEdit.id)?.refused?.status).toBe(404);
+    const before = browser.sent.filter((s) => s.path.includes(gone.id)).length;
+    release();
+    await secondTab;
+    expect(browser.sent.filter((s) => s.path.includes(gone.id)).length).toBe(before);
+    expect((await outboxFor(A)).find((w) => w.id === goneEdit.id)?.refused?.status).toBe(404); // still kept and shown
   });
 });

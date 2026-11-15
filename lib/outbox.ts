@@ -111,7 +111,11 @@ export async function flushOutbox(owner: string, ownBook?: string): Promise<{ se
   let sent = 0;
   let refused = 0;
   const all = mine(await run<OutboxItem[]>("readonly", (s) => s.getAll()), owner, ownBook);
-  for (const item of all.sort((a, b) => a.savedAt.localeCompare(b.savedAt)).filter((i) => !i.refused)) {
+  for (const listed of all.sort((a, b) => a.savedAt.localeCompare(b.savedAt)).filter((i) => !i.refused)) {
+    // Read again just before sending: another tab may have sent it (gone) or had it refused since the list was read
+    // (verify-outbox F7). A refused change is never sent again; one already sent is not sent twice.
+    const item = await run<OutboxItem | undefined>("readonly", (s) => s.get(listed.id));
+    if (!item || item.refused) continue;
     let res: Response;
     try {
       const op = opOf(item);

@@ -295,8 +295,20 @@ SentFlags(t, i) ==
                   !.otherPage = @ \/ (i.owner # "none" /\ i.owner # page[t]),
                   !.resent = @ \/ i.id \in refusedIds]
 
-FlushSends(t) ==
+(* Before each fetch, flushOutbox reads the item again (one get): gone (sent  *)
+(* by another tab) or refused (by another tab) means skip it; otherwise the   *)
+(* copy read now is sent. The fetch comes after an await (FlushSends).        *)
+FlushRechecks(t) ==
     /\ page[t] # "closed" /\ fl[t].pc = "send"
+    /\ LET i == Head(fl[t].todo)
+           rest == Tail(fl[t].todo)
+       IN IF i.id \in DOMAIN box /\ ~box[i.id].refused
+          THEN fl' = [fl EXCEPT ![t].pc = "go", ![t].todo = <<box[i.id]>> \o rest]
+          ELSE fl' = [fl EXCEPT ![t] = IF rest = <<>> THEN IdleFlush ELSE [IdleFlush EXCEPT !.pc = "send", !.todo = rest]]
+    /\ UNCHANGED <<net, session, page, box, ui, offer, srv, stored, want, made, Ghosts, flags>>
+
+FlushSends(t) ==
+    /\ page[t] # "closed" /\ fl[t].pc = "go"
     /\ LET i == Head(fl[t].todo)
            h == Handle(i, session, page[t])
        IN \/ \* no network: fetch throws, the loop breaks
@@ -363,6 +375,7 @@ Next ==
     \/ ATabOpens
     \/ ATabCloses
     \/ \E t \in Tabs : FlushReads(t)
+    \/ \E t \in Tabs : FlushRechecks(t)
     \/ \E t \in Tabs : FlushSends(t)
     \/ \E t \in Tabs : FlushGetsAnswer(t)
     \/ \E t \in Tabs : FlushLosesAnswer(t)
@@ -408,6 +421,6 @@ TypeOK ==
     /\ net \in {"up", "down"}
     /\ session \in {"A", "B", "nobody"}
     /\ \A k \in DOMAIN box : k \in Ids /\ box[k] \in ItemType /\ box[k].id = k
-    /\ \A t \in Tabs : fl[t].pc \in {"idle", "send", "answer"}
+    /\ \A t \in Tabs : fl[t].pc \in {"idle", "send", "go", "answer"}
     /\ made \in 0 .. MaxActions
 =============================================================================
