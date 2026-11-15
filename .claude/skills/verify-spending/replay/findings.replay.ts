@@ -1,16 +1,21 @@
 // Each finding of SKILL.md, replayed on the real code one model step at a time. Each test PASSES
 // WHILE THE BUG IS THERE. When one fails, the code changed: if the bug was fixed on purpose, move
 // that finding to "Fixed" in SKILL.md, delete its test, and make its config expect exit 0.
-// Findings 2 to 6 were fixed in M44 (holds are rows in the database): their tests are now real tests,
-// in lib/ai/spend-holds.test.ts and lib/db/postgres.test.ts.
+// Findings 2 to 6 were fixed in M44 (holds are rows in the database), and finding 1 for generate (the hold
+// is holdCost, the most a call can cost): their tests are now real tests, in lib/ai/spend-holds.test.ts and
+// lib/db/postgres.test.ts. What is left of finding 1 is replayed here.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { estimateCost, generate, resetSpendHoldsForTests, spending } from "@/lib/ai/generate";
+import { batchCostUsd } from "@/lib/ai/batch";
+import { ClaudeModel } from "@/lib/ai/claude";
+import { generate, resetSpendHoldsForTests } from "@/lib/ai/generate";
 import { costUsd } from "@/lib/ai/model";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { generations } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
-import { fakeProvider, firstReadArrivesLate, MODEL, rewriteRequest, until } from "./fakes";
+import { MAX_PICTURE_TOKENS } from "@/lib/library/page-pictures";
+import { MAX_TOKENS, pageEstimateUsd } from "@/lib/library/text-edition";
+import { fakeProvider, firstReadArrivesLate, rewriteRequest, until } from "./fakes";
 
 let database: Database;
 let ownerId: string;
@@ -25,23 +30,36 @@ afterEach(async () => {
   await database.raw.close();
 });
 
-const spentThisMonth = async () => (await spending(database.db, "anthropic", null, now)).month;
 
 describe("SpendCap findings", () => {
-  it("Finding 1 (SpendCap-finding-cost-above-estimate): a call may cost more than its estimate, so the month's cap is passed", async () => {
-    const ai = fakeProvider();
-    const a = rewriteRequest(ownerId);
-    const estimate = estimateCost(ai.model, a);
-    // The worst case the call itself allows: all of maxTokens as output. The estimate counts 2 x input + 1000.
-    expect(costUsd(MODEL, 200, a.maxTokens, { write: 100, read: 0 })).toBeGreaterThan(estimate);
-    const caps = { perBookUsd: 100, perMonthUsd: estimate };
-    // 1-4. no saved answer; no identical request; it reads what has been spent ($0); the estimate fits: reserved.
-    const call = generate(database.db, ai.model, a, { caps, now: () => now });
-    await until(() => ai.waiting.length === 1, "the call to reach the AI");
-    // 5. the AI answers with maxTokens of output, and is paid. 6-7. saved; released.
-    ai.waiting[0].answer({ inputTokens: 200, outputTokens: a.maxTokens });
-    await call;
-    expect(await spentThisMonth()).toBeGreaterThan(caps.perMonthUsd);
+  it("Finding 1, what is left (a) (SpendCap-finding-fallback-not-counted): a refusal rescued by the fallback model is paid twice and recorded once", async () => {
+    // The API's answer when Opus 5.5 declined and its fallback answered: usage.iterations lists both attempts
+    // (both billed); the top-level usage covers only the attempt that produced the answer (Claude API docs).
+    const declined = { type: "message", model: "claude-opus-5-5", input_tokens: 1200, output_tokens: 500, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, cache_creation: null };
+    const rescue = { type: "fallback_message", model: "claude-opus-5", input_tokens: 1200, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, cache_creation: null };
+    const body = {
+      id: "msg_1",
+      type: "message",
+      role: "assistant",
+      model: "claude-opus-5",
+      content: [{ type: "fallback", from: { model: "claude-opus-5-5" }, to: { model: "claude-opus-5" }, trigger: { type: "refusal" } }, { type: "text", text: "An answer." }],
+      stop_reason: "end_turn",
+      stop_details: null,
+      usage: { input_tokens: 1200, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, iterations: [declined, rescue] },
+    };
+    const fetch = (async () => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })) as typeof globalThis.fetch;
+    const out = await new ClaudeModel("not-a-real-key", "claude-opus-5-5", { fetch }).generate({ system: "Answer.", prompt: "A question.", maxTokens: 2000, effort: "low" });
+    const recorded = costUsd(out.model, out.inputTokens, out.outputTokens, out.cache);
+    const paid = costUsd("claude-opus-5-5", 1200, 500) + costUsd("claude-opus-5", 1200, 300);
+    expect(recorded).toBeCloseTo(costUsd("claude-opus-5", 1200, 300));
+    expect(recorded).toBeLessThan(paid);
+  });
+
+  it("Finding 1, what is left (b) (SpendCap-finding-text-edition-above-estimate): a text-edition page may cost more than the job holds for it", () => {
+    // The job holds pageEstimateUsd a page (1,000 output tokens); each page's request allows MAX_TOKENS (8,000).
+    const model = "claude-sonnet-5-5";
+    expect(MAX_TOKENS).toBeGreaterThan(1000);
+    expect(batchCostUsd(model, MAX_PICTURE_TOKENS + 400, MAX_TOKENS)).toBeGreaterThan(pageEstimateUsd(model));
   });
 
   it("Finding 7 (SpendCap-finding-paid-twice): two identical requests, and the AI is paid twice for one answer", async () => {

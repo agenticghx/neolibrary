@@ -16,8 +16,10 @@
 (*   reserveSpend: withSpendLock takes the lock and `spendingWithJobs`     *)
 (*     reads (hold rows included) -> TakeLockAndReadSpending; then         *)
 (*     assertRoom + insert the hold row, commit -> DecideAndHold           *)
+(*   holdCost (the most the call can be billed) is what reserveSpend holds *)
 (*   model.generate           -> TheAiAnswers / TheAiFailsButBills /       *)
-(*                               TheAiFailsUnbilled                        *)
+(*                               TheAiFailsUnbilled; a refusal rescued by  *)
+(*                               the fallback model -> TheAiFallsBackAndAnswers *)
 (*   insert generations       -> SaveTheAnswer (SaveFails: it throws)      *)
 (*   hold.billed (the hold row becomes the real cost) ->                   *)
 (*     RecordTheBilledFailure / RecordTheLostAnswer                        *)
@@ -38,17 +40,24 @@ CONSTANTS
     SameRequest,         \* calls that are the identical request from one reader (same cache key)
     OnEdition,           \* calls whose bookId is the text edition, not the scan (same book group)
     OnSecondServer,      \* calls handled by a second copy of the server (its own memory)
-    Estimate,            \* what reserveSpend holds for each call
-    MaxCost,             \* the most one call can be billed (its maxTokens of output, real tokens)
+    Likely,              \* estimateCost: a call's likely cost, the price a reader is shown
+    MaxCost,             \* the most one call can be billed (all of its maxTokens; holdCost)
     CapMonth, CapBook,   \* AI_CAP_PER_MONTH_USD, AI_CAP_PER_BOOK_USD
     CanRestart,          \* a server may restart once, mid-call
     SaveCanFail,         \* a database write after the AI was paid may fail (and the next one too)
     TextEditionStart,    \* a text-edition job is started on the book at the same time
-    TextEditionEstimate, \* that job's estimateUsd
+    TextEditionEstimate, \* that job's estimateUsd (1,000 output tokens a page)
+    TextEditionMaxCost,  \* the most its batch can be billed (8,000 output tokens a page)
+    CanFallBack,         \* the API's fallback model may rescue a refusal, billed on top of the declined attempt
     Mutant               \* "none" describes the code; anything else is a broken variant (see SKILL.md)
 
 ASSUME Mutant \in {"none", "noLock", "releaseBeforeSave", "noFailedSpendRecord", "releaseOnlyOnSuccess",
-                   "holdsInMemory", "textEditionOutsideLock", "lostAnswerNotRecorded"}
+                   "holdsInMemory", "textEditionOutsideLock", "lostAnswerNotRecorded",
+                   "holdTheLikelyCost"}
+
+\* What reserveSpend holds for each call: holdCost, the most it can be billed (M44, finding 1).
+\* Mutant "holdTheLikelyCost" (the code before the fix): estimateCost, the likely cost.
+Hold    == IF Mutant = "holdTheLikelyCost" THEN Likely ELSE MaxCost
 
 Calls   == 1..N
 TeId    == N + 1      \* the text-edition start, when it holds the lock
@@ -82,29 +91,30 @@ VARIABLES
     saved,       \* keys with a saved answer in generations
     answered,    \* answered[c]: call c got a usable, paid answer
     path,        \* path[c]: "ok" once the answer is saved; "failed" on any failure path
+    declined,    \* declined[c]: the part of billed[c] a declined attempt cost, before a fallback rescued it
     restarted,   \* the one restart has happened
     te,          \* the text-edition job: "idle", "deciding", "refused", "waiting", "answered", "stored", "ended"
     teSeen, teHold, teBilled, teRecorded
 
 vars == <<pc, lock, holdRow, left, seen, billed, recorded, inflight, saved,
-          answered, path, restarted, te, teSeen, teHold, teBilled, teRecorded>>
+          answered, path, declined, restarted, te, teSeen, teHold, teBilled, teRecorded>>
 
 RECURSIVE SumOver(_, _)
 SumOver(f, S) == IF S = {} THEN 0 ELSE LET x == CHOOSE x \in S : TRUE IN f[x] + SumOver(f, S \ {x})
 
 RecordedAll == SumOver(recorded, Calls) + teRecorded
 BilledAll   == SumOver(billed, Calls) + teBilled
-HeldAll     == Estimate * Cardinality({d \in Calls : holdRow[d]})
+HeldAll     == Hold * Cardinality({d \in Calls : holdRow[d]})
 
 \* The holds call c's read sees. Rows in the database: all of them (every server, both books of the
 \* group). Mutant "holdsInMemory": only its own server's, and for the book only its own bookId's.
 HeldSeenMonth(c) ==
     IF Mutant = "holdsInMemory"
-      THEN Estimate * Cardinality({d \in Calls : holdRow[d] /\ ServerOf(d) = ServerOf(c)})
+      THEN Hold * Cardinality({d \in Calls : holdRow[d] /\ ServerOf(d) = ServerOf(c)})
       ELSE HeldAll
 HeldSeenBook(c) ==
     IF Mutant = "holdsInMemory"
-      THEN Estimate * Cardinality({d \in Calls : holdRow[d] /\ ServerOf(d) = ServerOf(c) /\ BookOf(d) = BookOf(c)})
+      THEN Hold * Cardinality({d \in Calls : holdRow[d] /\ ServerOf(d) = ServerOf(c) /\ BookOf(d) = BookOf(c)})
       ELSE HeldAll
 
 Init ==
@@ -119,13 +129,19 @@ Init ==
     /\ saved = {}
     /\ answered = [c \in Calls |-> FALSE]
     /\ path = [c \in Calls |-> "none"]
+    /\ declined = [c \in Calls |-> 0]
     /\ restarted = FALSE
     /\ te = "idle"
     /\ teSeen = 0 /\ teHold = 0 /\ teBilled = 0 /\ teRecorded = 0
 
 LockFree(c) == Mutant = "noLock" \/ lock[LockOf(c)] = Free
 
-UnchangedTe == UNCHANGED <<te, teSeen, teHold, teBilled, teRecorded>>
+\* (declined changes only in TheAiFallsBackAndAnswers, which lists these itself.)
+UnchangedTe == UNCHANGED <<te, teSeen, teHold, teBilled, teRecorded, declined>>
+
+\* What the code writes as call c's cost: claude.ts reads the top-level usage, which covers only the
+\* attempt that produced the answer, so a declined attempt before a fallback rescue is not in it.
+Reported(c) == billed[c] - declined[c]
 
 -----------------------------------------------------------------------------
 (* generate(): one call's steps *)
@@ -164,8 +180,8 @@ TakeLockAndReadSpending(c) ==
 
 \* assertRoom(spent, estimate); passing: insert the hold row. The transaction commits, the lock goes.
 DecideAndHold(c) ==
-    LET fits == /\ seen[c].m + Estimate <= CapMonth
-                /\ seen[c].b + Estimate <= CapBook
+    LET fits == /\ seen[c].m + Hold <= CapMonth
+                /\ seen[c].b + Hold <= CapBook
     IN
     /\ pc[c] = "deciding"
     /\ lock' = IF Mutant = "noLock" THEN lock ELSE [lock EXCEPT ![LockOf(c)] = Free]
@@ -188,6 +204,19 @@ TheAiAnswers(c) ==
     /\ UNCHANGED <<lock, holdRow, left, seen, recorded, inflight, saved, path,
                    restarted>> /\ UnchangedTe
 
+\* The requested model declines; the API's fallback model answers in the same call (claude.ts,
+\* fallbacks: "default"). Both attempts are billed; the answer reports the fallback's usage only.
+TheAiFallsBackAndAnswers(c) ==
+    /\ CanFallBack
+    /\ pc[c] = "calling"
+    /\ \E d \in 1..MaxCost, x \in 1..MaxCost :
+          /\ billed' = [billed EXCEPT ![c] = d + x]
+          /\ declined' = [declined EXCEPT ![c] = d]
+    /\ answered' = [answered EXCEPT ![c] = TRUE]
+    /\ pc' = [pc EXCEPT ![c] = IF Mutant = "releaseBeforeSave" THEN "releasingEarly" ELSE "saving"]
+    /\ UNCHANGED <<lock, holdRow, left, seen, recorded, inflight, saved, path,
+                   restarted, te, teSeen, teHold, teBilled, teRecorded>>
+
 \* model.generate throws an AiError with `billed` (declined, cut off, empty): charged, nothing usable.
 TheAiFailsButBills(c) ==
     /\ pc[c] = "calling"
@@ -208,7 +237,7 @@ TheAiFailsUnbilled(c) ==
 \* insert into generations, with the answer's real cost (outside the lock: the hold still counts).
 SaveTheAnswer(c) ==
     /\ pc[c] = "saving"
-    /\ recorded' = [recorded EXCEPT ![c] = billed[c]]
+    /\ recorded' = [recorded EXCEPT ![c] = Reported(c)]
     /\ saved' = saved \cup {KeyOf(c)}
     /\ path' = [path EXCEPT ![c] = "ok"]
     /\ pc' = [pc EXCEPT ![c] = "releasing"]
@@ -229,7 +258,7 @@ SaveFails(c) ==
 RecordTheLostAnswer(c) ==
     /\ pc[c] = "recordingLost"
     /\ LockFree(c)
-    /\ recorded' = [recorded EXCEPT ![c] = billed[c]]
+    /\ recorded' = [recorded EXCEPT ![c] = Reported(c)]
     /\ holdRow' = [holdRow EXCEPT ![c] = FALSE]
     /\ inflight' = [inflight EXCEPT ![ServerOf(c)][KeyOf(c)] = Free]
     /\ pc' = [pc EXCEPT ![c] = "done"]
@@ -239,7 +268,7 @@ RecordTheLostAnswer(c) ==
 RecordTheBilledFailure(c) ==
     /\ pc[c] = "recordingFailure"
     /\ LockFree(c)
-    /\ recorded' = IF Mutant = "noFailedSpendRecord" THEN recorded ELSE [recorded EXCEPT ![c] = billed[c]]
+    /\ recorded' = IF Mutant = "noFailedSpendRecord" THEN recorded ELSE [recorded EXCEPT ![c] = Reported(c)]
     /\ holdRow' = [holdRow EXCEPT ![c] = FALSE]
     /\ inflight' = [inflight EXCEPT ![ServerOf(c)][KeyOf(c)] = Free]
     /\ pc' = [pc EXCEPT ![c] = "done"]
@@ -283,7 +312,7 @@ ReleaseEarly(c) ==
 
 SaveLate(c) ==
     /\ pc[c] = "savingLate"
-    /\ recorded' = [recorded EXCEPT ![c] = billed[c]]
+    /\ recorded' = [recorded EXCEPT ![c] = Reported(c)]
     /\ saved' = saved \cup {KeyOf(c)}
     /\ path' = [path EXCEPT ![c] = "ok"]
     /\ inflight' = [inflight EXCEPT ![ServerOf(c)][KeyOf(c)] = Free]
@@ -334,7 +363,7 @@ TextEditionReads ==
     /\ te' = "deciding"
     /\ UNCHANGED <<teHold, teBilled, teRecorded>>
     /\ UNCHANGED <<pc, holdRow, left, seen, billed, recorded, inflight, saved,
-                   answered, path, restarted>>
+                   answered, path, declined, restarted>>
 
 \* The overLimit test, then the job row is inserted: from now on heldByJobs counts its estimate.
 TextEditionDecides ==
@@ -345,26 +374,27 @@ TextEditionDecides ==
          ELSE te' = "refused" /\ UNCHANGED teHold
     /\ UNCHANGED <<teSeen, teBilled, teRecorded>>
     /\ UNCHANGED <<pc, holdRow, left, seen, billed, recorded, inflight, saved,
-                   answered, path, restarted>>
+                   answered, path, declined, restarted>>
 
-\* Anthropic answers the batch, and charges for it (at most the job's estimate here).
+\* Anthropic answers the batch, and charges for it: up to TextEditionMaxCost (each page may use all
+\* of MAX_TOKENS), while the job holds its estimate (finding 1, what is left).
 TextEditionBilled ==
     /\ te = "waiting"
-    /\ \E x \in 1..TextEditionEstimate : teBilled' = x
+    /\ \E x \in 1..TextEditionMaxCost : teBilled' = x
     /\ te' = "answered"
     /\ UNCHANGED <<teSeen, teHold, teRecorded>>
     /\ UNCHANGED <<pc, lock, holdRow, left, seen, billed, recorded, inflight, saved,
-                   answered, path, restarted>>
+                   answered, path, declined, restarted>>
 
 \* storeBatch: each page read becomes a generations row; heldByJobs keeps estimate - stored.
 TextEditionStored ==
     /\ te = "answered"
     /\ teRecorded' = teBilled
-    /\ teHold' = TextEditionEstimate - teBilled
+    /\ teHold' = IF teBilled < TextEditionEstimate THEN TextEditionEstimate - teBilled ELSE 0
     /\ te' = "stored"
     /\ UNCHANGED <<teSeen, teBilled>>
     /\ UNCHANGED <<pc, lock, holdRow, left, seen, billed, recorded, inflight, saved,
-                   answered, path, restarted>>
+                   answered, path, declined, restarted>>
 
 \* finishIfDone: the job ends, and so does its hold.
 TextEditionEnds ==
@@ -373,7 +403,7 @@ TextEditionEnds ==
     /\ te' = "ended"
     /\ UNCHANGED <<teSeen, teBilled, teRecorded>>
     /\ UNCHANGED <<pc, lock, holdRow, left, seen, billed, recorded, inflight, saved,
-                   answered, path, restarted>>
+                   answered, path, declined, restarted>>
 
 -----------------------------------------------------------------------------
 
@@ -390,6 +420,7 @@ Next ==
          \/ TakeLockAndReadSpending(c)
          \/ DecideAndHold(c)
          \/ TheAiAnswers(c)
+         \/ TheAiFallsBackAndAnswers(c)
          \/ TheAiFailsButBills(c)
          \/ TheAiFailsUnbilled(c)
          \/ SaveTheAnswer(c)
@@ -423,7 +454,7 @@ CapNeverPassed ==
 \* Money charged but not yet written to the database is still covered by the call's hold row,
 \* so the next cap check sees it. (The text-edition job: by its job hold.)
 ChargedMoneyAlwaysCounted ==
-    /\ \A c \in Calls : billed[c] <= recorded[c] + (IF holdRow[c] THEN Estimate ELSE 0)
+    /\ \A c \in Calls : billed[c] <= recorded[c] + (IF holdRow[c] THEN Hold ELSE 0)
     /\ teBilled <= teRecorded + teHold
 
 \* A hold row exists only between a call's reserve and its settling, once per call; a finished call
@@ -438,7 +469,7 @@ ReservationReleasedOnce ==
 EveryChargeRecordedOnce ==
     \A c \in Calls : pc[c] = "done" =>
         \/ recorded[c] = billed[c]
-        \/ (left[c] /\ holdRow[c] /\ recorded[c] = 0 /\ billed[c] <= Estimate)
+        \/ (left[c] /\ holdRow[c] /\ recorded[c] = 0 /\ billed[c] <= Hold)
 
 \* The same request from one reader is paid for once: two identical requests share one call.
 PaidOncePerAnswer ==

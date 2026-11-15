@@ -3,7 +3,7 @@
 // one that fails means the code changed under the model: update the model as SKILL.md says.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { estimateCost, generate, reserveSpend, resetSpendHoldsForTests, spending, SpendingCapReached } from "@/lib/ai/generate";
+import { holdCost, generate, reserveSpend, resetSpendHoldsForTests, spending, SpendingCapReached } from "@/lib/ai/generate";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { failedSpend, generations } from "@/lib/db/schema";
@@ -25,12 +25,12 @@ afterEach(async () => {
 });
 
 describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
-  it("DecideAndHold: while a paid call is in flight, its estimate is held, so a second call that fits only without it is refused", async () => {
+  it("DecideAndHold: while a paid call is in flight, its worst case (holdCost) is held, so a second call that fits only without it is refused", async () => {
     const ai = fakeProvider();
     const a = rewriteRequest(ownerId);
     const b = rewriteRequest(ownerId, { input: "Another paragraph. ".repeat(21).slice(0, 400) });
-    const estimate = estimateCost(ai.model, a);
-    const caps = { perBookUsd: 100, perMonthUsd: estimate * 1.5 };
+    const held = holdCost(ai.model, a);
+    const caps = { perBookUsd: 100, perMonthUsd: held * 1.5 };
     const first = generate(database.db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "the first call to reach the AI");
     await expect(generate(database.db, ai.model, b, { caps, now: () => now })).rejects.toBeInstanceOf(SpendingCapReached);
@@ -51,19 +51,19 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
   it("SaveTheAnswer before ReleaseTheHold: while the answer and its cost are being written, the hold is still in place", async () => {
     const ai = fakeProvider();
     const a = rewriteRequest(ownerId);
-    const estimate = estimateCost(ai.model, a);
-    const caps = { perBookUsd: 100, perMonthUsd: estimate * 1.5 };
+    const held = holdCost(ai.model, a);
+    const caps = { perBookUsd: 100, perMonthUsd: held * 1.5 };
     let checkedDuringSave: unknown = "not run";
     const db = onInsert(database.db, generations, async () => {
       // The insert has not reached the database yet: only the hold can stop this second reserve.
-      checkedDuringSave = await reserveSpend(database.db, "anthropic", { ownerId, bookId: null, model: "m", kind: "rewrite" }, estimate, caps, now, "AI").then(
+      checkedDuringSave = await reserveSpend(database.db, "anthropic", { ownerId, bookId: null, model: "m", kind: "rewrite" }, held, caps, now, "AI").then(
         () => "passed",
         (e) => e,
       );
     });
     const first = generate(db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "the call to reach the AI");
-    ai.waiting[0].answer(ai.atEstimate(a));
+    ai.waiting[0].answer({ outputTokens: a.maxTokens }); // all of maxTokens: the worst case it holds
     await first;
     expect(checkedDuringSave).toBeInstanceOf(SpendingCapReached);
   });
@@ -83,13 +83,13 @@ describe("SpendCap.tla's steps, in lib/ai/generate.ts", () => {
   it("ReleaseTheHold runs on every path: after an unbilled failure the whole cap is free again", async () => {
     const ai = fakeProvider();
     const a = rewriteRequest(ownerId);
-    const estimate = estimateCost(ai.model, a);
-    const caps = { perBookUsd: 100, perMonthUsd: estimate * 1.5 };
+    const held = holdCost(ai.model, a);
+    const caps = { perBookUsd: 100, perMonthUsd: held * 1.5 };
     const call = generate(database.db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "the call to reach the AI");
     ai.waiting[0].fail(new Error("529 overloaded"));
     await expect(call).rejects.toThrow("529");
-    const hold = await reserveSpend(database.db, "anthropic", { ownerId, bookId: null, model: "m", kind: "rewrite" }, estimate, caps, now, "AI");
+    const hold = await reserveSpend(database.db, "anthropic", { ownerId, bookId: null, model: "m", kind: "rewrite" }, held, caps, now, "AI");
     await hold.release();
   });
 

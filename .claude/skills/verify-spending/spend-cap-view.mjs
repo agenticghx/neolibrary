@@ -52,10 +52,12 @@ export const step = (action, from, to) => {
       return "it reads what has been spent";
     case "DecideAndHold": {
       const c = Object.keys(to.pc).find((k) => from.pc[k] === "deciding" && to.pc[k] !== "deciding");
-      return to.pc[c] === "refused" ? "the estimate does not fit" : "the estimate fits: it is reserved";
+      return to.pc[c] === "refused" ? "its worst case does not fit" : "its worst case fits: it is held";
     }
     case "TheAiAnswers":
       return "the AI answers, and is paid";
+    case "TheAiFallsBackAndAnswers":
+      return "the AI declines, a fallback model answers, and both are paid";
     case "TheAiFailsButBills":
       return "the AI fails, and is paid anyway";
     case "TheAiFailsUnbilled":

@@ -15,12 +15,12 @@ import { FakeImageGenerator, imageUsd } from "@/lib/images/generate";
 import { FakeSpeech } from "@/lib/speech/fake";
 import { MemoryStorage } from "@/lib/storage";
 import { FakeBatchModel } from "./batch";
-import { estimateCost, generate, HOLD_KIND, heldByCalls, resetSpendHoldsForTests, spending, SpendingCapReached, type GenerationRequest } from "./generate";
+import { estimateCost, generate, HOLD_KIND, heldByCalls, holdCost, resetSpendHoldsForTests, spending, SpendingCapReached, type GenerationRequest } from "./generate";
 import { costUsd, type TextModel, type TextResult } from "./model";
 
 // M44: a call's hold (the reservation of its estimate) is a row in the database, written under a Postgres
 // advisory lock. These tests are the findings of the verify-spending check (SKILL.md, findings 2 to 6), on
-// the real code: each failed while the holds lived in one server's memory.
+// the real code: each failed while the holds lived in one server's memory. Finding 1: the hold is the worst case (holdCost).
 
 const MODEL = "claude-sonnet-5-5";
 const now = new Date("2026-11-15T12:00:00Z");
@@ -105,13 +105,40 @@ function insertsFail(db: Db, table: object): Db {
   }) as Db;
 }
 
+describe("the hold is the most a call can cost (finding 1)", () => {
+  it("a call that may use all of maxTokens holds that much, so a second call that would pass the cap is refused", async () => {
+    const ai = waitingProvider();
+    const a = request();
+    const b = request({ input: "Another paragraph. ".repeat(21) });
+    // Room for request 1's worst case and for two likely costs (the price a reader is shown), not for two worst cases.
+    const perMonthUsd = Math.max(holdCost(ai.model, a), estimateCost(ai.model, a) + estimateCost(ai.model, b));
+    expect(perMonthUsd).toBeLessThan(holdCost(ai.model, a) + holdCost(ai.model, b));
+    const caps = { perBookUsd: 100, perMonthUsd };
+    const first = generate(database.db, ai.model, a, { caps, now: () => now });
+    await until(() => ai.waiting.length === 1, "request 1 to reach the AI");
+    const second = generate(database.db, ai.model, b, { caps, now: () => now });
+    expect(await refused(second, ai, 1)).toBeInstanceOf(SpendingCapReached);
+    // Request 1 answers with all of maxTokens: more than its estimate, still within the cap.
+    ai.waiting[0].answer({ inputTokens: 200, outputTokens: a.maxTokens });
+    await first;
+    expect((await spending(database.db, "anthropic", null, now)).month).toBeLessThanOrEqual(caps.perMonthUsd);
+  });
+
+  it("holdCost bounds the input by bytes and the output by maxTokens", () => {
+    const ai = waitingProvider();
+    const a = request({ schema: { type: "object" } });
+    const bytes = Buffer.byteLength(a.system) + Buffer.byteLength(a.prompt) + Buffer.byteLength(JSON.stringify(a.schema)) + 2000;
+    expect(holdCost(ai.model, a)).toBeCloseTo(costUsd(MODEL, bytes, a.maxTokens, { write: bytes, read: 0 }));
+  });
+});
+
 describe("holds seen everywhere (findings 2, 3, 5, 6)", () => {
   it("finding 2: a call on a scan's text edition sees the hold of a call on the scan (one per-book cap)", async () => {
     const [scan] = await database.db.insert(books).values({ ownerId, title: "A scanned book" }).returning();
     const [edition] = await database.db.insert(books).values({ ownerId, title: "Its text edition", editionOf: scan.id }).returning();
     const ai = waitingProvider();
     const a = request({ bookId: scan.id });
-    const caps = { perBookUsd: estimateCost(ai.model, a) * 1.5, perMonthUsd: 100 };
+    const caps = { perBookUsd: holdCost(ai.model, a) * 1.5, perMonthUsd: 100 };
     const first = generate(database.db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "the call on the scan to reach the AI");
     const second = generate(database.db, ai.model, request({ bookId: edition.id, input: "Another paragraph. ".repeat(21) }), { caps, now: () => now });
@@ -128,7 +155,7 @@ describe("holds seen everywhere (findings 2, 3, 5, 6)", () => {
     const pages = (await textEditionSummary({ db: database.db, storage, model: batch, caps: { perBookUsd: 1000, perMonthUsd: 1000 } }, ownerId, bookId)).estimateUsd;
     const ai = waitingProvider();
     const a = request({ bookId });
-    const caps = { perBookUsd: pages + estimateCost(ai.model, a) / 2, perMonthUsd: 1000 };
+    const caps = { perBookUsd: pages + holdCost(ai.model, a) / 2, perMonthUsd: 1000 };
     const call = generate(database.db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "the call to reach the AI");
     const deps = { db: database.db, storage, model: batch, caps, now: () => now };
@@ -141,18 +168,18 @@ describe("holds seen everywhere (findings 2, 3, 5, 6)", () => {
   it("finding 5: after a restart mid-call, the call's hold still counts, and the costs page shows it", async () => {
     const ai = waitingProvider();
     const a = request();
-    const estimate = estimateCost(ai.model, a);
-    const caps = { perBookUsd: 100, perMonthUsd: estimate * 1.5 };
+    const held = holdCost(ai.model, a);
+    const caps = { perBookUsd: 100, perMonthUsd: held * 1.5 };
     void generate(database.db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "request 1 to reach the AI");
     // The server restarts: its memory is gone and request 1's code never runs again (the AI may still bill it).
     resetSpendHoldsForTests();
     const second = generate(database.db, ai.model, request({ input: "Another paragraph. ".repeat(21) }), { caps, now: () => now });
     expect(await refused(second, ai, 1)).toBeInstanceOf(SpendingCapReached);
-    expect((await heldByCalls(database.db, "anthropic", null, now)).month).toBeCloseTo(estimate);
+    expect((await heldByCalls(database.db, "anthropic", null, now)).month).toBeCloseTo(held);
     const claude = (await costReport(database.db, ownerId, now)).services.find((s) => s.provider === "anthropic")!;
     expect(claude.spentUsd).toBe(0);
-    expect(claude.heldUsd).toBeCloseTo(estimate);
+    expect(claude.heldUsd).toBeCloseTo(held);
   });
 
   it("finding 6: two copies of the server see each other's holds", async () => {
@@ -160,7 +187,7 @@ describe("holds seen everywhere (findings 2, 3, 5, 6)", () => {
     const two = await import("@/lib/ai/generate");
     const ai = waitingProvider();
     const a = request();
-    const caps = { perBookUsd: 100, perMonthUsd: estimateCost(ai.model, a) * 1.5 };
+    const caps = { perBookUsd: 100, perMonthUsd: holdCost(ai.model, a) * 1.5 };
     const first = generate(database.db, ai.model, a, { caps, now: () => now });
     await until(() => ai.waiting.length === 1, "request 1 to reach the AI");
     const second = two.generate(database.db, ai.model, request({ input: "Another paragraph. ".repeat(21) }), { caps, now: () => now });

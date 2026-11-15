@@ -1,6 +1,6 @@
 ---
 name: verify-spending
-description: Formal check that paid AI never passes Neolibrary's spending caps and that "rewrite as you turn" asks again after every $1 — TLA+ models run with TLC, plus replays of each finding on the real code. Use before merging ANY change to lib/ai/generate.ts (generate, reserveSpend, spending, spendingWithJobs, estimateCost, capsFromEnv), lib/ai/model.ts (costUsd, estimateTokens, PRICES), lib/ai/claude.ts (billed errors), lib/library/rewritten-turn.ts, lib/player/session.ts (mustAsk, ASK_AGAIN_USD), app/(reader)/books/[id]/read/RewrittenPane.tsx, the cap check in lib/library/text-edition.ts, or the reserveSpend callers in lib/library/audio.ts, pictures.ts and voice-notes.ts; and when asked whether the AI can be paid past a cap, past $1 without asking, or twice.
+description: Formal check that paid AI never passes Neolibrary's spending caps and that "rewrite as you turn" asks again after every $1 — TLA+ models run with TLC, plus replays of each finding on the real code. Use before merging ANY change to lib/ai/generate.ts (generate, reserveSpend, spending, spendingWithJobs, estimateCost, holdCost, capsFromEnv), lib/ai/model.ts (costUsd, estimateTokens, PRICES), lib/ai/claude.ts (billed errors), lib/library/rewritten-turn.ts, lib/player/session.ts (mustAsk, ASK_AGAIN_USD), app/(reader)/books/[id]/read/RewrittenPane.tsx, the cap check in lib/library/text-edition.ts, or the reserveSpend callers in lib/library/audio.ts, pictures.ts and voice-notes.ts; and when asked whether the AI can be paid past a cap, past $1 without asking, or twice.
 ---
 
 # verify-spending
@@ -64,9 +64,9 @@ describe the code at this commit, on branch m44-fix-spending. After a merge, set
 
 | File | What the models cover |
 |---|---|
-| `lib/ai/generate.ts` | `generate` (findStored, copyShared, the `inflight` map, reserve, call, insert, `hold.billed`, `hold.release`), `reserveSpend` and the hold it returns, `withSpendLock` (the Postgres advisory lock, behind `lockSpend`'s in-process queue), `assertRoom`, `spending`, `heldByCalls` (hold rows: `failed_spend`, kind `spend-hold`), `heldByJobs`, `heldNow`, `spendingWithJobs`, `bookGroup`, `estimateCost` |
+| `lib/ai/generate.ts` | `generate` (findStored, copyShared, the `inflight` map, reserve, call, insert, `hold.billed`, `hold.release`), `reserveSpend` and the hold it returns, `withSpendLock` (the Postgres advisory lock, behind `lockSpend`'s in-process queue), `assertRoom`, `spending`, `heldByCalls` (hold rows: `failed_spend`, kind `spend-hold`), `heldByJobs`, `heldNow`, `spendingWithJobs`, `bookGroup`, `estimateCost` (the likely cost, shown), `holdCost` and `HOLD_OVERHEAD_TOKENS` (the most a call can cost, held) |
 | `lib/ai/model.ts` | `costUsd`, `estimateTokens`, `PRICES`, `AiError.billed` |
-| `lib/ai/claude.ts` | which failures carry `billed` |
+| `lib/ai/claude.ts` | which failures carry `billed`; which usage it reports (the top-level one: finding 1, what is left (a)) |
 | `lib/library/text-edition.ts` | `textEditionSummary` (its cap check, shown) and `startTextEdition` (the check again and the job row that holds its estimate, both under `withSpendLock`) |
 | `lib/library/audio.ts`, `pictures.ts`, `voice-notes.ts` | `speak`, `makePicture`, the voice-note transcript: the same reserve, call, write, `billed`/`release` steps as `generate` (not modelled one by one; finding 4's fix tested in `lib/ai/spend-holds.test.ts` for `speak` and `makePicture`) |
 | `lib/library/rewritten-turn.ts`, `lib/player/session.ts` | `goAhead`, `paidFor`, `mayPay`, `turnStore` (`get`, `change`, `begin`, `end`, `onEnd`), `ASK_AGAIN_USD` |
@@ -85,7 +85,7 @@ code.
   by the call's reservation (its hold), so the next check sees it.
 - `ReservationReleasedOnce`: a hold row exists only between a call's reserve and its settling; a
   finished call has none, unless it was left behind on purpose (its server stopped mid-call, or the
-  database failed while its cost was being written), and then it stays counted at its estimate.
+  database failed while its cost was being written), and then it stays counted at its hold.
 - `EveryChargeRecordedOnce`: a finished call has written exactly what it was charged, once, billed
   failures and paid answers that could not be saved included; or, when the database failed while
   writing it, its hold row still counts at least that.
@@ -120,17 +120,18 @@ code between two `await`s.
 | `LookForSavedAnswer` | `findStored`, then `copyShared` (the database reads) |
 | `CheckSameRequestInFlight` | `inflight.get(key)`; if empty, `inflight.set` and the call queues for `lockSpend` (no `await` between) |
 | `TakeLockAndReadSpending` | `reserveSpend`: `withSpendLock` (this process's `lockSpend` turn, then a transaction that takes `pg_advisory_xact_lock`), then `spending` and `heldNow` on the transaction (hold rows of every server included). Other calls' `generations` inserts may land meanwhile (not under the lock); their holds stay until their release, which waits for the lock |
-| `DecideAndHold` | `assertRoom(spent, held, …)`; passing: insert the hold row (`failed_spend`, kind `spend-hold`); the transaction commits and the lock goes. Refused: `SpendingCapReached`, and `generate`'s `finally` deletes the `inflight` entry |
+| `DecideAndHold` | `assertRoom(spent, held, holdCost(model, req), …)`; passing: insert the hold row (`failed_spend`, kind `spend-hold`); the transaction commits and the lock goes. Refused: `SpendingCapReached`, and `generate`'s `finally` deletes the `inflight` entry |
 | `TheAiAnswers` / `TheAiFailsButBills` / `TheAiFailsUnbilled` | `model.generate` returns / throws an `AiError` with `billed` / throws without `billed` |
+| `TheAiFallsBackAndAnswers` | `model.generate` returns an answer from the API's fallback model (`fallbacks: "default"`) after the requested model declined: both attempts billed, `claude.ts` reports the top-level usage (the fallback's) only |
 | `SaveTheAnswer` | `db.insert(generations)` with `costUsd(result…)`, outside the lock (the hold still counts, so the cost is counted twice for a moment: too much, never too little) |
 | `SaveFails` | that insert throws |
 | `RecordTheLostAnswer` | `hold.billed(…)` in that `catch`: under the lock, one UPDATE turns the hold row into a `failed_spend` row of the answer's real cost, "Paid, but the answer could not be saved" |
 | `RecordTheBilledFailure` | `hold.billed(…)` in the `catch` of `model.generate`: the hold row becomes the billed failure's real cost |
-| `TheRecordFailsToo`, `ReleaseFails` | that UPDATE, or the DELETE of `hold.release`, throws (`keptHold` logs it): the hold row stays, counted at its estimate |
+| `TheRecordFailsToo`, `ReleaseFails` | that UPDATE, or the DELETE of `hold.release`, throws (`keptHold` logs it): the hold row stays, counted at its hold (holdCost) |
 | `ReleaseTheHold` | `hold.release()`: under the lock, the hold row is deleted; then `inflight.delete(key)` |
 | `ServerRestarts`, `TheAiFinishesAnOrphanedCall` | a deploy or crash: `spendTails` and `inflight` are gone, open transactions roll back (their advisory locks go); the hold rows stay; the provider still finishes and charges |
 | `TextEditionReads`, `TextEditionDecides` | `startTextEdition`: under `withSpendLock`, `spendingWithJobs` on the transaction, the `overLimit` test, the job row insert (its hold, read by `heldByJobs`). (`textEditionSummary` reads the same outside the lock, for the page only.) |
-| `TextEditionBilled`, `TextEditionStored`, `TextEditionEnds` | the batch is answered and charged; `storeBatch` writes the pages; `finishIfDone` ends the job |
+| `TextEditionBilled`, `TextEditionStored`, `TextEditionEnds` | the batch is answered and charged (up to `MAX_TOKENS` a page, while the job holds `pageEstimateUsd`); `storeBatch` writes the pages; `finishIfDone` ends the job |
 | `YouTurnThePage` | Reader's `screen` changes; the pane renders, its effect sets `placeRef`, and the GET effect asks for the page |
 | `YouAskForARewrite`, `YouPressKeepRewriting` | `start()`: `turns.change(goAhead)`, then `makeMissing(data.pieces, place, true)`. Keep rewriting is on screen when `asking` (on, not busy, and `!mayPay(sinceOk, the first priced paragraph's estimate, false)`) |
 | `YouPressStop` | `stop()`: `turns.change(on: false)` |
@@ -146,9 +147,14 @@ code between two `await`s.
 `SpendCap.cfg`: three requests (requests 1 and 2 identical), one provider, one month, one book
 group (request 3 is on the text edition of the scan the others are on), two copies of the server
 (request 3 on the second), one restart, database writes after a payment that may fail (twice), a
-text edition started meanwhile; each estimate 2 units, each charge 1 or 2 units, both caps 3 units
-(room for one call in flight, not two). And, a finding when dropped: a call never costs more than
-its estimate (finding 1). `PaidOncePerAnswer` is checked only in finding 7's config. The lock is
+text edition started meanwhile; each call's likely cost (`estimateCost`) 1 unit, its charge 1 or 2
+units, its hold (`holdCost`) 2 units, both caps 3 units (room for one call in flight, not two). And,
+each a finding when dropped (finding 1, what is left): no fallback model rescues a refusal
+(`CanFallBack = FALSE`), and a text edition is billed no more than its estimate
+(`TextEditionMaxCost = TextEditionEstimate`). `holdCost` bounds a call's input tokens by its bytes (a
+token is at least one byte) plus `HOLD_OVERHEAD_TOKENS` (2,000) for what the API adds (message framing,
+a JSON schema's instructions): an allowance, not measured. `PaidOncePerAnswer` is checked only in
+finding 7's config. The lock is
 modelled as "one at a time", not first-come-first-served: that allows more orders than the code,
 never fewer. A restart does not touch a text-edition start (it runs in a request, which `next
 start` lets finish).
@@ -187,14 +193,21 @@ text-edition, audio, picture and voice-note paths beyond the findings above.
 Each has a config that breaks its rule and a replay on the real code (`replay/findings.replay.ts`)
 that passes while the bug is there. Steps are in the code's words.
 
-1. **A call can cost more than its estimate** (`SpendCap-finding-cost-above-estimate`,
-   `CapNeverPassed`). `estimateCost` counts `min(maxTokens, 2 × estimateTokens(input) + 1000)`
-   output tokens; the call may use all of `maxTokens` (thinking included), and input tokens are
-   guessed at 4 characters each. 1. reserve: `assertRoom` passes with the estimate. 2.
-   `model.generate` answers with more output than estimated. 3. `insert generations` writes the
-   real `costUsd`, above the estimate. 4. `spending()` is past the cap. A rewrite of a
-   400-character paragraph on Sonnet 5.5 can cost about $0.028 more than its estimate. Text-edition
-   pages are estimated at 1,000 output tokens and allowed 8,000.
+1. **Partly fixed in M44: a call can cost more than its estimate.** `generate` now holds `holdCost`,
+   the most the call can be billed (see "Fixed"). What is left:
+   - (a) **A refusal rescued by the fallback model** (`SpendCap-finding-fallback-not-counted`,
+     `CapNeverPassed`). `claude.ts` asks for `fallbacks: "default"` (not on Haiku). 1. reserve: the hold
+     covers one attempt. 2. the requested model declines and the fallback model answers in the same
+     call; both attempts are billed (the Claude API docs: "`usage.iterations` is the per-attempt source
+     of truth; top-level `usage` covers only the attempt that produced the returned message"). 3.
+     `claude.ts` returns the top-level usage, and `insert generations` writes the fallback's cost only.
+     The declined attempt's cost is counted nowhere. Fixing it needs both: sum `usage.iterations` in
+     `claude.ts`, and hold two attempts (the fallback's at its own price) for models that fall back.
+   - (b) **A text edition can cost more than it holds** (`SpendCap-finding-text-edition-above-estimate`,
+     `CapNeverPassed`). The job holds `pageEstimateUsd` a page (1,000 output tokens); each page's
+     request allows `MAX_TOKENS` (8,000). On Sonnet 5.5 (batch prices): $0.0102 held a page, $0.0452 at
+     most; a 300-page book $3.06 held, $13.56 at most, against the $5 per-book cap. Holding the worst
+     case would refuse every scan of more than about 110 pages under that cap, so it is left to Samuel.
 Findings 2 to 6 were fixed in M44 (see "Fixed" below). Their numbers are kept, so that the
 numbers in older notes still point at the right finding.
 
@@ -209,6 +222,7 @@ numbers in older notes still point at the right finding.
 | Config | Change to the code it stands for | Rule that breaks |
 |---|---|---|
 | `SpendCap-mutant-no-lock` | `reserveSpend` without `withSpendLock` | `CapNeverPassed` |
+| `SpendCap-mutant-hold-the-likely-cost` | `generate` holds `estimateCost` (the likely cost) instead of `holdCost`, as before M44 (finding 1 comes back) | `CapNeverPassed` |
 | `SpendCap-mutant-release-before-save` | `hold.release()` before `insert generations` | `ChargedMoneyAlwaysCounted` |
 | `SpendCap-mutant-release-only-on-success` | `hold.release()` only after a saved answer | `ReservationReleasedOnce` |
 | `SpendCap-mutant-no-failed-spend` | `hold.release()` instead of `hold.billed()` for a billed failure | `EveryChargeRecordedOnce` |
@@ -240,6 +254,9 @@ it was not refused"; finding 4: no `failed_spend` row), and `lib/library/narrati
 test failed (`expected 0.063 to be less than or equal to 0.0525`). With the `pg_advisory_xact_lock`
 line deleted from `withSpendLock`, `npm run test:postgres`'s "the spending lock" test failed three runs
 out of three (`expected … to have a length of 1 but got 5`: five holds passed a cap with room for one).
+Finding 1: with `generate` holding `estimateCost(model, req)` again, the test "a call that may use all of
+maxTokens holds that much…" failed ("the second call reached the AI: it was not refused … got 2"); with
+`Mutant = "holdTheLikelyCost"` in `SpendCap.cfg`, the main check broke `ChargedMoneyAlwaysCounted`.
 
 ## Reading a result
 
@@ -302,6 +319,13 @@ kind `spend-hold`, its `cost_usd` the estimate), written and removed under a Pos
 (`withSpendLock`), so every copy of the server and every book of a group sees it, and a restart keeps it.
 No migration: the table already counted toward `spending`.
 
+- **1. A call's cost above its estimate (for `generate`)**: the hold is `holdCost`, all of `maxTokens` as
+  output and the request's bytes as input tokens, all priced at the cache-write rate. `estimateCost` stays
+  the price a reader is shown. Test: `lib/ai/spend-holds.test.ts`, "a call that may use all of maxTokens
+  holds that much". A 398-character paragraph's plain rewrite: likely $0.0159, held $0.0611 on Sonnet 5.5
+  ($0.0319 and $0.1222 on Opus 5.5). What is left: (a) and (b) under "Known findings". `speak`,
+  `makePicture` and the voice note hold the price they compute before the call (per character, per
+  picture, per second of audio); M44 did not change them.
 - **2. A scan and its text edition**: the hold row carries its `bookId`; `heldByCalls` sums the whole
   `bookGroup`. Test: `lib/ai/spend-holds.test.ts`, "finding 2".
 - **3. A text edition's start**: `startTextEdition` reads what is spent and held again, and writes its job
@@ -309,10 +333,10 @@ No migration: the table already counted toward `spending`.
   and `SpendCap-mutant-text-edition-outside-lock` for the lock itself.
 - **4. A paid answer that cannot be saved**: `hold.billed()` turns the hold into a `failed_spend` row of the
   real cost ("Paid, but the answer could not be saved: …"), in `generate`, `speak`, `makePicture` and the
-  voice note. If that write fails too, the hold stays, counted at its estimate. Tests: "finding 4" for
+  voice note. If that write fails too, the hold stays, counted in full. Tests: "finding 4" for
   `generate`, `speak` and `makePicture` (the voice note's path is the same code, not tested apart).
-- **5. A restart mid-call**: the hold row stays. Test: "finding 5". What is left: it stays counted at its
-  estimate for ever (the month's cap: until the month ends; the book's cap: always), since the provider may
+- **5. A restart mid-call**: the hold row stays. Test: "finding 5". What is left: it stays counted at its hold
+  (the worst case) for ever (the month's cap: until the month ends; the book's cap: always), since the provider may
   have billed it and nothing on the server can tell. The costs page shows the sum of such rows ("Also held
   against the cap … cut off when the server restarted"). To settle one by hand: check the provider's usage
   page; if the call was not billed, delete its row (`delete from failed_spend where kind = 'spend-hold' and

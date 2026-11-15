@@ -12,7 +12,7 @@ import { sha256 } from "./prompts";
  * - The same request (same kind, options, prompt fingerprint and input text,
  *   for the same reader) is answered from the `generations` table, without a
  *   second call. `fresh: true` asks again on purpose and adds a new version.
- * - Before any call, the estimated cost is reserved against what has been
+ * - Before any call, the most it can cost (holdCost) is reserved against what has been
  *   spent this month (all readers: one API key pays) and on this book. The
  *   reserve (a hold) is a row in the database, so a second call at the same
  *   moment, on any copy of the server, sees it, and a restart keeps it. If
@@ -97,14 +97,38 @@ export const generationCacheKey = (kind: string, options: Record<string, string>
 const cacheKeyOf = (req: GenerationRequest) => generationCacheKey(req.kind, req.options, req.promptHash, sha256(req.input));
 
 /**
- * The estimated cost of a request, in US dollars: generous, so the cap errs on
- * the safe side. It assumes the prompt cache misses and the system prompt is
- * written to it, the dearest case (1.25 times the input price).
+ * The likely cost of a request, in US dollars: the price a reader is shown
+ * ("about $X"). It assumes the prompt cache misses and the system prompt is
+ * written to it (1.25 times the input price), and an answer of twice the
+ * input plus 1,000 tokens. A call can cost more (all of maxTokens): what is
+ * held against the cap while it runs is holdCost, not this.
  */
 export function estimateCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "input" | "maxTokens">) {
   const output = Math.min(req.maxTokens, estimateTokens(req.input) * 2 + 1000);
   const system = estimateTokens(req.system);
   return costUsd(PRICES[model.model] ? model.model : "unknown", system + estimateTokens(req.prompt), output, { write: system, read: 0 });
+}
+
+/**
+ * Tokens allowed, on top of the text, for what the API adds to a request: the
+ * message framing, and the instructions it adds for a JSON schema. Not
+ * measured (the API does not say); generous on purpose (M44, SKILL.md).
+ */
+export const HOLD_OVERHEAD_TOKENS = 2000;
+
+/**
+ * The most one call can be billed, in US dollars (M44, finding 1): what
+ * reserveSpend holds against the caps while the call runs. Output: all of
+ * maxTokens (thinking counts within it). Input: no more tokens than the
+ * request's bytes (a token is at least one byte), plus HOLD_OVERHEAD_TOKENS,
+ * all priced as written to the prompt cache (the dearest input price). Not
+ * covered: a refusal rescued by the API's fallback model, billed on top
+ * (SKILL.md, finding 1, what is left).
+ */
+export function holdCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "maxTokens" | "schema">) {
+  const bytes = (s: string) => Buffer.byteLength(s, "utf8");
+  const input = bytes(req.system) + bytes(req.prompt) + (req.schema ? bytes(JSON.stringify(req.schema)) : 0) + HOLD_OVERHEAD_TOKENS;
+  return costUsd(PRICES[model.model] ? model.model : "unknown", input, req.maxTokens, { write: input, read: 0 });
 }
 
 export const usd = (n: number) => `$${n < 1 && n > 0 ? n.toFixed(3) : n.toFixed(2)}`;
@@ -123,15 +147,15 @@ export async function bookGroup(db: Db, bookId: string) {
 }
 
 /**
- * Holds (M44): while a paid call runs, its estimate is a row in `failed_spend` of this kind, so every
+ * Holds (M44): while a paid call runs, the most it can cost (holdCost, for `generate`) is a row in `failed_spend` of this kind, so every
  * copy of the server sees it, and a restart does not lose it. It is replaced by the real cost when the
  * call ends (the `generations` row, or a `failed_spend` row of the call's own kind), or deleted when
  * nothing was billed. A hold that stays means the server stopped, or the database failed, mid-call:
- * the provider may have billed it, so it stays counted at its estimate (the costs page shows it).
+ * the provider may have billed it, so it stays counted in full (the costs page shows it).
  */
 export const HOLD_KIND = "spend-hold";
 const HOLD_REASON =
-  "Held while a paid call runs: its estimate counts until its real cost is written. If this row stays, the server stopped or the database failed mid-call; the call may have been billed, so the estimate stays counted.";
+  "Held while a paid call runs: the most it can cost counts until its real cost is written. If this row stays, the server stopped or the database failed mid-call; the call may have been billed, so this amount stays counted.";
 
 /**
  * Dollars spent with a provider (text and audio) since the start of this month (UTC), and on one book ever
@@ -434,7 +458,7 @@ export async function generate(
       db,
       model.provider,
       { ownerId: req.ownerId, bookId: req.bookId, model: model.model, kind: req.kind },
-      estimateCost(model, req),
+      holdCost(model, req),
       caps,
       now,
       "AI",
