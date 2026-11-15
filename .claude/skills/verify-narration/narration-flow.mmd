@@ -6,14 +6,10 @@ stateDiagram-v2
     lg0: going
     lg1: ended
     lg2: idle
-    lg3: Breaks PaidOnce or WithinLimits in some cases
-    lg4: Path to the PaidOnce or WithinLimits bug
   }
   class lg0 teal
   class lg1 tan
   class lg2 blue
-  class lg3 mayBreak
-  class lg4 bugPath
   s0: Nothing going on
   s1: Nothing going on: the site restarted
   s2: Starting: reading which paragraphs are saved
@@ -33,36 +29,24 @@ stateDiagram-v2
   s3 --> s5: the run reads which paragraphs are saved or the paragraph is saved
   s4 --> s1: the site restarts
   s4 --> s3: you press Stop
-  s4 --> s4: the paragraph is not saved yet
-  s4 --> s6: a paragraph is paid for
   s5 --> s2: you tick the cost box and press Create
+  s4 --> s6: a paragraph is paid for
   s6 --> s1: the site restarts
   s6 --> s3: you press Stop
   s6 --> s7: the paragraph is saved
   s7 --> s1: the site restarts
   s7 --> s3: you press Stop
-  s7 --> s8: the monthly limit is reached
   s2 --> s7: the run reads which paragraphs are saved
+  s7 --> s8: the monthly limit is reached
   s8 --> s2: you tick the cost box and press Create
   s3 --> s8: the monthly limit is reached
-  classDef mayBreak fill:#fff3e6,stroke:#e8730c,stroke-width:2.5px,color:#b85a06
+  s4 --> s8: the monthly limit is reached
   class s0 blue
-  class s0 bugPath
   class s1 blue
-  class s1 bugPath
   class s2 teal
-  class s2 mayBreak
-  class s2 bugPath
   class s3 teal
-  class s3 mayBreak
   class s4 teal
-  class s4 bugPath
   class s5 tan
-  class s5 mayBreak
   class s6 teal
-  class s6 mayBreak
-  class s6 bugPath
   class s7 teal
-  class s7 mayBreak
   class s8 tan
-  class s8 mayBreak

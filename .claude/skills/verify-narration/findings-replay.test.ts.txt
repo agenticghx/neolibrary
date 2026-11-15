@@ -10,7 +10,7 @@
 // it is paid for), newServer() (a restart: fresh modules, so a new in-flight list and new spending holds, and a new
 // list of runs). The runs list itself is on globalThis.__neolibraryNarrations.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { spending, spendingWithJobs } from "@/lib/ai/generate";
+import { spendingWithJobs } from "@/lib/ai/generate";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { testDatabase } from "@/lib/db/test-db";
@@ -160,6 +160,8 @@ describe("one run at a time (holds today; the model takes startNarration 255-275
 });
 
 describe("finding 1: the site restarts while a paragraph is being paid for", () => {
+  // newServer() with no stopNarrationsForShutdown() first is a restart with no time after SIGTERM: Railway today
+  // (RAILWAY_DEPLOYMENT_DRAINING_SECONDS unset, 0 seconds). With that time, narration.test.ts "finding 1" shows the fix.
   it("Continue pays for that paragraph again; since M44 the first payment stays counted, as a hold", async () => {
     const voice = new Voice();
     voice.never.add(1);
@@ -178,65 +180,9 @@ describe("finding 1: the site restarts while a paragraph is being paid for", () 
   // stays in the database); now a real test in lib/library/narration.test.ts.
 });
 
-describe("finding 2: saving a paid paragraph fails", () => {
-  it("the run stops with an error, the payment is counted (since M44), and Continue pays again", async () => {
-    class FailingOnce extends MemoryStorage {
-      failed = false;
-      async put(key: string, data: Uint8Array, type: string) {
-        if (!this.failed) {
-          this.failed = true;
-          throw new Error("storage is down");
-        }
-        return super.put(key, data, type);
-      }
-    }
-    const voice = new Voice();
-    const { bookId, paragraphs } = await book(lamps(3));
-    const failing = new FailingOnce();
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    await (await startNarration({ db: database.db, storage: failing, model: voice }, ownerId, bookId, "fake-ada", true)).done;
-    err.mockRestore();
-    const s = await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada");
-    expect(s.stoppedBecause?.kind).toBe("error");
-    expect((await spending(database.db, "elevenlabs", bookId)).book).toBeCloseTo(speechCost(paragraphs[0].text.length));
-    await (await startNarration({ db: database.db, storage: failing, model: voice }, ownerId, bookId, "fake-ada", true)).done;
-    console.log("F2 sent:", voice.sent.map((t) => t.slice(0, 6)));
-    expect(voice.sent.filter((t) => t === paragraphs[0].text)).toHaveLength(2);
-  });
-});
-
-describe("finding 3: two paragraphs with the same text", () => {
-  it("the Listen bar on the repeat, while the run pays for the first, pays for the same text again", async () => {
-    const voice = new Voice();
-    voice.hold = true;
-    const texts = lamps(2);
-    const { bookId, paragraphs } = await book([texts[0], texts[1], texts[0]]);
-    const run = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
-    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
-    const listen = speakPassage(database.db, storage, voice, ownerId, { bookId, sectionId: paragraphs[2].id, voice: "fake-ada" });
-    await vi.waitFor(() => expect(voice.sent).toHaveLength(2));
-    voice.releaseAll();
-    await listen;
-    await run.done;
-    console.log("F3 sent:", voice.sent.map((t) => t.slice(0, 6)));
-    expect(voice.sent.filter((t) => t === texts[0])).toHaveLength(2);
-  });
-
-  it("(the model's assumption) the Listen bar on the same paragraph as the run shares its call: paid once", async () => {
-    const voice = new Voice();
-    voice.hold = true;
-    const { bookId, paragraphs } = await book(lamps(2));
-    const run = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
-    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
-    const listen = speakPassage(database.db, storage, voice, ownerId, { bookId, sectionId: paragraphs[0].id, voice: "fake-ada" });
-    await new Promise((r) => setTimeout(r, 200));
-    expect(voice.sent).toHaveLength(1);
-    voice.releaseAll();
-    expect((await listen).reused).toBe(true);
-    await run.done;
-    expect(voice.sent).toEqual([paragraphs[0].text, paragraphs[1].text]);
-  });
-});
+// Findings 2 (a failed save) and 3 (two paragraphs with the same text) were fixed in M44: their replays failed on the
+// fixed code and are now real tests, in lib/library/narration.test.ts, "no paragraph's words are paid for twice".
+// The same-paragraph case (the model's assumption that the Listen bar joins the run's call) is covered there too.
 
 describe("finding 4 (if the old server runs on after a deploy)", () => {
   it("two runs at once, both pay for paragraph 1, and Stop on the new server does not stop the old run", async () => {

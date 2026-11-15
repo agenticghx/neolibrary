@@ -27,11 +27,14 @@ function runWords(r) {
   switch (r.pc) {
     case "loading":
       return "starting: reading which paragraphs are saved";
+    case "passage":
     case "lookup":
     case "reserve":
       return `making paragraph ${r.at}: not paid for yet`;
     case "calling":
       return `making paragraph ${r.at}: paid for, the voice is reading it`;
+    case "saving":
+      return `making paragraph ${r.at}: saving the audio paid for earlier`;
     case "joined":
       return `making paragraph ${r.at}: waiting for the Listen bar's copy`;
     default:
@@ -41,11 +44,14 @@ function runWords(r) {
 
 function listenWords(l) {
   switch (l.pc) {
+    case "passage":
     case "lookup":
     case "reserve":
       return `Listen bar asks for paragraph ${l.at}, not paid for yet`;
     case "calling":
       return `Listen bar paid for paragraph ${l.at}, the voice is reading it`;
+    case "saving":
+      return `Listen bar saves paragraph ${l.at}, paid for earlier`;
     case "joined":
       return `Listen bar waits for the run's paragraph ${l.at}`;
     default:
@@ -75,6 +81,8 @@ export const state = (v) => {
     );
   const l = listenWords(v.listen);
   if (l) parts.push(l);
+  if (v.old === "overlap") parts.push("the old server runs on");
+  if (v.old === "draining") parts.push("the old server finishes its paragraph");
   return capital(parts.join("; "));
 };
 
@@ -92,7 +100,11 @@ export const step = (action, from, to) => {
       return "you press Stop";
     case "RunReadsSaved":
       return "the run reads which paragraphs are saved";
+    case "RunJoins":
+    case "ListenJoins":
+      return null; // the in-flight look after passageFor: drawn as part of the next step
     case "RunLooksUp":
+      if (count(to, "saving") > count(from, "saving")) return "audio paid for earlier is saved now";
       return count(to, "reserve") > count(from, "reserve")
         ? "the paragraph is not saved yet"
         : "the paragraph is saved already, so it is skipped";
@@ -123,8 +135,12 @@ export const step = (action, from, to) => {
     case "TheSiteRestarts":
       // A restart with no run going on changes nothing a reader sees: not drawn (to keep the chart readable).
       return list(from.runs).some(running) ? "the site restarts" : null;
-    case "TheOldServerStops":
+    case "TheOldServerGetsSigterm":
+      return "the old server is told to stop";
+    case "TheOldServerExits":
       return "the old server stops";
+    case "TheOldServerIsKilled":
+      return "the old server is ended mid-paragraph";
     default:
       return action;
   }

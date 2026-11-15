@@ -2,6 +2,11 @@
 // account exists yet, prints the one-time setup code for the first admin.
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // A deploy sends SIGTERM. Whole-book narration then stops before its next paragraph, so the one being paid for is
+  // saved rather than lost and paid for again (verify-narration finding 1). `next start` exits on SIGTERM once its
+  // open requests and its after() work are done; the narration route hands each run to after().
+  const { stopNarrationsOnSigterm } = await import("./lib/library/narration");
+  stopNarrationsOnSigterm();
   const { getDb } = await import("./lib/db");
   const { userCount } = await import("./lib/auth/service");
   const { setupCode } = await import("./lib/auth/setup-code");

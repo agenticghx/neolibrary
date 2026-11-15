@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { spending } from "@/lib/ai/generate";
+import { spending, spendingWithJobs } from "@/lib/ai/generate";
 import { acceptInvite, createFirstAdmin, createInvite } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
@@ -8,9 +9,19 @@ import { testDatabase } from "@/lib/db/test-db";
 import { FakeSpeech } from "@/lib/speech/fake";
 import { SpeechError, speechCost, type SpeechRequest } from "@/lib/speech/model";
 import { MemoryStorage } from "@/lib/storage";
-import { speakPassage } from "./audio";
+import { forgetPaidAudioForTests, speakPassage } from "./audio";
 import { importBook } from "./import";
-import { forgetNarrationsForTests, limitStop, narrationSummary, NarrationError, runningNarrations, startNarration, stopNarration } from "./narration";
+import {
+  forgetNarrationsForTests,
+  limitStop,
+  narrationSummary,
+  NarrationError,
+  runningNarrations,
+  SHUTDOWN_STOP,
+  startNarration,
+  stopNarration,
+  stopNarrationsForShutdown,
+} from "./narration";
 import { getSections } from "./sections-store";
 import { readableEpub } from "./test-epub";
 
@@ -42,6 +53,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   forgetNarrationsForTests();
+  forgetPaidAudioForTests();
   await database.raw.close();
 });
 
@@ -354,5 +366,129 @@ describe("a restart while a paragraph is being paid for (verify-narration findin
     const billed = voice.sent.reduce((n, t) => n + speechCost(t.length), 0);
     expect(billed).toBeLessThanOrEqual(caps.perBookUsd);
     expect((await after.narrationSummary(database.db, voice, ownerId, bookId, "fake-ada", { caps })).stoppedBecause?.message).toMatch(/^This book.s voice spending cap/);
+  });
+});
+
+/** The fake voice, counting each request when it is sent (when the voice bills it); `hold` holds the answers back. */
+class SentSpeech extends FakeSpeech {
+  sent: string[] = [];
+  hold = false;
+  private gates: (() => void)[] = [];
+  releaseAll() {
+    this.hold = false;
+    while (this.gates.length) this.gates.shift()?.();
+  }
+  async speak(req: SpeechRequest) {
+    this.sent.push(req.text);
+    if (this.hold) await new Promise<void>((resolve) => this.gates.push(resolve));
+    return super.speak(req);
+  }
+}
+
+/** Storage whose put fails the first `times` times. */
+class FailingStorage extends MemoryStorage {
+  constructor(public times: number) {
+    super();
+  }
+  async put(key: string, data: Uint8Array, type: string) {
+    if (this.times > 0) {
+      this.times -= 1;
+      throw new Error("storage is down");
+    }
+    return super.put(key, data, type);
+  }
+}
+
+const lampTexts = (n: number) => Array.from({ length: n }, (_, i) => `Lamp ${i + 1} is lit at dusk by the keeper, who walks the length of the quay.`);
+async function lampBook(texts: string[], title = "Some Lamps") {
+  const bytes = readableEpub(title, [`<h1>The lamps</h1>${texts.map((t) => `<p>${t}</p>`).join("")}`], "Iris Wick");
+  const bookId = (await importBook(database.db, storage, ownerId, { name: "lamps.epub", bytes })).bookId;
+  const paragraphs = (await getSections(database.db, ownerId, bookId)).filter((s) => s.kind === "paragraph");
+  expect(paragraphs.map((p) => p.text)).toEqual(texts);
+  return { bookId, paragraphs };
+}
+
+describe("no paragraph's words are paid for twice (verify-narration rule PaidOnce)", () => {
+  it("finding 3: the Listen bar on a paragraph with the same words as the one the run is paying for joins that call", async () => {
+    const voice = new SentSpeech();
+    voice.hold = true;
+    const [one, two] = lampTexts(2);
+    const { bookId, paragraphs } = await lampBook([one, two, one]);
+    const run = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
+    const listen = speakPassage(database.db, storage, voice, ownerId, { bookId, sectionId: paragraphs[2].id, voice: "fake-ada" });
+    await new Promise((r) => setTimeout(r, 100));
+    voice.releaseAll();
+    expect((await listen).reused).toBe(true);
+    await run.done;
+    console.log("finding 3, sent:", voice.sent.map((t) => t.slice(0, 6)));
+    expect(voice.sent).toEqual([one, two]);
+  });
+
+  it("finding 2: a save that fails once is tried again, and the run goes on", async () => {
+    const voice = new SentSpeech();
+    const { bookId, paragraphs } = await lampBook(lampTexts(3));
+    const failing = new FailingStorage(1);
+    await (await startNarration({ db: database.db, storage: failing, model: voice, saveRetryMs: [0, 0] }, ownerId, bookId, "fake-ada", true)).done;
+    const s = await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada");
+    console.log("finding 2 (retry), sent:", voice.sent.map((t) => t.slice(0, 6)), "ended:", s.stoppedBecause?.kind);
+    expect(s.stoppedBecause?.kind).toBe("finished");
+    expect(voice.sent).toEqual(paragraphs.map((p) => p.text));
+  });
+
+  it("finding 2: paid audio whose save fails on every try is kept, counted, and saved by Continue without paying again", async () => {
+    const voice = new SentSpeech();
+    const { bookId, paragraphs } = await lampBook(lampTexts(3));
+    const failing = new FailingStorage(3); // the first try and both retries
+    const deps = { db: database.db, storage: failing, model: voice, saveRetryMs: [0, 0] };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await (await startNarration(deps, ownerId, bookId, "fake-ada", true)).done;
+    err.mockRestore();
+    expect((await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada")).stoppedBecause?.kind).toBe("error");
+    const cost = (i: number) => speechCost(paragraphs[i].text.length);
+    // Counted against the limits while it is kept: its hold stays.
+    expect((await spendingWithJobs(database.db, "elevenlabs", bookId)).book).toBeCloseTo(cost(0), 9);
+    await (await startNarration(deps, ownerId, bookId, "fake-ada", true)).done;
+    console.log("finding 2 (kept), sent:", voice.sent.map((t) => t.slice(0, 6)));
+    expect(voice.sent).toEqual(paragraphs.map((p) => p.text));
+    expect(await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada")).toMatchObject({ saved: 3, stoppedBecause: { kind: "finished" } });
+    // Counted once: three tracks, no hold and no failed payment left.
+    expect((await spendingWithJobs(database.db, "elevenlabs", bookId)).book).toBeCloseTo(cost(0) + cost(1) + cost(2), 9);
+  });
+
+  it("finding 2: kept audio is saved under the paragraph that asks for it, so a book deleted meanwhile does not block it", async () => {
+    const voice = new SentSpeech();
+    const [one] = lampTexts(1);
+    const first = await lampBook([one], "First Lamps");
+    const failing = new FailingStorage(1);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(speakPassage(database.db, failing, voice, ownerId, { bookId: first.bookId, sectionId: first.paragraphs[0].id, voice: "fake-ada" }, { saveRetryMs: [] })).rejects.toThrow("storage is down");
+    err.mockRestore();
+    await database.db.delete(books).where(eq(books.id, first.bookId));
+    const second = await lampBook([one], "Second Lamps");
+    const out = await speakPassage(database.db, failing, voice, ownerId, { bookId: second.bookId, sectionId: second.paragraphs[0].id, voice: "fake-ada" }, { saveRetryMs: [] });
+    expect(out).toMatchObject({ reused: false, track: { sectionId: second.paragraphs[0].id } });
+    expect(voice.sent).toEqual([one]);
+  });
+
+  it("finding 1: on SIGTERM a run saves the paragraph being paid for, then stops; Continue pays for none twice", async () => {
+    const voice = new SentSpeech();
+    voice.hold = true;
+    const { bookId, paragraphs } = await lampBook(lampTexts(4));
+    const run = await startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true);
+    await vi.waitFor(() => expect(voice.sent).toHaveLength(1));
+    const stopped = stopNarrationsForShutdown();
+    voice.releaseAll();
+    await stopped;
+    await run.done;
+    const s = await narrationSummary(database.db, voice, ownerId, bookId, "fake-ada");
+    console.log("finding 1, sent before the restart:", voice.sent.map((t) => t.slice(0, 6)), "ended:", s.stoppedBecause?.message);
+    expect(s).toMatchObject({ saved: 1, stoppedBecause: { kind: "stopped", message: SHUTDOWN_STOP } });
+    // The new server: fresh modules (in-flight and kept lists, the spending lock's queue) and no runs.
+    delete (globalThis as { __neolibraryNarrations?: unknown }).__neolibraryNarrations;
+    vi.resetModules();
+    const after = await import("./narration");
+    await (await after.startNarration({ db: database.db, storage, model: voice }, ownerId, bookId, "fake-ada", true)).done;
+    expect(voice.sent).toEqual(paragraphs.map((p) => p.text));
   });
 });

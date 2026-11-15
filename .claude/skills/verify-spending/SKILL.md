@@ -68,7 +68,7 @@ describe the code at this commit, on branch m44-fix-spending. After a merge, set
 | `lib/ai/model.ts` | `costUsd`, `estimateTokens`, `PRICES`, `AiError.billed` |
 | `lib/ai/claude.ts` | which failures carry `billed`; which usage it reports (the top-level one: finding 1, what is left (a)) |
 | `lib/library/text-edition.ts` | `textEditionSummary` (its cap check, shown) and `startTextEdition` (the check again and the job row that holds its estimate, both under `withSpendLock`) |
-| `lib/library/audio.ts`, `pictures.ts`, `voice-notes.ts` | `speak`, `makePicture`, the voice-note transcript: the same reserve, call, write, `billed`/`release` steps as `generate` (not modelled one by one; finding 4's fix tested in `lib/ai/spend-holds.test.ts` for `speak` and `makePicture`) |
+| `lib/library/audio.ts`, `pictures.ts`, `voice-notes.ts` | `speak`, `makePicture`, the voice-note transcript: the same reserve, call, write, `billed`/`release` steps as `generate` (not modelled one by one; finding 4's fix tested in `lib/ai/spend-holds.test.ts` for `speak` and `makePicture`). Since M44's narration fixes (verify-narration findings 2 and 3), `speak` keeps paid audio whose save fails in the server's memory with its hold unsettled, and the next request for those words saves it and calls `release()`; `billed()` comes only when a kept one is dropped (more than 20 kept). The hold is the estimate, which for speech is the real cost. |
 | `lib/library/rewritten-turn.ts`, `lib/player/session.ts` | `goAhead`, `paidFor`, `mayPay`, `turnStore` (`get`, `change`, `begin`, `end`, `onEnd`), `ASK_AGAIN_USD` |
 | `app/(reader)/books/[id]/read/RewrittenPane.tsx` | `makeMissing`, `start`, `stop`, `goOn`, the GET effect, `asking`, `placeRef`, `latest`, `self` |
 | `app/(reader)/books/[id]/read/Reader.tsx` | only that the turn store lives here (`useState(turnStore)`) and that mode "original" renders no `RewrittenPane` (not in check.sh's list: it changes often for other reasons) |
@@ -340,9 +340,13 @@ No migration: the table already counted toward `spending`.
   row, under `withSpendLock`. Tests: "finding 3" (the summary now sees the hold, so the start is refused),
   and `SpendCap-mutant-text-edition-outside-lock` for the lock itself.
 - **4. A paid answer that cannot be saved**: `hold.billed()` turns the hold into a `failed_spend` row of the
-  real cost ("Paid, but the answer could not be saved: …"), in `generate`, `speak`, `makePicture` and the
-  voice note. If that write fails too, the hold stays, counted in full. Tests: "finding 4" for
-  `generate`, `speak` and `makePicture` (the voice note's path is the same code, not tested apart).
+  real cost ("Paid, but the answer could not be saved: …"), in `generate`, `makePicture` and the voice note.
+  `speak` instead keeps the paid audio with its hold (still counted in full) until the next request for those words
+  saves it (verify-narration finding 2); a kept one dropped from memory becomes the `failed_spend` row, and a restart
+  leaves its hold counted for ever, as in finding 5. If a write fails too, the hold stays, counted in full. Tests:
+  "finding 4" for `generate` and `makePicture`; for `speak`, "the voice's cost stays counted when the track cannot be
+  saved" and "kept audio that this server can no longer keep becomes a failed_spend row" (the voice note's path is
+  the same code as `generate`'s, not tested apart).
 - **5. A restart mid-call**: the hold row stays. Test: "finding 5". What is left: it stays counted at its hold
   (the worst case) for ever (the month's cap: until the month ends; the book's cap: always), since the provider may
   have billed it and nothing on the server can tell. The costs page shows the sum of such rows ("Also held

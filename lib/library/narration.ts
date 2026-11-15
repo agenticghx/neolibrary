@@ -97,6 +97,8 @@ export type NarrationDeps = {
   caps?: Caps;
   now?: () => Date;
   speak?: typeof speakPassage;
+  /** How long to wait before each new try of a failed save (audio.ts SAVE_RETRY_MS unless given). */
+  saveRetryMs?: readonly number[];
 };
 
 type Job = {
@@ -108,6 +110,8 @@ type Job = {
   voiceName: string;
   running: boolean;
   stopRequested: boolean;
+  /** Stop was asked by the server shutting down (a deploy), not by the reader. */
+  shutdown: boolean;
   /** Paragraphs this run paid for. */
   made: number;
   stoppedBecause: NarrationStop | null;
@@ -267,6 +271,7 @@ export async function startNarration(
     voiceName,
     running: true,
     stopRequested: false,
+    shutdown: false,
     made: 0,
     stoppedBecause: null,
     done: Promise.resolve(),
@@ -286,11 +291,11 @@ async function run(job: Job, deps: NarrationDeps) {
     const list = await paragraphsOf(deps.db, job.bookId);
     const saved = await savedKeys(deps.db, job.ownerId, job.voice);
     for (const p of list) {
-      if (job.stopRequested) return end("stopped", "Stopped, as you asked.");
+      if (job.stopRequested) return end("stopped", job.shutdown ? SHUTDOWN_STOP : "Stopped, as you asked.");
       const key = cacheKeyOf(deps.model, job.voice, p.text);
       // Saved already (made earlier, by the Listen bar, or by a run before a restart): free, and never paid for again.
       if (saved.has(key)) continue;
-      const out = await speak(deps.db, deps.storage, deps.model, job.ownerId, { bookId: job.bookId, sectionId: p.id, voice: job.voice }, { caps: deps.caps, now: deps.now });
+      const out = await speak(deps.db, deps.storage, deps.model, job.ownerId, { bookId: job.bookId, sectionId: p.id, voice: job.voice }, { caps: deps.caps, now: deps.now, saveRetryMs: deps.saveRetryMs });
       saved.add(key);
       if (!out.reused) job.made += 1;
     }
@@ -318,6 +323,33 @@ export async function stopNarration(db: Db, ownerId: string, bookId: string, voi
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([job.done, new Promise<void>((resolve) => (timer = setTimeout(resolve, waitMs)))]);
   clearTimeout(timer);
+}
+
+export const SHUTDOWN_STOP = "Stopped: the site was restarting. Press Continue: saved paragraphs are not paid for again.";
+
+/**
+ * The server is shutting down (SIGTERM, a deploy: instrumentation.ts). Every run here stops before its next
+ * paragraph; the one being made is paid for, so it is saved first (verify-narration finding 1). This works only
+ * when the server lives on until then: `next start` waits for each run (the narration route hands its `done` to
+ * after()), and the host must allow the time (on Railway, RAILWAY_DEPLOYMENT_DRAINING_SECONDS; its default is 0,
+ * which ends the server at once). Returns the runs' `done`.
+ */
+export function stopNarrationsForShutdown() {
+  const going = [...jobs().values()].filter((j) => j.running);
+  for (const j of going) {
+    j.stopRequested = true;
+    j.shutdown = true;
+  }
+  return Promise.all(going.map((j) => j.done));
+}
+
+/** Calls stopNarrationsForShutdown on SIGTERM (instrumentation.ts, once when the server starts). */
+export function stopNarrationsOnSigterm() {
+  process.once("SIGTERM", () => {
+    void stopNarrationsForShutdown().then((runs) => {
+      if (runs.length) console.log(`  Shutting down: ${runs.length} narration run(s) stopped after saving their paragraph.`);
+    });
+  });
 }
 
 /** The owner's run going on in this server, if any (one at a time: see startNarration); the Import page shows it when it opens. */
