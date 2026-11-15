@@ -149,8 +149,14 @@ dropped: a call never costs more than its estimate (finding 1); the calls are on
 more orders than the code, never fewer.
 
 `RewriteAsYouTurn.cfg`: two pages of two paragraphs, 40 cents each (so two fit in $1 and a third
-does not), $1 = 100 cents; one reader in one tab; React may render late (`RefLag`, finding 9's
-condition) and the pane may be closed and opened again mid-loop (`PaneCanClose`, finding 10's).
+does not), $1 = 100 cents; one reader in one tab; the pane may be closed and opened again mid-loop
+(`PaneCanClose`, finding 10's condition). `RefLag = TRUE` (React renders late, finding 9's
+condition) is set too, but the fixed code keeps no copy that could lag: the model reads `ref` only
+under `Mutant = "paneRef"`, so the check of fix 9 is that broken variant breaking, and the test
+"the next page's view arrives before React renders the new total" failing on the old pane.
+The real pane copies `placeRef` in an effect after React renders; the model moves `place` with the
+page at once. `PaysOnlyForThePageOnScreen` rests on that: in the milliseconds between a turn and that
+render, a paragraph of the page just left can still be sent (as before the fix).
 `RewriteAsYouTurn-one-paragraph-over-a-dollar.cfg`: the same, with the first paragraph of page 2
 at $1.20. "Rewrite this page" is modelled only once the turned-to page's view has arrived. The
 model takes a paragraph's cost to be its estimate (`piece.estimate`, the price the pane shows): the
@@ -298,7 +304,9 @@ code no longer takes a step the models assume; each test names its action or fin
    `turnRef`, copied from the reader's state by an effect after React rendered, so a page answered
    in between started a loop from the old total. Now the total is in one `turnStore` kept by
    Reader.tsx and changed at once (`turns.change`); the pane reads it with `useSyncExternalStore`.
-   `RefLag = TRUE` in the main config; `-mutant-pane-ref` is the old code.
+   There is no copy left to lag, so the main config's `RefLag = TRUE` checks nothing here: the
+   evidence is `-mutant-pane-ref` (the old code) breaking `AsksBeforePayingPastOneDollar`, and the
+   pane test of finding 9 failing on the old pane with only fix 8 applied.
 10. **Closing the pane mid-loop left a loop Stop could not reach** (was `-finding-pane-closed-stop`
     and `-two-loops`). Now Stop changes the one store every loop reads; the store holds the "one
     loop" flag (`begin`/`end`), so a reopened pane waits for the closed pane's paragraph; the

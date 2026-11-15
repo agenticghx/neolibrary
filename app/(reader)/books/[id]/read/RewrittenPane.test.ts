@@ -80,14 +80,21 @@ async function mount() {
   return { root, controls };
 }
 
-/** Presses a button by its text, as React's own click handler would be called. */
-function press(text: string) {
-  const button = [...document.querySelectorAll("button")].find((b) => b.textContent?.startsWith(text));
-  if (!button) throw new Error(`No button "${text}" (on screen: ${document.body.textContent})`);
-  const props = Object.entries(button).find(([k]) => k.startsWith("__reactProps"))?.[1] as { onClick: () => void };
-  props.onClick();
+/** Presses a button by its text, as React's own click handler would be called (waiting up to 1 s for it to show). */
+async function press(text: string) {
+  for (let i = 0; i < 200; i++) {
+    const button = [...document.querySelectorAll("button")].find((b) => b.textContent?.startsWith(text));
+    const props = button && (Object.entries(button).find(([k]) => k.startsWith("__reactProps"))?.[1] as { onClick: () => void } | undefined);
+    if (props) return props.onClick();
+    await sleep(5);
+  }
+  throw new Error(`No button "${text}" (on screen: ${document.body.textContent})`);
 }
-const screenText = () => document.body.textContent ?? "";
+/** Waits up to 1 s for the pane to show this text. */
+async function shows(text: string) {
+  for (let i = 0; i < 200 && !(document.body.textContent ?? "").includes(text); i++) await sleep(5);
+  expect(document.body.textContent).toContain(text);
+}
 
 const paidPost = async (label: string, cost = 0.6) => {
   const post = await take(isPost, label);
@@ -107,15 +114,15 @@ describe("rewrite as you turn: never past $1 since the go-ahead without asking (
     const { root } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2", "a3"]));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     expect(await paidPost("a1")).toBe("a1");
     // $0.60 paid; a2 would make $1.20: it asks first, with the page's price and the total.
     expect(await noPost()).toEqual([]);
-    expect(screenText()).toContain("Keep rewriting? This page costs about $1.20. So far: 1 paragraph rewritten, about $0.60.");
-    press("Keep rewriting");
+    await shows("Keep rewriting? This page costs about $1.20. So far: 1 paragraph rewritten, about $0.60.");
+    await press("Keep rewriting");
     expect(await paidPost("a2")).toBe("a2");
     expect(await noPost()).toEqual([]);
-    expect(screenText()).toContain("Keep rewriting? This page costs about $0.60. So far: 2 paragraphs rewritten, about $1.20.");
+    await shows("Keep rewriting? This page costs about $0.60. So far: 2 paragraphs rewritten, about $1.20.");
     root.unmount();
   });
 
@@ -124,15 +131,15 @@ describe("rewrite as you turn: never past $1 since the go-ahead without asking (
     const { root, controls } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1"], 1.2));
     await sleep(20);
-    expect(screenText()).toContain("It costs about $1.20, once;");
-    press("Rewrite this page");
+    await shows("It costs about $1.20, once;");
+    await press("Rewrite this page");
     expect(await paidPost("a1", 1.2)).toBe("a1");
     // The next page also costs $1.20: it is not paid when turned to; it asks.
     controls.page?.("pageB");
     (await take(isGet("pageB"), "the next page")).reply(200, view(["b1"], 1.2));
     expect(await noPost()).toEqual([]);
-    expect(screenText()).toContain("Keep rewriting? This page costs about $1.20.");
-    press("Keep rewriting");
+    await shows("Keep rewriting? This page costs about $1.20.");
+    await press("Keep rewriting");
     expect(await paidPost("b1", 1.2)).toBe("b1");
     root.unmount();
   });
@@ -145,7 +152,7 @@ describe("rewrite as you turn: the total is current when a page arrives (finding
     // The page arrives: two paragraphs of 60 cents. You ask for a rewrite; a1 is sent.
     (await take(isGet("pageA"), "the first page")).reply(200, view(["a1", "a2"]));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     const a1 = await take(isPost, "a1");
     // You turn the page (React renders, and asks for the new page after 250 ms).
     controls.page?.("pageB");
@@ -157,7 +164,7 @@ describe("rewrite as you turn: the total is current when a page arrives (finding
     await microtasks();
     // b1 would make $1.20: nothing is sent; it asks. (Before the fix the new loop counted from $0 and sent b1 and b2.)
     expect(await noPost()).toEqual([]);
-    expect(screenText()).toContain("Keep rewriting? This page costs about $1.20. So far: 1 paragraph rewritten, about $0.60.");
+    await shows("Keep rewriting? This page costs about $1.20. So far: 1 paragraph rewritten, about $0.60.");
     root.unmount();
   });
 });
@@ -168,7 +175,7 @@ describe("rewrite as you turn: closing the pane mid-loop (finding 10)", () => {
     const { root, controls } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2"], 0.4));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     const a1 = await take(isPost, "a1");
     // You switch to Original (the pane closes) and open Side by side (a new pane); its page arrives.
     controls.show?.(false);
@@ -177,7 +184,7 @@ describe("rewrite as you turn: closing the pane mid-loop (finding 10)", () => {
     (await take(isGet("pageA"), "the page, in the new pane")).reply(200, view(["a1", "a2"], 0.4));
     // One loop at a time: the new pane waits for a1, which the closed pane's loop is still paying for.
     expect(await noPost()).toEqual([]);
-    press("Stop");
+    await press("Stop");
     await sleep(20);
     a1.reply(201, made("a1", 0.4));
     expect(await noPost()).toEqual([]);
@@ -189,7 +196,7 @@ describe("rewrite as you turn: closing the pane mid-loop (finding 10)", () => {
     const { root, controls } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2"], 0.4));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     const a1 = await take(isPost, "a1");
     controls.show?.(false);
     await sleep(20);
@@ -203,7 +210,7 @@ describe("rewrite as you turn: closing the pane mid-loop (finding 10)", () => {
     again.reply(200, made("a1", 0.4, true));
     expect(await paidPost("a2", 0.4)).toBe("a2");
     expect(await noPost()).toEqual([]);
-    expect(screenText()).toContain("So far: 2 paragraphs rewritten, about $0.80.");
+    await shows("So far: 2 paragraphs rewritten, about $0.80.");
     root.unmount();
   });
 
@@ -212,7 +219,7 @@ describe("rewrite as you turn: closing the pane mid-loop (finding 10)", () => {
     const { root, controls } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2"], 0.4));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     const a1 = await take(isPost, "a1");
     controls.show?.(false);
     await sleep(20);
@@ -228,10 +235,10 @@ describe("rewrite as you turn: Stop", () => {
     const { root } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1", "a2"], 0.4));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     const a1 = await take(isPost, "a1");
     await sleep(20);
-    press("Stop");
+    await press("Stop");
     await sleep(20);
     a1.reply(201, made("a1", 0.4));
     expect(await noPost()).toEqual([]);
@@ -243,14 +250,14 @@ describe("rewrite as you turn: Stop", () => {
     const { root, controls } = await mount();
     (await take(isGet("pageA"), "the page")).reply(200, view(["a1"], 0.4));
     await sleep(20);
-    press("Rewrite this page");
+    await press("Rewrite this page");
     expect(await paidPost("a1", 0.4)).toBe("a1");
     controls.page?.("pageB");
     (await take(isGet("pageB"), "the next page")).reply(200, view(["b1", "b2"], 0.4));
     expect(await paidPost("b1", 0.4)).toBe("b1");
     // $0.80 paid; b2 would make $1.20.
     expect(await noPost()).toEqual([]);
-    expect(screenText()).toContain("Keep rewriting? This page costs about $0.40. So far: 2 paragraphs rewritten, about $0.80.");
+    await shows("Keep rewriting? This page costs about $0.40. So far: 2 paragraphs rewritten, about $0.80.");
     root.unmount();
   });
 });
