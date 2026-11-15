@@ -29,8 +29,13 @@ and museum signage, not a software dashboard.
    the surfaces it sits on (`lib/tokens.test.ts`, WCAG AA: 4.5:1 for text,
    7:1 for main ink on paper) and axe-core checks every page in the browser.
 4. **Machine-written text looks different** (ground rule 5): its own tinted
-   background, a dashed left rule, sans-serif text and a label saying it was
-   written by AI. Book text is serif on paper; the reader's own notes are
+   background, a dashed left rule, sans-serif text and the AI mark: a small
+   sparkle in the block's top corner (`AiNote.tsx`), named "written by AI" for
+   screen readers. Opening it shows who wrote it, the full-STE score, the
+   reading level, the meaning choices (a dot on the mark says there are some)
+   and the model, date and cost. Samuel, 2026-11-15: these lines under every
+   rewritten paragraph distracted from comparing it with the book, so only the
+   text shows. Book text is serif on paper; the reader's own notes are
    italic serif. These three never look alike.
 5. **The room and its glass** (M24, Samuel's picks of 2026-10-14; the
    reasoning was in `docs/glass-redo-plan.md`, a file that was never committed). Behind every app page is a

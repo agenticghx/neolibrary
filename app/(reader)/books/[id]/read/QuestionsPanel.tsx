@@ -5,6 +5,7 @@ import { STYLE_NAMES, type Style } from "@/lib/library/levels";
 import { StudyTabs, VISITOR_TABS, type StudyTab } from "./StudyTabs";
 import type { QuestionsView } from "@/lib/library/questions";
 import styles from "./reader.module.css";
+import { AiNote } from "./AiNote";
 import { aiFetch } from "@/lib/own-keys";
 
 type Data = {
@@ -18,8 +19,6 @@ type Data = {
 
 const TYPE_LABEL = { recall: "Recall", understanding: "Understanding", application: "Application" } as const;
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
 /**
  * Question bank for the chapter being read (M6): answers stay hidden until
  * asked for; the reader marks each one right or wrong.
@@ -128,7 +127,7 @@ export function QuestionsPanel({ bookId, cfi, onTab, visitor = false }: { bookId
           <p className={styles.score} aria-live="polite" data-testid="question-score">
             {right} right · {wrong} wrong · {bank.questions.length - right - wrong} to go
           </p>
-          <aside className={styles.machine} aria-label="Machine-written questions" data-testid="questions">
+          <aside className={`${styles.machine} ${styles.machineNoted}`} aria-label="Machine-written questions" data-testid="questions">
             <p className={styles.machineLabel}>Question bank · written by {data.fake ? "the test AI" : "AI"}</p>
             <ol className={styles.questions}>
               {bank.questions.map((q) => {
@@ -158,14 +157,7 @@ export function QuestionsPanel({ bookId, cfi, onTab, visitor = false }: { bookId
                 );
               })}
             </ol>
-            {bank.ste ? (
-              <p className={styles.steBadge} title="Measured by the STE checker against full STE, whatever level was asked for">
-                STE {Math.round(bank.ste.score)}% (full-STE score)
-              </p>
-            ) : null}
-            <p className={styles.provenance}>
-              {bank.provenance.model} · {when(bank.provenance.createdAt)} · ${bank.provenance.costUsd.toFixed(bank.provenance.costUsd < 0.01 ? 4 : 2)}
-            </p>
+            <AiNote ste={bank.ste} provenance={bank.provenance} />
           </aside>
           <div className={styles.versionRow}>
             <span className={styles.versionCount}>{mine.length === 1 ? "Saved questions" : `Latest of ${mine.length} sets`}</span>

@@ -5,6 +5,7 @@ import { STYLE_NAMES, type Style } from "@/lib/library/levels";
 import { StudyTabs, VISITOR_TABS, type StudyTab } from "./StudyTabs";
 import type { PrerequisitesView } from "@/lib/library/prerequisites";
 import styles from "./reader.module.css";
+import { AiNote } from "./AiNote";
 import { aiFetch } from "@/lib/own-keys";
 
 type Data = {
@@ -17,8 +18,6 @@ type Data = {
 };
 
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
 /**
  * "What do I need to know?" for the chapter being read (M6): the concepts it
  * assumes, each in two lines with a link to read more. Machine-written, so it
@@ -104,7 +103,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab, visitor = false }: { bookI
       ) : null}
       {data && latest ? (
         <>
-          <aside className={styles.machine} aria-label="Machine-written explanations" data-testid="need-to-know">
+          <aside className={`${styles.machine} ${styles.machineNoted}`} aria-label="Machine-written explanations" data-testid="need-to-know">
             <p className={styles.machineLabel}>Before you read · written by {data.fake ? "the test AI" : "AI"}</p>
             {latest.concepts.length ? (
               <dl className={styles.concepts}>
@@ -123,15 +122,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab, visitor = false }: { bookI
             ) : (
               <p>Nothing came back for this chapter. Try again.</p>
             )}
-            {latest.ste ? (
-              <p className={styles.steBadge} title="Measured by the STE checker against full STE, whatever level was asked for">
-                STE {Math.round(latest.ste.score)}% (full-STE score)
-              </p>
-            ) : null}
-            <p className={styles.provenance}>
-              {latest.provenance.model} · {when(latest.provenance.createdAt)} · $
-              {latest.provenance.costUsd.toFixed(latest.provenance.costUsd < 0.01 ? 4 : 2)}
-            </p>
+            <AiNote ste={latest.ste} provenance={latest.provenance} />
           </aside>
           <div className={styles.versionRow}>
             <span className={styles.versionCount}>

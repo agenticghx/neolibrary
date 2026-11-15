@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { LEVELS, rewriteFor, STYLE_NAMES, strictnessFrom, type Strictness, type Style } from "@/lib/library/levels";
 import type { RewriteView } from "@/lib/library/rewrite";
-import { ReadabilityBadge } from "./ReadabilityBadge";
 import styles from "./reader.module.css";
+import { AiNote } from "./AiNote";
 import { aiFetch } from "@/lib/own-keys";
 
 type Data = {
@@ -19,8 +19,6 @@ type Data = {
 const MORE = ["biologist", "background", "shorter"] as const;
 
 const usd = (n: number) => (n < 0.01 ? "under $0.01" : `about $${n.toFixed(2)}`);
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
 /**
  * Rewrites of one paragraph (M6). The book's text stays as it is; each
  * rewrite is a stored version, styled as machine-written, with where it came
@@ -189,33 +187,19 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
       ) : null}
       {data && current ? (
         <>
-          <aside className={styles.machine} aria-label="Machine-written rewrite" data-testid="rewrite">
+          <aside className={`${styles.machine} ${styles.machineNoted}`} aria-label="Machine-written rewrite" data-testid="rewrite">
             <p className={styles.machineLabel}>
               Rewrite · {levelOf(current)} · written by {data.fake ? "the test AI" : "AI"}
             </p>
             {current.text.split(/\n{2,}/).map((para, i) => (
               <p key={i}>{para}</p>
             ))}
-            {current.ste ? (
-              <p className={styles.steBadge} title="Measured by the STE checker against full STE, whatever level was asked for">
-                STE {Math.round(current.ste.score)}% (full-STE score)
-              </p>
-            ) : null}
-            <ReadabilityBadge original={data.paragraph.text} rewrite={current.text} />
-            {current.meaningChanges.length ? (
-              <div className={styles.meaning}>
-                <p className={styles.machineLabel}>Meaning changes</p>
-                <ul>
-                  {current.meaningChanges.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <p className={styles.provenance}>
-              {current.provenance.model} · {when(current.provenance.createdAt)} · $
-              {current.provenance.costUsd.toFixed(current.provenance.costUsd < 0.01 ? 4 : 2)}
-            </p>
+            <AiNote
+              ste={current.ste}
+              readability={{ original: data.paragraph.text, rewrite: current.text }}
+              meaningChanges={current.meaningChanges}
+              provenance={current.provenance}
+            />
           </aside>
           <div className={styles.versionRow}>
             <button

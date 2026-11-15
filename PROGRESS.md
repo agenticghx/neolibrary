@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: After the next auto-merge, check its branch was deleted; confirm check 6 on ordinary PRs.
+next_action: Merge the Side by side divider and AI mark PR when green; Samuel looks on the iPad.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 06:44 · Claude Opus 5.5 · Side by side gets a draggable line between book and rewrite; machine-written blocks show only their text, details behind one AI mark
+- **Done:** Samuel, 2026-11-15 ('go for it'): (1) SideDivider.tsx, a line between the book and its rewrite (Side by side, computer only) dragged with mouse, finger or pen, moved with Left/Right/Home/End, put back with a double click; neither side under 20rem; kept on this device (side-width.ts, localStorage neolibrary:side-width, a share of the reading area) and laid out through --side-track in reader.module.css. (2) AiNote.tsx: each machine-written block (Rewritten pane, Rewrite panel, Question bank, Need to know) shows only its text; a sparkle in its corner opens who wrote it, the full-STE score, the reading level, the meaning choices (a dot on the mark when there are some) and the model, date and cost. docs/design.md rule 4 updated. In Playwright's Linux image the ai chain passed (284 tests) on the fifth run; screenshots looked at (desktop and phone, light and dark, the mark closed and open).
+- **Key paths:** app/(reader)/books/[id]/read/SideDivider.tsx; app/(reader)/books/[id]/read/side-width.ts (+ .test.ts); app/(reader)/books/[id]/read/AiNote.tsx (+ .module.css); app/(reader)/books/[id]/read/RewrittenPane.tsx, RewritePanel.tsx, QuestionsPanel.tsx, NeedToKnowPanel.tsx, Reader.tsx, reader.module.css; e2e/ai.spec.ts; docs/design.md
+- **Commands that worked:** npx tsc --noEmit; npm run lint (clean); npx vitest run side-width.test.ts (5 passed); zsh .claude/skills/browser-test-triage/scripts/linux-run.sh -- --project ai -> 284 passed; npm run check -> 1504 passed
+- **Known issues / blockers:** Linux runs of the ai chain so far: 1 failed of 263 four times, each a test fix (the grade badge now behind the mark; two summaries inside the mark; "1 meaning choice" also in the mark's spoken name; the new test left the account on Side by side, which the PDF test after it does not expect). The reader is signed-in only, so scripts/live-webkit-check.mjs cannot check it; Samuel's own look on the iPad is the check.
+- **Exact next steps:** 1. Merge this PR when green; it deploys itself (no migration). 2. Samuel: on the iPad, open a book, Rewritten > Side by side, drag the line, tap a sparkle. 3. Confirm check 6 on this PR's run.
 
 ### 2026-11-15 05:41 · Claude Opus 5.5 · #383 merged (screenshot branch kept to 30 pull requests, verified in CI); the auto-merge workflow now deletes the merged branch
 - **Done:** #383 merged (133870f1) by the auto-merge workflow after every check passed. Its own run was the first CI push of a pruned commit: ci-screenshots is one commit holding pull requests 351 to 383 (pr-383 in, pr-350 out), the publish step took 5 s (10:39:05 to 10:39:10 UTC), and the grid picture in the PR comment loads (200). GitHub's delete-on-merge setting (true) did not delete #383's branch 68 s after the merge made with the workflow's token; deleted by hand. This PR: auto-merge.yml passes --delete-branch, except when an open PR is based on the branch.
