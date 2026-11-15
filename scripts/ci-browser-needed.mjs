@@ -331,10 +331,13 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  *   what the ones before it made (tried on 2026-11-11, one cut at a time): audio and images use
  *   the links between books that the AI tests make, notes use audio the audio tests saved, and
  *   home's Continue card shows what the chain read last.
+ *   Shell and annotations moved to behavior-2 on 2026-11-14: nothing after them on this machine
+ *   needs what they make (each group run alone from an empty database), and behavior was the
+ *   slowest machine on every pull request (568 to 846 s of tests, the others 330 to 518).
  * - behavior-2: the screenshots (before any test adds data), then, after flows, uploads and
- *   reader have made the account, the books and the opened PDF: stats, own-paths, agents,
- *   offline, and open-shelf off stats. Split from behavior on 2026-11-11 so that no machine
- *   runs more than about eight minutes of tests (one machine took 12.7). Open-shelf once
+ *   reader have made the account, the books and the opened PDF: shell, annotations, stats,
+ *   own-paths, agents, offline, and open-shelf off stats. Split from behavior on 2026-11-11 so
+ *   that no machine runs more than about eight minutes of tests (one machine took 12.7). Open-shelf once
  *   needed the whole chain (alone after uploads, a visitor's new rewrite was not refused,
  *   2026-11-05); tried again on 2026-11-11 it passes alone after flows and uploads, and here.
  * - branches: the projects that hang off stats but make readers and books of their own;
@@ -349,11 +352,11 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
 export const BROWSER_GROUPS = {
   behavior: {
     support: [],
-    targets: ["flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "home"],
+    targets: ["flows", "uploads", "reader", "ai", "audio", "notes", "images", "home"],
   },
   "behavior-2": {
     support: ["flows", "uploads", "reader"],
-    targets: [...VISUAL, "stats", "own-paths", "agents", "offline", "open-shelf"],
+    targets: [...VISUAL, "shell", "annotations", "stats", "own-paths", "agents", "offline", "open-shelf"],
   },
   branches: {
     support: ["flows", "uploads"],

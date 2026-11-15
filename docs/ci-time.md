@@ -73,12 +73,17 @@ Each machine runs one **group** of projects (`BROWSER_GROUPS` in `scripts/ci-bro
 
 | Group | What it runs | When |
 |---|---|---|
-| `behavior` | the four screenshot projects, the chain from `flows` to `offline`, and `open-shelf` (it needs the state the whole chain leaves); Chromium only | any slice but narration-only |
+| `behavior` | the chain `flows`, `uploads`, `reader`, then `ai`, `audio`, `notes`, `images` and `home` (each needs what the ones before it made); Chromium only | behaviour slice |
+| `behavior-2` | the four screenshot projects (before any data), then after `flows`, `uploads` and `reader`: `shell`, `annotations`, `stats`, `own-paths`, `agents`, `offline` and `open-shelf`. Split from `behavior` on 2026-11-11; `shell` and `annotations` moved here on 2026-11-14 (see below) | any slice but narration-only |
 | `branches` | `review`, `covers`, `own-keys`, `focus`, then `shared-papers`; here they wait on `uploads`, not `stats` | behaviour slice |
 | `readalong` | `reader` (its PDF, "Discourse on the Method", is used by the audiobook file), the audiobook file in Chromium, then whole-book narration | readalong or narration slice |
 | `webkit` | `reader`, then Safari's highlight test and the audiobook file in WebKit. All of WebKit is on this machine, so the behavior machine is Chromium only. (This was tried on 2026-11-05 as a fix for the design screenshot's 2 px wobble on main; it is not the fix, see docs/ci-flakes.md.) | main and the night run, when the webkit or readalong slice is on |
 
 In `ci.yml`, `browser-plan` picks the slices and lists the machines (`node scripts/ci-browser-needed.mjs --groups <slices> <1 to skip WebKit>`). `e2e-group` starts one machine per group. `e2e` keeps the required check's name: it passes only when every machine passed, gathers the screenshots from all of them, checks the 2×2 grid, and posts it on the pull request. Each machine uploads its own `playwright-report-<group>` artifact.
+
+**Balance, 2026-11-14.** In twelve pull-request runs before this date, `behavior` was the slowest machine every time: 568 to 846 s in its Playwright step, against 398 to 518 for `behavior-2` and 331 to 408 for `branches`. In the slowest of them its projects took, one after another: `reader` 251 s, `ai` 126, `uploads` 71, `annotations` 65, `home` 46, `shell` 43, `audio` 41, `notes` 37, `images` 30, `flows` 14. `shell` and `annotations` moved to `behavior-2`, which already repeats `flows`, `uploads` and `reader`; nothing left on `behavior` needs what they make. Each group passed alone from an empty database in Playwright's Linux image (behavior 137 passed in 6.1 min; behavior-2 289 passed in 5.8 min; main's old behavior group 168 passed in 6.9 min on the same laptop).
+
+**Building the site once for all machines: not built (2026-11-14).** Each machine builds the site before its tests: about 76 s on GitHub's machines (#369, from `npx playwright test` to "Running 168 tests"). A build made once by another job would save that, but every machine would have to wait for that job to finish (checking out, installing, building and uploading, about 100 s) before its own installing could start, so the slowest machine would not finish sooner. It would save machine time, not waiting time.
 
 A new project goes in exactly one group's `targets` (a unit test fails otherwise). Before moving a project to another group, run that group alone from an empty database on the Mac: `CI=1 CI_BROWSER_GROUP=<group> npx playwright test --ignore-snapshots` (with `.data/` moved away first). A test that quietly used another project's data fails there.
 

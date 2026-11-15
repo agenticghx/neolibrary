@@ -336,21 +336,25 @@ describe("browser groups (one CI machine each)", () => {
     expect(depsOf(webkit, "readalong-safari")).toEqual(["reader"]);
   });
 
-  it("behavior keeps the chain from flows to images and home, without the screenshots, the branches, the audiobook or WebKit", async () => {
+  it("behavior keeps the chain from flows to images and home, without shell and annotations, the screenshots, the branches, the audiobook or WebKit", async () => {
     const projects = applyBrowserGroup(await allProjects(), "behavior");
-    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "shell", "reader", "annotations", "ai", "audio", "notes", "images", "home"]);
+    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "reader", "ai", "audio", "notes", "images", "home"]);
     expect(depsOf(projects, "flows")).toEqual(["setup"]);
+    expect(depsOf(projects, "reader")).toEqual(["uploads"]); // shell runs on the other machine
+    expect(depsOf(projects, "ai")).toEqual(["reader"]); // and annotations too
     expect(depsOf(projects, "audio")).toEqual(["ai"]); // audio and images use the links the AI tests make
     expect(depsOf(projects, "home")).toEqual(["images"]); // stats runs on the other machine
     expect(namesOf(projects)).not.toContain("safari"); // WebKit's packages on this machine moved Chromium's screenshots
   });
 
-  it("behavior-2 takes the screenshots first, then stats to offline and the open shelf, after flows, uploads and reader", async () => {
+  it("behavior-2 takes the screenshots first, then shell, annotations, stats to offline and the open shelf, after flows, uploads and reader", async () => {
     const projects = applyBrowserGroup(await allProjects(), "behavior-2");
-    expect(namesOf(projects)).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark", "flows", "uploads", "reader", "stats", "own-paths", "agents", "offline", "open-shelf"]);
+    expect(namesOf(projects)).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark", "flows", "uploads", "shell", "reader", "annotations", "stats", "own-paths", "agents", "offline", "open-shelf"]);
     expect(depsOf(projects, "flows")).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]); // screenshots before any data
-    expect(depsOf(projects, "reader")).toEqual(["uploads"]);
-    expect(depsOf(projects, "stats")).toEqual(["reader"]);
+    expect(depsOf(projects, "shell")).toEqual(["uploads"]);
+    expect(depsOf(projects, "reader")).toEqual(["shell"]);
+    expect(depsOf(projects, "annotations")).toEqual(["reader"]);
+    expect(depsOf(projects, "stats")).toEqual(["annotations"]);
     expect(depsOf(projects, "own-paths")).toEqual(["stats"]);
     expect(depsOf(projects, "offline")).toEqual(["agents"]);
     expect(depsOf(projects, "open-shelf")).toEqual(["stats"]);
