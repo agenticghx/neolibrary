@@ -3349,3 +3349,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** Each changed group alone from an empty database in Playwright's Linux image (`linux-run.sh --env CI_BROWSER_GROUP=<group>`); main's old `behavior` group the same way for comparison; the group unit tests.
 **Result.** New `behavior`: 137 passed (6.1 min). New `behavior-2`: 289 passed (5.8 min). Main's old `behavior`: 168 passed (6.9 min). Group unit tests: 30 passed. The CI times of this PR are in its description.
 **Lesson.** Before building a speed-up, measure which machine sets the pace: building once saves machine time, not waiting time.
+
+### Iteration 220 · 2026-11-14 (laptop clock) · The screenshot tests move to the branches machine · success (CI times to compare)
+
+**Hypothesis.** #372's own run ran every machine: `behavior-2` was the slowest (744 s), and its first 130 s were the four screenshot projects; `branches` was the lightest (332 s). With the screenshots on `branches` (where `flows` waits on them, so the pictures are still taken before any data), the slowest machine should be near `behavior`'s 665 s for every kind of change.
+**Action.** `BROWSER_GROUPS` in `scripts/ci-browser-needed.mjs`; its unit tests (a style-only change now starts the `branches` machine alone); `docs/ci-time.md`; check 6's row in `docs/version-2.md`, which still named building once as the next step.
+**Evaluation.** The group unit tests; the `branches` group alone from an empty database in Playwright's Linux image; CI's pixel comparison on this PR (local runs skip it).
+**Result.** Unit tests 30 passed. `branches` alone: 205 passed (3.9 min). CI times in the PR.
+**Lesson.** Read a rebalance's own run before calling it done: moving work off one machine can make the next one the slowest.

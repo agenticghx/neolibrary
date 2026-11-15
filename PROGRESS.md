@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Read the next ordinary PRs' CI times against the 12-minute target; then check 7's remaining items with no migration.
+next_action: Prove the branches group alone in the Linux image, then open the screenshots-to-branches PR.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-14
 shared_copy: none
@@ -188,6 +188,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-14 19:46 · Claude Opus 5.5 · CI: the screenshot tests move from behavior-2 to the branches machine (in progress)
+- **Done:** #372's own run showed behavior-2 the slowest when the screenshot tests run (744 s, of which about 130 s screenshots), branches the lightest (332 s). Moved the four screenshot projects to branches (flows there waits on them, so pictures come before any data). Corrected check 6's row in docs/version-2.md (building once set aside; the target means a slowest Playwright step of about 625 s or less; not met yet) and docs/ci-time.md.
+- **Key paths:** scripts/ci-browser-needed.mjs (BROWSER_GROUPS); lib/ci-browser-needed.test.ts; docs/ci-time.md; docs/version-2.md
+- **Commands that worked:** npx vitest run lib/ci-browser-needed.test.ts (30 passed); linux-run.sh --env CI_BROWSER_GROUP=branches (running)
+- **Known issues / blockers:** Not yet proved: the branches group alone in the Linux image; CI's pixel comparison (local runs skip it). Main's runs on 9b6fb852 and c1679d0f were still in progress.
+- **Exact next steps:** 1. When the branches run passes, open the PR; merge when green. 2. Read the next ordinary PRs' slowest Playwright step against about 625 s. 3. If still over, the build (about 76 s a machine) is the remaining lever: Next's build cache (not tried).
 
 ### 2026-11-14 19:42 · Claude Opus 5.5 · Checkpoint: due count live (54c0f83, #371); CI's slowest machine rebalanced (#372)
 - **Done:** #371 merged and live on both addresses (/api/health 54c0f83, /sign-in 200): the sidebar's due count reads all Explain it back parts in one query (62.8 to 23.8 ms with 60 attempts on a local copy of the live database; same queue). #372 merged (9b6fb852): shell and annotations moved from the behavior machine to behavior-2; its own run (every machine) took 14.0 min, behavior 665 s step (projects 603 s, 766 s before), behavior-2 744 s (with screenshots), readalong 739 s, branches 332 s. Building once measured and set aside. Exact next steps rewritten.

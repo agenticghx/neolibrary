@@ -334,14 +334,16 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  *   Shell and annotations moved to behavior-2 on 2026-11-14: nothing after them on this machine
  *   needs what they make (each group run alone from an empty database), and behavior was the
  *   slowest machine on every pull request (568 to 846 s of tests, the others 330 to 518).
- * - behavior-2: the screenshots (before any test adds data), then, after flows, uploads and
+ * - behavior-2: after flows, uploads and
  *   reader have made the account, the books and the opened PDF: shell, annotations, stats,
  *   own-paths, agents, offline, and open-shelf off stats. Split from behavior on 2026-11-11 so
  *   that no machine runs more than about eight minutes of tests (one machine took 12.7). Open-shelf once
  *   needed the whole chain (alone after uploads, a visitor's new rewrite was not refused,
  *   2026-11-05); tried again on 2026-11-11 it passes alone after flows and uploads, and here.
- * - branches: the projects that hang off stats but make readers and books of their own;
- *   here they wait on uploads only.
+ * - branches: the screenshots (before any test adds data: flows waits on them), then the
+ *   projects that hang off stats but make readers and books of their own; here they wait on
+ *   uploads only. The screenshots (about 130 s) moved here from behavior-2 on 2026-11-14: with
+ *   them, behavior-2 was the slowest machine (744 s on #372), and branches the lightest (332 s).
  * - readalong: the audiobook file in Chromium, then whole-book narration. It needs the PDF
  *   "Discourse on the Method", which reader.spec.ts uploads, so reader runs here too.
  * - webkit: everything in Safari's engine, on one machine (main and the night run only):
@@ -356,11 +358,11 @@ export const BROWSER_GROUPS = {
   },
   "behavior-2": {
     support: ["flows", "uploads", "reader"],
-    targets: [...VISUAL, "shell", "annotations", "stats", "own-paths", "agents", "offline", "open-shelf"],
+    targets: ["shell", "annotations", "stats", "own-paths", "agents", "offline", "open-shelf"],
   },
   branches: {
     support: ["flows", "uploads"],
-    targets: ["review", "covers", "own-keys", "eink", "focus", "shared-papers"],
+    targets: [...VISUAL, "review", "covers", "own-keys", "eink", "focus", "shared-papers"],
   },
   readalong: {
     support: ["flows", "uploads", "reader"],
