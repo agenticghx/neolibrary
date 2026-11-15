@@ -36,7 +36,7 @@ or (in the worst case) a whole book.
 
 ## Covered code
 
-Sync commit: `dfdfa4c0` (M44, branch m44-fix-spending; set it to the merge commit on `main` after the merge). At that commit the model below describes these files. Move the sync commit
+Sync commit: `a5e153d4` (M44, branch m44-fix-spending; holdCost in generate.ts does not touch speech holds; set it to the merge commit on `main` after the merge). At that commit the model below describes these files. Move the sync commit
 forward only after you have confirmed that the model describes the code at the new commit (see "When the code
 changes").
 

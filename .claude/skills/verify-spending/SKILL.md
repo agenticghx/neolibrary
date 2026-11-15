@@ -59,7 +59,7 @@ proves the rule can fail at all. The `*-chart.cfg` configs are small versions fo
 
 ## Covered code
 
-Sync commit: `dfdfa4c09568000da9b085da606fd36edfd90aa2` (the models were last confirmed to
+Sync commit: `a5e153d40394fb559dc358a2109772c6ed9273f2` (the models were last confirmed to
 describe the code at this commit, on branch m44-fix-spending. After a merge, set it to the merge commit on main: a squash-merge changes the hash, and check.sh stops with WRONG when it cannot find the commit).
 
 | File | What the models cover |
