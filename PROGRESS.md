@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Merge the Side by side divider and AI mark PR when green; Samuel looks on the iPad.
+next_action: Samuel looks at the draggable line and the AI mark on the iPad; check 7's rest waits on him.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-15
 shared_copy: none
@@ -192,6 +192,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-15 07:52 · Claude Opus 5.5 · Checkpoint: #385 live (fb5e370); the auto-merge workflow deleted its branch; setup-node@v5 ran on a real deploy
+- **Done:** #385 (draggable line in Side by side; AI blocks show only their text, details behind one mark) merged and deployed by the Deploy workflow (completed 2026-11-15 12:46 UTC). /api/health on both addresses shows fb5e370, /sign-in 200 on both. #384's change worked: #385's branch was deleted by the auto-merge workflow (git ls-remote: none left). The Deploy run's 'Run actions/setup-node@v5' step succeeded (first real use). #385's CI run took 11 minutes (check 6's target is 12).
+- **Key paths:** app/(reader)/books/[id]/read/SideDivider.tsx; app/(reader)/books/[id]/read/AiNote.tsx; .github/workflows/auto-merge.yml
+- **Commands that worked:** curl -s https://<address>/api/health; gh run view <deploy run> --json jobs; git ls-remote --heads origin m44-rewrite-quiet
+- **Known issues / blockers:** The reader is signed-in only, so the change is checked live only by Samuel's own look on the iPad.
+- **Exact next steps:** 1. Samuel: on the iPad held sideways, open a book, Rewritten > Side by side, drag the line, tap a sparkle; say what to change. 2. Check 7's rest waits on Samuel (live addresses in tracked files, Open unknowns rows 1, 12, 13, 27(3), two live-database looks, two laptop checkouts).
 
 ### 2026-11-15 06:44 · Claude Opus 5.5 · Side by side gets a draggable line between book and rewrite; machine-written blocks show only their text, details behind one AI mark
 - **Done:** Samuel, 2026-11-15 ('go for it'): (1) SideDivider.tsx, a line between the book and its rewrite (Side by side, computer only) dragged with mouse, finger or pen, moved with Left/Right/Home/End, put back with a double click; neither side under 20rem; kept on this device (side-width.ts, localStorage neolibrary:side-width, a share of the reading area) and laid out through --side-track in reader.module.css. (2) AiNote.tsx: each machine-written block (Rewritten pane, Rewrite panel, Question bank, Need to know) shows only its text; a sparkle in its corner opens who wrote it, the full-STE score, the reading level, the meaning choices (a dot on the mark when there are some) and the model, date and cost. docs/design.md rule 4 updated. In Playwright's Linux image the ai chain passed (284 tests) on the fifth run; screenshots looked at (desktop and phone, light and dark, the mark closed and open).
