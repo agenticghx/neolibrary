@@ -49,8 +49,7 @@ code, in the pretend browser of `lib/reader/outbox-test-kit.ts`, which `replay.t
 
 ## Does my change touch the verified code?
 
-Sync commit: **109aea88** (2026-11-15, branch `m44-fix-outbox`; if the branch is squash-merged, the merge commit
-on main replaces it: put its hash here). At that commit the model was confirmed to describe these files:
+Sync commit: **f5fe466d** (2026-11-15, on main: the fixes as merged in #391). At that commit the model was confirmed to describe these files:
 
 | File | What the model covers (line numbers at the sync commit) |
 |---|---|
