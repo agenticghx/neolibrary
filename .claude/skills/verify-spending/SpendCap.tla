@@ -54,7 +54,7 @@ CONSTANTS
 
 ASSUME Mutant \in {"none", "noLock", "releaseBeforeSave", "noFailedSpendRecord", "releaseOnlyOnSuccess",
                    "holdsInMemory", "textEditionOutsideLock", "lostAnswerNotRecorded",
-                   "holdTheLikelyCost", "noSecondLook"}
+                   "holdTheLikelyCost", "noSecondLook", "topLevelUsageOnly"}
 
 \* What reserveSpend holds for each call: holdCost, the most it can be billed (M44, finding 1).
 \* Mutant "holdTheLikelyCost" (the code before the fix): estimateCost, the likely cost.
@@ -140,9 +140,10 @@ LockFree(c) == Mutant = "noLock" \/ lock[LockOf(c)] = Free
 \* (declined changes only in TheAiFallsBackAndAnswers, which lists these itself.)
 UnchangedTe == UNCHANGED <<te, teSeen, teHold, teBilled, teRecorded, declined>>
 
-\* What the code writes as call c's cost: claude.ts reads the top-level usage, which covers only the
-\* attempt that produced the answer, so a declined attempt before a fallback rescue is not in it.
-Reported(c) == billed[c] - declined[c]
+\* What the code writes as call c's cost: claude.ts sums usage.iterations, every attempt of the call,
+\* so a declined attempt before a fallback rescue is in it (callCostUsd). Mutant "topLevelUsageOnly"
+\* (the code before): only the top-level usage, which covers the attempt that produced the answer.
+Reported(c) == IF Mutant = "topLevelUsageOnly" THEN billed[c] - declined[c] ELSE billed[c]
 
 -----------------------------------------------------------------------------
 (* generate(): one call's steps *)

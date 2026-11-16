@@ -46,11 +46,26 @@ export class ClaudeModel implements TextModel {
     }
     const write = response.usage.cache_creation_input_tokens ?? 0;
     const read = response.usage.cache_read_input_tokens ?? 0;
+    // The top-level usage covers only the last attempt. When the requested model declined and the API's
+    // fallback ran in the same call, `usage.iterations` lists every attempt, and each is billed.
+    const attempts = (response.usage.iterations ?? []).flatMap((it) =>
+      it.type === "message" || it.type === "fallback_message"
+        ? [
+            {
+              model: it.model ?? this.model,
+              inputTokens: it.input_tokens + it.cache_creation_input_tokens + it.cache_read_input_tokens,
+              outputTokens: it.output_tokens,
+              cache: { write: it.cache_creation_input_tokens, read: it.cache_read_input_tokens },
+            },
+          ]
+        : [],
+    );
     const used = {
       model: response.model,
       inputTokens: response.usage.input_tokens + write + read,
       outputTokens: response.usage.output_tokens,
       cache: { write, read },
+      ...(attempts.length > 1 ? { earlier: attempts.slice(0, -1) } : {}),
     };
     // An answer that cannot be used was still answered: the error carries what the API says it used.
     const unusable = <E extends AiError>(e: E) => Object.assign(e, { billed: used });

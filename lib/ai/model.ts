@@ -24,7 +24,12 @@ export type TextResult = {
   outputTokens: number;
   /** How many of the input tokens were written to Anthropic's prompt cache, and how many were read from it. */
   cache?: CacheTokens;
+  /** Attempts in the same call that declined before `model` answered (the API's fallback): billed too, at their own model's price. */
+  earlier?: Attempt[];
 };
+
+/** What one attempt at a call used, as the API reports it. */
+export type Attempt = { model: string; inputTokens: number; outputTokens: number; cache?: CacheTokens };
 
 export type CacheTokens = { write: number; read: number };
 
@@ -41,7 +46,7 @@ export class AiError extends Error {
    * Set when the service answered, and so charged, but the answer cannot be used (declined, cut off, empty):
    * what it says it used. The spending cap counts it (lib/ai/generate.ts).
    */
-  billed?: { model: string; inputTokens: number; outputTokens: number; cache?: { write: number; read: number } };
+  billed?: Attempt & { earlier?: Attempt[] };
 }
 /** No API key is set, so real calls are impossible. */
 export class AiNotConfigured extends AiError {}
@@ -76,6 +81,11 @@ const HAIKU_LONG = { input: 0.5, output: 2.5, cacheWrite: 0.625, cacheRead: 0.05
  * (the rest at the full input price). Haiku's prompt length counts cached
  * tokens too, as Anthropic counts it.
  */
+/** The cost of a whole call: the attempt that answered (or last declined) plus every attempt before it in the same call. */
+export function callCostUsd(call: Attempt & { earlier?: Attempt[] }) {
+  return [call, ...(call.earlier ?? [])].reduce((sum, a) => sum + costUsd(a.model, a.inputTokens, a.outputTokens, a.cache), 0);
+}
+
 export function costUsd(model: string, inputTokens: number, outputTokens: number, cache: CacheTokens = { write: 0, read: 0 }) {
   const p = model === "claude-haiku-5-5" && inputTokens > 100_000 ? HAIKU_LONG : (PRICES[model] ?? UNKNOWN);
   const uncached = Math.max(0, inputTokens - cache.write - cache.read);

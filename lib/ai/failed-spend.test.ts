@@ -70,6 +70,30 @@ describe("a billed call that gave nothing usable", () => {
     expect(await database.db.select().from(failedSpend)).toHaveLength(2);
   });
 
+  it("counts the declined attempt too when the API's fallback model answered in the same call", async () => {
+    const declined = { model: MODEL, inputTokens: 50_000, outputTokens: 0, cache: { write: 0, read: 0 } };
+    const rescued: TextModel = {
+      provider: "anthropic",
+      model: MODEL,
+      generate: async () => ({ text: "A plainer paragraph.", model: "claude-opus-5", inputTokens: 50_000, outputTokens: 2000, earlier: [declined] }),
+    };
+    const { generation } = await generate(database.db, rescued, request("rescued"), { now: () => now });
+    const both = costUsd(MODEL, 50_000, 0) + costUsd("claude-opus-5", 50_000, 2000);
+    expect(generation.provenance.costUsd).toBeCloseTo(both);
+    expect((await spending(database.db, "anthropic", null, now)).month).toBeCloseTo(both);
+    // A whole chain that declined is a billed failure of both attempts.
+    const refusedTwice: TextModel = {
+      provider: "anthropic",
+      model: MODEL,
+      generate: async () => {
+        throw Object.assign(new AiError("Declined."), { billed: { model: "claude-opus-5", inputTokens: 50_000, outputTokens: 0, earlier: [declined] } });
+      },
+    };
+    await expect(generate(database.db, refusedTwice, request("declined"), { now: () => now })).rejects.toThrow("Declined.");
+    const [row] = await database.db.select().from(failedSpend);
+    expect(row.costUsd).toBeCloseTo(costUsd(MODEL, 50_000, 0) + costUsd("claude-opus-5", 50_000, 0));
+  });
+
   it("records nothing when the service did not answer at all", async () => {
     const down: TextModel = { provider: "anthropic", model: MODEL, generate: async () => Promise.reject(new AiError("Claude could not answer (529).")) };
     await expect(generate(database.db, down, request("x"), { now: () => now })).rejects.toThrow("529");

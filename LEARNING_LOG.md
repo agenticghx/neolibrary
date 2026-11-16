@@ -3517,3 +3517,11 @@ CI then failed the text-edition test twice at phone size ("the table is 584 px w
 **Evaluation.** `sh .claude/skills/verify-spending/check.sh`: "ok no covered file changed since 7d1213b1…", "all as expected".
 **Result.** All three checks name a commit on main.
 **Lesson.** Set a sync commit in the pull request after the one that changes covered code, or record content rather than a commit; a branch hash does not survive a squash merge.
+
+### Iteration 241 · 2026-11-16 (laptop clock) · Open unknowns 38-40 settled; a fallback rescue's cost recorded in full · success (one part left on purpose)
+
+**Hypothesis.** Samuel answered rows 38-40 with "go with your recommendation". Of the recommended steps, two act: a call that Claude declines and the API's fallback model answers is billed for both attempts, and reading `usage.iterations` (each attempt's usage, per the Claude API docs) would record both; and Railway's draining time, set above 0 s, lets #393's stop-at-SIGTERM code save the narration paragraph being paid for.
+**Action.** `claude.ts` returns the attempts before the last as `earlier`; `callCostUsd` (model.ts) prices each at its own model's price; `generate` writes it for answers and billed failures. The model's `Reported` now counts every attempt; the old code is the mutant `SpendCap-mutant-top-level-usage-only`. `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=60` set on the web service (`--skip-deploys`; the next deploy uses it). Rows 38-40 closed, with a Decisions line.
+**Evaluation.** The new `failed-spend.test.ts` test failed with the old cost line restored and passes with the fix; `claude.test.ts` and `failed-spend.test.ts` 16 passed; `npm run check` 1547 passed. TLC: the mutant breaks `EveryChargeRecordedOnce`, the same setup with the fix exits 0, `SpendCap` exits 0, and the finding config still breaks `CapNeverPassed` (the hold covers one attempt). `check.sh`: all as expected. `railway variable list … --kv` shows the setting at 60. Nothing a reader sees changed, so no browser run.
+**Result.** A fallback rescue now costs what was billed in the records and the limits. Left by choice: the hold before a call covers one attempt; text editions hold 1,000 answer tokens a page; no narration migration.
+**Lesson.** When an API reports cost per attempt, record the sum of attempts, not the top-level figure.
