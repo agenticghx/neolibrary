@@ -51,7 +51,8 @@ covered code changed since the sync commit. Its last line is the verdict:
 There are three kinds of config. `SpendCap.cfg` and `RewriteAsYouTurn.cfg` are **the main
 checks**: the code as it is, under the assumptions below; every rule must hold
 (`RewriteAsYouTurn-one-paragraph-over-a-dollar.cfg` is a second main check, with one paragraph
-that alone costs $1.20). A
+that alone costs $1.20; `SpendCap-fallback-recorded.cfg` is a third, with a fallback rescue and caps high
+enough that only the recording rules can break: the control for `SpendCap-mutant-top-level-usage-only`). A
 `*-finding-*.cfg` turns on one condition the code does not handle and **must break** the rule it
 names: these are the known findings, kept so that a fix shows up. A `*-mutant-*.cfg` is a
 **broken variant** of the code (switched by the `Mutant` constant) that must break its rule: it
@@ -66,7 +67,7 @@ describe the code at this commit, on main: #393 as merged. After a squash-merge,
 |---|---|
 | `lib/ai/generate.ts` | `generate` (findStored, copyShared, the `inflight` map, reserve, call, insert, `hold.billed`, `hold.release`), `reserveSpend` and the hold it returns, `withSpendLock` (the Postgres advisory lock, behind `lockSpend`'s in-process queue), `assertRoom`, `spending`, `heldByCalls` (hold rows: `failed_spend`, kind `spend-hold`), `heldByJobs`, `heldNow`, `spendingWithJobs`, `bookGroup`, `estimateCost` (the likely cost, shown), `holdCost` and `HOLD_OVERHEAD_TOKENS` (the most a call can cost, held) |
 | `lib/ai/model.ts` | `costUsd`, `estimateTokens`, `PRICES`, `AiError.billed` |
-| `lib/ai/claude.ts` | which failures carry `billed`; which usage it reports (the top-level one: finding 1, what is left (a)) |
+| `lib/ai/claude.ts` | which failures carry `billed`; which usage it reports (every attempt in `usage.iterations`, as `earlier`: finding 1 (a)) |
 | `lib/library/text-edition.ts` | `textEditionSummary` (its cap check, shown) and `startTextEdition` (the check again and the job row that holds its estimate, both under `withSpendLock`) |
 | `lib/library/audio.ts`, `pictures.ts`, `voice-notes.ts` | `speak`, `makePicture`, the voice-note transcript: the same reserve, call, write, `billed`/`release` steps as `generate` (not modelled one by one; finding 4's fix tested in `lib/ai/spend-holds.test.ts` for `speak` and `makePicture`). Since M44's narration fixes (verify-narration findings 2 and 3), `speak` keeps paid audio whose save fails in the server's memory with its hold unsettled, and the next request for those words saves it and calls `release()`; `billed()` comes only when a kept one is dropped (more than 20 kept). The hold is the estimate, which for speech is the real cost. |
 | `lib/library/rewritten-turn.ts`, `lib/player/session.ts` | `goAhead`, `paidFor`, `mayPay`, `turnStore` (`get`, `change`, `begin`, `end`, `onEnd`), `ASK_AGAIN_USD` |
@@ -125,7 +126,7 @@ code between two `await`s.
 | `TakeLockAndReadSpending` | `reserveSpend`: `withSpendLock` (this process's `lockSpend` turn, then a transaction that takes `pg_advisory_xact_lock`), then `spending` and `heldNow` on the transaction (hold rows of every server included). Other calls' `generations` inserts may land meanwhile (not under the lock); their holds stay until their release, which waits for the lock |
 | `DecideAndHold` | `assertRoom(spent, held, holdCost(model, req), …)`; passing: insert the hold row (`failed_spend`, kind `spend-hold`); the transaction commits and the lock goes. Refused: `SpendingCapReached`, and `generate`'s `finally` deletes the `inflight` entry |
 | `TheAiAnswers` / `TheAiFailsButBills` / `TheAiFailsUnbilled` | `model.generate` returns / throws an `AiError` with `billed` / throws without `billed` |
-| `TheAiFallsBackAndAnswers` | `model.generate` returns an answer from the API's fallback model (`fallbacks: "default"`) after the requested model declined: both attempts billed, `claude.ts` reports the top-level usage (the fallback's) only |
+| `TheAiFallsBackAndAnswers` | `model.generate` returns an answer from the API's fallback model (`fallbacks: "default"`) after the requested model declined: both attempts billed and both reported (`earlier`, summed by `callCostUsd`) |
 | `SaveTheAnswer` | `db.insert(generations)` with `costUsd(result…)`, outside the lock (the hold still counts, so the cost is counted twice for a moment: too much, never too little) |
 | `SaveFails` | that insert throws |
 | `RecordTheLostAnswer` | `hold.billed(…)` in that `catch`: under the lock, one UPDATE turns the hold row into a `failed_spend` row of the answer's real cost, "Paid, but the answer could not be saved" |
@@ -197,14 +198,20 @@ that passes while the bug is there. Steps are in the code's words.
 
 1. **Partly fixed in M44: a call can cost more than its estimate.** `generate` now holds `holdCost`,
    the most the call can be billed (see "Fixed"). What is left:
-   - (a) **A refusal rescued by the fallback model** (`SpendCap-finding-fallback-not-counted`,
-     `CapNeverPassed`). `claude.ts` asks for `fallbacks: "default"` (not on Haiku). 1. reserve: the hold
-     covers one attempt. 2. the requested model declines and the fallback model answers in the same
-     call; both attempts are billed (the Claude API docs: "`usage.iterations` is the per-attempt source
-     of truth; top-level `usage` covers only the attempt that produced the returned message"). 3.
-     `claude.ts` returns the top-level usage, and `insert generations` writes the fallback's cost only.
-     The declined attempt's cost is counted nowhere. Fixing it needs both: sum `usage.iterations` in
-     `claude.ts`, and hold two attempts (the fallback's at its own price) for models that fall back.
+   - (a) **A refusal rescued by the fallback model: recorded since M44, still held once**
+     (`SpendCap-finding-fallback-not-counted`, `CapNeverPassed`). `claude.ts` asks for
+     `fallbacks: "default"` (not on Haiku). 1. reserve: the hold covers one attempt. 2. the requested
+     model declines and the fallback model answers in the same call; both attempts can be billed (the
+     Claude API docs: "`usage.iterations` is the per-attempt source of truth; top-level `usage` covers
+     only the attempt that produced the returned message"; a decline before any output is billed only in
+     the categories bio, frontier_llm and reasoning_extraction, as of 2026-11-16; the code counts it
+     always, too much rather than too little). 3. `claude.ts` now reads
+     `usage.iterations` and returns the earlier attempts as `earlier`; `generate` writes `callCostUsd`,
+     both attempts at their own prices (Samuel, 2026-11-16: "go with your recommendation"; the old
+     code is `SpendCap-mutant-top-level-usage-only`). What is left: while the call runs, the hold
+     covers one attempt, so a call that falls back near a cap can pass it by the declined attempt's
+     cost; the next call's check sees it. Holding two attempts for models that fall back would close
+     it, at the price of refusing calls sooner near a cap.
    - (b) **A text edition can cost more than it holds** (`SpendCap-finding-text-edition-above-estimate`,
      `CapNeverPassed`). The job holds `pageEstimateUsd` a page (1,000 output tokens); each page's
      request allows `MAX_TOKENS` (8,000). On Sonnet 5.5 (batch prices): $0.0102 held a page, $0.0452 at
@@ -228,6 +235,7 @@ numbers in older notes still point at the right finding.
 | `SpendCap-mutant-no-lock` | `reserveSpend` without `withSpendLock` | `CapNeverPassed` |
 | `SpendCap-mutant-no-second-look` | the job goes from `inflight.set` straight to `reserveSpend`, as before M44 (finding 7 comes back) | `PaidOncePerAnswer` |
 | `SpendCap-mutant-hold-the-likely-cost` | `generate` holds `estimateCost` (the likely cost) instead of `holdCost`, as before M44 (finding 1 comes back) | `CapNeverPassed` |
+| `SpendCap-mutant-top-level-usage-only` | `claude.ts` reports only the top-level usage, as before M44 (a declined attempt before a fallback rescue is never written) | `EveryChargeRecordedOnce` |
 | `SpendCap-mutant-release-before-save` | `hold.release()` before `insert generations` | `ChargedMoneyAlwaysCounted` |
 | `SpendCap-mutant-release-only-on-success` | `hold.release()` only after a saved answer | `ReservationReleasedOnce` |
 | `SpendCap-mutant-no-failed-spend` | `hold.release()` instead of `hold.billed()` for a billed failure | `EveryChargeRecordedOnce` |
@@ -334,6 +342,12 @@ No migration: the table already counted toward `spending`.
   ($0.0319 and $0.1222 on Opus 5.5). What is left: (a) and (b) under "Known findings". `speak`,
   `makePicture` and the voice note hold the price they compute before the call (per character, per
   picture, per second of audio); M44 did not change them.
+- **1 (a), recording (2026-11-16)**: `claude.ts` returns every attempt of a call from `usage.iterations`
+  (`earlier`), and `generate` writes `callCostUsd`, their sum at each model's price. Tests:
+  `lib/ai/claude.test.ts` "reports every attempt of a call the fallback rescued", `lib/ai/failed-spend.test.ts`
+  "counts the declined attempt too" (fails on the old code). Model: `SpendCap-mutant-top-level-usage-only`
+  (the old code) breaks `EveryChargeRecordedOnce`; `SpendCap-fallback-recorded` holds. The hold half is
+  still open (Known findings 1 (a)).
 - **2. A scan and its text edition**: the hold row carries its `bookId`; `heldByCalls` sums the whole
   `bookGroup`. Test: `lib/ai/spend-holds.test.ts`, "finding 2".
 - **3. A text edition's start**: `startTextEdition` reads what is spent and held again, and writes its job

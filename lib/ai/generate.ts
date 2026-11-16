@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { isOwnKeyProvider } from "./own-key";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, failedSpend, generations, textEditionJobs } from "@/lib/db/schema";
-import { AiError, PRICES, costUsd, estimateTokens, type Effort, type TextModel, type TextResult } from "./model";
+import { AiError, PRICES, callCostUsd, costUsd, estimateTokens, type Effort, type TextModel, type TextResult } from "./model";
 import { sha256 } from "./prompts";
 
 /**
@@ -122,8 +122,8 @@ export const HOLD_OVERHEAD_TOKENS = 2000;
  * maxTokens (thinking counts within it). Input: no more tokens than the
  * request's bytes (a token is at least one byte), plus HOLD_OVERHEAD_TOKENS,
  * all priced as written to the prompt cache (the dearest input price). Not
- * covered: a refusal rescued by the API's fallback model, billed on top
- * (SKILL.md, finding 1, what is left).
+ * covered: the declined attempt before a fallback rescue (recorded in full
+ * after the call; SKILL.md, finding 1, what is left).
  */
 export function holdCost(model: TextModel, req: Pick<GenerationRequest, "system" | "prompt" | "maxTokens" | "schema">) {
   const bytes = (s: string) => Buffer.byteLength(s, "utf8");
@@ -485,14 +485,14 @@ export async function generate(
             model: e.billed.model,
             inputTokens: e.billed.inputTokens,
             outputTokens: e.billed.outputTokens,
-            costUsd: costUsd(e.billed.model, e.billed.inputTokens, e.billed.outputTokens, e.billed.cache),
+            costUsd: callCostUsd(e.billed),
             reason: e.message,
           })
           .catch(keptHold);
       } else await hold.release().catch(keptHold);
       throw e;
     }
-    const cost = costUsd(result.model, result.inputTokens, result.outputTokens, result.cache);
+    const cost = callCostUsd(result);
     let row: Row;
     try {
       [row] = await db

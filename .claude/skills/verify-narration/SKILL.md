@@ -15,12 +15,13 @@ Create; one runs at a time; it never pays for a paragraph that is already saved;
 paragraph being made; it pays for no more than the cost the box stated; no paragraph is paid for twice; and what the
 voice bills never passes the spending limits.
 
-**What passes today.** Seven of these promises hold within the bounds below (`Narration.cfg` exits 0). One does
-not, on the live site as it is set up today: a paragraph can be paid for twice (PaidOnce), when the site restarts
-(a deploy) while that paragraph is being paid for (finding 1). Railway ends the old server at once after telling it
-to stop, so the paid audio is lost and Continue pays again. The code to prevent this is in (M44): the run stops after
-the paragraph being made and the server waits for it. It works only once Railway gives the server time to finish
-(`RAILWAY_DEPLOYMENT_DRAINING_SECONDS`, see finding 1); `NarrationGrace.cfg` shows that PaidOnce then holds, and
+**What passes today.** Seven of these promises hold within the bounds below (`Narration.cfg` exits 0). The eighth,
+no paragraph paid for twice (PaidOnce), broke when the site restarted (a deploy) while a paragraph was being paid for
+(finding 1): Railway ended the old server at once after telling it to stop, so the paid audio was lost and Continue
+paid again. Since 2026-11-16 Railway gives the old server 60 seconds (`NarrationGrace.cfg` is the live site, for a
+paragraph that finishes in that time); a paragraph that takes longer still breaks it (`NarrationFindings.cfg`). The code to prevent this is in (M44): the run stops after
+the paragraph being made and the server waits for it. It works only when Railway gives the server time to finish
+(`RAILWAY_DEPLOYMENT_DRAINING_SECONDS`, set to 60 seconds on 2026-11-16, see finding 1); `NarrationGrace.cfg` shows that PaidOnce then holds, and
 `NarrationFindings.cfg` keeps the break in view until then. Findings 2 (a failed save) and 3 (two paragraphs with
 the same words) were fixed in M44; finding 4 (the old server running on beside the new one) is open and needs a
 setting or a migration. The voice's bill passing a limit (WithinLimits) was fixed in M44: a paragraph's hold (its
@@ -66,7 +67,7 @@ Files in this folder:
 | `Narration.cfg` | the main check: every rule that holds today (expect exit 0) |
 | `NarrationNoKnownCauses.cfg` | the second check: all eight rules with the open findings' cause (restarts) switched off; repeated text and a failed save stay in (expect exit 0) |
 | `NarrationGrace.cfg` | all eight rules, with a restart when the host gives the old server time after SIGTERM (finding 1's fix; expect exit 0) |
-| `NarrationFindings.cfg` | the one rule the code breaks on Railway as set up today, finding 1 (expect exit 12) |
+| `NarrationFindings.cfg` | the one rule the code breaks when the old server gets no time after SIGTERM: Railway before 2026-11-16, or a paragraph that outlasts the 60 s it gets now (finding 1; expect exit 12) |
 | `NarrationOverlap.cfg` | every rule, when the old server runs on after a restart, finding 4 (expect exit 12) |
 | `NarrationFlow.cfg` | small bounds for the chart |
 | `narration-view.mjs` | labels for states and steps in Samuel's words, for the statechart skill |
@@ -101,9 +102,10 @@ in Samuel's words, and draws a chart when the states fit. After the first broken
 states and can list some rules under "Rules not checked". Settle each such rule with plain TLC on a scratch copy of
 the config that lists only the rules not yet broken.
 
-Two constants describe the host. `HostGrace = FALSE` is Railway as set up today: SIGKILL right after SIGTERM, so a
-restart loses every paid call on its way. `HostGrace = TRUE` is Railway with `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`
-long enough for one paragraph. `AskWhileDraining` says whether you press Create or Listen in the seconds while the
+Two constants describe the host. `HostGrace = FALSE` is SIGKILL right after SIGTERM (Railway before 2026-11-16, or a
+paragraph that outlasts the draining time), so a restart loses every paid call on its way. `HostGrace = TRUE` is
+Railway with `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` long enough for one paragraph: the live site since 2026-11-16
+(60 s), for a paragraph and its save that finish within it. `AskWhileDraining` says whether you press Create or Listen in the seconds while the
 old server finishes (it then takes no requests; the new one does).
 
 | Config | Exit today | Rules that break today | Rules that hold |
@@ -111,7 +113,7 @@ old server finishes (it then takes no requests; the new one does).
 | `Narration.cfg` | 0 | none | OnlyTheOwnerStarts, OnlyAfterYouConfirm, OneRunAtATime, StopPaysAtMostOneMore, SavedNeverPaidAgain, NoMoreThanYouConfirmed, WithinLimits |
 | `NarrationNoKnownCauses.cfg` | 0 | none | all eight (with repeated text and a failed save, since M44) |
 | `NarrationGrace.cfg` | 0 | none | all eight (finding 1's fix, with the host's grace and nothing pressed meanwhile) |
-| `NarrationFindings.cfg` | 12 | PaidOnce (finding 1, with Railway's 0 seconds) | (only PaidOnce is listed) |
+| `NarrationFindings.cfg` | 12 | PaidOnce (finding 1, with no time after SIGTERM) | (only PaidOnce is listed) |
 | `NarrationOverlap.cfg` | 12 | OneRunAtATime, StopPaysAtMostOneMore, NoMoreThanYouConfirmed, PaidOnce (finding 4) | OnlyTheOwnerStarts, OnlyAfterYouConfirm, SavedNeverPaidAgain, WithinLimits |
 | `NarrationFlow.cfg` (the chart only) | 0 | none | all eight |
 
@@ -197,8 +199,8 @@ failed on the fixed code and are now real tests (`lib/library/narration.test.ts`
 twice"), which fail on the code before the fix. The part of findings 1, 2 and 4 that passed a limit (WithinLimits)
 was fixed in M44 too.
 
-1. **A restart while a paragraph is being paid for.** (PaidOnce; partly fixed in M44: the code is in, the setting
-   is not)
+1. **A restart while a paragraph is being paid for.** (PaidOnce; partly fixed in M44: the code is in, and since
+   2026-11-16 the setting is too, at 60 seconds)
    1. You press Create; `run` comes to paragraph 1; `speak` finds no saved track, `reserveSpend` holds its estimate,
       `model.speak` sends the request (billed).
    2. The site restarts (a deploy). Railway sends SIGTERM and, with `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` unset,
@@ -218,7 +220,12 @@ was fixed in M44 too.
    progress was saved; without it, 13 ms (25 ms) after, with the paragraph lost. Test: narration.test.ts "finding 1" (Stop at SIGTERM, then
    Continue on a new server pays for nothing twice); route.test.ts checks the after() hand-off.
 
-   **What is left.** With Railway as it is today, nothing changes: each deploy during a run costs the paragraph
+   **The setting (2026-11-16).** `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=60` is set on the web service in production
+   (Samuel: "go with your recommendation"; read back with `railway variable list --service web --environment
+   production --kv`). Not yet watched on a real deploy during a run. A paragraph and its save that take more than
+   60 s are still lost as below.
+
+   **What is left.** Without that setting, nothing changes: each deploy during a run costs the paragraph
    being paid for, once more (one paragraph's price, e.g. $0.30 for 1,000 characters at $0.30 per 1,000), plus any
    Listen bar paragraph on its way (one per reader on an EPUB, up to two on a PDF, which looks one page ahead). All
    of it is counted against the limits. **Setting that closes it:** `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` longer

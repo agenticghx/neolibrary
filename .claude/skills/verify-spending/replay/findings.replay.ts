@@ -8,8 +8,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { batchCostUsd } from "@/lib/ai/batch";
 import { ClaudeModel } from "@/lib/ai/claude";
-import { generate, resetSpendHoldsForTests } from "@/lib/ai/generate";
-import { costUsd } from "@/lib/ai/model";
+import { generate, holdCost, resetSpendHoldsForTests } from "@/lib/ai/generate";
+import { callCostUsd, costUsd } from "@/lib/ai/model";
 import { createFirstAdmin } from "@/lib/auth/service";
 import type { Database } from "@/lib/db/client";
 import { generations } from "@/lib/db/schema";
@@ -33,7 +33,7 @@ afterEach(async () => {
 
 
 describe("SpendCap findings", () => {
-  it("Finding 1, what is left (a) (SpendCap-finding-fallback-not-counted): a refusal rescued by the fallback model is paid twice and recorded once", async () => {
+  it("Finding 1, what is left (a) (SpendCap-finding-fallback-not-counted): a refusal rescued by the fallback model is paid twice, recorded twice (since M44), but held once", async () => {
     // The API's answer when Opus 5.5 declined and its fallback answered: usage.iterations lists both attempts
     // (both billed); the top-level usage covers only the attempt that produced the answer (Claude API docs).
     const declined = { type: "message", model: "claude-opus-5-5", input_tokens: 1200, output_tokens: 500, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, cache_creation: null };
@@ -49,11 +49,14 @@ describe("SpendCap findings", () => {
       usage: { input_tokens: 1200, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, iterations: [declined, rescue] },
     };
     const fetch = (async () => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })) as typeof globalThis.fetch;
-    const out = await new ClaudeModel("not-a-real-key", "claude-opus-5-5", { fetch }).generate({ system: "Answer.", prompt: "A question.", maxTokens: 2000, effort: "low" });
-    const recorded = costUsd(out.model, out.inputTokens, out.outputTokens, out.cache);
+    const request = { system: "Answer.", prompt: "A question.", maxTokens: 2000, effort: "low" as const };
+    const out = await new ClaudeModel("not-a-real-key", "claude-opus-5-5", { fetch }).generate(request);
     const paid = costUsd("claude-opus-5-5", 1200, 500) + costUsd("claude-opus-5", 1200, 300);
-    expect(recorded).toBeCloseTo(costUsd("claude-opus-5", 1200, 300));
-    expect(recorded).toBeLessThan(paid);
+    // Fixed in M44: generate writes callCostUsd, every attempt (SpendCap-mutant-top-level-usage-only is the code before).
+    expect(callCostUsd(out)).toBeCloseTo(paid);
+    // What is left: the hold covers one attempt. Both attempts using all of maxTokens cost more than it.
+    const worst = costUsd("claude-opus-5-5", 1200, 2000) + costUsd("claude-opus-5", 1200, 2000);
+    expect(holdCost({ provider: "anthropic", model: "claude-opus-5-5", generate: async () => out }, request)).toBeLessThan(worst);
   });
 
   it("Finding 1, what is left (b) (SpendCap-finding-text-edition-above-estimate): a text-edition page may cost more than the job holds for it", () => {

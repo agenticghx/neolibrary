@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ClaudeModel } from "./claude";
 import { getTextModel } from "./index";
-import { AiError, AiNotConfigured, AiRefused, costUsd, modelFor, type AiFeature } from "./model";
+import { AiError, AiNotConfigured, AiRefused, callCostUsd, costUsd, modelFor, type AiFeature } from "./model";
 import { FakeModel } from "./fake";
 import { estimateCost } from "./generate";
 
@@ -73,6 +73,33 @@ describe("ClaudeModel", () => {
     const api = fakeApi(message({ model: "claude-opus-4-8" }));
     const out = await new ClaudeModel(KEY, undefined, { fetch: api.fetch }).generate(req);
     expect(out.model).toBe("claude-opus-4-8");
+  });
+
+  it("reports every attempt of a call the fallback rescued, since each is billed at its own model's price", async () => {
+    // The top-level usage covers only the attempt that answered; usage.iterations lists them all.
+    const iteration = (type: string, model: string | null, input: number, output: number) => ({
+      type, model, input_tokens: input, output_tokens: output, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, cache_creation: null,
+    });
+    const usage = {
+      input_tokens: 1200, output_tokens: 300, cache_creation_input_tokens: 0, cache_read_input_tokens: 0,
+      iterations: [iteration("message", "claude-opus-5-5", 1200, 40), iteration("fallback_message", "claude-opus-5", 1200, 300)],
+    };
+    const rescued = fakeApi(message({ model: "claude-opus-5", usage }));
+    const out = await new ClaudeModel(KEY, undefined, { fetch: rescued.fetch }).generate(req);
+    expect(out).toMatchObject({ model: "claude-opus-5", inputTokens: 1200, outputTokens: 300 });
+    expect(out.earlier).toEqual([{ model: "claude-opus-5-5", inputTokens: 1200, outputTokens: 40, cache: { write: 0, read: 0 } }]);
+    expect(callCostUsd(out)).toBeCloseTo(costUsd("claude-opus-5-5", 1200, 40) + costUsd("claude-opus-5", 1200, 300));
+    // A declined attempt with no model named is the model asked for.
+    const unnamed = { ...usage, iterations: [iteration("message", null, 1200, 0), usage.iterations[1]] };
+    const second = await new ClaudeModel(KEY, undefined, { fetch: fakeApi(message({ model: "claude-opus-5", usage: unnamed })).fetch }).generate(req);
+    expect(second.earlier?.[0].model).toBe("claude-opus-5-5");
+    // The fallback declined too: the refusal carries both attempts.
+    const chain = fakeApi(message({ model: "claude-opus-5", stop_reason: "refusal", content: [], usage }));
+    const billed = await new ClaudeModel(KEY, undefined, { fetch: chain.fetch }).generate(req).catch((e) => e.billed);
+    expect(billed.earlier).toHaveLength(1);
+    // One attempt only (no fallback): nothing earlier, as before.
+    const single = { ...usage, iterations: [iteration("message", "claude-opus-5-5", 1200, 300)] };
+    expect((await new ClaudeModel(KEY, undefined, { fetch: fakeApi(message({ usage: single })).fetch }).generate(req)).earlier).toBeUndefined();
   });
 
   it("reports a refusal or a cut-off answer instead of storing it", async () => {
