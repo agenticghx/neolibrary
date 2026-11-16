@@ -60,8 +60,8 @@ proves the rule can fail at all. The `*-chart.cfg` configs are small versions fo
 
 ## Covered code
 
-Sync commit: `7d1213b16d7e9a1a1cfba6ca99a94c7f26b587a9` (the models were last confirmed to
-describe the code at this commit, on main: #393 as merged. After a squash-merge, set it to the merge commit on main: the hash changes, and check.sh stops with WRONG when it cannot find the commit).
+Sync commit: `3b4aa2a37f2daeb579a16c973daeef0237fb7874` (the models were last confirmed to
+describe the code at this commit, on main: #395 as merged. After a squash-merge, set it to the merge commit on main: the hash changes, and check.sh stops with WRONG when it cannot find the commit).
 
 | File | What the models cover |
 |---|---|

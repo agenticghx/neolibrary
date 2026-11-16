@@ -3,7 +3,7 @@ project: Neolibrary
 status: active
 owner: Samuel Ahuno
 team: Claude cloud sessions (builders)
-next_action: Confirm this PR deployed, then move verify-spending's sync commit to its merge commit in the next PR.
+next_action: Confirm this PR deployed; on the following deploy, check the old deployment ended cleanly.
 blockers: Samuel-only: keys, sign-in, verdicts, Open unknowns rows 12, 13, 21 (e) and 32; see Waiting on Samuel.
 updated: 2026-11-16
 shared_copy: none
@@ -196,6 +196,13 @@ Never blocks the loop. Newest first.
 ## Log
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
+
+### 2026-11-16 05:54 · Claude Opus 5.5 · The start script execs Next, so a deploy's SIGTERM reaches it (narration finding 1 on Railway)
+- **Done:** #395 merged and deployed (3b4aa2a, both addresses). Its deploy showed the old server never heard SIGTERM: npm's sh -c (dash on Linux) died first and the container ended. Reproduced in node:22-bookworm-slim; fixed with exec in package.json start; lib/start-script.test.ts; verify-narration notes it; both verify skills' sync commits set to 3b4aa2a3.
+- **Key paths:** package.json (start); lib/start-script.test.ts; .claude/skills/verify-narration/SKILL.md; .claude/skills/verify-spending/SKILL.md; LEARNING_LOG.md
+- **Commands that worked:** docker run node:22-bookworm-slim npm run start + docker stop -t 30 (0.6 s without exec, 3.1 s exit 0 with); npm run check (1548 passed); sh .claude/skills/verify-spending/check.sh (all as expected); railway logs <deployment> (old deployment's end)
+- **Known issues / blockers:** Not yet watched on Railway: this PR's deploy stops a server with the old script; the next deploy after it is the first real check.
+- **Exact next steps:** 1. After this deploys: /api/health on both addresses. 2. On the next deploy after that: the old deployment should end without 'npm error signal SIGTERM' and not be marked CRASHED (railway deployment list; railway logs <id>). 3. Samuel: an iPad look at #385.
 
 ### 2026-11-16 05:15 · Claude Opus 5.5 · Open unknowns 38-40 settled as recommended; a fallback rescue's cost recorded in full; Railway draining time 60 s
 - **Done:** Samuel answered rows 38-40: go with the recommendations. 38 stays recorded. 39 (a) unchanged; 39 (b) fixed: claude.ts reads usage.iterations and generate records every attempt (callCostUsd). 40 (a) RAILWAY_DEPLOYMENT_DRAINING_SECONDS=60 set on web in production; 40 (b) no migration. verify-spending model and replay updated, new mutant SpendCap-mutant-top-level-usage-only; verify-narration notes the setting.

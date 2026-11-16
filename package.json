@@ -11,7 +11,7 @@
     "prebuild": "node scripts/copy-pdfjs.mjs && node scripts/patch-foliate-fxl.mjs && node scripts/patch-foliate-cfi.mjs",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -p ${PORT:-3000}",
+    "start": "exec next start -p ${PORT:-3000}",
     "lint": "eslint . && stylelint \"**/*.css\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
