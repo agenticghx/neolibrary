@@ -18,8 +18,9 @@ voice bills never passes the spending limits.
 **What passes today.** Seven of these promises hold within the bounds below (`Narration.cfg` exits 0). The eighth,
 no paragraph paid for twice (PaidOnce), broke when the site restarted (a deploy) while a paragraph was being paid for
 (finding 1): Railway ended the old server at once after telling it to stop, so the paid audio was lost and Continue
-paid again. Since 2026-11-16 Railway gives the old server 60 seconds (`NarrationGrace.cfg` is the live site, for a
-paragraph that finishes in that time); a paragraph that takes longer still breaks it (`NarrationFindings.cfg`). The code to prevent this is in (M44): the run stops after
+paid again. Since 2026-11-16 Railway gives the old server 60 seconds, and the start script hands the signal to Next (`exec`,
+see finding 1). Once both are live, `NarrationGrace.cfg` is the live site, for a paragraph that finishes in that
+time; a paragraph that takes longer still breaks it (`NarrationFindings.cfg`). The code to prevent this is in (M44): the run stops after
 the paragraph being made and the server waits for it. It works only when Railway gives the server time to finish
 (`RAILWAY_DEPLOYMENT_DRAINING_SECONDS`, set to 60 seconds on 2026-11-16, see finding 1); `NarrationGrace.cfg` shows that PaidOnce then holds, and
 `NarrationFindings.cfg` keeps the break in view until then. Findings 2 (a failed save) and 3 (two paragraphs with
@@ -42,7 +43,7 @@ or (in the worst case) a whole book.
 
 ## Covered code
 
-Sync commit: `7d1213b1` (on main: #393, the narration fixes, as merged). At that commit the model below describes these files. Move the sync commit
+Sync commit: `3b4aa2a3` (on main: #395, the fallback cost and the draining setting; the five checks were run on its content). The start script's `exec` (next pull request) is described below. At that commit the model below describes these files. Move the sync commit
 forward only after you have confirmed that the model describes the code at the new commit (see "When the code
 changes").
 
@@ -57,6 +58,7 @@ changes").
 | `lib/speech/index.ts` | `getSpeechModel` (15): the owner's Listen bar and the run get the same voice model |
 | `app/(app)/import/WholeBookNarration.tsx` | the cost box: Create sends `confirm: agreed` (183). The model trusts only the server's check of it. |
 | Next.js `next start` (`node_modules/next/dist/server/lib/start-server.js`, `cleanup`; `next-server.js`, `close`) | on SIGTERM it stops taking requests, waits for open ones, then for its after() work (the run), then exits |
+| `package.json` "start" (`exec next start …`) and Railway's start command (`npm run start`, `.railway/railway.ts`) | npm runs the script through `sh -c`; `exec` makes that shell hand its place to Next, so npm forwards SIGTERM to Next and waits for it. Without `exec`, Linux's `sh` dies on SIGTERM, npm exits and the container ends: Next never hears the signal (2026-11-16; `lib/start-script.test.ts`) |
 | Railway (no file: the service's settings) | after a deploy is live, the old one gets SIGTERM, then SIGKILL after `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` (default 0 seconds); `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS` keeps it running before SIGTERM (default not stated) |
 
 Files in this folder:
@@ -104,8 +106,9 @@ the config that lists only the rules not yet broken.
 
 Two constants describe the host. `HostGrace = FALSE` is SIGKILL right after SIGTERM (Railway before 2026-11-16, or a
 paragraph that outlasts the draining time), so a restart loses every paid call on its way. `HostGrace = TRUE` is
-Railway with `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` long enough for one paragraph: the live site since 2026-11-16
-(60 s), for a paragraph and its save that finish within it. `AskWhileDraining` says whether you press Create or Listen in the seconds while the
+Railway with `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` long enough for one paragraph and SIGTERM reaching Next: the
+live site once the 60 s setting (2026-11-16) and the start script's `exec` are both live, for a paragraph and its
+save that finish within it. `AskWhileDraining` says whether you press Create or Listen in the seconds while the
 old server finishes (it then takes no requests; the new one does).
 
 | Config | Exit today | Rules that break today | Rules that hold |
@@ -219,6 +222,18 @@ was fixed in M44 too.
    with webpack): with after(), the process exited 1,985 ms (webpack: 1,989 ms) after SIGTERM, once the paragraph in
    progress was saved; without it, 13 ms (25 ms) after, with the paragraph lost. Test: narration.test.ts "finding 1" (Stop at SIGTERM, then
    Continue on a new server pays for nothing twice); route.test.ts checks the after() hand-off.
+
+   **The start script (2026-11-16).** The first deploy with the setting showed that SIGTERM never reached Next: the
+   old deployment's log ends "npm error signal SIGTERM … command sh -c next start", and Railway marked it CRASHED.
+   npm runs the start script through `sh -c`; on Linux that shell (dash) sits between npm and Next and dies on
+   SIGTERM, then npm exits and the container ends, taking Next with it at once. Reproduced in node:22-bookworm-slim
+   (npm 10.9.9): a stand-in app that needs 3 s after SIGTERM was stopped in 0.6 s without hearing the signal, with
+   the same npm lines; with `exec` in the script it heard it, finished, and exited 0 after 3.1 s. Fixed by
+   `"start": "exec next start …"`; `lib/start-script.test.ts` fails without it. Not yet watched on Railway: the
+   deploy after the fix stops a server that still has the old script, so the deploy after that is the first to show
+   it (the old deployment should then end without "npm error signal SIGTERM"). If Railway ever wrapped the start
+   command in a shell of its own, nothing would get the signal (a shell as the container's first process ignores
+   SIGTERM: in the same image it waited the full time and was killed); the log above shows npm gets it today.
 
    **The setting (2026-11-16).** `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=60` is set on the web service in production
    (Samuel: "go with your recommendation"; read back with `railway variable list --service web --environment
