@@ -24,7 +24,11 @@ export type TextResult = {
   outputTokens: number;
   /** How many of the input tokens were written to Anthropic's prompt cache, and how many were read from it. */
   cache?: CacheTokens;
-  /** Attempts in the same call that declined before `model` answered (the API's fallback): billed too, at their own model's price. */
+  /**
+   * Attempts in the same call that declined before `model` answered (the API's fallback), at their own model's price.
+   * Counted even when Anthropic does not bill them (a decline before any output is billed only in some categories):
+   * too much, never too little.
+   */
   earlier?: Attempt[];
 };
 

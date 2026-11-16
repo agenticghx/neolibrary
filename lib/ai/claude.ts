@@ -47,7 +47,8 @@ export class ClaudeModel implements TextModel {
     const write = response.usage.cache_creation_input_tokens ?? 0;
     const read = response.usage.cache_read_input_tokens ?? 0;
     // The top-level usage covers only the last attempt. When the requested model declined and the API's
-    // fallback ran in the same call, `usage.iterations` lists every attempt, and each is billed.
+    // fallback ran in the same call, `usage.iterations` lists every attempt. One that declined mid-answer is billed;
+    // one that declined before any output is billed only in some categories. All are counted (the safe side for the limits).
     const attempts = (response.usage.iterations ?? []).flatMap((it) =>
       it.type === "message" || it.type === "fallback_message"
         ? [

@@ -51,7 +51,8 @@ covered code changed since the sync commit. Its last line is the verdict:
 There are three kinds of config. `SpendCap.cfg` and `RewriteAsYouTurn.cfg` are **the main
 checks**: the code as it is, under the assumptions below; every rule must hold
 (`RewriteAsYouTurn-one-paragraph-over-a-dollar.cfg` is a second main check, with one paragraph
-that alone costs $1.20). A
+that alone costs $1.20; `SpendCap-fallback-recorded.cfg` is a third, with a fallback rescue and caps high
+enough that only the recording rules can break: the control for `SpendCap-mutant-top-level-usage-only`). A
 `*-finding-*.cfg` turns on one condition the code does not handle and **must break** the rule it
 names: these are the known findings, kept so that a fix shows up. A `*-mutant-*.cfg` is a
 **broken variant** of the code (switched by the `Mutant` constant) that must break its rule: it
@@ -200,9 +201,11 @@ that passes while the bug is there. Steps are in the code's words.
    - (a) **A refusal rescued by the fallback model: recorded since M44, still held once**
      (`SpendCap-finding-fallback-not-counted`, `CapNeverPassed`). `claude.ts` asks for
      `fallbacks: "default"` (not on Haiku). 1. reserve: the hold covers one attempt. 2. the requested
-     model declines and the fallback model answers in the same call; both attempts are billed (the
+     model declines and the fallback model answers in the same call; both attempts can be billed (the
      Claude API docs: "`usage.iterations` is the per-attempt source of truth; top-level `usage` covers
-     only the attempt that produced the returned message"). 3. `claude.ts` now reads
+     only the attempt that produced the returned message"; a decline before any output is billed only in
+     the categories bio, frontier_llm and reasoning_extraction, as of 2026-11-16; the code counts it
+     always, too much rather than too little). 3. `claude.ts` now reads
      `usage.iterations` and returns the earlier attempts as `earlier`; `generate` writes `callCostUsd`,
      both attempts at their own prices (Samuel, 2026-11-16: "go with your recommendation"; the old
      code is `SpendCap-mutant-top-level-usage-only`). What is left: while the call runs, the hold
@@ -339,6 +342,12 @@ No migration: the table already counted toward `spending`.
   ($0.0319 and $0.1222 on Opus 5.5). What is left: (a) and (b) under "Known findings". `speak`,
   `makePicture` and the voice note hold the price they compute before the call (per character, per
   picture, per second of audio); M44 did not change them.
+- **1 (a), recording (2026-11-16)**: `claude.ts` returns every attempt of a call from `usage.iterations`
+  (`earlier`), and `generate` writes `callCostUsd`, their sum at each model's price. Tests:
+  `lib/ai/claude.test.ts` "reports every attempt of a call the fallback rescued", `lib/ai/failed-spend.test.ts`
+  "counts the declined attempt too" (fails on the old code). Model: `SpendCap-mutant-top-level-usage-only`
+  (the old code) breaks `EveryChargeRecordedOnce`; `SpendCap-fallback-recorded` holds. The hold half is
+  still open (Known findings 1 (a)).
 - **2. A scan and its text edition**: the hold row carries its `bookId`; `heldByCalls` sums the whole
   `bookGroup`. Test: `lib/ai/spend-holds.test.ts`, "finding 2".
 - **3. A text edition's start**: `startTextEdition` reads what is spent and held again, and writes its job
