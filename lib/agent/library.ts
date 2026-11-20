@@ -27,7 +27,7 @@ export class AgentError extends Error {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_NOTE = 10_000;
 
-export type AgentBook = { id: string; title: string; author: string; progress: number; lastOpenedAt: string | null };
+export type AgentBook = { id: string; title: string; author: string; kind: "epub" | "pdf" | null; progress: number; lastOpenedAt: string | null };
 
 /** The reader's own books with a file (not the "wanted" ones), by title; `q` filters by title or author. */
 export async function agentBooks(db: Db, userId: string, q?: string): Promise<AgentBook[]> {
@@ -36,6 +36,7 @@ export async function agentBooks(db: Db, userId: string, q?: string): Promise<Ag
     id: b.id,
     title: b.title,
     author: b.author,
+    kind: b.fileType,
     progress: Math.round(b.progress * 100) / 100,
     lastOpenedAt: b.lastOpenedAt?.toISOString() ?? null,
   }));

@@ -8,7 +8,9 @@ import { randomToken, safeEqual } from "./crypto";
 const g = globalThis as unknown as { __neolibrarySetupCode?: string };
 
 export function setupCode(env: Record<string, string | undefined> = process.env): string {
-  g.__neolibrarySetupCode ??= env.SETUP_CODE || randomToken(9);
+  if (env.SETUP_CODE) return env.SETUP_CODE;
+  if (env !== process.env) return randomToken(9);
+  g.__neolibrarySetupCode ??= randomToken(9);
   return g.__neolibrarySetupCode;
 }
 

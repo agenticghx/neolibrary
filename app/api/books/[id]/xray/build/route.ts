@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { aiIsFake } from "@/lib/ai/index";
 import { textModelFor } from "@/lib/ai/model-picks";
@@ -53,7 +54,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const db = await getDb();
   try {
     const model = await textModelFor(db, "xray", user, req);
-    const { started } = await startXray({ db, model }, user.id, bookId, body.confirm);
+    const { started, finished } = await startXray({ db, model }, user.id, bookId, body.confirm);
+    if (started) after(() => finished);
     return Response.json({ started, ...(await xraySummary(db, model, user.id, bookId)) }, { status: started ? 202 : 200 });
   } catch (e) {
     return errorResponse(e);

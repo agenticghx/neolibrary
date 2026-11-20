@@ -121,7 +121,7 @@ export const listQuestionBanks = async (db: Db, ownerId: string, bookId: string,
   (await listGenerations(db, ownerId, bookId, chapterId, "questions")).map(viewQuestions);
 
 /** Marks one question right or wrong. Adds a row; earlier marks stay. */
-export async function markQuestion(db: Db, ownerId: string, input: { generationId: unknown; index: unknown; correct: unknown }) {
+export async function markQuestion(db: Db, ownerId: string, input: { generationId: unknown; index: unknown; correct: unknown; bookId?: string }) {
   if (typeof input.generationId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.generationId)) throw new QuestionsError("Question not found.");
   if (typeof input.correct !== "boolean") throw new QuestionsError("Mark it right or wrong.");
   const [g] = await db
@@ -129,7 +129,7 @@ export async function markQuestion(db: Db, ownerId: string, input: { generationI
     .from(generations)
     .where(and(eq(generations.id, input.generationId), eq(generations.ownerId, ownerId), eq(generations.kind, "questions")));
   const question = g ? viewQuestions(toGeneration(g)).questions.find((q) => q.index === input.index) : undefined;
-  if (!g || !g.bookId || !g.sectionId || !question) throw new QuestionsError("Question not found.");
+  if (!g || !g.bookId || (input.bookId && g.bookId !== input.bookId) || !g.sectionId || !question) throw new QuestionsError("Question not found.");
   await db.insert(questionMarks).values({
     ownerId,
     bookId: g.bookId,

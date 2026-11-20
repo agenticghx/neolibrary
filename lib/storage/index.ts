@@ -58,6 +58,7 @@ export class MemoryStorage implements Storage {
     return this.files.get(key) ?? null;
   }
   async delete(key: string) {
+    assertSafeKey(key);
     this.files.delete(key);
   }
   async stat(key: string) {

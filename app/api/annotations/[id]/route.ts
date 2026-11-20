@@ -25,7 +25,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   if (meantForAnother(req, user.id)) return signedInAsAnother();
   try {
-    return Response.json(await updateAnnotation(await getDb(), user.id, (await params).id, await req.json().catch(() => ({}))));
+    const raw = await req.json().catch(() => null);
+    const body = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    return Response.json(await updateAnnotation(await getDb(), user.id, (await params).id, body));
   } catch (e) {
     return fail(e);
   }

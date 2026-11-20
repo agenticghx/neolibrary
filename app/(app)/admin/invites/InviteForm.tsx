@@ -20,6 +20,11 @@ export function InviteForm() {
           Who is it for? (only you see this)
         </label>
         <input className={forms.input} id="note" name="note" maxLength={200} placeholder="e.g. Ada, reading group" />
+        {state.error ? (
+          <p className={forms.error} role="alert">
+            {state.error}
+          </p>
+        ) : null}
         <button type="submit" className={forms.button} disabled={pending}>
           {pending ? "Making link…" : "Make an invitation link"}
         </button>

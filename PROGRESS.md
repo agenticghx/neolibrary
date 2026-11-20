@@ -197,6 +197,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-19 20:30 · Antigravity · Whole-project audit (1/4): auth, spending holds, and API owner checks
+- **Done:** Full audit pass on authentication, spending caps and API routes. Setup-code check hashes both sides so length is not leaked; rate-limiter prunes expired entries safely; spending holds guard against non-finite numbers and unpriced model overrides; agent and book API routes enforce `isOwnBook`, body-size caps and safe filenames; fixed `overnight-scans.ts` checker.
+- **Key paths:** lib/ai/generate.ts; lib/auth/setup-code.ts; lib/auth/rate-limit.ts; app/api/agent/books/[id]/*; app/api/files/[...key]/route.ts; scripts/overnight-scans.ts
+- **Commands that worked:** npm run check (0 lint/style/type errors, 172 test files passed); npx vitest run --config .claude/skills/verify-spending/replay/vitest.config.mts (20 passed)
+- **Known issues / blockers:** Part 1 of 4 from the 2026-11-19 whole-project audit; no database migration included so automatic deploy stays unblocked.
+- **Exact next steps:** 1. Merge PR 1 when CI is green. 2. Merge PRs 2–4 in order via merge-train.
 ### 2026-11-19 20:33 · Antigravity · Whole-project audit (4/4): CI selector & deploy skip paths, e2e IP isolation, skill scripts, and M14 cleanup
 - **Done:** Fixed `ci-browser-needed` slice selection, `copy-pdfjs` worker verification, `train.sh` trailer splitting, `map_to_book.py` division-by-zero guard, `setup.sh` pinned aligner tag, and `verify-outbox` path check; isolated e2e reader sign-up IPs to prevent shared rate-limit flakes; expanded `deploy.yml` skip regex for test-only configs; removed 6 retired M14 timing/mutation files.
 - **Key paths:** scripts/ci-browser-needed.mjs; .github/workflows/deploy.yml; .claude/skills/merge-train/scripts/train.sh; .claude/skills/readalong-audio/scripts/map_to_book.py; e2e/*.spec.ts; lib/repo.test.ts

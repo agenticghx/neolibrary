@@ -362,7 +362,7 @@ export async function reserveSpend(
             kind: holdFor.kind,
             inputTokens: cost.inputTokens ?? 0,
             outputTokens: cost.outputTokens ?? 0,
-            costUsd: cost.costUsd,
+            costUsd: Number.isFinite(cost.costUsd) && cost.costUsd >= 0 ? cost.costUsd : estimate,
             reason: cost.reason.slice(0, 300),
           })
           .where(eq(failedSpend.id, id)),
@@ -386,7 +386,7 @@ export async function findStored(db: Db, ownerId: string, req: GenerationRequest
  * between readers of the same book"). Ask and Explain it back carry the
  * reader's own words, so they stay with that reader.
  */
-export const SHARED_KINDS = ["rewrite", "prerequisites", "questions", "xray", "xray-world"];
+export const SHARED_KINDS = ["rewrite", "prerequisites", "questions", "xray", "xray-world", "paper-summary", "explain-math"];
 
 /**
  * Another reader's stored answer to exactly this request, copied into this
@@ -447,7 +447,8 @@ export async function generate(
     const saved = await savedAnswer();
     if (saved) return { generation: saved, reused: true };
   }
-  const key = `${req.ownerId}|${cacheKeyOf(req)}|${opts.fresh ? Math.random() : ""}`;
+  const shareable = !opts.fresh && model.provider !== "missing-key" && !isOwnKeyProvider(model.provider);
+  const key = shareable ? `${req.ownerId}|${model.provider}|${cacheKeyOf(req)}` : `${req.ownerId}|${cacheKeyOf(req)}|${Math.random()}`;
   const running = inflight.get(key);
   if (running) return { generation: (await running).generation, reused: true };
   const job = (async () => {

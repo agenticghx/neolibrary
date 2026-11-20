@@ -1,5 +1,5 @@
-import { and, eq, gte, ne, sql } from "drizzle-orm";
-import { capsFromEnv, heldByCalls, HOLD_KIND, spending } from "@/lib/ai/generate";
+import { and, eq, gt, gte, ne, sql } from "drizzle-orm";
+import { capsFromEnv, heldNow, HOLD_KIND, spending } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, failedSpend, generations } from "@/lib/db/schema";
 
@@ -23,24 +23,32 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
   const services = [];
   for (const s of SERVICES) {
     const { month } = await spending(db, s.provider, null, now);
-    // Holds of paid calls not yet settled: running now, or left by a restart (counted at their estimate).
-    const held = (await heldByCalls(db, s.provider, null, now)).month;
+    // Holds of paid calls and jobs not yet settled: running now, or left by a restart (counted at their estimate).
+    const held = (await heldNow(db, s.provider, null, now)).month;
     const count = async (table: typeof generations | typeof audioTracks) =>
       Number(
         (
           await db
             .select({ n: sql<number>`count(*)::int` })
             .from(table)
-            .where(and(eq(table.provider, s.provider), eq(table.imported, false), gte(table.createdAt, since)))
+            .where(and(eq(table.provider, s.provider), eq(table.imported, false), gt(table.costUsd, 0), gte(table.createdAt, since)))
         )[0]?.n ?? 0,
       );
+    const failedCalls = Number(
+      (
+        await db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(failedSpend)
+          .where(and(eq(failedSpend.provider, s.provider), ne(failedSpend.kind, HOLD_KIND), gte(failedSpend.createdAt, since)))
+      )[0]?.n ?? 0,
+    );
     services.push({
       ...s,
       spentUsd: month,
       heldUsd: held,
       capUsd: capsFromEnv(env, s.caps).perMonthUsd,
       perBookCapUsd: capsFromEnv(env, s.caps).perBookUsd,
-      calls: (await count(generations)) + (await count(audioTracks)),
+      calls: (await count(generations)) + (await count(audioTracks)) + failedCalls,
     });
   }
 
@@ -79,8 +87,7 @@ export async function costReport(db: Db, adminId: string, now = new Date(), env:
   const yours: { bookId: string; title: string; byProvider: Record<string, number> }[] = [];
   const others: Record<string, number> = {};
   for (const [bookId, v] of byBook) {
-    const title = titles.get(bookId);
-    if (title) yours.push({ bookId, title, byProvider: v });
+    if (titles.has(bookId)) yours.push({ bookId, title: titles.get(bookId)!, byProvider: v });
     else for (const [p, usd] of Object.entries(v)) others[p] = (others[p] ?? 0) + usd;
   }
   yours.sort((x, y) => total(y.byProvider) - total(x.byProvider) || x.title.localeCompare(y.title));

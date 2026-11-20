@@ -5,12 +5,20 @@ import { migrateUp } from "./migrate";
 // development hot-reloads do not open new ones).
 const g = globalThis as unknown as { __neolibraryDb?: Promise<Database> };
 
-export function getDatabase(): Promise<Database> {
+function getDatabase(): Promise<Database> {
   g.__neolibraryDb ??= (async () => {
     const database = await openDatabase();
-    await migrateUp(database.raw);
-    return database;
-  })();
+    try {
+      await migrateUp(database.raw);
+      return database;
+    } catch (e) {
+      await database.raw.close().catch(() => {});
+      throw e;
+    }
+  })().catch((e) => {
+    g.__neolibraryDb = undefined;
+    throw e;
+  });
   return g.__neolibraryDb;
 }
 

@@ -9,13 +9,14 @@ import { bodyBytes } from "@/lib/readalong/http";
 export async function cappedFormData(req: Request, max: number): Promise<FormData | Response> {
   const bytes = await bodyBytes(req, max);
   if (bytes instanceof Response) return bytes;
-  // A fresh buffer: the type of a stream's chunks is not a request body on its own.
-  const buffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buffer).set(bytes);
+  const body =
+    bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+      ? (bytes.buffer as ArrayBuffer)
+      : (bytes.slice().buffer as ArrayBuffer);
   const headers = new Headers(req.headers);
   headers.delete("content-length");
   try {
-    return await new Request(req.url, { method: req.method, headers, body: buffer }).formData();
+    return await new Request(req.url, { method: req.method, headers, body }).formData();
   } catch {
     return Response.json({ error: "Send the files as a form upload." }, { status: 400 });
   }

@@ -22,7 +22,7 @@ export class FakeSpeech implements SpeechModel {
 
   async speak(req: SpeechRequest): Promise<SpeechResult> {
     this.calls.push(req);
-    const characters = req.text.split("");
+    const characters = Array.from(req.text);
     const starts = characters.map((_, i) => round(i * FAKE_SECONDS_PER_CHAR));
     const ends = characters.map((_, i) => round((i + 1) * FAKE_SECONDS_PER_CHAR));
     return {

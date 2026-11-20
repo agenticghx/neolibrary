@@ -17,9 +17,15 @@ export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex"
 
 export class PromptError extends Error {}
 
+const promptCache = new Map<string, string>();
+
 export async function readPrompt(name: string) {
   if (!/^[A-Za-z0-9-]+(\/[A-Za-z0-9-]+)*$/.test(name)) throw new PromptError(`Bad prompt name: ${name}`);
-  return readFile(path.join(DIR, `${name}.md`), "utf8");
+  const hit = promptCache.get(name);
+  if (hit !== undefined) return hit;
+  const text = await readFile(path.join(DIR, `${name}.md`), "utf8");
+  promptCache.set(name, text);
+  return text;
 }
 
 export function fill(template: string, vars: Record<string, string>) {

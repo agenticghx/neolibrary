@@ -12,11 +12,13 @@ export const VISITOR_LIMITS = {
   /** AI routes (saved answers, or a new one on the visitor's own key). */
   ai: { max: 30, windowMs: 60_000 },
 } as const;
-export type VisitorKind = keyof typeof VISITOR_LIMITS;
+type VisitorKind = keyof typeof VISITOR_LIMITS;
 
 const windows = new Map<string, { count: number; resetAt: number }>();
 /** Past this many addresses, windows that have ended are dropped (memory stays small). */
 const PRUNE_AT = 10_000;
+const MAX_WINDOWS = 40_000;
+let lastPrune = -Infinity;
 
 /**
  * The visitor's address, for the limits here and on sign-in: X-Real-IP, the header Railway's edge documents for the
@@ -34,7 +36,16 @@ export function takeVisitorRequest(kind: VisitorKind, address: string, now = Dat
   const key = `${kind}\0${address}`;
   let w = windows.get(key);
   if (!w || w.resetAt <= now) {
-    if (windows.size >= PRUNE_AT) for (const [k, v] of windows) if (v.resetAt <= now) windows.delete(k);
+    windows.delete(key);
+    if (windows.size >= PRUNE_AT && now - lastPrune >= 5_000) {
+      lastPrune = now;
+      for (const [k, v] of windows) if (v.resetAt <= now) windows.delete(k);
+    }
+    while (windows.size >= MAX_WINDOWS) {
+      const oldest = windows.keys().next().value;
+      if (oldest === undefined) break;
+      windows.delete(oldest);
+    }
     w = { count: 0, resetAt: now + windowMs };
     windows.set(key, w);
   }

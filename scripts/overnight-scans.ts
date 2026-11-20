@@ -42,7 +42,7 @@ async function json<T>(site: string, path: string): Promise<T> {
 /** Runs the text-edition script; its output goes to the log and is returned. */
 function edition(args: string[], log: string): Promise<{ code: number; out: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("npx", ["tsx", "scripts/text-edition-on-subscription.ts", ...args], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn("npx", ["--yes", "tsx", "scripts/text-edition-on-subscription.ts", ...args], { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     const keep = (d: Buffer) => {
       out += d;
@@ -55,6 +55,23 @@ function edition(args: string[], log: string): Promise<{ code: number; out: stri
   });
 }
 
+function checkHasProblems(folder: string): boolean {
+  const path = join(folder, "check.json");
+  if (!existsSync(path)) return true;
+  try {
+    const c = JSON.parse(readFileSync(path, "utf8")) as {
+      flagged?: unknown[];
+      missing?: unknown[];
+      gaps?: unknown[];
+      twice?: unknown[];
+      unreadable?: unknown[];
+    };
+    return Boolean((c.flagged?.length ?? 0) || (c.missing?.length ?? 0) || (c.gaps?.length ?? 0) || (c.twice?.length ?? 0) || (c.unreadable?.length ?? 0));
+  } catch {
+    return true;
+  }
+}
+
 async function main() {
   const site = process.argv[2];
   if (!site || site.startsWith("--")) throw new Error("Usage: npx tsx scripts/overnight-scans.ts <site> [--folder <folder>] [--books 1] [--pages 1-3]");
@@ -63,10 +80,18 @@ async function main() {
   const pages = option("pages");
   mkdirSync(base, { recursive: true });
 
-  const details: AgentBookDetails[] = [];
-  for (const b of (await json<{ books: AgentBook[] }>(site, "/api/agent/books")).books) {
-    details.push((await json<{ book: AgentBookDetails }>(site, `/api/agent/books/${b.id}`)).book);
-  }
+  const candidates = (await json<{ books: AgentBook[] }>(site, "/api/agent/books")).books.filter((b) => !b.kind || b.kind === "pdf");
+  const details: AgentBookDetails[] = new Array(candidates.length);
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(8, candidates.length) }, async () => {
+      for (;;) {
+        const i = cursor++;
+        if (i >= candidates.length) break;
+        details[i] = (await json<{ book: AgentBookDetails }>(site, `/api/agent/books/${candidates[i].id}`)).book;
+      }
+    }),
+  );
   const waiting = (book: AgentBookDetails) => existsSync(join(base, slugFor(book), "DRAFT.md")) && readFileSync(join(base, slugFor(book), "DRAFT.md"), "utf8").includes("Status: ready");
   const todo = pickScans(details, waiting).slice(0, most);
   const summary: string[] = [];
@@ -94,9 +119,11 @@ async function main() {
       break; // the limit is shared: no point starting another book tonight
     }
     const check = await edition(["check", pdf, folder], log);
-    await edition(["preview", folder, join(folder, "preview.epub"), "--title", book.title, "--author", book.author], log);
-    writeFileSync(join(folder, "DRAFT.md"), draftNote({ book, site, folder, status: "ready", check: check.out, problems: check.code === 2 }));
-    summary.push(`${book.title}: read; a draft waits for your "send"${check.code === 2 ? " (the check flagged pages to look at)" : ""}.`);
+    const preview = await edition(["preview", folder, join(folder, "preview.epub"), "--title", book.title, "--author", book.author], log);
+    const problems = check.code !== 0 || preview.code !== 0 || checkHasProblems(folder);
+    const checkReport = [check.out.trim(), preview.out.trim()].filter(Boolean).join("\n\n");
+    writeFileSync(join(folder, "DRAFT.md"), draftNote({ book, site, folder, status: "ready", check: checkReport, problems }));
+    summary.push(`${book.title}: read; a draft waits for your "send"${problems ? " (the check flagged pages to look at)" : ""}.`);
   }
 
   const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");

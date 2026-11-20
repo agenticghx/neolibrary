@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { cappedFormData } from "@/lib/http-body";
 import { AnnotationError } from "@/lib/library/annotations";
 import { createVoiceNote, MAX_BYTES, MAX_NOTE_REQUEST_BYTES } from "@/lib/library/voice-notes";
+import { meantForAnother, signedInAsAnother } from "@/lib/reader-header";
 import { SpeechNotConfigured } from "@/lib/speech/model";
 import { transcriberFor } from "@/lib/speech";
 import type { Transcriber } from "@/lib/speech/transcribe";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   const bookId = (await params).id;
   const form = await cappedFormData(req, MAX_NOTE_REQUEST_BYTES);
   if (form instanceof Response) return form;

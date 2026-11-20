@@ -40,16 +40,21 @@ async function attempt(fn: () => Promise<void>): Promise<FormState> {
 export async function signInAction(_: FormState, data: FormData): Promise<FormState> {
   const email = normaliseEmail(field(data, "email"));
   const address = await clientAddress();
-  if (!limiter.allow(`email:${email}|${address}`) || !limiter.allow(`ip:${address}`) || !wide.allow(`email:${email}`)) {
+  if (!limiter.allow(`email:${email}|${address}`) || !limiter.peek(`ip:${address}`) || !wide.peek(`email:${email}`)) {
     return { error: "Too many attempts. Wait 15 minutes and try again." };
   }
   const result = await attempt(async () => {
-    const user = await authenticate(await getDb(), email, field(data, "password"));
+    const db = await getDb();
+    const user = await authenticate(db, email, field(data, "password"));
     // M41 R3c: the owner's shared papers are in the new reader's library from the start.
-    await shareAllWith(await getDb(), user.id);
+    await shareAllWith(db, user.id);
     await startSession(user.id);
   });
-  if (result.error) return result;
+  if (result.error) {
+    limiter.allow(`ip:${address}`);
+    wide.allow(`email:${email}`);
+    return result;
+  }
   limiter.reset(`email:${email}|${address}`);
   redirect(safeNext(field(data, "next")));
 }
@@ -73,13 +78,14 @@ export async function setupAction(_: FormState, data: FormData): Promise<FormSta
 export async function acceptInviteAction(_: FormState, data: FormData): Promise<FormState> {
   if (!limiter.allow(`invite:${await clientAddress()}`)) return { error: "Too many attempts. Wait 15 minutes." };
   const result = await attempt(async () => {
-    const user = await acceptInvite(await getDb(), field(data, "token"), {
+    const db = await getDb();
+    const user = await acceptInvite(db, field(data, "token"), {
       email: field(data, "email"),
       name: field(data, "name"),
       password: field(data, "password"),
     });
     // M41 R3c: the owner's shared papers are in the new reader's library from the start (not only after a sign-in).
-    await shareAllWith(await getDb(), user.id);
+    await shareAllWith(db, user.id);
     await startSession(user.id);
   });
   if (result.error) return result;

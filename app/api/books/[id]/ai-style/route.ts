@@ -26,9 +26,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = await req.json().catch(() => ({}));
+  const raw = await req.json().catch(() => null);
+  const body = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   try {
-    return Response.json(await setStyle(await getDb(), user.id, bookId, body));
+    return Response.json(await setStyle(await getDb(), user.id, bookId, body as Parameters<typeof setStyle>[3]));
   } catch (e) {
     if (e instanceof StyleError) return Response.json({ error: e.message }, { status: e.message === "Book not found" ? 404 : 400 });
     throw e;

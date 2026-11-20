@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { getPreferences, PreferencesError, setPreferences } from "@/lib/library/preferences";
+import { meantForAnother, signedInAsAnother } from "@/lib/reader-header";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   const body = ((await req.json().catch(() => null)) ?? {}) as { aiStyle?: unknown; rewrittenView?: unknown };
   try {
     return Response.json(await setPreferences(await getDb(), user.id, { aiStyle: body.aiStyle, rewrittenView: body.rewrittenView }));

@@ -2,6 +2,7 @@ import { agentUser } from "@/lib/auth/agent";
 import { getDb } from "@/lib/db";
 import { jsonAtMost } from "@/lib/http-body";
 import { GenealogyError, genealogyStatus, saveGenealogy, type GenealogySend } from "@/lib/library/genealogy-store";
+import { mayMakeTextEditions, OWNER_ONLY } from "@/lib/library/text-edition";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const who = await agentUser(req);
   if (who instanceof Response) return who;
+  if (!mayMakeTextEditions(who.user)) return Response.json({ error: OWNER_ONLY }, { status: 403 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
   try {
@@ -30,6 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const who = await agentUser(req);
   if (who instanceof Response) return who;
+  if (!mayMakeTextEditions(who.user)) return Response.json({ error: OWNER_ONLY }, { status: 403 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
   const body = await jsonAtMost(req, MAX_BODY);

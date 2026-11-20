@@ -1,7 +1,9 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
+import { jsonAtMost } from "@/lib/http-body";
 import { FormatError, fromW3C } from "@/lib/library/annotation-formats";
 import { AnnotationError, importAnnotations } from "@/lib/library/annotations";
+import { MAX_IMPORT_BYTES } from "@/lib/library/export";
 import { getBook } from "@/lib/library/paths";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +15,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const db = await getDb();
   const bookId = (await params).id;
   if (!(await getBook(db, user.id, bookId))) return Response.json({ error: "Not found" }, { status: 404 });
+  const raw = await jsonAtMost(req, MAX_IMPORT_BYTES);
+  if (raw instanceof Response) return raw;
   try {
-    const items = fromW3C(await req.json());
+    const items = fromW3C(raw);
     return Response.json(await importAnnotations(db, user.id, bookId, items));
   } catch (e) {
     if (e instanceof FormatError || e instanceof AnnotationError || e instanceof SyntaxError) {

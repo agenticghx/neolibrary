@@ -33,12 +33,12 @@ const USER_AGENT = "Neolibrary/1.0 (private study library; https://github.com/ag
 export function textOf(html: string | undefined) {
   return (html ?? "")
     .replace(/<[^>]*>/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
+    .replace(/&#0?39;|&apos;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -83,7 +83,10 @@ export class WikimediaSearch implements ImageSearch {
     });
     let res: Response;
     try {
-      res = await this.fetcher(`https://commons.wikimedia.org/w/api.php?${params}`, { headers: { "user-agent": USER_AGENT, accept: "application/json" } });
+      res = await this.fetcher(`https://commons.wikimedia.org/w/api.php?${params}`, {
+        headers: { "user-agent": USER_AGENT, accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
+      });
     } catch {
       throw new ImageSearchError("Wikimedia Commons could not be reached.");
     }

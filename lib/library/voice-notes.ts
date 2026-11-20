@@ -43,7 +43,10 @@ export async function createVoiceNote(
   if (!ext) throw new AnnotationError("That recording is not in an audio format the app can keep.");
   if (!input.audio.length) throw new AnnotationError("The recording is empty.");
   if (input.audio.length > MAX_BYTES) throw new AnnotationError("Voice notes can be at most 10 MB.");
-  const durationMs = Math.max(0, Math.min(Number(input.durationMs) || 0, MAX_MS));
+  const rawMs = Number(input.durationMs);
+  // If durationMs is missing or <= 0, assume ~16 kbps compressed voice (~2 KB/s, at least 1 s) so a recording cannot bypass spending caps at $0.
+  const estimatedMs = Math.max(1000, Math.ceil((input.audio.length / 2000) * 1000));
+  const durationMs = Math.min(rawMs > 0 && Number.isFinite(rawMs) ? rawMs : estimatedMs, MAX_MS);
   const now = opts.now?.() ?? new Date();
   // Check the book before paying for a transcript.
   const mine = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.bookId)
@@ -78,6 +81,7 @@ export async function createVoiceNote(
   } else problem = "Saved without a transcript: transcripts are not set up yet.";
 
   try {
+    await storage.put(audioKey, input.audio, mime);
     const annotation = await createAnnotation(
       db,
       ownerId,
@@ -85,7 +89,6 @@ export async function createVoiceNote(
       now,
       id,
     );
-    await storage.put(audioKey, input.audio, mime);
     if (transcriber && !problem) {
       await db.insert(generations).values({
         ownerId,

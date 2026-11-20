@@ -1,5 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
-import { capsFromEnv, spending, SpendingCapReached, type Caps } from "@/lib/ai/generate";
+import { capsFromEnv, heldByCalls, spending, SpendingCapReached, type Caps } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
 import { audioTracks, books, sections } from "@/lib/db/schema";
 import { SpeechError, speechCost, usdPer1kChars, type SpeechModel, type Voice } from "@/lib/speech/model";
@@ -209,7 +209,10 @@ export async function narrationSummary(
   const characters = list.reduce((n, p) => n + p.characters, 0);
   const leftCharacters = left.reduce((n, p) => n + p.characters, 0);
   const caps = opts.caps ?? capsFromEnv(process.env, "VOICE");
-  const spent = await spending(db, model.provider, bookId, opts.now?.() ?? new Date());
+  const now = opts.now?.() ?? new Date();
+  const rawSpent = await spending(db, model.provider, bookId, now);
+  const held = await heldByCalls(db, model.provider, bookId, now);
+  const spent = { month: rawSpent.month + held.month, book: rawSpent.book + held.book };
   const job = jobs().get(jobKey(ownerId, bookId, voice));
   const savedCount = list.filter((p) => saved.has(p.key)).length;
   return {

@@ -109,6 +109,7 @@ export function steScore(style: Style, texts: string[]) {
 
 export async function bookLine(db: Db, bookId: string) {
   const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  if (!book) throw new PrerequisitesError("Book not found.");
   return book.author ? `${book.title}, by ${book.author}` : book.title;
 }
 

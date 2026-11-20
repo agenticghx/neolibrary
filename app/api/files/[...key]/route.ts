@@ -18,7 +18,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request, { params }: { params: Promise<{ key: string[] }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
-  const key = (await params).key.map(decodeURIComponent).join("/");
+  let key: string;
+  try {
+    key = (await params).key.map(decodeURIComponent).join("/");
+  } catch {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
   const url = new URL(req.url);
   const db = await getDb();
   const secret = await serverSecret(db, "file-links");
