@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-20 15:28 · Antigravity · Exclude unit test files in `.railwayignore` so Railway's production build succeeds
+- **Done:** Deploy run 44811048413 failed in `next build`'s TypeScript check because `.railwayignore` excluded `e2e/` and `playwright.config.ts` while `lib/ci-browser-needed.test.ts` remained uploaded and imported `../playwright.config`. Added `*.test.ts` and `*.test.tsx` to `.railwayignore` and verified an exact simulated upload folder passes `tsc --noEmit`.
+- **Key paths:** .railwayignore
+- **Commands that worked:** rsync --exclude-from=.railwayignore + npx tsc --noEmit (0 errors); npm run check (172 passed)
+- **Known issues / blockers:** none
+- **Exact next steps:** 1. Confirm automatic Railway deploy succeeds on both live addresses after merge.
+
 ### 2026-11-19 20:32 · Antigravity · Whole-project audit (3/4): reader & offline SW fixes, sign-out own-key clearing, Cmd+K pages, and Design Rule 4
 - **Done:** Kept `Reader.tsx` under 1,500 lines (1,488) while fixing keyboard shortcuts in dialogs, Study/Genealogy focus restoration, spine-fold resize observer cleanup, Safari synchronous clipboard fallback, offline service worker range/navigation handling, sign-out browser own-key clearing, and `BookCarousel` idle animation loop; added Daily review, Papers and Get help to `Cmd+K`; updated stale copy on `/admin/costs`, `/help`, `NotesPanel` and book back-links; switched `PaperSummary` and `.equationAnswer` left borders to 3px dashed per Design Rule 4.
 - **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; public/sw.js; lib/own-keys.ts; components/ClearOffline.tsx; components/home/BookCarousel.tsx; lib/palette/items.ts; app/(app)/admin/costs/page.tsx; app/(app)/help/page.tsx
