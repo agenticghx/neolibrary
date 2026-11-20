@@ -661,7 +661,13 @@ test("read it rewritten in a PDF: each page on screen, and the style from readin
 // is a fraction of a cent): the client's rule is what is tested, with the server's answers otherwise unchanged.
 test("read it rewritten as you turn: made without a click after the first press, with a total, asking again after $1", async ({ page }) => {
   const made = countMade(page);
-  await page.route(/\/api\/books\/[0-9a-f-]{36}\/rewritten$/, async (route) => {
+  await page.route(/\/api\/books\/[0-9a-f-]{36}\/rewritten(?:\?|$)/, async (route) => {
+    if (route.request().method() === "GET") {
+      const res = await route.fetch();
+      if (!res.ok()) return route.fulfill({ response: res });
+      const body = await res.json();
+      return route.fulfill({ response: res, json: { ...body, estimate: body.estimate === null ? null : 0.6 } });
+    }
     if (route.request().method() !== "POST") return route.continue();
     const res = await route.fetch();
     const body = await res.json();

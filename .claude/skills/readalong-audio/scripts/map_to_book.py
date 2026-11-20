@@ -49,8 +49,10 @@ def book_units(path, app_text=None):
     """(label, kind, text, section) for each page (PDF; with app_text, each of the app's
     paragraphs) or spine document (EPUB), in reading order."""
     if path.lower().endswith(".pdf"):
-        n = int(re.search(r"Pages:\s+(\d+)", subprocess.run(["pdfinfo", path], capture_output=True, text=True).stdout).group(1))
         if app_text:
+            n = int(app_text.get("book", {}).get("pages") or max((q["page"] for q in app_text["paragraphs"]), default=0))
+            if not n:
+                n = int(re.search(r"Pages:\s+(\d+)", subprocess.run(["pdfinfo", path], capture_output=True, text=True).stdout).group(1))
             # One "line" per app paragraph, so the header rule below works on them too.
             by_page = {}
             for para in app_text["paragraphs"]:
@@ -58,6 +60,7 @@ def book_units(path, app_text=None):
             pages = ["\n".join(q["text"] for q in by_page.get(p, [])) for p in range(1, n + 1)]
             ids = [[q["id"] for q in by_page.get(p, [])] for p in range(1, n + 1)]
         else:
+            n = int(re.search(r"Pages:\s+(\d+)", subprocess.run(["pdfinfo", path], capture_output=True, text=True).stdout).group(1))
             pages = [subprocess.run(["pdftotext", "-f", str(p), "-l", str(p), path, "-"], capture_output=True, text=True).stdout
                      for p in range(1, n + 1)]
         # Strip running headers and footers (the book title on every page, "Vol. II, No. 2",

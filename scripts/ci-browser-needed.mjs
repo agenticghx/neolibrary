@@ -94,6 +94,7 @@ const NARRATION_FILES = new Set([
   "e2e/narration.spec.ts",
   "app/(app)/import/WholeBookNarration.tsx",
   "app/(app)/import/page.tsx",
+  "instrumentation.ts",
 ]);
 
 function clean(files) {
@@ -115,10 +116,11 @@ function forcesAll(f) {
   return (
     f.startsWith(".github/workflows/") ||
     f.startsWith("scripts/ci-browser-needed") ||
+    f === "scripts/copy-pdfjs.mjs" ||
+    f.startsWith("scripts/patch-foliate-") ||
     f.startsWith("next.config.") ||
     f.startsWith("tsconfig.") ||
     f === "playwright.config.ts" ||
-    f === "playwright.timing.config.ts" ||
     f === "package.json" ||
     f === "package-lock.json" ||
     f === "e2e/auth.setup.ts"
@@ -129,8 +131,10 @@ function isReadalong(f) {
   return (
     f.startsWith("lib/readalong/") ||
     f.startsWith("lib/player/") ||
+    f.startsWith("lib/speech/") ||
     f.startsWith("components/player/") ||
     f === "lib/library/audio.ts" ||
+    f === "e2e/discourse.ts" ||
     f.endsWith("/AudiobookUpload.tsx") ||
     // A PDF page's own document: its text layer and the read-aloud highlight live there, and the dimming of M19 P2
     // changed both. Its tests are the read-along ones (a change here once skipped them and broke one, #146).
@@ -141,7 +145,7 @@ function isReadalong(f) {
 
 function isNarration(f) {
   // The path segment `narration`, not the word "narrative" (a Path's book kind).
-  return NARRATION_FILES.has(f) || f.includes("/narration/") || f === "lib/library/audio.ts";
+  return NARRATION_FILES.has(f) || f.includes("/narration/") || f === "lib/library/audio.ts" || f.startsWith("lib/speech/");
 }
 
 function isWebkit(f) {
@@ -149,6 +153,9 @@ function isWebkit(f) {
     f === "e2e/safari.spec.ts" ||
     f === "e2e/listen.ts" ||
     f.startsWith("lib/player/") ||
+    f.startsWith("lib/speech/") ||
+    f.startsWith("lib/reader/") ||
+    f.startsWith("app/(reader)/books/[id]/read/") ||
     f.startsWith("components/player/") ||
     f === "lib/library/audio.ts" ||
     isReadalong(f)

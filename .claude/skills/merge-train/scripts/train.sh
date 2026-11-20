@@ -70,8 +70,13 @@ wait_run() {
 # 3. Green: merge. Failed: reference images → copy, commit, stop (3); a known flake → re-run once; else stop (4).
 for attempt in 1 2; do
   if wait_run; then log "CI green on run $RUN"; break; fi
-  J=$(gh api "repos/$NWO/actions/runs/$RUN/jobs" --jq '.jobs[] | select(.conclusion=="failure") | .id' | head -1)
-  fails=$(gh run view --job "$J" --log 2>/dev/null | tr -d '\r' | perl -pe 's/\e\[[0-9;]*m//g' | grep -E "✘" | perl -pe 's/^.*[0-9]Z\s+//; s/^\s*✘\s+\d+\s+//')
+  fails=""
+  for J in $(gh api "repos/$NWO/actions/runs/$RUN/jobs" --jq '.jobs[] | select(.conclusion=="failure") | .id'); do
+    raw=$(gh api "repos/$NWO/actions/jobs/$J/logs" 2>/dev/null || gh run view --job "$J" --log 2>/dev/null)
+    job_fails=$(printf '%s\n' "$raw" | tr -d '\r' | perl -pe 's/\e\[[0-9;]*m//g' | grep -E "✘" | perl -pe 's/^.*[0-9]Z\s+//; s/^\s*✘\s+\d+\s+//')
+    [ -n "$job_fails" ] && fails="${fails:+$fails
+}$job_fails"
+  done
   log "CI failed on run $RUN; failing tests:"; echo "$fails" | head -20
   if [ -n "$fails" ] && [ -z "$(echo "$fails" | grep -v 'visual.spec.ts')" ]; then
     n=$(zsh "$HERE/refresh-screenshots.sh" "$RUN" | tail -1 | sed -E 's/^copied ([0-9]+).*/\1/')

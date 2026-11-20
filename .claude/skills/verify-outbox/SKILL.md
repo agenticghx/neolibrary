@@ -69,7 +69,7 @@ Sync commit: **f5fe466d** (2026-11-15, on main: the fixes as merged in #391). At
 To see whether a change moved any of it:
 
 ```sh
-git diff --stat 109aea88 -- lib/outbox.ts lib/reader/note-sender.ts lib/reader-header.ts 'app/(reader)/books/[id]/read/useNotes.ts' 'app/(reader)/books/[id]/read/Reader.tsx' 'app/(reader)/books/[id]/read/page.tsx' 'app/api/books/[id]/annotations/route.ts' 'app/api/annotations/[id]' lib/library/annotations.ts db/migrations/0007_annotations.up.sql 'app/(app)/actions.ts' public/sw.js
+git diff --stat f5fe466d -- lib/outbox.ts lib/reader/note-sender.ts lib/reader-header.ts 'app/(reader)/books/[id]/read/useNotes.ts' 'app/(reader)/books/[id]/read/Reader.tsx' 'app/(reader)/books/[id]/read/page.tsx' 'app/api/books/[id]/annotations/route.ts' 'app/api/annotations/[id]' lib/library/annotations.ts db/migrations/0007_annotations.up.sql 'app/(app)/actions.ts' public/sw.js
 ```
 
 If it lists a file, read the diff against the table under "Where each part of
@@ -78,7 +78,7 @@ note, a style) usually needs nothing. A change to what is sent, when, by
 whom, or what happens to the outbox item afterwards needs the model updated
 first (see "When a change is intended").
 
-**Moving the sync commit.** Change `109aea88` above to a newer commit only
+**Moving the sync commit.** Change `f5fe466d` above to a newer commit only
 after you have read every covered file at that commit, confirmed each row of
 both tables still points at the right code (update the line numbers), and run
 `check.sh` with the result recorded below. Say in your commit that you did.

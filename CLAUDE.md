@@ -84,7 +84,8 @@ engineer.
   `scan-to-text`, `xray-on-subscription`, `genealogy-on-subscription`,
   `figures-on-subscription`, `browser-test-triage`,
   `readalong-audio`,
-  `book-chapters`, `plain-english` and `simplified-technical-english`.
+  `book-chapters`, `plain-english`, `simplified-technical-english`,
+  `verify-narration`, `verify-outbox` and `verify-spending`.
   Load the one that fits first.
 - Before a PR: `npm run check` (lint, types, unit tests); `npm run
   test:postgres` when SQL or a migration changes; on a Mac, browser tests

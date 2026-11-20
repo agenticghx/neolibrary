@@ -6,7 +6,11 @@ import { ADMIN_STATE } from "./pages";
 // only flips their switches (setting each back at the end), so it changes nothing another test counts.
 test.use({ storageState: ADMIN_STATE });
 
-const visitorContext = (browser: Browser) => browser.newContext({ storageState: { cookies: [], origins: [] } });
+const visitorContext = (browser: Browser) =>
+  browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    extraHTTPHeaders: { "x-forwarded-for": `10.244.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` },
+  });
 
 /** The owner's book id for a title, from the Library's search. */
 async function bookId(page: Page, title: string) {

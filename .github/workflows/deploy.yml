@@ -88,7 +88,7 @@ jobs:
             note "Refused: ${live}..${sha:0:7} includes a database migration ($(git diff --name-only "$live" "$sha" -- db/migrations | tr '\n' ' ')). It needs a backup first and Samuel's word, from the laptop."
             echo "go=no" >> "$GITHUB_OUTPUT"; echo "why=migration" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          runs=$(git diff --name-only "$live" "$sha" | grep -vE '^(PROGRESS\.md|LEARNING_LOG\.md|docs/|\.claude/|\.github/|e2e/|[^/]+\.md$)' || true)
+          runs=$(git diff --name-only "$live" "$sha" | grep -vE '^(PROGRESS\.md|LEARNING_LOG\.md|docs/|\.claude/|\.github/|e2e/|tools/|vitest\.config\.mts$|playwright.*\.config\.ts$|[^/]+\.md$)' || true)
           if [ -z "$runs" ]; then
             note "Skipped ${sha:0:7}: since ${live}, only the ledger, docs, skills, tests or workflows changed; nothing on the site would change."
             echo "go=no" >> "$GITHUB_OUTPUT"; exit 0
