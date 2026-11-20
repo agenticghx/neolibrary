@@ -7,3 +7,5 @@ docs/
 tools/
 LEARNING_LOG.md
 PROGRESS.md
+playwright.config.ts
+vitest.config.mts
