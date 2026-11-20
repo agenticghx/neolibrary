@@ -1,9 +1,9 @@
 import { and, asc, eq, gt, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, collectionBooks, paths, pillars, slots, type Book } from "@/lib/db/schema";
+import { annotations, audioTracks, books, collectionBooks, paths, pillars, slots, type Book } from "@/lib/db/schema";
 import type { SeedPath, SlotKind } from "@/data/paths/types";
 import { availabilityOf, isAvailable, type Availability } from "./availability";
-import { audiobookBookIds, narrationOn } from "./listenable";
+import { audiobookBookIds, narrationOn, savedTrackBookIds } from "./listenable";
 import { isReadingList, STARTER_PATHS } from "./seed";
 import { isOwnBook } from "@/lib/library/own-book";
 
@@ -209,12 +209,12 @@ export async function getPathView(
         )
         .orderBy(asc(slots.position), asc(slots.id))
     : [];
-  const audiobooks = await audiobookBookIds(
-    db,
-    ownerId,
-    slotRows.map((r) => r.book.id),
-  );
-  const availableOf = (b: Book) => availabilityOf(b, audiobooks.has(b.id), narration);
+  const bookIds = slotRows.map((r) => r.book.id);
+  const [audiobooks, savedTracks] = await Promise.all([
+    audiobookBookIds(db, ownerId, bookIds),
+    narration ? Promise.resolve(new Set<string>()) : savedTrackBookIds(db, ownerId, bookIds),
+  ]);
+  const availableOf = (b: Book) => availabilityOf(b, audiobooks.has(b.id), narration || savedTracks.has(b.id));
 
   let number = 0;
   const pillarViews: PillarView[] = pillarRows.map((p) => {
@@ -275,8 +275,11 @@ export async function getBook(db: Db, ownerId: string, id: string, narration: bo
     .innerJoin(pillars, eq(pillars.id, slots.pillarId))
     .innerJoin(paths, eq(paths.id, pillars.pathId))
     .where(eq(slots.bookId, book.id));
-  const audiobook = (await audiobookBookIds(db, ownerId, [book.id])).has(book.id);
-  return { book, available: availabilityOf(book, audiobook, narration), places };
+  const [audiobooks, savedTracks] = await Promise.all([
+    audiobookBookIds(db, ownerId, [book.id]),
+    narration ? Promise.resolve(new Set<string>()) : savedTrackBookIds(db, ownerId, [book.id]),
+  ]);
+  return { book, available: availabilityOf(book, audiobooks.has(book.id), narration || savedTracks.has(book.id)), places };
 }
 
 /*
@@ -621,7 +624,8 @@ export async function removeTitle(db: Db, ownerId: string, slotId: string): Prom
     const [onAPath] = await tx.select({ id: slots.id }).from(slots).where(eq(slots.bookId, slot.bookId)).limit(1);
     const [collected] = await tx.select({ id: collectionBooks.bookId }).from(collectionBooks).where(eq(collectionBooks.bookId, slot.bookId)).limit(1);
     const [noted] = await tx.select({ id: annotations.id }).from(annotations).where(eq(annotations.bookId, slot.bookId)).limit(1);
-    const kept = Boolean(book?.fileKey || onAPath || collected || noted);
+    const [audio] = await tx.select({ id: audioTracks.id }).from(audioTracks).where(eq(audioTracks.bookId, slot.bookId)).limit(1);
+    const kept = Boolean(book?.fileKey || onAPath || collected || noted || audio);
     if (!kept) await tx.update(books).set({ deletedAt: new Date() }).where(eq(books.id, slot.bookId));
     return { title: slot.title, kept };
   });

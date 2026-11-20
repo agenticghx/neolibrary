@@ -112,10 +112,58 @@ export function fromPubmed(pmid: string, r: PubmedSummary): PaperDetails | null 
   return { title, authors, journal: r.source || null, year: year || null, doi: doi ? doi.toLowerCase() : null, pmid, source: "pubmed" };
 }
 
-/** A catalogue title without its closing full stop, its markup (<i>…</i>) or doubled spaces. */
+const NAMED_ENTITIES: Record<string, string> = {
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  ndash: "–",
+  mdash: "—",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  hellip: "…",
+  plusmn: "±",
+  times: "×",
+  micro: "μ",
+  alpha: "α",
+  beta: "β",
+  gamma: "γ",
+  delta: "δ",
+  epsilon: "ε",
+  kappa: "κ",
+  lambda: "λ",
+  mu: "μ",
+  omega: "ω",
+  sigma: "σ",
+  tau: "τ",
+  Alpha: "Α",
+  Beta: "Β",
+  Gamma: "Γ",
+  Delta: "Δ",
+  Kappa: "Κ",
+  Lambda: "Λ",
+  Omega: "Ω",
+  Sigma: "Σ",
+};
+
+/** A catalogue title without its closing full stop, its markup (<i>…</i>), HTML entities or doubled spaces. */
 export function tidyTitle(t: string): string {
   return t
     .replace(/<[^>]+>/g, "")
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (m, hex: string) => {
+      const cp = Number.parseInt(hex, 16);
+      return Number.isInteger(cp) && cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+    })
+    .replace(/&#(\d+);/g, (m, n: string) => {
+      const cp = Number(n);
+      return Number.isInteger(cp) && cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+    })
+    .replace(/&([a-zA-Z]+);/g, (m, name: string) => (name === "amp" ? m : (NAMED_ENTITIES[name] ?? m)))
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\.$/, "");

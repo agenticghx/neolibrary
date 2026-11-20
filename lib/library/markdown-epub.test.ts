@@ -64,6 +64,9 @@ describe("Markdown to EPUB (M29)", () => {
     );
     expect(inline("snake_case_word stays")).toBe("snake_case_word stays");
     expect(inline("a [link](https://x.org) and `x < y`")).toBe("a link and <code>x &lt; y</code>");
+    expect(inline("`[raw](https://x.org) and *stars*`")).toBe("<code>[raw](https://x.org) and *stars*</code>");
+    const nested = inline("**bold _and italic_**");
+    expect(XMLValidator.validate(`<p>${nested}</p>`)).toBe(true);
     expect(inline("<b>no</b> & \"quotes\"")).toBe("&lt;b&gt;no&lt;/b&gt; &amp; &quot;quotes&quot;");
   });
 

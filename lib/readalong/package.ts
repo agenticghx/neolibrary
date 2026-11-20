@@ -99,11 +99,15 @@ export function readPackageZip(zip: Uint8Array): Record<string, Uint8Array> {
   const manifest = names.find((n) => n === "manifest.json" || /^[^/]+\/manifest\.json$/.test(n));
   if (!manifest) throw new PackageError("No manifest.json in this package.");
   const prefix = manifest.slice(0, -"manifest.json".length);
-  return Object.fromEntries(names.filter((n) => n.startsWith(prefix)).map((n) => [n.slice(prefix.length), files[n]]));
+  const out: Record<string, Uint8Array> = Object.create(null);
+  for (const n of names) {
+    if (n.startsWith(prefix)) out[n.slice(prefix.length)] = files[n];
+  }
+  return out;
 }
 
 function json<T>(files: Record<string, Uint8Array>, name: string): T {
-  const f = files[name];
+  const f = typeof name === "string" && Object.hasOwn(files, name) ? files[name] : undefined;
   if (!f) throw new PackageError(`missing ${name}`);
   try {
     return JSON.parse(strFromU8(f)) as T;
@@ -115,12 +119,26 @@ function json<T>(files: Record<string, Uint8Array>, name: string): T {
 /** Parses the package's files (audio not needed). Throws PackageError when a file is missing or unreadable. */
 export function parsePackage(files: Record<string, Uint8Array>): Package {
   const manifest = json<Manifest>(files, "manifest.json");
-  if (!Array.isArray(manifest.chapters) || !Array.isArray(manifest.audio)) throw new PackageError("manifest.json has no chapters or audio list");
+  if (!manifest || typeof manifest !== "object" || !Array.isArray(manifest.chapters) || !Array.isArray(manifest.audio)) {
+    throw new PackageError("manifest.json has no chapters or audio list");
+  }
+  if (!manifest.book || typeof manifest.book !== "object" || typeof manifest.book.sha256 !== "string") {
+    throw new PackageError("manifest.json has no book record");
+  }
+  if (typeof manifest.book_map !== "string" || !manifest.book_map) {
+    throw new PackageError("manifest.json has no book_map");
+  }
   const chapters = manifest.chapters.map((c) => {
-    if (!files[c.script]) throw new PackageError(`missing ${c.script}`);
-    return { ...c, text: strFromU8(files[c.script]), words: json<{ words: WordTiming[] }>(files, c.timings).words };
+    if (!c || typeof c !== "object" || typeof c.script !== "string" || !Object.hasOwn(files, c.script)) {
+      throw new PackageError(`missing ${c?.script ?? "script"}`);
+    }
+    const timed = json<{ words?: WordTiming[] }>(files, c.timings);
+    if (!timed || !Array.isArray(timed.words)) throw new PackageError(`${c.timings} has no words list`);
+    return { ...c, text: strFromU8(files[c.script]), words: timed.words };
   });
-  return { manifest, chapters, bookMap: json<{ paragraphs: BookMapParagraph[] }>(files, manifest.book_map).paragraphs };
+  const mapped = json<{ paragraphs?: BookMapParagraph[] }>(files, manifest.book_map);
+  if (!mapped || !Array.isArray(mapped.paragraphs)) throw new PackageError(`${manifest.book_map} has no paragraphs list`);
+  return { manifest, chapters, bookMap: mapped.paragraphs };
 }
 
 /** Python's str() of a number from JSON, for messages that match the Python checker. */

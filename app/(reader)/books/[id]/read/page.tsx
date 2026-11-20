@@ -4,7 +4,9 @@ import { books } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { focusRedirect, isRunning, openFocus, redirectInfo, runningFocus } from "@/lib/library/focus-lock";
+import { narrationOn } from "@/lib/library/listenable";
 import { getBook } from "@/lib/library/paths";
+import { getSpeechModel } from "@/lib/speech";
 import { getPreferences } from "@/lib/library/preferences";
 import { isCfi } from "@/lib/library/reading";
 import { editionOf } from "@/lib/library/text-edition";
@@ -38,13 +40,12 @@ export default async function ReadPage({
   if (to) redirect(to);
   // A sitting (R3/R4) shows only the page; a whole-book focus (R5) is the ordinary reader, with its own line.
   const sitting = running?.kind === "sitting" ? running : null;
-  const found = await getBook(db, user.id, id);
+  const found = await getBook(db, user.id, id, narrationOn(getSpeechModel, user));
   if (!found || !found.available.read || !found.book.fileType) notFound();
   const { book } = found;
   // ?at=<cfi> (e.g. from a search result) opens at that spot instead of the saved one.
   const sp = await searchParams;
   const at = sp.at;
-  const fileUrl = signFileUrl(await serverSecret(db, "file-links"), book.fileKey!);
   // M25: a scanned PDF with a text edition (a book of its own), or that edition: the reader offers Scan | Text.
   // ?page=<n> opens the text edition at the marker of the scan's page n.
   const text = book.editionOf ? { id: book.id } : await editionOf(db, user.id, book.id);
@@ -65,15 +66,20 @@ export default async function ReadPage({
   }
   const page = Number(sp.page);
   const openPage = edition?.current === "text" && Number.isInteger(page) && page > 0 ? page : undefined;
-  const { rewrittenView } = await getPreferences(db, user.id);
   // M28 S3: "Where were we?" on coming back on a later day; not during a focus session, nor when opened at a
   // place of its own (a search result, a review card, a shared link): the reader came for that place.
   // A whole-book focus lasts days, so "Where were we?" still helps there.
   // M41 R5: a paper's citations, for Aa > Citations (worked out from its stored text; nothing for a book without).
-  const citations = book.fileType === "epub" ? forReader(await citationsFor(db, user.id, book.id)) : null;
   // M41 R6: its figures redrawn cleanly (sent from the laptop; the owner's, for a paper shared with this reader).
-  const figures = book.fileType === "epub" ? await figureRedrawsFor(db, book) : [];
-  const recall = sitting ? null : isCfi(at) || openPage ? null : await whereWereWe(db, user.id, book.id);
+  const [secret, { rewrittenView }, rawCitations, figures, recall] = await Promise.all([
+    serverSecret(db, "file-links"),
+    getPreferences(db, user.id),
+    book.fileType === "epub" ? citationsFor(db, user.id, book.id) : Promise.resolve(null),
+    book.fileType === "epub" ? figureRedrawsFor(db, book) : Promise.resolve([]),
+    sitting || isCfi(at) || openPage ? Promise.resolve(null) : whereWereWe(db, user.id, book.id),
+  ]);
+  const fileUrl = signFileUrl(secret, book.fileKey!);
+  const citations = rawCitations ? forReader(rawCitations) : null;
   return (
     <Reader
       readerId={user.id}

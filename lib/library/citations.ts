@@ -258,7 +258,8 @@ export function findCitations(paragraphs: CitationParagraph[], chapters: Chapter
   }
   const references: Reference[] = [];
   const entries: Entry[] = [];
-  for (let i = listFrom; i < paragraphs.length && paragraphs[i].chapterIndex === listChapter; i++) {
+  const pdfList = paragraphs[listFrom]?.id.startsWith("p-page-") ?? false;
+  for (let i = listFrom; i < paragraphs.length && (pdfList || paragraphs[i].chapterIndex === listChapter); i++) {
     const p = paragraphs[i];
     // Every entry is numbered (one with a year), read or not, so the numbers count down the printed list.
     if (!new RegExp(String.raw`\b${YEAR}`).test(p.text)) continue;

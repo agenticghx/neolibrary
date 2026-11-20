@@ -343,6 +343,20 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
   const exportedNotes = new Set(annotationRows.map((a) => a.annotationId));
   const exportedSources = sourcesIn(generationRows);
   const [settings] = await db.select({ aiStyle: users.aiStyle, rewrittenView: users.rewrittenView }).from(users).where(eq(users.id, ownerId));
+  const referencedBookIds = new Set<string>();
+  for (const s of slotRows) referencedBookIds.add(s.bookId);
+  for (const m of memberRows) referencedBookIds.add(m.bookId);
+  for (const a of annotationRows) {
+    if (a.bookId) referencedBookIds.add(a.bookId);
+    if (a.targetType === "book" && a.targetId) referencedBookIds.add(a.targetId);
+  }
+  for (const g of generationRows) if (g.bookId) referencedBookIds.add(g.bookId);
+  for (const m of markRows) referencedBookIds.add(m.bookId);
+  for (const r of importRows) referencedBookIds.add(r.bookId);
+  for (const t of trackRows) referencedBookIds.add(t.bookId);
+  for (const s of sessionRows) referencedBookIds.add(s.bookId);
+  for (const f of focusRows) referencedBookIds.add(f.bookId);
+  for (const b of bookRows) if (b.editionOf && (!b.deletedAt || b.fileKey || referencedBookIds.has(b.id))) referencedBookIds.add(b.editionOf);
 
   return {
     format: EXPORT_FORMAT,
@@ -352,7 +366,7 @@ export async function exportLibrary(db: Db, ownerId: string, now = new Date()): 
     // A book removed from the library (M19) still has its file and notes, so it goes in the file, marked removed;
     // a title taken off a Path (no file, nothing linked to it) stays out, as before.
     books: bookRows
-      .filter((b) => !b.deletedAt || b.fileKey)
+      .filter((b) => !b.deletedAt || b.fileKey || referencedBookIds.has(b.id))
       .map((b) => ({
         id: b.id,
         title: b.title,
@@ -606,6 +620,9 @@ function checkImport(x: LibraryExport, ownerId: string) {
   const refuse = (why: string): never => {
     throw new ExportFormatError(`${why} Nothing was imported.`);
   };
+  if (!Array.isArray(x.books) || !Array.isArray(x.paths) || !Array.isArray(x.collections)) {
+    refuse("This export is missing its books, paths or collections.");
+  }
   const bookIds = new Set(x.books.map((b) => b.id));
   for (const b of x.books) {
     // A copy of a paper the library's owner shares: its file and cover are the owner's, checked against that paper
@@ -741,6 +758,21 @@ async function sharedCopies(db: Db, x: LibraryExport, ownerId: string): Promise<
     if (!(await stillShared(db, b.sharedFrom))) hidden.add(b.id);
   }
   return hidden;
+}
+
+/** Quick check whether a reader's library holds any books, paths, collections or notes (without serialising the whole library). */
+export async function isLibraryEmpty(db: Db, ownerId: string): Promise<boolean> {
+  const [[b], [p], [c], [a]] = await Promise.all([
+    db.select({ id: books.id }).from(books).where(eq(books.ownerId, ownerId)).limit(1),
+    db.select({ id: paths.id }).from(paths).where(eq(paths.ownerId, ownerId)).limit(1),
+    db.select({ id: collections.id }).from(collections).where(eq(collections.ownerId, ownerId)).limit(1),
+    db.select({ id: annotations.id }).from(annotations).where(eq(annotations.ownerId, ownerId)).limit(1),
+  ]);
+  if (p || c || a) return false;
+  if (!b) return true;
+  // Ignore unreferenced removed fileless placeholders, matching exportLibrary's emptiness definition.
+  const allBooks = await db.select({ id: books.id, deletedAt: books.deletedAt, fileKey: books.fileKey }).from(books).where(eq(books.ownerId, ownerId));
+  return !allBooks.some((row) => !row.deletedAt || row.fileKey);
 }
 
 export async function importLibrary(db: Db, ownerId: string, data: unknown) {
@@ -939,4 +971,5 @@ export async function importLibrary(db: Db, ownerId: string, data: unknown) {
       });
     }
   });
+  return { books: x.books.length, paths: x.paths.length, collections: x.collections.length };
 }

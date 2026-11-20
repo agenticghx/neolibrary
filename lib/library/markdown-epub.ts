@@ -40,8 +40,11 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 export function inline(raw: string, pictures?: Pictures) {
   const kept: string[] = [];
   const keep = (html: string) => `\u0000${kept.push(html) - 1}\u0000`;
+  const cleaned = raw.replace(/\u0000/g, "");
+  // Inline code is set aside first, so links, pictures, stars and underscores inside backticks stay code.
+  const withoutCode = cleaned.replace(/`([^`]+)`/g, (_, code: string) => keep(`<code>${esc(code)}</code>`));
   // A picture the upload holds becomes the picture (M41 R2); one it lacks keeps its description, below.
-  const text = raw.replace(/\u0000/g, "").replace(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g, (all, alt: string, src: string) => {
+  const text = withoutCode.replace(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g, (all, alt: string, src: string) => {
     const pic = pictures?.resolve(src);
     return pic ? keep(`<img src="${esc(pic.href)}" alt="${esc(alt.replace(/[*_`]/g, ""))}"/>`) : all;
   });
@@ -54,23 +57,27 @@ export function inline(raw: string, pictures?: Pictures) {
   }
   rest += text.slice(at);
   // A backslash escape outside code is the character itself.
-  rest = rest.replace(/(`[^`]*`)|\\([!-/:-@[-`{-~])/g, (_, code: string | undefined, ch: string) => code ?? keep(esc(ch)));
-  return marks(rest).replace(/\u0000(\d+)\u0000/g, (_, n: string) => kept[Number(n)]);
+  rest = rest.replace(/\\([!-/:-@[-`{-~])/g, (_, ch: string) => keep(esc(ch)));
+  return marks(rest, keep).replace(/\u0000(\d+)\u0000/g, (_, n: string) => kept[Number(n)]);
 }
 
-function marks(text: string) {
-  return (
-    esc(text)
-      // A picture keeps its description; a link keeps its text (no addresses from the file in the book).
-      .replace(/!\[([^\]]*)\]\([^)]*\)/g, (_, alt: string) => (alt ? `<em>${alt}</em>` : ""))
-      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\*\*(?=\S)([^*]+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^\w])__(?=\S)(.+?)__(?=[^\w]|$)/g, "$1<strong>$2</strong>")
-      .replace(/\*(?=\S)([^*]+?)\*/g, "<em>$1</em>")
-      // _italics_ only at word edges, so snake_case words stay as they are.
-      .replace(/(^|[^\w])_(?=\S)(.+?)_(?=[^\w]|$)/g, "$1<em>$2</em>")
-  );
+function emphasis(text: string): string {
+  return text
+    .replace(/\*(?=\S)([^*]+?)\*/g, "<em>$1</em>")
+    // _italics_ only at word edges, so snake_case words stay as they are.
+    .replace(/(^|[^\w])_(?=\S)(.+?)_(?=[^\w]|$)/g, "$1<em>$2</em>");
+}
+
+function marks(text: string, keep: (html: string) => string) {
+  const escaped = esc(text)
+    // A picture keeps its description; a link keeps its text (no addresses from the file in the book).
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, (_, alt: string) => (alt ? keep(`<em>${alt}</em>`) : ""))
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  // Format strong spans in isolation so inner *italic* cannot cross a </strong> boundary and break XHTML.
+  const withStrong = escaped
+    .replace(/\*\*(?=\S)([^*]+?)\*\*/g, (_, inner: string) => keep(`<strong>${emphasis(inner)}</strong>`))
+    .replace(/(^|[^\w])__(?=\S)(.+?)__(?=[^\w]|$)/g, (_, lead: string, inner: string) => `${lead}${keep(`<strong>${emphasis(inner)}</strong>`)}`);
+  return emphasis(withStrong);
 }
 
 /** "chip_war.md" → "Chip War": the file name's words, each with a capital first letter. */

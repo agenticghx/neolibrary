@@ -28,16 +28,16 @@ const words = (s: string) =>
  * the most linked; a place, term, work or event never matches a person.
  */
 export function matchGenealogyName(entry: { name: string; kind: string; aliases: string[] }, names: GenealogyName[]): GenealogyName | null {
+  if (["place", "term", "work", "event"].includes(entry.kind)) return null;
+  const kindFits = (n: GenealogyName) => (entry.kind === "person" ? n.kind === "person" : entry.kind === "organisation" ? n.kind === "organisation" : true);
   const spellings = [...new Set([entry.name, ...entry.aliases])];
   const exact = new Map(names.map((n) => [n.name.toLowerCase(), n]));
   for (const s of spellings) {
     const hit = exact.get(s.toLowerCase());
     if (hit) return hit;
   }
-  if (["place", "term", "work", "event"].includes(entry.kind)) return null;
   const fits = names.filter((n) => {
-    if (entry.kind === "person" && n.kind !== "person") return false;
-    if (entry.kind === "organisation" && n.kind !== "organisation") return false;
+    if (!kindFits(n)) return false;
     const theirs = words(n.name);
     if (!theirs.length) return false;
     return spellings.some((s) => {

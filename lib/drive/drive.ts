@@ -36,14 +36,17 @@ export function parseDriveLink(link: string): DriveLink | null {
   return null;
 }
 
+const decodePoint = (raw: string, cp: number) => (Number.isInteger(cp) && cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : raw);
+
 const decode = (s: string) =>
   s
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)));
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (m, hex: string) => decodePoint(m, Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (m, n: string) => decodePoint(m, Number(n)))
+    .replace(/&amp;/g, "&");
 
 /** The files in Google's public folder view (exported for tests): each entry links to /file/d/<id>; folders do not. */
 export function filesInFolderView(html: string): DriveFile[] {
@@ -98,16 +101,27 @@ async function bodyAtMost(res: Response, max: number) {
 }
 
 const NOT_SHARED = "Google Drive did not send this. Share it as “Anyone with the link” (Share → General access), then try again.";
+const UNREACHABLE = "Google Drive could not be reached. Check your connection and try again.";
+const MAX_FOLDER_HTML_BYTES = 10 * 1024 * 1024;
+const DRIVE_TIMEOUT_MS = 15_000;
 
 /** The real Google Drive, through its public addresses. */
 export class PublicDrive implements DriveSource {
   constructor(private readonly fetchFn: typeof fetch = fetch) {}
 
+  private async request(url: string) {
+    try {
+      return await this.fetchFn(url, { redirect: "follow", signal: AbortSignal.timeout(DRIVE_TIMEOUT_MS) });
+    } catch {
+      throw new DriveError(UNREACHABLE);
+    }
+  }
+
   async list(folderId: string) {
     if (!ID.test(folderId)) throw new DriveError("That is not a Google Drive folder link.");
-    const res = await this.fetchFn(`https://drive.google.com/embeddedfolderview?id=${encodeURIComponent(folderId)}`, { redirect: "follow" });
+    const res = await this.request(`https://drive.google.com/embeddedfolderview?id=${encodeURIComponent(folderId)}`);
     if (!res.ok) throw new DriveError(NOT_SHARED);
-    const html = await res.text();
+    const html = new TextDecoder().decode(await bodyAtMost(res, MAX_FOLDER_HTML_BYTES));
     if (!/class="flip-entries"|class="flip-entry"/.test(html)) throw new DriveError(NOT_SHARED);
     return filesInFolderView(html);
   }
@@ -115,7 +129,7 @@ export class PublicDrive implements DriveSource {
   async download(fileId: string, maxBytes: number) {
     if (!ID.test(fileId)) throw new DriveError("That is not a Google Drive file link.");
     // confirm=t: a big file is sent at once, not after Google's "can't scan this file for viruses" page.
-    const res = await this.fetchFn(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`, { redirect: "follow" });
+    const res = await this.request(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`);
     const type = res.headers.get("content-type") ?? "";
     // Not shared, or no such file: Google answers with a web page, not the file.
     if (!res.ok || type.startsWith("text/html")) throw new DriveError(NOT_SHARED);

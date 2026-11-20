@@ -1,6 +1,6 @@
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { annotations, books, generations, readingSessions } from "@/lib/db/schema";
+import { books, generations, readingSessions } from "@/lib/db/schema";
 import { partAnchor } from "./explain-back";
 import { chapterFor } from "./prerequisites";
 import { isCfi } from "./reading";
@@ -51,11 +51,17 @@ export async function whereWereWe(db: Db, ownerId: string, bookId: string, now =
   if (explained) return null;
   const anchor = await partAnchor(db, bookId, chapter).catch(() => null);
   if (!anchor) return null; // a chapter with no text has nothing to remember
-  const [summary] = await db
-    .select({ id: annotations.id })
-    .from(annotations)
-    .where(and(eq(annotations.ownerId, ownerId), eq(annotations.bookId, bookId), eq(annotations.kind, "note"), eq(annotations.cfi, anchor.cfi)))
-    .limit(1);
+  const summaryRows = await db.execute(sql`
+    SELECT 1 FROM (
+      SELECT DISTINCT ON (annotation_id) kind, cfi, body, deleted
+      FROM annotations
+      WHERE owner_id = ${ownerId} AND book_id = ${bookId}
+      ORDER BY annotation_id, version DESC
+    ) a
+    WHERE NOT a.deleted AND a.kind = 'note' AND a.cfi = ${anchor.cfi} AND length(trim(a.body)) > 0
+    LIMIT 1
+  `);
+  const summary = Array.isArray(summaryRows) ? summaryRows[0] : (summaryRows as { rows: unknown[] }).rows[0];
   if (summary) return null;
   return { chapterId: chapter.id, label: chapter.label, lastReadAt: last.startedAt.toISOString() };
 }

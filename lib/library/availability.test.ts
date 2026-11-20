@@ -51,6 +51,15 @@ describe("narrationOn", () => {
         throw new SpeechNotConfigured("no key");
       }),
     ).toBe(false);
+    // An invited reader brings their own ElevenLabs key in the browser (M34 S4), even when the server has none.
+    expect(
+      narrationOn(
+        () => {
+          throw new SpeechNotConfigured("no key");
+        },
+        { role: "reader" },
+      ),
+    ).toBe(true);
   });
 
   it("does not hide other errors", () => {

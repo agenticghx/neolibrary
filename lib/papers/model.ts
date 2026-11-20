@@ -35,7 +35,12 @@ export class PaperLookupUnreachable extends Error {
  * "PMID: 7568331", "7568331", or a PubMed address. Null for anything else.
  */
 export function parsePaperId(input: string): PaperId | null {
-  const s = input.trim();
+  let s = input.trim();
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    // keep raw input when a literal '%' is not percent-encoding
+  }
   const doi = /^(?:doi:\s*|https?:\/\/(?:dx\.)?doi\.org\/)?(10\.\d{4,9}\/\S+)$/i.exec(s)?.[1];
   if (doi) return { doi: doi.replace(/[.,;]+$/, "").toLowerCase() };
   const pmid = /^(?:pmid:?\s*|https?:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/)?(\d{1,9})\/?$/i.exec(s)?.[1];

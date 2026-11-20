@@ -347,4 +347,47 @@ describe("whole-book focus on Reading stats (M26 R5)", () => {
     await startFocus(database.db, ownerId, { bookId: tm, question: "A sitting", minutes: 5 }, new Date("2026-10-05T09:00:00Z"));
     expect(await bookFocuses(database.db, ownerId)).toHaveLength(1);
   });
+
+  it("merges a scanned book and its text edition across per-book stats, Path pillars, sitting focuses and chapters", async () => {
+    await database.db.update(books).set({ editionOf: tm }).where(eq(books.id, jekyll));
+    await seedPath(database.db, ownerId, {
+      slug: "edition-path",
+      title: "Edition path",
+      description: "",
+      sourceUrl: "",
+      pillars: [{ slug: "p1", title: "Time", group: "main", books: [{ kind: "N", title: "The Time Machine", author: "Wells" }] }],
+    });
+    const focusId = "cccccccc-0000-4000-8000-000000000001";
+    await recordReading(database.db, ownerId, {
+      sessionId: s1,
+      bookId: tm,
+      startedAt: "2026-10-04T09:00:00Z",
+      activeSeconds: 180,
+      words: 600,
+      pages: 3,
+      chapters: [{ key: "ch1", label: "Chapter 1", position: 0.1, activeSeconds: 180, words: 600 }],
+      focus: { id: focusId, question: "How does the machine work?" },
+    });
+    await recordReading(database.db, ownerId, {
+      sessionId: s2,
+      bookId: jekyll,
+      startedAt: "2026-10-04T09:10:00Z",
+      activeSeconds: 240,
+      words: 800,
+      pages: 4,
+      chapters: [{ key: "ch1", label: "Chapter 1", position: 0.1, activeSeconds: 240, words: 800 }],
+      focus: { id: focusId, question: "How does the machine work?" },
+    });
+    expect(await statsByBook(database.db, ownerId)).toEqual([
+      expect.objectContaining({ bookId: tm, title: "The Time Machine", activeSeconds: 420, words: 1400, pages: 7, sessions: 2, wpm: 200 }),
+    ]);
+    const { pillars } = await statsByPathSlot(database.db, ownerId);
+    expect(pillars).toEqual([expect.objectContaining({ title: "Time", activeSeconds: 420, words: 1400, books: 1 })]);
+    expect(await focusSessions(database.db, ownerId)).toEqual([
+      expect.objectContaining({ focusId, bookId: tm, title: "The Time Machine", activeSeconds: 420, words: 1400 }),
+    ]);
+    expect(await chapterStatsByBook(database.db, ownerId)).toEqual([
+      { bookId: tm, title: "The Time Machine", chapters: [expect.objectContaining({ key: "ch1", activeSeconds: 420, words: 1400, wpm: 200 })] },
+    ]);
+  });
 });

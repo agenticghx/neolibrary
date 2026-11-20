@@ -253,16 +253,17 @@ export async function uploadPackage(
 
 /** A pause that ends early when cancelled. */
 export function abortableWait(ms: number, signal?: AbortSignal) {
+  if (signal?.aborted) return Promise.resolve();
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 

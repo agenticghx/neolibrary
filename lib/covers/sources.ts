@@ -102,11 +102,35 @@ class Pacer {
   }
 }
 
+const SOURCE_TIMEOUT_MS = 10_000;
+
 async function readCapped(res: Response, maxBytes: number): Promise<Uint8Array | null> {
   const declared = Number(res.headers.get("content-length"));
   if (declared > maxBytes) return null;
-  const data = new Uint8Array(await res.arrayBuffer());
-  return data.byteLength > maxBytes ? null : data;
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const data = new Uint8Array(await res.arrayBuffer());
+    return data.byteLength > maxBytes ? null : data;
+  }
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    parts.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.byteLength;
+  }
+  return out;
 }
 
 /**
@@ -115,7 +139,7 @@ async function readCapped(res: Response, maxBytes: number): Promise<Uint8Array |
  */
 async function preview(fetcher: typeof fetch, url: string): Promise<Uint8Array | null> {
   try {
-    const res = await fetcher(url, { headers: { "user-agent": USER_AGENT }, redirect: "follow" });
+    const res = await fetcher(url, { headers: { "user-agent": USER_AGENT }, redirect: "follow", signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS) });
     return res.ok ? await readCapped(res, 512 * 1024) : null;
   } catch {
     return null;
@@ -154,7 +178,11 @@ export class OpenLibraryCovers implements CoverSource {
   private async get(url: string) {
     await this.pacer.wait();
     try {
-      return await this.fetcher(url, { headers: { "user-agent": USER_AGENT, accept: "application/json, image/*" }, redirect: "follow" });
+      return await this.fetcher(url, {
+        headers: { "user-agent": USER_AGENT, accept: "application/json, image/*" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
+      });
     } catch {
       throw new CoverSourceError("Open Library could not be reached.");
     }
@@ -243,22 +271,23 @@ export class OpenLibraryCovers implements CoverSource {
   private async edition(key: string | undefined) {
     if (!key || !/^OL\d+M$/.test(key)) return null;
     if (this.editions.has(key)) return this.editions.get(key)!;
-    let info: { title: string; langs: string[]; isbn: string | null } | null = null;
     try {
       const res = await this.get(`https://openlibrary.org/books/${key}.json`);
       if (res.ok) {
         const e = (await res.json()) as { title?: string; languages?: { key?: string }[]; isbn_13?: string[]; isbn_10?: string[] };
-        info = {
+        const info = {
           title: e.title ?? "",
           langs: (e.languages ?? []).map((l) => (l.key ?? "").replace(/^\/languages\//, "")).filter(Boolean),
           isbn: e.isbn_13?.[0] ?? e.isbn_10?.[0] ?? null,
         };
+        this.editions.set(key, info);
+        return info;
       }
+      if (res.status === 404) this.editions.set(key, null);
     } catch {
-      info = null;
+      // Transient failure: do not cache null so a later lookup can try again.
     }
-    this.editions.set(key, info);
-    return info;
+    return null;
   }
 
   /**
@@ -318,7 +347,7 @@ export class GoogleBooksCovers implements CoverSource {
       await this.pacer.wait();
       let res: Response;
       try {
-        res = await this.fetcher(url, { headers: { "user-agent": USER_AGENT } });
+        res = await this.fetcher(url, { headers: { "user-agent": USER_AGENT }, signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS) });
       } catch {
         throw new CoverSourceError("Google Books could not be reached.");
       }

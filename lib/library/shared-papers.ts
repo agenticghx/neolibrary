@@ -89,16 +89,25 @@ export async function syncSharedPaper(db: Db, paperId: string, onlyReader?: stri
   let shared = 0;
   for (const readerId of await readers(db, ownerId, onlyReader)) {
     const [copy] = await db
-      .select({ id: books.id, removedByReader: books.removedByReader })
+      .select({
+        ...COPIED,
+        id: books.id,
+        deletedAt: books.deletedAt,
+        removedByReader: books.removedByReader,
+      })
       .from(books)
       .where(and(eq(books.ownerId, readerId), eq(books.sharedFrom, paperId)));
     if (copy) {
       // Refreshed (the owner may have changed its details) and back on the shelf if it had been hidden for the
       // reader; a copy the reader removed themselves stays removed until they bring it back (audit 2026-11-09).
-      await db
-        .update(books)
-        .set({ ...details, ...(copy.removedByReader ? {} : { deletedAt: null }), updatedAt: new Date() })
-        .where(eq(books.id, copy.id));
+      const shouldUnhide = !copy.removedByReader && copy.deletedAt !== null;
+      const changed = shouldUnhide || Object.keys(COPIED).some((k) => JSON.stringify(copy[k as keyof typeof COPIED]) !== JSON.stringify(details[k as keyof typeof COPIED]));
+      if (changed) {
+        await db
+          .update(books)
+          .set({ ...details, ...(copy.removedByReader ? {} : { deletedAt: null }), updatedAt: new Date() })
+          .where(eq(books.id, copy.id));
+      }
       continue;
     }
     const [made] = await db

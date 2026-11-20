@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-19 20:31 · Antigravity · Whole-project audit (2/4): >10 MB uploads, saved-audio & own-key Listen, scan+edition stats, and library fixes
+- **Done:** Raised Next proxy body buffer limit to 512 MB so large EPUB/PDF/audiobook uploads are not truncated at 10 MB; kept saved TTS audio playable at no cost even when no voice key is set and enabled `?listen=1` for invited readers with browser ElevenLabs keys; merged scanned PDFs and text editions (`editionOf`) on `/stats` across per-book rows, Path pillars, sitting focuses and chapter speeds; excluded fileless placeholders from sidebar collection counts; fixed Crossref/Markdown/Drive/read-along/export edge cases.
+- **Key paths:** proxy.ts; lib/library/listen.ts; lib/library/audio.ts; lib/library/listenable.ts; lib/library/reading-stats.ts; lib/library/shelf.ts; lib/papers/catalogues.ts; lib/library/export.ts
+- **Commands that worked:** npm run check (0 lint/style/type errors, 172 test files passed)
+- **Known issues / blockers:** Part 2 of 4 from the 2026-11-19 whole-project audit; no database migration.
+- **Exact next steps:** 1. Rebase onto main after PR 1 merges and merge when green.
+
 ### 2026-11-16 05:54 · Claude Opus 5.5 · The start script execs Next, so a deploy's SIGTERM reaches it (narration finding 1 on Railway)
 - **Done:** #395 merged and deployed (3b4aa2a, both addresses). Its deploy showed the old server never heard SIGTERM: npm's sh -c (dash on Linux) died first and the container ended. Reproduced in node:22-bookworm-slim; fixed with exec in package.json start; lib/start-script.test.ts; verify-narration notes it; both verify skills' sync commits set to 3b4aa2a3.
 - **Key paths:** package.json (start); lib/start-script.test.ts; .claude/skills/verify-narration/SKILL.md; .claude/skills/verify-spending/SKILL.md; LEARNING_LOG.md

@@ -31,8 +31,14 @@ const PUBMED_GRECO = {
 };
 
 describe("a paper's id as pasted (M41 R3)", () => {
-  it("reads a DOI in its usual forms, lower case, without a trailing full stop", () => {
-    for (const s of ["10.1016/S0031-6997(25)06847-4", "doi:10.1016/s0031-6997(25)06847-4", " https://doi.org/10.1016/S0031-6997(25)06847-4. ", "https://dx.doi.org/10.1016/s0031-6997(25)06847-4"])
+  it("reads a DOI in its usual forms, including percent-encoded URLs, lower case, without a trailing full stop", () => {
+    for (const s of [
+      "10.1016/S0031-6997(25)06847-4",
+      "doi:10.1016/s0031-6997(25)06847-4",
+      " https://doi.org/10.1016/S0031-6997(25)06847-4. ",
+      "https://dx.doi.org/10.1016/s0031-6997(25)06847-4",
+      "https://doi.org/10.1016%2FS0031-6997%2825%2906847-4",
+    ])
       expect(parsePaperId(s)).toEqual({ doi: "10.1016/s0031-6997(25)06847-4" });
   });
   it("reads a PubMed ID, alone, after PMID, or in a PubMed address", () => {
@@ -73,6 +79,7 @@ describe("Crossref and PubMed records", () => {
       pmid: null,
       source: "crossref",
     });
+    expect(fromCrossref({ ...CROSSREF_GRECO, title: ["<i>&alpha;</i> &amp; &#x3b2; &quot;synergy&quot;."] })?.title).toBe('α & β "synergy"');
     expect(fromCrossref({ title: [] })).toBeNull();
   });
   it("reads PubMed's record: family names before initials, the journal's short name", () => {

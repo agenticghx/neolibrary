@@ -134,13 +134,15 @@ async function read(site: string, bookId: string) {
   }
 }
 
-const [cmd, site, bookId] = process.argv.slice(2);
-const usage = () => {
-  console.error("Usage: xray-on-subscription.ts read|status|tidy <site> <book id> [--model m] [--effort e] [--chapters n]");
-  process.exit(2);
-};
-if (!site || !bookId || !/^[0-9a-f-]{36}$/i.test(bookId)) usage();
-(cmd === "read" ? read(site, bookId) : cmd === "status" ? status(site, bookId) : cmd === "tidy" ? tidy(site, bookId) : Promise.reject(new Error("read, status or tidy"))).catch((e) => {
-  console.error(e instanceof Error ? e.message : String(e));
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith("xray-on-subscription.ts")) {
+  const [cmd, site, bookId] = process.argv.slice(2);
+  const usage = () => {
+    console.error("Usage: xray-on-subscription.ts read|status|tidy <site> <book id> [--model m] [--effort e] [--chapters n]");
+    process.exit(2);
+  };
+  if (!site || !bookId || !/^[0-9a-f-]{36}$/i.test(bookId)) usage();
+  (cmd === "read" ? read(site, bookId) : cmd === "status" ? status(site, bookId) : cmd === "tidy" ? tidy(site, bookId) : Promise.reject(new Error("read, status or tidy"))).catch((e) => {
+    console.error(e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  });
+}

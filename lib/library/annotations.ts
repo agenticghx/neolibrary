@@ -163,7 +163,10 @@ export async function sectionForCfi(db: Db, bookId: string, cfi: string, quote =
   const squeeze = (t: string) => t.replace(/\s+/g, "");
   const q = squeeze(quote).slice(0, 40);
   if (tied.length > 1 && q) {
-    const texts = await db.select({ id: sections.id, text: sections.text }).from(sections).where(inArray(sections.id, tied));
+    const texts = await db
+      .select({ id: sections.id, text: sections.text })
+      .from(sections)
+      .where(and(eq(sections.bookId, bookId), inArray(sections.id, tied)));
     const hit = tied.find((id) => squeeze(texts.find((t) => t.id === id)?.text ?? "").includes(q));
     if (hit) return hit;
   }
@@ -501,15 +504,20 @@ export async function importAnnotations(
     let added = 0;
     let skipped = 0;
     for (const it of items) {
-      if (it.id) {
+      let id = it.id;
+      if (id) {
         const [exists] = await db
-          .select({ id: annotations.id })
+          .select({ ownerId: annotations.ownerId })
           .from(annotations)
-          .where(eq(annotations.annotationId, it.id))
+          .where(eq(annotations.annotationId, id))
           .limit(1);
         if (exists) {
-          skipped += 1;
-          continue;
+          if (exists.ownerId === ownerId) {
+            skipped += 1;
+            continue;
+          }
+          // Another reader already holds this UUID: import under a fresh UUID rather than silently skipping.
+          id = crypto.randomUUID();
         }
       }
       const created = it.created && !Number.isNaN(Date.parse(it.created)) ? new Date(it.created) : new Date();
@@ -518,7 +526,7 @@ export async function importAnnotations(
         ownerId,
         { kind: it.kind, bookId, cfi: it.cfi ?? undefined, quote: it.quote, color: it.color ?? undefined, body: it.body, sticker: it.sticker ?? undefined, drawing: it.drawing ?? undefined, picture: it.picture ?? undefined },
         created,
-        it.id ?? undefined,
+        id ?? undefined,
         it.agent ?? undefined,
       );
       // Keep the "last changed" time too, as a second version.

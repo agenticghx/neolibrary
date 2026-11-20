@@ -7,6 +7,7 @@ import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import type { Storage } from "@/lib/storage";
 import { isOwnBook } from "@/lib/library/own-book";
+import { syncSharedPaper } from "./shared-papers";
 
 /**
  * Covers for titles (M22), found in public catalogues by title and author when
@@ -158,7 +159,7 @@ export async function rejectCover(
     ? await db
         .select()
         .from(books)
-        .where(isOwnBook(bookId, ownerId))
+        .where(and(isOwnBook(bookId, ownerId), isNull(books.sharedFrom)))
     : [];
   if (!book) throw new CoverError("Book not found.");
   if (!book.coverKey || !REPLACEABLE.includes(book.coverSource as (typeof REPLACEABLE)[number])) {
@@ -170,9 +171,16 @@ export async function rejectCover(
     .update(books)
     .set({ coverKey: null, coverSource: null, coverRef: null, coverPage: null, coverRejected: rejected, coverCheckedAt: now() })
     .where(eq(books.id, book.id));
+  await db.update(books).set({ coverKey: null, coverSource: null }).where(eq(books.editionOf, book.id));
   await storage.delete(book.coverKey);
   const p = await pick(source, await source.find(book), rejected);
-  if (p && (await keep(db, storage, { ...book, coverRejected: rejected }, p, now()))) return "replaced";
+  if (p && (await keep(db, storage, { ...book, coverRejected: rejected }, p, now()))) {
+    const [fresh] = await db.select({ coverKey: books.coverKey, coverSource: books.coverSource }).from(books).where(eq(books.id, book.id));
+    if (fresh) await db.update(books).set({ coverKey: fresh.coverKey, coverSource: fresh.coverSource }).where(eq(books.editionOf, book.id));
+    if (book.kind === "paper") await syncSharedPaper(db, book.id);
+    return "replaced";
+  }
+  if (book.kind === "paper") await syncSharedPaper(db, book.id);
   return "cleared";
 }
 
@@ -222,7 +230,7 @@ export async function chooseCover(
     ? await db
         .select()
         .from(books)
-        .where(isOwnBook(bookId, ownerId))
+        .where(and(isOwnBook(bookId, ownerId), isNull(books.sharedFrom)))
     : [];
   if (!book) throw new CoverError("Book not found.");
   if (book.coverSource === "file") throw new CoverError("This title has the cover inside its book file.");
@@ -256,6 +264,8 @@ export async function chooseCover(
     await storage.delete(key);
     throw new CoverError("This title has the cover inside its book file.");
   }
+  await db.update(books).set({ coverKey: key, coverSource: candidate.source }).where(eq(books.editionOf, book.id));
+  if (book.kind === "paper") await syncSharedPaper(db, book.id);
   if (book.coverKey && book.coverKey !== key) await storage.delete(book.coverKey);
 }
 
@@ -280,7 +290,7 @@ export async function uploadCover(
     ? await db
         .select()
         .from(books)
-        .where(isOwnBook(bookId, ownerId))
+        .where(and(isOwnBook(bookId, ownerId), isNull(books.sharedFrom)))
     : [];
   if (!book) throw new CoverError("Book not found.");
   if (book.coverSource === "file") throw new CoverError("This title has the cover inside its book file.");
@@ -306,6 +316,8 @@ export async function uploadCover(
     await storage.delete(key);
     throw new CoverError("This title has the cover inside its book file.");
   }
+  await db.update(books).set({ coverKey: key, coverSource: "upload" }).where(eq(books.editionOf, book.id));
+  if (book.kind === "paper") await syncSharedPaper(db, book.id);
   if (book.coverKey && book.coverKey !== key) await storage.delete(book.coverKey);
 }
 
@@ -314,9 +326,9 @@ export async function coverCounts(db: Db, ownerId: string) {
   const [row] = await db
     .select({
       found: sql<number>`count(*) filter (where ${books.coverSource} in ('openlibrary', 'googlebooks', 'fake', 'upload'))`.mapWith(Number),
-      none: sql<number>`count(*) filter (where ${books.coverKey} is null)`.mapWith(Number),
+      none: sql<number>`count(*) filter (where ${books.coverKey} is null and ${books.kind} = 'book')`.mapWith(Number),
     })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf)));
+    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.editionOf), isNull(books.sharedFrom)));
   return row ?? { found: 0, none: 0 };
 }
