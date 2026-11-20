@@ -171,6 +171,7 @@ export function CommandPalette({ admin }: { admin: boolean }) {
 
   // Focus stays inside: Tab moves between the box and Close, and wraps; keys inside the dialog stay here.
   const onDialogKeyDown = (e: React.KeyboardEvent<HTMLDialogElement>) => {
+    if (isPaletteKey(e.nativeEvent)) return;
     e.stopPropagation();
     if (e.key === "Escape") {
       e.preventDefault();
