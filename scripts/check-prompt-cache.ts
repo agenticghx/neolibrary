@@ -13,7 +13,8 @@ import { fill, readPrompt, splitPrompt } from "@/lib/ai/prompts";
 import { steSkill } from "@/lib/ai/ste-prompt";
 
 async function main(key: string) {
-  const model = new ClaudeModel(key, process.argv[2] ?? "claude-haiku-5-5");
+  const chosenModel = process.argv.slice(2).find((a) => !a.startsWith("-")) ?? "claude-haiku-5-5";
+  const model = new ClaudeModel(key, chosenModel);
   const { system, user } = splitPrompt(await readPrompt("ste-rewrite"));
   const req = {
     system: fill(system, { ...(await steSkill()), strictness: "standard" }),

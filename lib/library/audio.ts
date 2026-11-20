@@ -210,6 +210,27 @@ export async function firstStoredTrack(db: Db, ownerId: string, model: SpeechMod
   return null;
 }
 
+/**
+ * Any saved TTS track for `passage.text` owned by `ownerId` (optionally in `voice`), used when no voice key is
+ * configured so audio already paid for stays playable at no cost (ground rule 8).
+ */
+export async function savedTrackWithoutKey(
+  db: Db,
+  ownerId: string,
+  passage: Pick<Passage, "text">,
+  voice?: string | null,
+): Promise<Track | null> {
+  const filters = [eq(audioTracks.ownerId, ownerId), eq(audioTracks.source, "tts"), eq(audioTracks.inputHash, sha256(passage.text))];
+  if (voice && !voice.startsWith("upload:")) filters.push(eq(audioTracks.voice, voice));
+  const [row] = await db
+    .select()
+    .from(audioTracks)
+    .where(and(...filters))
+    .orderBy(desc(audioTracks.createdAt))
+    .limit(1);
+  return row ? toTrack(row) : null;
+}
+
 /** The rough cost of reading a paragraph aloud, in US dollars. */
 export const estimateSpeech = (passage: Pick<Passage, "text">) => speechCost(passage.text.length);
 
@@ -356,11 +377,9 @@ async function saveTrack(db: Db, storage: Storage, model: SpeechModel, ownerId: 
   const { result } = paid;
   for (let attempt = 0; ; attempt++) {
     try {
-      if (attempt > 0) {
-        // An earlier try may have written the row although it reported a failure: then that row is this audio's.
-        const [written] = await db.select().from(audioTracks).where(eq(audioTracks.id, paid.id));
-        if (written) return written;
-      }
+      // An earlier try (or a rescued kept track) may have written the row although it reported a failure: then that row is this audio's.
+      const [written] = await db.select().from(audioTracks).where(eq(audioTracks.id, paid.id));
+      if (written) return written;
       await storage.put(paid.audioKey, result.audio, result.mime);
       const [row] = await db
         .insert(audioTracks)

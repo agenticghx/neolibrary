@@ -42,7 +42,7 @@ export function toMarkdown(book: BookInfo, items: Annotation[], chapterOf: (a: A
   const lines: string[] = [`# ${book.title}`];
   if (book.author) lines.push("", `*${book.author}*`);
   lines.push("", `Exported from Neolibrary on ${exportedAt.toISOString().slice(0, 10)}.`);
-  const bookNotes = items.filter((a) => a.targetType === "book" && a.kind === "note");
+  const bookNotes = items.filter((a) => a.targetType === "book" && (a.kind === "note" || a.kind === "voice"));
   if (bookNotes.length) {
     lines.push("", "## Notes on the book");
     for (const n of bookNotes) lines.push("", noteText(n));
@@ -184,18 +184,35 @@ export function fromW3C(data: unknown): ImportedAnnotation[] {
           : KIND_OF[a.motivation] === "sticker"
           ? "note"
           : (KIND_OF[a.motivation] ?? (a.body?.length ? "note" : "highlight"));
-    const selectors = a.target?.selector ?? [];
+    const rawSelectors = a.target?.selector;
+    const selectors = Array.isArray(rawSelectors) ? rawSelectors : rawSelectors && typeof rawSelectors === "object" ? [rawSelectors] : [];
     const quote = selectors.find((s) => s.type === "TextQuoteSelector") as
       | { exact: string; prefix?: string; suffix?: string }
       | undefined;
     const fragment = selectors.find((s) => s.type === "FragmentSelector") as { value: string } | undefined;
-    const id = /^urn:uuid:([0-9a-f-]{36})$/i.exec(a.id ?? "")?.[1] ?? null;
+    const id = /^urn:uuid:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(a.id ?? "")?.[1] ?? null;
+    const rawBody = Array.isArray(a.body) ? a.body : a.body && typeof a.body === "object" ? [a.body] : [];
+    let bodyText = rawBody.map((b) => (typeof b?.value === "string" ? b.value : "")).filter(Boolean).join("\n\n");
+    if (sticker || drawing || picture) {
+      const prefix = sticker
+        ? `Sticker: ${STICKERS[sticker].label}`
+        : drawing
+          ? `Handwritten note (${drawing.strokes.length} ${drawing.strokes.length === 1 ? "stroke" : "strokes"})`
+          : pictureText(picture!);
+      if (bodyText === prefix) bodyText = "";
+      else if (bodyText.startsWith(`${prefix}\n\n`)) bodyText = bodyText.slice(prefix.length + 2);
+      if (a.creator?.type === "Software" && typeof a.creator.name === "string") {
+        const suffix = `(Added by agent: ${a.creator.name.slice(0, 100)})`;
+        if (bodyText === suffix) bodyText = "";
+        else if (bodyText.endsWith(`\n\n${suffix}`)) bodyText = bodyText.slice(0, -(suffix.length + 2));
+      }
+    }
     return {
       id,
       kind,
       cfi: fragment?.value ?? null,
       quote: { exact: quote?.exact ?? "", prefix: quote?.prefix ?? "", suffix: quote?.suffix ?? "" },
-      body: sticker || drawing || picture ? "" : (a.body?.map((b) => b.value).join("\n\n") ?? ""),
+      body: bodyText,
       color: a["neolibrary:color"] ?? null,
       sticker,
       drawing,

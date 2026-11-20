@@ -1,6 +1,6 @@
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
-import { reviewCards } from "@/lib/db/schema";
+import { generations, reviewCards } from "@/lib/db/schema";
 import { checkItems, partsPassages } from "./explain-back";
 import { parseQuestions } from "./questions";
 import { dayAfter, intervals, isRating, schedule, startOfDay, type Rating, type Schedule } from "./review-schedule";
@@ -183,12 +183,21 @@ async function annotationRows(db: Db, ownerId: string, annotationId?: string): P
  * Every question card of a reader: each question of the newest Test yourself bank of each chapter, in a book still
  * in the library, with its schedule if it has been rated.
  */
-async function questionRows(db: Db, ownerId: string, delayDays: number): Promise<Row[]> {
+async function questionRows(db: Db, ownerId: string, delayDays: number, onlyGenerationId?: string): Promise<Row[]> {
+  let scope = sql``;
+  if (onlyGenerationId) {
+    const [g] = await db
+      .select({ bookId: generations.bookId, sectionId: generations.sectionId })
+      .from(generations)
+      .where(and(eq(generations.id, onlyGenerationId), eq(generations.ownerId, ownerId), eq(generations.kind, "questions")));
+    if (!g?.bookId || !g.sectionId) return [];
+    scope = sql`AND book_id = ${g.bookId} AND section_id = ${g.sectionId}`;
+  }
   const banks = listOf(
     await db.execute(sql`
       WITH banks AS (
         SELECT DISTINCT ON (book_id, section_id) id, book_id, section_id, output, created_at FROM generations
-        WHERE owner_id = ${ownerId} AND kind = 'questions' AND book_id IS NOT NULL AND section_id IS NOT NULL
+        WHERE owner_id = ${ownerId} AND kind = 'questions' AND book_id IS NOT NULL AND section_id IS NOT NULL ${scope}
         ORDER BY book_id, section_id, created_at DESC, id DESC
       )
       SELECT g.id, g.book_id AS "bookId", g.output, g.created_at AS "createdAt",
@@ -205,7 +214,7 @@ async function questionRows(db: Db, ownerId: string, delayDays: number): Promise
     `),
   );
   if (!banks.length) return [];
-  const schedules = await cardSchedules(db, ownerId, "q");
+  const schedules = await cardSchedules(db, ownerId, "q", onlyGenerationId ? `q:${onlyGenerationId}:%` : undefined);
   return banks.flatMap((b) => {
     const createdAt = asDate(b.createdAt)!;
     return parseQuestions(b.output as string).map((q) => {
@@ -233,13 +242,13 @@ async function questionRows(db: Db, ownerId: string, delayDays: number): Promise
 }
 
 /** The schedules of a reader's cards whose names start with `letter` and a colon ("q", "g"). */
-async function cardSchedules(db: Db, ownerId: string, letter: "q" | "g") {
+async function cardSchedules(db: Db, ownerId: string, letter: "q" | "g", pattern = `${letter}:%`) {
   return new Map(
     listOf(
       await db.execute(sql`
         SELECT card_id AS "cardId", ease, interval_days AS "intervalDays", reps, lapses, due_at AS "dueAt",
                first_reviewed_at AS "firstReviewedAt", last_reviewed_at AS "lastReviewedAt", last_rating AS "lastRating"
-        FROM review_cards WHERE owner_id = ${ownerId} AND annotation_id IS NULL AND card_id LIKE ${`${letter}:%`}
+        FROM review_cards WHERE owner_id = ${ownerId} AND annotation_id IS NULL AND card_id LIKE ${pattern}
       `),
     ).map((r) => [r.cardId as string, scheduleOf(r)]),
   );
@@ -252,12 +261,21 @@ async function cardSchedules(db: Db, ownerId: string, letter: "q" | "g") {
  * A part whose paragraphs are not there (a book's sections are rebuilt from its file after a library import) gives
  * no cards until they are, as Study then shows no items either.
  */
-async function gapRows(db: Db, ownerId: string, delayDays: number): Promise<Row[]> {
+async function gapRows(db: Db, ownerId: string, delayDays: number, onlyGenerationId?: string): Promise<Row[]> {
+  let scope = sql``;
+  if (onlyGenerationId) {
+    const [g] = await db
+      .select({ bookId: generations.bookId, sectionId: generations.sectionId })
+      .from(generations)
+      .where(and(eq(generations.id, onlyGenerationId), eq(generations.ownerId, ownerId), eq(generations.kind, "explain-back")));
+    if (!g?.bookId || !g.sectionId) return [];
+    scope = sql`AND book_id = ${g.bookId} AND section_id = ${g.sectionId}`;
+  }
   const attempts = listOf(
     await db.execute(sql`
       WITH attempts AS (
         SELECT DISTINCT ON (book_id, section_id) id, book_id, section_id, output, created_at FROM generations
-        WHERE owner_id = ${ownerId} AND kind = 'explain-back' AND book_id IS NOT NULL AND section_id IS NOT NULL
+        WHERE owner_id = ${ownerId} AND kind = 'explain-back' AND book_id IS NOT NULL AND section_id IS NOT NULL ${scope}
         ORDER BY book_id, section_id, created_at DESC, id DESC
       )
       SELECT g.id, g.book_id AS "bookId", g.output, g.created_at AS "createdAt",
@@ -268,7 +286,7 @@ async function gapRows(db: Db, ownerId: string, delayDays: number): Promise<Row[
     `),
   );
   if (!attempts.length) return [];
-  const schedules = await cardSchedules(db, ownerId, "g");
+  const schedules = await cardSchedules(db, ownerId, "g", onlyGenerationId ? `g:${onlyGenerationId}:%` : undefined);
   // Every part's paragraphs in one query, not one query a part: this runs for the sidebar's count on every page.
   const passagesOf = await partsPassages(
     db,
@@ -357,10 +375,17 @@ export async function reviewQueue(
 ): Promise<ReviewQueue> {
   const every = await allRows(db, ownerId, delayDays);
   const rows = onlyBooks ? every.filter((r) => onlyBooks.includes(r.bookId)) : every;
-  const [{ n: introduced }] = await db
-    .select({ n: count() })
-    .from(reviewCards)
-    .where(and(eq(reviewCards.ownerId, ownerId), gte(reviewCards.firstReviewedAt, startOfDay(now))));
+  const startToday = startOfDay(now).getTime();
+  const introduced = onlyBooks
+    ? rows.filter((r) => r.schedule && r.schedule.firstReviewedAt.getTime() >= startToday).length
+    : Number(
+        (
+          await db
+            .select({ n: count() })
+            .from(reviewCards)
+            .where(and(eq(reviewCards.ownerId, ownerId), gte(reviewCards.firstReviewedAt, startOfDay(now))))
+        )[0]?.n ?? 0,
+      );
   const due = rows
     .filter((r) => r.schedule && r.schedule.dueAt.getTime() <= now.getTime())
     .sort((a, b) => byTime(a.schedule!.dueAt, b.schedule!.dueAt) || inOrder(a, b));
@@ -386,11 +411,13 @@ async function findCard(db: Db, ownerId: string, cardId: unknown): Promise<Row |
   if (UUID.test(cardId)) return (await annotationRows(db, ownerId, cardId.toLowerCase()))[0];
   if (QUESTION_CARD.test(cardId)) {
     const id = cardId.toLowerCase();
-    return (await questionRows(db, ownerId, 0)).find((r) => r.id === id);
+    const genId = id.split(":")[1];
+    return (await questionRows(db, ownerId, 0, genId)).find((r) => r.id === id);
   }
   if (GAP_CARD.test(cardId)) {
     const id = cardId.toLowerCase();
-    return (await gapRows(db, ownerId, 0)).find((r) => r.id === id);
+    const genId = id.split(":")[1];
+    return (await gapRows(db, ownerId, 0, genId)).find((r) => r.id === id);
   }
   return undefined;
 }

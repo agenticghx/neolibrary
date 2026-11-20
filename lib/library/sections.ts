@@ -46,9 +46,17 @@ const xml = new XMLParser({
 const hash = (s: string, n = 12) => createHash("sha1").update(s).digest("hex").slice(0, n);
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 function resolve(base: string, href: string): string {
   const parts = (base.includes("/") ? base.slice(0, base.lastIndexOf("/") + 1) : "").split("/").filter(Boolean);
-  for (const seg of decodeURIComponent(href.split("#")[0]).split("/")) {
+  for (const seg of safeDecode(href.split("#")[0]).split("/")) {
     if (seg === "..") parts.pop();
     else if (seg && seg !== ".") parts.push(seg);
   }
@@ -114,6 +122,7 @@ export function extractSections(bytes: Uint8Array, toc: { label: string; href: s
   }
 
   const out: Section[] = [];
+  const seenChapters = new Set<string>();
   let position = 0;
   Array.from(spineEl.children).forEach((itemref, spineIndex) => {
     if (tag(itemref) !== "itemref" || itemref.getAttribute("linear") === "no") return;
@@ -146,7 +155,9 @@ export function extractSections(bytes: Uint8Array, toc: { label: string; href: s
     if (!texts.length) return;
     const firstHeading = texts.find((b) => HEADINGS.has(b.t));
     const chapterLabel = tocLabel.get(href) ?? firstHeading?.text ?? `Part ${spineIndex + 1}`;
-    const chapterId = `c-${hash(href, 10)}`;
+    const rawChapterId = `c-${hash(href, 10)}`;
+    const chapterId = seenChapters.has(rawChapterId) ? `c-${hash(`${href}#${spineIndex}`, 10)}` : rawChapterId;
+    seenChapters.add(chapterId);
     out.push({ id: chapterId, kind: "chapter", parentId: null, position: position++, chapterIndex: spineIndex, href, cfi: `epubcfi(${base})`, label: chapterLabel, text: "" });
 
     let parent = chapterId;

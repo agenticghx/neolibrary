@@ -21,7 +21,7 @@
  *   (lib/library/page-check.ts); pages that disagree are listed for a look.
  * - Stop cancels the batches: pages not yet read are not charged.
  */
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { getBatchModel } from "@/lib/ai";
 import { batchCostUsd, type BatchRequest, type BatchResult, type TextBatchModel } from "@/lib/ai/batch";
 import { capsFromEnv, generationCacheKey, spendingWithJobs, usd, withSpendLock, type Caps } from "@/lib/ai/generate";
@@ -153,7 +153,7 @@ async function donePages(db: Db, ownerId: string, bookId: string, model: string,
         eq(generations.ownerId, ownerId),
         eq(generations.bookId, bookId),
         eq(generations.kind, TRANSCRIBE_KIND),
-        eq(generations.model, model),
+        or(eq(generations.model, model), sql`${generations.options}->>'model' = ${model}`),
         eq(generations.promptHash, promptHash),
       ),
     );
@@ -501,7 +501,7 @@ export async function editionOf(db: Db, ownerId: string, scanId: string) {
   const [edition] = await db
     .select({ id: books.id, fileKey: books.fileKey })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, scanId)));
+    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, scanId), isNull(books.deletedAt)));
   return edition ?? null;
 }
 

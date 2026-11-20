@@ -120,6 +120,11 @@ describe("which voice's saved audio the bar opens with", () => {
     // Saved in both: the first on offer, as before.
     await speak("fake-ada");
     expect((await listenInfo(database.db, ownerId, bookId, at, withFake)).track).toMatchObject({ voice: "fake-ada" });
+    // Even with no voice key configured, audio already paid for and saved stays playable at no cost (ground rule 8).
+    const savedNoKey = await listenInfo(database.db, ownerId, bookId, at, noKey);
+    expect(savedNoKey.estimate).toBeNull();
+    expect(savedNoKey.track).toMatchObject({ voice: "fake-ada", sectionId: paragraphs[5].id });
+    expect(savedNoKey.voices).toEqual([{ id: "fake-ada", name: "fake-ada" }]);
     // Another paragraph, saved in neither: none.
     expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake)).track).toBeNull();
   });

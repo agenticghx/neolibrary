@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, paths, pillars, readingSessions, slots, type ChapterReading } from "@/lib/db/schema";
 
@@ -121,16 +121,17 @@ export type FocusSessionStats = {
 export async function focusSessions(db: Db, ownerId: string, limit = 50): Promise<FocusSessionStats[]> {
   const rows = await db.execute(sql`
     WITH grouped AS (
-      SELECT s.focus_id, s.book_id, min(s.started_at) AS started_at, sum(s.active_seconds)::int AS active_seconds,
+      SELECT s.focus_id, h.id AS book_id, h.title, min(s.started_at) AS started_at, sum(s.active_seconds)::int AS active_seconds,
              sum(s.words)::int AS words, max(s.question) AS question, max(s.answer_annotation_id::text)::uuid AS answer_id
       FROM reading_sessions s
+      JOIN books sb ON sb.id = s.book_id AND sb.deleted_at IS NULL
+      JOIN books h ON h.id = coalesce(sb.edition_of, sb.id) AND h.deleted_at IS NULL
       WHERE s.owner_id = ${ownerId} AND s.focus_id IS NOT NULL
-      GROUP BY s.focus_id, s.book_id
+      GROUP BY s.focus_id, h.id, h.title
     )
-    SELECT g.focus_id AS "focusId", g.book_id AS "bookId", b.title, g.started_at AS "startedAt", g.active_seconds AS "activeSeconds",
+    SELECT g.focus_id AS "focusId", g.book_id AS "bookId", g.title, g.started_at AS "startedAt", g.active_seconds AS "activeSeconds",
            g.words, g.question, n.body AS answer, f.ended_how AS "endedHow"
     FROM grouped g
-    JOIN books b ON b.id = g.book_id AND b.deleted_at IS NULL
     LEFT JOIN focus_sessions f ON f.id = g.focus_id AND f.owner_id = ${ownerId}
     LEFT JOIN LATERAL (
       SELECT case when a.deleted then null else a.body end AS body FROM annotations a
@@ -279,29 +280,36 @@ export type BookStats = Speed & {
   wpm: number | null;
 };
 
-const counted = sql`${readingSessions.activeSeconds} >= ${SPEED_MIN_SECONDS} and ${readingSessions.words} * 60 <= ${SPEED_MAX_WPM} * ${readingSessions.activeSeconds}`;
-
-/** Totals per book for one reader, most read first. */
+/** Totals per book for one reader, most read first. A scanned PDF and its text edition count together under the scan's shelf row. */
 export async function statsByBook(db: Db, ownerId: string): Promise<BookStats[]> {
-  const rows = await db
-    .select({
-      bookId: readingSessions.bookId,
-      title: books.title,
-      author: books.author,
-      activeSeconds: sql<number>`sum(${readingSessions.activeSeconds})::int`,
-      words: sql<number>`sum(${readingSessions.words})::int`,
-      pages: sql<number>`sum(${readingSessions.pages})::int`,
-      sessions: sql<number>`count(*)::int`,
-      speedWords: sql<number>`coalesce(sum(case when ${counted} then ${readingSessions.words} else 0 end), 0)::int`,
-      speedSeconds: sql<number>`coalesce(sum(case when ${counted} then ${readingSessions.activeSeconds} else 0 end), 0)::int`,
-    })
-    .from(readingSessions)
-    .innerJoin(books, eq(books.id, readingSessions.bookId))
-    // A book removed from the library (M19) leaves the per-book list; the weekly totals keep its time.
-    .where(and(eq(readingSessions.ownerId, ownerId), isNull(books.deletedAt)))
-    .groupBy(readingSessions.bookId, books.title, books.author)
-    .orderBy(sql`sum(${readingSessions.activeSeconds}) desc`, asc(books.title));
-  return rows.map((r) => ({ ...r, wpm: wordsPerMinute(r.speedWords, r.speedSeconds) }));
+  const result = await db.execute(sql`
+    SELECT h.id AS "bookId", h.title, h.author,
+           sum(s.active_seconds)::int AS "activeSeconds",
+           sum(s.words)::int AS words,
+           sum(s.pages)::int AS pages,
+           count(*)::int AS sessions,
+           coalesce(sum(case when s.active_seconds >= ${SPEED_MIN_SECONDS} and s.words * 60 <= ${SPEED_MAX_WPM} * s.active_seconds then s.words else 0 end), 0)::int AS "speedWords",
+           coalesce(sum(case when s.active_seconds >= ${SPEED_MIN_SECONDS} and s.words * 60 <= ${SPEED_MAX_WPM} * s.active_seconds then s.active_seconds else 0 end), 0)::int AS "speedSeconds"
+    FROM reading_sessions s
+    JOIN books sb ON sb.id = s.book_id AND sb.deleted_at IS NULL
+    JOIN books h ON h.id = coalesce(sb.edition_of, sb.id) AND h.deleted_at IS NULL
+    WHERE s.owner_id = ${ownerId}
+    GROUP BY h.id, h.title, h.author
+    ORDER BY sum(s.active_seconds) DESC, h.title ASC
+  `);
+  const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as Omit<BookStats, "wpm">[];
+  return rows.map((r) => ({
+    bookId: r.bookId,
+    title: r.title,
+    author: r.author,
+    activeSeconds: Number(r.activeSeconds),
+    words: Number(r.words),
+    pages: Number(r.pages),
+    sessions: Number(r.sessions),
+    speedWords: Number(r.speedWords),
+    speedSeconds: Number(r.speedSeconds),
+    wpm: wordsPerMinute(Number(r.speedWords), Number(r.speedSeconds)),
+  }));
 }
 
 /** Totals for a group of books (a pillar, or all N books), each book counted once. */
@@ -551,11 +559,18 @@ const median = (xs: number[]) => {
  * minutes of such reading. Chapters in reading order (position in the book).
  */
 export async function chapterStatsByBook(db: Db, ownerId: string) {
-  const rows = await db
-    .select({ bookId: readingSessions.bookId, title: books.title, chapters: readingSessions.chapters })
-    .from(readingSessions)
-    .innerJoin(books, eq(books.id, readingSessions.bookId))
-    .where(and(eq(readingSessions.ownerId, ownerId), isNull(books.deletedAt)));
+  const result = await db.execute(sql`
+    SELECT h.id AS "bookId", h.title, s.chapters
+    FROM reading_sessions s
+    JOIN books sb ON sb.id = s.book_id AND sb.deleted_at IS NULL
+    JOIN books h ON h.id = coalesce(sb.edition_of, sb.id) AND h.deleted_at IS NULL
+    WHERE s.owner_id = ${ownerId}
+  `);
+  const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as {
+    bookId: string;
+    title: string;
+    chapters: ChapterReading[];
+  }[];
   const byBook = new Map<string, { title: string; chapters: Map<string, Omit<ChapterStats, "wpm">> }>();
   for (const r of rows) {
     const book = byBook.get(r.bookId) ?? { title: r.title, chapters: new Map() };

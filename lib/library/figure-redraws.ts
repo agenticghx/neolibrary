@@ -96,13 +96,16 @@ export async function saveFigureRedraws(deps: { db: Db; storage: Storage; now?: 
     return { chapter: f.chapter, nth: f.nth!, src: f.src, inputHash: f.inputHash, svg, model: f.model, promptHash, inputTokens: f.inputTokens!, outputTokens: f.outputTokens!, check: c as SentFigure["check"] };
   });
   const now = deps.now?.() ?? new Date();
+  const existing = await listRows(db, ownerId, bookId);
+  const newestBySection = new Map<string, string>();
+  for (const r of existing) if (r.sectionId) newestBySection.set(r.sectionId, r.output);
   let saved = 0;
   for (const f of valid) {
     const sectionId = `${f.chapter}#${f.nth}`;
     // Options are strings (the column is typed so): the check's figures as JSON.
     const options = { src: f.src, chapter: f.chapter, nth: String(f.nth), via: "subscription", check: JSON.stringify(f.check) };
-    const newest = (await listRows(db, ownerId, bookId)).filter((r) => r.sectionId === sectionId).at(-1);
-    if (newest?.output === f.svg) continue; // sent again: nothing new
+    if (newestBySection.get(sectionId) === f.svg) continue; // sent again: nothing new
+    newestBySection.set(sectionId, f.svg);
     await db.insert(generations).values({
       ownerId,
       bookId,

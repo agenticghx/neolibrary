@@ -65,7 +65,7 @@ export function safeUnzip(zip: Uint8Array, limits: { maxUnpacked: number; maxEnt
   const spans = entries.map((e) => [e.dataAt, e.dataAt + e.packed]).sort((a, b) => a[0] - b[0]);
   for (let i = 1; i < spans.length; i++) if (spans[i][0] < spans[i - 1][1]) throw bad("entries overlap");
 
-  const files: Record<string, Uint8Array> = {};
+  const files: Record<string, Uint8Array> = Object.create(null);
   for (const e of entries) {
     const data = zip.subarray(e.dataAt, e.dataAt + e.packed);
     if (e.method === 0) {

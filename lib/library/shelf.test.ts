@@ -98,6 +98,7 @@ describe("collections", () => {
     await setInCollection(database.db, ownerId, gothic.id, ids["Frankenstein"], true);
     await setInCollection(database.db, ownerId, gothic.id, ids["Dracula"], true);
     await setInCollection(database.db, ownerId, gothic.id, ids["Dracula"], true); // twice is fine
+    await setInCollection(database.db, ownerId, gothic.id, ids["Wanted only"], true); // no file yet: not counted on the shelf
     expect(await listCollections(database.db, ownerId)).toEqual([{ id: gothic.id, name: "Gothic novels", count: 2 }]);
     expect(await titles({ collectionId: gothic.id, sort: "title" })).toEqual(["Dracula", "Frankenstein"]);
     expect((await collectionsForBook(database.db, ownerId, ids["Dracula"]))[0].inside).toBe(true);

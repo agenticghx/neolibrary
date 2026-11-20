@@ -2,8 +2,9 @@ import { and, count, eq, gt, lt } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { getSpeechModel } from "@/lib/speech";
+import { DEFAULT_VOICES } from "@/lib/speech/elevenlabs";
 import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
-import { chapterNames, estimateSpeech, firstStoredTrack, passageFor, placeOnPage, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
+import { chapterNames, estimateSpeech, firstStoredTrack, passageFor, placeOnPage, savedTrackWithoutKey, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
 
 /** What the Listen bar shows for "Your audiobook" among the voices (M13 (d)). */
 export const AUDIOBOOK_NAME = "Your audiobook";
@@ -75,6 +76,8 @@ export async function listenInfo(
   } catch (e) {
     if (!(e instanceof SpeechNotConfigured)) throw e;
     configured = false;
+    track = await savedTrackWithoutKey(db, ownerId, passage, q.voice);
+    if (track) voices = [{ id: track.voice, name: DEFAULT_VOICES.find((v) => v.id === track!.voice)?.name ?? track.voice }];
   }
   if (track) track = await placeOnPage(db, bookId, passage.id, track);
   const chapter = (await chapterNames(db, bookId, new Set([passage.chapterIndex])))[passage.chapterIndex] ?? "";

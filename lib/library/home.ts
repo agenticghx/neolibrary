@@ -4,7 +4,7 @@ import type { Db } from "@/lib/db/client";
 import { books, type Book } from "@/lib/db/schema";
 import { listAnnotations, type Annotation } from "./annotations";
 import { availabilityOf, type Availability } from "./availability";
-import { audiobookBookIds, narrationOn } from "./listenable";
+import { audiobookBookIds, narrationOn, savedTrackBookIds } from "./listenable";
 
 /**
  * What Home shows (M14 step 3, decisions D3 and D7 in docs/m14-home-plan.md):
@@ -43,9 +43,16 @@ const SHOWN: Annotation["kind"][] = ["note", "voice", "highlight"];
  */
 export async function latestNotes(db: Db, ownerId: string, bookIds: string[]): Promise<Map<string, Annotation>> {
   const out = new Map<string, Annotation>();
+  if (!bookIds.length) return out;
+  const editions = await db
+    .select({ id: books.id, editionOf: books.editionOf })
+    .from(books)
+    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.editionOf)));
   for (const bookId of bookIds) {
+    const family = [bookId, ...editions.filter((e) => e.editionOf === bookId).map((e) => e.id)];
+    const lists = await Promise.all(family.map((id) => listAnnotations(db, ownerId, id)));
     let newest: Annotation | null = null;
-    for (const a of await listAnnotations(db, ownerId, bookId)) {
+    for (const a of lists.flat()) {
       if (SHOWN.includes(a.kind) && !a.agent && (!newest || a.updatedAt > newest.updatedAt)) newest = a;
     }
     if (newest) out.set(bookId, newest);
@@ -58,7 +65,7 @@ export async function notYetAvailable(db: Db, ownerId: string) {
   const rows = await db
     .select()
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.fileKey)))
+    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), isNull(books.fileKey), isNull(books.editionOf)))
     .orderBy(asc(sql`lower(${books.title})`));
   const listenable = await audiobookBookIds(
     db,
@@ -71,12 +78,13 @@ export async function notYetAvailable(db: Db, ownerId: string) {
 /** Books with any of the reader's marks in them (not bookmarks), for the folded corner on a cover. */
 export async function bookIdsWithNotes(db: Db, ownerId: string): Promise<Set<string>> {
   const result = await db.execute(sql`
-    SELECT DISTINCT book_id AS "bookId" FROM (
+    SELECT DISTINCT coalesce(b.edition_of, latest.book_id) AS "bookId" FROM (
       SELECT DISTINCT ON (annotation_id) book_id, kind, deleted FROM annotations
       WHERE owner_id = ${ownerId} AND book_id IS NOT NULL
       ORDER BY annotation_id, version DESC
     ) latest
-    WHERE NOT deleted AND kind <> 'bookmark'
+    JOIN books b ON b.id = latest.book_id
+    WHERE NOT latest.deleted AND latest.kind <> 'bookmark'
   `);
   const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as { bookId: string }[];
   return new Set(rows.map((r) => r.bookId));
@@ -109,12 +117,10 @@ export async function libraryItems(
   signCover: (key: string | null) => string | null = () => null,
   narration: boolean = narrationOn(),
 ): Promise<LibraryItem[]> {
-  const [audio, noted] = await Promise.all([
-    audiobookBookIds(
-      db,
-      ownerId,
-      list.map((b) => b.id),
-    ),
+  const bookIds = list.map((b) => b.id);
+  const [audio, savedTracks, noted] = await Promise.all([
+    audiobookBookIds(db, ownerId, bookIds),
+    narration ? Promise.resolve(new Set<string>()) : savedTrackBookIds(db, ownerId, bookIds),
     bookIdsWithNotes(db, ownerId),
   ]);
   return list.map((b) => ({
@@ -126,7 +132,7 @@ export async function libraryItems(
     progress: b.progress,
     pageCount: b.pageCount,
     fileSize: b.fileSize,
-    available: availabilityOf(b, audio.has(b.id), narration),
+    available: availabilityOf(b, audio.has(b.id), narration || savedTracks.has(b.id)),
     notes: noted.has(b.id),
     audiobook: audio.has(b.id),
     paper: b.kind === "paper" ? byline(b) : null,

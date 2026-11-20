@@ -1,7 +1,7 @@
 import { SpendingCapReached } from "@/lib/ai/generate";
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { AudioError, placeOnPage, speakPassage, trackAudioUrl, type Track } from "@/lib/library/audio";
+import { AudioError, passageFor, placeOnPage, savedTrackWithoutKey, speakPassage, trackAudioUrl, type Track } from "@/lib/library/audio";
 import { listenInfo } from "@/lib/library/listen";
 import { isCfi } from "@/lib/library/reading";
 import { speechModelFor } from "@/lib/speech";
@@ -39,11 +39,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const url = new URL(req.url);
   const cfi = url.searchParams.get("cfi");
   try {
-    const info = await listenInfo(await getDb(), user.id, bookId, {
-      cfi: cfi && isCfi(cfi) ? cfi : null,
-      section: url.searchParams.get("section"),
-      voice: url.searchParams.get("voice"),
-    });
+    const info = await listenInfo(
+      await getDb(),
+      user.id,
+      bookId,
+      {
+        cfi: cfi && isCfi(cfi) ? cfi : null,
+        section: url.searchParams.get("section"),
+        voice: url.searchParams.get("voice"),
+      },
+      () => speechModelFor(user, req),
+    );
     return Response.json({ ...info, track: withUrl(info.track) });
   } catch (e) {
     return errorResponse(e);
@@ -62,7 +68,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   try {
     const db = await getDb();
-    const out = await speakPassage(db, await getStorage(), speechModelFor(user, req), user.id, {
+    let model;
+    try {
+      model = speechModelFor(user, req);
+    } catch (e) {
+      if (e instanceof SpeechNotConfigured) {
+        const passage = await passageFor(db, user.id, bookId, { sectionId: body.sectionId });
+        const saved = await savedTrackWithoutKey(db, user.id, passage, body.voice);
+        if (saved) {
+          const track = await placeOnPage(db, bookId, body.sectionId, saved);
+          return Response.json({ track: withUrl(track), reused: true }, { status: 200 });
+        }
+      }
+      throw e;
+    }
+    const out = await speakPassage(db, await getStorage(), model, user.id, {
       bookId,
       sectionId: body.sectionId,
       voice: body.voice,

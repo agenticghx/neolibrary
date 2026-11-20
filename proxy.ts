@@ -123,6 +123,6 @@ function gate(req: NextRequest) {
 // without the rest of it being held.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|icon.svg|icons/|favicon.ico|fonts/|api/books$|api/books/[^/]+/readalong|api/books/[^/]+/voice-notes|api/import$).*)",
+    "/((?!_next/static|_next/image|icon.svg|icons/|favicon.ico|fonts/|api/books$|api/agent/books$|api/books/[^/]+/readalong|api/books/[^/]+/voice-notes|api/import$).*)",
   ],
 };

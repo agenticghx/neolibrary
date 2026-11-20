@@ -3,13 +3,14 @@
  * under the name in the Genealogy views. Written for Claude sessions. Measured before it was built (docs/genealogy-
  * plan.md, S4): Chip War, The Grid and The Pay Off share 15 names, so a link, not a cross-book view.
  */
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, notInArray } from "drizzle-orm";
+import { bookGroup } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
 import { books, genealogyLinks } from "@/lib/db/schema";
 import { matchGenealogyName, type GenealogyName } from "./genealogy-names";
 
 /** One other book whose genealogy has the name: what it calls it there, and how much it says. */
-export type GenealogyElsewhere = { bookId: string; title: string; name: string; kind: "person" | "organisation"; links: number; tree: boolean };
+type GenealogyElsewhere = { bookId: string; title: string; name: string; kind: "person" | "organisation"; links: number; tree: boolean };
 
 /**
  * The reader's other books whose genealogy has `name` (by the same rule as the Who & what card: exact spelling,
@@ -17,11 +18,12 @@ export type GenealogyElsewhere = { bookId: string; title: string; name: string; 
  * do not count.
  */
 export async function genealogyElsewhere(db: Db, ownerId: string, bookId: string, name: string, kind: "person" | "organisation"): Promise<GenealogyElsewhere[]> {
+  const sameFamily = await bookGroup(db, bookId);
   const rows = await db
     .select({ bookId: genealogyLinks.bookId, title: books.title, from: genealogyLinks.fromName, fromKind: genealogyLinks.fromKind, to: genealogyLinks.toName, toKind: genealogyLinks.toKind, relation: genealogyLinks.relation })
     .from(genealogyLinks)
     .innerJoin(books, eq(books.id, genealogyLinks.bookId))
-    .where(and(eq(books.ownerId, ownerId), ne(genealogyLinks.bookId, bookId), eq(genealogyLinks.removed, false)));
+    .where(and(eq(books.ownerId, ownerId), isNull(books.deletedAt), notInArray(genealogyLinks.bookId, sameFamily), eq(genealogyLinks.removed, false)));
   const perBook = new Map<string, { title: string; names: Map<string, GenealogyName & { votes: Map<string, number> }> }>();
   for (const r of rows) {
     const b = perBook.get(r.bookId) ?? { title: r.title, names: new Map() };

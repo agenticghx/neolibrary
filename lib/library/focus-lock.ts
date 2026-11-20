@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, focusSessions } from "@/lib/db/schema";
+import { isOwnBook } from "@/lib/library/own-book";
 import { getBook } from "@/lib/library/paths";
 import {
   answerWordsFor,
@@ -248,13 +249,13 @@ async function bookFamily(db: Db, ownerId: string, bookId: string): Promise<{ id
   const [book] = await db
     .select({ id: books.id, editionOf: books.editionOf })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), eq(books.id, bookId)));
+    .where(isOwnBook(bookId, ownerId));
   if (!book) return { ids: [bookId], homeId: bookId };
   const scanId = book.editionOf ?? book.id;
   const editions = await db
     .select({ id: books.id })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, scanId)));
+    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, scanId), isNull(books.deletedAt)));
   const ids = [book.id, scanId, ...editions.map((e) => e.id)].filter((x, i, all) => all.indexOf(x) === i);
   return { ids, homeId: scanId };
 }

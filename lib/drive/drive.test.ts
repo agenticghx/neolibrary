@@ -32,6 +32,8 @@ describe("Google Drive links (M30)", () => {
       <div class="flip-entry" id="entry-${FOLDER}" tabindex="0"><div class="flip-entry-info"><a href="https://drive.google.com/drive/folders/${FOLDER}"><div class="flip-entry-title">Old books</div></a></div></div>
     </div>`;
     expect(filesInFolderView(html)).toEqual([{ id: FILE, name: "Kuhn & Friends.pdf" }]);
+    const tricky = `<div class="flip-entries"><div class="flip-entry" id="entry-${FILE}"><a href="https://drive.google.com/file/d/${FILE}/view"><div class="flip-entry-title">A &amp;lt; B &#9999999;.pdf</div></a></div></div>`;
+    expect(filesInFolderView(tricky)).toEqual([{ id: FILE, name: "A &lt; B &#9999999;.pdf" }]);
   });
 
   it("takes the file name from the download's header", () => {

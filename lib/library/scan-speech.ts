@@ -14,14 +14,14 @@
  * words are lined up with the OCR words (placeWords); a word with no match
  * is lit nowhere (null), never at a wrong place.
  */
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { books, generations, textEditionJobs } from "@/lib/db/schema";
 import { pageSectionId, TRANSCRIBE_KIND } from "./text-edition";
 import { pageSpeech } from "./text-epub";
 
 /** A scan's pages as Listen reads them: read for the edition, or found blank. Pages are counted from 1. */
-export type ScanSpeech = { read: Set<number>; blank: Set<number>; ownerId: string };
+type ScanSpeech = { read: Set<number>; blank: Set<number>; ownerId: string };
 
 /** How Listen reads this book's pages, or null when it reads its own sections (an EPUB, a scan with no edition, a PDF's own text laid out again). */
 export async function scanSpeechOf(db: Db, bookId: string): Promise<ScanSpeech | null> {
@@ -30,7 +30,7 @@ export async function scanSpeechOf(db: Db, bookId: string): Promise<ScanSpeech |
   const [edition] = await db
     .select({ id: books.id })
     .from(books)
-    .where(and(eq(books.ownerId, book.ownerId), eq(books.editionOf, bookId)));
+    .where(and(eq(books.ownerId, book.ownerId), eq(books.editionOf, bookId), isNull(books.deletedAt)));
   if (!edition) return null;
   const rows = await db
     .select({ sectionId: generations.sectionId })

@@ -20,8 +20,9 @@
  * runs no code in it.
  */
 import { posix } from "node:path";
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
 import { DOMParser } from "linkedom";
+import { unzipEpub } from "./ebook";
 
 export const REDRAW_KIND = "figure-redraw";
 export const TRANSCRIBE_PROMPT = "figure-transcribe";
@@ -46,16 +47,24 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 export type Spot = { chapter: string; nth: number };
 export type Found = { key: string; src: string; alt: string; spots: Spot[]; bytes: Uint8Array };
 
+const safeDecode = (s: string) => {
+  try {
+    return decodeURI(s);
+  } catch {
+    return s;
+  }
+};
+
 /** Every picture in the book's pages, in reading order, with where it appears (chapter file, and its place among the chapter's pictures). */
 export function figuresOf(epub: Uint8Array): Found[] {
-  const files = unzipSync(epub);
+  const files = unzipEpub(epub);
   const text = (p: string) => (files[p] ? strFromU8(files[p]) : "");
   const opfPath = /full-path="([^"]+)"/.exec(text("META-INF/container.xml"))?.[1];
   if (!opfPath) throw new Error("Not an EPUB: no package file named in META-INF/container.xml.");
   const opf = new DOMParser().parseFromString(text(opfPath), "text/xml");
   const dir = posix.dirname(opfPath);
   const href = new Map<string, string>();
-  for (const item of Array.from(opf.querySelectorAll("manifest > item") as unknown as ArrayLike<Element>)) href.set(item.getAttribute("id") ?? "", posix.normalize(posix.join(dir, decodeURI(item.getAttribute("href") ?? ""))));
+  for (const item of Array.from(opf.querySelectorAll("manifest > item") as unknown as ArrayLike<Element>)) href.set(item.getAttribute("id") ?? "", posix.normalize(posix.join(dir, safeDecode(item.getAttribute("href") ?? ""))));
   const found = new Map<string, Found>();
   for (const ref of Array.from(opf.querySelectorAll("spine > itemref") as unknown as ArrayLike<Element>)) {
     const chapter = href.get(ref.getAttribute("idref") ?? "");
@@ -64,7 +73,7 @@ export function figuresOf(epub: Uint8Array): Found[] {
     Array.from(doc.querySelectorAll("img") as unknown as ArrayLike<Element>).forEach((img, nth) => {
       const raw = img.getAttribute("src") ?? "";
       if (!raw || /^[a-z]+:/i.test(raw)) return;
-      const src = posix.normalize(posix.join(posix.dirname(chapter), decodeURI(raw)));
+      const src = posix.normalize(posix.join(posix.dirname(chapter), safeDecode(raw)));
       const bytes = files[src];
       if (!bytes) return;
       const f = found.get(src) ?? { key: posix.basename(src).replace(/\.[^.]+$/, ""), src, alt: img.getAttribute("alt") ?? "", spots: [], bytes };

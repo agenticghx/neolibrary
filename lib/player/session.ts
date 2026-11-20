@@ -184,8 +184,8 @@ export function noteFor(s: NoteState): string {
   }
   const made = madeSoFar(s.made ?? NOTHING_MADE);
   if (s.ask != null) return `Keep reading? The next paragraph costs ${usd(s.ask)}.${made}`;
-  if (info.estimate === null) return "No AI voice key here: add your own ElevenLabs key in Reading settings (Aa).";
   if (info.track && info.track.voice === s.voice) return `${s.justMade ? "Made just now; it plays free from now on." : "Saved audio: free to play."}${made}`;
+  if (info.estimate === null) return "No AI voice key here: add your own ElevenLabs key in Reading settings (Aa).";
   return `This paragraph costs ${usd(info.estimate)} to read aloud; then it is saved.${made}`;
 }
 

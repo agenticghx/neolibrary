@@ -12,30 +12,34 @@
  * words in the edition's own file (text-epub.ts pageMark), so notes made
  * before this change, or by an agent, have it too.
  */
-import { and, eq } from "drizzle-orm";
-import { strFromU8, unzipSync } from "fflate";
+import { and, eq, isNull } from "drizzle-orm";
+import { strFromU8 } from "fflate";
 import type { Db } from "@/lib/db/client";
 import { books } from "@/lib/db/schema";
 import { findLetters, lettersOf } from "@/lib/reader/find-quote";
 import type { Storage } from "@/lib/storage";
 import { listAnnotations, type Annotation } from "./annotations";
+import { unzipEpub } from "./ebook";
 import { isOwnBook } from "@/lib/library/own-book";
 
 /** Which version a note crossed from, and the printed page it is on (from 1). */
-export type Crossed = NonNullable<Annotation["crossed"]>;
+type Crossed = NonNullable<Annotation["crossed"]>;
 
 /** The other version of a book: its text edition (this is the scan), or its scan (this is the edition). */
-export async function otherVersion(db: Db, ownerId: string, bookId: string) {
+async function otherVersion(db: Db, ownerId: string, bookId: string) {
   const [book] = await db
     .select({ id: books.id, editionOf: books.editionOf, fileKey: books.fileKey })
     .from(books)
     .where(isOwnBook(bookId, ownerId));
   if (!book) return null;
-  if (book.editionOf) return { here: "text" as const, otherId: book.editionOf, editionKey: book.fileKey };
+  if (book.editionOf) {
+    const [scan] = await db.select({ id: books.id }).from(books).where(isOwnBook(book.editionOf, ownerId));
+    return scan ? { here: "text" as const, otherId: book.editionOf, editionKey: book.fileKey } : null;
+  }
   const [edition] = await db
     .select({ id: books.id, fileKey: books.fileKey })
     .from(books)
-    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, bookId)));
+    .where(and(eq(books.ownerId, ownerId), eq(books.editionOf, bookId), isNull(books.deletedAt)));
   return edition ? { here: "scan" as const, otherId: edition.id, editionKey: edition.fileKey } : null;
 }
 
@@ -45,8 +49,8 @@ type Chapter = { letters: string; breaks: { at: number; page: number }[] };
 const MARK = /<span\b[^>]*\brole="doc-pagebreak"[^>]*\bid="page-(\d+)"[^>]*>\s*<\/span>/g;
 
 /** A text edition's spine items in reading order (the spine of its content.opf), as letters with their page breaks. */
-export function editionChapters(epub: Uint8Array): Chapter[] {
-  const files = unzipSync(epub);
+function editionChapters(epub: Uint8Array): Chapter[] {
+  const files = unzipEpub(epub);
   const text = (path: string) => (files[path] ? strFromU8(files[path]) : "");
   const opf = text("OEBPS/content.opf");
   const hrefs = new Map([...opf.matchAll(/<item\b[^>]*\bid="([^"]+)"[^>]*\bhref="([^"]+)"/g)].map((m) => [m[1], m[2]]));

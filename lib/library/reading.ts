@@ -71,7 +71,7 @@ export async function savePositionAt(db: Db, ownerId: string, bookId: string, se
     .select({ cfi: sections.cfi, position: sections.position, chapterIndex: sections.chapterIndex, fileType: books.fileType, pageCount: books.pageCount })
     .from(sections)
     .innerJoin(books, eq(books.id, sections.bookId))
-    .where(and(eq(sections.bookId, bookId), eq(sections.id, sectionId)));
+    .where(and(isOwnBook(bookId, ownerId), isNotNull(books.fileKey), eq(sections.bookId, bookId), eq(sections.id, sectionId)));
   if (!at) return false;
   let fraction: number;
   // foliate's fixed layout reports the end of the page shown: page index i is (i + 1) of the pages (fixed-layout.js, relocate).

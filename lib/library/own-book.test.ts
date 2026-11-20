@@ -39,10 +39,11 @@ describe("isOwnBook", () => {
     "lib/library/remove-book.ts": 2,
     // Sharing can be withdrawn whatever state the paper is in; its own condition is "not a copy".
     "lib/library/shared-papers.ts": 1,
+    // Rejecting or replacing a cover also checks sharedFrom is null on top of isOwnBook.
   };
 
   it("no new place looks up one book for its owner by hand", () => {
-    const byHand = /eq\(books\.id, [\w.]+\),\s*eq\(books\.ownerId, [\w.]+\)/g;
+    const byHand = /(?:eq\(books\.id, [\w.]+\),\s*eq\(books\.ownerId, [\w.]+\)|eq\(books\.ownerId, [\w.]+\),\s*eq\(books\.id, [\w.]+\))/g;
     const found: Record<string, number> = {};
     for (const file of [...sources("lib"), ...sources("app")]) {
       if (file === join("lib", "library", "own-book.ts")) continue;

@@ -41,7 +41,7 @@ cat > "$plist" <<PLIST
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string><string>-lc</string>
-    <string>export PATH="$HOME/.local/bin:\$PATH" NEOLIBRARY_AGENT_TOKEN="\$(security find-generic-password -a "\$USER" -s NEOLIBRARY_AGENT_TOKEN -w)" &amp;&amp; cd "$jobs" &amp;&amp; git fetch -q origin &amp;&amp; git checkout -q --detach origin/main &amp;&amp; { cmp -s package-lock.json .installed-lock || { npm ci --no-audit --no-fund &amp;&amp; cp package-lock.json .installed-lock; }; } &amp;&amp; npx tsx scripts/overnight-scans.ts "$site"</string>
+    <string>export PATH="$HOME/.local/bin:\$PATH" NEOLIBRARY_AGENT_TOKEN="\$(security find-generic-password -a "\$USER" -s NEOLIBRARY_AGENT_TOKEN -w)" &amp;&amp; cd "$jobs" &amp;&amp; git fetch -q origin &amp;&amp; git checkout -q --detach origin/main &amp;&amp; { cmp -s package-lock.json .installed-lock || { npm ci --no-audit --no-fund &amp;&amp; cp package-lock.json .installed-lock; }; } &amp;&amp; npx --yes tsx scripts/overnight-scans.ts "$site"</string>
   </array>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>$hour</integer><key>Minute</key><integer>0</integer></dict>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/neolibrary-overnight-scans.log</string>

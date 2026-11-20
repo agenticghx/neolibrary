@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { bookGroup } from "@/lib/ai/generate";
 import type { Db } from "@/lib/db/client";
 
 /**
@@ -31,6 +32,8 @@ export function isMatch(shared: number, total: number) {
 export async function crossLinks(db: Db, ownerId: string, bookId: string, text: string, limit = 5): Promise<CrossLink[]> {
   const page = text.slice(0, MAX_TEXT);
   if (!page.trim()) return [];
+  const sameFamily = await bookGroup(db, bookId);
+  const excluded = sql.join(sameFamily.map((id) => sql`${id}`), sql`, `);
   const rows = await db.execute(sql`
     WITH page AS (SELECT tsvector_to_array(to_tsvector('english', ${page})) AS stems),
     latest AS (
@@ -39,20 +42,20 @@ export async function crossLinks(db: Db, ownerId: string, bookId: string, text: 
       ORDER BY annotation_id, version DESC
     ),
     candidates AS (
-      SELECT a.annotation_id, a.book_id, a.section_id, a.cfi, a.quote_exact, trim(a.body || ' ' || a.transcript) AS body, a.created_at,
+      SELECT a.annotation_id, a.book_id, b.title AS book_title, b.author AS book_author, a.section_id, a.cfi, a.quote_exact,
+             trim(a.body || ' ' || a.transcript) AS body, a.created_at,
              tsvector_to_array(to_tsvector('english', a.quote_exact || ' ' || a.body || ' ' || a.transcript)) AS stems
       FROM latest a
       JOIN books b ON b.id = a.book_id
-      WHERE NOT a.deleted AND a.cfi IS NOT NULL AND a.book_id <> ${bookId}
+      WHERE NOT a.deleted AND a.cfi IS NOT NULL AND a.kind <> 'bookmark' AND a.book_id NOT IN (${excluded})
         AND b.owner_id = ${ownerId} AND b.deleted_at IS NULL
     )
-    SELECT c.annotation_id AS "annotationId", b.id AS "bookId", b.title AS "bookTitle", b.author AS "bookAuthor",
+    SELECT c.annotation_id AS "annotationId", c.book_id AS "bookId", c.book_title AS "bookTitle", c.book_author AS "bookAuthor",
            coalesce(ch.label, '') AS chapter, c.cfi, c.quote_exact AS quote, c.body AS note,
            cardinality(c.stems) AS total,
            (SELECT count(*) FROM unnest(c.stems) s WHERE s = ANY (page.stems))::int AS shared
     FROM candidates c
     CROSS JOIN page
-    JOIN books b ON b.id = c.book_id
     LEFT JOIN sections s ON s.book_id = c.book_id AND s.id = c.section_id
     LEFT JOIN sections ch ON ch.book_id = c.book_id AND ch.kind = 'chapter' AND ch.chapter_index = s.chapter_index
     WHERE c.stems && page.stems

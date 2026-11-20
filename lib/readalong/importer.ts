@@ -182,39 +182,58 @@ export async function startImport(db: Db, storage: Storage, ownerId: string, boo
   const id = randomUUID();
   // Audio sent inside the zip (at most MAX_ZIP_BYTES) counts toward the reader's ceiling too.
   const inZipBytes = Object.values(inZip).reduce((n, d) => n + d.byteLength, 0);
+  const maxBytes = maxImportBytes();
   const [{ held }] = await db
     .select({ held: sql<number>`coalesce(sum(${readalongImports.bytesReceived}), 0)::float8` })
     .from(readalongImports)
     .where(eq(readalongImports.ownerId, ownerId));
-  if (Number(held) + inZipBytes > maxImportBytes()) {
+  if (Number(held) + inZipBytes > maxBytes) {
     throw new ReadalongError("Your read-along audio has reached the library's limit. Remove an import you no longer need, then try again.");
   }
   const audio: ReadalongAudio[] = [];
-  for (const [i, a] of pkg.manifest.audio.entries()) {
-    const ext = (/\.[a-z0-9]+$/i.exec(a.file)?.[0] ?? "").toLowerCase();
-    const mime = MIME[ext];
-    if (!mime) throw new ReadalongError(`Unsupported audio file ${a.file}: use .m4b, .m4a, .mp3, .wav, .ogg or .flac.`);
-    const key = `audio/${ownerId}/${bookId}/readalong-${id}-${i + 1}${ext}`;
-    let uploadId: string | null = null;
-    if (inZip[a.file]) await storage.put(key, inZip[a.file], mime);
-    else uploadId = await storage.startUpload(key, mime);
-    audio.push({ file: a.file, key, sha256: a.sha256, seconds: a.seconds, mime, uploadId });
-  }
   const pending: ReadalongPending[] = match.paragraphs.map((p) => ({ sectionId: p.sectionId, audio: p.audio, startMs: p.startMs, endMs: p.endMs, words: p.words }));
-  await db.insert(readalongImports).values({
-    id,
-    ownerId,
-    bookId,
-    status: "uploading",
-    title: pkg.manifest.title ?? null,
-    voice: pkg.manifest.voice ?? null,
-    madeWith: pkg.manifest.made_with ?? null,
-    manifest: pkg.manifest,
-    report: { chapters: match.chapters, paragraphs: match.paragraphs.length },
-    audio,
-    pending,
-    bytesReceived: inZipBytes,
-  });
+  try {
+    for (const [i, a] of pkg.manifest.audio.entries()) {
+      const ext = (/\.[a-z0-9]+$/i.exec(a.file)?.[0] ?? "").toLowerCase();
+      const mime = MIME[ext];
+      if (!mime) throw new ReadalongError(`Unsupported audio file ${a.file}: use .m4b, .m4a, .mp3, .wav, .ogg or .flac.`);
+      const key = `audio/${ownerId}/${bookId}/readalong-${id}-${i + 1}${ext}`;
+      let uploadId: string | null = null;
+      if (inZip[a.file]) await storage.put(key, inZip[a.file], mime);
+      else uploadId = await storage.startUpload(key, mime);
+      audio.push({ file: a.file, key, sha256: a.sha256, seconds: a.seconds, mime, uploadId });
+    }
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`readalong:${ownerId}`}))`);
+      const [{ total }] = await tx
+        .select({ total: sql<number>`coalesce(sum(${readalongImports.bytesReceived}), 0)::float8` })
+        .from(readalongImports)
+        .where(eq(readalongImports.ownerId, ownerId));
+      if (Number(total) + inZipBytes > maxBytes) {
+        throw new ReadalongError("Your read-along audio has reached the library's limit. Remove an import you no longer need, then try again.");
+      }
+      await tx.insert(readalongImports).values({
+        id,
+        ownerId,
+        bookId,
+        status: "uploading",
+        title: pkg.manifest.title ?? null,
+        voice: pkg.manifest.voice ?? null,
+        madeWith: pkg.manifest.made_with ?? null,
+        manifest: pkg.manifest,
+        report: { chapters: match.chapters, paragraphs: match.paragraphs.length },
+        audio,
+        pending,
+        bytesReceived: inZipBytes,
+      });
+    });
+  } catch (e) {
+    for (const a of audio) {
+      if (a.uploadId) await storage.abortUpload(a.key, a.uploadId).catch(() => {});
+      await storage.delete(a.key).catch(() => {});
+    }
+    throw e;
+  }
   if (audio.every((a) => !a.uploadId)) return finishImport(db, storage, ownerId, bookId, id, {});
   return summary(await ownedImport(db, ownerId, bookId, id));
 }
@@ -320,13 +339,13 @@ async function finishClaimed(
     // A finished import replaces the book's earlier ones (their tracks go with them).
     for (const o of older) await tx.delete(readalongImports).where(eq(readalongImports.id, o.id));
     const now = new Date();
-    for (const p of row.pending ?? []) {
+    const trackRows = (row.pending ?? []).map((p) => {
       const a = keyOf.get(p.audio)!;
-      await tx.insert(audioTracks).values({
+      return {
         ownerId,
         bookId,
         sectionId: p.sectionId,
-        source: "upload",
+        source: "upload" as const,
         provider: "upload",
         model: row.madeWith,
         voice: `upload:${importId}`,
@@ -342,7 +361,10 @@ async function finishClaimed(
         audioEndMs: p.endMs,
         importId,
         createdAt: now,
-      });
+      };
+    });
+    for (let i = 0; i < trackRows.length; i += 250) {
+      await tx.insert(audioTracks).values(trackRows.slice(i, i + 250));
     }
     await tx
       .update(readalongImports)
