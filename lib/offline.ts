@@ -1,3 +1,5 @@
+import { clearOwnKeys } from "@/lib/own-keys";
+
 /**
  * "Download for offline" (M12), in the browser. Puts what the reader needs
  * into the caches the service worker (public/sw.js) answers from when the
@@ -7,6 +9,7 @@
  */
 export const BOOKS = "neolibrary-offline-books-v1";
 export const ASSETS = "neolibrary-offline-assets-v1";
+export const FOCUS_STORAGE_KEY = "neolibrary.focus.v1";
 
 const readerPath = (bookId: string) => `/books/${bookId}/read`;
 const absolute = (path: string) => new URL(path, location.origin).href;
@@ -17,6 +20,7 @@ export function offlineSupported() {
 
 export async function isDownloaded(bookId: string) {
   if (!offlineSupported()) return false;
+  if (!(await caches.has(BOOKS))) return false;
   return Boolean(await (await caches.open(BOOKS)).match(absolute(readerPath(bookId))));
 }
 
@@ -50,16 +54,39 @@ export async function downloadForOffline(bookId: string, fileType: "epub" | "pdf
   // A fresh link: the one the page opened with lasts five minutes (M20 Q3). Kept by path, so either link finds it.
   const { url } = (await (await get(`/api/books/${bookId}/file-link`)).json()) as { url: string };
   const file = new URL(url, location.origin);
-  await books.put(file.origin + file.pathname, await get(url));
-  await books.put(absolute(`/api/books/${bookId}/annotations`), await get(`/api/books/${bookId}/annotations`));
-  const appFiles = loadedAssets();
-  if (fileType === "pdf") {
-    // Already kept for another PDF: skip those.
-    for (const u of await pdfViewerFiles()) if (!(await assets.match(u))) appFiles.push(u);
+  const fileCacheKey = file.origin + file.pathname;
+  const notesCacheKey = absolute(`/api/books/${bookId}/annotations`);
+  const pageCacheKey = absolute(readerPath(bookId));
+  // If downloading a scan PDF that has a text edition, ?view=scan keeps ReadPage on the scan instead of redirecting to the edition.
+  const pageFetchPath = fileType === "pdf" && new URLSearchParams(location.search).get("view") === "scan" ? `${readerPath(bookId)}?view=scan` : readerPath(bookId);
+  const hadPage = Boolean(await books.match(pageCacheKey));
+  try {
+    await books.put(fileCacheKey, await get(url));
+    await books.put(notesCacheKey, await get(`/api/books/${bookId}/annotations`));
+    const appFiles = loadedAssets();
+    if (fileType === "pdf") {
+      // Already kept for another PDF: skip those.
+      for (const u of await pdfViewerFiles()) if (!(await assets.match(u))) appFiles.push(u);
+    }
+    const unique = [...new Set(appFiles)];
+    let index = 0;
+    const workers = Array.from({ length: Math.min(8, unique.length) }, async () => {
+      while (index < unique.length) {
+        const u = unique[index++];
+        await assets.put(u, await get(u));
+      }
+    });
+    await Promise.all(workers);
+    // The page last: its presence means "downloaded".
+    await books.put(pageCacheKey, await get(pageFetchPath));
+  } catch (e) {
+    if (!hadPage) {
+      await Promise.all([books.delete(fileCacheKey), books.delete(notesCacheKey)]).catch(() => {});
+      const pages = (await books.keys()).filter((r) => /\/books\/[0-9a-f-]{36}\/read$/.test(new URL(r.url).pathname));
+      if (pages.length === 0) await caches.delete(ASSETS).catch(() => {});
+    }
+    throw e;
   }
-  await Promise.all([...new Set(appFiles)].map(async (u) => assets.put(u, await get(u))));
-  // The page last: its presence means "downloaded".
-  await books.put(absolute(readerPath(bookId)), await get(readerPath(bookId)));
 }
 
 export async function removeDownload(bookId: string, fileUrl: string) {
@@ -74,10 +101,17 @@ export async function removeDownload(bookId: string, fileUrl: string) {
 }
 
 /**
- * Removes every downloaded book from this device: on the sign-in page (so after signing out) and on any page shown
- * to someone not signed in. Notes waiting to be sent (lib/outbox.ts) are not touched: they wait for their writer.
+ * Removes every downloaded book (and signed-in personal keys / cached focus state) from this device: on the sign-in
+ * page (so after signing out) and on any page shown to someone not signed in. Notes waiting to be sent
+ * (lib/outbox.ts) are not touched: they wait for their writer.
  */
-export async function clearOffline() {
-  if (typeof window === "undefined" || !("caches" in window)) return;
-  await Promise.all([caches.delete(BOOKS), caches.delete(ASSETS)]);
+export async function clearOffline(clearAllKeys = false) {
+  if (typeof window === "undefined") return;
+  clearOwnKeys(clearAllKeys);
+  try {
+    localStorage.removeItem(FOCUS_STORAGE_KEY);
+  } catch {
+    // storage blocked
+  }
+  if ("caches" in window) await Promise.all([caches.delete(BOOKS), caches.delete(ASSETS)]);
 }

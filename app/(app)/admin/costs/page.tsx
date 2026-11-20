@@ -40,8 +40,9 @@ export default async function CostsPage() {
       <p className={styles.eyebrow}>Admin</p>
       <h1 className={styles.title}>Spending this month</h1>
       <p className={styles.lede}>
-        What the paid services have cost since the 1st, for everyone you invited. Each stops at its cap; saved answers,
-        audio and pictures are free to use again. Caps reset on the 1st.
+        What the library&apos;s keys have cost since the 1st (invited readers use their own keys; whole-book work run on
+        these keys is included). Each stops at its cap; saved answers, audio and pictures are free to use again. Caps
+        reset on the 1st.
       </p>
       <section aria-labelledby="services" className={own.services}>
         <h2 id="services" className={styles.listTitle}>
@@ -72,9 +73,9 @@ export default async function CostsPage() {
           Which Claude model answers
         </h2>
         <p className={own.meta}>
-          Only you can change these: one key pays for every reader. Prices are per million tokens (about 750,000 words)
-          read in and written out. Saved answers stay free and keep their model&apos;s name; a new question or “ask again”
-          uses the model chosen here.
+          Only you can change these: they pick which Claude model answers in the library. Prices are per million tokens
+          (about 750,000 words) read in and written out. Saved answers stay free and keep their model&apos;s name; a new
+          question or “ask again” uses the model chosen here.
         </p>
         <ModelForm rows={models.map((m) => ({ feature: m.feature, label: m.label, fallback: m.fallback, picked: m.picked }))} choices={choices} />
       </section>

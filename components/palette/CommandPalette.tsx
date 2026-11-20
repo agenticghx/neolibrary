@@ -160,7 +160,7 @@ export function CommandPalette({ admin }: { admin: boolean }) {
     else if (e.key === "End" && e.ctrlKey) setActive(last);
     else if (e.key === "PageDown") setActive((a) => Math.min(last, a + 8));
     else if (e.key === "PageUp") setActive((a) => Math.max(0, a - 8));
-    else if (e.key === "Enter") go(shown[active], e.shiftKey);
+    else if (e.key === "Enter" && !e.nativeEvent.isComposing) go(shown[active], e.shiftKey);
     else if (e.key === "Escape") {
       // Handled here, before the dialog's own cancel, the reader's keys and the account menu's.
       e.stopPropagation();
@@ -169,8 +169,14 @@ export function CommandPalette({ admin }: { admin: boolean }) {
     e.preventDefault();
   };
 
-  // Focus stays inside: Tab moves between the box and Close, and wraps.
+  // Focus stays inside: Tab moves between the box and Close, and wraps; keys inside the dialog stay here.
   const onDialogKeyDown = (e: React.KeyboardEvent<HTMLDialogElement>) => {
+    e.stopPropagation();
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close(true);
+      return;
+    }
     if (e.key !== "Tab") return;
     const focusable = [...(dialog.current?.querySelectorAll<HTMLElement>("input, button") ?? [])];
     const at = focusable.indexOf(document.activeElement as HTMLElement);

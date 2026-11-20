@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Form from "next/form";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { AudiobookUpload } from "@/app/(app)/books/[id]/AudiobookUpload";
 import { ImportRoot, ImportZone } from "@/components/upload/HomeImport";
@@ -60,7 +61,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         </h2>
         {withFile.length ? (
           // #audio-h: after Choose, the page opens at this section (on a phone it is below the fold).
-          <form method="get" action="/import#audio-h" className={styles.choose}>
+          <Form key={chosen?.id ?? ""} action="/import#audio-h" className={styles.choose}>
             <label htmlFor="audio-book" className={forms.label}>
               Book
             </label>
@@ -77,7 +78,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
             <button type="submit" className={styles.button}>
               Choose
             </button>
-          </form>
+          </Form>
         ) : (
           // No book yet: the picker is there but greyed out, and says so in its one option (fewer labels, 2026-10-22).
           <div className={styles.choose}>
@@ -91,7 +92,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         )}
         {chosen ? (
           <div className={styles.upload}>
-            <AudiobookUpload bookId={chosen.id} imports={imports} headingLevel={3} />
+            <AudiobookUpload key={chosen.id} bookId={chosen.id} imports={imports} headingLevel={3} />
           </div>
         ) : null}
       </section>

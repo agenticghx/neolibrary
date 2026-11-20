@@ -197,6 +197,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-19 20:32 · Antigravity · Whole-project audit (3/4): reader & offline SW fixes, sign-out own-key clearing, Cmd+K pages, and Design Rule 4
+- **Done:** Kept `Reader.tsx` under 1,500 lines (1,488) while fixing keyboard shortcuts in dialogs, Study/Genealogy focus restoration, spine-fold resize observer cleanup, Safari synchronous clipboard fallback, offline service worker range/navigation handling, sign-out browser own-key clearing, and `BookCarousel` idle animation loop; added Daily review, Papers and Get help to `Cmd+K`; updated stale copy on `/admin/costs`, `/help`, `NotesPanel` and book back-links; switched `PaperSummary` and `.equationAnswer` left borders to 3px dashed per Design Rule 4.
+- **Key paths:** app/(reader)/books/[id]/read/Reader.tsx; public/sw.js; lib/own-keys.ts; components/ClearOffline.tsx; components/home/BookCarousel.tsx; lib/palette/items.ts; app/(app)/admin/costs/page.tsx; app/(app)/help/page.tsx
+- **Commands that worked:** npm run check (0 lint/style/type errors, 172 test files passed); npx vitest run --config .claude/skills/verify-outbox/replay.config.mts (2 passed)
+- **Known issues / blockers:** Changes `/help` and `/admin/costs` text, so CI's Linux reference screenshots for `help` and `costs` will need one `refresh-screenshots.sh` pass in merge-train.
+- **Exact next steps:** 1. Run CI, refresh `help` and `costs` Linux screenshots via merge-train, inspect them, and merge.
 ### 2026-11-19 20:30 · Antigravity · Whole-project audit (1/4): auth, spending holds, and API owner checks
 - **Done:** Full audit pass on authentication, spending caps and API routes. Setup-code check hashes both sides so length is not leaked; rate-limiter prunes expired entries safely; spending holds guard against non-finite numbers and unpriced model overrides; agent and book API routes enforce `isOwnBook`, body-size caps and safe filenames; fixed `overnight-scans.ts` checker.
 - **Key paths:** lib/ai/generate.ts; lib/auth/setup-code.ts; lib/auth/rate-limit.ts; app/api/agent/books/[id]/*; app/api/files/[...key]/route.ts; scripts/overnight-scans.ts

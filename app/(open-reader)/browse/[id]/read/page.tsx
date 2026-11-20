@@ -1,5 +1,8 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ClearOfflineAtLoad } from "@/components/ClearOfflineAtLoad";
+import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { visitorCoverSigner } from "@/lib/library/covers";
 import { freeBookToRead } from "@/lib/library/open-shelf";
@@ -7,8 +10,10 @@ import { Reader } from "@/app/(reader)/books/[id]/read/Reader";
 
 export const dynamic = "force-dynamic";
 
+const loadFreeBook = cache(async (id: string) => freeBookToRead(await getDb(), id));
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const book = await freeBookToRead(await getDb(), (await params).id);
+  const book = await loadFreeBook((await params).id);
   return { title: book ? `Reading ${book.title}` : "Not found" };
 }
 
@@ -18,23 +23,25 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  * place in their browser and saves nothing on the server (Reader's `visitor`).
  */
 export default async function VisitorReadPage({ params }: { params: Promise<{ id: string }> }) {
-  const db = await getDb();
-  const book = await freeBookToRead(db, (await params).id);
+  const [book, user, sign] = await Promise.all([loadFreeBook((await params).id), currentUser(), visitorCoverSigner()]);
   if (!book) notFound();
   // The same short-lived visitor link as a cover's; /api/open/files hands it out only while the book is free to read.
-  const fileUrl = (await visitorCoverSigner())(book.fileKey)!;
+  const fileUrl = sign(book.fileKey)!;
   return (
-    <Reader
-      readerId=""
-      bookId={book.id}
-      title={book.title}
-      author={book.author}
-      fileUrl={fileUrl}
-      fileType={book.fileType}
-      initialCfi={null}
-      initialFraction={0}
-      rewrittenView="original"
-      visitor={{ backHref: `/browse/${book.id}` }}
-    />
+    <>
+      {user ? null : <ClearOfflineAtLoad />}
+      <Reader
+        readerId=""
+        bookId={book.id}
+        title={book.title}
+        author={book.author}
+        fileUrl={fileUrl}
+        fileType={book.fileType}
+        initialCfi={null}
+        initialFraction={0}
+        rewrittenView="original"
+        visitor={{ backHref: `/browse/${book.id}` }}
+      />
+    </>
   );
 }

@@ -43,6 +43,7 @@ export function useReadingTracker(bookId: string, listening: boolean, focus: Foc
     lastTick: 0,
     lastFlush: 0,
     sent: "",
+    keepaliveSent: "",
   });
   const listeningRef = useRef(listening);
   useEffect(() => {
@@ -72,12 +73,14 @@ export function useReadingTracker(bookId: string, listening: boolean, focus: Foc
         chapters,
         focus: focusRef.current ?? undefined,
       });
-      // A save on leaving (keepalive) always goes: the timed save of these same totals may be the
-      // request the leaving itself cut off, and the server keeps one row per sitting.
-      if (body === s.sent && !keepalive) return;
+      // A save on leaving (keepalive) still goes after a timed save of the same totals (which the leaving may have
+      // cut off), but visibilitychange and pagehide firing back-to-back do not send two identical keepalive requests.
+      if (keepalive ? body === s.keepaliveSent : body === s.sent) return;
       s.sent = body;
+      s.keepaliveSent = keepalive ? body : "";
       void fetch(`/api/books/${bookId}/reading`, { method: "POST", headers: { "content-type": "application/json" }, body, keepalive }).catch(() => {
         s.sent = "";
+        s.keepaliveSent = "";
       });
     },
     [bookId, enabled],

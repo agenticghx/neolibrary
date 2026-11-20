@@ -192,6 +192,7 @@ export function bindPage(e: Event, deps: PageDeps) {
     });
   }
   if (props.fileType === "pdf") {
+    for (const d of pageDocs.current) if (!d.defaultView) pageDocs.current.delete(d);
     pageDocs.current.add(doc);
     doc.documentElement.toggleAttribute("data-dim", dimRef.current);
     bindSpineClick(

@@ -17,8 +17,6 @@ export const noteRequest = async (reader: string, url: string, method: string, b
   return res.status === 204 ? null : res.json();
 };
 
-export type NoteSender = ReturnType<typeof noteSender>;
-
 /** A change of note `noteId` that still waits to be sent (its create, or an edit, removal or return); not a refused one. */
 const waitsFor = (items: OutboxItem[], noteId: string) =>
   items.some((i) => !i.refused && ((i.id === noteId && opOf(i) === "create") || (opOf(i) !== "create" && i.annotationId === noteId)));

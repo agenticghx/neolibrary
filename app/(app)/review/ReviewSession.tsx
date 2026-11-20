@@ -72,7 +72,7 @@ export function ReviewSession({ cards, nextDueAt, total }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], dialog")) return;
       if (e.key === " ") {
         if (target?.closest("button")) return; // a focused button presses itself
         e.preventDefault(); // no scrolling

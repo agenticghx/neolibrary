@@ -61,7 +61,7 @@ export function NeedToKnowPanel({ bookId, cfi, onTab, visitor = false }: { bookI
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "That did not work. Try again.");
-      setData({ ...data, versions: [...data.versions, ...(body.reused ? [] : [body.generation])] });
+      setData((d) => (d ? { ...d, versions: [...d.versions.filter((v) => v.id !== body.generation.id), body.generation] } : d));
     } catch (e) {
       setError((e as Error).message);
     } finally {

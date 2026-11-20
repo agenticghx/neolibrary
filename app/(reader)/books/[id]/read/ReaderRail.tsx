@@ -49,10 +49,10 @@ export function ReaderRail(props: {
       <button
         type="button"
         className={styles.railTool}
-        aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain"}
+        aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" || panel === "genealogy"}
         aria-label="Study"
         title="Study: what this chapter takes for granted, questions on it, and your own summary of it"
-        onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" ? "none" : "know")}
+        onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" || panel === "genealogy" ? "none" : "know")}
       >
         <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
           <path

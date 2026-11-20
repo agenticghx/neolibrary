@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, Field } from "@/components/ActionForm";
 import { AuthShell } from "@/components/AuthShell";
+import { ClearOfflineAtLoad } from "@/components/ClearOfflineAtLoad";
 import styles from "@/components/forms.module.css";
 import { inviteIsOpen, MIN_PASSWORD } from "@/lib/auth/service";
+import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { acceptInviteAction } from "../../actions";
 
@@ -12,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const signedIn = Boolean(await currentUser());
   if (!(await inviteIsOpen(await getDb(), token))) {
     return (
       <AuthShell title="This invitation has closed">
@@ -21,6 +24,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         <p className={styles.note}>
           <Link href="/sign-in">Go to sign in</Link>
         </p>
+        {signedIn ? null : <ClearOfflineAtLoad clearAllKeys />}
       </AuthShell>
     );
   }
@@ -33,6 +37,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         <Field label="Email address" name="email" type="email" autoComplete="email" />
         <Field label="Password" name="password" type="password" autoComplete="new-password" minLength={MIN_PASSWORD} />
       </ActionForm>
+      {signedIn ? null : <ClearOfflineAtLoad clearAllKeys />}
     </AuthShell>
   );
 }

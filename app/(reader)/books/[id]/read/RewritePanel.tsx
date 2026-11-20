@@ -149,7 +149,7 @@ export function RewritePanel({ bookId, cfi }: { bookId: string; cfi: string }) {
                   // Asked for once the number is finished (Enter, or leaving the box), not at each key: typed key by
                   // key, "8" of "85" would have asked for (and paid for) an STE light rewrite (audit 2026-11-09).
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") pickPercent();
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) pickPercent();
                   }}
                   onBlur={pickPercent}
                 />

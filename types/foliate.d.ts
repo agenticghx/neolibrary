@@ -15,4 +15,9 @@ declare module "foliate-js/epubcfi.js" {
 declare module "pdfjs-dist/legacy/build/pdf.mjs" {
   export * from "pdfjs-dist";
 }
-declare module "foliate-js/overlayer.js";
+declare module "foliate-js/overlayer.js" {
+  export class Overlayer {
+    static highlight(rects: DOMRectList | DOMRect[], options?: Record<string, unknown>): SVGElement;
+    static underline(rects: DOMRectList | DOMRect[], options?: Record<string, unknown>): SVGElement;
+  }
+}

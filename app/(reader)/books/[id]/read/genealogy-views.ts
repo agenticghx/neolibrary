@@ -85,6 +85,12 @@ const wrapWords = (s: string, n: number) => {
 };
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const span = (a: number, b: number | null | undefined) => `${a}${b && b !== a ? "–" + String(b).slice(-2) : ""}`;
+const onActivate = (fn: () => void) => (ev: KeyboardEvent) => {
+  if (ev.key === "Enter" || ev.key === " ") {
+    ev.preventDefault();
+    fn();
+  }
+};
 
 type Around = { name: string; kind: string; cats: Set<string>; links: L[]; cat: string; first: number; last: number; role: string | null; x: number; y: number; a: number };
 type Lineage = { parent: string; child: string; hows: Set<string>; people: Set<string>; items: { link: L; inferred?: boolean }[]; book: boolean };
@@ -344,7 +350,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
               g === "0" || !e
                 ? openEvidence(`${n}: its links in the tree`, E.filter((x) => x.parent === n || x.child === n).flatMap((x) => x.items), goButtons(n))
                 : openEvidence(`${e.child}, from ${e.parent}`, e.items, goButtons(n)),
-            onkeydown: (ev: KeyboardEvent) => ev.key === "Enter" && (ev.currentTarget as HTMLElement).click(),
+            onkeydown: onActivate(() => c.click()),
           },
           el("div", { class: "nm" }, n),
           how ? el("div", { class: "how" }, how) : null,
@@ -538,7 +544,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       };
       const g = S(
         "g",
-        { class: "node", tabindex: 0, role: "button", "aria-label": `${e.name}: ${sub}`, onclick: open, onkeydown: (ev: KeyboardEvent) => ev.key === "Enter" && open() },
+        { class: "node", tabindex: 0, role: "button", "aria-label": `${e.name}: ${sub}`, onclick: open, onkeydown: onActivate(open) },
         S("circle", { cx: e.x, cy: e.y, r: r + 10, fill: "transparent" }),
         S("circle", { cx: e.x, cy: e.y, r, fill: e.kind === "person" ? "var(--paper-raised)" : col, stroke: col, "stroke-width": 2.5 }),
         S("text", { x: lx, y: e.y - (lines.length - 1) * 8 - 2, "text-anchor": right ? "start" : "end", class: "lbl" }, lines.map((t, i) => S("tspan", { x: lx, dy: i ? 16 : 0 }, t))),
@@ -662,7 +668,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
         const col = CAT[e.cat].color;
         const nm = S(
           "text",
-          { x: nameW - 10, y: narrow ? cy + 1 : cy - 5, "text-anchor": "end", class: "rowname", role: "button", tabindex: 0, onclick: () => evidenceFor(X, e) },
+          { x: nameW - 10, y: narrow ? cy + 1 : cy - 5, "text-anchor": "end", class: "rowname", role: "button", tabindex: 0, onclick: () => evidenceFor(X, e), onkeydown: onActivate(() => evidenceFor(X, e)) },
           e.name.length > (narrow ? 13 : 28) ? e.name.slice(0, narrow ? 11 : 27) + "…" : e.name,
           S("title", {}, e.name),
         );
@@ -689,7 +695,13 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
           svg.append(
             S(
               "g",
-              { class: "mark", role: "button", tabindex: 0, onclick: () => openEvidence(`${e.name} and ${X}, chapter ${ch}`, ls, goButtons(e.name)) },
+              {
+                class: "mark",
+                role: "button",
+                tabindex: 0,
+                onclick: () => openEvidence(`${e.name} and ${X}, chapter ${ch}`, ls, goButtons(e.name)),
+                onkeydown: onActivate(() => openEvidence(`${e.name} and ${X}, chapter ${ch}`, ls, goButtons(e.name))),
+              },
               S("rect", { x: m - cw / 2, y: y + 2, width: cw, height: rowH - 4, fill: "transparent" }),
               mark,
               S("title", {}, `Chapter ${ch}: ${ls.map(sentence).join("; ")}`),
@@ -871,7 +883,21 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
     const svg = S("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: "story", role: "img", "aria-label": `${p}'s life as a storyline` });
     lanes.forEach((ln, k) => {
       svg.append(S("rect", { x: 0, y: top + k * laneH, width: W, height: laneH, class: k % 2 ? "lane l1" : "lane l0" }));
-      svg.append(S("text", { x: 10, y: top + (k + 1) * laneH - 9, class: "lanelbl" + (kindOf(ln) === "person" ? " pl" : ""), role: "button", tabindex: 0, onclick: () => show(kindOf(ln) === "person" ? "person" : "org", ln) }, ln));
+      svg.append(
+        S(
+          "text",
+          {
+            x: 10,
+            y: top + (k + 1) * laneH - 9,
+            class: "lanelbl" + (kindOf(ln) === "person" ? " pl" : ""),
+            role: "button",
+            tabindex: 0,
+            onclick: () => show(kindOf(ln) === "person" ? "person" : "org", ln),
+            onkeydown: onActivate(() => show(kindOf(ln) === "person" ? "person" : "org", ln)),
+          },
+          ln,
+        ),
+      );
     });
     E.forEach((e, i) => svg.append(S("text", { x: x(i), y: 22, "text-anchor": "middle", class: "yr " + yearKind(e) }, yearText(e) || "·")));
     // Fellow travellers: others whose rebuilt lives put them in the same organisation at the same time.
@@ -905,7 +931,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       svg.append(
         S(
           "g",
-          { class: "mate", role: "button", tabindex: 0, onclick: () => show("person", o.q) },
+          { class: "mate", role: "button", tabindex: 0, onclick: () => show("person", o.q), onkeydown: onActivate(() => show("person", o.q)) },
           S("path", { d: `M${x0},${yy} L${x1},${yy}`, class: "mateline" }),
           S("text", { x: x1 - 2, y: yy - 4, "text-anchor": "end", class: "matelbl" }, o.q),
           S("title", {}, `${o.q} was also at ${o.ln} (${o.how.replace("_", " ")}). Tap to see their path.`),
@@ -944,7 +970,7 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       svg.append(
         S(
           "g",
-          { class: "mark", role: "button", tabindex: 0, onclick: () => eventEvidence(p, e), onkeydown: (ev: KeyboardEvent) => ev.key === "Enter" && eventEvidence(p, e) },
+          { class: "mark", role: "button", tabindex: 0, onclick: () => eventEvidence(p, e), onkeydown: onActivate(() => eventEvidence(p, e)) },
           S("rect", { x: X - colW / 2, y: Y - 26, width: colW, height: 52, fill: "transparent" }),
           shape,
           S("text", { x: X, y: Y + 24, "text-anchor": "middle", class: "evlbl" }, label.map((t, k) => S("tspan", { x: X, dy: k ? 13 : 0 }, t))),
@@ -998,7 +1024,17 @@ export function mountGenealogy(root: HTMLElement, D: GenealogyView, opts: Geneal
       marks.append(
         S(
           "g",
-          { class: "mark", role: "button", tabindex: 0, onclick: () => eventEvidence(p, e), onmouseenter: () => hi(i), onmouseleave: () => hi(null), onfocus: () => hi(i) },
+          {
+            class: "mark",
+            role: "button",
+            tabindex: 0,
+            onclick: () => eventEvidence(p, e),
+            onkeydown: onActivate(() => eventEvidence(p, e)),
+            onmouseenter: () => hi(i),
+            onmouseleave: () => hi(null),
+            onfocus: () => hi(i),
+            onblur: () => hi(null),
+          },
           S("circle", { cx: ex(i), cy: yBot, r: 6.5, fill: e.start_year ? col : "var(--paper)", stroke: col, "stroke-width": 2.5 }),
           S("text", { x: ex(i), y: yBot + 26, "text-anchor": "middle", class: "yr " + yearKind(e) }, yearText(e) || "·"),
           S("text", { x: ex(i), y: yBot + 42, "text-anchor": "middle", class: "evlbl" }, lbl.map((t, k) => S("tspan", { x: ex(i), dy: k ? 12 : 0 }, t))),

@@ -68,7 +68,8 @@ import { showFigures, type ReaderFigure } from "./figure-redraws";
 import { EquationView, type EquationAsk } from "./EquationView";
 import styles from "./reader.module.css";
 import { voiceFetch } from "@/lib/own-keys";
-import { OPEN_TIMEOUT_MS, SYNC_EVENT, api, applySettings, clean, isDark, pdfDocsOnScreen, pdfPage, readerClass, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
+import { READER_HEADER } from "@/lib/reader-header";
+import { closeOpenReader, OPEN_TIMEOUT_MS, STUDY_PANELS, SYNC_EVENT, api, applySettings, clean, isDark, pdfDocsOnScreen, pdfPage, readerClass, saveVisitorPlace, visitorPlace, type DrawFn, type FoliateView, type ReaderPanel, type Relocate } from "./reader-helpers";
 
 type NotSaved = { reason: string; text: string; what?: string };
 
@@ -190,6 +191,13 @@ export function Reader(props: {
     }
     const box = stage.current?.querySelector<HTMLElement>(`:scope > .${CSS.escape(styles.panel)}`);
     if (!box || box.contains(document.activeElement)) return; // a panel that put focus on its own field keeps it
+    if (STUDY_PANELS.has(was) && STUDY_PANELS.has(panel)) {
+      const tab = box.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (tab) {
+        tab.focus({ preventScroll: true });
+        return;
+      }
+    }
     box.tabIndex = -1;
     box.focus({ preventScroll: true });
   }, [panel]);
@@ -505,6 +513,16 @@ export function Reader(props: {
     return () => el.removeEventListener("wheel", onWheel);
   }, [onWheel]);
 
+  const onKeyRef = useRef(onKey);
+  const onWheelRef = useRef(onWheel);
+  useEffect(() => {
+    onKeyRef.current = onKey;
+    onWheelRef.current = onWheel;
+  });
+  const scrollCleanup = useRef<(() => void) | null>(null);
+  const pdfDestroy = useRef<(() => unknown) | null>(null);
+  useEffect(() => () => closeOpenReader({ timer, scrollCleanup, view, pdfDestroy, bookRef }), []);
+
   // Open the book once. Settings live on this device (localStorage).
   useEffect(() => {
     if (view.current) return;
@@ -532,8 +550,12 @@ export function Reader(props: {
           props.fileType === "pdf"
             ? await (await import("@/lib/reader/pdf-book")).makePdfBook(blob, initial.pages)
             : new File([blob], "book.epub", { type: "application/epub+zip" });
+        if (cancelled) {
+          if (props.fileType === "pdf") void (book as { destroy?: () => unknown }).destroy?.();
+          return;
+        }
         bookRef.current = props.fileType === "pdf" ? (book as SpineBook) : null;
-        if (cancelled) return;
+        pdfDestroy.current = props.fileType === "pdf" ? () => (book as { destroy?: () => unknown }).destroy?.() : null;
         openSpread.current = props.fileType === "pdf" ? (book as { rendition: { spread: string } }).rendition.spread : null;
         const v = document.createElement("foliate-view") as FoliateView;
         v.className = styles.view;
@@ -545,7 +567,7 @@ export function Reader(props: {
         // Highlights: load them, and draw each one when its page is rendered.
         const { Overlayer } = (await import("foliate-js/overlayer.js")) as { Overlayer: { highlight: DrawFn } };
         // An error answer must not look like "this book has no notes": say so (the notes are safe on the server).
-        const answer = props.visitor ? null : await fetch(`/api/books/${props.bookId}/annotations`);
+        const answer = props.visitor ? null : await fetch(`/api/books/${props.bookId}/annotations`, { headers: props.readerId ? { [READER_HEADER]: props.readerId } : undefined });
         if (answer && !answer.ok) setNotesFailed(true);
         const loaded = answer?.ok ? withCrossed(await answer.json(), crossedAt.current) : [];
         notesRef.current = loaded;
@@ -569,7 +591,7 @@ export function Reader(props: {
         root.current!.className = readerClass(initial) + recallClass.current;
         spreadRef.current = applySettings(v, initial, root.current!);
         setSettings(initial);
-        bindScroll({ v, focusRef, lensLine, lens, pointer, spreadRef, showLensOn, shownOf, refocus, holdLens });
+        scrollCleanup.current = bindScroll({ v, focusRef, lensLine, lens, pointer, spreadRef, showLensOn, shownOf, refocus, holdLens });
         v.addEventListener("relocate", (e: Event) => {
           const d = (e as CustomEvent<Relocate>).detail;
           // A page shown: the other version's notes on it are placed (also when its frame was not reported loading).
@@ -681,8 +703,8 @@ export function Reader(props: {
             spokenPdf,
             listenBar,
             placeCrossed,
-            onKey,
-            onWheel,
+            onKey: (ev) => onKeyRef.current(ev),
+            onWheel: (ev) => onWheelRef.current(ev),
             turnRef,
             trackerRef,
             wake,
@@ -730,10 +752,9 @@ export function Reader(props: {
     })();
     return () => {
       cancelled = true;
-      bookRef.current = null;
       clearTimeout(giveUp);
     };
-  }, [props.bookId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, onKey, onWheel, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw, notesRef, setNotes, lens, lensLine, lensPlace, pointer, spokenBlock, shownOf, wake]);
+  }, [props.bookId, props.readerId, props.fileUrl, props.fileType, props.initialCfi, props.openPage, props.visitor, editionNow, flush, lookForLinks, refocus, holdLens, showLens, showLensOn, dismissSelection, loadRedraw, notesRef, setNotes, lens, lensLine, lensPlace, pointer, spokenBlock, shownOf, wake]);
 
   // Focus (M21): the book's area changed size or place (the device turned, full screen, a side pane): the ruler's
   // band, drawn over the book, is put back on its line, or on the first line if its place is gone.
@@ -961,12 +982,8 @@ export function Reader(props: {
 
   const pinPicture = async (picture: PinnedPicture) => {
     if (!imagesAt) return;
-    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
-      kind: "image",
-      cfi: imagesAt.cfi,
-      quote: { exact: imagesAt.exact, prefix: imagesAt.prefix, suffix: imagesAt.suffix },
-      picture,
-    });
+    const quote = { exact: imagesAt.exact, prefix: imagesAt.prefix, suffix: imagesAt.suffix };
+    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", { kind: "image", cfi: imagesAt.cfi, quote, picture }, props.readerId);
     await reload();
     await view.current?.addAnnotation({ value: a.cfi! });
   };
@@ -976,12 +993,8 @@ export function Reader(props: {
   const saveDrawing = async (strokes: number[][]) => {
     if (!selection) return;
     const picked = selection;
-    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", {
-      kind: "drawing",
-      cfi: picked.cfi,
-      quote: { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix },
-      drawing: { strokes },
-    });
+    const quote = { exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix };
+    const a: Annotation = await api(`/api/books/${props.bookId}/annotations`, "POST", { kind: "drawing", cfi: picked.cfi, quote, drawing: { strokes } }, props.readerId);
     clearSelection();
     await reload();
     await view.current?.addAnnotation({ value: a.cfi! });
@@ -997,7 +1010,8 @@ export function Reader(props: {
     form.set("cfi", picked.cfi);
     form.set("quote", JSON.stringify({ exact: picked.exact, prefix: picked.prefix, suffix: picked.suffix }));
     form.set("durationMs", String(Math.round(durationMs)));
-    const res = await voiceFetch(`/api/books/${props.bookId}/voice-notes`, { method: "POST", body: form });
+    const headers = props.readerId ? { [READER_HEADER]: props.readerId } : undefined;
+    const res = await voiceFetch(`/api/books/${props.bookId}/voice-notes`, { method: "POST", headers, body: form });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "The voice note was not saved.");
     clearSelection();
@@ -1134,12 +1148,7 @@ export function Reader(props: {
   // book and device opens in it. Shown at once; if it cannot be saved, it still holds in this reader.
   const showRewritten = (mode: RewrittenMode) => {
     setRewritten((r) => ({ mode, last: mode === "original" ? r.last : mode }));
-    if (props.visitor) return;
-    void fetch("/api/account/preferences", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ rewrittenView: mode }),
-    }).catch(() => {});
+    if (!props.visitor) void api("/api/account/preferences", "PUT", { rewrittenView: mode }, props.readerId).catch(() => {});
   };
   const paneMode = rewritten.mode !== "original" && screen ? rewritten.mode : null;
   // The dragged width, on the reading area (reader.module.css, --side-track); without one, the layout's own split.
@@ -1339,17 +1348,7 @@ export function Reader(props: {
         ) : null}
 
         {panel === "explain" && where.cfi ? (
-          <ExplainPanel
-            key={where.chapter}
-            bookId={props.bookId}
-            cfi={where.cfi}
-            onTab={setPanel}
-            onGo={(cfi, close) => {
-              void view.current?.goTo(cfi);
-              if (close) setPanel("none");
-            }}
-            onSaved={() => void reload()}
-          />
+          <ExplainPanel key={where.chapter} bookId={props.bookId} readerId={props.readerId} cfi={where.cfi} onTab={setPanel} onGo={(cfi, close) => { void view.current?.goTo(cfi); if (close) setPanel("none"); }} onSaved={() => void reload()} />
         ) : null}
 
         {panel === "xray" && where.cfi ? (

@@ -341,8 +341,8 @@ export function ListenSession({
         return;
       }
       const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: info.passage.nextId, voice })}`);
-      const body = (await res.json()) as Info;
-      if (!res.ok) throw new Error("The next paragraph could not be found.");
+      const body = (await res.json().catch(() => null)) as Info | null;
+      if (!res.ok || !body) throw new Error("The next paragraph could not be found.");
       if (auto && !body.track && mustAsk(sinceOk.current)) {
         if (generation.current !== g) return;
         // Show the next paragraph's cost and wait: Keep reading (the Play button) makes it.
@@ -667,8 +667,8 @@ export function ListenSession({
     setBusy(true);
     try {
       const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice })}`);
-      const body = (await res.json()) as Info;
-      if (!res.ok) throw new Error("The paragraph before could not be found.");
+      const body = (await res.json().catch(() => null)) as Info | null;
+      if (!res.ok || !body) throw new Error("The paragraph before could not be found.");
       const track = body.track ?? (await trackFor(body.passage.id, voice));
       if (generation.current !== g) return;
       await playTrack(body.passage, track, Math.max(0, track.durationMs - fromEndMs), resume);

@@ -11,6 +11,8 @@ export type OwnKeyKind = keyof typeof OWN_KEY_HEADERS;
 
 /** Where the browser keeps each key (localStorage), on this device only. */
 export const OWN_KEY_STORAGE: Record<OwnKeyKind, string> = { ai: "neolibrary:own-key:anthropic", voice: "neolibrary:own-key:elevenlabs" };
+/** Marks keys saved while signed in, so signing out or session expiry clears them without wiping a visitor's key on /browse. */
+export const OWN_KEY_SIGNED_IN = "neolibrary:own-key:signed-in";
 
 /** What a reader is told when a new answer or a voice needs their own key. */
 export const OWN_KEY_NEEDED: Record<OwnKeyKind, string> = {

@@ -435,7 +435,7 @@
   gap: var(--space-3);
   margin: 0;
   padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--machine-rule);
+  border-left: 3px dashed var(--machine-rule);
   background-color: var(--machine-bg);
   color: var(--machine-ink);
 }

@@ -23,7 +23,8 @@ export function noteShown(note: Annotation): { label: string; text: string; high
  */
 export function ContinueCard({ item, chapter, note, at }: { item: LibraryItem; chapter: string | null; note: Annotation | null; at: string | null }) {
   const shown = note ? noteShown(note) : null;
-  const pct = Math.round(item.progress * 100);
+  const pct = Math.min(100, Math.max(0, Math.round(item.progress * 100)));
+  const barStep = item.progress > 0 ? Math.min(100, Math.max(5, Math.round(item.progress * 20) * 5)) : 0;
   const titleId = `continue-${item.id}`;
   return (
     <article className={styles.card} aria-labelledby={titleId} data-testid="continue-card">
@@ -40,7 +41,7 @@ export function ContinueCard({ item, chapter, note, at }: { item: LibraryItem; c
             {pct}%
           </span>
           <span className={styles.cardBar} aria-hidden="true">
-            <span className={styles.cardFill} data-progress={Math.round(item.progress * 20) * 5} />
+            <span className={styles.cardFill} data-progress={barStep} />
           </span>
         </p>
       </div>

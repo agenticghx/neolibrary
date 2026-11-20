@@ -279,7 +279,8 @@ function SpeedMenu({ speed, onChange }: { speed: number; onChange: (speed: numbe
     // Escape from anywhere on the page: Safari does not focus a button that is clicked, so after a
     // click on the pill the key goes to the page, not to the menu.
     const escape = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.stopPropagation();
       setOpen(false);
       pill.current?.focus();
     };

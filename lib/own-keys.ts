@@ -1,4 +1,4 @@
-import { OWN_KEY_HEADERS, OWN_KEY_STORAGE, type OwnKeyKind } from "@/lib/own-key-names";
+import { OWN_KEY_HEADERS, OWN_KEY_SIGNED_IN, OWN_KEY_STORAGE, type OwnKeyKind } from "@/lib/own-key-names";
 
 /*
  * M34 S4, in the browser: a person's own Anthropic and ElevenLabs keys, kept in this browser's localStorage and
@@ -17,16 +17,35 @@ export function ownKey(kind: OwnKeyKind): string | null {
 export function setOwnKey(kind: OwnKeyKind, value: string | null): boolean {
   try {
     const v = value?.trim();
-    if (v) localStorage.setItem(OWN_KEY_STORAGE[kind], v);
-    else localStorage.removeItem(OWN_KEY_STORAGE[kind]);
+    if (v) {
+      localStorage.setItem(OWN_KEY_STORAGE[kind], v);
+      if (typeof location !== "undefined" && !location.pathname.startsWith("/browse")) {
+        localStorage.setItem(OWN_KEY_SIGNED_IN, "1");
+      }
+    } else {
+      localStorage.removeItem(OWN_KEY_STORAGE[kind]);
+    }
     return Boolean(v);
   } catch {
     return false;
   }
 }
 
+/** Removes personal API keys kept in this browser (all of them on sign-out/invite, or signed-in ones on /browse). */
+export function clearOwnKeys(all = false) {
+  try {
+    if (all || localStorage.getItem(OWN_KEY_SIGNED_IN)) {
+      localStorage.removeItem(OWN_KEY_STORAGE.ai);
+      localStorage.removeItem(OWN_KEY_STORAGE.voice);
+      localStorage.removeItem(OWN_KEY_SIGNED_IN);
+    }
+  } catch {
+    // storage blocked
+  }
+}
+
 /** The request options with the key's header added, when this browser holds that key. */
-export function withOwnKey(kind: OwnKeyKind, init?: RequestInit): RequestInit {
+function withOwnKey(kind: OwnKeyKind, init?: RequestInit): RequestInit {
   const key = ownKey(kind);
   if (!key) return init ?? {};
   const headers = new Headers(init?.headers);

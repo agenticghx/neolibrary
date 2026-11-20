@@ -334,6 +334,8 @@ ${TEXT_LAYER_CSS}${SPOKEN_CSS}${DIM_CSS}</style>
     destroy: () => {
       // No new drawing ahead; one under way is cancelled by pdf.js's own clean-up.
       closed = true;
+      for (const entry of cache.values()) URL.revokeObjectURL(entry.src);
+      cache.clear();
       return task.destroy();
     },
   };

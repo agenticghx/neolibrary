@@ -36,9 +36,14 @@ export function bindMarks(deps: {
     let p = xrayMarks.current.get(index);
     if (!p) {
       p = fetch(`/api/books/${props.bookId}/xray/marks?chapter=${index}`)
-        .then((r) => (r.ok ? r.json() : { marks: [] }))
-        .then((b: { marks: XrayMark[] }) => b.marks)
-        .catch(() => []);
+        .then(async (r) => {
+          if (!r.ok) throw new Error(`${r.status}`);
+          return ((await r.json()) as { marks: XrayMark[] }).marks;
+        })
+        .catch(() => {
+          xrayMarks.current.delete(index);
+          return [] as XrayMark[];
+        });
       xrayMarks.current.set(index, p);
     }
     return p;
@@ -161,4 +166,8 @@ export function bindScroll(deps: {
       if (Math.abs(d) > 1) void (d > 0 ? v.next(d) : v.prev(-d));
     }, SPREAD_SETTLE_MS);
   });
+  return () => {
+    clearTimeout(lineUp);
+    cancelAnimationFrame(rolling);
+  };
 }

@@ -12,7 +12,7 @@ export type PaletteData = {
   /** `anchor`: the element id on the Path page (PathView: `p-<slug>`, or `master-key` for the master key). */
   paths: { slug: string; title: string; pillars: { slug: string; title: string; anchor: string }[] }[];
   /** The newest highlights, notes and voice notes at a place in a book, newest first. */
-  notes: { id: string; bookId: string; cfi: string; text: string; kind: "highlight" | "note" | "voice" }[];
+  notes: { id: string; bookId: string; shelfBookId?: string; cfi: string; text: string; kind: "highlight" | "note" | "voice" }[];
 };
 
 export const PALETTE_NOTES = 50;
@@ -30,7 +30,7 @@ export async function paletteData(db: Db, ownerId: string): Promise<PaletteData>
     // The latest version of each annotation (nothing is overwritten, ground rule 9), not removed, on a book
     // still in the library, with words to find it by. Bookmarks, stickers, drawings and pictures have none.
     db.execute(sql`
-      SELECT a.annotation_id AS id, a.book_id AS "bookId", a.cfi, a.kind,
+      SELECT a.annotation_id AS id, a.book_id AS "bookId", coalesce(b.edition_of, b.id) AS "shelfBookId", a.cfi, a.kind,
              left(coalesce(nullif(trim(a.body || ' ' || a.transcript), ''), a.quote_exact), ${NOTE_CHARS}) AS text
       FROM (
         SELECT DISTINCT ON (annotation_id) * FROM annotations
@@ -38,7 +38,9 @@ export async function paletteData(db: Db, ownerId: string): Promise<PaletteData>
         ORDER BY annotation_id, version DESC
       ) a
       JOIN books b ON b.id = a.book_id AND b.deleted_at IS NULL
+      LEFT JOIN books scan ON scan.id = b.edition_of
       WHERE NOT a.deleted AND a.cfi IS NOT NULL AND a.kind IN ('highlight', 'note', 'voice')
+        AND (b.edition_of IS NULL OR scan.deleted_at IS NULL)
         AND trim(a.body || a.transcript || a.quote_exact) <> ''
       ORDER BY a.created_at DESC
       LIMIT ${PALETTE_NOTES}

@@ -39,7 +39,7 @@
 
 .for {
   color: var(--ink-500);
-  font-weight: normal;
+  font-weight: var(--weight-regular);
 }
 
 .inputRow {

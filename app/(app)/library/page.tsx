@@ -52,14 +52,19 @@ export default async function LibraryPage({
   const audio = show === "all" && sp.audio === "1";
   const collectionList = await listCollections(db, user.id);
   const active = collectionList.find((c) => c.id === sp.c) ?? null;
-  const [shelf, everything] = await Promise.all([
+  const unfiltered = !sp.q && !active && show === "all" && !audio;
+  const showWaiting = !sp.q && !active && !audio && (show === "all" || show === "want");
+  const [shelf, allRows, waitingRows, sign] = await Promise.all([
     listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show, audio }),
-    listShelf(db, user.id),
+    unfiltered ? Promise.resolve(null) : listShelf(db, user.id),
+    showWaiting ? notYetAvailable(db, user.id) : Promise.resolve([]),
+    coverSigner(),
   ]);
-  const sign = await coverSigner();
-  const items = await libraryItems(db, user.id, shelf, sign);
+  const everything = allRows ?? shelf;
   // Books (without Has audio) and Want to Read, with no search and no collection, end with the titles not available yet (D3, D5).
-  const waiting = !sp.q && !active && !audio && (show === "all" || show === "want") ? await libraryItems(db, user.id, await notYetAvailable(db, user.id), sign) : [];
+  const combined = await libraryItems(db, user.id, [...shelf, ...waitingRows], sign);
+  const items = combined.slice(0, shelf.length);
+  const waiting = combined.slice(shelf.length);
   const chipHref = (c?: string) => libraryHref({ show, audio, c, sort: sp.sort, q: sp.q });
   const filtered = show !== "all" || audio;
 
@@ -180,7 +185,7 @@ export default async function LibraryPage({
 
       <footer className={styles.data}>
         <p>
-          Your library is yours: <a href="/api/export">download it as a file</a> (books, paths, collections) or{" "}
+          Your library is yours: <a href="/api/export" download>download it as a file</a> (books, paths, collections) or{" "}
           <Link href="/data">bring one back</Link>. How you read: <Link href="/stats">your reading stats</Link>.
         </p>
       </footer>

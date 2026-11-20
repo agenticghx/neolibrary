@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { Cover } from "@/components/Cover";
 import { getDb } from "@/lib/db";
@@ -28,7 +29,13 @@ export default async function OpenShelfPage({ searchParams }: { searchParams: Pr
   const sort = parseOpenSort(sp.sort);
   const q = typeof sp.q === "string" ? sp.q.slice(0, 100) : "";
   const db = await getDb();
-  const [shown, all, owner] = await Promise.all([listOpenShelf(db, { q, free, sort }), listOpenShelf(db), shelfOwner(db)]);
+  const unfiltered = !q && !free && sort === "title";
+  const [all, shown, owner] = await Promise.all([
+    listOpenShelf(db),
+    unfiltered ? Promise.resolve(null) : listOpenShelf(db, { q, free, sort }),
+    shelfOwner(db),
+  ]);
+  const list = shown ?? all;
   const freeCount = all.filter((b) => b.freeToRead).length;
   const sign = await visitorCoverSigner();
 
@@ -45,14 +52,14 @@ export default async function OpenShelfPage({ searchParams }: { searchParams: Pr
         </p>
       </header>
 
-      <form className={styles.controls} action="/browse" role="search">
+      <Form key={q} className={styles.controls} action="/browse" role="search">
         <label className={styles.searchLabel}>
           <span className="visually-hidden">Search by title or author</span>
           <input className={styles.search} type="search" name="q" defaultValue={q} placeholder="Search by title or author" />
         </label>
         {free ? <input type="hidden" name="free" value="1" /> : null}
         {sort !== "title" ? <input type="hidden" name="sort" value={sort} /> : null}
-      </form>
+      </Form>
       <nav className={styles.chips} aria-label="Show and sort">
         <Link href={shelfHref({ sort, q })} className={styles.chip} aria-current={!free ? "true" : undefined}>
           Every book
@@ -68,9 +75,9 @@ export default async function OpenShelfPage({ searchParams }: { searchParams: Pr
         ))}
       </nav>
 
-      {shown.length ? (
+      {list.length ? (
         <ul className={styles.grid} data-testid="open-shelf-grid">
-          {shown.map((b) => (
+          {list.map((b) => (
             <li key={b.id}>
               <Link href={`/browse/${b.id}`} className={styles.item}>
                 <Cover title={b.title} size="fill" caption={false} decorative available={b.freeToRead ? READ : NOTHING} imageUrl={sign(b.coverKey)} />

@@ -43,6 +43,7 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 const fileKey = (url) => url.origin + url.pathname;
 
 async function fromCache(cacheName, key) {
+  if (!(await caches.has(cacheName))) return Response.error();
   const cache = await caches.open(cacheName);
   return (await cache.match(key, { ignoreSearch: true })) ?? Response.error();
 }
@@ -54,9 +55,19 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
 
-  // Book files: the signed link in a cached page has expired, so match on the path.
+  // Book files: the signed link in a cached page has expired, so match on the path (and fall back on 403 if a cached page reconnected).
   if (path.startsWith("/api/files/books/")) {
-    event.respondWith(fetch(req).catch(() => fromCache(BOOKS, fileKey(url))));
+    const key = fileKey(url);
+    event.respondWith(
+      fetch(req).then(
+        async (res) => {
+          if (res.status !== 403) return res;
+          const cached = await fromCache(BOOKS, key);
+          return cached.type === "error" ? res : cached;
+        },
+        () => fromCache(BOOKS, key),
+      ),
+    );
     return;
   }
   // The reader page and a book's notes: network first; refresh a downloaded copy.
@@ -64,10 +75,11 @@ self.addEventListener("fetch", (event) => {
   const isNotes = /^\/api\/books\/[0-9a-f-]{36}\/annotations$/.test(path);
   if (isReader || isNotes) {
     const key = url.origin + path;
+    const cleanVisit = !url.search || url.search === "?view=scan";
     event.respondWith(
       fetch(req).then(
         (res) => {
-          if (res.ok) {
+          if (res.ok && (isNotes || cleanVisit)) {
             const copy = res.clone();
             event.waitUntil(
               quietly(async () => {
@@ -93,7 +105,11 @@ self.addEventListener("fetch", (event) => {
             event.waitUntil(
               quietly(async () => {
                 // Only a device with a download keeps app files (the cache exists once a book is downloaded).
-                if (await caches.has(ASSETS)) await (await caches.open(ASSETS)).put(req.url, copy);
+                if (await caches.has(ASSETS)) {
+                  const cache = await caches.open(ASSETS);
+                  await cache.delete(req.url);
+                  await cache.put(req.url, copy);
+                }
               }),
             );
           }

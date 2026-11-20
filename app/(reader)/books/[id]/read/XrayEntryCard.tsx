@@ -17,8 +17,14 @@ const namesOf = (bookId: string) => {
     genealogyNames.set(
       bookId,
       fetch(`/api/books/${bookId}/genealogy?names=1`)
-        .then(async (res) => (res.ok ? ((await res.json()) as { names: GenealogyName[] }).names : []))
-        .catch(() => []),
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`${res.status}`);
+          return ((await res.json()) as { names: GenealogyName[] }).names;
+        })
+        .catch(() => {
+          genealogyNames.delete(bookId);
+          return [] as GenealogyName[];
+        }),
     );
   return genealogyNames.get(bookId)!;
 };
