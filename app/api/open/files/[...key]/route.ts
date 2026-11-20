@@ -19,7 +19,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
   // M34 S5: a limit per visitor address (lib/visitor-limit.ts); generous, as a shelf page shows every cover.
   const taken = takeVisitorRequest("file", visitorAddress(req.headers));
   if (!taken.ok) return tooMany(taken.retryAfterSeconds);
-  const key = (await params).key.map(decodeURIComponent).join("/");
+  let key: string;
+  try {
+    key = (await params).key.map(decodeURIComponent).join("/");
+  } catch {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
   const url = new URL(req.url);
   const db = await getDb();
   const secret = await serverSecret(db, "visitor-file-links");

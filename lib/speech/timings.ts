@@ -8,13 +8,25 @@ import type { Alignment } from "./model";
 export type WordTiming = [startMs: number, endMs: number, from: number, to: number];
 
 export function wordTimings(text: string, a: Alignment): WordTiming[] {
-  // The alignment has one entry per character of the text sent, in order.
+  // ElevenLabs gives one entry per Unicode code point, while string slices use UTF-16 offsets.
   const out: WordTiming[] = [];
+  let utf16At = 0;
+  let cpAt = 0;
   for (const m of text.matchAll(/\S+/g)) {
     const from = m.index!;
     const to = from + m[0].length;
-    const start = a.starts[from];
-    const end = a.ends[to - 1];
+    for (const ch of text.slice(utf16At, from)) {
+      void ch;
+      cpAt += 1;
+    }
+    const cpFrom = cpAt;
+    for (const ch of m[0]) {
+      void ch;
+      cpAt += 1;
+    }
+    utf16At = to;
+    const start = a.starts[cpFrom];
+    const end = a.ends[cpAt - 1];
     if (start === undefined || end === undefined) break;
     out.push([Math.round(start * 1000), Math.round(end * 1000), from, to]);
   }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { capsFromEnv, estimateCost, generate, generationCacheKey, spendingWithJobs, SpendingCapReached, type Caps, type GenerationRequest } from "@/lib/ai/generate";
 import { AiError, type TextModel } from "@/lib/ai/model";
 import { fill, readPrompt, sha256, splitPrompt } from "@/lib/ai/prompts";
@@ -362,23 +362,53 @@ export type XraySummary = {
 
 /** What reading the whole book with Claude involves now: how much is done, what the rest would cost at most, and the caps. */
 export async function xraySummary(db: Db, model: TextModel, ownerId: string, bookId: string, opts: { caps?: Caps; now?: () => Date } = {}): Promise<XraySummary> {
-  const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
+  const [book] = await db.select({ id: books.id, title: books.title, author: books.author }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new XrayError("That book was not found.");
-  const chapters = await bookChapters(db, bookId);
-  const read = new Set(
-    (await db.select({ sectionId: generations.sectionId }).from(generations).where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, "xray")))).map((g) => g.sectionId),
-  );
+  const { effective: style } = await getStyles(db, ownerId, bookId);
+  const [chapters, readRows, proseRows, [{ n: factCount }]] = await Promise.all([
+    bookChapters(db, bookId),
+    db
+      .select({ sectionId: generations.sectionId })
+      .from(generations)
+      .where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, "xray"), sql`${generations.options}->>'style' = ${style}`)),
+    db
+      .select({ id: sections.id, position: sections.position, chapterIndex: sections.chapterIndex, cfi: sections.cfi, text: sections.text })
+      .from(sections)
+      .where(and(eq(sections.bookId, bookId), eq(sections.kind, "paragraph"), eq(sections.form, "prose")))
+      .orderBy(asc(sections.position)),
+    db.select({ n: sql<number>`count(*)::int` }).from(xrayFacts).where(eq(xrayFacts.bookId, bookId)),
+  ]);
+  const read = new Set(readRows.map((g) => g.sectionId));
+  const byChapter = new Map<number, typeof proseRows>();
+  for (const r of proseRows) {
+    let list = byChapter.get(r.chapterIndex);
+    if (!list) byChapter.set(r.chapterIndex, (list = []));
+    list.push(r);
+  }
+  const file = await readPrompt("xray");
+  const { system, user } = splitPrompt(file);
+  const instruction = await styleInstruction(style);
+  const sys = fill(system, { style: instruction.text });
+  const line = book.author ? `${book.title} by ${book.author}` : book.title;
   let estimate = 0;
   for (const c of chapters) {
     if (read.has(c.id)) continue;
-    const passages = await chapterPassages(db, bookId, c.chapterIndex);
+    const passages: Passage[] = [];
+    let chars = 0;
+    for (const r of byChapter.get(c.chapterIndex) ?? []) {
+      if (!r.text.trim()) continue;
+      chars += r.text.length;
+      if (chars > MAX_CHARS && passages.length) break;
+      passages.push({ n: passages.length + 1, ...r });
+    }
     if (!passages.length) continue;
-    estimate += estimateCost(model, await buildRequest(db, ownerId, bookId, c, passages, []));
+    const text = passages.map((p) => p.text).join("\n\n");
+    const prompt = fill(user, { book: line, chapter: c.label, known: "(none yet)", passages: passagesBlock(passages) });
+    estimate += estimateCost(model, { system: sys, prompt, input: text, maxTokens: MAX_TOKENS });
   }
   const caps = opts.caps ?? capsFromEnv();
   const spent = await spendingWithJobs(db, model.provider, bookId, opts.now?.() ?? new Date());
   const job = jobs().get(jobKey(ownerId, bookId));
-  const facts = await db.select({ id: xrayFacts.id }).from(xrayFacts).where(eq(xrayFacts.bookId, bookId));
   return {
     chapters: chapters.length,
     done: chapters.filter((c) => read.has(c.id)).length,
@@ -390,7 +420,7 @@ export async function xraySummary(db: Db, model: TextModel, ownerId: string, boo
     stoppedBecause: job && !job.running ? job.stoppedBecause : null,
     current: job?.running ? job.current : null,
     dropped: job?.dropped ?? 0,
-    facts: facts.length,
+    facts: Number(factCount ?? 0),
   };
 }
 
@@ -418,6 +448,16 @@ export function stopXray(ownerId: string, bookId: string) {
   const job = jobs().get(jobKey(ownerId, bookId));
   if (job?.running) job.stopRequested = true;
   return !!job?.running;
+}
+
+const sigterm = globalThis as unknown as { __neolibraryXraySigterm?: boolean };
+
+export function stopXraysOnSigterm() {
+  if (sigterm.__neolibraryXraySigterm) return;
+  sigterm.__neolibraryXraySigterm = true;
+  process.on("SIGTERM", () => {
+    for (const job of jobs().values()) if (job.running) job.stopRequested = true;
+  });
 }
 
 export function resetXrayJobsForTests() {
@@ -468,9 +508,15 @@ export type NextChapter = {
 export async function nextChapterToRead(db: Db, ownerId: string, bookId: string): Promise<NextChapter> {
   const [book] = await db.select({ id: books.id }).from(books).where(isOwnBook(bookId, ownerId));
   if (!book) throw new XrayError("That book was not found.");
+  const { effective: style } = await getStyles(db, ownerId, bookId);
   const chapters = await bookChapters(db, bookId);
   const read = new Set(
-    (await db.select({ sectionId: generations.sectionId }).from(generations).where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, "xray")))).map((g) => g.sectionId),
+    (
+      await db
+        .select({ sectionId: generations.sectionId })
+        .from(generations)
+        .where(and(eq(generations.ownerId, ownerId), eq(generations.bookId, bookId), eq(generations.kind, "xray"), sql`${generations.options}->>'style' = ${style}`))
+    ).map((g) => g.sectionId),
   );
   const done = chapters.filter((c) => read.has(c.id)).length;
   for (const c of chapters) {

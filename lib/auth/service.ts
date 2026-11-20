@@ -10,9 +10,13 @@ import { DUMMY_PASSWORD_HASH, hashPassword, randomToken, sha256, verifyPassword 
  * - Passwords: at least 10 characters, stored as scrypt hashes.
  * - Sessions last 30 days; the cookie holds a random token, the database only its hash.
  */
-export const SESSION_DAYS = 30;
-export const INVITE_DAYS = 7;
+const SESSION_DAYS = 30;
+const INVITE_DAYS = 7;
 export const MIN_PASSWORD = 10;
+const MAX_PASSWORD = 1024;
+const MAX_NAME = 200;
+const MAX_EMAIL = 320;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PublicUser = Pick<User, "id" | "email" | "name" | "role">;
 
@@ -25,9 +29,11 @@ export function normaliseEmail(email: string): string {
 }
 
 function checkAccountInput(email: string, name: string, password: string) {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AuthError("Enter a valid email address.");
+  if (email.length > MAX_EMAIL || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AuthError("Enter a valid email address.");
   if (!name.trim()) throw new AuthError("Enter your name.");
+  if (name.trim().length > MAX_NAME) throw new AuthError(`Use a name of at most ${MAX_NAME} characters.`);
   if (password.length < MIN_PASSWORD) throw new AuthError(`Use a password of at least ${MIN_PASSWORD} characters.`);
+  if (password.length > MAX_PASSWORD) throw new AuthError(`Use a password of at most ${MAX_PASSWORD} characters.`);
 }
 
 export async function userCount(db: Db): Promise<number> {
@@ -40,11 +46,16 @@ async function insertUser(db: Db, email: string, name: string, password: string,
   checkAccountInput(e, name, password);
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, e));
   if (existing.length) throw new AuthError("An account with this email already exists.");
-  const [u] = await db
-    .insert(users)
-    .values({ email: e, name: name.trim(), passwordHash: await hashPassword(password), role })
-    .returning();
-  return u;
+  try {
+    const [u] = await db
+      .insert(users)
+      .values({ email: e, name: name.trim(), passwordHash: await hashPassword(password), role })
+      .returning();
+    return u;
+  } catch (err) {
+    if ((err as { code?: string })?.code === "23505") throw new AuthError("An account with this email already exists.");
+    throw err;
+  }
 }
 
 /** Creates the first admin. Refused once any account exists. */
@@ -81,6 +92,7 @@ export async function listInvites(db: Db, now = new Date()) {
 
 export async function revokeInvite(db: Db, admin: PublicUser, id: string, now = new Date()) {
   if (admin.role !== "admin") throw new AuthError("Only an admin can revoke invites.");
+  if (!UUID.test(id)) return;
   await db.update(invites).set({ revokedAt: now }).where(and(eq(invites.id, id), isNull(invites.usedAt)));
 }
 
@@ -135,9 +147,11 @@ export function hashToCheck(user: { passwordHash: string; disabledAt: Date | nul
 
 /** Checks email + password. Same error for unknown email, a disabled account, and a wrong password. */
 export async function authenticate(db: Db, email: string, password: string) {
-  const [u] = await db.select().from(users).where(eq(users.email, normaliseEmail(email)));
-  const ok = await verifyPassword(password, hashToCheck(u));
-  if (!u || u.disabledAt || !ok) throw new AuthError("That email and password do not match.");
+  const norm = normaliseEmail(email);
+  const [u] = norm.length <= MAX_EMAIL ? await db.select().from(users).where(eq(users.email, norm)) : [];
+  const candidate = password.length <= MAX_PASSWORD ? password : "";
+  const ok = await verifyPassword(candidate, hashToCheck(u));
+  if (!u || u.disabledAt || password.length > MAX_PASSWORD || !ok) throw new AuthError("That email and password do not match.");
   return toPublic(u);
 }
 
@@ -170,9 +184,11 @@ export async function endSession(db: Db, token: string | undefined) {
  */
 export async function changePassword(db: Db, userId: string, current: string, next: string) {
   const [user] = await db.select().from(users).where(eq(users.id, userId));
-  const ok = await verifyPassword(current, hashToCheck(user));
-  if (!user || user.disabledAt || !ok) throw new AuthError("That is not your current password.");
+  const candidate = current.length <= MAX_PASSWORD ? current : "";
+  const ok = await verifyPassword(candidate, hashToCheck(user));
+  if (!user || user.disabledAt || current.length > MAX_PASSWORD || !ok) throw new AuthError("That is not your current password.");
   if (next.length < MIN_PASSWORD) throw new AuthError(`Use a password of at least ${MIN_PASSWORD} characters.`);
+  if (next.length > MAX_PASSWORD) throw new AuthError(`Use a password of at most ${MAX_PASSWORD} characters.`);
   await db.update(users).set({ passwordHash: await hashPassword(next) }).where(eq(users.id, userId));
 }
 

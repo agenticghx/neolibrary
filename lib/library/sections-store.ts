@@ -69,7 +69,7 @@ export async function backfillSections(db: Db, storage: Storage) {
       ),
     );
   const [row] = await db.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.name, NO_PARAGRAPHS));
-  const tried = row?.value ?? {};
+  const tried = (row?.value && typeof row.value === "object" ? row.value : {}) as Record<string, string | undefined>;
   const none: Record<string, string> = {};
   let done = 0;
   for (const b of missing) {
@@ -89,7 +89,7 @@ export async function backfillSections(db: Db, storage: Storage) {
     }
   }
   // Kept to the books still without paragraphs, so a removed book or one that has them now leaves the list.
-  const same = (a: Record<string, string>, b: Record<string, string>) =>
+  const same = (a: Record<string, string | undefined>, b: Record<string, string | undefined>) =>
     JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
   if (!same(none, tried)) {
     await db

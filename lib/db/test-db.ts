@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { openDatabase } from "./client";
 import { migrateUp } from "./migrate";
 
+let snapshotFile: string | undefined;
 let snapshot: Promise<Blob> | undefined;
 
 /**
@@ -14,8 +15,11 @@ let snapshot: Promise<Blob> | undefined;
  */
 export async function testDatabase() {
   const file = process.env.NEOLIBRARY_TEST_DB_SNAPSHOT;
-  if (file) snapshot ??= readFile(file).then((bytes) => new Blob([bytes]));
-  const database = await openDatabase({}, snapshot ? { loadDataDir: await snapshot } : {});
+  if (file && file !== snapshotFile) {
+    snapshotFile = file;
+    snapshot = readFile(file).then((bytes) => new Blob([bytes]));
+  }
+  const database = await openDatabase({}, file && snapshot ? { loadDataDir: await snapshot } : {});
   await migrateUp(database.raw);
   return database;
 }

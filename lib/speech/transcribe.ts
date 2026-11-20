@@ -38,6 +38,7 @@ export class ElevenLabsTranscriber implements Transcriber {
     } catch (e) {
       if (e instanceof ElevenLabsError) {
         if (e.statusCode === 401) throw new SpeechError("The ElevenLabs API key was refused.");
+        if (e.statusCode === 429) throw new SpeechError("ElevenLabs is busy just now (rate limit). Try again in a moment.");
         throw new SpeechError(`ElevenLabs could not transcribe this (${e.statusCode ?? "network"}).`);
       }
       throw e;

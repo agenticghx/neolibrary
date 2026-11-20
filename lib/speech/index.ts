@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ElevenLabsSpeech } from "./elevenlabs";
 import { FakeSpeech } from "./fake";
 import { OWN_KEY_SUFFIX, ownKeyFrom } from "@/lib/ai/own-key";
@@ -11,15 +12,31 @@ import { ElevenLabsTranscriber, getTranscriber, type Transcriber } from "./trans
  * voice list is kept between requests too.
  */
 const g = globalThis as unknown as { __neolibraryFakeSpeech?: FakeSpeech; __neolibraryElevenLabs?: Map<string, ElevenLabsSpeech> };
+const MAX_SPEECH_CLIENTS = 32;
+
+function cachedElevenLabs(key: string): ElevenLabsSpeech {
+  const id = createHash("sha256").update(key).digest("hex");
+  const clients = (g.__neolibraryElevenLabs ??= new Map());
+  const hit = clients.get(id);
+  if (hit) {
+    clients.delete(id);
+    clients.set(id, hit);
+    return hit;
+  }
+  const model = new ElevenLabsSpeech(key);
+  if (clients.size >= MAX_SPEECH_CLIENTS) {
+    const oldest = clients.keys().next().value;
+    if (oldest !== undefined) clients.delete(oldest);
+  }
+  clients.set(id, model);
+  return model;
+}
 
 export function getSpeechModel(env: Record<string, string | undefined> = process.env): SpeechModel {
   if (env.AI_FAKE === "1" || env.VITEST) return (g.__neolibraryFakeSpeech ??= new FakeSpeech());
   const key = env.ELEVENLABS_API_KEY?.trim();
   if (!key) throw new SpeechNotConfigured("Reading aloud is not set up yet: the owner needs to add ELEVENLABS_API_KEY.");
-  const clients = (g.__neolibraryElevenLabs ??= new Map());
-  let model = clients.get(key);
-  if (!model) clients.set(key, (model = new ElevenLabsSpeech(key)));
-  return model;
+  return cachedElevenLabs(key);
 }
 
 /**
@@ -31,7 +48,7 @@ export function speechModelFor(who: { role: string }, req: Request, env: Record<
   if (who.role === "admin") return getSpeechModel(env);
   const key = ownKeyFrom(req, "voice");
   if (!key) throw new SpeechNotConfigured(OWN_KEY_NEEDED.voice);
-  const inner = env.AI_FAKE === "1" || env.VITEST ? getSpeechModel(env) : new ElevenLabsSpeech(key);
+  const inner = env.AI_FAKE === "1" || env.VITEST ? getSpeechModel(env) : cachedElevenLabs(key);
   return { provider: inner.provider + OWN_KEY_SUFFIX, model: inner.model, voices: () => inner.voices(), speak: (r) => inner.speak(r) };
 }
 

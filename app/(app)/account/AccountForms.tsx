@@ -54,6 +54,11 @@ export function AccountForms() {
           Other sessions
         </h2>
         <form action={endOthers} className={forms.form}>
+          {sessions.error ? (
+            <p className={forms.error} role="alert">
+              {sessions.error}
+            </p>
+          ) : null}
           {sessions.done ? (
             <p className={styles.status} role="status">
               {sessions.done}

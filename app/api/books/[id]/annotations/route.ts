@@ -14,11 +14,14 @@ export const dynamic = "force-dynamic";
  * other version's notes on passages (`crossed`, each with its printed page) and the page of each of its own
  * (`pages`), so the reader lists both versions' notes in page order (lib/library/notes-across.ts).
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
+  if (meantForAnother(req, user.id)) return signedInAsAnother();
   const bookId = (await params).id;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) return Response.json({ annotations: [], crossed: [], pages: {} });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) {
+    return Response.json({ annotations: [], crossed: [], pages: {} }, { headers: { "cache-control": "private, no-store" } });
+  }
   const db = await getDb();
   const list = await listAnnotations(db, user.id, bookId);
   const { crossed, pages } = await notesAcross(db, await getStorage(), user.id, bookId, list);
@@ -30,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       : a.picture?.source === "generated"
         ? { ...a, pictureUrl: signFileUrl(secret, a.picture.key) }
         : a;
-  return Response.json({ annotations: list.map(linked), crossed: crossed.map(linked), pages });
+  return Response.json({ annotations: list.map(linked), crossed: crossed.map(linked), pages }, { headers: { "cache-control": "private, no-store" } });
 }
 
 /**
@@ -41,7 +44,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   if (meantForAnother(req, user.id)) return signedInAsAnother();
-  const body = await req.json().catch(() => ({}));
+  const raw = await req.json().catch(() => null);
+  const body = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
   try {
     if (body?.kind === "voice") return Response.json({ error: "Send voice notes to /voice-notes." }, { status: 400 });
     const { id, ...input } = body ?? {};

@@ -15,7 +15,9 @@ import { createApiToken, revokeApiToken, TokenError } from "@/lib/auth/tokens";
 import { CollectionError, createCollection, deleteCollection, setInCollection } from "@/lib/library/shelf";
 import { getDb } from "@/lib/db";
 import { ModelPickError, setModelPicks } from "@/lib/ai/model-picks";
-import { setShelfSwitch } from "@/lib/library/open-shelf";
+import { OpenShelfError, setShelfSwitch } from "@/lib/library/open-shelf";
+
+const IS_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function signOutAction() {
   await stopSession();
@@ -86,7 +88,8 @@ export async function setModelPicksAction(_: ModelPickState, data: FormData): Pr
 
 export async function revokeInviteAction(data: FormData) {
   const admin = await requireAdmin();
-  await revokeInvite(await getDb(), admin, String(data.get("id")));
+  const id = String(data.get("id") ?? "");
+  if (IS_UUID.test(id)) await revokeInvite(await getDb(), admin, id);
   revalidatePath("/admin/invites");
 }
 
@@ -116,26 +119,40 @@ export async function createCollectionAction(_: CollectionState, data: FormData)
 
 export async function deleteCollectionAction(data: FormData) {
   const user = await requireUser();
-  await deleteCollection(await getDb(), user.id, String(data.get("id")));
+  const id = String(data.get("id") ?? "");
+  if (IS_UUID.test(id)) await deleteCollection(await getDb(), user.id, id);
   revalidatePath("/", "layout");
   redirect("/library");
 }
 
 export async function toggleCollectionAction(data: FormData) {
   const user = await requireUser();
-  const bookId = String(data.get("bookId"));
-  await setInCollection(await getDb(), user.id, String(data.get("collectionId")), bookId, data.get("inside") === "1");
-  revalidatePath(`/books/${bookId}`);
+  const bookId = String(data.get("bookId") ?? "");
+  const collectionId = String(data.get("collectionId") ?? "");
+  if (IS_UUID.test(bookId) && IS_UUID.test(collectionId)) {
+    try {
+      await setInCollection(await getDb(), user.id, collectionId, bookId, data.get("inside") === "1");
+    } catch (e) {
+      if (!(e instanceof CollectionError)) throw e;
+    }
+    revalidatePath(`/books/${bookId}`);
+  }
   revalidatePath("/library");
 }
 
 /** M34: the owner turns "on the open shelf" or "free to read" on or off for one book (docs/plan.md). */
 export async function setShelfSwitchAction(data: FormData) {
   const owner = await requireAdmin();
-  const bookId = String(data.get("bookId"));
+  const bookId = String(data.get("bookId") ?? "");
   const which = data.get("which") === "freeToRead" ? "freeToRead" : "onShelf";
-  await setShelfSwitch(await getDb(), owner.id, bookId, which, data.get("on") === "1");
-  revalidatePath(`/books/${bookId}`);
+  if (IS_UUID.test(bookId)) {
+    try {
+      await setShelfSwitch(await getDb(), owner.id, bookId, which, data.get("on") === "1");
+    } catch (e) {
+      if (!(e instanceof OpenShelfError)) throw e;
+    }
+    revalidatePath(`/books/${bookId}`);
+  }
   revalidatePath("/library");
 }
 
@@ -146,14 +163,22 @@ export async function addTargetNoteAction(data: FormData) {
   if (targetType !== "pillar" && targetType !== "path") return;
   const body = String(data.get("body") ?? "");
   if (!body.trim()) return;
-  await createAnnotation(await getDb(), user.id, { kind: "note", targetType, targetId: String(data.get("targetId")), body });
+  try {
+    await createAnnotation(await getDb(), user.id, { kind: "note", targetType, targetId: String(data.get("targetId") ?? ""), body });
+  } catch (e) {
+    if (!(e instanceof AnnotationError)) throw e;
+  }
   // Path notes show on the Path's page and (until Home changes) on Home.
   revalidatePath("/", "layout");
 }
 
 export async function removeNoteAction(data: FormData) {
   const user = await requireUser();
-  await deleteAnnotation(await getDb(), user.id, String(data.get("id")));
+  try {
+    await deleteAnnotation(await getDb(), user.id, String(data.get("id") ?? ""));
+  } catch (e) {
+    if (!(e instanceof AnnotationError)) throw e;
+  }
   revalidatePath("/", "layout");
 }
 

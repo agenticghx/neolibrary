@@ -12,6 +12,12 @@ import {
 } from "@aws-sdk/client-s3";
 import { assertSafeKey, type Storage } from "./index";
 
+const isNotFound = (e: unknown) => {
+  if (e instanceof NoSuchKey) return true;
+  const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return err?.name === "NoSuchKey" || err?.name === "NotFound" || err?.$metadata?.httpStatusCode === 404;
+};
+
 /** Railway's S3-compatible bucket, configured by the S3_* variables (see .env.example). */
 export class S3Storage implements Storage {
   private client: Pick<S3Client, "send">;
@@ -40,7 +46,7 @@ export class S3Storage implements Storage {
       const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
       return { data: await res.Body!.transformToByteArray(), contentType: res.ContentType ?? "application/octet-stream" };
     } catch (e) {
-      if (e instanceof NoSuchKey || (e as { name?: string }).name === "NoSuchKey") return null;
+      if (isNotFound(e)) return null;
       throw e;
     }
   }
@@ -56,8 +62,7 @@ export class S3Storage implements Storage {
       const res = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
       return { size: Number(res.ContentLength ?? 0), contentType: res.ContentType ?? "application/octet-stream" };
     } catch (e) {
-      const name = (e as { name?: string }).name;
-      if (name === "NotFound" || name === "NoSuchKey") return null;
+      if (isNotFound(e)) return null;
       throw e;
     }
   }
@@ -68,7 +73,7 @@ export class S3Storage implements Storage {
       const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key, Range: `bytes=${start}-${end}` }));
       return await res.Body!.transformToByteArray();
     } catch (e) {
-      if (e instanceof NoSuchKey || (e as { name?: string }).name === "NoSuchKey") return null;
+      if (isNotFound(e)) return null;
       throw e;
     }
   }

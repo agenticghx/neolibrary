@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { readableEpub } from "../lib/library/test-epub";
+import { ensureDiscourse } from "./discourse";
 import { ADMIN_STATE } from "./pages";
 
 // M14 follow-up V5: AI voice narration for an entire book, on the Import page, chosen on purpose
@@ -80,6 +81,7 @@ test("M14 follow-up V5: whole-book narration is chosen on purpose, says what it 
 }) => {
   // Room for a slow machine: the long wait below alone may take five minutes (see the note there).
   test.setTimeout(480_000);
+  await ensureDiscourse(page);
   await page.goto("/import");
   await page.getByLabel("Choose files").setInputFiles({
     name: "lamps-along-the-quay.epub",

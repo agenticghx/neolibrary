@@ -33,5 +33,8 @@ export async function POST() {
   }
   const run = startCoverRun(await getDb(), await getStorage(), { ownerId: user.id, force: true });
   run.promise.catch((e) => console.error("Cover lookup failed", e));
+  if (run.ownerId !== user.id) {
+    return Response.json({ error: "Covers are being looked up for the library now. Try again in a few minutes." }, { status: 409 });
+  }
   return Response.json({ looking: true, progress: run.progress }, { status: 202 });
 }

@@ -101,7 +101,13 @@ export function withSmallFileCache(
       await inner.delete(key);
       changed(key);
     },
-    getRange: (key, start, end) => inner.getRange(key, start, end),
+    async getRange(key, start, end) {
+      if (key.startsWith(prefix)) {
+        const hit = fresh(key);
+        if (hit) return hit.data.slice(start, end + 1);
+      }
+      return inner.getRange(key, start, end);
+    },
     startUpload: (key, contentType) => inner.startUpload(key, contentType),
     putPart: (key, uploadId, part, data) => inner.putPart(key, uploadId, part, data),
     async finishUpload(key, uploadId, parts) {

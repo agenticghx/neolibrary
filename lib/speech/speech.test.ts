@@ -89,6 +89,13 @@ describe("timings, costs and choosing a voice", () => {
     expect([-1, 0, 350, 400, 1300, 5000].map((ms) => wordAt(words, ms))).toEqual([-1, 0, 0, 1, 1, 3]);
   });
 
+  it("aligns UTF-16 offsets with code-point timings when astral characters (math symbols, emoji) appear", async () => {
+    const text = "Let 𝐇 = 1 now";
+    const spoken = await new FakeSpeech().speak({ text, voiceId: "JBFqnCBsd6RMkjVDRZzb" });
+    const words = wordTimings(text, spoken.alignment);
+    expect(words.map(([, , from, to]) => text.slice(from, to))).toEqual(["Let", "𝐇", "=", "1", "now"]);
+  });
+
   it("prices characters (default $0.30 per 1,000, or the plan's price) and makes a playable WAV", () => {
     expect(usdPer1kChars({})).toBe(0.3);
     expect(usdPer1kChars({ ELEVENLABS_USD_PER_1K_CHARS: "0.18" })).toBe(0.18);

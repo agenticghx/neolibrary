@@ -64,6 +64,7 @@ export async function buildRequest(
 ): Promise<GenerationRequest> {
   const paragraph = await paragraphFor(db, ownerId, bookId, { sectionId });
   const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  if (!book) throw new RewriteError("Book not found.");
   return requestFor(ownerId, bookId, book, { id: sectionId, chapter: paragraph.chapter, text: paragraph.text }, level, strictness);
 }
 
@@ -167,6 +168,7 @@ export async function estimateRewrites(
   const out = new Map<string, number>();
   if (!paragraphs.length) return out;
   const [book] = await db.select({ title: books.title, author: books.author }).from(books).where(eq(books.id, bookId));
+  if (!book) return out;
   const labels = await db
     .select({ chapterIndex: sections.chapterIndex, label: sections.label })
     .from(sections)
