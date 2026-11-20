@@ -41,15 +41,16 @@ export function AiStyleSetting({ bookId }: { bookId: string }) {
         ? { user: body.style!, book: null, effective: body.style! }
         : { ...value, book: body.style, effective: body.style ?? value.user },
     );
-    const res = await fetch(`/api/books/${bookId}/ai-style`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/books/${bookId}/ai-style`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(String(res.status));
       setValue(await res.json());
       window.dispatchEvent(new Event(STYLE_EVENT));
-    } else {
+    } catch {
       setValue(before);
       setError("Not saved. Try again.");
     }

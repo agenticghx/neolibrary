@@ -37,7 +37,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  counter-reset: title;
 }
 
 .title {

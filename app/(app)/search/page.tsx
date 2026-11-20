@@ -9,6 +9,16 @@ import styles from "./page.module.css";
 export const metadata: Metadata = { title: "Search" };
 export const dynamic = "force-dynamic";
 
+const NOTE_KIND_LABEL: Record<string, string> = {
+  highlight: "Highlight",
+  bookmark: "Bookmark",
+  note: "Note",
+  voice: "Voice note",
+  sticker: "Sticker",
+  drawing: "Handwritten note",
+  image: "Pinned picture",
+};
+
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requireUser();
   // "?q=a&q=b" arrives as a list: only one search at a time.
@@ -29,6 +39,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           Search inside your books
         </label>
         <input
+          key={q}
           id="q"
           name="q"
           type="search"
@@ -70,7 +81,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   className={styles.hit}
                 >
                   <span className={styles.chapter}>
-                    {h.kind === "note" ? "Note" : h.kind === "bookmark" ? "Bookmark" : h.kind === "voice" ? "Voice note" : "Highlight"} · {h.bookTitle}
+                    {NOTE_KIND_LABEL[h.kind] ?? "Highlight"} · {h.bookTitle}
                   </span>
                   <span className={styles.snippet}>
                     {h.snippet.map((p, i) => (p.match ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}

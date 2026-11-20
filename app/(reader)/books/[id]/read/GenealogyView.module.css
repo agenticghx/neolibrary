@@ -78,10 +78,6 @@
   line-height: var(--leading-tight);
 }
 
-.lede {
-  color: var(--ink-700);
-}
-
 .made {
   color: var(--ink-500);
   font-size: var(--text-sm);

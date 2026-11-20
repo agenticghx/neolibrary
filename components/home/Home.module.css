@@ -237,12 +237,6 @@
   gap: var(--space-3) var(--space-5);
 }
 
-.samplesText {
-  flex: 1 1 22rem;
-  color: var(--ink-700);
-  line-height: var(--leading-read);
-}
-
 .samplesButton {
   min-height: 2.75rem;
   padding: 0 var(--space-5);

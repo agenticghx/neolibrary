@@ -46,7 +46,7 @@ export default async function DataPage() {
           Take it with you
         </h2>
         <p className={styles.cardText}>A single JSON file you can keep, read or bring back later.</p>
-        <a href="/api/export" className={styles.button}>
+        <a href="/api/export" download className={styles.button}>
           Download your library
         </a>
       </section>

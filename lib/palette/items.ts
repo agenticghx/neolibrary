@@ -24,6 +24,8 @@ export type PaletteItem = {
 export const PAGES: { label: string; href: string; words?: string; admin?: boolean }[] = [
   { label: "Home", href: "/", words: "start continue" },
   { label: "Library", href: "/library", words: "books shelf all" },
+  { label: "Papers", href: "/library?show=papers", words: "research articles doi arxiv preprints" },
+  { label: "Daily review", href: "/review", words: "cards spaced repetition remember flash" },
   { label: "Search", href: "/search", words: "find passage" },
   { label: "Paths", href: "/paths", words: "reading plans" },
   { label: "New path", href: "/paths/new", words: "create plan" },
@@ -33,6 +35,7 @@ export const PAGES: { label: string; href: string; words?: string; admin?: boole
   { label: "Your data", href: "/data", words: "export download backup removed notes" },
   { label: "Account", href: "/account", words: "password settings preferences profile" },
   { label: "Agent access", href: "/agents", words: "api tokens mcp claude" },
+  { label: "Get help", href: "/help", words: "guide manual how to works" },
   { label: "Invite people", href: "/admin/invites", words: "readers invitations", admin: true },
   { label: "Spending", href: "/admin/costs", words: "costs caps money", admin: true },
 ];
@@ -72,7 +75,8 @@ export function buildItems(data: PaletteData | null, admin: boolean): PaletteIte
   }
   const titles = new Map(data.books.map((b) => [b.id, b.title]));
   for (const n of data.notes) {
-    items.push({ key: `note:${n.id}`, kind: "note", label: n.text, detail: titles.get(n.bookId), tag: NOTE_TAG[n.kind], href: readerHref(n.bookId, n.cfi), fields: [[n.text, 0.8]] });
+    const title = titles.get(n.shelfBookId ?? n.bookId);
+    items.push({ key: `note:${n.id}`, kind: "note", label: n.text, detail: title, tag: NOTE_TAG[n.kind], href: readerHref(n.bookId, n.cfi), fields: [[n.text, 0.8], ...(title ? ([[title, 0.4]] as [string, number][]) : [])] });
   }
   return items;
 }

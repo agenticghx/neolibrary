@@ -82,6 +82,10 @@ export function usePlayer(): Player {
   return player;
 }
 
+export function useOptionalPlayer(): Player | null {
+  return useContext(PlayerContext);
+}
+
 /**
  * One read-aloud player for the whole app (M14 step 6a), in the root layout,
  * so the audio goes on when the reader is left for another page. It owns the
@@ -103,7 +107,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [seenPath, setSeenPath] = useState(pathname);
   if (pathname !== seenPath) {
     setSeenPath(pathname);
-    if (pathname === "/sign-in" && session) setSession(null);
+    if ((pathname === "/sign-in" || pathname.startsWith("/invite/")) && session) setSession(null);
   }
 
   const attach = useCallback((p: PlayerPage, bookId: string, startCfi: string, fresh = false) => {

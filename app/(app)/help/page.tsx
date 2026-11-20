@@ -26,13 +26,15 @@ export default async function HelpPage() {
 
       <section className={styles.card} aria-labelledby="help-books">
         <h2 id="help-books" className={styles.cardTitle}>
-          Your books
+          Your books and papers
         </h2>
         <p className={styles.cardText}>
           <strong>Home</strong> shows what you are reading and the paths you are on; <strong>Library</strong> shows every title, with a
-          search box above for words in any book or note. Add a book on the <Link href="/import">Import</Link> page: an EPUB, a PDF
-          (scanned or born digital), a Markdown file, or a Google Drive link. Only files you own, without copy protection. A
-          title that is on a path but not yet on your shelf waits as a placeholder until its file arrives.
+          search box above for words in any book or note. Add a book or a research paper on the <Link href="/import">Import</Link> page:
+          an EPUB, a PDF (scanned or born digital), a Markdown file, or a Google Drive link. Only files you own, without copy
+          protection. A research paper can be matched by its DOI or arXiv identifier for a plain-English summary, clickable citations,
+          equations explained on tap, and figures redrawn cleanly. A title that is on a path but not yet on your shelf waits as a
+          placeholder until its file arrives.
         </p>
       </section>
 
@@ -41,10 +43,11 @@ export default async function HelpPage() {
           Reading
         </h2>
         <p className={styles.cardText}>
-          Open a book and it opens where you left off, on any device. <strong>Aa</strong> in the top bar sets the type size, the
-          theme (Paper, Sepia, Night, North Window, Private Press, Calfskin, or your device&apos;s own) and pages or scrolling. To turn a page, use the arrows at its sides, the
-          arrow keys, or swipe sideways with two fingers on a trackpad or one on a touch screen; in pages, scrolling down or up
-          turns it too. <strong>Contents</strong> is the chapter list.
+          Open a book and it opens where you left off, on any device, with a brief <strong>Where were we?</strong> reminder when you
+          come back on a later day. <strong>Aa</strong> in the top bar sets the type size, the theme (Paper, Sepia, Night, North
+          Window, Private Press, Calfskin, E-ink, or your device&apos;s own) and pages or scrolling. To turn a page, use the arrows at
+          its sides, the arrow keys, or swipe sideways with two fingers on a trackpad or one on a touch screen; in pages, scrolling
+          down or up turns it too. <strong>Contents</strong> is the chapter list.
           <strong> Focus</strong> dims everything but the line or paragraph you are on. The footer shows how far you are and, for a
           scanned book, lets you switch between the scan and its text edition.
         </p>
@@ -56,8 +59,9 @@ export default async function HelpPage() {
         </h2>
         <p className={styles.cardText}>
           Select any words to highlight them, add a note, a spoken note (your words are written down for you), a sticker or a
-          handwritten note, or to share the passage. <strong>Notes</strong> in the top bar lists them all. Nothing you write is ever
-          overwritten: an edit keeps the old version, and a removed note can be brought back from Your data.
+          handwritten note, or to share the passage. <strong>Notes</strong> and <strong>Bookmark</strong> in the reading tools sidebar
+          keep your marks and bookmarks together. Nothing you write is ever overwritten: an edit keeps the old version, and a removed
+          note can be brought back from Your data.
         </p>
       </section>
 
@@ -77,14 +81,14 @@ export default async function HelpPage() {
           Study: the AI tools
         </h2>
         <p className={styles.cardText}>
-          <strong>Study</strong> in the top bar opens five tabs. <strong>Need to know</strong> lists what a chapter takes for granted,
-          each idea explained in two lines. <strong>Test yourself</strong> asks questions about it, and tells you which sections to
-          read again. <strong>Ask</strong> answers a question of yours from the book&apos;s own passages, with the passages quoted.{" "}
-          <strong>Explain it back</strong> takes your own summary of a chapter first, then shows the lines you missed or got wrong.{" "}
-          <strong>Rewrite</strong> (from any selected paragraph, or the whole book in the Rewritten view) puts the author&apos;s words in plain
-          English or Simplified Technical English, a controlled form of English with one meaning per word. Everything written by AI
-          sits on a tinted block with a dashed rule and says which model wrote it and when; the book&apos;s words and your own never
-          look like that.
+          <strong>Study</strong> in the reading tools sidebar opens the study tabs. <strong>Need to know</strong> lists what a chapter
+          takes for granted, each idea explained in two lines. <strong>Test yourself</strong> asks questions about it, and tells you
+          which sections to read again. <strong>Ask</strong> answers a question of yours from the book&apos;s own passages, with the
+          passages quoted. <strong>Explain it back</strong> takes your own summary of a chapter first, then shows the lines you missed
+          or got wrong. <strong>Rewrite</strong> (from any selected paragraph, or the whole book in the Rewritten view) puts the
+          author&apos;s words in plain English or Simplified Technical English, a controlled form of English with one meaning per word.
+          Everything written by AI sits on a tinted block with a dashed rule and says which model wrote it and when; the book&apos;s
+          words and your own never look like that.
         </p>
         <p className={styles.cardText}>
           <strong>Your own keys.</strong> Answers already saved for a passage are free to read. A new answer, or an AI voice, is
@@ -96,16 +100,17 @@ export default async function HelpPage() {
 
       <section className={styles.card} aria-labelledby="help-xray">
         <h2 id="help-xray" className={styles.cardTitle}>
-          Who &amp; what
+          Who &amp; what, and Genealogy
         </h2>
         <p className={styles.cardText}>
-          The fifth Study tab is the book&apos;s X-ray: the people, places, organisations and terms it names, most mentioned so far
-          first, each with a trail showing which chapters it appears in. On the page, a name&apos;s first mention in a paragraph has a
-          dotted underline, and a strip at the foot names what is on the screen; tap either for a card. The card knows where you
+          <strong>Who &amp; what</strong> is the book&apos;s X-ray: the people, places, organisations and terms it names, most mentioned
+          so far first, each with a trail showing which chapters it appears in. On the page, a name&apos;s first mention in a paragraph
+          has a dotted underline, and a strip at the foot names what is on the screen; tap either for a card. The card knows where you
           are: it shows only what the book has said up to here, with a &ldquo;Show everything&rdquo; switch. The names come from the text
           at no cost. <strong>Build the X-ray</strong> reads the book with Claude for the facts: each fact carries the quote it rests on,
-          and a fact whose quote is not in the book is dropped. Under the facts: the same name in your other books, and, on
-          request, what the world knows of it, labelled as from outside the book.
+          and a fact whose quote is not in the book is dropped. <strong>Genealogy</strong> maps how a book&apos;s organisations and
+          people connect over time (offspring, founders, timelines and money flows), backed by quotes from the book. Under the facts:
+          the same name in your other books, and, on request, what the world knows of it, labelled as from outside the book.
         </p>
       </section>
 
@@ -116,8 +121,9 @@ export default async function HelpPage() {
         <p className={styles.cardText}>
           <Link href="/review">Daily review</Link> shows you cards made from your highlights, your notes, the questions you got wrong
           and what Explain it back found missing, spaced out over days so they stick. <Link href="/stats">Reading stats</Link> measures
-          your reading time and speed by sitting and by chapter. A <strong>focus session</strong> (the timer in the reader&apos;s top
-          bar) asks what question you are reading to answer, hides everything but the page for a set time, and keeps your answer.
+          your reading time and speed by sitting and by chapter. A <strong>focus session</strong> (in the reading tools sidebar, or for
+          a whole book on its page) asks what question you are reading to answer, hides everything but the page for a set time, and
+          keeps your answer.
         </p>
       </section>
 

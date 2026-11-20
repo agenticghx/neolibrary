@@ -37,43 +37,42 @@ const LIST_KIND = { N: "narrative, read first", E: "engineering & economics, rea
 
 export default async function BookPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
-  const found = await getBook(await getDb(), user.id, (await params).id);
+  const db = await getDb();
+  const found = await getBook(db, user.id, (await params).id);
   if (!found) notFound();
   // M25: a text edition has no page of its own; its scan's page is the book's page.
   if (found.book.editionOf) redirect(`/books/${found.book.editionOf}`);
   const { book, available, places } = found;
   // Most of this page needs the book file (its chapters, collections, questions, audiobooks).
   const hasFile = available.read;
-  const inCollections = hasFile ? await collectionsForBook(await getDb(), user.id, book.id) : [];
-  const marks = await listAnnotations(await getDb(), user.id, book.id);
-  const reread = hasFile ? await needsReread(await getDb(), user.id, book.id) : [];
-  // M13: uploaded read-along audiobooks, only for a book whose file is here.
-  const audiobooks = hasFile && book.fileType ? await listImports(await getDb(), user.id, book.id) : [];
-  const count = (k: string) => marks.filter((a) => a.kind === k).length;
-  // M25: a scanned PDF's text edition, for the library's owner. Left out when it cannot be looked up (no AI key).
-  const textEdition =
+  const paper = book.kind === "paper" ? { byline: byline(book), doi: book.doi, pmid: book.pmid } : null;
+  const [inCollections, marks, reread, audiobooks, textEdition, fromText, by, sign] = await Promise.all([
+    hasFile ? collectionsForBook(db, user.id, book.id) : Promise.resolve([]),
+    listAnnotations(db, user.id, book.id),
+    hasFile ? needsReread(db, user.id, book.id) : Promise.resolve([]),
+    hasFile && book.fileType ? listImports(db, user.id, book.id) : Promise.resolve([]),
     hasFile && book.fileType === "pdf" && mayMakeTextEditions(user)
-      ? await textEditionForPage({ db: await getDb(), storage: await getStorage(), model: () => getBatchModel() }, user.id, book.id)
-      : null;
-  // M31: a PDF with text of its own can be laid out again as flowing text, free, for the library's owner.
-  const fromText = hasFile && book.fileType === "pdf" && mayMakeTextEditions(user) ? await pdfTextEditionForPage(await getDb(), user.id, book.id) : null;
+      ? getStorage().then((storage) => textEditionForPage({ db, storage, model: () => getBatchModel() }, user.id, book.id))
+      : Promise.resolve(null),
+    hasFile && book.fileType === "pdf" && mayMakeTextEditions(user) ? pdfTextEditionForPage(db, user.id, book.id) : Promise.resolve(null),
+    paper ? sharedBy(db, book) : Promise.resolve(null),
+    coverSigner(),
+  ]);
+  const count = (k: string) => marks.filter((a) => a.kind === k).length;
   // The cover's N or E letter comes from a reading list only (your own Paths say the words instead).
   const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
-  // M41 R3: a research paper's line under its title and on its card.
-  const paper = book.kind === "paper" ? { byline: byline(book), doi: book.doi, pmid: book.pmid } : null;
   // M41 R3c: a paper shared with this reader says by whom; the owner's paper says whether, and with how many, it is shared.
-  const by = paper ? await sharedBy(await getDb(), book) : null;
   const sharing = !paper
     ? undefined
     : by
       ? { by }
       : user.role === "admin"
-        ? { owner: { on: book.sharePapers, readers: (await copiesOf(await getDb(), [book.id])).get(book.id) ?? 0 } }
+        ? { owner: { on: book.sharePapers, readers: (await copiesOf(db, [book.id])).get(book.id) ?? 0 } }
         : undefined;
 
   return (
     <main className={styles.main}>
-      <Link href="/" className={styles.back}>
+      <Link href="/library" className={styles.back}>
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className={styles.backIcon}>
           <path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
@@ -87,7 +86,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
           available={available}
           caption={false}
           progress={book.progress}
-          imageUrl={(await coverSigner())(book.coverKey)}
+          imageUrl={sign(book.coverKey)}
           paper={paper?.byline}
         />
         <div className={styles.info}>

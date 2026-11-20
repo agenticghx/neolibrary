@@ -360,7 +360,7 @@
   display: -webkit-box;
   overflow: hidden;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;

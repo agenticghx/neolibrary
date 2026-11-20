@@ -331,7 +331,8 @@ export function bindSpineClick(doc: Document, direction: (doc: Document) => "nex
     if (moved > 6) return;
     const selected = doc.getSelection();
     if (selected && !selected.isCollapsed) return;
-    const target = event.target instanceof Element ? event.target : null;
+    const node = event.target as Node | null;
+    const target = !node ? null : node.nodeType === 1 ? (node as Element) : node.parentElement;
     if (target?.closest("a[href]")) return;
     const dir = direction(doc);
     if (dir) turn(dir);

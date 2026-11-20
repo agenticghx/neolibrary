@@ -20,9 +20,9 @@ export default async function CoversPage() {
   const user = await requireUser();
   const db = await getDb();
   const rows = await db
-    .select({ id: books.id, title: books.title, author: books.author, coverKey: books.coverKey, coverSource: books.coverSource, coverPage: books.coverPage })
+    .select({ id: books.id, title: books.title, author: books.author, coverKey: books.coverKey, coverSource: books.coverSource, coverPage: books.coverPage, kind: books.kind })
     .from(books)
-    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt), isNull(books.editionOf)))
+    .where(and(eq(books.ownerId, user.id), isNull(books.deletedAt), isNull(books.editionOf), isNull(books.sharedFrom)))
     .orderBy(asc(sql`lower(${books.title})`));
   const sign = await coverSigner();
   const found = rows
@@ -36,7 +36,7 @@ export default async function CoversPage() {
       pageUrl: b.coverPage && /^https:\/\//.test(b.coverPage) ? b.coverPage : null,
       source: b.coverSource!,
     }));
-  const none = rows.filter((b) => !b.coverKey).map((b) => ({ id: b.id, title: b.title, author: b.author }));
+  const none = rows.filter((b) => !b.coverKey && b.kind === "book").map((b) => ({ id: b.id, title: b.title, author: b.author }));
   const fromFile = rows.filter((b) => b.coverKey && b.coverSource === "file").length;
 
   return (

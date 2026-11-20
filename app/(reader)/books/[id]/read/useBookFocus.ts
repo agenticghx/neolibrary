@@ -64,7 +64,9 @@ export function useBookFocus(bookId: string, where: { cfi: string | null; fracti
 
   const sync = useCallback(async () => {
     try {
-      const { session } = (await (await fetch("/api/focus", { cache: "no-store" })).json()) as { session: ServerBookFocus | null };
+      const res = await fetch("/api/focus", { cache: "no-store" });
+      if (!res.ok) return;
+      const { session } = (await res.json()) as { session: ServerBookFocus | null };
       show(session);
     } catch {
       // Offline: the line stays as it is.
@@ -78,7 +80,9 @@ export function useBookFocus(bookId: string, where: { cfi: string | null; fracti
     const check = async () => {
       if (document.visibilityState !== "visible") return;
       try {
-        const { session } = (await (await fetch("/api/focus", { cache: "no-store" })).json()) as { session: ServerBookFocus | null };
+        const res = await fetch("/api/focus", { cache: "no-store" });
+        if (!res.ok) return;
+        const { session } = (await res.json()) as { session: ServerBookFocus | null };
         if (!cancelled) show(session);
       } catch {
         // Offline: the line stays as it is.

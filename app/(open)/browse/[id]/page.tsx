@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { Cover } from "@/components/Cover";
 import { getDb } from "@/lib/db";
 import { visitorCoverSigner } from "@/lib/library/covers";
@@ -9,16 +10,17 @@ import styles from "../../open.module.css";
 
 export const dynamic = "force-dynamic";
 
+const loadOpenBook = cache(async (id: string) => getOpenBook(await getDb(), id));
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const book = await getOpenBook(await getDb(), (await params).id);
+  const book = await loadOpenBook((await params).id);
   return { title: book?.title ?? "Not found" };
 }
 
 /** One book on the open shelf. A book that is not on it is "not found", never "sign in": that would say it exists. */
 export default async function OpenBookPage({ params }: { params: Promise<{ id: string }> }) {
-  const book = await getOpenBook(await getDb(), (await params).id);
+  const [book, sign] = await Promise.all([loadOpenBook((await params).id), visitorCoverSigner()]);
   if (!book) notFound();
-  const sign = await visitorCoverSigner();
 
   return (
     <main className={styles.main}>

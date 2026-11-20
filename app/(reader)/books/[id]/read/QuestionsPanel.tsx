@@ -61,7 +61,7 @@ export function QuestionsPanel({ bookId, cfi, onTab, visitor = false }: { bookId
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? "That did not work. Try again.");
       setShown(new Set());
-      setData({ ...data, versions: [...data.versions, ...(body.reused ? [] : [body.generation])] });
+      setData((d) => (d ? { ...d, versions: [...d.versions.filter((v) => v.id !== body.generation.id), body.generation] } : d));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -71,17 +71,36 @@ export function QuestionsPanel({ bookId, cfi, onTab, visitor = false }: { bookId
 
   const mark = async (generationId: string, index: number, correct: boolean) => {
     if (!data) return;
-    setData({ ...data, marks: { ...data.marks, [`${generationId}:${index}`]: correct } });
+    const key = `${generationId}:${index}`;
+    const had = Object.hasOwn(data.marks, key);
+    const prev = data.marks[key];
+    setData((d) => (d ? { ...d, marks: { ...d.marks, [key]: correct } } : d));
     if (visitor) return; // M34: a visitor's marks stay on this page; nothing is saved for them
-    const res = await fetch(`/api/books/${bookId}/questions/marks`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ generationId, index, correct }),
-    });
-    if (res.ok) {
-      const body = await res.json();
-      setData((d) => (d ? { ...d, marks: body.marks } : d));
-    } else setError("The mark was not saved. Try again.");
+    const revert = () =>
+      setData((d) => {
+        if (!d) return d;
+        const next = { ...d.marks };
+        if (had) next[key] = prev;
+        else delete next[key];
+        return { ...d, marks: next };
+      });
+    try {
+      const res = await fetch(`/api/books/${bookId}/questions/marks`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ generationId, index, correct }),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        setData((d) => (d ? { ...d, marks: body.marks } : d));
+      } else {
+        revert();
+        setError("The mark was not saved. Try again.");
+      }
+    } catch {
+      revert();
+      setError("The mark was not saved. Try again.");
+    }
   };
 
   const mine = data?.versions.filter((v) => v.style === data.style) ?? [];

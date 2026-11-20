@@ -288,7 +288,7 @@ export default async function StatsPage() {
         <p className={own.cite}>
           Source: Marc Brysbaert (2019). How many words do we read per minute? A review and meta-analysis of reading rate.{" "}
           <em>Journal of Memory and Language</em> 109, 104047.{" "}
-          <a href="https://doi.org/10.1016/j.jml.2019.104047" rel="noreferrer">
+          <a href="https://doi.org/10.1016/j.jml.2019.104047" target="_blank" rel="noopener noreferrer">
             doi:10.1016/j.jml.2019.104047
           </a>
         </p>

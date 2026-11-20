@@ -2,6 +2,7 @@
 // Reader split): drawing marks, theme colours, PDF page helpers, a visitor's saved place.
 
 import { mark } from "@/lib/perf-marks";
+import { READER_HEADER } from "@/lib/reader-header";
 import { canWrapColumns, SPREAD_COLUMN_GAP, SPREAD_MAX_WIDTH, spreadCss, spreadPitch } from "@/lib/reader/spread-scroll";
 import { rangeForNonSpace } from "@/lib/reader/text-range";
 import { bookCss, type ReaderSettings, WIDTH_PX } from "./settings";
@@ -280,11 +281,38 @@ export const onFullscreenChange = (changed: () => void) => {
 };
 
 /** One JSON request to the library; an error answer throws its own words ("Not saved" if it has none). */
-export const api = async (url: string, method: string, body?: unknown) => {
-  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+export const api = async (url: string, method: string, body?: unknown, readerId?: string) => {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  if (readerId) headers[READER_HEADER] = readerId;
+  const res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Not saved");
   return res.status === 204 ? null : res.json();
 };
 
 /** Which panel is open beside the book (one at a time). */
 export type ReaderPanel = "none" | "contents" | "settings" | "notes" | "rewrite" | "know" | "questions" | "ask" | "explain" | "xray" | "genealogy" | "links" | "images" | "picture";
+
+export const STUDY_PANELS = new Set<ReaderPanel>(["know", "questions", "ask", "explain", "xray", "genealogy"]);
+
+export function closeOpenReader(refs: {
+  timer: { current: ReturnType<typeof setTimeout> | null };
+  scrollCleanup: { current: (() => void) | null };
+  view: { current: FoliateView | null };
+  pdfDestroy: { current: (() => unknown) | null };
+  bookRef: { current: unknown };
+}) {
+  if (refs.timer.current) clearTimeout(refs.timer.current);
+  refs.scrollCleanup.current?.();
+  refs.scrollCleanup.current = null;
+  try {
+    refs.view.current?.close();
+  } catch {
+    // Viewer already closed or never finished opening.
+  }
+  refs.view.current?.remove();
+  refs.view.current = null;
+  void refs.pdfDestroy.current?.();
+  refs.pdfDestroy.current = null;
+  refs.bookRef.current = null;
+}

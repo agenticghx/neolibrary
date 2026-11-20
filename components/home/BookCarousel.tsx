@@ -52,6 +52,9 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
   const still = useRef({ hover: false, touch: false, focus: false, hidden: false, until: 0 });
   const [drifting, setDrifting] = useState(false);
 
+  const wakeDrift = useRef<() => void>(() => {});
+  const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Each cover's distance from the middle, -1 (a card's width or more to the left) to 1, drawn as tilt and size.
   const measure = useCallback(() => {
     const ul = strip.current;
@@ -60,22 +63,25 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
       centred.current = true;
       const mid = ul.children[Math.floor((ul.children.length - 1) / 2)] as HTMLElement | undefined;
       if (mid) ul.scrollLeft = mid.offsetLeft + mid.offsetWidth / 2 - ul.clientWidth / 2;
+      wakeDrift.current();
     }
     const middle = ul.scrollLeft + ul.clientWidth / 2;
+    const children = [...ul.children] as HTMLElement[];
+    const boxes = children.map((li) => ({ li, left: li.offsetLeft, width: li.offsetWidth }));
     let nearest = 0;
     let best = Infinity;
-    [...ul.children].forEach((child, i) => {
-      const li = child as HTMLElement;
-      const centre = li.offsetLeft + li.offsetWidth / 2;
-      const d = Math.max(-1, Math.min(1, (centre - middle) / (li.offsetWidth * 1.5)));
+    for (let i = 0; i < boxes.length; i++) {
+      const { li, left, width } = boxes[i];
+      const centre = left + width / 2;
+      const d = width > 0 ? Math.max(-1, Math.min(1, (centre - middle) / (width * 1.5))) : 0;
       li.style.setProperty("--tilt", `${(-d * TILT).toFixed(2)}deg`);
       li.style.setProperty("--shrink", (1 - Math.abs(d) * SHRINK).toFixed(3));
       if (Math.abs(centre - middle) < best) {
         best = Math.abs(centre - middle);
         nearest = i;
       }
-    });
-    setCurrent(nearest);
+    }
+    setCurrent((prev) => (prev === nearest ? prev : nearest));
   }, []);
 
   // Before the first paint, so the strip never shows itself on its first book and then jumps.
@@ -110,12 +116,27 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
     let last = 0;
     let pos = ul.scrollLeft;
     let dir = 1;
-    const tick = (now: number) => {
+    const wake = () => {
+      if (frame || !mayDrift()) return;
+      last = 0;
       frame = requestAnimationFrame(tick);
+    };
+    const tick = (now: number) => {
+      frame = 0;
+      if (!mayDrift()) {
+        last = 0;
+        return;
+      }
       const s = still.current;
       const max = ul.scrollWidth - ul.clientWidth;
-      if (s.hover || s.touch || s.focus || s.hidden || now < s.until || ul.clientWidth === 0 || max <= 0) {
+      if (s.hover || s.touch || s.focus || s.hidden || ul.clientWidth === 0 || max <= 0) {
         last = 0;
+        return;
+      }
+      if (now < s.until) {
+        last = 0;
+        if (waitTimer.current) clearTimeout(waitTimer.current);
+        waitTimer.current = setTimeout(wake, Math.max(16, Math.ceil(s.until - now)));
         return;
       }
       if (Math.abs(ul.scrollLeft - pos) > 1.5) pos = ul.scrollLeft;
@@ -125,21 +146,27 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
       if (pos >= max) [pos, dir] = [max, -1];
       if (pos <= 0) [pos, dir] = [0, 1];
       ul.scrollLeft = pos;
+      frame = requestAnimationFrame(tick);
     };
+    wakeDrift.current = wake;
     const seen = new IntersectionObserver(([entry]) => {
       still.current.hidden = !entry.isIntersecting;
+      if (entry.isIntersecting) wake();
     });
     const start = () => {
       cancelAnimationFrame(frame);
+      frame = 0;
       const on = mayDrift();
       setDrifting(on);
-      if (on) frame = requestAnimationFrame(tick);
+      if (on) wake();
     };
     seen.observe(ul);
     start();
     motion.addEventListener("change", start);
     return () => {
+      wakeDrift.current = () => {};
       cancelAnimationFrame(frame);
+      if (waitTimer.current) clearTimeout(waitTimer.current);
       seen.disconnect();
       motion.removeEventListener("change", start);
     };
@@ -147,6 +174,8 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
 
   const wait = () => {
     still.current.until = performance.now() + RESUME;
+    if (waitTimer.current) clearTimeout(waitTimer.current);
+    waitTimer.current = setTimeout(() => wakeDrift.current(), RESUME + 16);
   };
 
   const go = (index: number) => {
@@ -207,7 +236,10 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
           if (e.pointerType !== "touch") still.current.hover = true;
         }}
         onPointerLeave={(e) => {
-          if (e.pointerType !== "touch") still.current.hover = false;
+          if (e.pointerType !== "touch") {
+            still.current.hover = false;
+            wakeDrift.current();
+          }
         }}
         onFocus={() => {
           still.current.focus = true;

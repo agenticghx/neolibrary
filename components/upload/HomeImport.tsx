@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ACCEPT, UPLOAD_MESSAGES, useBookUpload } from "./useBookUpload";
 import styles from "./HomeImport.module.css";
 
@@ -25,10 +25,18 @@ const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types]
  */
 export function ImportRoot({ className, children }: { className?: string; children: React.ReactNode }) {
   const upload = useBookUpload();
-  const { upload: send } = upload;
+  const { upload: send, busy } = upload;
+  const busyRef = useRef(busy);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
   const [over, setOver] = useState(false);
   useEffect(() => {
     let depth = 0;
+    const clear = () => {
+      depth = 0;
+      setOver(false);
+    };
     const enter = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       depth += 1;
@@ -45,19 +53,22 @@ export function ImportRoot({ className, children }: { className?: string; childr
     const drop = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
-      depth = 0;
-      setOver(false);
-      if (e.dataTransfer?.files.length) void send(e.dataTransfer.files);
+      clear();
+      if (!busyRef.current && e.dataTransfer?.files.length) void send(e.dataTransfer.files);
     };
     window.addEventListener("dragenter", enter);
     window.addEventListener("dragleave", leave);
     window.addEventListener("dragover", overIt);
     window.addEventListener("drop", drop);
+    window.addEventListener("dragend", clear);
+    window.addEventListener("blur", clear);
     return () => {
       window.removeEventListener("dragenter", enter);
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("dragover", overIt);
       window.removeEventListener("drop", drop);
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("blur", clear);
     };
   }, [send]);
   return (

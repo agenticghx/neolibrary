@@ -71,6 +71,7 @@ export function VoiceRecorder({
       rec.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        if (gone.current) return;
         const length = Date.now() - started.current;
         result.current = { blob: new Blob(chunks.current, { type: rec.mimeType || "audio/webm" }), ms: length };
         setMs(length);

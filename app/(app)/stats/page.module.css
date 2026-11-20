@@ -19,7 +19,7 @@
 .table thead th {
   border-top: 0;
   color: var(--ink-500);
-  font-weight: normal;
+  font-weight: var(--weight-regular);
 }
 
 .table th[scope="row"],
@@ -46,7 +46,7 @@
   display: block;
   color: var(--ink-500);
   font-size: var(--text-xs);
-  font-weight: normal;
+  font-weight: var(--weight-regular);
 }
 
 /* Time read that week, as a bar behind the number (longest week = full width). */
@@ -189,7 +189,7 @@
 .weekday {
   position: relative;
   padding: 0;
-  font-weight: normal;
+  font-weight: var(--weight-regular);
 }
 
 .week {

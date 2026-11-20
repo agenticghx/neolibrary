@@ -11,7 +11,7 @@ export const marksText = (b: Pick<LibraryItem, "notes" | "audiobook">) =>
   [b.notes ? "has your notes" : "", b.audiobook ? "has your audiobook" : ""].filter(Boolean).join(", ");
 
 /** Progress in steps of 5% for the CSS (inline styles would bypass the design tokens). */
-const step = (p: number) => Math.round(Math.min(1, Math.max(0, p)) * 20) * 5;
+const step = (p: number) => (p > 0 ? Math.min(100, Math.max(5, Math.round(Math.min(1, p) * 20) * 5)) : 0);
 
 /** The library as covers: each with its marks, title, author, what is available and how far you are (Samuel's pick, Home A). */
 export function LibraryGrid({ items, testId = "shelf", compact = false }: { items: LibraryItem[]; testId?: string; compact?: boolean }) {

@@ -134,7 +134,7 @@ export function NotesPanel({
         </div>
       </form>
       {items.length === 0 ? (
-        <p className={styles.hint}>Select text in the book to highlight it or add a note. Bookmarks are in the top bar.</p>
+        <p className={styles.hint}>Select text in the book to highlight it or add a note. Bookmark is in the reading tools sidebar.</p>
       ) : (
         <ol className={styles.notes} data-testid="notes">
           {items.map((a) => (

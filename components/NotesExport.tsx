@@ -1,7 +1,8 @@
 "use client";
 
-import { copyText } from "@/lib/copy";
-import { useState } from "react";
+import { copyDeferredText } from "@/lib/copy";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import styles from "./NotesExport.module.css";
 
 const MAILTO_LIMIT = 1800; // long mailto links get cut off by mail apps
@@ -9,8 +10,24 @@ const MAILTO_LIMIT = 1800; // long mailto links get cut off by mail apps
 /** Take your notes on a book elsewhere: download, copy, or email. */
 export function NotesExport({ bookId, title }: { bookId: string; title: string }) {
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
   const base = `/api/books/${bookId}/annotations/export`;
-  const markdown = async () => (await fetch(`${base}?format=md`)).text();
+  const markdown = async () => {
+    const res = await fetch(`${base}?format=md`);
+    if (!res.ok) throw new Error(String(res.status));
+    return res.text();
+  };
+  const showCopied = (state: "yes" | "no") => {
+    setCopied(state);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(null), 2000);
+  };
 
   return (
     <div className={styles.exports} role="group" aria-label="Export notes">
@@ -24,8 +41,7 @@ export function NotesExport({ bookId, title }: { bookId: string; title: string }
         type="button"
         className={styles.link}
         onClick={async () => {
-          setCopied((await copyText(await markdown())) ? "yes" : "no");
-          setTimeout(() => setCopied(null), 2000);
+          showCopied((await copyDeferredText(markdown)) ? "yes" : "no");
         }}
       >
         {copied === "yes" ? "Copied" : copied === "no" ? "Could not copy" : "Copy all"}
@@ -34,9 +50,13 @@ export function NotesExport({ bookId, title }: { bookId: string; title: string }
         type="button"
         className={styles.link}
         onClick={async () => {
-          let body = await markdown();
-          if (body.length > MAILTO_LIMIT) body = `${body.slice(0, MAILTO_LIMIT)}\n\n… (download the Markdown file for the rest)`;
-          location.href = `mailto:?subject=${encodeURIComponent(`Notes on ${title}`)}&body=${encodeURIComponent(body)}`;
+          try {
+            let body = await markdown();
+            if (body.length > MAILTO_LIMIT) body = `${body.slice(0, MAILTO_LIMIT)}\n\n… (download the Markdown file for the rest)`;
+            location.href = `mailto:?subject=${encodeURIComponent(`Notes on ${title}`)}&body=${encodeURIComponent(body)}`;
+          } catch {
+            showCopied("no");
+          }
         }}
       >
         Email
@@ -47,6 +67,7 @@ export function NotesExport({ bookId, title }: { bookId: string; title: string }
 
 /** Bring back highlights and notes from a W3C Web Annotation file. */
 export function NotesImport({ bookId }: { bookId: string }) {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   return (
     <div className={styles.import}>
@@ -59,20 +80,27 @@ export function NotesImport({ bookId }: { bookId: string }) {
         type="file"
         accept="application/json,application/ld+json,.json,.jsonld"
         onChange={async (e) => {
-          const file = e.target.files?.[0];
+          const inputEl = e.currentTarget;
+          const file = inputEl.files?.[0];
           if (!file) return;
-          const res = await fetch(`/api/books/${bookId}/annotations/import`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: await file.text(),
-          });
-          const json = await res.json().catch(() => ({}));
-          setMessage(
-            res.ok
-              ? `Added ${json.added} ${json.added === 1 ? "annotation" : "annotations"}${json.skipped ? `; ${json.skipped} already here` : ""}.`
-              : json.error ?? "Import failed.",
-          );
-          e.target.value = "";
+          try {
+            const res = await fetch(`/api/books/${bookId}/annotations/import`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: await file.text(),
+            });
+            const json = await res.json().catch(() => ({}));
+            setMessage(
+              res.ok
+                ? `Added ${json.added} ${json.added === 1 ? "annotation" : "annotations"}${json.skipped ? `; ${json.skipped} already here` : ""}.`
+                : json.error ?? "Import failed.",
+            );
+            if (res.ok) router.refresh();
+          } catch {
+            setMessage("Import failed.");
+          } finally {
+            inputEl.value = "";
+          }
         }}
       />
       {message ? (

@@ -7,6 +7,7 @@ import { StudyTabs, type StudyTab } from "./StudyTabs";
 import own from "./ExplainPanel.module.css";
 import styles from "./reader.module.css";
 import { aiFetch, voiceFetch } from "@/lib/own-keys";
+import { READER_HEADER } from "@/lib/reader-header";
 
 type Anchor = { cfi: string; quote: { exact: string; prefix: string; suffix: string } };
 type Data = {
@@ -34,12 +35,14 @@ const LABEL: Record<Item["kind"], string> = { missed: "Missed", misread: "Not qu
  */
 export function ExplainPanel({
   bookId,
+  readerId,
   cfi,
   onTab,
   onGo,
   onSaved,
 }: {
   bookId: string;
+  readerId?: string;
   cfi: string;
   onTab: (tab: StudyTab) => void;
   onGo: (cfi: string, close: boolean) => void;
@@ -111,7 +114,11 @@ export function ExplainPanel({
     form.set("cfi", data.anchor.cfi);
     form.set("quote", JSON.stringify(data.anchor.quote));
     form.set("durationMs", String(Math.round(durationMs)));
-    const res = await voiceFetch(`/api/books/${bookId}/voice-notes`, { method: "POST", body: form });
+    const res = await voiceFetch(`/api/books/${bookId}/voice-notes`, {
+      method: "POST",
+      headers: readerId ? { [READER_HEADER]: readerId } : undefined,
+      body: form,
+    });
     const body = (await res.json().catch(() => ({}))) as { annotation?: { voice?: { transcript?: string } }; error?: string };
     if (!res.ok) throw new Error(body.error ?? "The recording was not saved.");
     onSaved();

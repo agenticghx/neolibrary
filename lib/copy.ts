@@ -12,3 +12,24 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Copies text fetched on demand while keeping Safari's user-gesture activation
+ * alive (ClipboardItem accepts a Promise<Blob> started synchronously inside the click).
+ */
+export async function copyDeferredText(getText: () => Promise<string>): Promise<boolean> {
+  try {
+    if (!navigator.clipboard) return false;
+    if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard.write === "function") {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": getText().then((t) => new Blob([t], { type: "text/plain" })),
+        }),
+      ]);
+      return true;
+    }
+    return await copyText(await getText());
+  } catch {
+    return false;
+  }
+}

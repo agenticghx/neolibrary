@@ -24,7 +24,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <p className={styles.note}>
         Or <Link href="/browse">browse the shelf</Link> without signing in.
       </p>
-      <ClearOfflineAtLoad />
+      <ClearOfflineAtLoad clearAllKeys />
     </AuthShell>
   );
 }

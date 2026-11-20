@@ -193,7 +193,7 @@
   color: var(--ink-900);
   font: inherit;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
@@ -221,7 +221,7 @@
 .menuTitle {
   color: var(--ink-500);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
 }
@@ -240,7 +240,7 @@
   color: var(--ink-900);
   font: inherit;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
@@ -259,7 +259,7 @@
   padding: 0 var(--space-2);
   color: var(--ink-900);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-decoration: underline;
   text-decoration-color: var(--accent);
   text-underline-offset: 3px;
@@ -289,7 +289,7 @@
   color: var(--ink-900);
   font: inherit;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 

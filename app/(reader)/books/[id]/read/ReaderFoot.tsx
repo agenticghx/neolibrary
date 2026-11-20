@@ -41,7 +41,7 @@ export function ReaderFoot(props: {
         ) : null}
       </span>
       <span className={styles.progress} aria-hidden="true">
-        <span className={styles.progressFill} data-progress={Math.round(where.fraction * 50) * 2} />
+        <span className={styles.progressFill} data-progress={where.fraction > 0 ? Math.min(100, Math.max(2, Math.round(where.fraction * 50) * 2)) : 0} />
       </span>
       <span className={styles.footRight}>
         {props.edition ? <EditionSwitch edition={props.edition} scanPage={scanPage} /> : null}

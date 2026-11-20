@@ -43,6 +43,9 @@ export function DrawingPad({ onSave, onBack }: { onSave: (strokes: number[][]) =
         onPointerUp={() => {
           current.current = null;
         }}
+        onPointerCancel={() => {
+          current.current = null;
+        }}
       >
         {strokes.map((s, i) => (
           <path key={i} d={strokePath(s)} className={styles.ink} />

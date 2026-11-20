@@ -42,13 +42,10 @@ function choose(view: View) {
  */
 export function LibraryViews({
   header,
-  between,
   carousel,
   spines,
 }: {
   header: React.ReactNode;
-  /** Shown between the heading row and the books (Home's import hint). */
-  between?: React.ReactNode;
   carousel: React.ReactNode;
   spines: React.ReactNode;
 }) {
@@ -66,7 +63,6 @@ export function LibraryViews({
           </button>
         </div>
       </div>
-      {between}
       <div hidden={view !== "carousel"}>{carousel}</div>
       <div hidden={view !== "spines"}>{spines}</div>
     </>

@@ -72,7 +72,7 @@ export function useNotes(props: {
     if (props.visitor) return; // a visitor has no notes on the server
     let body: Parameters<typeof withCrossed>[0] | null = null;
     try {
-      body = await api(`/api/books/${props.bookId}/annotations`, "GET");
+      body = await api(`/api/books/${props.bookId}/annotations`, "GET", undefined, props.readerId);
     } catch (e) {
       if (!isOffline(e)) throw e;
     }
@@ -156,6 +156,12 @@ export function useNotes(props: {
   // "Note removed · Undo" (M19): the last note removed, and how to bring it back, for ten seconds.
   const [removed, setRemoved] = useState<{ note: Annotation; undo: () => Promise<void> } | null>(null);
   const removedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (removedTimer.current) clearTimeout(removedTimer.current);
+    },
+    [],
+  );
 
   const removeNote = async (a: Annotation) => {
     const undo = await sender.remove(a);

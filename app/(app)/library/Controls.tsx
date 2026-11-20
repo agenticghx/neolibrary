@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import styles from "./page.module.css";
 
 const SORTS = [
@@ -16,19 +16,31 @@ export function Controls() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [q, setQ] = useState(params.get("q") ?? "");
+  const urlQ = params.get("q") ?? "";
+  const [seenUrlQ, setSeenUrlQ] = useState(urlQ);
+  const [q, setQ] = useState(urlQ);
+  if (urlQ !== seenUrlQ) {
+    setSeenUrlQ(urlQ);
+    setQ(urlQ);
+  }
+  const paramsRef = useRef(params);
+  useEffect(() => {
+    paramsRef.current = params;
+  }, [params]);
   const [, startTransition] = useTransition();
 
   const update = (key: string, value: string) => {
-    const next = new URLSearchParams(params.toString());
+    const next = new URLSearchParams(paramsRef.current.toString());
     if (value) next.set(key, value);
     else next.delete(key);
-    startTransition(() => router.replace(`${pathname}?${next.toString()}`, { scroll: false }));
+    const qs = next.toString();
+    startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
   };
 
   useEffect(() => {
-    if (q === (params.get("q") ?? "")) return;
-    const t = setTimeout(() => update("q", q.trim()), 250);
+    const trimmed = q.trim();
+    if (trimmed === (paramsRef.current.get("q") ?? "")) return;
+    const t = setTimeout(() => update("q", trimmed), 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);

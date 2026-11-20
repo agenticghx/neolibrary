@@ -53,6 +53,9 @@ describe("results", () => {
 
   it("finds pages by other words, notes by their text, sections by title", () => {
     expect(results(items, data, "export")[0].label).toBe("Your data");
+    expect(results(items, data, "spaced")[0]).toMatchObject({ label: "Daily review", href: "/review" });
+    expect(results(items, data, "arxiv")[0]).toMatchObject({ label: "Papers", href: "/library?show=papers" });
+    expect(results(items, data, "guide")[0]).toMatchObject({ label: "Get help", href: "/help" });
     expect(results(items, data, "traveller")[0].key).toBe("note:n1");
     expect(results(items, data, "energy")[0].key).toBe("pillar:hidden-machinery:energy");
     // Nothing matches: only the search action.
