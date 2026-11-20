@@ -50,7 +50,11 @@ async function newReader(page: Page, browser: Browser) {
   await page.getByLabel(/Who is it for/).fill("Cora, covers");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
   const link = await page.getByTestId("invite-link").inputValue();
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } });
+  const ctx = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "x-forwarded-for": `10.242.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` },
+  });
   const reader = await ctx.newPage();
   await reader.goto(link);
   await reader.getByLabel("Your name").fill("Cora Covers");

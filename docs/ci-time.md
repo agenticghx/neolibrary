@@ -32,7 +32,7 @@ The slice ids, in order, are `screenshots`, `behavior`, `readalong`, `narration`
 |---|---|
 | Docs, `PROGRESS.md`, other Markdown, `LICENSE`, `.claude/`, `.github/` outside `workflows/` | none. The job still succeeds. |
 | Empty file list, or the file list could not be read | every slice |
-| `.github/workflows/`, `package.json`, `package-lock.json`, `playwright.config.ts`, `playwright.timing.config.ts`, `next.config.*`, `tsconfig.*`, `scripts/ci-browser-needed*`, `e2e/auth.setup.ts` | every slice. The selector does not skip its own check. |
+| `.github/workflows/`, `package.json`, `package-lock.json`, `playwright.config.ts`, `next.config.*`, `tsconfig.*`, `scripts/ci-browser-needed*`, `e2e/auth.setup.ts` | every slice. The selector does not skip its own check. |
 | A CSS file, `postcss.config.*`, `e2e/visual.spec.ts`, `e2e/a11y.spec.ts`, `e2e/pages.ts`, `public/` | screenshots |
 | `components/`, a `.tsx` page under `app/` (not `app/api/`), `proxy.ts` | screenshots and behavior |
 | `lib/` and `app/api/` that are not in a row below | behavior |
@@ -75,7 +75,7 @@ Each machine runs one **group** of projects (`BROWSER_GROUPS` in `scripts/ci-bro
 |---|---|---|
 | `behavior` | the chain `flows`, `uploads`, `reader`, `annotations`, then `ai`, `audio`, `notes`, `images` and `home` (each needs what the ones before it made); Chromium only | behaviour slice |
 | `behavior-2` | the four screenshot projects (before any data), then after `flows` and `uploads`: `shell`, `stats`, `own-paths`, `agents`, `offline` and `open-shelf`. Split from `behavior` on 2026-11-11; `shell` moved here on 2026-11-14; `reader` no longer runs here (see below) | any slice but narration-only |
-| `branches` | `review`, `covers`, `own-keys`, `focus`, then `shared-papers`; here they wait on `uploads`, not `stats` | behaviour slice |
+| `branches` | `review`, `covers`, `own-keys`, `eink`, `focus`, then `shared-papers`; here they wait on `uploads`, not `stats` | behaviour slice |
 | `readalong` | after `flows` and `uploads`: the audiobook file in Chromium, then whole-book narration. Before 2026-11-14 it ran `reader` first, only for its PDF (see below) | readalong or narration slice |
 | `webkit` | `reader`, then Safari's highlight test and the audiobook file in WebKit. All of WebKit is on this machine, so the behavior machine is Chromium only. (This was tried on 2026-11-05 as a fix for the design screenshot's 2 px wobble on main; it is not the fix, see docs/ci-flakes.md.) | main and the night run, when the webkit or readalong slice is on |
 

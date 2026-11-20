@@ -58,7 +58,11 @@ async function newReader(page: Page, browser: Browser, email = `focus-${crypto.r
   await page.getByLabel(/Who is it for/).fill("Fola, focus sessions");
   await page.getByRole("button", { name: "Make an invitation link" }).click();
   const link = await page.getByTestId("invite-link").inputValue();
-  const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } });
+  const ctx = await browser.newContext({
+    storageState: { cookies: [], origins: [] },
+    viewport: { width: 1280, height: 800 },
+    extraHTTPHeaders: { "x-forwarded-for": `10.243.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` },
+  });
   // A context of its own: the beforeEach above opens the sidebar only on `page`, so open it here too.
   await ctx.addInitScript(() => {
     try {

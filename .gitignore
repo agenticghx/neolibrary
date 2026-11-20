@@ -23,6 +23,7 @@ test-results/
 
 # Claude Code local state
 .claude/scheduled_tasks.lock
+CLAUDE.local.md
 
 # Next.js / TypeScript
 next-env.d.ts

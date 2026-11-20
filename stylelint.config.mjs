@@ -50,7 +50,7 @@ const config = {
       },
     },
   ],
-  ignoreFiles: ["node_modules/**", ".next/**", "playwright-report/**", "test-results/**", "coverage/**"],
+  ignoreFiles: ["node_modules/**", ".next/**", "out/**", "build/**", "public/pdfjs/**", ".data/**", ".claude/**", "playwright-report/**", "test-results/**", "coverage/**"],
 };
 
 export default config;

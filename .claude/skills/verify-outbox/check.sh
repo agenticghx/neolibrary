@@ -63,6 +63,13 @@ echo "$FINDINGS" | while read -r id target scenario; do
 done
 
 [ -f "$work/changes" ] && changed=1
+if (cd "$root" && npx vitest run --config "$here/replay.config.mts" >"$work/replay.out" 2>&1); then
+  echo "replays  $(grep -E 'Tests +[0-9]+ passed' "$work/replay.out" | sed 's/^ *//')"
+else
+  changed=1
+  echo "BROKEN   replay.ts failed on the real code:"
+  grep -E '×|FAIL|Tests |AssertionError|Error:' "$work/replay.out" | sed 's/^/      /'
+fi
 findings=$(echo "$FINDINGS" | wc -l | tr -d ' ')
 if [ "$changed" -eq 0 ]; then
   echo "verify-outbox: as recorded: $held scenarios hold every listed rule; $findings known findings still break"

@@ -197,6 +197,12 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-19 20:33 · Antigravity · Whole-project audit (4/4): CI selector & deploy skip paths, e2e IP isolation, skill scripts, and M14 cleanup
+- **Done:** Fixed `ci-browser-needed` slice selection, `copy-pdfjs` worker verification, `train.sh` trailer splitting, `map_to_book.py` division-by-zero guard, `setup.sh` pinned aligner tag, and `verify-outbox` path check; isolated e2e reader sign-up IPs to prevent shared rate-limit flakes; expanded `deploy.yml` skip regex for test-only configs; removed 6 retired M14 timing/mutation files.
+- **Key paths:** scripts/ci-browser-needed.mjs; .github/workflows/deploy.yml; .claude/skills/merge-train/scripts/train.sh; .claude/skills/readalong-audio/scripts/map_to_book.py; e2e/*.spec.ts; lib/repo.test.ts
+- **Commands that worked:** npm run check (0 lint/style/type errors, 172 test files passed)
+- **Known issues / blockers:** Part 4 of 4 from the 2026-11-19 whole-project audit.
+- **Exact next steps:** 1. Rebase onto main after PRs 1–3 merge and merge when green.
 ### 2026-11-19 20:31 · Antigravity · Whole-project audit (2/4): >10 MB uploads, saved-audio & own-key Listen, scan+edition stats, and library fixes
 - **Done:** Raised Next proxy body buffer limit to 512 MB so large EPUB/PDF/audiobook uploads are not truncated at 10 MB; kept saved TTS audio playable at no cost even when no voice key is set and enabled `?listen=1` for invited readers with browser ElevenLabs keys; merged scanned PDFs and text editions (`editionOf`) on `/stats` across per-book rows, Path pillars, sitting focuses and chapter speeds; excluded fileless placeholders from sidebar collection counts; fixed Crossref/Markdown/Drive/read-along/export edge cases.
 - **Key paths:** proxy.ts; lib/library/listen.ts; lib/library/audio.ts; lib/library/listenable.ts; lib/library/reading-stats.ts; lib/library/shelf.ts; lib/papers/catalogues.ts; lib/library/export.ts

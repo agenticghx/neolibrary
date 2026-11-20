@@ -49,7 +49,10 @@ async function newReader(page: Page, browser: Browser) {
   const ctx = await browser.newContext({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1280, height: 800 },
-    extraHTTPHeaders: { "x-neolibrary-anthropic-key": "sk-ant-e2e-review-reader" },
+    extraHTTPHeaders: {
+      "x-neolibrary-anthropic-key": "sk-ant-e2e-review-reader",
+      "x-forwarded-for": `10.241.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`,
+    },
   });
   const reader = await ctx.newPage();
   await reader.goto(link);

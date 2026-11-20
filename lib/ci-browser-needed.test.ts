@@ -86,6 +86,11 @@ describe("browserSlices", () => {
     expect(browserSlices(["app/(app)/import/page.tsx"])).toEqual(["screenshots", "behavior", "narration"]);
     expect(browserSlices(["app/api/books/[id]/narration/route.ts"])).toEqual(["behavior", "narration"]);
     expect(browserSlices(["lib/library/audio.ts"])).toEqual(["behavior", "readalong", "narration", "webkit"]);
+    expect(browserSlices(["lib/speech/timings.ts"])).toEqual(["behavior", "readalong", "narration", "webkit"]);
+    expect(browserSlices(["instrumentation.ts"])).toEqual(["behavior", "narration"]);
+    expect(browserSlices(["app/(reader)/books/[id]/read/Reader.tsx"])).toEqual(["screenshots", "behavior", "webkit"]);
+    expect(browserSlices(["e2e/discourse.ts"])).toEqual(["behavior", "readalong", "webkit"]);
+    expect(browserSlices(["scripts/copy-pdfjs.mjs"])).toEqual(ALL);
   });
 });
 
