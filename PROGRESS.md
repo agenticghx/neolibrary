@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-24 16:50 · Antigravity · AAA visual upgrades (Tracks 1–3): Home shelf & spines polish, /stats SVG charts, and Paths curriculum map
+- **Done:** After auditing the live signed-in library, implemented Tracks 1–3 with theme-adaptive tokens in `app/tokens.css`: (1) cloth cover linen sheen/deboss framing, mini-cover inset frame, softer note-fold dog-ear, carousel horizontal edge-fade mask, aligned Sort dropdown, side-by-side Continue actions, warm left-ruled highlight quote, and fixed Spines progress indicator (right-edge bar + tonal fill instead of horizontal line slicing `%` labels and titles, plus vertical title fade mask); (2) pure server-rendered SVG visualizations on `/stats` (`WeeklyRhythmChart`, `ChapterPaceChart`, `ReadingBalanceChart`) with unit tests while preserving all tables and test hooks; (3) removed redundant overlapping `N`/`E` badges on Path covers, upgraded the 29-pillar minimap with `reading` state, group breaks, and hover/focus tooltips, and framed pillars as paired `N → E` diptych cards.
+- **Key paths:** app/tokens.css; components/Cover.module.css; components/home/BookCarousel.module.css; components/home/Home.module.css; components/home/Library.module.css; app/(app)/stats/StatsCharts.tsx; app/(app)/stats/StatsCharts.test.tsx; app/(app)/stats/page.tsx; app/(app)/stats/page.module.css; components/PathView.tsx; components/PathView.module.css
+- **Commands that worked:** npm run lint && npm run typecheck (0 errors); npx vitest run lib/tokens.test.ts components/Cover.test.tsx "app/(app)/stats/StatsCharts.test.tsx" (348 passed)
+- **Known issues / blockers:** Changes Home, Library, Paths, and Stats layouts, so CI's Linux reference screenshots will need one `refresh-screenshots.sh` pass via `merge-train` before merging.
+- **Exact next steps:** 1. Run CI on the PR, inspect and commit refreshed Linux reference screenshots, and merge when all four checks are green so `.github/workflows/deploy.yml` deploys automatically.
+
 ### 2026-11-20 15:28 · Antigravity · Exclude unit test files in `.railwayignore` so Railway's production build succeeds
 - **Done:** Deploy run 44811048413 failed in `next build`'s TypeScript check because `.railwayignore` excluded `e2e/` and `playwright.config.ts` while `lib/ci-browser-needed.test.ts` remained uploaded and imported `../playwright.config`. Added `*.test.ts` and `*.test.tsx` to `.railwayignore` and verified an exact simulated upload folder passes `tsc --noEmit`.
 - **Key paths:** .railwayignore

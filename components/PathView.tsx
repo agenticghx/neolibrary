@@ -16,12 +16,11 @@ const GROUPS: Record<string, string> = {
 
 const tone = (s: SlotView) => (s.kind === "E" ? "green" : "navy");
 
-/** A title's cover; the N or E letter on it belongs to the reading list only (your own Paths say the words). */
-function SlotCover({ slot, current, letter = true }: { slot: SlotView; current: boolean; letter?: boolean }) {
+/** A title's cover; the N or E letter sits cleanly above the cover in PathView so it never blocks cover artwork. */
+function SlotCover({ slot, current }: { slot: SlotView; current: boolean }) {
   return (
     <Cover
       title={slot.book.title}
-      slot={letter ? slot.kind : undefined}
       tone={tone(slot)}
       available={slot.book.available}
       size="sm"
@@ -78,7 +77,7 @@ function Pillar({ pillar, here, notes, readingList }: { pillar: PillarView; here
           {pillar.slots.map((s) => (
             <li key={s.id} className={styles.slot}>
               <span className={styles.how}>{KIND_WORDS[s.kind]}</span>
-              <SlotCover slot={s} current={s.id === pillar.currentSlotId && pillar.status !== "not-started"} letter={false} />
+              <SlotCover slot={s} current={s.id === pillar.currentSlotId && pillar.status !== "not-started"} />
             </li>
           ))}
         </ol>
@@ -170,25 +169,33 @@ export function PathView({ path, notes = new Map(), editHref }: { path: PathData
         <TargetNotes targetType="path" targetId={path.id} label={`Note on ${path.title}`} notes={notes.get(path.id) ?? []} />
         {numbered.length ? (
           <ol className={styles.track} aria-label={`${done} of ${numbered.length} ${partsWord(readingList, numbered.length)} finished`}>
-            {numbered.map((p, i) => (
-              <li
-                key={p.id}
-                className={[
-                  styles.stop,
-                  p.status === "done" ? styles.stopDone : "",
-                  i === hereIndex ? styles.stopHere : "",
-                ].join(" ")}
-              >
-                {/* Each stop goes to its part of the page (M20): the page is long, 29 pillars on a reading list. */}
-                <a
-                  href={`#p-${p.slug}`}
-                  className={styles.stopLink}
-                  title={p.title}
-                  aria-label={[p.title, p.status === "done" ? "finished" : "", i === hereIndex ? "you are here" : ""].filter(Boolean).join(", ")}
-                  aria-current={i === hereIndex ? "location" : undefined}
-                />
-              </li>
-            ))}
+            {numbered.map((p, i) => {
+              const prevGroup = i > 0 ? numbered[i - 1]!.group : p.group;
+              const groupStart = i > 0 && p.group !== prevGroup;
+              const tip = `${String(p.number).padStart(2, "0")} · ${p.title}`;
+              return (
+                <li
+                  key={p.id}
+                  data-group-start={groupStart || undefined}
+                  className={[
+                    styles.stop,
+                    p.status === "done" ? styles.stopDone : "",
+                    p.status === "reading" ? styles.stopStarted : "",
+                    i === hereIndex ? styles.stopHere : "",
+                  ].join(" ")}
+                >
+                  {/* Each stop goes to its part of the page (M20): the page is long, 29 pillars on a reading list. */}
+                  <a
+                    href={`#p-${p.slug}`}
+                    className={styles.stopLink}
+                    title={tip}
+                    data-tip={tip}
+                    aria-label={[p.title, p.status === "done" ? "finished" : "", i === hereIndex ? "you are here" : ""].filter(Boolean).join(", ")}
+                    aria-current={i === hereIndex ? "location" : undefined}
+                  />
+                </li>
+              );
+            })}
           </ol>
         ) : null}
       </header>
