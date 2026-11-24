@@ -21,6 +21,7 @@
   scrollbar-width: none;
   overscroll-behavior-x: contain;
   perspective: var(--carousel-depth);
+  mask-image: var(--carousel-mask);
 }
 
 .strip::-webkit-scrollbar {

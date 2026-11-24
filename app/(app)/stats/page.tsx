@@ -18,6 +18,7 @@ import { answerFromNote, endedLabel } from "@/lib/reader/focus-session";
 import styles from "../admin/invites/page.module.css";
 import own from "./page.module.css";
 import { ReadingCalendar } from "./ReadingCalendar";
+import { ChapterPaceChart, ReadingBalanceChart, WeeklyRhythmChart } from "./StatsCharts";
 
 export const metadata: Metadata = { title: "Reading stats" };
 export const dynamic = "force-dynamic";
@@ -100,6 +101,7 @@ export default async function StatsPage() {
               Week by week
             </h2>
             <p className={own.note}>Weeks start on Monday (UTC). Weeks with no reading show as 0 min.</p>
+            <WeeklyRhythmChart weeks={weeks} />
             <table className={own.table} data-testid="stats-weeks">
               <Head first="Week of" />
               <tbody>
@@ -126,6 +128,7 @@ export default async function StatsPage() {
             <h2 id="suggestions" className={styles.listTitle}>
               Suggestions
             </h2>
+            <ChapterPaceChart books={chapterBooks} suggestions={suggestions} />
             {suggestions.length > 0 ? (
               <ul className={own.suggestions}>
                 {suggestions.map((x) => (
@@ -185,6 +188,7 @@ export default async function StatsPage() {
                 How each title is marked on its Path: Story first (N) is read first, for the story; Go deeper (E) is read
                 next, to go further; Any order whenever you like.
               </p>
+              <ReadingBalanceChart kinds={kinds} />
               <table className={own.table} data-testid="stats-kinds">
                 <Head first="How to read it" />
                 <tbody>

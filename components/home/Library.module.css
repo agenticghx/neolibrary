@@ -109,10 +109,14 @@
 
 .navy {
   background-color: var(--cover-navy);
+  background-image: var(--cover-sheen);
+  box-shadow: var(--shadow-cover-cloth);
 }
 
 .green {
   background-color: var(--cover-green);
+  background-image: var(--cover-sheen);
+  box-shadow: var(--shadow-cover-cloth);
 }
 
 .emptySpine {
@@ -121,18 +125,18 @@
   color: var(--cover-empty-ink);
 }
 
-/* How far you are: the spine fills from the bottom with darker cloth (its light
-   lettering keeps, and gains, contrast), topped by a solid line. */
+/* How far you are: a soft tonal fill from the bottom plus a crisp side-edge rule so progress never slices
+   horizontally across the title or percentage label at the foot of the spine. */
 .spineFill {
   position: absolute;
   inset: auto 0 0;
   height: 0;
-  border-top: 2px solid var(--cover-ink);
+  border-right: 3px solid var(--spine-bar-fill);
   background-color: var(--spine-fill);
 }
 
 .spineFill[data-progress="0"] {
-  border-top-width: 0;
+  border-right-width: 0;
 }
 
 .spineTitle {
@@ -140,13 +144,14 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0 var(--space-1);
+  padding: var(--space-1) var(--space-1);
   font-family: var(--font-serif);
   font-size: var(--text-sm);
   line-height: var(--leading-tight);
   text-align: center;
   writing-mode: vertical-rl;
   rotate: 180deg;
+  mask-image: var(--spine-title-mask);
 }
 
 .spineTitle[data-long] {
@@ -157,8 +162,10 @@
   position: relative;
   flex: none;
   margin-top: var(--space-1);
+  padding-top: var(--space-1);
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Stepped sizes (data attributes set by Library.tsx; inline styles would bypass the tokens). */
@@ -224,9 +231,10 @@
 }
 
 .notYetSummary {
-  color: var(--ink-900);
+  color: var(--ink-700);
   font-family: var(--font-serif);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
   cursor: pointer;
 }
 

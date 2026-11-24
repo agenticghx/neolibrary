@@ -36,11 +36,15 @@
 
 .navy {
   background-color: var(--cover-navy);
+  background-image: var(--cover-sheen);
+  box-shadow: var(--shadow-cover-cloth);
   color: var(--cover-ink);
 }
 
 .green {
   background-color: var(--cover-green);
+  background-image: var(--cover-sheen);
+  box-shadow: var(--shadow-cover-cloth);
   color: var(--cover-ink);
 }
 
@@ -170,6 +174,12 @@
   font-weight: var(--weight-semibold);
 }
 
+.figure:has(.empty) .caption {
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}
+
 .small {
   width: 6.75rem;
   padding: var(--space-3) var(--space-2);
@@ -232,15 +242,14 @@
 
 /* Marks (M14): folded corner = your notes; headphones = an uploaded audiobook; tick = finished. */
 
-/* A corner turned down: the page shows through the top-right triangle, the
-   flap (in the cover's ink) lies on the lower-left one. Each triangle is its
-   own shape, so neither clips the other. */
+/* A corner turned down: a compact, subtle dog-ear rather than a harsh white cutout over photo covers. */
 .fold {
   position: absolute;
   top: 0;
   right: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  opacity: 0.9;
 }
 
 .fold::before,
@@ -258,6 +267,7 @@
 
 .fold::after {
   background-color: var(--cover-ink);
+  box-shadow: var(--shadow-chip);
   clip-path: polygon(0 0, 0 100%, 100% 100%);
 }
 
@@ -308,10 +318,20 @@
   }
 }
 
-/* A small swatch beside a title (Continue): the cloth or the picture, no lettering. */
+/* A small swatch beside a title (Continue): subtle debossed frame on cloth covers so they feel bound, not blank. */
 .mini {
-  width: 4.5rem;
+  width: 4.75rem;
   padding: var(--space-2);
+}
+
+.mini:not(.withImage, .paper)::after {
+  content: "";
+  position: absolute;
+  inset: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: var(--border-hair) solid currentcolor;
+  border-radius: var(--radius-sm);
+  opacity: 0.22;
+  pointer-events: none;
 }
 
 .mini .title,

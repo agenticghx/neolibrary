@@ -80,7 +80,7 @@
 }
 
 .sort {
-  min-height: 2.5rem;
+  height: 2.5rem;
   padding: 0 var(--space-3);
   border: var(--border-hair) solid var(--rule);
   border-radius: var(--radius-md);
@@ -88,6 +88,7 @@
   color: var(--ink-900);
   font: inherit;
   font-size: var(--text-sm);
+  line-height: var(--leading-ui);
 }
 
 /* Continue (Samuel's pick B) */
@@ -156,8 +157,9 @@
 .note {
   grid-area: note;
   padding: var(--space-2) var(--space-3);
-  border: var(--border-hair) solid var(--rule);
-  border-radius: var(--radius-md);
+  border: 0;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   background-color: var(--paper);
 }
 
@@ -193,8 +195,8 @@
   flex-wrap: wrap;
   grid-area: actions;
   align-self: start;
-  gap: var(--space-3);
-  margin-top: var(--space-1);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .primary,
@@ -202,11 +204,13 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 2.75rem;
-  padding: 0 var(--space-4);
+  min-height: 2.5rem;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .primary {
