@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ChapterStats, KindStats, Suggestion, WeekStats } from "@/lib/library/reading-stats";
 import { SHARP_DROP } from "@/lib/library/reading-stats";
 import own from "./page.module.css";
@@ -175,9 +174,7 @@ export function ChapterPaceChart({
         return (
           <figure key={b.bookId} className={own.paceCard}>
             <div className={own.chartHead}>
-              <Link href={`/books/${b.bookId}/read`} className={own.paceTitle}>
-                {b.title}
-              </Link>
+              <span className={own.paceTitle}>{b.title}</span>
               <span className={own.chartMeta}>Usual: {g.usual} wpm · {b.chapters.length} chapters</span>
             </div>
             <svg className={own.paceSvg} viewBox="0 0 360 88" role="img" aria-label={`Chapter pace for ${b.title}, usual speed ${g.usual} words per minute`}>
