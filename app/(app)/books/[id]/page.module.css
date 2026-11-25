@@ -41,6 +41,13 @@
   font-size: var(--text-lg);
 }
 
+.primaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .read {
   justify-self: start;
   padding: var(--space-2) var(--space-6);
@@ -55,6 +62,30 @@
 .read:hover {
   background-color: var(--accent-strong);
   color: var(--on-accent);
+}
+
+.finishButton {
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.finishButton:hover {
+  border-color: var(--accent);
+  background-color: var(--paper);
+}
+
+.finishDone {
+  border-color: var(--accent);
+  background-color: var(--highlight);
+  color: var(--ink-900);
 }
 
 .places {

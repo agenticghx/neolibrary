@@ -26,7 +26,7 @@ import { PaperDetails } from "./PaperDetails";
 import { copiesOf, sharedBy } from "@/lib/library/shared-papers";
 import { PaperSummary } from "./PaperSummary";
 import { byline } from "@/lib/papers/model";
-import { removeBookAction, setShelfSwitchAction, toggleCollectionAction } from "../../actions";
+import { removeBookAction, setBookFinishedAction, setShelfSwitchAction, toggleCollectionAction } from "../../actions";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Book" };
@@ -92,11 +92,25 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
         <div className={styles.info}>
           <h1 className={styles.title}>{book.title}</h1>
           {paper ? <p className={styles.author}>{paper.byline}</p> : book.author ? <p className={styles.author}>{book.author}</p> : null}
-          {hasFile && book.fileType ? (
-            <Link id="read-book" href={`/books/${book.id}/read`} className={styles.read}>
-              {book.progress > 0 ? "Continue reading" : "Read"}
-            </Link>
-          ) : null}
+          <div className={styles.primaryActions}>
+            {hasFile && book.fileType ? (
+              <Link id="read-book" href={`/books/${book.id}/read`} className={styles.read}>
+                {book.progress > 0 ? "Continue reading" : "Read"}
+              </Link>
+            ) : null}
+            <form action={setBookFinishedAction}>
+              <input type="hidden" name="bookId" value={book.id} />
+              <input type="hidden" name="finished" value={book.progress >= 1 ? "0" : "1"} />
+              <button
+                type="submit"
+                className={book.progress >= 1 ? `${styles.finishButton} ${styles.finishDone}` : styles.finishButton}
+                aria-pressed={book.progress >= 1}
+                data-testid="toggle-finished"
+              >
+                {book.progress >= 1 ? "Finished ✓" : "Mark as finished"}
+              </button>
+            </form>
+          </div>
           {places.length ? (
             <ul className={styles.places}>
               {places.map((p) => (

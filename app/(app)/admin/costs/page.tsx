@@ -48,25 +48,42 @@ export default async function CostsPage() {
         <h2 id="services" className={styles.listTitle}>
           Services
         </h2>
-        {report.services.map((s) => (
-          <div key={s.provider} className={own.service} data-testid={`cost-${s.provider}`}>
-            <p className={own.serviceName}>{s.label}</p>
-            <p className={own.amount}>
-              <span data-testid={`spent-${s.provider}`}>{usd(s.spentUsd)}</span> of {usd(s.capUsd)}
-            </p>
-            <progress className={own.meter} max={s.capUsd || 1} value={Math.min(s.spentUsd, s.capUsd)} aria-label={`${s.label}: share of this month's cap used`} />
-            <p className={own.meta}>
-              {s.calls} paid {s.calls === 1 ? "request" : "requests"} · cap per book {usd(s.perBookCapUsd)} · set with{" "}
-              <code>{s.caps}_CAP_PER_MONTH_USD</code> and <code>{s.caps}_CAP_PER_BOOK_USD</code>
-            </p>
-            {s.heldUsd > 0 ? (
-              <p className={own.meta} data-testid={`held-${s.provider}`}>
-                Also held against the cap: {usd(s.heldUsd)} for calls not finished (still running, or cut off when the
-                server restarted; those may have been charged, so they stay counted).
+        {report.services.map((s) => {
+          const share = s.capUsd > 0 ? Math.min(100, Math.round((s.spentUsd / s.capUsd) * 100)) : 0;
+          const shareLabel = s.spentUsd > 0 && share === 0 ? "< 1% used" : `${share}% used`;
+          return (
+            <div key={s.provider} className={own.service} data-testid={`cost-${s.provider}`}>
+              <div className={own.serviceHead}>
+                <p className={own.serviceName}>{s.label}</p>
+                <span className={own.shareBadge}>{shareLabel}</span>
+              </div>
+              <p className={own.amount}>
+                <span data-testid={`spent-${s.provider}`}>{usd(s.spentUsd)}</span>{" "}
+                <span className={own.capOf}>of {usd(s.capUsd)}</span>
               </p>
-            ) : null}
-          </div>
-        ))}
+              <progress className={own.meter} max={s.capUsd || 1} value={Math.min(s.spentUsd, s.capUsd)} aria-label={`${s.label}: share of this month's cap used`} />
+              <p className={own.meta}>
+                {s.calls} paid {s.calls === 1 ? "request" : "requests"} · cap per book {usd(s.perBookCapUsd)}
+              </p>
+              {s.heldUsd > 0 ? (
+                <p className={own.meta} data-testid={`held-${s.provider}`}>
+                  Also held against the cap: {usd(s.heldUsd)} for calls not finished (still running, or cut off when the
+                  server restarted; those may have been charged, so they stay counted).
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+        <details className={own.config}>
+          <summary className={own.configSummary}>Cap environment variables</summary>
+          <ul className={own.configList}>
+            {report.services.map((s) => (
+              <li key={s.provider}>
+                {s.label}: <code>{s.caps}_CAP_PER_MONTH_USD</code> and <code>{s.caps}_CAP_PER_BOOK_USD</code>
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
       <section aria-labelledby="models" className={styles.list}>
         <h2 id="models" className={styles.listTitle}>

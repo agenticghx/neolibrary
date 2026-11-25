@@ -93,7 +93,7 @@
   flex-direction: column;
   align-items: center;
   width: 3.25rem;
-  height: 10rem;
+  height: 10.25rem;
   overflow: hidden;
   padding: var(--space-3) 0 var(--space-2);
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
@@ -209,19 +209,8 @@
 .spineFill[data-progress="90"] { height: 90%; }
 .spineFill[data-progress="95"] { height: 95%; }
 .spineFill[data-progress="100"] { height: 100%; }
-.spine[data-w="1"] { width: 2.5rem; }
-.spine[data-w="2"] { width: 2.875rem; }
-.spine[data-w="3"] { width: 3.25rem; }
-.spine[data-w="4"] { width: 3.75rem; }
-.spine[data-w="5"] { width: 4.25rem; }
-.spine[data-h="0"] { height: 9.25rem; }
-.spine[data-h="1"] { height: 9.5rem; }
-.spine[data-h="2"] { height: 9.75rem; }
-.spine[data-h="3"] { height: 10rem; }
-.spine[data-h="4"] { height: 10.25rem; }
-.spine[data-h="5"] { height: 10.5rem; }
-.spine[data-h="6"] { height: 10.75rem; }
-.spine[data-h="7"] { height: 11rem; }
+
+/* Uniform spine dimensions (Samuel 2026-11-25): every book on the shelf stands the same height and width. */
 
 /* Not available yet: one closed group at the end. */
 .notYet {
