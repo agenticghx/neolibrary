@@ -43,14 +43,14 @@ export function PaperDetails({
     }
   }
 
-  async function send(method: "POST" | "DELETE") {
+  async function send(method: "POST" | "DELETE", markOnly = false) {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/books/${bookId}/paper`, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: method === "POST" ? JSON.stringify({ id }) : undefined,
+        body: method === "POST" ? JSON.stringify(markOnly ? { markOnly: true } : { id }) : undefined,
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -72,26 +72,55 @@ export function PaperDetails({
         <h2 id="paper-details" className={styles.collectionsTitle}>
           Research paper
         </h2>
-        <p className={styles.notesSummary}>{paper.byline}</p>
-        <p className={styles.notesSummary}>
-          {paper.doi ? (
-            <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noreferrer">
-              DOI {paper.doi}
-            </a>
-          ) : null}
-          {paper.doi && paper.pmid ? " · " : null}
-          {paper.pmid ? (
-            <a href={`https://pubmed.ncbi.nlm.nih.gov/${paper.pmid}/`} target="_blank" rel="noreferrer">
-              PubMed {paper.pmid}
-            </a>
-          ) : null}
-        </p>
+        {paper.byline ? <p className={styles.notesSummary}>{paper.byline}</p> : null}
+        {paper.doi || paper.pmid ? (
+          <p className={styles.notesSummary}>
+            {paper.doi ? (
+              <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noreferrer">
+                DOI {paper.doi}
+              </a>
+            ) : null}
+            {paper.doi && paper.pmid ? " · " : null}
+            {paper.pmid ? (
+              <a href={`https://pubmed.ncbi.nlm.nih.gov/${paper.pmid}/`} target="_blank" rel="noreferrer">
+                PubMed {paper.pmid}
+              </a>
+            ) : null}
+          </p>
+        ) : null}
         {sharing && "by" in sharing ? (
           <p className={styles.notesSummary} data-testid="paper-shared-by">
             Shared with you by {sharing.by}. Your place, highlights and notes in it are your own.
           </p>
         ) : (
           <>
+            {!paper.doi && !paper.pmid ? (
+              <form
+                className={styles.paperForm}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void send("POST");
+                }}
+              >
+                <label htmlFor="paper-id-enrich" className={styles.paperLabel}>
+                  Optional: add its DOI or PubMed ID
+                </label>
+                <div className={styles.paperRow}>
+                  <input
+                    id="paper-id-enrich"
+                    className={styles.paperInput}
+                    value={id}
+                    onChange={(e) => setId(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="10.1016/… or PMID"
+                  />
+                  <button type="submit" className={styles.paperFind} disabled={busy || !id.trim()}>
+                    {busy ? "Finding…" : "Find its details"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
             {sharing && "owner" in sharing ? (
               <p className={styles.notesSummary} data-testid="paper-sharing">
                 {sharing.owner.on
@@ -118,6 +147,16 @@ export function PaperDetails({
   return (
     <details className={styles.paperAsk} data-testid="paper-ask">
       <summary>Is this a research paper?</summary>
+      <div className={styles.paperForm}>
+        <p className={styles.paperHint}>
+          Move this title into your <strong>Papers</strong> section right away, or look up its full citation with a DOI or PubMed ID.
+        </p>
+        <div>
+          <button type="button" className={styles.paperFind} onClick={() => void send("POST", true)} disabled={busy} data-testid="mark-as-paper">
+            {busy ? "Saving…" : "Mark as paper"}
+          </button>
+        </div>
+      </div>
       <form
         className={styles.paperForm}
         onSubmit={(e) => {

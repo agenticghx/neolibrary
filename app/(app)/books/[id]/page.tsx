@@ -45,7 +45,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
   const { book, available, places } = found;
   // Most of this page needs the book file (its chapters, collections, questions, audiobooks).
   const hasFile = available.read;
-  const paper = book.kind === "paper" ? { byline: byline(book), doi: book.doi, pmid: book.pmid } : null;
+  const paper = book.kind === "paper" ? { byline: byline(book) || book.author || "", doi: book.doi, pmid: book.pmid } : null;
   const [inCollections, marks, reread, audiobooks, textEdition, fromText, by, sign] = await Promise.all([
     hasFile ? collectionsForBook(db, user.id, book.id) : Promise.resolve([]),
     listAnnotations(db, user.id, book.id),

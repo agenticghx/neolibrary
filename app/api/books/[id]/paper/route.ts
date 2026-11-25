@@ -1,6 +1,6 @@
 import { currentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { clearPaper, PaperError, setPaper } from "@/lib/library/papers";
+import { clearPaper, markAsPaper, PaperError, setPaper } from "@/lib/library/papers";
 import { getPaperLookup } from "@/lib/papers";
 import { setPaperSharing } from "@/lib/library/shared-papers";
 
@@ -8,14 +8,15 @@ export const dynamic = "force-dynamic";
 
 const isId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
-/** M41 R3: { id: "<DOI or PubMed ID>" } makes the title that paper, with its details from Crossref or PubMed. */
+/** M41 R3: { id: "<DOI or PubMed ID>" } looks up and marks the title as that paper; { markOnly: true } marks it as a paper without a DOI. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   const bookId = (await params).id;
   if (!isId(bookId)) return Response.json({ error: "Book not found" }, { status: 404 });
-  const body = ((await req.json().catch(() => null)) ?? {}) as { id?: unknown };
+  const body = ((await req.json().catch(() => null)) ?? {}) as { id?: unknown; markOnly?: unknown };
   try {
+    if (body.markOnly === true) return Response.json(await markAsPaper(await getDb(), user.id, bookId));
     return Response.json(await setPaper(await getDb(), getPaperLookup(), user.id, bookId, body.id));
   } catch (e) {
     if (e instanceof PaperError) return Response.json({ error: e.message }, { status: e.status });

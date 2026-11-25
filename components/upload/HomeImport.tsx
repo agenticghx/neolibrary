@@ -97,7 +97,7 @@ export function ImportLink() {
 
 /** The dashed hint, with Choose files, and what happened to each file. */
 export function ImportZone() {
-  const { input, busy, results, read, error, upload, fromDrive } = useUpload();
+  const { input, busy, kind, setKind, results, read, error, upload, fromDrive } = useUpload();
   const [link, setLink] = useState("");
   return (
     <div className={styles.zoneWrap}>
@@ -108,7 +108,7 @@ export function ImportZone() {
         <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" className={styles.zoneIcon} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 16V4M7 9l5-5 5 5M5 20h14" />
         </svg>
-        <p className={styles.zoneText}>{busy ? "Reading your books…" : "Drop your DRM-free books (EPUB, PDF, Markdown) anywhere on this page."}</p>
+        <p className={styles.zoneText}>{busy ? "Reading your books…" : "Drop your DRM-free books or research papers (EPUB, PDF, Markdown) anywhere on this page."}</p>
         <label className={styles.pick}>
           Choose files
           <input
@@ -123,6 +123,15 @@ export function ImportZone() {
           />
         </label>
       </div>
+      <label className={styles.paperToggle}>
+        <input
+          type="checkbox"
+          checked={kind === "paper"}
+          onChange={(e) => setKind(e.target.checked ? "paper" : "book")}
+          disabled={busy}
+        />
+        <span>Add uploaded files to Papers (research papers)</span>
+      </label>
       {/* M30: or a Google Drive link, to a book file or a folder of books, shared as "Anyone with the link". */}
       <form
         className={styles.drive}

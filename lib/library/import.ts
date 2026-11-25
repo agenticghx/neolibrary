@@ -11,6 +11,7 @@ import { pickBook, sameBook, UUID } from "./paths";
 import { restoreEditions } from "./remove-book";
 import { buildSections } from "./sections-store";
 import { buildXray } from "./xray";
+import { syncSharedPaper } from "./shared-papers";
 import { isOwnBook } from "@/lib/library/own-book";
 
 export type ImportResult = (
@@ -43,7 +44,7 @@ export async function importBook(
   storage: Storage,
   ownerId: string,
   file: { name: string; bytes: Uint8Array },
-  opts: { attachTo?: string | null } = {},
+  opts: { attachTo?: string | null; kind?: "book" | "paper" } = {},
 ): Promise<ImportResult> {
   // M29: a Markdown book becomes an EPUB here, and is an ordinary EPUB from then on (its file name stays the .md's).
   // M41 R2: so does a .zip holding one Markdown file and its pictures (a paper and its figures).
@@ -61,7 +62,7 @@ async function importFile(
   storage: Storage,
   ownerId: string,
   file: { name: string; bytes: Uint8Array },
-  opts: { attachTo?: string | null },
+  opts: { attachTo?: string | null; kind?: "book" | "paper" },
 ): Promise<ImportResult> {
   const info = await readBook(file.bytes, file.name);
   let wanted: { id: string; title: string; author: string } | undefined;
@@ -102,12 +103,13 @@ async function importFile(
     }
   }
 
+  const isPaper = opts.kind === "paper";
   const bookId =
     wanted?.id ??
     (
       await db
         .insert(books)
-        .values({ ownerId, title: info.title, author: info.author })
+        .values({ ownerId, title: info.title, author: info.author, ...(isPaper ? { kind: "paper" as const } : {}) })
         .returning({ id: books.id })
     )[0].id;
 
@@ -137,9 +139,11 @@ async function importFile(
       // A wanted book keeps the title and author it was given (a reading list's, or the reader's);
       // an author left blank when the title was typed comes from the file.
       ...(wanted ? (wanted.author.trim() ? {} : { author: info.author }) : { title: info.title, author: info.author }),
+      ...(isPaper ? { kind: "paper" as const } : {}),
       updatedAt: new Date(),
     })
     .where(eq(books.id, bookId));
+  if (isPaper) await syncSharedPaper(db, bookId);
   if (coverKey && had?.coverKey && had.coverKey !== coverKey) await storage.delete(had.coverKey);
   await buildSections(db, bookId, file.bytes, info.toc, info.type);
   // M32 X1: the X-ray index from the text alone, so the Who & what tab has something the moment the book opens.
