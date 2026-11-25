@@ -451,6 +451,13 @@
   pointer-events: none;
 }
 
+.notesIconLabel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
 .notes[open] .notesSummary {
   color: var(--ink-700);
 }

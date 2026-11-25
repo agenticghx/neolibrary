@@ -128,7 +128,7 @@ function TargetNotes({
                 {notes.length}
               </span>
             ) : null}
-            <span className="visually-hidden">{summaryText}</span>
+            <span className={styles.notesIconLabel}>{summaryText}</span>
           </>
         ) : (
           summaryText
