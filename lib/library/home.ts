@@ -135,7 +135,7 @@ export async function libraryItems(
     available: availabilityOf(b, audio.has(b.id), narration || savedTracks.has(b.id)),
     notes: noted.has(b.id),
     audiobook: audio.has(b.id),
-    paper: b.kind === "paper" ? byline(b) : null,
+    paper: b.kind === "paper" ? byline(b) || b.author || "Research paper" : null,
   }));
 }
 

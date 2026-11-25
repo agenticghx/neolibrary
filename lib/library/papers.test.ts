@@ -10,7 +10,7 @@ import { MemoryStorage } from "@/lib/storage";
 import { findMissingCovers } from "./cover-lookup";
 import { libraryItems } from "./home";
 import { importBook } from "./import";
-import { clearPaper, PaperError, setPaper } from "./papers";
+import { clearPaper, markAsPaper, PaperError, setPaper } from "./papers";
 import { listShelf } from "./shelf";
 import { readableEpub } from "./test-epub";
 
@@ -85,5 +85,15 @@ describe("marking a title as a paper (M41 R3)", () => {
     };
     await findMissingCovers(database.db, storage, { name: "stand-in", ...source } as never, { force: true });
     expect(asked).not.toContain("The search for synergy: a critical review from a response surface perspective");
+  });
+
+  it("can mark a title as a paper without a DOI or PubMed ID and still list it under Papers", async () => {
+    const info = await markAsPaper(database.db, ownerId, bookId);
+    expect(info).toMatchObject({ kind: "paper", doi: null, pmid: null });
+    const shelf = await listShelf(database.db, ownerId, { show: "papers" });
+    expect(shelf.map((b) => b.id)).toContain(bookId);
+    const cleared = await clearPaper(database.db, ownerId, bookId);
+    expect(cleared.kind).toBe("book");
+    expect(await listShelf(database.db, ownerId, { show: "papers" })).toEqual([]);
   });
 });

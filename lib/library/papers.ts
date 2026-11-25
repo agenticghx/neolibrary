@@ -43,6 +43,18 @@ async function ownBook(db: Db, ownerId: string, bookId: string) {
   return book;
 }
 
+/** Marks an owned title as a research paper without requiring a DOI or PubMed ID. */
+export async function markAsPaper(db: Db, ownerId: string, bookId: string): Promise<PaperInfo> {
+  await ownBook(db, ownerId, bookId);
+  const [b] = await db
+    .update(books)
+    .set({ kind: "paper", updatedAt: new Date() })
+    .where(isOwnBook(bookId, ownerId))
+    .returning({ title: books.title, author: books.author, authors: books.authors, journal: books.journal, year: books.year, doi: books.doi, pmid: books.pmid });
+  await syncSharedPaper(db, bookId);
+  return { kind: "paper", title: b.title, byline: byline(b) || b.author || "", doi: b.doi, pmid: b.pmid };
+}
+
 /** Looks the paper up by `input` (a DOI or PubMed ID as pasted) and makes the title that paper. */
 export async function setPaper(db: Db, lookup: PaperLookup, ownerId: string, bookId: string, input: unknown): Promise<PaperInfo> {
   await ownBook(db, ownerId, bookId);

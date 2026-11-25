@@ -24,12 +24,13 @@ export function useBookUpload() {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [kind, setKind] = useState<"book" | "paper">("book");
   const [results, setResults] = useState<UploadOutcome[]>([]);
   // How many files the server read (a .zip refused here is not one of them).
   const [read, setRead] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  async function upload(files: FileList | File[]) {
+  async function upload(files: FileList | File[], uploadKind: "book" | "paper" = kind) {
     const all = [...files];
     if (!all.length) return;
     // A .zip is a book only when it holds a Markdown file (a paper and its pictures, M41 R2). Any other .zip is most
@@ -56,6 +57,7 @@ export function useBookUpload() {
       for (const f of list) {
         const body = new FormData();
         body.append("files", f);
+        if (uploadKind === "paper") body.append("kind", "paper");
         try {
           const res = await fetch("/api/books", { method: "POST", body });
           const json = await res.json().catch(() => ({}));
@@ -101,5 +103,5 @@ export function useBookUpload() {
     }
   }
 
-  return { input, busy, results, read, error, upload, fromDrive };
+  return { input, busy, kind, setKind, results, read, error, upload, fromDrive };
 }

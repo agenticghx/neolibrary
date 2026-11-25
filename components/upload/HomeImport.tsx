@@ -97,7 +97,7 @@ export function ImportLink() {
 
 /** The dashed hint, with Choose files, and what happened to each file. */
 export function ImportZone() {
-  const { input, busy, results, read, error, upload, fromDrive } = useUpload();
+  const { input, busy, kind, setKind, results, read, error, upload, fromDrive } = useUpload();
   const [link, setLink] = useState("");
   return (
     <div className={styles.zoneWrap}>
@@ -123,6 +123,15 @@ export function ImportZone() {
           />
         </label>
       </div>
+      <label className={styles.paperToggle}>
+        <input
+          type="checkbox"
+          checked={kind === "paper"}
+          onChange={(e) => setKind(e.target.checked ? "paper" : "book")}
+          disabled={busy}
+        />
+        <span>Add uploaded files to Papers (research papers)</span>
+      </label>
       {/* M30: or a Google Drive link, to a book file or a folder of books, shared as "Anyone with the link". */}
       <form
         className={styles.drive}

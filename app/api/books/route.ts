@@ -17,6 +17,7 @@ export async function POST(req: Request) {
   if (form instanceof Response) return form;
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
   const attachTo = typeof form.get("attachTo") === "string" ? (form.get("attachTo") as string) : null;
+  const kind = form.get("kind") === "paper" ? "paper" : "book";
   if (attachTo && files.length > 1) return Response.json({ error: "Send one file for a title." }, { status: 400 });
   if (!files.length) return Response.json({ error: "No files received." }, { status: 400 });
 
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   const results: UploadOutcome[] = [];
   for (const f of files) {
     try {
-      const r = await importBook(db, storage, user.id, { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }, { attachTo });
+      const r = await importBook(db, storage, user.id, { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }, { attachTo, kind });
       results.push({ file: f.name, ...r });
     } catch (e) {
       if (!(e instanceof ImportError)) console.error("Upload failed", f.name, e);
