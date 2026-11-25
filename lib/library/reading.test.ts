@@ -4,7 +4,7 @@ import type { Database } from "@/lib/db/client";
 import { books, sections } from "@/lib/db/schema";
 import { testDatabase } from "@/lib/db/test-db";
 import { getBook } from "./paths";
-import { isCfi, readPosition, savePosition, savePositionAt } from "./reading";
+import { isCfi, readPosition, savePosition, savePositionAt, setBookFinished } from "./reading";
 
 let database: Database;
 let ownerId: string;
@@ -117,5 +117,25 @@ describe("reading position", () => {
     expect(await savePositionAt(database.db, ownerId, pdf, "p-page-4-1")).toBe(true);
     // Page 4 of 10 (index 3): the reader shows 40% there (foliate's fixed layout counts to the page's end).
     expect((await getBook(database.db, ownerId, pdf))!.book).toMatchObject({ position: "epubcfi(/6/8)", progress: 0.4 });
+  });
+
+  it("manually marks an owned book finished or unfinished, syncing linked scan/edition progress", async () => {
+    const scanId = (await database.db.insert(books).values({ ownerId, title: "Scan", fileKey: "books/x/scan.pdf", fileType: "pdf", position: "epubcfi(/6/20)", progress: 0.8 }).returning())[0].id;
+    const edId = (await database.db.insert(books).values({ ownerId, title: "Scan", fileKey: "books/x/ed.epub", fileType: "epub", editionOf: scanId, progress: 0.8 }).returning())[0].id;
+    expect(await setBookFinished(database.db, ownerId, scanId, true)).toBe(true);
+    expect((await getBook(database.db, ownerId, scanId))!.book.progress).toBe(1);
+    expect((await getBook(database.db, ownerId, edId))!.book.progress).toBe(1);
+
+    // Unmarking finished restores 0.95 when a reading position exists, so the reader keeps their place.
+    expect(await setBookFinished(database.db, ownerId, scanId, false)).toBe(true);
+    expect((await getBook(database.db, ownerId, scanId))!.book.progress).toBe(0.95);
+    expect((await getBook(database.db, ownerId, edId))!.book.progress).toBe(0.95);
+
+    // Refuses bad ids or another user's book.
+    expect(await setBookFinished(database.db, ownerId, "not-a-uuid", true)).toBe(false);
+    const admin = { id: ownerId, email: "o2@example.com", name: "O2", role: "admin" as const };
+    const { token } = await createInvite(database.db, admin);
+    const other = await acceptInvite(database.db, token, { email: "r2@example.com", name: "R2", password: "long enough pw" });
+    expect(await setBookFinished(database.db, other.id, scanId, true)).toBe(false);
   });
 });

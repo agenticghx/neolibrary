@@ -16,6 +16,7 @@ import { CollectionError, createCollection, deleteCollection, setInCollection } 
 import { getDb } from "@/lib/db";
 import { ModelPickError, setModelPicks } from "@/lib/ai/model-picks";
 import { OpenShelfError, setShelfSwitch } from "@/lib/library/open-shelf";
+import { setBookFinished } from "@/lib/library/reading";
 
 const IS_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -91,6 +92,17 @@ export async function revokeInviteAction(data: FormData) {
   const id = String(data.get("id") ?? "");
   if (IS_UUID.test(id)) await revokeInvite(await getDb(), admin, id);
   revalidatePath("/admin/invites");
+}
+
+/** Manually mark a book finished or unfinished from its book page. */
+export async function setBookFinishedAction(data: FormData) {
+  const user = await requireUser();
+  const bookId = String(data.get("bookId") ?? "");
+  const finished = String(data.get("finished") ?? "") === "1";
+  if (IS_UUID.test(bookId)) {
+    await setBookFinished(await getDb(), user.id, bookId, finished);
+    revalidatePath("/", "layout");
+  }
 }
 
 export async function addPathAction(data: FormData) {

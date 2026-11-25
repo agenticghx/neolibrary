@@ -89,3 +89,40 @@ export async function savePositionAt(db: Db, ownerId: string, bookId: string, se
   }
   return savePosition(db, ownerId, bookId, { cfi: at.cfi, fraction: Math.min(0.999, fraction) }, now);
 }
+
+/**
+ * Manually marks an owned book as finished (progress = 1) or unfinished (0.95 if it has a saved reading
+ * place so the reader does not lose their spot, otherwise 0). Also syncs any linked scan/text edition
+ * so Home, Finished, Spines and Paths all agree. No schema migration needed.
+ */
+export async function setBookFinished(
+  db: Db,
+  ownerId: string,
+  bookId: string,
+  finished: boolean,
+  now = new Date(),
+): Promise<boolean> {
+  if (!UUID.test(bookId)) return false;
+  const [book] = await db
+    .select({ id: books.id, position: books.position, editionOf: books.editionOf })
+    .from(books)
+    .where(isOwnBook(bookId, ownerId));
+  if (!book) return false;
+  const nextProgress = finished ? 1 : book.position ? 0.95 : 0;
+  await db
+    .update(books)
+    .set({ progress: nextProgress, updatedAt: now, ...(finished ? { lastOpenedAt: now } : {}) })
+    .where(isOwnBook(book.id, ownerId));
+  if (book.editionOf) {
+    await db
+      .update(books)
+      .set({ progress: nextProgress, updatedAt: now, ...(finished ? { lastOpenedAt: now } : {}) })
+      .where(isOwnBook(book.editionOf, ownerId));
+  } else {
+    await db
+      .update(books)
+      .set({ progress: nextProgress, updatedAt: now, ...(finished ? { lastOpenedAt: now } : {}) })
+      .where(and(eq(books.editionOf, book.id), eq(books.ownerId, ownerId)));
+  }
+  return true;
+}
