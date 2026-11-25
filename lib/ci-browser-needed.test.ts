@@ -352,18 +352,22 @@ describe("browser groups (one CI machine each)", () => {
     expect(namesOf(projects)).not.toContain("safari"); // WebKit's packages on this machine moved Chromium's screenshots
   });
 
-  it("behavior-2 takes the screenshots first, then shell, stats to offline and the open shelf, after flows and uploads (not reader)", async () => {
+  it("screenshots runs alone on its own machine so visual diffs never block behavior-2", async () => {
+    const shots = applyBrowserGroup(await allProjects(), "screenshots");
+    expect(namesOf(shots)).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
+    expect(applyBrowserGroup(applyBrowserSlices(await allProjects(), ["screenshots"]), "behavior-2")).toEqual([]);
+    expect(applyBrowserGroup(applyBrowserSlices(await allProjects(), ["screenshots"]), "behavior")).toEqual([]);
+  });
+
+  it("behavior-2 runs shell, stats to offline and the open shelf, after flows and uploads (without screenshots or reader)", async () => {
     const projects = applyBrowserGroup(await allProjects(), "behavior-2");
-    expect(namesOf(projects)).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark", "flows", "uploads", "shell", "stats", "own-paths", "agents", "offline", "open-shelf"]);
-    expect(depsOf(projects, "flows")).toEqual(["desktop-light", "desktop-dark", "phone-light", "phone-dark"]); // screenshots before any data
+    expect(namesOf(projects)).toEqual(["setup", "flows", "uploads", "shell", "stats", "own-paths", "agents", "offline", "open-shelf"]);
+    expect(depsOf(projects, "flows")).toEqual(["setup"]);
     expect(depsOf(projects, "shell")).toEqual(["uploads"]);
     expect(depsOf(projects, "stats")).toEqual(["shell"]);
     expect(depsOf(projects, "own-paths")).toEqual(["stats"]);
     expect(depsOf(projects, "offline")).toEqual(["agents"]);
     expect(depsOf(projects, "open-shelf")).toEqual(["stats"]);
-    // A change to styles only: this machine alone, with the screenshots alone.
-    expect(namesOf(applyBrowserGroup(applyBrowserSlices(await allProjects(), ["screenshots"]), "behavior-2"))).toEqual(["setup", "desktop-light", "desktop-dark", "phone-light", "phone-dark"]);
-    expect(applyBrowserGroup(applyBrowserSlices(await allProjects(), ["screenshots"]), "behavior")).toEqual([]);
   });
 
   it("a group whose targets are all off runs nothing, and an unknown or unset group runs everything", async () => {
@@ -374,17 +378,19 @@ describe("browser groups (one CI machine each)", () => {
     expect(namesOf(applyBrowserGroup(all, "no-such-group"))).toEqual(namesOf(all));
   });
 
-  it("starts one machine per group that has work: none for docs, one for a style, four for a PR, five on main", () => {
+  it("starts one machine per group that has work: none for docs, one for a style, five for a PR, six on main", () => {
     expect(browserGroupsToRun([], { skipWebkit: true })).toEqual([]);
-    expect(browserGroupsToRun(["screenshots"], { skipWebkit: true })).toEqual([{ group: "behavior-2", webkit: false }]);
+    expect(browserGroupsToRun(["screenshots"], { skipWebkit: true })).toEqual([{ group: "screenshots", webkit: false }]);
     expect(browserGroupsToRun(["behavior"], { skipWebkit: true }).map((g) => g.group)).toEqual(["behavior", "behavior-2", "branches"]);
     expect(browserGroupsToRun(ALL, { skipWebkit: true })).toEqual([
+      { group: "screenshots", webkit: false },
       { group: "behavior", webkit: false },
       { group: "behavior-2", webkit: false },
       { group: "branches", webkit: false },
       { group: "readalong", webkit: false },
     ]);
     expect(browserGroupsToRun(ALL)).toEqual([
+      { group: "screenshots", webkit: false },
       { group: "behavior", webkit: false },
       { group: "behavior-2", webkit: false },
       { group: "branches", webkit: false },

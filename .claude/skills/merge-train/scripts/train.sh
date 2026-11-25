@@ -93,6 +93,9 @@ done
 
 gh pr ready "$PR" >/dev/null 2>&1 || true
 sleep 5
+if [ "$(gh pr view "$PR" --json state -q .state 2>/dev/null || true)" = "MERGED" ]; then
+  log "MERGED #$PR (already merged by auto-merge @ ${head:0:7}): $(gh pr view "$PR" --json mergeCommit -q .mergeCommit.oid | cut -c1-7)"; exit 0
+fi
 if gh pr merge "$PR" --squash --match-head-commit "$head" > "$LOGS/train-$PR-merge.log" 2>&1; then
   log "MERGED #$PR ($BR @ ${head:0:7}): $(gh pr view "$PR" --json mergeCommit -q .mergeCommit.oid | cut -c1-7)"; exit 0
 fi
