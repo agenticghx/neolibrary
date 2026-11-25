@@ -174,7 +174,7 @@ function Pillar({
       {artUrl ? (
         <header className={styles.banner}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={artUrl} alt="" className={styles.bannerImg} loading="lazy" decoding="async" />
+          <img src={artUrl} alt="" className={styles.bannerImg} decoding="async" />
           {here ? (
             <p className={styles.herePill}>
               <span className={styles.dot} aria-hidden="true" />
@@ -227,6 +227,7 @@ function Pillar({
                 {/* The reading list's N/E badge: compact corner icon on the cover, keeping "N"/"E" as first-child text for tests and screen readers. */}
                 <span
                   className={styles.kindBadge}
+                  aria-hidden="true"
                   title={s.kind === "N" ? "N · Narrative, read first" : "E · Engineering, read second"}
                 >
                   <KindIcon kind={s.kind} />
@@ -376,7 +377,7 @@ export function PathView({ path, notes = new Map(), editHref }: { path: PathData
             {masterArt ? (
               <div className={styles.masterBanner}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={masterArt} alt="" className={styles.bannerImg} loading="lazy" decoding="async" />
+                <img src={masterArt} alt="" className={styles.bannerImg} decoding="async" />
               </div>
             ) : null}
             <div className={styles.masterContent}>
