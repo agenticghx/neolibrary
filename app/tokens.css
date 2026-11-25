@@ -143,6 +143,12 @@
   --path-diptych-bg: light-dark(#faf6ee99, #22323a88);
   --path-tooltip-bg: light-dark(#243239, #e7ddc9);
   --path-tooltip-ink: light-dark(#faf6ee, #1b282f);
+  --path-banner-bg: light-dark(#1a1816, #141210);
+  --path-banner-ink: light-dark(#f4efe6, #f4efe6);
+  --path-banner-ink-muted: light-dark(#f4efe6cc, #f4efe6cc);
+  --path-banner-scrim: linear-gradient(to top, #12100ee8 0%, #12100e78 55%, transparent 100%);
+  --path-pill-bg: light-dark(#14121094, #141210a8);
+  --path-pill-bg-hover: light-dark(#141210d6, #141210e0);
 
   /* Highlight colours in books (drawn translucent over the text) */
   --mark-sage: #5f9e86;
