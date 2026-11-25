@@ -441,12 +441,14 @@
 .noteSvg {
   width: 0.875rem;
   height: 0.875rem;
+  pointer-events: none;
 }
 
 .noteCount {
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
+  pointer-events: none;
 }
 
 .notes[open] .notesSummary {
