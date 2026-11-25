@@ -557,8 +557,8 @@ test.describe("book carousel", () => {
       await carousel.getByRole("button", { name: "Next book" }).click();
       await expect(middle).toContainText("Walden", { timeout: 1_000 });
     }).toPass({ timeout: 10_000 });
-    // The middle book's pill shows; a neighbour's does not.
-    await expect(middle.getByText("Listen only")).toBeVisible();
+    // The middle book's progress whisper shows (Option A: cover speaks for itself with a slim progress bar below).
+    await expect(middle.getByTestId("carousel-pct")).toBeVisible();
     // Without the drift (a test robot that did not ask for it), nothing moves on its own.
     await page.waitForTimeout(1_000);
     await expect(middle).toContainText("Walden");
@@ -604,7 +604,7 @@ test.describe("book carousel", () => {
     const book = carousel.getByRole("listitem").filter({ has: page.getByRole("link", { name: /^Walden/ }) });
     await book.hover();
     await expect.poll(() => book.evaluate((li) => new DOMMatrix(getComputedStyle(li).transform).a)).toBeGreaterThan(1.03);
-    await expect(book.getByText("Listen only")).toBeVisible();
+    await expect(book.getByTestId("carousel-pct")).toBeVisible();
 
     // Clicking the still book opens it (the sample books link to the carousel itself).
     await book.getByRole("link").click();

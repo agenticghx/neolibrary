@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-25 14:01 · Antigravity · BookCarousel Option A: remove clunky text pill, add slim progress bar + hover/center % whisper
+- **Done:** After reviewing three interactive prototype options (A, B, C), Samuel chose Option A: removed the text pill under `BookCarousel` so covers speak for themselves, added a crisp 4px `--accent` progress bar directly beneath each cover (`data-progress` in 5% steps, no inline styles) with a subtle `%` / `Done` / `New` whisper (`carousel-pct`) on hover or center focus, kept full title/author/availability/progress in `title` and `.visually-hidden` for screen readers, and updated the two carousel assertions in `e2e/shell.spec.ts`.
+- **Key paths:** components/home/BookCarousel.tsx; components/home/BookCarousel.module.css; e2e/shell.spec.ts
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/glyphs.test.ts lib/tokens.test.ts
+- **Known issues / blockers:** Updates `design` reference screenshots (which show the sample carousel); CI's isolated `screenshots` group will refresh them in Round 1.
+- **Exact next steps:** 1. Push and deploy once Samuel gives the go-ahead.
+
 ### 2026-11-25 09:07 · Antigravity · Allow marking & uploading research papers without requiring a DOI
 - **Done:** Investigated why uploaded papers (*A Mathematical Theory of Communication*, *Greco1995 Search For Synergy*) did not appear under **Papers**: previously `books.kind` stayed `"book"` on upload and could only become `"paper"` by pasting a DOI or PubMed ID on `/books/[id]`. Added `markAsPaper` in `lib/library/papers.ts` (with unit tests) and `{ markOnly: true }` support in `POST /api/books/[id]/paper`, plus a one-click **Mark as paper** button inside `"Is this a research paper?"` on `/books/[id]` (with optional DOI/PubMed enrichment still available afterward). Added an `"Add uploaded files to Papers (research papers)"` toggle on `/import` (`HomeImport.tsx`, `useBookUpload.ts`, `POST /api/books`, `importBook`) so newly uploaded papers land straight in **Papers**.
 - **Key paths:** lib/library/papers.ts; lib/library/papers.test.ts; app/api/books/[id]/paper/route.ts; app/(app)/books/[id]/PaperDetails.tsx; app/(app)/books/[id]/page.tsx; lib/library/home.ts; lib/library/import.ts; app/api/books/route.ts; components/upload/useBookUpload.ts; components/upload/HomeImport.tsx; components/upload/HomeImport.module.css
