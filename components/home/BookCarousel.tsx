@@ -280,7 +280,10 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
                 <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} paper={b.paper} />
                 <span className="visually-hidden">
                   <span className={styles.itemTitle}>{b.title}</span>
-                  {rest ? `, ${rest}` : null}
+                  {b.paper ? <span>{`, ${b.paper}`}</span> : b.author ? <span>{`, ${b.author}`}</span> : null}
+                  <span>{availabilityLabel(b.available)}</span>
+                  {hasProgress ? <span>{progressLabel(b.progress)}</span> : null}
+                  {marksText(b) ? <span>{`, ${marksText(b)}`}</span> : null}
                 </span>
                 {hasProgress ? (
                   <span className={styles.progressWrap} aria-hidden="true">
