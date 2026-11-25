@@ -112,12 +112,12 @@ export async function setBookFinished(
   await db
     .update(books)
     .set({ progress: nextProgress, updatedAt: now, ...(finished ? { lastOpenedAt: now } : {}) })
-    .where(and(eq(books.id, book.id), eq(books.ownerId, ownerId)));
+    .where(isOwnBook(book.id, ownerId));
   if (book.editionOf) {
     await db
       .update(books)
       .set({ progress: nextProgress, updatedAt: now, ...(finished ? { lastOpenedAt: now } : {}) })
-      .where(and(eq(books.id, book.editionOf), eq(books.ownerId, ownerId)));
+      .where(isOwnBook(book.editionOf, ownerId));
   } else {
     await db
       .update(books)

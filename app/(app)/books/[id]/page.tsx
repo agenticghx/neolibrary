@@ -107,7 +107,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
                 aria-pressed={book.progress >= 1}
                 data-testid="toggle-finished"
               >
-                {book.progress >= 1 ? "Finished ✓" : "Mark as finished"}
+                {book.progress >= 1 ? "Finished" : "Mark as finished"}
               </button>
             </form>
           </div>
