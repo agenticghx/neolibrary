@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-25 17:06 · Antigravity · Hidden Machinery category artwork (Option B Gouache + B1 layout, note icon, N/E corner badges)
+- **Done:** Generated custom mid-century editorial gouache illustrations (Option B, approved via interactive Light/Dark prototypes) for all 34 categories of **Hidden Machinery** (18 main systems, 2 finance, 9 blindspots, 4 suggested, and Master key) and optimized them into `public/paths/hidden-machinery/<slug>.jpg`. Updated `components/PathView.tsx`, `components/PathView.module.css`, and `app/tokens.css` to Samuel's approved **B1** layout: full-bleed `16:10` banner with bottom dark scrim holding the pillar number and title, top-right pencil icon button for pillar notes (with count badge when notes exist and `.visually-hidden` `"Add note"` / `"Notes (n)"` label for screen readers and tests), and compact open-book / gear corner icon badges on `N` and `E` covers (preserving `"N"`/`"E"` first-child text and full screen-reader labels while removing the vertical text row above covers). Added a panoramic `21:6` banner for Master key (*Seeing Like a State*).
+- **Key paths:** public/paths/hidden-machinery/*.jpg; components/PathView.tsx; components/PathView.module.css; app/tokens.css
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts data/paths/hidden-machinery.test.ts
+- **Known issues / blockers:** Updates Hidden Machinery path reference screenshots; CI's isolated `screenshots` group will produce refreshed Linux renderings in Round 1.
+- **Exact next steps:** 1. Watch PR CI, inspect and commit refreshed Linux reference screenshots if needed, and verify automatic merge and Railway deploy.
+
 ### 2026-11-25 14:01 · Antigravity · BookCarousel Option A: remove clunky text pill, add slim progress bar + hover/center % whisper
 - **Done:** After reviewing three interactive prototype options (A, B, C), Samuel chose Option A: removed the text pill under `BookCarousel` so covers speak for themselves, added a crisp 4px `--accent` progress bar directly beneath each cover (`data-progress` in 5% steps, no inline styles) with a subtle `%` / `Done` / `New` whisper (`carousel-pct`) on hover or center focus, kept full title/author/availability/progress in `title` and `.visually-hidden` for screen readers, and updated the two carousel assertions in `e2e/shell.spec.ts`.
 - **Key paths:** components/home/BookCarousel.tsx; components/home/BookCarousel.module.css; e2e/shell.spec.ts
