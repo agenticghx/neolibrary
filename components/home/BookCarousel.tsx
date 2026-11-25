@@ -7,7 +7,10 @@ import { Icon } from "@/components/shell/icons";
 import { availabilityLabel } from "@/lib/library/availability";
 import type { LibraryItem } from "@/lib/library/home";
 import styles from "./BookCarousel.module.css";
-import { marksText, progressLabel } from "./Library";
+import { marksText, progressLabel, spineFoot } from "./Library";
+
+/** Progress in steps of 5% for the CSS (inline styles would bypass the design tokens). */
+const step = (p: number) => (p > 0 ? Math.min(100, Math.max(5, Math.round(Math.min(1, p) * 20) * 5)) : 0);
 
 /** How far a cover may tilt (degrees) and shrink at the strip's edges: the inside of a curved wall. */
 const TILT = 14;
@@ -256,29 +259,39 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
           if (drag.current?.moved) e.preventDefault();
         }}
       >
-        {items.map((b, i) => (
-          <li key={b.id} className={styles.card} data-current={i === current ? "" : undefined} aria-current={i === current ? "true" : undefined}>
-            <Link
-              href={demo ? "#carousel" : `/books/${b.id}`}
-              className={styles.link}
-              draggable={false}
-              onFocus={() => {
-                if (i !== current) go(i);
-              }}
-            >
-              <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} paper={b.paper} />
-              <span className={styles.pill}>
-                <span className={styles.itemTitle}>{b.title}</span>
-                {b.paper ? <span className={styles.author}>{b.paper}</span> : b.author ? <span className={styles.author}>{b.author}</span> : null}
-                <span className={styles.meta}>
-                  <span>{availabilityLabel(b.available)}</span>
-                  {b.available.read || b.available.listen ? <span>{progressLabel(b.progress)}</span> : null}
-                </span>
-                {marksText(b) ? <span className="visually-hidden">{`, ${marksText(b)}`}</span> : null}
-              </span>
-            </Link>
-          </li>
-        ))}
+        {items.map((b, i) => {
+          const pctText = spineFoot(b);
+          const hasProgress = b.available.read || b.available.listen;
+          const summary = [b.title, b.paper || b.author, availabilityLabel(b.available), hasProgress ? progressLabel(b.progress) : "", marksText(b)]
+            .filter(Boolean)
+            .join(", ");
+          return (
+            <li key={b.id} className={styles.card} data-current={i === current ? "" : undefined} aria-current={i === current ? "true" : undefined}>
+              <Link
+                href={demo ? "#carousel" : `/books/${b.id}`}
+                className={styles.link}
+                title={summary}
+                draggable={false}
+                onFocus={() => {
+                  if (i !== current) go(i);
+                }}
+              >
+                <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} paper={b.paper} />
+                <span className="visually-hidden">{summary}</span>
+                {hasProgress ? (
+                  <span className={styles.progressWrap} aria-hidden="true">
+                    <span className={styles.progressTrack}>
+                      <span className={styles.progressFill} data-progress={step(b.progress)} />
+                    </span>
+                    <span className={styles.progressLabel} data-testid="carousel-pct">
+                      {pctText}
+                    </span>
+                  </span>
+                ) : null}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
       <button type="button" className={[styles.arrow, styles.next].join(" ")} aria-label="Next book" disabled={current >= items.length - 1} onClick={() => go(current + 1)}>
         <Icon name="chevron" className={styles.arrowIcon} />
