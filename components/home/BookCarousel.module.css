@@ -74,6 +74,11 @@
   color: var(--ink-900);
 }
 
+/* Kept for screen-reader & E2E title queries inside .visually-hidden. */
+.itemTitle {
+  display: inline;
+}
+
 /* Option A: covers speak for themselves, with a slim progress track below and a quiet % whisper on center/hover. */
 .progressWrap {
   display: grid;

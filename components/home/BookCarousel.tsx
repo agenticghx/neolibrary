@@ -262,9 +262,10 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
         {items.map((b, i) => {
           const pctText = spineFoot(b);
           const hasProgress = b.available.read || b.available.listen;
-          const summary = [b.title, b.paper || b.author, availabilityLabel(b.available), hasProgress ? progressLabel(b.progress) : "", marksText(b)]
+          const rest = [b.paper || b.author, availabilityLabel(b.available), hasProgress ? progressLabel(b.progress) : "", marksText(b)]
             .filter(Boolean)
             .join(", ");
+          const summary = rest ? `${b.title}, ${rest}` : b.title;
           return (
             <li key={b.id} className={styles.card} data-current={i === current ? "" : undefined} aria-current={i === current ? "true" : undefined}>
               <Link
@@ -277,7 +278,10 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
                 }}
               >
                 <Cover title={b.title} available={b.available} caption={false} decorative size="fill" imageUrl={b.coverUrl} marks={{ notes: b.notes, audiobook: b.audiobook, finished: b.progress >= 1 }} paper={b.paper} />
-                <span className="visually-hidden">{summary}</span>
+                <span className="visually-hidden">
+                  <span className={styles.itemTitle}>{b.title}</span>
+                  {rest ? `, ${rest}` : null}
+                </span>
                 {hasProgress ? (
                   <span className={styles.progressWrap} aria-hidden="true">
                     <span className={styles.progressTrack}>
