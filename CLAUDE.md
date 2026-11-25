@@ -95,10 +95,13 @@ engineer.
   Playwright's Linux image on the branch and on main before calling it
   "Mac-only" or "fails on main too" (a Mac failure on main hid a real
   regression on 2026-11-01).
-- Before the first browser run of a change a reader sees: search `e2e/` for
-  every label, text and test id you changed, and fix the tests that name
-  them first (`browser-test-triage`, "Before the first run"). On 2026-11-15
-  four of five runs, 23 minutes, went on tests found one failure at a time.
+- Before the first browser run of a change a reader sees: search the whole `e2e/`
+  directory for every label, text, role selector, and `data-testid` container you
+  touched (including strict-mode `getByRole` checks inside containers), fix affected
+  tests first, and run targeted `npx playwright test e2e/<spec>.spec.ts --ignore-snapshots`
+  locally before pushing (`browser-test-triage`, "Before the first run"). On 2026-11-15
+  four of five runs, 23 minutes, went on tests found one failure at a time; on 2026-11-24
+  a duplicate link inside `stats-suggestions` cost an extra CI round.
 - Model work outside the app (reading scanned pages, building an X-ray,
   comparing models) runs with `claude -p` on Samuel's Claude subscription,
   not on an API key; when the subscription limit is hit, stop and wait for

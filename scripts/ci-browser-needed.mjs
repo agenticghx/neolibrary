@@ -334,6 +334,9 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  * data its targets use (the owner account, Grace, the uploaded books); a group whose
  * targets are all off for this change does not run at all.
  *
+ * - screenshots: the four visual + accessibility projects (desktop/phone × light/dark) on their own
+ *   machine with a fresh database (2026-11-24). Keeping them out of behavior-2 means an expected
+ *   screenshot diff on a UI PR never skips the 84 downstream behavior tests in Round 1.
  * - behavior: the long chain from flows to images, then home. Chromium only. Each of these needs
  *   what the ones before it made (tried on 2026-11-11, one cut at a time): audio and images use
  *   the links between books that the AI tests make, notes use audio the audio tests saved, and
@@ -342,13 +345,13 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  *   (each group run alone from an empty database), and behavior was the slowest machine on every
  *   pull request (568 to 846 s of tests, the others 330 to 518). Annotations went too, then came
  *   back the same day: it needs the book reader opens, and it was the one reason behavior-2 ran reader.
- * - behavior-2: the screenshots (before any test adds data), then, after flows and uploads have
- *   made the account and the books: shell, stats, own-paths, agents, offline, and open-shelf off
- *   stats. Without reader since 2026-11-14 (it was 235 s of tests here only to make data): the
- *   offline test uploads the PDF "Discourse on the Method" itself when it is missing (e2e/discourse.ts). Split from behavior on 2026-11-11 so
- *   that no machine runs more than about eight minutes of tests (one machine took 12.7). Open-shelf once
- *   needed the whole chain (alone after uploads, a visitor's new rewrite was not refused,
- *   2026-11-05); tried again on 2026-11-11 it passes alone after flows and uploads, and here.
+ * - behavior-2: after flows and uploads have made the account and the books: shell, stats, own-paths,
+ *   agents, offline, and open-shelf off stats. Without reader since 2026-11-14 (it was 235 s of tests
+ *   here only to make data): the offline test uploads the PDF "Discourse on the Method" itself when
+ *   it is missing (e2e/discourse.ts). Split from behavior on 2026-11-11 so that no machine runs more
+ *   than about eight minutes of tests (one machine took 12.7). Open-shelf once needed the whole chain
+ *   (alone after uploads, a visitor's new rewrite was not refused, 2026-11-05); tried again on
+ *   2026-11-11 it passes alone after flows and uploads, and here.
  * - branches: the projects that hang off stats but make readers and books of their own;
  *   here they wait on uploads only.
  * - readalong: the audiobook file in Chromium, then whole-book narration, after flows and uploads.
@@ -361,13 +364,17 @@ export function applyBrowserSlices(projects, slices, opts = {}) {
  *   docs/ci-flakes.md. The split stays: the behavior machine is Chromium only.)
  */
 export const BROWSER_GROUPS = {
+  screenshots: {
+    support: [],
+    targets: [...VISUAL],
+  },
   behavior: {
     support: [],
     targets: ["flows", "uploads", "reader", "annotations", "ai", "audio", "notes", "images", "home"],
   },
   "behavior-2": {
     support: ["flows", "uploads"],
-    targets: [...VISUAL, "shell", "stats", "own-paths", "agents", "offline", "open-shelf"],
+    targets: ["shell", "stats", "own-paths", "agents", "offline", "open-shelf"],
   },
   branches: {
     support: ["flows", "uploads"],
