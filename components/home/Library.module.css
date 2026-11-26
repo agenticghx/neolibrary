@@ -144,11 +144,12 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: var(--space-1) var(--space-1);
+  padding: var(--space-2) var(--space-1);
   font-family: var(--font-serif);
   font-size: var(--text-sm);
   line-height: var(--leading-tight);
   text-align: center;
+  text-overflow: ellipsis;
   writing-mode: vertical-rl;
   rotate: 180deg;
   mask-image: var(--spine-title-mask);

@@ -63,8 +63,8 @@ export function LibraryViews({
           </button>
         </div>
       </div>
-      <div hidden={view !== "carousel"}>{carousel}</div>
-      <div hidden={view !== "spines"}>{spines}</div>
+      {view === "carousel" ? <div>{carousel}</div> : null}
+      {view === "spines" ? <div>{spines}</div> : null}
     </>
   );
 }

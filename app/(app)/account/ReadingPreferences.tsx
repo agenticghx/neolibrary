@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ThemePicker } from "@/components/ThemePreference";
 import { STYLE_NAMES, STYLES, VIEWS, type RewrittenView, type Style } from "@/lib/library/levels";
 import type { Preferences } from "@/lib/library/preferences";
 import styles from "./page.module.css";
@@ -63,6 +64,13 @@ export function ReadingPreferences({ initial }: { initial: Preferences }) {
           ))}
         </div>
       </fieldset>
+      <ThemePicker
+        choiceClass={styles.choice}
+        legendClass={styles.choiceLegend}
+        segmentClass={styles.segment}
+        buttonClass={styles.segmentButton}
+        hintClass={styles.cardText}
+      />
       {error ? (
         <p className={styles.status} role="alert">
           {error}

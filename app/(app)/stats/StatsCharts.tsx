@@ -32,8 +32,8 @@ export function weeklyGeometry(weeks: WeekStats[]) {
   const maxWpm = wpms.length ? Math.max(...wpms) : 0;
   const minWpm = wpms.length ? Math.min(...wpms) : 0;
   const spanWpm = Math.max(40, maxWpm - minWpm);
-  const padL = 12;
-  const padR = 12;
+  const padL = 44;
+  const padR = wpms.length ? 40 : 14;
   const padT = 16;
   const plotW = 560 - padL - padR;
   const plotH = 120;
@@ -46,7 +46,7 @@ export function weeklyGeometry(weeks: WeekStats[]) {
     const h = w.activeSeconds > 0 ? Math.max(3, (w.activeSeconds / maxSec) * plotH) : 0;
     const y = padT + plotH - h;
     const wpmY =
-      w.wpm !== null && maxWpm > 0
+      w.wpm !== null && w.wpm > 0 && maxWpm > 0
         ? padT + plotH - ((w.wpm - Math.max(0, minWpm - 20)) / (spanWpm + 40)) * (plotH - 12) - 6
         : null;
     return { week: w, cx, x: cx - barW / 2, y, w: barW, h, wpmY };
@@ -57,7 +57,7 @@ export function weeklyGeometry(weeks: WeekStats[]) {
     .map((b) => `${b.cx.toFixed(1)},${b.wpmY!.toFixed(1)}`)
     .join(" ");
 
-  return { bars, linePoints, maxSec, plotYEnd: padT + plotH, padL, plotW, padT, plotH };
+  return { bars, linePoints, maxSec, maxWpm, minWpm, plotYEnd: padT + plotH, padL, padR, plotW, padT, plotH };
 }
 
 /**
@@ -79,6 +79,25 @@ export function WeeklyRhythmChart({ weeks }: { weeks: WeekStats[] }) {
         <line x1={g.padL} y1={g.padT} x2={g.padL + g.plotW} y2={g.padT} className={own.gridLine} />
         <line x1={g.padL} y1={g.padT + g.plotH / 2} x2={g.padL + g.plotW} y2={g.padT + g.plotH / 2} className={own.gridLine} />
         <line x1={g.padL} y1={g.plotYEnd} x2={g.padL + g.plotW} y2={g.plotYEnd} className={own.baseLine} />
+        <text x={g.padL - 6} y={g.padT + 4} textAnchor="end" className={own.axisLabel}>
+          {shortTime(g.maxSec)}
+        </text>
+        <text x={g.padL - 6} y={g.padT + g.plotH / 2 + 4} textAnchor="end" className={own.axisLabel}>
+          {shortTime(g.maxSec / 2)}
+        </text>
+        <text x={g.padL - 6} y={g.plotYEnd + 4} textAnchor="end" className={own.axisLabel}>
+          0
+        </text>
+        {g.maxWpm > 0 ? (
+          <>
+            <text x={g.padL + g.plotW + 6} y={g.padT + 4} textAnchor="start" className={own.axisLabel}>
+              {g.maxWpm}
+            </text>
+            <text x={g.padL + g.plotW + 6} y={g.plotYEnd + 4} textAnchor="start" className={own.axisLabel}>
+              wpm
+            </text>
+          </>
+        ) : null}
         {g.bars.map((b, i) => (
           <g key={b.week.weekStart}>
             {b.h > 0 ? (
@@ -164,7 +183,7 @@ export function ChapterPaceChart({
   books: { bookId: string; title: string; chapters: ChapterStats[] }[];
   suggestions: Suggestion[];
 }) {
-  const profiles = books.filter((b) => b.chapters.length >= 2);
+  const profiles = books.filter((b) => b.chapters.length >= 2 && b.chapters.some((c) => c.wpm > 0));
   if (!profiles.length) return null;
   const dipKeys = new Set(suggestions.map((s) => `${s.bookId}:${s.chapterKey}`));
   return (

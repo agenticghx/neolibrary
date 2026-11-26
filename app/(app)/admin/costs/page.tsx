@@ -107,13 +107,13 @@ export default async function CostsPage() {
             {report.books.map((b) => (
               <li key={b.bookId} className={own.bookRow}>
                 <Link href={`/books/${b.bookId}`}>{b.title}</Link>
-                <span className={styles.meta}>{split(b.byProvider)}</span>
+                <span className={styles.meta}>{split(b.byProvider) || "$0.00"}</span>
               </li>
             ))}
             {Object.keys(report.others).length ? (
               <li className={own.bookRow}>
                 <span>Other readers&apos; books</span>
-                <span className={styles.meta}>{split(report.others)}</span>
+                <span className={styles.meta}>{split(report.others) || "$0.00"}</span>
               </li>
             ) : null}
           </ul>

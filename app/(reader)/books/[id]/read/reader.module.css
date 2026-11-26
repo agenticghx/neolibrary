@@ -365,7 +365,8 @@
 }
 
 .railWord {
-  display: grid;
+  display: inline;
+  white-space: nowrap;
 }
 
 .rewrittenHead {
@@ -738,10 +739,16 @@
 .progressFill[data-progress="98"] { width: 98%; }
 .progressFill[data-progress="100"] { width: 100%; }
 
-/* Contents opens from the left, next to its button (as in Kindle). */
+/* Contents opens from the left, clear of the left page-turn arrow on desktop (as in Kindle). */
 .panelLeft {
   right: auto;
   left: var(--space-4);
+}
+
+@media (width > 48rem) {
+  .panelLeft {
+    left: var(--space-8);
+  }
 }
 
 .panel {
@@ -1046,6 +1053,7 @@
   color: var(--on-accent);
   font: inherit;
   font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
@@ -1615,8 +1623,10 @@
     padding: var(--space-1) var(--space-2);
   }
 
-  /* The bar is full on a phone held upright: full screen is for wider screens (F still works with a keyboard). */
-  .fullTool {
+  /* The bar is full on a phone held upright: full screen is for wider screens (F still works with a keyboard),
+     and the desktop sidebar toggle is replaced by the bottom Reading tools bar. */
+  .fullTool,
+  .sidebarTool {
     display: none;
   }
 

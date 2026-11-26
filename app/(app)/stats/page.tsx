@@ -41,11 +41,12 @@ const KIND_LABEL = { N: "Story first (N)", E: "Go deeper (E)", master: "Master k
 
 /** Time, words and words per minute cells shared by the group tables. */
 function Numbers({ g, testId }: { g: Pick<GroupStats, "activeSeconds" | "words" | "wpm">; testId?: string }) {
+  const uncounted = g.words === 0 && g.activeSeconds > 0;
   return (
     <>
       <td>{time(g.activeSeconds)}</td>
-      <td>{words(g.words)}</td>
-      <td data-testid={testId}>{g.wpm ?? "–"}</td>
+      <td>{uncounted ? "–" : words(g.words)}</td>
+      <td data-testid={testId}>{uncounted || !g.wpm ? "–" : g.wpm}</td>
     </>
   );
 }
@@ -110,14 +111,16 @@ export default async function StatsPage() {
                     <th scope="row">{weekLabel(w.weekStart)}</th>
                     <td>
                       <span className={own.timeCell}>
-                        <svg className={own.bar} viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
-                          <rect width={(w.activeSeconds / longest) * 100} height="10" rx="1" />
-                        </svg>
-                        {time(w.activeSeconds)}
+                        <span className={own.timeValue}>{time(w.activeSeconds)}</span>
+                        <span className={own.barTrack} aria-hidden="true">
+                          <svg className={own.bar} viewBox="0 0 100 6" preserveAspectRatio="none">
+                            <rect width={(w.activeSeconds / longest) * 100} height="6" rx="3" />
+                          </svg>
+                        </span>
                       </span>
                     </td>
-                    <td>{words(w.words)}</td>
-                    <td>{w.wpm ?? "–"}</td>
+                    <td>{w.words === 0 && w.activeSeconds > 0 ? "–" : words(w.words)}</td>
+                    <td>{w.words === 0 && w.activeSeconds > 0 ? "–" : (w.wpm ?? "–")}</td>
                   </tr>
                 ))}
               </tbody>

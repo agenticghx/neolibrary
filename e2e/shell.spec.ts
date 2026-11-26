@@ -75,6 +75,7 @@ test.describe("desktop sidebar", () => {
       ["Get help", /\/help$/, "How the library works"],
       ["Account", /\/account$/, "Account"],
       ["Invite", /\/admin\/invites$/, "Invite people"],
+      ["Spending", /\/admin\/costs$/, "Spending this month"],
     ] as const) {
       await who.click();
       await aside(page).getByRole("link", { name, exact: true }).click();
@@ -118,7 +119,7 @@ test.describe("desktop sidebar", () => {
       const menu = page.locator(`[id="${await who.getAttribute("aria-controls")}"]`);
       // The email in grey at the top; Account, Reading stats, Your data | Invite | Sign out last.
       await expect(menu.locator("p").first()).toHaveText(ADMIN.email);
-      await expect(menu.getByRole("link")).toHaveText(["Account", "Reading stats", "Your data", "Get help", "Invite"]);
+      await expect(menu.getByRole("link")).toHaveText(["Account", "Reading stats", "Your data", "Get help", "Invite", "Spending"]);
       await expect(menu.getByRole("separator")).toHaveCount(2);
       await expect(menu.getByRole("button", { name: "Sign out" })).toBeVisible();
       // A card above the name, over the bottom of the list, inside the sidebar.
@@ -306,7 +307,7 @@ test.describe("phone", () => {
       await expect(button).toHaveAttribute("aria-expanded", "true");
       const sheet = page.locator(`[id="${await button.getAttribute("aria-controls")}"]`);
       await expect(sheet.locator("p").first()).toHaveText(ADMIN.email);
-      await expect(sheet.getByRole("link")).toHaveText(["Account", "Reading stats", "Your data", "Get help", "Invite"]);
+      await expect(sheet.getByRole("link")).toHaveText(["Account", "Reading stats", "Your data", "Get help", "Invite", "Spending"]);
       await expect(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
       await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
       // A sheet along the bottom of the screen, its rows sized for a thumb, over the tab bar.

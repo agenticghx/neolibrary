@@ -49,21 +49,32 @@
   font-weight: var(--weight-regular);
 }
 
-/* Time read that week, as a bar behind the number (longest week = full width). */
+/* Time read that week, with a clean progress bar below the number (longest week = full width). */
 .timeCell {
-  position: relative;
-  display: block;
+  display: inline-grid;
+  gap: var(--space-1);
+  justify-items: end;
   min-inline-size: 5.5rem;
 }
 
-.bar {
-  position: absolute;
-  inset-block: 15%;
-  inset-inline-start: 0;
+.timeValue {
+  line-height: var(--leading-tight);
+}
+
+.barTrack {
+  display: block;
   inline-size: 100%;
-  block-size: 70%;
+  block-size: 0.3125rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--paper-sunken);
+  overflow: hidden;
+}
+
+.bar {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
   fill: var(--accent);
-  opacity: 0.18;
 }
 
 .compare {
@@ -480,6 +491,10 @@
 }
 
 .paceTitle {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   color: var(--ink-900);
   font-family: var(--font-serif);
   font-size: var(--text-md);

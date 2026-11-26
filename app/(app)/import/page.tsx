@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Form from "next/form";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { AudiobookUpload } from "@/app/(app)/books/[id]/AudiobookUpload";
 import { ImportRoot, ImportZone } from "@/components/upload/HomeImport";
@@ -10,6 +9,7 @@ import { mayNarrateWholeBooks, OWNER_ONLY, runningNarrations } from "@/lib/libra
 import { listImports } from "@/lib/readalong/importer";
 import forms from "@/components/forms.module.css";
 import styles from "./page.module.css";
+import { AudiobookPicker } from "./AudiobookPicker";
 import { WholeBookNarration } from "./WholeBookNarration";
 
 export const metadata: Metadata = { title: "Import" };
@@ -61,24 +61,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         </h2>
         {withFile.length ? (
           // #audio-h: after Choose, the page opens at this section (on a phone it is below the fold).
-          <Form key={chosen?.id ?? ""} action="/import#audio-h" className={styles.choose}>
-            <label htmlFor="audio-book" className={forms.label}>
-              Book
-            </label>
-            <select id="audio-book" name="book" className={`${forms.input} ${styles.select}`} defaultValue={chosen?.id ?? ""} required>
-              <option value="" disabled>
-                Choose one of your books
-              </option>
-              {withFile.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.author ? `${b.title}, by ${b.author}` : b.title}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className={styles.button}>
-              Choose
-            </button>
-          </Form>
+          <AudiobookPicker key={chosen?.id ?? ""} books={withFile} chosenId={chosen?.id ?? ""} />
         ) : (
           // No book yet: the picker is there but greyed out, and says so in its one option (fewer labels, 2026-10-22).
           <div className={styles.choose}>

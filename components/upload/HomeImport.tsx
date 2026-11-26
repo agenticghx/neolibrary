@@ -122,16 +122,16 @@ export function ImportZone() {
             onChange={(e) => e.target.files && void upload(e.target.files)}
           />
         </label>
+        <label className={styles.paperToggle}>
+          <input
+            type="checkbox"
+            checked={kind === "paper"}
+            onChange={(e) => setKind(e.target.checked ? "paper" : "book")}
+            disabled={busy}
+          />
+          <span>Add uploaded files to Papers (research papers)</span>
+        </label>
       </div>
-      <label className={styles.paperToggle}>
-        <input
-          type="checkbox"
-          checked={kind === "paper"}
-          onChange={(e) => setKind(e.target.checked ? "paper" : "book")}
-          disabled={busy}
-        />
-        <span>Add uploaded files to Papers (research papers)</span>
-      </label>
       {/* M30: or a Google Drive link, to a book file or a folder of books, shared as "Anyone with the link". */}
       <form
         className={styles.drive}

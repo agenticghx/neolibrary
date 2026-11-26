@@ -103,6 +103,7 @@ export function AccountMenu({ name, email, admin, placement }: Props) {
           <>
             <hr className={styles.menuRule} />
             {row("/admin/invites", "invite", "Invite")}
+            {row("/admin/costs", "stats", "Spending")}
           </>
         ) : null}
         <hr className={styles.menuRule} />

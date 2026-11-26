@@ -14,6 +14,8 @@ export function ReaderBar(props: {
   author?: string | null;
   /** A visitor goes back to the open shelf, not to a library of their own (M34). */
   visitor?: { backHref: string };
+  /** Optional validated internal return path from ?from=… */
+  backHref?: string;
   panel: ReaderPanel;
   setPanel: (panel: ReaderPanel) => void;
   /** Full screen is offered (not on an iPhone, nor on a narrow screen). */
@@ -28,7 +30,7 @@ export function ReaderBar(props: {
       {/* Left, as in Kindle: leave the book, and the table of contents. */}
       <div className={styles.lead}>
         <Link
-          href={props.visitor?.backHref ?? "/"}
+          href={props.visitor?.backHref ?? props.backHref ?? "/"}
           className={`${styles.tool} ${styles.leadTool}`}
           aria-label={props.visitor ? "Back to the shelf" : "Back to your library"}
           title={props.visitor ? "Back to the shelf" : "Back to your library"}
@@ -90,7 +92,7 @@ export function ReaderBar(props: {
         </button>
         <button
           type="button"
-          className={`${styles.tool} ${styles.leadTool}`}
+          className={`${styles.tool} ${styles.leadTool} ${styles.sidebarTool}`}
           aria-expanded={sidebar}
           aria-label="Sidebar"
           title={

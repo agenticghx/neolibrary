@@ -64,7 +64,7 @@ export function Sidebar({ user, paths, collections }: Props) {
           Search your library
         </label>
         <Icon name="search" className={styles.searchIcon} />
-        <input id="sidebar-search" type="search" name="q" placeholder="Search books and notes" className={styles.searchInput} />
+        <input id="sidebar-search" type="search" name="q" placeholder="Search inside your books" className={styles.searchInput} />
       </Form>
       <nav aria-label="Main" className={styles.nav}>
         <ul className={styles.group}>
@@ -82,7 +82,9 @@ export function Sidebar({ user, paths, collections }: Props) {
           <Item href="/import" icon="import" label="Import" />
         </ul>
         <p className={styles.groupLabel} id="nav-paths">
-          Paths
+          <Link href="/paths" className={styles.groupLabelLink}>
+            Paths
+          </Link>
         </p>
         <ul className={styles.group} aria-labelledby="nav-paths">
           {paths.map((p) => (
