@@ -29,8 +29,8 @@ export function weeklyGeometry(weeks: WeekStats[]) {
   const ordered = [...weeks].sort((a, b) => a.weekStart.localeCompare(b.weekStart));
   const maxSec = Math.max(60, ...ordered.map((w) => w.activeSeconds));
   const wpms = ordered.map((w) => w.wpm).filter((n): n is number => n !== null && n > 0);
-  const maxWpm = wpms.length ? Math.max(...wpms) : 0;
-  const minWpm = wpms.length ? Math.min(...wpms) : 0;
+  const maxWpm = wpms.length ? Math.max(...wpms, 260) : 0;
+  const minWpm = wpms.length ? Math.min(...wpms, 200) : 0;
   const spanWpm = Math.max(40, maxWpm - minWpm);
   const padL = 44;
   const padR = wpms.length ? 40 : 14;
@@ -40,15 +40,14 @@ export function weeklyGeometry(weeks: WeekStats[]) {
   const n = Math.max(1, ordered.length);
   const slot = plotW / n;
   const barW = Math.max(8, Math.min(34, slot * 0.62));
+  const yForWpm = (wpm: number) =>
+    padT + plotH - ((wpm - Math.max(0, minWpm - 20)) / (spanWpm + 40)) * (plotH - 12) - 6;
 
   const bars = ordered.map((w, i) => {
     const cx = padL + slot * i + slot / 2;
     const h = w.activeSeconds > 0 ? Math.max(3, (w.activeSeconds / maxSec) * plotH) : 0;
     const y = padT + plotH - h;
-    const wpmY =
-      w.wpm !== null && w.wpm > 0 && maxWpm > 0
-        ? padT + plotH - ((w.wpm - Math.max(0, minWpm - 20)) / (spanWpm + 40)) * (plotH - 12) - 6
-        : null;
+    const wpmY = w.wpm !== null && w.wpm > 0 && maxWpm > 0 ? yForWpm(w.wpm) : null;
     return { week: w, cx, x: cx - barW / 2, y, w: barW, h, wpmY };
   });
 
@@ -57,7 +56,10 @@ export function weeklyGeometry(weeks: WeekStats[]) {
     .map((b) => `${b.cx.toFixed(1)},${b.wpmY!.toFixed(1)}`)
     .join(" ");
 
-  return { bars, linePoints, maxSec, maxWpm, minWpm, plotYEnd: padT + plotH, padL, padR, plotW, padT, plotH };
+  const benchTop = wpms.length ? yForWpm(260) : null;
+  const benchBottom = wpms.length ? yForWpm(238) : null;
+
+  return { bars, linePoints, maxSec, maxWpm, minWpm, benchTop, benchBottom, plotYEnd: padT + plotH, padL, padR, plotW, padT, plotH };
 }
 
 /**
@@ -98,6 +100,26 @@ export function WeeklyRhythmChart({ weeks }: { weeks: WeekStats[] }) {
             </text>
           </>
         ) : null}
+        {g.benchTop !== null && g.benchBottom !== null ? (
+          <g>
+            <rect
+              x={g.padL}
+              y={g.benchTop}
+              width={g.plotW}
+              height={Math.max(4, g.benchBottom - g.benchTop)}
+              className={own.paceBand}
+            >
+              <title>Adult silent reading average: 238–260 wpm (Brysbaert, 2019)</title>
+            </rect>
+            <line
+              x1={g.padL}
+              y1={(g.benchTop + g.benchBottom) / 2}
+              x2={g.padL + g.plotW}
+              y2={(g.benchTop + g.benchBottom) / 2}
+              className={own.benchLine}
+            />
+          </g>
+        ) : null}
         {g.bars.map((b, i) => (
           <g key={b.week.weekStart}>
             {b.h > 0 ? (
@@ -132,7 +154,8 @@ export function WeeklyRhythmChart({ weeks }: { weeks: WeekStats[] }) {
       </svg>
       <figcaption className={own.chartLegend}>
         <span><i className={own.swatchBar} aria-hidden="true" />Active time</span>
-        {g.linePoints ? <span><i className={own.swatchLine} aria-hidden="true" />Words per minute trend</span> : null}
+        {g.linePoints ? <span><i className={own.swatchLine} aria-hidden="true" />Speed (wpm)</span> : null}
+        {g.benchTop !== null ? <span><i className={own.swatchBench} aria-hidden="true" />Adult avg (238–260 wpm)</span> : null}
       </figcaption>
     </figure>
   );
