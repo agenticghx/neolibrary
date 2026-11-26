@@ -48,7 +48,7 @@ export default async function HelpPage() {
           Window, Private Press, Calfskin, E-ink, or your device&apos;s own) and pages or scrolling. To turn a page, use the arrows at
           its sides, the arrow keys, or swipe sideways with two fingers on a trackpad or one on a touch screen; in pages, scrolling
           down or up turns it too. <strong>Contents</strong> is the chapter list.
-          <strong> Focus</strong> dims everything but the line or paragraph you are on. The footer shows how far you are and, for a
+          <strong> Reading ruler</strong> (in Aa) dims everything but the line or paragraph you are on. The footer shows how far you are and, for a
           scanned book, lets you switch between the scan and its text edition.
         </p>
       </section>

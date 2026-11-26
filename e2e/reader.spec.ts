@@ -2089,7 +2089,7 @@ async function jekyllWithFocus(page: Page, mode: "Off" | "Ruler" | "Paragraph") 
   await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible();
   await page.keyboard.press("ArrowRight");
   await page.getByRole("button", { name: "Reading settings" }).click();
-  const focus = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Focus" });
+  const focus = page.getByRole("region", { name: "Reading settings" }).getByRole("group", { name: "Reading ruler" });
   await focus.getByRole("button", { name: mode, exact: true }).click();
   await expect(focus.getByRole("button", { name: mode, exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
@@ -2330,7 +2330,7 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
   await openFacingPdf(page);
   await page.getByRole("button", { name: "Reading settings" }).click();
   await expect(settings.getByRole("group", { name: "Theme" })).toBeVisible();
-  await expect(settings.getByRole("group", { name: "Focus" })).toHaveCount(0);
+  await expect(settings.getByRole("group", { name: "Reading ruler" })).toHaveCount(0);
   const link = settings.getByRole("button", { name: "Keyboard shortcuts" });
   await link.click();
   await expect(dialog).toBeVisible();
@@ -2406,12 +2406,12 @@ test("Focus is not offered for a PDF; the Keyboard shortcuts dialog opens with ?
   // Reading settings with Focus and the link, for the PR's screenshots.
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Reading settings" }).click();
-  await settings.getByRole("group", { name: "Focus" }).getByRole("button", { name: "Ruler", exact: true }).click();
+  await settings.getByRole("group", { name: "Reading ruler" }).getByRole("button", { name: "Ruler", exact: true }).click();
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {
     for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width: w, height: h });
       await page.emulateMedia({ colorScheme: scheme });
-      await settings.getByRole("group", { name: "Focus" }).scrollIntoViewIfNeeded();
+      await settings.getByRole("group", { name: "Reading ruler" }).scrollIntoViewIfNeeded();
       await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-focus-settings-${name}-${scheme}.png` });
     }
