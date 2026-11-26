@@ -130,23 +130,29 @@ test("the stats page shows your trend by week, by pillar and N vs E, then a cite
   // Both sittings fall in the week of 5 October (the browser's clock above): one row with both books' time.
   // Found by its date, not as the only row: the earlier projects read on the real date, which from
   // Monday 12 October 2026 is a later week with a row of its own (M21).
+  await page.getByText(/^Show weekly table/).click();
   const weeks = page.getByTestId("stats-weeks").locator("tbody tr");
   await expect(weeks.filter({ has: page.getByRole("rowheader", { name: "5 Oct", exact: true }) })).toHaveCount(1);
   await expect(weeks.first()).toHaveText(/^5 Oct/);
   await expect(weeks.first()).toContainText(/[45] min/);
+
+  // Breakdown tabs: By section, then By how to read it.
+  await page.getByRole("tab", { name: /^By section/ }).click();
   const pillar = page.getByTestId("stats-pillars").getByRole("row").filter({ hasText: "Electricity & the grid" });
   await expect(pillar).toContainText("Hidden Machinery");
   await expect(pillar).toContainText(gridWpm);
+  await expect(page.getByTestId("stats-pillars").getByRole("columnheader").first()).toHaveText("Section");
+
+  await page.getByRole("tab", { name: /^By how to read it/ }).click();
   // The Time Machine is on no Path, so the N group is The Grid alone.
   await expect(page.getByTestId("wpm-kind-N")).toHaveText(gridWpm);
   await expect(page.getByTestId("stats-kinds").getByRole("row")).toHaveCount(2); // header + N
-  // Words true for every Path (this page mixes reading lists and your own Paths): sections, Story first, Go deeper.
-  await expect(page.getByRole("heading", { level: 2, name: "By section", exact: true })).toBeVisible();
-  await expect(page.getByTestId("stats-pillars").getByRole("columnheader").first()).toHaveText("Section");
   await expect(page.getByTestId("stats-kinds").getByRole("rowheader")).toHaveText(["Story first (N)"]);
-  await expect(page.getByRole("heading", { level: 2, name: "By how to read it", exact: true })).toBeVisible();
   await expect(page.getByRole("main")).not.toContainText(/pillar|narrative/i);
+
+  // Published average and measurement notes live in the collapsed "How it's measured" popover.
   const compare = page.getByTestId("stats-compare");
+  await compare.locator("summary").click();
   await expect(compare).toContainText("238 words per minute for non-fiction");
   await expect(compare).toContainText("260 for fiction");
   await expect(compare.getByRole("link", { name: "doi:10.1016/j.jml.2019.104047" })).toHaveAttribute("href", "https://doi.org/10.1016/j.jml.2019.104047");
@@ -181,9 +187,9 @@ test("a chapter read much slower than usual gets a simple suggestion", async ({ 
   await page.goto("/stats");
   const box = page.getByTestId("stats-suggestions");
   // (The first test's real sitting adds one more chapter of this book; the usual speed, the middle value, stays 250.)
-  await expect(box.getByRole("listitem").filter({ hasText: "Chapter 4" })).toContainText(
-    "In The Time Machine, your speed drops sharply in Chapter 4: 100 words per minute, against your usual 250 in this book.",
-  );
+  const dipRow = box.getByRole("listitem").filter({ hasText: "Chapter 4" });
+  await expect(dipRow).toContainText("The Time Machine");
+  await expect(dipRow).toContainText("100 vs 250 wpm");
   await expect(box.getByRole("link", { name: "The Time Machine" })).toHaveAttribute("href", `/books/${tm.id}/read`);
   await mkdir("screenshots", { recursive: true });
   for (const [name, w, h] of [["desktop", 1280, 800], ["phone", 390, 844]] as const) {

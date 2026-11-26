@@ -59,7 +59,12 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
 
       <dl className={own.streaks}>
         <div className={own.streak}>
-          <dt>Current streak</dt>
+          <dt className={own.streakLabel}>
+            <svg className={own.kpiIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2c.5 4-3 6-3 10a5 5 0 0 0 10 0c0-3-2-5-3-7-1 2-2 2.5-4 1 1-1.5 1-3 0-4z" />
+            </svg>
+            Current streak
+          </dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-current">
               {days(current)}
@@ -70,7 +75,12 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
           </dd>
         </div>
         <div className={own.streak}>
-          <dt>Longest streak</dt>
+          <dt className={own.streakLabel}>
+            <svg className={own.kpiIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4M6 4h12v6a6 6 0 0 1-12 0V4zM12 16v4M8 20h8" />
+            </svg>
+            Longest streak
+          </dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-longest">
               {days(longest)}
@@ -79,7 +89,12 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
           </dd>
         </div>
         <div className={own.streak}>
-          <dt>Best day</dt>
+          <dt className={own.streakLabel}>
+            <svg className={own.kpiIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Best day
+          </dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-best">
               {best ? shortTime(best.seconds) : "None yet"}
@@ -97,7 +112,13 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
           </dd>
         </div>
         <div className={own.streak}>
-          <dt>Days read</dt>
+          <dt className={own.streakLabel}>
+            <svg className={own.kpiIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            Days read
+          </dt>
           <dd>
             <span className={own.streakValue} data-testid="streak-days">
               {daysRead}
@@ -139,16 +160,15 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
                   {weeks.map((week, w) => {
                     const day = week[row];
                     if (!day) return <td key={`future-${w}`} className={own.future} />;
+                    const dayTitle = `${dayName(day.date)}${day.today ? ", today" : ""}: ${minutesText(day.seconds)}`;
                     return (
                       <td
                         key={day.date}
                         className={`${own.day} ${STEP_CLASS[day.step]}${day.today ? ` ${own.today}` : ""}`}
                         data-step={day.step}
+                        title={dayTitle}
                       >
-                        <span className="visually-hidden">
-                          {dayName(day.date)}
-                          {day.today ? ", today" : ""}: {minutesText(day.seconds)}
-                        </span>
+                        <span className="visually-hidden">{dayTitle}</span>
                       </td>
                     );
                   })}
@@ -161,7 +181,7 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
             <span aria-hidden="true">Less</span>
             <ul className={own.legendList} aria-label="Shades, from less reading to more">
               {LEGEND.map((text, step) => (
-                <li key={text} className={`${own.day} ${STEP_CLASS[step]}`}>
+                <li key={text} className={`${own.day} ${STEP_CLASS[step]}`} title={text}>
                   <span className="visually-hidden">{text}</span>
                 </li>
               ))}
@@ -170,10 +190,6 @@ export function ReadingCalendar({ calendar }: { calendar: Calendar }) {
           </div>
         </div>
       </div>
-      <p className={own.note}>
-        Each square is one day, midnight to midnight UTC; the outlined one is today. The darker the square, the longer you read: 1 to 14
-        minutes, 15 to 29, 30 to 59, or an hour or more. A day counts towards a streak once it has a full minute of reading.
-      </p>
     </section>
   );
 }

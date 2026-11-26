@@ -591,10 +591,14 @@ export async function chapterStatsByBook(db: Db, ownerId: string) {
   }));
 }
 
+const NON_CONTENT_CHAPTER =
+  /\b(about the authors?|acknowledgm?ents?|copyright|colophon|dedication|table of contents|contents|bibliography|references|glossary|index|title page|half title|cover|endnotes|footnotes)\b/i;
+
 /**
  * Simple, honest suggestions: in a book with at least three chapters of
  * enough reading, a chapter read at under 60% of that book's usual (median)
  * chapter speed is named, with the panel that explains background.
+ * Obvious front/back-matter (About the Authors, Index, Copyright, etc.) is excluded.
  */
 export function suggestionsFrom(books: { bookId: string; title: string; chapters: ChapterStats[] }[]): Suggestion[] {
   const list: Suggestion[] = [];
@@ -602,6 +606,7 @@ export function suggestionsFrom(books: { bookId: string; title: string; chapters
     if (b.chapters.length < CHAPTERS_NEEDED) continue;
     const usual = median(b.chapters.map((c) => c.wpm));
     for (const c of b.chapters) {
+      if (NON_CONTENT_CHAPTER.test(c.label)) continue;
       if (c.wpm < usual * SHARP_DROP) list.push({ bookId: b.bookId, title: b.title, chapterKey: c.key, chapter: c.label || "One chapter", chapterWpm: c.wpm, usualWpm: Math.round(usual) });
     }
   }

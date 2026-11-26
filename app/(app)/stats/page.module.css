@@ -358,6 +358,8 @@
 .chartCard {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
+  overflow-x: auto;
   margin: 0;
   padding: var(--space-4);
   border: var(--border-hair) solid var(--panel-edge);
@@ -548,4 +550,263 @@
 .balExtra {
   fill: var(--chart-extra);
   background-color: var(--chart-extra);
+}
+
+/* Option B visual-first /stats layout (Samuel 2026-11-26) */
+.pageHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.headRight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.summaryChip {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-pill);
+  background-color: var(--panel);
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.helpPopover {
+  position: relative;
+}
+
+.helpSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-pill);
+  background-color: var(--paper-raised);
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  list-style: none;
+}
+
+.helpSummary::-webkit-details-marker {
+  display: none;
+}
+
+.helpSummary:hover {
+  color: var(--ink-900);
+}
+
+.helpBody {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  max-width: 34rem;
+  padding: var(--space-4);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-panel);
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+  line-height: var(--leading-read);
+}
+
+.helpBody p {
+  margin: 0;
+}
+
+.helpBody a {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.streakLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.kpiIcon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  color: var(--accent);
+}
+
+.visualGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.visualCol {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+@media (width <= 54rem) {
+  .visualGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.benchLine {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.65;
+}
+
+.swatchBench {
+  display: inline-block;
+  width: var(--space-3);
+  height: var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--chart-band);
+}
+
+.tableToggle {
+  min-width: 0;
+  overflow-x: auto;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+}
+
+.tableToggleSummary {
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-pill);
+  background-color: var(--paper);
+  color: var(--ink-700);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.pill:hover {
+  color: var(--ink-900);
+}
+
+.pillActive {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.pillActive:hover {
+  color: var(--on-accent);
+}
+
+.pillText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12rem;
+}
+
+.pillCount {
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.paceSingleTitle {
+  margin: 0;
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.dipList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dipRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: var(--border-hair) solid var(--rule);
+  font-size: var(--text-xs);
+}
+
+.dipInfo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+.dipBook {
+  color: var(--ink-900);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.dipChapter {
+  color: var(--ink-700);
+}
+
+.dipSpeed {
+  color: var(--chart-dip);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.emptyCompact {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+}
+
+.breakdownHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.stylePanel {
+  display: grid;
+  gap: var(--space-3);
 }
