@@ -71,6 +71,25 @@
   gap: var(--space-3) var(--space-5);
 }
 
+.libraryControls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.filterLink {
+  color: var(--ink-700);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  white-space: nowrap;
+}
+
+.filterLink:hover {
+  color: var(--ink-900);
+}
+
 .sortLabel {
   display: inline-flex;
   align-items: center;

@@ -45,14 +45,20 @@ export function ReaderRail(props: {
         </span>
       </button>
       )}
-      {/* Study (M19 P5): "What do I need to know?", Test yourself, Ask and Explain it back, as tabs. */}
+      {/* Study (M19 P5): Need to know, Test yourself, Ask, Explain it back, Who & what (X-ray), and Genealogy, as tabs. */}
       <button
         type="button"
         className={styles.railTool}
-        aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" || panel === "genealogy"}
+        aria-expanded={panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" || panel === "xray" || panel === "genealogy"}
         aria-label="Study"
-        title="Study: what this chapter takes for granted, questions on it, and your own summary of it"
-        onClick={() => setPanel(panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" || panel === "genealogy" ? "none" : "know")}
+        title="Study: Need to know, Test yourself, Ask, Explain it back, Who & what, and Genealogy"
+        onClick={() =>
+          setPanel(
+            panel === "know" || panel === "questions" || panel === "ask" || panel === "explain" || panel === "xray" || panel === "genealogy"
+              ? "none"
+              : "know",
+          )
+        }
       >
         <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
           <path
@@ -81,26 +87,6 @@ export function ReaderRail(props: {
         </svg>
         <span className={styles.railWord}>Rewritten</span>
       </button>
-      {/* Who & what (M32), with the names on this page at its top: opened when wanted, never over the text
-          (Samuel, 2026-11-08: the "On this page" strip sometimes hid the reading). Not for a visitor (M34),
-          whose Study has no Who & what tab either. */}
-      {props.visitor ? null : (
-      <button
-        type="button"
-        className={styles.railTool}
-        aria-expanded={panel === "xray"}
-        title="Who & what: the names on this page, and everyone the book has named so far"
-        onClick={() => setPanel(panel === "xray" ? "none" : "xray")}
-      >
-        <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
-          <circle cx="5.5" cy="5" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.2" />
-          <path d="M1.5 13.5c.4-2.6 2-4 4-4s3.6 1.4 4 4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          <path d="M10.5 4h4M10.5 7h4M12 10h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-        {/* One short word: "Who & what" wrapped onto two lines on a phone, which made the bar taller and the page shorter. */}
-        <span className={styles.railWord}>Names</span>
-      </button>
-      )}
       {props.visitor ? null : (
       <button
         type="button"

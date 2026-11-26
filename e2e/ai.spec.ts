@@ -1070,7 +1070,8 @@ test("Genealogy opens its three questions and seven views over the page, from wh
 test("names on the page carry a dotted underline, a tap opens the card, and Names in the sidebar lists the names on this page", async ({ page }) => {
   await openAtPhrase(page, "lover of the sane and customary"); // chapter 2, Search for Mr. Hyde
   await expect(page.getByRole("region", { name: "On this page" }), "nothing over the page until asked for").toHaveCount(0);
-  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Names", exact: true }).click();
+  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Study", exact: true }).click();
+  await page.getByRole("tablist", { name: "Study" }).getByRole("tab", { name: "Who & what" }).click();
   const who = page.getByRole("region", { name: "Who & what" });
   const strip = who.getByRole("region", { name: "On this page" });
   await expect(strip).toContainText("Mr. Utterson");
@@ -1083,7 +1084,7 @@ test("names on the page carry a dotted underline, a tap opens the card, and Name
   await card.getByRole("button", { name: "Back to the list" }).click();
   await expect(strip).toBeVisible();
   // The sidebar button closes it again.
-  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Names", exact: true }).click();
+  await page.getByRole("navigation", { name: "Reading tools" }).getByRole("button", { name: "Study", exact: true }).click();
   await expect(who).toHaveCount(0);
   // Underlines on the overlay of the chapter shown (foliate keeps the overlay's SVG beside the page's frame, and
   // hands it out with the frame's document): one per name per paragraph.

@@ -83,7 +83,7 @@ test("the reading ruler goes to the first line of a turned page, and stays on th
   await expect(page.locator("footer").getByText("Search for Mr. Hyde")).toBeVisible();
   const settings = page.getByRole("region", { name: "Reading settings" });
   await page.getByRole("button", { name: "Reading settings" }).click();
-  await settings.getByRole("group", { name: "Focus" }).getByRole("button", { name: "Ruler", exact: true }).click();
+  await settings.getByRole("group", { name: "Reading ruler" }).getByRole("button", { name: "Ruler", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(settings).toBeHidden();
   await page.mouse.move(5, 5); // no mouse on the book: the ruler goes where the page puts it

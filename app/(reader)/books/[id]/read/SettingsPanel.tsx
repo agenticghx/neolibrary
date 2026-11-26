@@ -130,7 +130,7 @@ export function SettingsPanel(props: {
         />
       </fieldset>
       <fieldset className={styles.group}>
-        <legend>Focus</legend>
+        <legend>Reading ruler</legend>
         <Segment
           value={settings.focus}
           options={[["off", "Off"], ["ruler", "Ruler"], ["paragraph", "Paragraph"]]}

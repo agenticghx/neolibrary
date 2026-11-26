@@ -115,7 +115,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <h2 id="library-h" className={styles.sectionTitle}>
                       Your library <span className={styles.count}>{items.length === 1 ? "1 title" : `${items.length} titles`}</span>
                     </h2>
-                    <SortMenu />
+                    <div className={styles.libraryControls}>
+                      <Link href="/library" className={styles.filterLink}>
+                        Filter &amp; collections
+                      </Link>
+                      <SortMenu />
+                    </div>
                   </div>
                 }
                 carousel={<BookCarousel items={items} label="Your library" testId="shelf" />}
