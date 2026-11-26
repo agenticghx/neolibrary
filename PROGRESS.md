@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-26 11:05 · Antigravity · Help page redesign: interactive Reader Map + quick-links footer
+- **Done:** Replaced the 10 stacked prose cards (~494 words) on `/help` with Samuel's chosen combo (Option B interactive Reader Map + Option A quick-links footer): added `app/(app)/help/ReaderMap.tsx` with 6 tappable reader hotspots (`Contents`, `Aa`, `Select any passage`, `Study`, `Focus`, `Listen`) and live one-line callouts, a 4-icon strip (`Import`, `Paths`, `Review & Stats`, `Your data`), a compact Quick links & Owner tools pill bar, and a one-line keyboard shortcuts footer while keeping the `<h1>How the library works</h1>` heading.
+- **Key paths:** app/(app)/help/ReaderMap.tsx; app/(app)/help/page.tsx; app/(app)/help/page.module.css
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts
+- **Known issues / blockers:** Updates `help` Linux reference screenshots; CI will produce refreshed screenshots in Round 1.
+- **Exact next steps:** 1. Watch PR CI, refresh the 4 `help` Linux screenshots, confirm Auto-merge and Railway deploy, and verify `/api/health`.
+
 ### 2026-11-26 07:59 · Antigravity · Reading stats Option B visual-first redesign
 - **Done:** Redesigned `/stats` per Samuel's approved Option B (Visual-First Dashboard) and request to hide `'For comparison'`: collapsed the 71-word intro paragraph and 107-word `'For comparison'` academic aside into a compact `? How it's measured` popover in the header alongside a total-time/avg-wpm summary pill; added inline SVG icons (`flame`, `trophy`, `bolt`, `calendar`) and native day tooltips to `ReadingCalendar.tsx` while removing its 51-word footer note; added a `238–260 wpm` adult average benchmark band to `WeeklyRhythmChart` and placed the weekly table behind a collapsible disclosure; replaced verbose Suggestion bullets and flat 2-chapter sparklines with interactive `StatsPaceDips` (book-selector pills + sparkline + scannable dip rows) and filtered front/back-matter chapters (e.g. `About the Authors`, `Index`, `Copyright`) in `suggestionsFrom`; unified `By book`, `By section`, and `By how to read it` into one tabbed `StatsBreakdown` card (omitting single-segment `100%` balance bars); updated `e2e/stats.spec.ts`.
 - **Key paths:** app/(app)/stats/page.tsx; app/(app)/stats/page.module.css; app/(app)/stats/ReadingCalendar.tsx; app/(app)/stats/StatsCharts.tsx; app/(app)/stats/StatsPaceDips.tsx; app/(app)/stats/StatsBreakdown.tsx; lib/library/reading-stats.ts; e2e/stats.spec.ts
