@@ -13,7 +13,7 @@
   display: flex;
   gap: var(--space-5);
   margin: 0;
-  padding: var(--space-4) var(--space-8) var(--space-6) var(--space-2);
+  padding: var(--space-4) calc(50% - var(--carousel-card) / 2) var(--space-6) var(--space-2);
   overflow-x: auto;
   list-style: none;
   cursor: grab;
