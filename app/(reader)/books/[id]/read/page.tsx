@@ -26,7 +26,7 @@ export default async function ReadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ at?: string; listen?: string; page?: string; view?: string; genealogy?: string }>;
+  searchParams: Promise<{ at?: string; listen?: string; page?: string; view?: string; genealogy?: string; from?: string }>;
 }) {
   const user = await requireUser();
   const db = await getDb();
@@ -80,6 +80,7 @@ export default async function ReadPage({
   ]);
   const fileUrl = signFileUrl(secret, book.fileKey!);
   const citations = rawCitations ? forReader(rawCitations) : null;
+  const backHref = sp.from && /^\/[a-zA-Z0-9/_-]*$/.test(sp.from) ? sp.from : undefined;
   return (
     <Reader
       readerId={user.id}
@@ -100,6 +101,7 @@ export default async function ReadPage({
       ownKeys={user.role !== "admin"}
       citations={citations}
       figures={figures}
+      backHref={backHref}
     />
   );
 }

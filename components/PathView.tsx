@@ -313,6 +313,18 @@ export function PathView({ path, notes = new Map(), editHref }: { path: PathData
             : `${numbered.length} ${numbered.length === 1 ? "section" : "sections"} · `}
           {path.available} available, {path.notYet} not available yet
         </p>
+        {readingList ? (
+          <p className={styles.kindLegend}>
+            <span className={styles.kindLegendItem}>
+              <KindIcon kind="N" />
+              Narrative (N), read first
+            </span>
+            <span className={styles.kindLegendItem}>
+              <KindIcon kind="E" />
+              Engineering (E), read second
+            </span>
+          </p>
+        ) : null}
         {path.description ? <p className={styles.description}>{path.description}</p> : null}
         <TargetNotes targetType="path" targetId={path.id} label={`Note on ${path.title}`} notes={notes.get(path.id) ?? []} />
         {numbered.length ? (

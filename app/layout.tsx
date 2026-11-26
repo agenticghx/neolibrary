@@ -5,6 +5,7 @@ import "@fontsource-variable/source-sans-3/wght.css";
 import "./tokens.css";
 import "./globals.css";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { ThemeSync } from "@/components/ThemePreference";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {/* Read aloud goes on from page to page (M14 step 6a); it plays nothing until a reader opens Listen. */}
+        <ThemeSync />
         <PlayerProvider>{children}</PlayerProvider>
         <ServiceWorker />
       </body>

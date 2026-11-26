@@ -35,11 +35,20 @@ export const dynamic = "force-dynamic";
 /** A reading list's own words for its kinds of title (your own Paths use KIND_WORDS: Story first, Go deeper, Any order). */
 const LIST_KIND = { N: "narrative, read first", E: "engineering & economics, read second", extra: "extra", master: "master key, read last" };
 
-export default async function BookPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BookPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const user = await requireUser();
   const db = await getDb();
   const found = await getBook(db, user.id, (await params).id);
   if (!found) notFound();
+  const sp = await searchParams;
+  const backHref = sp.from && /^\/[a-zA-Z0-9/_-]*$/.test(sp.from) ? sp.from : "/library";
+  const backLabel = backHref.startsWith("/paths/") ? "Back to path" : "Library";
   // M25: a text edition has no page of its own; its scan's page is the book's page.
   if (found.book.editionOf) redirect(`/books/${found.book.editionOf}`);
   const { book, available, places } = found;
@@ -59,6 +68,8 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
     coverSigner(),
   ]);
   const count = (k: string) => marks.filter((a) => a.kind === k).length;
+  const pinnedCount = marks.filter((a) => a.picture).length;
+  const voiceCount = count("voice");
   // The cover's N or E letter comes from a reading list only (your own Paths say the words instead).
   const shown = places.find((p) => isReadingList(p.pathSlug)) ?? places[0];
   // M41 R3c: a paper shared with this reader says by whom; the owner's paper says whether, and with how many, it is shared.
@@ -72,11 +83,11 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
 
   return (
     <main className={styles.main}>
-      <Link href="/library" className={styles.back}>
+      <Link href={backHref} className={styles.back}>
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className={styles.backIcon}>
           <path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
-        Library
+        {backLabel}
       </Link>
       <div className={styles.layout}>
         <Cover
@@ -220,7 +231,7 @@ export default async function BookPage({ params }: { params: Promise<{ id: strin
               </h2>
               <p className={styles.notesSummary}>
                 {marks.length
-                  ? `${count("highlight")} highlights · ${count("note")} notes on the book · ${count("bookmark")} bookmarks`
+                  ? `${count("highlight")} highlights · ${count("note")} notes on the book · ${count("bookmark")} bookmarks${pinnedCount ? ` · ${pinnedCount} pinned ${pinnedCount === 1 ? "picture" : "pictures"}` : ""}${voiceCount ? ` · ${voiceCount} voice ${voiceCount === 1 ? "note" : "notes"}` : ""}`
                   : "Nothing yet. Highlights and notes you make while reading appear here."}
               </p>
               {marks.length ? <NotesExport bookId={book.id} title={book.title} /> : null}

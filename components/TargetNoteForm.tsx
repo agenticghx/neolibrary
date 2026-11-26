@@ -57,9 +57,22 @@ export function TargetNoteForm({ targetType, targetId, label }: { targetType: "p
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
-      <button type="submit" className={styles.noteSave} disabled={saving}>
-        Save note
-      </button>
+      <div className={styles.noteActions}>
+        <button type="submit" className={styles.noteSave} disabled={saving}>
+          Save note
+        </button>
+        <button
+          type="button"
+          className={styles.noteCancel}
+          onClick={(e) => {
+            setBody("");
+            setFailed(false);
+            e.currentTarget.closest("details")?.removeAttribute("open");
+          }}
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

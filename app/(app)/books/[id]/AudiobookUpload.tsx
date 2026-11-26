@@ -190,8 +190,8 @@ export function AudiobookUpload({ bookId, imports, headingLevel = 2 }: { bookId:
         </div>
       ) : (
         <p className={styles.notesSummary}>
-          Add an audiobook of this book to read along with it: each word lights up as it is spoken. Choose the read-along folder made on your laptop
-          with the readalong-audio skill (it holds the audio, the scripts and the word timings). Then press Listen in the book to play it.
+          Add an audiobook of this book to read along with it: each word lights up as it is spoken. Choose the read-along folder prepared on your laptop
+          (with the audio, scripts and word timings). Then press Listen in the book to play it.
         </p>
       )}
 

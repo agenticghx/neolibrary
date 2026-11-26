@@ -110,6 +110,8 @@ export function Reader(props: {
    * listening, focus, search, offline) are not offered. `backHref` is the book's page on the open shelf.
    */
   visitor?: { backHref: string };
+  /** Optional validated internal return path (e.g. from ?from=/books/... or ?from=/paths/...). */
+  backHref?: string;
   /** M34 S4: this reader pays for AI and voices with their own keys (anyone but the owner): the settings offer them. */
   ownKeys?: boolean;
   /** M41 R5: a paper's citations and reference list (lib/library/citations.ts), for Aa > Citations; null for a book without. */
@@ -1069,10 +1071,14 @@ export function Reader(props: {
   useEffect(() => {
     const el = root.current;
     if (!sidebar || !el) return;
+    let frame = 0;
     const measure = () => {
-      const top = rail.current?.getBoundingClientRect().top;
-      if (top === undefined) el.style.removeProperty("--below-rail");
-      else el.style.setProperty("--below-rail", `${Math.max(0, window.innerHeight - top)}px`);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const top = rail.current?.getBoundingClientRect().top;
+        if (top === undefined) el.style.removeProperty("--below-rail");
+        else el.style.setProperty("--below-rail", `${Math.max(0, window.innerHeight - top)}px`);
+      });
     };
     measure();
     const sizes = new ResizeObserver(measure);
@@ -1080,6 +1086,7 @@ export function Reader(props: {
     if (rail.current) sizes.observe(rail.current);
     window.addEventListener("resize", measure);
     return () => {
+      cancelAnimationFrame(frame);
       sizes.disconnect();
       window.removeEventListener("resize", measure);
       el.style.removeProperty("--below-rail");
@@ -1096,11 +1103,15 @@ export function Reader(props: {
     };
     document.addEventListener("pointerdown", outside, true);
     const bar = selectionBar.current;
+    let frame = 0;
     const lift = () => {
-      // The player draws the Read aloud bar into its slot a moment after the slot appears.
-      const top = showsBar ? listenSlot.current?.firstElementChild?.getBoundingClientRect().top : undefined;
-      if (top === undefined) bar?.style.removeProperty("--above-listen");
-      else bar?.style.setProperty("--above-listen", `${Math.max(0, window.innerHeight - top)}px`);
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        // The player draws the Read aloud bar into its slot a moment after the slot appears.
+        const top = showsBar ? listenSlot.current?.firstElementChild?.getBoundingClientRect().top : undefined;
+        if (top === undefined) bar?.style.removeProperty("--above-listen");
+        else bar?.style.setProperty("--above-listen", `${Math.max(0, window.innerHeight - top)}px`);
+      });
     };
     lift();
     // The Read aloud bar is a row of the reader's grid: it appearing, or wrapping on a phone, resizes the book's box.
@@ -1108,6 +1119,7 @@ export function Reader(props: {
     if (host.current) sizes.observe(host.current);
     window.addEventListener("resize", lift);
     return () => {
+      cancelAnimationFrame(frame);
       document.removeEventListener("pointerdown", outside, true);
       sizes.disconnect();
       window.removeEventListener("resize", lift);
@@ -1202,7 +1214,7 @@ export function Reader(props: {
       {focusSession ? (
         <FocusStrip session={focusSession} onLeave={() => setFocusLeaving(true)} onStay={() => focusWait("DELETE")} />
       ) : (
-      <ReaderBar title={props.title} author={props.author} visitor={props.visitor} panel={panel} setPanel={setPanel} canFull={canFull} full={full} toggleFull={toggleFull} sidebar={sidebar} />
+      <ReaderBar title={props.title} author={props.author} visitor={props.visitor} backHref={props.backHref} panel={panel} setPanel={setPanel} canFull={canFull} full={full} toggleFull={toggleFull} sidebar={sidebar} />
       )}
 
       {/* M28 S3: a row of its own between the bar and the book, so the strip never covers the page's first lines. */}

@@ -11,6 +11,20 @@ import { PictureView } from "./PictureCard";
 import { STICKERS } from "@/lib/library/stickers";
 import styles from "./reader.module.css";
 
+/** Extracts a 1-based page/section number from a foliate-js epubcfi(/6/<2n>!) when available. */
+function bookmarkPlace(cfi: string | null | undefined): string | null {
+  if (!cfi) return null;
+  const m = cfi.match(/^epubcfi\(\/6\/(\d+)/);
+  if (!m) return null;
+  const n = Math.floor(Number(m[1]) / 2);
+  return n > 0 ? `p. ${n}` : null;
+}
+
+/** Inserts a missing space when PDF text extraction glues a common lowercase word onto a capitalised word (e.g. "theNational"). */
+function cleanQuote(text: string): string {
+  return text.replace(/\b(the|and|for|from|with|into|over|that|this|of|in|to|at|by|on|as|or|an|a)([A-Z][a-z]{2,})/g, "$1 $2");
+}
+
 /** Everything you marked in this book, in reading order. */
 export function NotesPanel({
   bookId,
@@ -149,7 +163,10 @@ export function NotesPanel({
                   </span>
                 ) : null}
                 {a.kind === "bookmark"
-                  ? "Bookmark"
+                  ? (() => {
+                      const place = bookmarkPlace(a.cfi);
+                      return place ? `Bookmark · ${place}` : "Bookmark";
+                    })()
                   : a.sticker
                     ? `Sticker · ${STICKERS[a.sticker].label}`
                     : a.drawing
@@ -179,7 +196,7 @@ export function NotesPanel({
                   Added by agent · {a.agent}
                 </p>
               ) : null}
-              {a.quote.exact ? <blockquote className={styles.noteQuote}>{a.quote.exact}</blockquote> : null}
+              {a.quote.exact ? <blockquote className={styles.noteQuote}>{cleanQuote(a.quote.exact)}</blockquote> : null}
               {a.drawing ? <DrawingPreview strokes={a.drawing.strokes} /> : null}
               {a.picture ? <PictureView picture={a.picture} url={a.pictureUrl} /> : null}
               {a.voice ? (

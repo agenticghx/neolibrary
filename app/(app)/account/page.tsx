@@ -56,7 +56,22 @@ export default async function AccountPage() {
       ) : null}
       <ReadingPreferences initial={preferences} />
       {/* M34 S4: the owner's keys pay only for the owner; everyone else brings their own, kept in their browser. */}
-      {user.role === "admin" ? null : (
+      {user.role === "admin" ? (
+        <section className={styles.card} aria-labelledby="owner-tools">
+          <h2 id="owner-tools" className={styles.cardTitle}>
+            Owner tools
+          </h2>
+          <p className={styles.cardText}>Manage invited readers and track monthly AI and voice spending against your caps.</p>
+          <div className={styles.segment}>
+            <Link className={styles.cardLink} href="/admin/costs">
+              Spending this month
+            </Link>
+            <Link className={styles.cardLink} href="/admin/invites">
+              Invite people
+            </Link>
+          </div>
+        </section>
+      ) : (
         <section className={styles.card} aria-label="Your own keys">
           <OwnKeysSetting />
         </section>

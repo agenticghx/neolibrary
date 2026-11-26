@@ -134,6 +134,17 @@
   text-transform: uppercase;
 }
 
+.groupLabelLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.groupLabelLink:hover {
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
 .group {
   display: grid;
   gap: var(--space-0);
@@ -270,9 +281,8 @@
   padding: var(--space-1);
   border: var(--border-hair) solid var(--panel-edge);
   border-radius: var(--radius-panel);
-  background-color: var(--panel);
+  background-color: var(--paper-raised);
   box-shadow: var(--shadow-panel);
-  backdrop-filter: blur(var(--blur-glass));
 }
 
 /* The menu's parts, in both places: the email in grey, whole rows with an icon, thin lines between groups. */

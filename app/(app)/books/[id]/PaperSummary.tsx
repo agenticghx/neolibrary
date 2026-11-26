@@ -62,6 +62,7 @@ export function PaperSummary({ bookId }: { bookId: string }) {
   }
 
   const latest = data?.versions.at(-1);
+  if (!data && !error) return null;
   return (
     <section className={styles.notes} aria-labelledby="summary-card" data-testid="paper-summary">
       <h2 id="summary-card" className={styles.collectionsTitle}>

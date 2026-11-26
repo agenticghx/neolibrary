@@ -32,7 +32,7 @@ export default async function HelpPage() {
           <strong>Home</strong> shows what you are reading and the paths you are on; <strong>Library</strong> shows every title, with a
           search box above for words in any book or note. Add a book or a research paper on the <Link href="/import">Import</Link> page:
           an EPUB, a PDF (scanned or born digital), a Markdown file, or a Google Drive link. Only files you own, without copy
-          protection. A research paper can be matched by its DOI or arXiv identifier for a plain-English summary, clickable citations,
+          protection. Tick <strong>Add uploaded files to Papers</strong> on Import (or open a title&apos;s page and match it by its DOI or PubMed ID) for a plain-English summary, clickable citations,
           equations explained on tap, and figures redrawn cleanly. A title that is on a path but not yet on your shelf waits as a
           placeholder until its file arrives.
         </p>
@@ -91,10 +91,10 @@ export default async function HelpPage() {
           words and your own never look like that.
         </p>
         <p className={styles.cardText}>
-          <strong>Your own keys.</strong> Answers already saved for a passage are free to read. A new answer, or an AI voice, is
-          paid with your own key: an Anthropic key for AI help, an ElevenLabs key for voices. Add them in Reading settings (Aa) or
-          on the <Link href="/account">Account</Link> page. They stay in this browser only and are never saved on the server.
-          The library&apos;s owner uses the library&apos;s own keys.
+          <strong>Your own keys.</strong> Answers already saved for a passage are free to read. Invited readers pay for new AI answers
+          or AI voices with their own Anthropic or ElevenLabs keys, added in Reading settings (Aa) or on the{" "}
+          <Link href="/account">Account</Link> page (kept in this browser only, never saved on the server). The library&apos;s owner uses
+          the library&apos;s server keys instead, tracked on <Link href="/admin/costs">Spending</Link>.
         </p>
       </section>
 

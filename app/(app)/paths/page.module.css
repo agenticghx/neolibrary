@@ -36,6 +36,7 @@
 }
 
 .item {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -55,6 +56,13 @@
   font-size: var(--text-xl);
   text-decoration-color: var(--accent);
   overflow-wrap: anywhere; /* a Path named with one word wider than the card wraps inside it, not past the screen */
+}
+
+/* Stretched link: the whole path card is clickable while the link's accessible name stays the path title. */
+.itemTitle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .itemMeta {
