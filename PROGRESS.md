@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-26 12:50 · Antigravity · Reader footer redesign: Option 1 Hairline Edge Progress
+- **Done:** Redesigned `ReaderFoot.tsx` and `reader.module.css` to Samuel's chosen **Option 1 (Hairline Edge Progress)**: replaced the center progress bar and top border with a seamless 2px progress line along the top edge of the footer, turned the `Listen` pill box into a borderless circular speaker icon (`aria-label="Listen"`), and condensed cross-book links into a quiet link-icon + count pill (preserving the full accessible label for screen readers and tests).
+- **Key paths:** app/(reader)/books/[id]/read/ReaderFoot.tsx; app/(reader)/books/[id]/read/reader.module.css
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts
+- **Known issues / blockers:** None.
+- **Exact next steps:** 1. Watch PR CI, confirm Auto-merge and Railway deploy, and verify `/api/health`.
+
 ### 2026-11-26 11:05 · Antigravity · Help page redesign: interactive Reader Map + quick-links footer
 - **Done:** Replaced the 10 stacked prose cards (~494 words) on `/help` with Samuel's chosen combo (Option B interactive Reader Map + Option A quick-links footer): added `app/(app)/help/ReaderMap.tsx` with 6 tappable reader hotspots (`Contents`, `Aa`, `Select any passage`, `Study`, `Focus`, `Listen`) and live one-line callouts, a 4-icon strip (`Import`, `Paths`, `Review & Stats`, `Your data`), a compact Quick links & Owner tools pill bar, and a one-line keyboard shortcuts footer while keeping the `<h1>How the library works</h1>` heading.
 - **Key paths:** app/(app)/help/ReaderMap.tsx; app/(app)/help/page.tsx; app/(app)/help/page.module.css
