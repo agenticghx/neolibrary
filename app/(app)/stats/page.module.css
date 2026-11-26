@@ -358,6 +358,8 @@
 .chartCard {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
+  overflow-x: auto;
   margin: 0;
   padding: var(--space-4);
   border: var(--border-hair) solid var(--panel-edge);
@@ -676,6 +678,8 @@
 }
 
 .tableToggle {
+  min-width: 0;
+  overflow-x: auto;
   padding: var(--space-2) var(--space-3);
   border: var(--border-hair) solid var(--panel-edge);
   border-radius: var(--radius-panel);
