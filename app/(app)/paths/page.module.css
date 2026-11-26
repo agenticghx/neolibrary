@@ -36,22 +36,18 @@
 }
 
 .item {
-  border: var(--border-hair) solid var(--panel-edge);
-  border-radius: var(--radius-panel);
-  background-color: var(--panel); /* a card (M24, Samuel's pick A) */
-  backdrop-filter: blur(var(--blur-glass));
-  box-shadow: var(--shadow-panel);
-}
-
-.itemLink {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
   padding: var(--space-4) var(--space-5);
-  color: inherit;
-  text-decoration: none;
+  border: var(--border-hair) solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel); /* a card (M24, Samuel's pick A) */
+  backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--shadow-panel);
 }
 
 .itemTitle {
@@ -62,9 +58,11 @@
   overflow-wrap: anywhere; /* a Path named with one word wider than the card wraps inside it, not past the screen */
 }
 
-.itemLink:hover .itemTitle {
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
+/* Stretched link: the whole path card is clickable while the link's accessible name stays the path title. */
+.itemTitle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .itemMeta {

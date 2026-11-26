@@ -33,12 +33,12 @@ export default async function PathsPage() {
         <ul className={styles.list}>
           {list.map((p) => (
             <li key={p.id} className={styles.item}>
-              <Link href={`/paths/${p.slug}`} className={styles.itemLink}>
-                <span className={styles.itemTitle}>{p.title}</span>
-                <span className={styles.itemMeta}>
-                  {p.total ? `${p.started} of ${p.total} ${partsWord(p.readingList, p.total)} started` : "No sections yet"}
-                </span>
+              <Link href={`/paths/${p.slug}`} className={styles.itemTitle}>
+                {p.title}
               </Link>
+              <span className={styles.itemMeta}>
+                {p.total ? `${p.started} of ${p.total} ${partsWord(p.readingList, p.total)} started` : "No sections yet"}
+              </span>
             </li>
           ))}
         </ul>
