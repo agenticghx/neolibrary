@@ -1493,10 +1493,10 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
       const seen = await tintSeen(page);
       expect(seen.lit, `share of "opens" tinted: ${seen.lit.toFixed(2)} (${name} ${scheme}; ${seen.seen})`).toBeGreaterThan(0.25);
       expect(seen.after, `share of the box after it tinted: ${seen.after.toFixed(2)} (${name} ${scheme}; ${seen.seen})`).toBeLessThan(0.05);
+      await page.waitForTimeout(300);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).exclude("foliate-view").analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      await page.waitForTimeout(300);
       await page.screenshot({ path: `screenshots/reader-pdf-audiobook-${name}-${scheme}${engine()}.png` });
     }
   }

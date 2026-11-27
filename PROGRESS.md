@@ -198,6 +198,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-27 11:36 · Antigravity · Fix WebKit axe-core mid-transition race in readalong E2E
+- **Done:** Moved `await page.waitForTimeout(300)` before `AxeBuilder` in `e2e/readalong.spec.ts:1496` (matching the other theme-switch checks) so WebKit finishes its light/dark CSS color transition before axe-core checks color contrast.
+- **Key paths:** e2e/readalong.spec.ts; PROGRESS.md
+- **Commands that worked:** npm run lint && npm run typecheck
+- **Known issues / blockers:** None.
+- **Exact next steps:** 1. Merge PR, watch `main` CI + Railway deploy, and verify `/api/health`.
+
 ### 2026-11-27 10:39 · Antigravity · Listen-by-default Home Continue + Shelf/Path label cleanup
 - **Done:** Recorded Samuel's rule in `## Decisions` (Listen is default for all books and papers via natural local narration, with ElevenLabs and uploaded audiobooks kept as opt-in choices) and implemented his approved Home & Shelf cleanup: replaced Home `ContinueCard`'s split `Read from here` / `Listen from here` buttons with a single `Continue` primary button plus a compact icon-only headphones button (`aria-label="Listen from here"`, `title="Listen from here"`); removed redundant `"Read and listen"` / `"Read only"` labels from `LibraryGrid`, `BookCarousel`, `Cover`, `PathView`, and Path edit `TitleList` while keeping `"Not available yet"` for placeholder titles without files; updated `components/Cover.test.tsx` and E2E assertions in `e2e/home.spec.ts`, `e2e/reader.spec.ts`, `e2e/readalong.spec.ts`, and `e2e/uploads.spec.ts`.
 - **Key paths:** components/home/ContinueCard.tsx; components/home/ListenHere.tsx; components/home/Home.module.css; components/home/Library.tsx; components/home/BookCarousel.tsx; components/Cover.tsx; components/Cover.test.tsx; components/PathView.tsx; app/(app)/paths/[slug]/edit/page.tsx; app/(app)/paths/[slug]/edit/TitleList.tsx; e2e/home.spec.ts; e2e/reader.spec.ts; e2e/readalong.spec.ts; e2e/uploads.spec.ts; PROGRESS.md
