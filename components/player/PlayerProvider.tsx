@@ -17,13 +17,24 @@ export type ListenView = {
   disabled: boolean;
   /** A made voice stopped to ask before paying for the next paragraph: Play reads "Keep reading". */
   asking: boolean;
+  /** An error or end-of-book message that should be shown visibly on the dock. */
+  hasError: boolean;
+  /** Whether back/forward 15 s skip is ready. */
+  canSkip: boolean;
+  /** Whether jumping to the previous/next paragraph is available. */
+  canPrev: boolean;
+  canNext: boolean;
   voices: { id: string; name: string }[];
   voice: string;
   speed: number;
-  /** The line under the buttons. */
+  /** The status line (shown visibly for prompts/errors; kept accessible for routine states). */
   note: string;
   /** Play, or Pause while playing. Called inside the click: Safari starts audio only from a tap or click. */
   toggle: () => void;
+  back: () => void;
+  forward: () => void;
+  prevParagraph: () => void;
+  nextParagraph: () => void;
   changeVoice: (voice: string) => void;
   setSpeed: (speed: number) => void;
 };
@@ -57,6 +68,8 @@ export type Player = {
   attach: (page: PlayerPage, bookId: string, startCfi: string, fresh?: boolean) => () => void;
   /** Stop reading aloud: the audio goes, as when the bar was closed. */
   stop: () => void;
+  /** Jump the open Listen session to a clicked place in the same book. */
+  jumpTo: (bookId: string, cfi: string) => void;
   /** Where the app's pages put the mini-player (M14 step 6b); returns the call that takes it away. */
   attachMini: (slot: HTMLElement) => () => void;
   /**
@@ -121,6 +134,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
   const started = useCallback((id: number) => setSession((s) => (s && s.id === id && !s.started ? { ...s, started: true } : s)), []);
   const stop = useCallback(() => setSession(null), []);
+  const jumpTo = useCallback((bookId: string, startCfi: string) => {
+    const id = ++nextId.current;
+    setSession({ id, bookId, startCfi, started: false });
+  }, []);
   const attachMini = useCallback((slot: HTMLElement) => {
     setMiniSlot(slot);
     return () => setMiniSlot((current) => (current === slot ? null : current));
@@ -134,7 +151,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     flushSync(() => setSession({ id, bookId, startCfi, started: false, prepared: info }));
   }, []);
   const bookId = session?.bookId ?? null;
-  const player = useMemo(() => ({ bookId, attach, stop, attachMini, playHere, resume }), [bookId, attach, stop, attachMini, playHere, resume]);
+  const player = useMemo(() => ({ bookId, attach, stop, jumpTo, attachMini, playHere, resume }), [bookId, attach, stop, jumpTo, attachMini, playHere, resume]);
 
   return (
     <PlayerContext.Provider value={player}>
