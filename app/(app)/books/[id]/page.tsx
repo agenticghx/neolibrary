@@ -81,6 +81,20 @@ export default async function BookPage({
         ? { owner: { on: book.sharePapers, readers: (await copiesOf(db, [book.id])).get(book.id) ?? 0 } }
         : undefined;
 
+  const flowingId = fromText?.editionId ?? textEdition?.editionId ?? null;
+  const hasAudiobook = audiobooks.some((a) => a.status === "ready");
+  const hasCoverCredit =
+    (book.coverSource === "upload" && book.coverKey) ||
+    (book.coverKey && book.coverSource && book.coverSource !== "file");
+  const hasManage =
+    user.role === "admin" ||
+    Boolean(hasCoverCredit) ||
+    Boolean(fromText) ||
+    Boolean(textEdition) ||
+    (hasFile && Boolean(book.fileType)) ||
+    !paper ||
+    (hasFile && !places.length);
+
   return (
     <main className={styles.main}>
       <Link href={backHref} className={styles.back}>
@@ -103,10 +117,54 @@ export default async function BookPage({
         <div className={styles.info}>
           <h1 className={styles.title}>{book.title}</h1>
           {paper ? <p className={styles.author}>{paper.byline}</p> : book.author ? <p className={styles.author}>{book.author}</p> : null}
+
+          {hasFile ? (
+            <div className={styles.metaPills}>
+              <span className={styles.metaPill}>
+                <svg className={styles.pillIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                {book.fileType?.toUpperCase()}
+                {book.pageCount ? ` · ${book.pageCount} pages` : ""}
+                {book.toc.length ? ` · ${book.toc.length} chapters` : ""}
+                {book.publisher ? ` · ${book.publisher}` : ""}
+              </span>
+              <span className={styles.metaPill}>{Math.round(book.progress * 100)}% read</span>
+              {user.role === "admin" && book.onShelf ? (
+                <span className={styles.metaPill}>
+                  <svg className={styles.pillIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  Open shelf
+                </span>
+              ) : null}
+              {hasAudiobook ? (
+                <span className={styles.metaPill}>
+                  <svg className={styles.pillIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />
+                    <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3Z" />
+                  </svg>
+                  Audiobook
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className={styles.primaryActions}>
             {hasFile && book.fileType ? (
               <Link id="read-book" href={`/books/${book.id}/read`} className={styles.read}>
                 {book.progress > 0 ? "Continue reading" : "Read"}
+              </Link>
+            ) : null}
+            {flowingId ? (
+              <Link href={`/books/${flowingId}/read`} className={styles.secondaryAction}>
+                <svg className={styles.pillIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 6h16M4 12h16M4 18h10" />
+                </svg>
+                Flowing text
               </Link>
             ) : null}
             <form action={setBookFinishedAction}>
@@ -132,27 +190,10 @@ export default async function BookPage({
             </ul>
           ) : null}
           {book.note ? <p className={styles.note}>{book.note}</p> : null}
-          {book.coverSource === "upload" && book.coverKey ? (
-            <p className={styles.note} data-testid="cover-credit">
-              The cover is your own picture. <Link href="/covers">Change it?</Link>
-            </p>
-          ) : book.coverKey && book.coverSource && book.coverSource !== "file" ? (
-            <p className={styles.note} data-testid="cover-credit">
-              Cover found in {book.coverSource === "googlebooks" ? "Google Books" : book.coverSource === "openlibrary" ? "Open Library" : "a catalogue"} by
-              title and author. <Link href="/covers">Not the right cover?</Link>
-            </p>
-          ) : null}
-          {hasFile ? (
-            <p className={styles.meta}>
-              {book.fileType?.toUpperCase()}
-              {book.pageCount ? ` · ${book.pageCount} pages` : ""}
-              {book.toc.length ? ` · ${book.toc.length} chapters` : ""}
-              {book.publisher ? ` · ${book.publisher}` : ""}
-            </p>
-          ) : null}
           {hasFile && book.description ? <p className={styles.description}>{book.description}</p> : null}
           {/* M41 R4a: a paper's summary card, near the top: what to know before reading it. */}
           {paper && hasFile ? <PaperSummary bookId={book.id} /> : null}
+          {paper ? <PaperDetails bookId={book.id} paper={paper} sharing={sharing} /> : null}
           {hasFile && book.toc.length ? (
             <details className={styles.toc}>
               <summary>Contents</summary>
@@ -188,54 +229,22 @@ export default async function BookPage({
               </ul>
             </div>
           ) : null}
-          {user.role === "admin" ? (
-            <div className={styles.collections} data-testid="open-shelf">
-              <p className={styles.collectionsTitle}>Open shelf</p>
-              <ul>
-                {(
-                  [
-                    ["onShelf", "Anyone can see it", book.onShelf, true],
-                    ["freeToRead", "Anyone can read it", book.freeToRead, book.freeToRead || isPublicDomainEdition(book)],
-                  ] as const
-                ).map(([which, label, on, allowed]) =>
-                  allowed ? (
-                    <li key={which}>
-                      <form action={setShelfSwitchAction}>
-                        <input type="hidden" name="bookId" value={book.id} />
-                        <input type="hidden" name="which" value={which} />
-                        <input type="hidden" name="on" value={on ? "0" : "1"} />
-                        <button type="submit" className={styles.collection} aria-pressed={on}>
-                          {label}
-                        </button>
-                      </form>
-                    </li>
-                  ) : null,
-                )}
-              </ul>
-              <p className={styles.notesSummary}>
-                {book.freeToRead
-                  ? "Visitors who are not signed in can open and read this book."
-                  : book.onShelf
-                    ? "Visitors see the title, cover, author and description, and a link to find it on Goodreads."
-                    : "Hidden from visitors."}
-                {!book.freeToRead && !isPublicDomainEdition(book)
-                  ? " Only a public-domain edition (Standard Ebooks, Project Gutenberg) can be free to read."
-                  : ""}
-              </p>
-            </div>
-          ) : null}
           {hasFile || marks.length ? (
             <section className={styles.notes} aria-labelledby="your-notes">
-              <h2 id="your-notes" className={styles.collectionsTitle}>
-                Your notes
-              </h2>
-              <p className={styles.notesSummary}>
-                {marks.length
-                  ? `${count("highlight")} highlights · ${count("note")} notes on the book · ${count("bookmark")} bookmarks${pinnedCount ? ` · ${pinnedCount} pinned ${pinnedCount === 1 ? "picture" : "pictures"}` : ""}${voiceCount ? ` · ${voiceCount} voice ${voiceCount === 1 ? "note" : "notes"}` : ""}`
-                  : "Nothing yet. Highlights and notes you make while reading appear here."}
-              </p>
-              {marks.length ? <NotesExport bookId={book.id} title={book.title} /> : null}
-              <NotesImport bookId={book.id} />
+              <div className={styles.notesRow}>
+                <h2 id="your-notes" className={styles.collectionsTitle}>
+                  Your notes
+                </h2>
+                <p className={styles.notesSummary}>
+                  {marks.length
+                    ? `${count("highlight")} highlights · ${count("note")} notes on the book · ${count("bookmark")} bookmarks${pinnedCount ? ` · ${pinnedCount} pinned ${pinnedCount === 1 ? "picture" : "pictures"}` : ""}${voiceCount ? ` · ${voiceCount} voice ${voiceCount === 1 ? "note" : "notes"}` : ""}`
+                    : "None yet"}
+                </p>
+              </div>
+              <div className={styles.notesTools}>
+                {marks.length ? <NotesExport bookId={book.id} title={book.title} /> : null}
+                <NotesImport bookId={book.id} />
+              </div>
             </section>
           ) : null}
           {reread.length ? (
@@ -257,34 +266,95 @@ export default async function BookPage({
               </ul>
             </section>
           ) : null}
-          {fromText ? <PdfTextEdition bookId={book.id} editionId={fromText.editionId} /> : null}
-          {textEdition && !fromText ? <TextEdition bookId={book.id} initial={textEdition} /> : null}
-          {hasFile && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} /> : null}
-          <p className={styles.status}>
-            <span className={styles.available}>{availabilityLabel(available)}</span>
-            {hasFile
-              ? ` · ${Math.round(book.progress * 100)}% read`
-              : ". Add the book file (EPUB, PDF or Markdown) and it attaches here."}
-          </p>
+          {!hasFile ? (
+            <p className={styles.status}>
+              <span className={styles.available}>{availabilityLabel(available)}</span>
+              {". Add the book file (EPUB, PDF or Markdown) and it attaches here."}
+            </p>
+          ) : null}
           {/* Always here, so its message outlives the refresh that brings the file (it draws nothing for a book that had one). */}
           <AttachFile bookId={book.id} hasFile={hasFile} readLinkId="read-book" />
-          {/* M41 R3: a paper's details; on a book, the quiet question "Is this a research paper?" at the foot. */}
-          <PaperDetails bookId={book.id} paper={paper} sharing={sharing} />
-          {/* M19 P3b: a book can leave the library, behind a confirmation, and come back from Your data. A book that fills a
-              title on a Path (listed above) stays: it is part of that Path. */}
-          {hasFile && !places.length ? (
-            <details className={styles.remove}>
-              <summary>Remove from library</summary>
-              <p className={styles.removeText}>
-                Remove <em>{book.title}</em>? It leaves your shelves, search and reading stats. Your notes and the file are
-                kept, and Your data can bring it back.
-              </p>
-              <form action={removeBookAction}>
-                <input type="hidden" name="bookId" value={book.id} />
-                <button type="submit" className={styles.removeButton}>
-                  Remove from library
-                </button>
-              </form>
+
+          {hasManage ? (
+            <details className={styles.manageDrawer} data-testid="manage-book">
+              <summary className={styles.manageSummary}>
+                <svg className={styles.pillIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>Manage book</span>
+                <span className={styles.manageHint}>visibility, cover, editions, audiobook, paper, remove</span>
+              </summary>
+              <div className={styles.manageBody}>
+                {user.role === "admin" ? (
+                  <div className={styles.collections} data-testid="open-shelf">
+                    <p className={styles.collectionsTitle}>Open shelf</p>
+                    <ul>
+                      {(
+                        [
+                          ["onShelf", "Anyone can see it", book.onShelf, true],
+                          ["freeToRead", "Anyone can read it", book.freeToRead, book.freeToRead || isPublicDomainEdition(book)],
+                        ] as const
+                      ).map(([which, label, on, allowed]) =>
+                        allowed ? (
+                          <li key={which}>
+                            <form action={setShelfSwitchAction}>
+                              <input type="hidden" name="bookId" value={book.id} />
+                              <input type="hidden" name="which" value={which} />
+                              <input type="hidden" name="on" value={on ? "0" : "1"} />
+                              <button type="submit" className={styles.collection} aria-pressed={on}>
+                                {label}
+                              </button>
+                            </form>
+                          </li>
+                        ) : null,
+                      )}
+                    </ul>
+                    <p className={styles.notesSummary}>
+                      {book.freeToRead
+                        ? "Visitors who are not signed in can open and read this book."
+                        : book.onShelf
+                          ? "Visitors see the title, cover, author and description, and a link to find it on Goodreads."
+                          : "Hidden from visitors."}
+                      {!book.freeToRead && !isPublicDomainEdition(book)
+                        ? " Only a public-domain edition (Standard Ebooks, Project Gutenberg) can be free to read."
+                        : ""}
+                    </p>
+                  </div>
+                ) : null}
+
+                {book.coverSource === "upload" && book.coverKey ? (
+                  <p className={styles.notesSummary} data-testid="cover-credit">
+                    The cover is your own picture. <Link href="/covers">Change it?</Link>
+                  </p>
+                ) : book.coverKey && book.coverSource && book.coverSource !== "file" ? (
+                  <p className={styles.notesSummary} data-testid="cover-credit">
+                    Cover found in {book.coverSource === "googlebooks" ? "Google Books" : book.coverSource === "openlibrary" ? "Open Library" : "a catalogue"} by
+                    title and author. <Link href="/covers">Not the right cover?</Link>
+                  </p>
+                ) : null}
+
+                {fromText ? <PdfTextEdition bookId={book.id} editionId={fromText.editionId} /> : null}
+                {textEdition && !fromText ? <TextEdition bookId={book.id} initial={textEdition} /> : null}
+                {hasFile && book.fileType ? <AudiobookUpload bookId={book.id} imports={audiobooks} /> : null}
+                {!paper ? <PaperDetails bookId={book.id} paper={paper} sharing={sharing} /> : null}
+
+                {hasFile && !places.length ? (
+                  <details className={styles.remove}>
+                    <summary>Remove from library</summary>
+                    <p className={styles.removeText}>
+                      Remove <em>{book.title}</em>? It leaves your shelves, search and reading stats. Your notes and the file are
+                      kept, and Your data can bring it back.
+                    </p>
+                    <form action={removeBookAction}>
+                      <input type="hidden" name="bookId" value={book.id} />
+                      <button type="submit" className={styles.removeButton}>
+                        Remove from library
+                      </button>
+                    </form>
+                  </details>
+                ) : null}
+              </div>
             </details>
           ) : null}
         </div>

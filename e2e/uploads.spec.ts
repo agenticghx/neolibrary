@@ -318,6 +318,7 @@ test("a book can be removed from the library and brought back, with its notes", 
   await page.request.post(`/api/books/${id}/annotations`, { data: { kind: "note", body: "Keep this thought about lighthouses." } });
 
   // Folded until asked, and confirmed before anything happens.
+  await page.getByTestId("manage-book").locator("> summary").click();
   const confirm = page.locator("form").getByRole("button", { name: "Remove from library" });
   await expect(confirm).toBeHidden();
   await page.locator("summary", { hasText: "Remove from library" }).click();
@@ -351,6 +352,7 @@ test("a book can be removed from the library and brought back, with its notes", 
   await expect(page.getByRole("region", { name: "Your notes" })).toContainText("1 notes on the book");
 
   // Removed again, then uploaded again: the same book comes back, notes and all; no second copy.
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.locator("summary", { hasText: "Remove from library" }).click();
   await confirm.click();
   await expect(page).toHaveURL(/\/library$/);
@@ -361,6 +363,7 @@ test("a book can be removed from the library and brought back, with its notes", 
   await expect(page.getByRole("region", { name: "Your notes" })).toContainText("1 notes on the book");
 
   // Leave the shelves as the later tests expect them: the spare book removed (kept, out of every list).
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.locator("summary", { hasText: "Remove from library" }).click();
   await confirm.click();
   await expect(page).toHaveURL(/\/library$/);
@@ -652,6 +655,7 @@ test("a title becomes a research paper by its DOI, is listed under Papers with i
   await expect(page.getByRole("heading", { name: "lamplight_2021_preprint", level: 1 })).toBeVisible();
 
   // Not a DOI: said so, and nothing changes.
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.getByText("Is this a research paper?").click();
   await page.getByLabel("Its DOI or PubMed ID").fill("lamplight");
   await page.getByRole("button", { name: "Find its details" }).click();
@@ -687,6 +691,7 @@ test("a title becomes a research paper by its DOI, is listed under Papers with i
   // A book again: Papers is empty, the title it was given stays.
   await page.getByTestId("shelf").getByRole("link", { name: /^Lamplight and the reading of small print/ }).click();
   await page.getByRole("button", { name: "This is not a paper" }).click();
+  await page.getByTestId("manage-book").locator("> summary").click();
   await expect(page.getByTestId("paper-ask")).toBeVisible();
   await page.goto("/library?show=papers");
   await expect(page.getByTestId("shelf").getByRole("listitem")).toHaveCount(0);
@@ -694,6 +699,7 @@ test("a title becomes a research paper by its DOI, is listed under Papers with i
   // Leave the shelves as the later tests expect them.
   await page.goto("/library");
   await page.getByTestId("shelf").getByRole("link", { name: /^Lamplight and the reading of small print/ }).click();
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.locator("summary", { hasText: "Remove from library" }).click();
   await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
   await expect(page).toHaveURL(/\/library$/);
@@ -765,6 +771,7 @@ test("a Markdown book is added like an EPUB, opens with its chapters, and an age
   // Leave the shelves as the later tests expect them: both removed (kept, out of every list).
   for (const url of [bookUrl, `/books/${second.bookId}`]) {
     await page.goto(url);
+    await page.getByTestId("manage-book").locator("> summary").click();
     await page.locator("summary", { hasText: "Remove from library" }).click();
     await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
     await expect(page).toHaveURL(/\/library$/);
@@ -819,6 +826,7 @@ test("books are added from a Google Drive link to a shared folder; other files a
   for (const title of ["A Book From Drive", "Drive Notes"]) {
     await page.goto("/library");
     await shelf.getByRole("link", { name: new RegExp(`^${title}`) }).click();
+    await page.getByTestId("manage-book").locator("> summary").click();
     await page.locator("summary", { hasText: "Remove from library" }).click();
     await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
     await expect(page).toHaveURL(/\/library$/);
@@ -854,6 +862,7 @@ test("a PDF with text of its own is laid out again as flowing text, without AI",
   const bookId = (await upload.json()).results[0].bookId as string;
 
   await page.goto(`/books/${bookId}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   const panel = page.getByTestId("pdf-text-edition");
   await expect(panel.getByRole("heading", { name: "Flowing text from this PDF" })).toBeVisible();
   await expect(panel).toContainText("No AI is used and nothing is spent");
@@ -890,6 +899,7 @@ test("a PDF with text of its own is laid out again as flowing text, without AI",
 
   // Leave the shelves as the later tests expect them: the book removed.
   await page.goto(`/books/${bookId}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.locator("summary", { hasText: "Remove from library" }).click();
   await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
   await expect(page).toHaveURL(/\/library$/);

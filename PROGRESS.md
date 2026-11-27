@@ -197,6 +197,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-26 19:42 · Antigravity · Book Detail Option A redesign + collapsed Manage book drawer
+- **Done:** Decluttered `/books/[id]` per Samuel's approved Option A + `Manage book` drawer: replaced the sprawling setup blocks with icon metadata pills (`PDF/EPUB`, `% read`, `Open shelf`, `Audiobook`), promoted `Flowing text` beside `Continue reading`, styled `NotesImport` as a clean `Import JSON` button (preserving accessible W3C label), removed the redundant bottom `Read and listen` status line for owned books, and consolidated Open shelf, Cover credit, Flowing text rebuild, Audiobook upload, Research paper prompt, and Remove from library inside one collapsed `Manage book` drawer (`data-testid="manage-book"`). Updated affected `e2e/` book-detail tests to open `Manage book`.
+- **Key paths:** app/(app)/books/[id]/page.tsx; app/(app)/books/[id]/page.module.css; components/NotesExport.tsx; components/NotesExport.module.css; e2e/covers.spec.ts; e2e/open-shelf.spec.ts; e2e/readalong.spec.ts; e2e/reader.spec.ts; e2e/shared-papers.spec.ts; e2e/uploads.spec.ts
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts
+- **Known issues / blockers:** Updates `book-not-available` Linux reference screenshots; CI will produce refreshed screenshots in Round 1.
+- **Exact next steps:** 1. Watch PR CI, refresh `book-not-available` Linux screenshots if changed, confirm Auto-merge and Railway deploy, and verify `/api/health`.
+
 ### 2026-11-26 12:50 · Antigravity · Reader footer redesign: Option 1 Hairline Edge Progress
 - **Done:** Redesigned `ReaderFoot.tsx` and `reader.module.css` to Samuel's chosen **Option 1 (Hairline Edge Progress)**: replaced the center progress bar and top border with a seamless 2px progress line along the top edge of the footer, turned the `Listen` pill box into a borderless circular speaker icon (`aria-label="Listen"`), and condensed cross-book links into a quiet link-icon + count pill (preserving the full accessible label for screen readers and tests).
 - **Key paths:** app/(reader)/books/[id]/read/ReaderFoot.tsx; app/(reader)/books/[id]/read/reader.module.css

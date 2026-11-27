@@ -175,6 +175,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
   }
 
   await page.goto(`/books/${bookId}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   const section = page.getByRole("region", { name: "Your audiobook" });
   await expect(section).toContainText("Add an audiobook of this book to read along with it");
   await expect(section).toContainText("Then press Listen in the book to play it.");
@@ -289,6 +290,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
     await writeFile(path.join(root, name), bytes);
   }
   await page.goto(`/books/${bookId}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   const section = page.getByRole("region", { name: "Your audiobook" });
   await page.evaluate(() => {
     const w = window as unknown as { said: string[]; sent: string[] };
@@ -396,6 +398,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   // A PDF book plays its audiobook too (M13 (e)): the page says to press Listen.
   const pdf = books.find((b) => b.title === "Discourse on the Method")!;
   await page.goto(`/books/${pdf.id}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   await expect(page.getByRole("region", { name: "Your audiobook" })).toContainText("Then press Listen in the book to play it.");
   await page.goto(collectionUrl);
   await page.getByRole("button", { name: "Delete collection" }).click();
