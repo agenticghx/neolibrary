@@ -791,17 +791,56 @@ export function ListenSession({
     else void readBack(info.passage.prevId!, s.fromEndMs, resume);
   };
 
+  const prevParagraph = () => {
+    if (!info || busy) return;
+    const resume = playing;
+    if (isBook && info.audiobook) {
+      if (book.current.index <= 0) return;
+      lastWord.current = -1;
+      playAudiobookFrom(book.current.index - 1, false, 0, resume).catch(playFailed);
+      return;
+    }
+    if (!info.passage.prevId) return;
+    audio.current?.pause();
+    lastWord.current = -1;
+    void readBack(info.passage.prevId, Number.MAX_SAFE_INTEGER, resume);
+  };
+
+  const nextParagraph = () => {
+    if (!info || busy) return;
+    const resume = playing;
+    if (isBook && info.audiobook) {
+      if (book.current.index >= info.audiobook.paragraphs.length - 1) return;
+      lastWord.current = -1;
+      playAudiobookFrom(book.current.index + 1, false, 0, resume).catch(playFailed);
+      return;
+    }
+    if (!info.passage.nextId) return;
+    audio.current?.pause();
+    lastWord.current = -1;
+    void next(resume);
+  };
+
+  const disabled = !info || busy || (isBook ? !info.audiobook!.paragraphs.length : info.estimate === null && !info.track);
   const view: ListenView = {
     passageCfi,
     playing,
     busy,
-    disabled: !info || busy || (isBook ? !info.audiobook!.paragraphs.length : info.estimate === null && !info.track),
+    disabled,
     asking: !isBook && ask !== null,
+    hasError: Boolean(error) || bookEnded,
+    canSkip: !disabled && (isBook ? Boolean(info?.audiobook?.paragraphs.length) : Boolean(info?.track)),
+    canPrev: !busy && (isBook ? book.current.index > 0 : Boolean(info?.passage.prevId)),
+    canNext: !busy && (isBook ? Boolean(info?.audiobook && book.current.index < info.audiobook.paragraphs.length - 1) : Boolean(info?.passage.nextId)),
     voices: info?.voices ?? [],
     voice,
     speed,
     note: noteFor({ error, info, isBook, voice, bookEnded, loading, bookStarted, made, ask: isBook ? null : ask, justMade: !!info?.track && info.passage.id === justMade }),
     toggle: () => (playing ? audio.current?.pause() : isBook ? playAudiobook() : void play()),
+    back: () => skip(-15),
+    forward: () => skip(15),
+    prevParagraph,
+    nextParagraph,
     changeVoice,
     setSpeed: (s) => {
       setSpeed(s);

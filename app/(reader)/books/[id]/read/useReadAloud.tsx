@@ -168,7 +168,7 @@ export function useReadAloud(props: {
   useEffect(() => {
     forPlayer.current = { highlightWord, showPassage, stopListening };
   });
-  const { attach, stop } = player;
+  const { attach, stop, jumpTo } = player;
   useEffect(() => {
     const slot = listenSlot.current;
     if (!showsBar || !ready || !slot) return;
@@ -186,6 +186,62 @@ export function useReadAloud(props: {
       !!props.startListening,
     );
   }, [showsBar, ready, attach, props.bookId, props.startListening, listenBar, listenSlot, whereCfi]);
+
+  // While the Listen dock is open, clicking any passage in the book restarts
+  // reading from that spot (ignoring drag selections and links/buttons).
+  useEffect(() => {
+    const v = view.current;
+    if (!showsBar || !ready || !v?.renderer) return;
+    const cleanups: (() => void)[] = [];
+    const wire = (doc: Document, index: number) => {
+      const onClick = (e: MouseEvent) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const target = e.target instanceof Element ? e.target : null;
+        if (target?.closest("a, button, input, select, textarea, summary")) return;
+        const sel = doc.getSelection();
+        if (sel && !sel.isCollapsed) return;
+        if (props.fileType === "pdf") {
+          const pageNum = Number(doc.documentElement.dataset.page);
+          if (Number.isInteger(pageNum) && pageNum >= 0) jumpTo(props.bookId, `epubcfi(/6/${(pageNum + 1) * 2})`);
+          return;
+        }
+        const docWithCaret = doc as Document & {
+          caretRangeFromPoint?: (x: number, y: number) => Range | null;
+          caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+        };
+        let range: Range | null = null;
+        if (docWithCaret.caretRangeFromPoint) {
+          range = docWithCaret.caretRangeFromPoint(e.clientX, e.clientY);
+        } else if (docWithCaret.caretPositionFromPoint) {
+          const pos = docWithCaret.caretPositionFromPoint(e.clientX, e.clientY);
+          if (pos) {
+            range = doc.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+          }
+        }
+        if (!range) return;
+        try {
+          const cfi = v.getCFI(index, range);
+          if (cfi) jumpTo(props.bookId, cfi);
+        } catch {
+          // Clicked outside a text container: ignore.
+        }
+      };
+      doc.addEventListener("click", onClick);
+      cleanups.push(() => doc.removeEventListener("click", onClick));
+    };
+    for (const c of v.renderer.getContents()) wire(c.doc, c.index);
+    const onLoad = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ doc: Document; index: number }>).detail;
+      if (detail?.doc) wire(detail.doc, detail.index);
+    };
+    v.addEventListener("load", onLoad);
+    return () => {
+      v.removeEventListener("load", onLoad);
+      for (const fn of cleanups) fn();
+    };
+  }, [showsBar, ready, view, props.bookId, props.fileType, jumpTo]);
   // Another book is being read aloud: opening this one stops it, as leaving the reader did before
   // reading aloud went on from page to page (this reader has no bar for another book).
   const playingBook = player.bookId;

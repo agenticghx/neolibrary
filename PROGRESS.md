@@ -198,6 +198,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-27 12:59 · Antigravity · Native Listen player (Option A · Floating Dock) + click-text-to-jump
+- **Done:** Redesigned the in-reader `ListenBar` to Samuel's approved **Option A (Floating Native Dock)**: compact left Voice pill with live 3-bar waveform and subtle `~$X` chip (only for paid voices), centered native transport controls (`⏮` Previous paragraph, `↺15` Back 15 s, circular `▶/⏸` Play/Pause, `↻15` Forward 15 s, `⏭` Next paragraph), right Speed pill and circular close button; hid routine `"free to play"` chatter visually in `.visually-hidden` while keeping `aria-live="polite"`, screen-reader announcements, and actionable prompts/errors visible; wired `prevParagraph`, `nextParagraph`, `back`, `forward`, and `player.jumpTo` so clicking any passage while the Listen dock is open restarts reading from there.
+- **Key paths:** app/(reader)/books/[id]/read/ListenBar.tsx; app/(reader)/books/[id]/read/reader.module.css; app/(reader)/books/[id]/read/useReadAloud.tsx; components/player/PlayerProvider.tsx; components/player/ListenSession.tsx; PROGRESS.md
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts
+- **Known issues / blockers:** None.
+- **Exact next steps:** 1. Watch PR CI, confirm Auto-merge and Railway deploy, and verify `/api/health`. 2. Follow up with browser-local neural voice (Kokoro) as the default free voice.
+
 ### 2026-11-27 11:36 · Antigravity · Fix WebKit axe-core mid-transition race in readalong E2E
 - **Done:** Moved `await page.waitForTimeout(300)` before `AxeBuilder` in `e2e/readalong.spec.ts:1496` (matching the other theme-switch checks) so WebKit finishes its light/dark CSS color transition before axe-core checks color contrast.
 - **Key paths:** e2e/readalong.spec.ts; PROGRESS.md
