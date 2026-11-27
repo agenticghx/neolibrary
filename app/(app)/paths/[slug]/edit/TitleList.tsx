@@ -56,7 +56,7 @@ export function TitleList({ slug, headingId, titles }: { slug: string; headingId
                 <span className={styles.kind}>{t.kind}</span>
                 <span className={styles.name}>{t.title}</span>
                 {t.author ? <span className={styles.author}>{t.author}</span> : null}
-                <span className={styles.available}>{t.availability}</span>
+                {t.availability ? <span className={styles.available}>{t.availability}</span> : null}
               </span>
               <span className={styles.actions}>
                 {OPS.map(({ op, label }) => (

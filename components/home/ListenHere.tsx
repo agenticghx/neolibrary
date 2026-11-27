@@ -41,7 +41,21 @@ function listenData(bookId: string, cfi: string) {
  * further on (the bar says so: playsHere); and for a made voice, whose price
  * is shown before it first plays (Open unknowns row 10, default (a)).
  */
-export function ListenHere({ bookId, at, className, children }: { bookId: string; at: string | null; className: string; children: ReactNode }) {
+export function ListenHere({
+  bookId,
+  at,
+  className,
+  ariaLabel,
+  title,
+  children,
+}: {
+  bookId: string;
+  at: string | null;
+  className: string;
+  ariaLabel?: string;
+  title?: string;
+  children: ReactNode;
+}) {
   const player = usePlayer();
   const [ready, setReady] = useState<Info | null>(null);
   // Said to a screen reader: the link stayed on Home, and the reading is in the player.
@@ -61,6 +75,8 @@ export function ListenHere({ bookId, at, className, children }: { bookId: string
       <Link
         href={`/books/${bookId}/read?listen=1`}
         className={className}
+        aria-label={ariaLabel}
+        title={title}
         data-here={ready ? "" : undefined}
         onClick={(e) => {
           // A click meant for a new tab or window still opens the reader there.

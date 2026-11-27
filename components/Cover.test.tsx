@@ -24,13 +24,13 @@ describe("Cover", () => {
     expect(html).not.toContain("% read");
   });
 
-  it("shows the image, the label and the progress of an available title", () => {
+  it("shows the image and progress of an available title without a redundant availability label", () => {
     const html = renderToStaticMarkup(
       <Cover title="Chip War" available={{ read: true, listen: true }} imageUrl="/cover.jpg" progress={0.5} href="/books/y" />,
     );
     expect(html).toContain('<img src="/cover.jpg"');
     expect(html).toContain('aria-label="Chip War"');
-    expect(html).toContain("Read and listen");
+    expect(html).not.toContain("Read and listen");
     expect(html).toContain('aria-label="50% read"');
   });
 
@@ -40,7 +40,7 @@ describe("Cover", () => {
     );
     expect(html).toContain('<img src="/cover.jpg"');
     expect(html).toContain('aria-label="Discourse"');
-    expect(html).toContain("Read only");
+    expect(html).not.toContain("Read only");
     expect(html).toContain('aria-label="25% read"');
   });
 

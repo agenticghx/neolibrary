@@ -55,14 +55,13 @@ export function ContinueCard({ item, chapter, note, at }: { item: LibraryItem; c
       ) : null}
       <div className={styles.cardActions}>
           <Link href={`/books/${item.id}/read`} className={styles.primary}>
-            Read from here
+            Continue
           </Link>
           {item.available.listen ? (
-            <ListenHere bookId={item.id} at={item.audiobook ? at : null} className={styles.secondary}>
+            <ListenHere bookId={item.id} at={item.audiobook ? at : null} className={styles.listenIconBtn} ariaLabel="Listen from here" title="Listen from here">
               <svg className={styles.listenIcon} width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                 <path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z" />
               </svg>
-              Listen from here
             </ListenHere>
           ) : null}
       </div>

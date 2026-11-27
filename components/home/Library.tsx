@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Cover } from "@/components/Cover";
-import { availabilityLabel } from "@/lib/library/availability";
+import { availabilityLabel, isAvailable } from "@/lib/library/availability";
 import type { LibraryItem } from "@/lib/library/home";
 import styles from "./Library.module.css";
 
@@ -32,7 +32,7 @@ export function LibraryGrid({ items, testId = "shelf", compact = false }: { item
             />
             <span className={styles.itemTitle}>{b.title}</span>
             {b.paper ? <span className={styles.itemAuthor}>{b.paper}</span> : b.author ? <span className={styles.itemAuthor}>{b.author}</span> : null}
-            <span className={styles.itemAvailable}>{availabilityLabel(b.available)}</span>
+            {!isAvailable(b.available) ? <span className={styles.itemAvailable}>{availabilityLabel(b.available)}</span> : null}
             {marksText(b) ? <span className="visually-hidden">{`, ${marksText(b)}`}</span> : null}
             {b.available.read || b.available.listen ? (
               <span className={styles.itemProgress}>

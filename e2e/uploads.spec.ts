@@ -73,7 +73,7 @@ test("a file matching a title not available yet attaches to it and lights up the
   const grid = page.getByRole("link", { name: "The Grid", exact: true });
   await expect(grid).toBeVisible();
   await expect(page.getByRole("link", { name: "The Grid (not available yet)" })).toHaveCount(0);
-  await expect(page.getByRole("figure").filter({ has: grid }).getByText("Read and listen", { exact: true })).toBeVisible();
+  await expect(page.getByRole("figure").filter({ has: grid }).getByText("Not available yet")).toHaveCount(0);
   await expect(page.getByText(/\b1 available, \d+ not available yet/)).toBeVisible();
 });
 

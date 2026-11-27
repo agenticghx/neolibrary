@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Cover } from "@/components/Cover";
 import { Icon } from "@/components/shell/icons";
-import { availabilityLabel } from "@/lib/library/availability";
+import { availabilityLabel, isAvailable } from "@/lib/library/availability";
 import type { LibraryItem } from "@/lib/library/home";
 import styles from "./BookCarousel.module.css";
 import { marksText, progressLabel, spineFoot } from "./Library";
@@ -262,7 +262,7 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
         {items.map((b, i) => {
           const pctText = spineFoot(b);
           const hasProgress = b.available.read || b.available.listen;
-          const rest = [b.paper || b.author, availabilityLabel(b.available), hasProgress ? progressLabel(b.progress) : "", marksText(b)]
+          const rest = [b.paper || b.author, !isAvailable(b.available) ? availabilityLabel(b.available) : "", hasProgress ? progressLabel(b.progress) : "", marksText(b)]
             .filter(Boolean)
             .join(", ");
           const summary = rest ? `${b.title}, ${rest}` : b.title;
@@ -281,7 +281,7 @@ export function BookCarousel({ items, label, testId = "carousel", demo = false }
                 <span className="visually-hidden">
                   <span className={styles.itemTitle}>{b.title}</span>
                   {b.paper ? <span>{`, ${b.paper}`}</span> : b.author ? <span>{`, ${b.author}`}</span> : null}
-                  <span>{availabilityLabel(b.available)}</span>
+                  {!isAvailable(b.available) ? <span>{availabilityLabel(b.available)}</span> : null}
                   {hasProgress ? <span>{progressLabel(b.progress)}</span> : null}
                   {marksText(b) ? <span>{`, ${marksText(b)}`}</span> : null}
                 </span>

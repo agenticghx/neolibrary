@@ -1390,7 +1390,8 @@ test("M13 (e): a PDF plays its audiobook across paragraphs and on across a page 
   // longer shows the audiobook; Books' Has audio filter below does).
   await page.goto("/library");
   const onShelf = page.getByTestId("shelf").getByRole("listitem").filter({ hasText: "Read-Along Test Pages" });
-  await expect(onShelf.getByText("Read and listen", { exact: true })).toBeVisible();
+  await expect(onShelf).toBeVisible();
+  await expect(onShelf.getByText("Not available yet")).toHaveCount(0);
   // Has audio lists it (an uploaded audiobook), and no book that only has narration.
   await page.goto("/library?audio=1");
   const withAudio = await page.getByTestId("shelf").locator(":scope > li [class*=itemTitle]").allTextContents();

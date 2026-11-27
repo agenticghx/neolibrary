@@ -6,7 +6,7 @@ import { AddSectionForm, AddTitleForms, RenamePathForm } from "@/components/path
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { books } from "@/lib/db/schema";
-import { availabilityLabel } from "@/lib/library/availability";
+import { availabilityLabel, isAvailable } from "@/lib/library/availability";
 import { KIND_WORDS } from "@/lib/library/path-words";
 import { getPathView } from "@/lib/library/paths";
 import pathStyles from "../../page.module.css";
@@ -72,7 +72,7 @@ export default async function EditPathPage({ params }: { params: Promise<{ slug:
           kind: KIND_WORDS[s.kind],
           title: s.book.title,
           author: s.book.author,
-          availability: availabilityLabel(s.book.available),
+          availability: isAvailable(s.book.available) ? "" : availabilityLabel(s.book.available),
         }))}
       />
       <AddTitleForms pillarId={p.id} sectionTitle={p.title} slug={slug} library={library} />

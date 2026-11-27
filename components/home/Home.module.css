@@ -222,7 +222,8 @@
 }
 
 .primary,
-.secondary {
+.secondary,
+.listenIconBtn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -252,6 +253,21 @@
 }
 
 .secondary:hover {
+  background-color: var(--paper);
+  color: var(--ink-900);
+}
+
+/* Compact icon-only headphones button beside Continue (Listen is built-in by default). */
+.listenIconBtn {
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0;
+  border: var(--border-hair) solid var(--rule);
+  color: var(--ink-700);
+}
+
+.listenIconBtn:hover {
+  border-color: var(--accent);
   background-color: var(--paper);
   color: var(--ink-900);
 }
