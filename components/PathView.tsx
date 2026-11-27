@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Annotation } from "@/lib/library/annotations";
-import { availabilityLabel } from "@/lib/library/availability";
+import { availabilityLabel, isAvailable } from "@/lib/library/availability";
 import { KIND_WORDS, partsWord } from "@/lib/library/path-words";
 import type { PathView as PathData, PillarView, SlotView } from "@/lib/library/paths";
 import { Cover } from "./Cover";
@@ -258,7 +258,7 @@ function Pillar({
                   <li key={s.id}>
                     <Link href={`/books/${s.book.id}`}>{s.book.title}</Link>
                     <span className={styles.author}> · {s.book.author}</span>
-                    <span className={styles.label}> · {availabilityLabel(s.book.available)}</span>
+                    {!isAvailable(s.book.available) ? <span className={styles.label}> · {availabilityLabel(s.book.available)}</span> : null}
                   </li>
                 ))}
               </ul>

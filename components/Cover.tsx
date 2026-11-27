@@ -133,7 +133,7 @@ export function Cover({
           <span className={styles.progressFill} data-progress={Math.min(100, Math.max(5, Math.round(progress * 20) * 5))} />
         </span>
       ) : null}
-      {caption ? <figcaption className={styles.caption}>{availabilityLabel(available)}</figcaption> : null}
+      {caption && !any ? <figcaption className={styles.caption}>{availabilityLabel(available)}</figcaption> : null}
     </figure>
   );
 }

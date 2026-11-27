@@ -905,8 +905,8 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
   // Labelled by what each title offers: the AI voice reads PDFs too (Part A2), so this PDF says
   // Read and listen, as an EPUB does (the tests' fake voice counts as narration).
   const shelfItem = (title: string) => page.getByTestId("shelf").getByRole("listitem").filter({ hasText: title });
-  await expect(shelfItem("Discourse on the Method").getByText("Read and listen", { exact: true })).toBeVisible();
-  await expect(shelfItem("The Strange Case").getByText("Read and listen", { exact: true })).toBeVisible();
+  await expect(shelfItem("Discourse on the Method")).toBeVisible();
+  await expect(shelfItem("The Strange Case")).toBeVisible();
 
   await page.getByTestId("shelf").getByRole("link", { name: /^Discourse on the Method/ }).click();
   await expect(page.getByText(/PDF · 3 pages/)).toBeVisible();

@@ -42,12 +42,12 @@ test("Continue shows the book opened last, its newest note, Read from here and L
   // The PDF's card: Listen from here (the AI voice reads PDFs too, Part A2), and no note box (no notes in it).
   const second = cards.nth(1);
   await expect(second.getByRole("heading", { level: 3 })).toHaveText(pdf.title);
-  await expect(second.getByRole("link", { name: "Read from here" })).toBeVisible();
+  await expect(second.getByRole("link", { name: "Continue", exact: true })).toBeVisible();
   await expect(second.getByRole("link", { name: "Listen from here" })).toHaveAttribute("href", `/books/${pdf.id}/read?listen=1`);
   await expect(second.getByText(/^Your last (note|highlight) here$/)).toHaveCount(0);
 
-  // Read from here: the reader at the saved place.
-  await card.getByRole("link", { name: "Read from here" }).click();
+  // Continue: the reader at the saved place.
+  await card.getByRole("link", { name: "Continue", exact: true }).click();
   const reader = page.getByTestId("reader");
   await expect(reader).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   expect(cfiStart(await reader.getAttribute("data-cfi"))).toBe(cfiStart(book.position!));
@@ -81,7 +81,7 @@ test("the library: labels, marks, the closed group of titles not available yet, 
   await page.goto("/");
   const grid = page.getByTestId("shelf");
   const item = grid.getByRole("listitem").filter({ hasText: book.title });
-  await expect(item.getByText("Read and listen", { exact: true })).toBeVisible(); // an EPUB, narration on in tests
+  await expect(item.getByText("Read and listen")).toHaveCount(0); // Listen is built-in by default; no redundant label
   await expect(item.locator('[data-mark="notes"]')).toHaveCount(1); // it has notes: the folded corner
   await expect(item.locator('[data-mark="audiobook"]')).toHaveCount(0); // narration alone draws no headphones (D1)
   await expect(item).toContainText("has your notes"); // the marks in words, for screen readers
