@@ -910,7 +910,7 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
 
   await page.getByTestId("shelf").getByRole("link", { name: /^Discourse on the Method/ }).click();
   await expect(page.getByText(/PDF · 3 pages/)).toBeVisible();
-  await expect(page.getByText("Read and listen · 0% read")).toBeVisible();
+  await expect(page.getByText("0% read", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Read", exact: true }).click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);

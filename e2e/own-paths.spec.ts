@@ -215,7 +215,7 @@ test("make a Path of sections and titles, reorder them, and add a book file to a
   await expect(page.getByTestId("attach-status")).toHaveText("Added the book file (kuhn.pdf). It is ready to read.");
   await expect(page.getByRole("link", { name: "Read", exact: true })).toBeFocused();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("The Structure of Scientific Revolutions");
-  await expect(page.getByText("Read and listen · 0% read")).toBeVisible(); // a PDF: the AI voice reads it too (Part A2)
+  await expect(page.getByText("0% read", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Choose the book file")).toHaveCount(0);
   // M19 P3b: a book that fills a title on a Path is part of it: no "Remove from library" here.
   await expect(page.locator("summary", { hasText: "Remove from library" })).toHaveCount(0);
