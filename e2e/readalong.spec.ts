@@ -253,6 +253,7 @@ test("the book page takes a read-along folder, shows each step and the result, l
     headers: { "content-type": "application/zip" },
   });
   await page.reload();
+  await page.getByTestId("manage-book").locator("> summary").click();
   await expect(section).toContainText(/An upload from \d+ \w+ \d{4} did not finish and cannot be continued\./);
   await section.getByRole("button", { name: /^Remove the unfinished upload from / }).click();
   await expect(section).not.toContainText("did not finish");
