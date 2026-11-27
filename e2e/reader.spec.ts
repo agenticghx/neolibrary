@@ -910,7 +910,7 @@ test("a PDF opens in the reader, turns pages, and its text is searchable", async
 
   await page.getByTestId("shelf").getByRole("link", { name: /^Discourse on the Method/ }).click();
   await expect(page.getByText(/PDF · 3 pages/)).toBeVisible();
-  await expect(page.getByText("Read and listen · 0% read")).toBeVisible();
+  await expect(page.getByText("0% read", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Read", exact: true }).click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/2/);
@@ -1065,6 +1065,7 @@ test("a scanned book's page makes its text edition, says what it costs first, an
   });
   const scanId = (await upload.json()).results[0].bookId as string;
   await page.goto(`/books/${scanId}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   const panel = page.getByRole("region", { name: "Text edition" });
   await expect(panel.getByTestId("text-edition-summary")).toContainText("Claude reads every page of this scan (2 pages)");
   const make = panel.getByRole("button", { name: "Make a text edition" });
@@ -1106,6 +1107,8 @@ test("a scanned book's page makes its text edition, says what it costs first, an
   await expect(reader(page)).toHaveAttribute("data-cfi", /^epubcfi\(\/6\/4/);
   expect(await stillHere(page), "Page 2 opened a whole new page").toBe(true);
   await page.goBack();
+  const manage = page.getByTestId("manage-book");
+  if ((await manage.getAttribute("open")) === null) await manage.locator("> summary").click();
   await markPage(page);
   await panel.getByRole("link", { name: "Read the text edition" }).click();
   await expect(reader(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
@@ -1145,6 +1148,7 @@ test.describe("a large book on a slow connection", () => {
 
     // Leave the shelves as the later tests expect them: the heavy book removed.
     await page.goto(`/books/${heavy.id}`);
+    await page.getByTestId("manage-book").locator("> summary").click();
     await page.locator("summary", { hasText: "Remove from library" }).click();
     await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
     await expect(page).toHaveURL(/\/library$/);

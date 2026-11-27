@@ -94,7 +94,8 @@ export function AudiobookUpload({ bookId, imports, headingLevel = 2 }: { bookId:
     // The busy state disabled the focused control, which drops focus to the
     // page: start again from this section, unless the reader has moved on.
     const at = document.activeElement;
-    if (!at || at === document.body || section.current?.contains(at)) heading.current?.focus();
+    const inDrawerSummary = at?.tagName === "SUMMARY" && Boolean(at.closest("details")?.contains(section.current));
+    if (!at || at === document.body || section.current?.contains(at) || inDrawerSummary) heading.current?.focus();
   };
 
   // While an upload runs the pickers are disabled; put focus on Cancel so

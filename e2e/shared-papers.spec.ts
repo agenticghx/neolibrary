@@ -40,6 +40,7 @@ test("a paper the owner marks is in an invited reader's library to read, and lea
   await page.getByTestId("shelf").getByRole("link", { name: /^shared_lamplight_preprint/ }).click();
   await page.waitForURL(/\/books\/[0-9a-f-]{36}$/);
   const ownerBook = page.url();
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.getByText("Is this a research paper?").click();
   await page.getByLabel("Its DOI or PubMed ID").fill("10.5555/12345678");
   await page.getByRole("button", { name: "Find its details" }).click();
@@ -75,6 +76,7 @@ test("a paper the owner marks is in an invited reader's library to read, and lea
 
   // Leave the shelves as the later projects expect them.
   await page.goto(ownerBook);
+  await page.getByTestId("manage-book").locator("> summary").click();
   await page.locator("summary", { hasText: "Remove from library" }).click();
   await page.locator("form").getByRole("button", { name: "Remove from library" }).click();
   await expect(page).toHaveURL(/\/library$/);

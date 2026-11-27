@@ -190,8 +190,9 @@ test("Covers: Find covers now, a cover turned down for the next and then for goo
   await reader.goto("/library");
   await reader.getByText(/^Not available yet \(\d+\)$/).click();
 
-  // The title's own page says where its cover came from, with a way to the Covers page.
+  // The title's own page says where its cover came from, inside Manage book, with a way to the Covers page.
   await chipWar.click();
+  await reader.getByTestId("manage-book").locator("> summary").click();
   await expect(reader.getByTestId("cover-credit")).toHaveText("Cover found in a catalogue by title and author. Not the right cover?");
   await expect(reader.getByRole("link", { name: "Not the right cover?" })).toHaveAttribute("href", "/covers");
 

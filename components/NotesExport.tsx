@@ -71,12 +71,13 @@ export function NotesImport({ bookId }: { bookId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   return (
     <div className={styles.import}>
-      <label className={styles.importLabel} htmlFor="annotations-file">
-        Import W3C annotations (.json)
+      <label className={styles.importButton} htmlFor="annotations-file">
+        <span className="visually-hidden">Import W3C annotations (.json)</span>
+        <span aria-hidden="true">Import JSON</span>
       </label>
       <input
         id="annotations-file"
-        className={styles.file}
+        className="visually-hidden"
         type="file"
         accept="application/json,application/ld+json,.json,.jsonld"
         onChange={async (e) => {

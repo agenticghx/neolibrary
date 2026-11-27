@@ -21,9 +21,10 @@ async function bookId(page: Page, title: string) {
   return id!;
 }
 
-/** On the owner's book page, press one of the two Open shelf buttons and wait for it to say so. */
+/** On the owner's book page, press one of the two Open shelf buttons (inside Manage book) and wait for it to say so. */
 async function setSwitch(page: Page, id: string, label: "Anyone can see it" | "Anyone can read it", on: boolean) {
   await page.goto(`/books/${id}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   const button = page.getByTestId("open-shelf").getByRole("button", { name: label });
   if ((await button.getAttribute("aria-pressed")) !== String(on)) await button.click();
   await expect(button).toHaveAttribute("aria-pressed", String(on));
@@ -35,6 +36,7 @@ test("M34: a visitor sees the owner's shelf, the free book marked free, and Good
 
   // The owner: every book starts on the shelf and not free to read; a Standard Ebooks edition may be made free.
   await page.goto(`/books/${timeMachine}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
   const panel = page.getByTestId("open-shelf");
   await expect(panel.getByRole("button", { name: "Anyone can see it" })).toHaveAttribute("aria-pressed", "true");
   await expect(panel.getByRole("button", { name: "Anyone can read it" })).toHaveAttribute("aria-pressed", "false");
