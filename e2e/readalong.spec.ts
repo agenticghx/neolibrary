@@ -347,6 +347,7 @@ test("a two-part upload is announced once, can be cancelled, and the PDF book pa
   await expect(page).toHaveURL(/\/library\?c=/);
   const collectionUrl = page.url();
   await page.goto(`/books/${bookId}`);
+  await page.getByTestId("manage-book").locator("> summary").click();
 
   // Cancel in the middle of sending: the page says so, and the unfinished upload can be removed.
   partDelay = 20_000; // held while the screen is checked, then cancelled
