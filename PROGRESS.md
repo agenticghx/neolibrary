@@ -198,6 +198,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-28 09:23 · Antigravity · Simplify sidebar (drop Want to Read & Finished) + Status filter pills under Books and Papers
+- **Done:** Implemented Samuel's approved **Option A**: removed `Want to Read` and `Finished` from the desktop sidebar (`components/shell/Sidebar.tsx`, leaving `Books`, `Papers`, `Import`) and added a unified `Status` filter pill row (`All`, `Want to Read`, `Finished`, plus `Has audio` under Books) inside both `Books` and `Papers` on `/library` (`app/(app)/library/page.tsx`, `lib/library/shelf.ts`), while keeping legacy `/library?show=want` and `/library?show=finished` bookmarks working; updated `e2e/shell.spec.ts` and `e2e/home.spec.ts`.
+- **Key paths:** components/shell/Sidebar.tsx; lib/library/shelf.ts; app/(app)/library/page.tsx; e2e/shell.spec.ts; e2e/home.spec.ts; PROGRESS.md
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts components/shell/current.test.ts
+- **Known issues / blockers:** Updates desktop screenshots (shorter sidebar) and `library` screenshots; CI Round 1 will produce refreshed Linux reference screenshots.
+- **Exact next steps:** 1. Watch PR CI, refresh changed Linux screenshots, confirm Auto-merge and Railway deploy, and verify `/api/health`.
+
 ### 2026-11-28 08:42 · Antigravity · 1-click paper upload on Papers page (Option A) + clickable upload links
 - **Done:** Implemented Samuel's approved **Option A** for 1-click paper upload on `/library?show=papers`: added `PapersHeaderWithUpload` (`components/upload/QuickPaperUpload.tsx`) with a top-right `+ Add paper` button that opens the OS file picker immediately and files uploads under Papers (`kind="paper"`), full-page drag-and-drop with a drop veil, and a dismissible result banner with direct `Open` links (including for duplicates) and a 1-click `+ File under Papers` action (`POST /api/books/[id]/paper` `{ markOnly: true }`). Also made uploaded/duplicate book titles clickable links on `/import` (`components/upload/HomeImport.tsx`).
 - **Key paths:** components/upload/QuickPaperUpload.tsx; components/upload/QuickPaperUpload.module.css; app/(app)/library/page.tsx; components/upload/HomeImport.tsx; PROGRESS.md

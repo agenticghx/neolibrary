@@ -10,7 +10,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
 import { libraryItems, notYetAvailable } from "@/lib/library/home";
-import { listCollections, listShelf, OLD_SHOWS, parseShow, parseSort, SHOWS } from "@/lib/library/shelf";
+import { listCollections, listShelf, OLD_SHOWS, parseShow, parseSort, parseStatus, SHOWS, STATUSES, type ReadingStatus } from "@/lib/library/shelf";
 import { addSampleBooksAction, deleteCollectionAction } from "../actions";
 import { Controls } from "./Controls";
 import { NewCollection } from "./NewCollection";
@@ -23,10 +23,11 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 export const dynamic = "force-dynamic";
 
-/** /library with these settings (Has audio, collection, sort, search), so a chip changes one and keeps the rest. */
-function libraryHref(v: { show?: string; audio?: boolean; c?: string; sort?: string; q?: string }) {
+/** /library with these settings (show, status, audio, collection, sort, search), so a chip changes one and keeps the rest. */
+function libraryHref(v: { show?: string; status?: ReadingStatus; audio?: boolean; c?: string; sort?: string; q?: string }) {
   const p = new URLSearchParams();
   if (v.show && v.show !== "all") p.set("show", v.show);
+  if (v.status && v.status !== "all") p.set("status", v.status);
   if (v.audio) p.set("audio", "1");
   if (v.c) p.set("c", v.c);
   if (v.sort) p.set("sort", v.sort);
@@ -38,25 +39,27 @@ function libraryHref(v: { show?: string; audio?: boolean; c?: string; sort?: str
 export default async function LibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string; show?: string; audio?: string }>;
+  searchParams: Promise<{ sort?: string; q?: string; c?: string; new?: string; show?: string; status?: string; audio?: string }>;
 }) {
   const user = await requireUser();
   const given = await searchParams;
   // "?q=a&q=b" arrives as a list: only one search at a time.
   const sp = { ...given, q: typeof given.q === "string" ? given.q : undefined };
   // Books, Audiobooks and PDFs were three filters until 2026-10-29; their old addresses open Books.
-  if (sp.show && Object.hasOwn(OLD_SHOWS, sp.show)) redirect(libraryHref({ ...sp, show: "all", audio: OLD_SHOWS[sp.show].audio }));
+  if (sp.show && Object.hasOwn(OLD_SHOWS, sp.show)) redirect(libraryHref({ ...sp, show: "all", status: parseStatus(sp.status), audio: OLD_SHOWS[sp.show].audio }));
   const db = await getDb();
   const sort = parseSort(sp.sort);
   const show = parseShow(sp.show);
+  const status: ReadingStatus = show === "want" || show === "finished" ? show : parseStatus(sp.status);
+  const section: "all" | "papers" = show === "papers" ? "papers" : "all";
   // Has audio is a filter inside Books only.
-  const audio = show === "all" && sp.audio === "1";
+  const audio = section === "all" && sp.audio === "1";
   const collectionList = await listCollections(db, user.id);
   const active = collectionList.find((c) => c.id === sp.c) ?? null;
-  const unfiltered = !sp.q && !active && show === "all" && !audio;
-  const showWaiting = !sp.q && !active && !audio && (show === "all" || show === "want");
+  const unfiltered = !sp.q && !active && section === "all" && status === "all" && !audio;
+  const showWaiting = !sp.q && !active && !audio && section === "all" && (status === "all" || status === "want");
   const [shelf, allRows, waitingRows, sign] = await Promise.all([
-    listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show, audio }),
+    listShelf(db, user.id, { sort, q: sp.q, collectionId: active?.id, show: section, status, audio }),
     unfiltered ? Promise.resolve(null) : listShelf(db, user.id),
     showWaiting ? notYetAvailable(db, user.id) : Promise.resolve([]),
     coverSigner(),
@@ -66,8 +69,8 @@ export default async function LibraryPage({
   const combined = await libraryItems(db, user.id, [...shelf, ...waitingRows], sign);
   const items = combined.slice(0, shelf.length);
   const waiting = combined.slice(shelf.length);
-  const chipHref = (c?: string) => libraryHref({ show, audio, c, sort: sp.sort, q: sp.q });
-  const filtered = show !== "all" || audio;
+  const chipHref = (c?: string) => libraryHref({ show: section, status, audio, c, sort: sp.sort, q: sp.q });
+  const filtered = show !== "all" || status !== "all" || audio;
 
   return (
     <main className={styles.main}>
@@ -116,32 +119,48 @@ export default async function LibraryPage({
               <Controls />
             </Suspense>
           ) : null}
-          {/* On a phone the Library tab shows the filters as chips, just above the collections (on desktop they are in the sidebar). */}
+          {/* On a phone the Library tab switches between Books and Papers (on desktop they are in the sidebar). */}
           <nav className={[styles.chips, styles.filters].join(" ")} aria-label="Filters">
             <span className={styles.chipsLabel}>Show</span>
-            {Object.entries(SHOWS).map(([key, label]) => (
+            {(
+              [
+                ["all", "Books"],
+                ["papers", "Papers"],
+              ] as const
+            ).map(([key, label]) => (
               <Link
                 key={key}
                 href={key === "all" ? "/library" : `/library?show=${key}`}
                 className={styles.chip}
-                aria-current={show === key ? "page" : undefined}
+                aria-current={section === key ? "page" : undefined}
               >
                 {label}
               </Link>
             ))}
           </nav>
-          {/* Inside Books: everything, or only the titles you can also listen to (an uploaded audiobook). */}
-          {show === "all" ? (
-            <nav className={styles.chips} aria-label="Books">
-              <span className={styles.chipsLabel}>Books</span>
-              <Link href={libraryHref({ c: active?.id, sort: sp.sort, q: sp.q })} className={styles.chip} aria-current={audio ? undefined : "page"}>
-                All
+          {/* Option A · Reading status filter pills inside both Books and Papers (plus Has audio under Books). */}
+          <nav className={styles.chips} aria-label="Status">
+            <span className={styles.chipsLabel}>Status</span>
+            {(Object.entries(STATUSES) as [ReadingStatus, string][]).map(([key, label]) => (
+              <Link
+                key={key}
+                href={libraryHref({ show: section, status: key, c: active?.id, sort: sp.sort, q: sp.q })}
+                className={styles.chip}
+                aria-current={!audio && status === key ? "page" : undefined}
+              >
+                {label}
               </Link>
-              <Link href={libraryHref({ audio: true, c: active?.id, sort: sp.sort, q: sp.q })} className={styles.chip} aria-current={audio ? "page" : undefined}>
+            ))}
+            {section === "all" ? (
+              <Link
+                href={libraryHref({ show: "all", audio: true, c: active?.id, sort: sp.sort, q: sp.q })}
+                className={styles.chip}
+                aria-current={audio ? "page" : undefined}
+              >
                 Has audio
               </Link>
-            </nav>
-          ) : null}
+            ) : null}
+          </nav>
           <nav className={styles.chips} aria-label="Collections">
             <span className={styles.chipsLabel}>Collections</span>
             <Link href={chipHref()} className={styles.chip} aria-current={active ? undefined : "page"}>

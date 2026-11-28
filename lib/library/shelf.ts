@@ -35,6 +35,18 @@ export const SHOWS = {
 } as const;
 export type Show = keyof typeof SHOWS;
 
+/** Reading-status filter available inside both Books and Papers. */
+export const STATUSES = {
+  all: "All",
+  want: "Want to Read",
+  finished: "Finished",
+} as const;
+export type ReadingStatus = keyof typeof STATUSES;
+
+export function parseStatus(value: unknown): ReadingStatus {
+  return typeof value === "string" && Object.hasOwn(STATUSES, value) ? (value as ReadingStatus) : "all";
+}
+
 /** The old format filters' addresses, kept so a bookmark still opens Books (and Audiobooks its Has audio). */
 export const OLD_SHOWS: Record<string, { audio: boolean }> = { books: { audio: false }, pdfs: { audio: false }, audiobooks: { audio: true } };
 
@@ -45,7 +57,7 @@ export function parseShow(value: unknown): Show {
 export async function listShelf(
   db: Db,
   ownerId: string,
-  opts: { sort?: Sort; q?: string; collectionId?: string | null; show?: Show; audio?: boolean } = {},
+  opts: { sort?: Sort; q?: string; collectionId?: string | null; show?: Show; status?: ReadingStatus; audio?: boolean } = {},
 ) {
   const q = opts.q?.trim().slice(0, 100);
   const filters = [eq(books.ownerId, ownerId), isNull(books.deletedAt), isNotNull(books.fileKey), isNull(books.editionOf)];
@@ -61,17 +73,11 @@ export async function listShelf(
       .where(and(eq(collections.id, opts.collectionId), eq(collections.ownerId, ownerId)));
     filters.push(inArray(books.id, ids));
   }
-  switch (opts.show ?? "all") {
-    case "want":
-      filters.push(eq(books.progress, 0), isNull(books.lastOpenedAt));
-      break;
-    case "finished":
-      filters.push(gte(books.progress, 1));
-      break;
-    case "papers":
-      filters.push(eq(books.kind, "paper"));
-      break;
-  }
+  const show = opts.show ?? "all";
+  const status: ReadingStatus = show === "want" || show === "finished" ? show : (opts.status ?? "all");
+  if (show === "papers") filters.push(eq(books.kind, "paper"));
+  if (status === "want") filters.push(eq(books.progress, 0), isNull(books.lastOpenedAt));
+  else if (status === "finished") filters.push(gte(books.progress, 1));
   if (opts.audio) {
     const ready = db
       .select({ id: readalongImports.bookId })
