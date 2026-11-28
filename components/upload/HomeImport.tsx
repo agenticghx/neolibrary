@@ -168,7 +168,13 @@ export function ImportZone() {
         <ul className={styles.results} aria-live="polite" data-testid="upload-results">
           {results.map((r, i) => (
             <li key={`${r.file}-${i}`} className={r.status === "error" ? styles.resultError : undefined}>
-              <span className={styles.resultFile}>{r.status === "error" ? r.file : r.title}</span>
+              {r.status === "error" ? (
+                <span className={styles.resultFile}>{r.file}</span>
+              ) : (
+                <Link href={`/books/${r.bookId}`} className={styles.resultFile}>
+                  {r.title}
+                </Link>
+              )}
               <span className={styles.resultNote}>{r.status === "error" ? r.message : r.note ? `${UPLOAD_MESSAGES[r.status]}. ${r.note}` : UPLOAD_MESSAGES[r.status]}</span>
             </li>
           ))}
