@@ -1,45 +1,25 @@
-/// <reference lib="webworker" />
-
-type KokoroInstance = {
-  generate: (text: string, opts: { voice: string }) => Promise<{
-    audio: Float32Array;
-    sampling_rate: number;
-    toBlob: () => Blob;
-  }>;
-};
-
-type SpeakMessage = { type: "speak"; id: number; text: string; voice: string };
-
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 const KOKORO_CDN = "https://esm.sh/kokoro-js@1.2.1";
 
-let ttsPromise: Promise<KokoroInstance> | null = null;
-let queue: Promise<void> = Promise.resolve();
+let ttsPromise = null;
+let queue = Promise.resolve();
 
-async function loadTts(): Promise<KokoroInstance> {
+async function loadTts() {
   if (ttsPromise) return ttsPromise;
   ttsPromise = (async () => {
-    const mod = (await import(/* webpackIgnore: true */ KOKORO_CDN)) as {
-      KokoroTTS: {
-        from_pretrained: (
-          id: string,
-          opts: { dtype: string; device: string; progress_callback: (info: { status?: string; progress?: number }) => void },
-        ) => Promise<KokoroInstance>;
-      };
-    };
-    const { KokoroTTS } = mod;
+    const { KokoroTTS } = await import(KOKORO_CDN);
     const hasGpu = typeof navigator !== "undefined" && "gpu" in navigator;
-    const progress_callback = (info: { status?: string; progress?: number }) => {
-      if (info.status === "progress" && typeof info.progress === "number") {
+    const progress_callback = (info) => {
+      if (info && info.status === "progress" && typeof info.progress === "number") {
         self.postMessage({ type: "progress", percent: Math.min(99, Math.max(1, Math.round(info.progress))) });
       }
     };
-    const load = (device: "webgpu" | "wasm") =>
+    const load = (device) =>
       KokoroTTS.from_pretrained(MODEL_ID, {
         dtype: device === "webgpu" ? "fp32" : "q8",
         device,
         progress_callback,
-      }) as unknown as Promise<KokoroInstance>;
+      });
 
     if (hasGpu) {
       try {
@@ -56,10 +36,9 @@ async function loadTts(): Promise<KokoroInstance> {
   return ttsPromise;
 }
 
-self.onmessage = (ev: MessageEvent<SpeakMessage>) => {
+self.onmessage = (ev) => {
   const msg = ev.data;
-  if (msg.type !== "speak") return;
-  // Serialize inference calls so prefetch and active playback never fight over the model.
+  if (!msg || msg.type !== "speak") return;
   queue = queue.then(async () => {
     try {
       const tts = await loadTts();

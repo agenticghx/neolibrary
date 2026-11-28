@@ -69,7 +69,7 @@ function notifyProgress(pct: number | null) {
 
 function getWorker(): Worker {
   if (worker) return worker;
-  worker = new Worker(new URL("./kokoro.worker.ts", import.meta.url), { type: "module" });
+  worker = new Worker("/kokoro-worker.js", { type: "module" });
   worker.onmessage = (ev: MessageEvent<WorkerReply>) => {
     const msg = ev.data;
     if (msg.type === "progress") {

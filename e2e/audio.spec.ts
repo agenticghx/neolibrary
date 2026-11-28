@@ -19,6 +19,9 @@ test("a paragraph is read aloud once, stored with word timings, and its audio is
   expect(info.voices).toEqual([
     { id: "fake-ada", name: "Ada (test voice)" },
     { id: "fake-ben", name: "Ben (test voice)" },
+    { id: "local:af_heart", name: "Heart (Local · free)" },
+    { id: "local:af_bella", name: "Bella (Local · free)" },
+    { id: "local:bm_george", name: "George (Local · free)" },
   ]);
   expect(info.track).toBeNull();
   expect(info.estimate).toBeGreaterThan(0);

@@ -812,6 +812,7 @@ test("books are added from a Google Drive link to a shared folder; other files a
     for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width: w, height: h });
       await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(300);
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
       expect(axe.violations.map((v) => `${name} ${scheme} ${v.id}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
