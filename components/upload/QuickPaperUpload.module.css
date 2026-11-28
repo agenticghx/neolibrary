@@ -1,0 +1,202 @@
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.headCopy {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.eyebrow {
+  color: var(--ink-900);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: var(--text-3xl);
+}
+
+.lede {
+  max-width: var(--measure-read);
+  color: var(--ink-900);
+  font-family: var(--font-serif);
+  font-size: var(--text-read);
+  line-height: var(--leading-read);
+}
+
+.addButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.addButton:hover {
+  background-color: var(--accent-strong);
+}
+
+.addButton:focus-within {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.addButtonBusy {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.dropVeil {
+  position: fixed;
+  inset: var(--space-3);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel);
+  backdrop-filter: blur(var(--blur-glass));
+  pointer-events: none;
+}
+
+.dropBadge {
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-pill);
+  background-color: var(--paper-raised);
+  color: var(--ink-900);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-panel);
+}
+
+.resultBox {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-8) var(--space-3) var(--space-4);
+  border: var(--border-hair) solid var(--accent);
+  border-radius: var(--radius-panel);
+  background-color: var(--paper-raised);
+  box-shadow: var(--shadow-panel);
+}
+
+.resultList {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.resultRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.resultMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pill {
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--paper-sunken);
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.resultTitle {
+  color: var(--ink-900);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.resultNote {
+  color: var(--ink-700);
+  font-size: var(--text-xs);
+}
+
+.resultError {
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.resultActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ghostBtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border: var(--border-hair) solid var(--rule);
+  border-radius: var(--radius-md);
+  background-color: var(--paper);
+  color: var(--ink-900);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ghostBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ghostBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background-color: var(--paper-raised);
+}
+
+.dismissBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-700);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.dismissBtn:hover {
+  background-color: var(--paper-sunken);
+  color: var(--ink-900);
+}

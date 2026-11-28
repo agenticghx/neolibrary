@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { BookCarousel } from "@/components/home/BookCarousel";
 import { LibrarySpines, NotYetGroup } from "@/components/home/Library";
 import { LibraryViews } from "@/components/home/LibraryViews";
+import { PapersHeaderWithUpload } from "@/components/upload/QuickPaperUpload";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { coverSigner } from "@/lib/library/covers";
@@ -70,22 +71,31 @@ export default async function LibraryPage({
 
   return (
     <main className={styles.main}>
-      <header className={styles.head}>
-        <p className={styles.eyebrow}>Library</p>
-        <h1 className={styles.title}>{show === "all" ? "Your library" : SHOWS[show]}</h1>
-        <p className={styles.lede}>
-          {filtered
-            ? <>
-                <span>{`${items.length} ${items.length === 1 ? "title" : "titles"}${audio ? " with audio" : ""}${waiting.length ? `, and ${waiting.length} not available yet` : ""}.`}</span>{" "}
-                <Link href="/library">Show the whole library</Link>
-              </>
-            : everything.length === 0
+      {show === "papers" ? (
+        <PapersHeaderWithUpload
+          eyebrow="Library"
+          title={SHOWS[show]}
+          countText={`${items.length} ${items.length === 1 ? "title" : "titles"}.`}
+          allLibraryHref="/library"
+        />
+      ) : (
+        <header className={styles.head}>
+          <p className={styles.eyebrow}>Library</p>
+          <h1 className={styles.title}>{show === "all" ? "Your library" : SHOWS[show]}</h1>
+          <p className={styles.lede}>
+            {filtered
               ? <>
-                  Nothing here yet. Add your own DRM-free books on the <Link href="/import">Import</Link> page.
+                  <span>{`${items.length} ${items.length === 1 ? "title" : "titles"}${audio ? " with audio" : ""}${waiting.length ? `, and ${waiting.length} not available yet` : ""}.`}</span>{" "}
+                  <Link href="/library">Show the whole library</Link>
                 </>
-              : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
-        </p>
-      </header>
+              : everything.length === 0
+                ? <>
+                    Nothing here yet. Add your own DRM-free books on the <Link href="/import">Import</Link> page.
+                  </>
+                : `${everything.length} ${everything.length === 1 ? "book" : "books"}.`}
+          </p>
+        </header>
+      )}
       {everything.length === 0 ? (
         <form action={addSampleBooksAction} className={styles.samples}>
           <p className={styles.samplesText}>

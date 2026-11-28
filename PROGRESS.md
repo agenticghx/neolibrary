@@ -198,6 +198,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-28 08:42 · Antigravity · 1-click paper upload on Papers page (Option A) + clickable upload links
+- **Done:** Implemented Samuel's approved **Option A** for 1-click paper upload on `/library?show=papers`: added `PapersHeaderWithUpload` (`components/upload/QuickPaperUpload.tsx`) with a top-right `+ Add paper` button that opens the OS file picker immediately and files uploads under Papers (`kind="paper"`), full-page drag-and-drop with a drop veil, and a dismissible result banner with direct `Open` links (including for duplicates) and a 1-click `+ File under Papers` action (`POST /api/books/[id]/paper` `{ markOnly: true }`). Also made uploaded/duplicate book titles clickable links on `/import` (`components/upload/HomeImport.tsx`).
+- **Key paths:** components/upload/QuickPaperUpload.tsx; components/upload/QuickPaperUpload.module.css; app/(app)/library/page.tsx; components/upload/HomeImport.tsx; PROGRESS.md
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts
+- **Known issues / blockers:** None.
+- **Exact next steps:** 1. Watch PR CI, confirm Auto-merge and Railway deploy, and verify `/api/health`.
+
 ### 2026-11-27 18:50 · Antigravity · Use unified vector back15/forward15 icons in ListenBar
 - **Done:** Replaced the separate HTML `"15"` span overlay inside `ListenBar.tsx`'s rewind/forward buttons (which drifted on mobile viewports) with the app's unified 24×24 vector `<Icon name="back15" />` and `<Icon name="forward15" />` icons from `components/shell/icons.tsx` (matching `MiniPlayer.tsx`), and replaced `.listenSkipNum` with `.listenSkipIcon` in `reader.module.css`.
 - **Key paths:** app/(reader)/books/[id]/read/ListenBar.tsx; app/(reader)/books/[id]/read/reader.module.css; PROGRESS.md
