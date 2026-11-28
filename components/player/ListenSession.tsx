@@ -5,6 +5,7 @@ import { createPortal, flushSync } from "react-dom";
 import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import { mark } from "@/lib/perf-marks";
 import { ASK_AGAIN_MS, ASK_MORE_AT, firstVoice, loadSpeed, LOADING_AFTER_MS, LOOK_BACK_MS, mayLookAhead, mustAsk, noteFor, NOTHING_MADE, OFFLINE, saveSpeed, shortChapter, shouldMakeAhead, speedLabel, withEarlier, withPart, type Info, type Made } from "@/lib/player/session";
+import { isLocalVoice, prefetchLocal, synthesizeLocal } from "@/lib/player/local-voice";
 import { afterEnded, fileStart, follow as followAudiobook } from "@/lib/readalong/player";
 import { wordAt } from "@/lib/speech/timings";
 import { sentenceAt } from "@/lib/player/sentence";
@@ -107,6 +108,7 @@ export function ListenSession({
   const askingNow = useRef(false);
   askingNow.current = ask !== null;
   const [justMade, setJustMade] = useState("");
+  const [localProgress, setLocalProgress] = useState<number | null>(null);
   const isBook = !!info?.audiobook && voice === info.audiobook.voice;
 
   /** The page showing the book, if any (the reader, while it is open). */
@@ -202,8 +204,32 @@ export function ListenSession({
     };
   }, [bookId, at, prepared]);
 
-  /** The stored track for a paragraph in the chosen voice, made now if needed. */
-  const trackFor = async (sectionId: string, v: string, opts?: { ahead?: boolean }) => {
+  /** The stored track for a paragraph in the chosen voice, made now if needed (or synthesized locally via Kokoro). */
+  const trackFor = async (sectionId: string, v: string, opts?: { ahead?: boolean; text?: string }): Promise<Track & { audioUrl: string }> => {
+    if (isLocalVoice(v)) {
+      const text = opts?.text ?? info?.passage.text ?? "";
+      if (!text.trim()) throw new Error("Nothing to read aloud in this paragraph.");
+      const local = await synthesizeLocal(text, v, opts?.ahead ? undefined : setLocalProgress);
+      return {
+        id: `local:${sectionId}:${v}`,
+        sectionId,
+        voice: v,
+        source: "tts",
+        provider: "kokoro-local",
+        model: "kokoro-82m",
+        audioKey: "",
+        mime: "audio/wav",
+        durationMs: local.durationMs,
+        words: local.words,
+        characters: text.length,
+        costUsd: 0,
+        createdAt: new Date().toISOString(),
+        audioStartMs: null,
+        audioEndMs: null,
+        importId: null,
+        audioUrl: local.audioUrl,
+      };
+    }
     const res = await voiceFetch(`/api/books/${bookId}/audio`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -237,17 +263,29 @@ export function ListenSession({
     const held = aheadRef.current;
     const already = !!nextId && !!held && held.sectionId === nextId && held.voice === v && held.generation === g;
     const madeVoice = !(info?.audiobook && v === info.audiobook.voice);
-    if (!nextId || !mayLookAhead({ fileType: info?.fileType ?? "epub", madeVoice, nextId, already, asking: askingNow.current })) return;
+    const local = isLocalVoice(v);
+    if (!nextId) return;
+    if (local) {
+      if (already) return;
+    } else if (!mayLookAhead({ fileType: info?.fileType ?? "epub", madeVoice, nextId, already, asking: askingNow.current })) {
+      return;
+    }
     const sectionId = nextId;
     const promise = (async (): Promise<AheadReady | null> => {
       try {
         const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice: v })}`);
         const body = (await res.json().catch(() => null)) as Info | null;
         if (!res.ok || !body?.passage || generation.current !== g) return null;
+        if (local) {
+          prefetchLocal(body.passage.text, v);
+          const track = await trackFor(body.passage.id, v, { ahead: true, text: body.passage.text });
+          if (generation.current !== g) return null;
+          return { passage: body.passage, track };
+        }
         if (body.track) return { passage: body.passage, track: body.track };
         // The $1 check again, at the moment of paying: this paragraph's own cost may have landed since Play.
         if (!shouldMakeAhead(false, sinceOk.current)) return null;
-        const track = await trackFor(body.passage.id, v, { ahead: true });
+        const track = await trackFor(body.passage.id, v, { ahead: true, text: body.passage.text });
         if (generation.current !== g) return null;
         return { passage: body.passage, track };
       } catch {
@@ -309,7 +347,7 @@ export function ListenSession({
     setBusy(true);
     setError(null);
     try {
-      const track = info.track && info.track.voice === voice ? info.track : await trackFor(info.passage.id, voice);
+      const track = info.track && info.track.voice === voice ? info.track : await trackFor(info.passage.id, voice, { text: info.passage.text });
       if (generation.current !== g) return;
       await playTrack(info.passage, track, from);
     } catch (e) {
@@ -343,7 +381,7 @@ export function ListenSession({
       const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: info.passage.nextId, voice })}`);
       const body = (await res.json().catch(() => null)) as Info | null;
       if (!res.ok || !body) throw new Error("The next paragraph could not be found.");
-      if (auto && !body.track && mustAsk(sinceOk.current)) {
+      if (auto && !isLocalVoice(voice) && !body.track && mustAsk(sinceOk.current)) {
         if (generation.current !== g) return;
         // Show the next paragraph's cost and wait: Keep reading (the Play button) makes it.
         setInfo((i) => (i ? { ...i, passage: body.passage, track: null, estimate: body.estimate } : i));
@@ -352,7 +390,7 @@ export function ListenSession({
         return;
       }
       setAsk(null);
-      const track = body.track ?? (await trackFor(body.passage.id, voice));
+      const track = body.track ?? (await trackFor(body.passage.id, voice, { text: body.passage.text }));
       // The voice was changed meanwhile: this audio is no longer wanted.
       if (generation.current !== g) return;
       await playTrack(body.passage, track, 0, resume);
@@ -669,7 +707,7 @@ export function ListenSession({
       const res = await voiceFetch(`/api/books/${bookId}/audio?${new URLSearchParams({ section: sectionId, voice })}`);
       const body = (await res.json().catch(() => null)) as Info | null;
       if (!res.ok || !body) throw new Error("The paragraph before could not be found.");
-      const track = body.track ?? (await trackFor(body.passage.id, voice));
+      const track = body.track ?? (await trackFor(body.passage.id, voice, { text: body.passage.text }));
       if (generation.current !== g) return;
       await playTrack(body.passage, track, Math.max(0, track.durationMs - fromEndMs), resume);
     } catch (e) {
@@ -821,7 +859,7 @@ export function ListenSession({
     void next(resume);
   };
 
-  const disabled = !info || busy || (isBook ? !info.audiobook!.paragraphs.length : info.estimate === null && !info.track);
+  const disabled = !info || busy || (isBook ? !info.audiobook!.paragraphs.length : !isLocalVoice(voice) && info.estimate === null && !info.track);
   const view: ListenView = {
     passageCfi,
     playing,
@@ -835,7 +873,7 @@ export function ListenSession({
     voices: info?.voices ?? [],
     voice,
     speed,
-    note: noteFor({ error, info, isBook, voice, bookEnded, loading, bookStarted, made, ask: isBook ? null : ask, justMade: !!info?.track && info.passage.id === justMade }),
+    note: noteFor({ error, info, isBook, voice, bookEnded, loading, bookStarted, made, ask: isBook ? null : ask, justMade: !!info?.track && info.passage.id === justMade, localProgress }),
     toggle: () => (playing ? audio.current?.pause() : isBook ? playAudiobook() : void play()),
     back: () => skip(-15),
     forward: () => skip(15),

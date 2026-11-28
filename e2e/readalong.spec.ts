@@ -1262,7 +1262,7 @@ async function uploadPdfReading(page: Page, bytes: Uint8Array, pkg: ReturnType<t
   const info = await (await page.request.get(`/api/books/${bookId}/audio?${new URLSearchParams({ cfi: "epubcfi(/6/2)" })}`)).json();
   expect(info.fileType).toBe("pdf");
   // The audiobook first, then the made voices (a PDF is read aloud in them too: docs/pdf-narration-plan.md).
-  expect(info.voices.map((v: { id: string }) => v.id)).toEqual([`upload:${body.import.id}`, "fake-ada", "fake-ben"]);
+  expect(info.voices.map((v: { id: string }) => v.id)).toEqual([`upload:${body.import.id}`, "fake-ada", "fake-ben", "local:af_heart", "local:af_bella", "local:bm_george"]);
   expect(info.voices[0].name).toBe("Your audiobook");
   const expected: Spoken[] = (info.audiobook.paragraphs as { sectionId: string; cfi: string; file: number; words: [number, number, number, number][] }[]).flatMap((p) =>
     p.words.map(([startMs, , from, to]) => ({ word: ps.find((x) => x.id === p.sectionId)!.text.slice(from, to).replace(/\s+/g, ""), startMs, file: p.file, cfi: p.cfi })),

@@ -4,6 +4,7 @@ import { books, sections } from "@/lib/db/schema";
 import { getSpeechModel } from "@/lib/speech";
 import { DEFAULT_VOICES } from "@/lib/speech/elevenlabs";
 import { SpeechNotConfigured, type SpeechModel } from "@/lib/speech/model";
+import { isLocalVoice, LOCAL_VOICES } from "@/lib/player/local-voice";
 import { chapterNames, estimateSpeech, firstStoredTrack, passageFor, placeOnPage, savedTrackWithoutKey, storedTrack, uploadedReading, type Track, type UploadedReading } from "./audio";
 
 /** What the Listen bar shows for "Your audiobook" among the voices (M13 (d)). */
@@ -66,21 +67,29 @@ export async function listenInfo(
   let voices: { id: string; name: string }[] = [];
   let track: Track | null = null;
   let configured = true;
+  let isFakeSpeech = false;
   try {
     const model = speech();
+    isFakeSpeech = model.model === "fake-voice";
     voices = await model.voices();
-    if (q.voice && !q.voice.startsWith("upload:")) track = await storedTrack(db, ownerId, model, q.voice, passage);
+    if (q.voice && isLocalVoice(q.voice)) track = null;
+    else if (q.voice && !q.voice.startsWith("upload:")) track = await storedTrack(db, ownerId, model, q.voice, passage);
     // No voice asked (the bar opening): the first voice this paragraph is saved in, so the bar opens in a voice
     // that plays it for free (a book narrated whole in a voice that is not the first on offer); none saved: none.
     else track = await firstStoredTrack(db, ownerId, model, voices.map((v) => v.id), passage);
   } catch (e) {
     if (!(e instanceof SpeechNotConfigured)) throw e;
     configured = false;
-    track = await savedTrackWithoutKey(db, ownerId, passage, q.voice);
-    if (track) voices = [{ id: track.voice, name: DEFAULT_VOICES.find((v) => v.id === track!.voice)?.name ?? track.voice }];
+    if (!q.voice || !isLocalVoice(q.voice)) {
+      track = await savedTrackWithoutKey(db, ownerId, passage, q.voice);
+      if (track) voices = [{ id: track.voice, name: DEFAULT_VOICES.find((v) => v.id === track!.voice)?.name ?? track.voice }];
+    }
   }
   if (track) track = await placeOnPage(db, bookId, passage.id, track);
   const chapter = (await chapterNames(db, bookId, new Set([passage.chapterIndex])))[passage.chapterIndex] ?? "";
+  // In real use, browser-local Kokoro voices come right after Your audiobook (and before paid ElevenLabs).
+  // In automated tests (AI_FAKE=1), keep fake voices first so existing E2E specs exercise the deterministic fake.
+  const combinedVoices = isFakeSpeech ? [...voices, ...LOCAL_VOICES] : [...LOCAL_VOICES, ...voices];
   return {
     passage: {
       id: passage.id,
@@ -93,7 +102,7 @@ export async function listenInfo(
       chapter,
     },
     book: { title: book?.title ?? "", author: book?.author ?? "" },
-    voices: audiobook ? [{ id: audiobook.voice, name: AUDIOBOOK_NAME }, ...voices] : voices,
+    voices: audiobook ? [{ id: audiobook.voice, name: AUDIOBOOK_NAME }, ...combinedVoices] : combinedVoices,
     track,
     estimate: configured ? estimateSpeech(passage) : null,
     audiobook,

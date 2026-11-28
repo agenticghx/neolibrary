@@ -198,6 +198,13 @@ Never blocks the loop. Newest first.
 
 Older entries are in `docs/ledger-archive/`, one file a month, newest first (moved there by `scripts/archive-ledger.py`; nothing was reworded).
 
+### 2026-11-28 11:03 · Antigravity · Browser-local Kokoro neural voice as default free voice in Floating Listen Dock
+- **Done:** Wired `kokoro-js` (Kokoro-82M ONNX, WebGPU with automatic WASM fallback) into a dedicated browser Web Worker (`lib/player/kokoro.worker.ts`) and player bridge (`lib/player/local-voice.ts`) with in-memory WAV caching, background next-paragraph prefetching, and proportional word-timing estimation for live highlighting; exposed 3 free local voices (`Heart`, `Bella`, `George`) as the default voice order in production right after `Your audiobook` and before opt-in ElevenLabs (`lib/library/listen.ts`, `lib/player/session.ts`, `components/player/ListenSession.tsx`, `app/(reader)/books/[id]/read/ListenBar.tsx`), while keeping `AI_FAKE=1` CI tests on the deterministic fake voice; added unit tests in `lib/player/local-voice.test.ts`.
+- **Key paths:** package.json; package-lock.json; lib/player/local-voice.ts; lib/player/kokoro.worker.ts; lib/player/local-voice.test.ts; lib/library/listen.ts; lib/player/session.ts; components/player/ListenSession.tsx; app/(reader)/books/[id]/read/ListenBar.tsx; PROGRESS.md
+- **Commands that worked:** npm run lint && npm run typecheck && npx vitest run lib/tokens.test.ts lib/glyphs.test.ts lib/library/own-book.test.ts lib/player/
+- **Known issues / blockers:** None.
+- **Exact next steps:** 1. Watch PR CI, confirm Auto-merge and Railway deploy, and verify `/api/health`.
+
 ### 2026-11-28 09:23 · Antigravity · Simplify sidebar (drop Want to Read & Finished) + Status filter pills under Books and Papers
 - **Done:** Implemented Samuel's approved **Option A**: removed `Want to Read` and `Finished` from the desktop sidebar (`components/shell/Sidebar.tsx`, leaving `Books`, `Papers`, `Import`) and added a unified `Status` filter pill row (`All`, `Want to Read`, `Finished`, plus `Has audio` under Books) inside both `Books` and `Papers` on `/library` (`app/(app)/library/page.tsx`, `lib/library/shelf.ts`), while keeping legacy `/library?show=want` and `/library?show=finished` bookmarks working; updated `e2e/shell.spec.ts` and `e2e/home.spec.ts`.
 - **Key paths:** components/shell/Sidebar.tsx; lib/library/shelf.ts; app/(app)/library/page.tsx; e2e/shell.spec.ts; e2e/home.spec.ts; PROGRESS.md

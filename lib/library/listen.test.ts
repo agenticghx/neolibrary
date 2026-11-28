@@ -12,6 +12,7 @@ import { MemoryStorage } from "@/lib/storage";
 import { speakPassage } from "./audio";
 import { importBook } from "./import";
 import { AUDIOBOOK_NAME, listenInfo } from "./listen";
+import { LOCAL_VOICES } from "@/lib/player/local-voice";
 import { getSections } from "./sections-store";
 import { savePagesReadElsewhere } from "./text-edition";
 import { pageSpeech } from "./text-epub";
@@ -48,14 +49,14 @@ async function importAudiobook() {
 }
 
 describe("what the Listen bar gets", () => {
-  it("offers the book's own audiobook even with no ElevenLabs key: it costs nothing", async () => {
+  it("offers the book's own audiobook and local neural voices even with no ElevenLabs key: they cost nothing", async () => {
     expect(() => noKey()).toThrow("ELEVENLABS_API_KEY");
-    // Without an audiobook and without a key: nothing to choose, as before.
+    // Without an audiobook and without a key: browser-local Kokoro voices are still offered for free.
     const before = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[5].cfi }, noKey);
-    expect(before).toMatchObject({ voices: [], estimate: null, track: null, audiobook: null });
+    expect(before).toMatchObject({ voices: [...LOCAL_VOICES], estimate: null, track: null, audiobook: null });
     const imp = await importAudiobook();
     const info = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[5].cfi }, noKey);
-    expect(info.voices).toEqual([{ id: `upload:${imp.id}`, name: AUDIOBOOK_NAME }]);
+    expect(info.voices).toEqual([{ id: `upload:${imp.id}`, name: AUDIOBOOK_NAME }, ...LOCAL_VOICES]);
     expect(info.estimate).toBeNull();
     expect(info.track).toBeNull();
     expect(info.audiobook!.paragraphs.map((p) => p.sectionId)).toEqual(paragraphs.slice(5, 8).map((p) => p.id));
@@ -64,7 +65,7 @@ describe("what the Listen bar gets", () => {
   it("puts the audiobook first, before the made-on-demand voices, and starts it at the reading position", async () => {
     const imp = await importAudiobook();
     const info = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake);
-    expect(info.voices.map((v) => v.id)).toEqual([`upload:${imp.id}`, "fake-ada", "fake-ben"]);
+    expect(info.voices.map((v) => v.id)).toEqual([`upload:${imp.id}`, "fake-ada", "fake-ben", ...LOCAL_VOICES.map((v) => v.id)]);
     expect(info.estimate).toBeGreaterThan(0);
     expect(info.passage.id).toBe(paragraphs[6].id);
     expect(info.audiobook!.paragraphs.map((p) => p.sectionId)).toEqual(paragraphs.slice(6, 8).map((p) => p.id));
@@ -84,9 +85,9 @@ describe("what the Listen bar gets", () => {
     expect((await listenInfo(database.db, ownerId, bookId, { section: paragraphs[6].id, voice: "fake-ada" }, withFake)).audiobook).toBeNull();
   });
 
-  it("without an audiobook, offers the made-on-demand voices only", async () => {
+  it("without an audiobook, offers the made-on-demand and local voices", async () => {
     const info = await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake);
-    expect(info.voices.map((v) => v.id)).toEqual(["fake-ada", "fake-ben"]);
+    expect(info.voices.map((v) => v.id)).toEqual(["fake-ada", "fake-ben", ...LOCAL_VOICES.map((v) => v.id)]);
     expect(info.audiobook).toBeNull();
   });
 });
@@ -124,7 +125,7 @@ describe("which voice's saved audio the bar opens with", () => {
     const savedNoKey = await listenInfo(database.db, ownerId, bookId, at, noKey);
     expect(savedNoKey.estimate).toBeNull();
     expect(savedNoKey.track).toMatchObject({ voice: "fake-ada", sectionId: paragraphs[5].id });
-    expect(savedNoKey.voices).toEqual([{ id: "fake-ada", name: "fake-ada" }]);
+    expect(savedNoKey.voices).toEqual([...LOCAL_VOICES, { id: "fake-ada", name: "fake-ada" }]);
     // Another paragraph, saved in neither: none.
     expect((await listenInfo(database.db, ownerId, bookId, { cfi: paragraphs[6].cfi }, withFake)).track).toBeNull();
   });
@@ -159,14 +160,14 @@ describe("Listen in a PDF book (M13 (e); made voices: docs/pdf-narration-plan.md
     const { bytes, id, ps } = await twoParagraphPdf();
     const before = await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake);
     expect(before).toMatchObject({ fileType: "pdf", track: null, audiobook: null });
-    expect(before.voices.map((v) => v.id)).toEqual(["fake-ada", "fake-ben"]);
+    expect(before.voices.map((v) => v.id)).toEqual(["fake-ada", "fake-ben", ...LOCAL_VOICES.map((v) => v.id)]);
     expect(before.estimate).toBeGreaterThan(0);
-    // Without a voice key, nothing to choose (as in an EPUB).
-    expect(await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, noKey)).toMatchObject({ voices: [], estimate: null });
+    // Without a voice key, browser-local Kokoro voices are still offered for free (as in an EPUB).
+    expect(await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, noKey)).toMatchObject({ voices: [...LOCAL_VOICES], estimate: null });
     const { zip } = buildPackage({ bookBytes: bytes, chapters: [{ title: "One", paragraphs: ps.map((p) => p.text), inBook: [0, 0] }] });
     const imp = await startImport(database.db, storage, ownerId, id, zip());
     const after = await listenInfo(database.db, ownerId, id, { cfi: "epubcfi(/6/2)" }, withFake);
-    expect(after.voices.map((v) => v.id)).toEqual([`upload:${imp.id}`, "fake-ada", "fake-ben"]);
+    expect(after.voices.map((v) => v.id)).toEqual([`upload:${imp.id}`, "fake-ada", "fake-ben", ...LOCAL_VOICES.map((v) => v.id)]);
     expect(after.audiobook!.paragraphs[0].inPage).toHaveLength(ps[0].text.split(" ").length);
   });
 
