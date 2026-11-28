@@ -1,5 +1,6 @@
 import type { EarlierPart, ReadingPart, Track } from "@/lib/library/audio";
 import type { ListenInfo } from "@/lib/library/listen";
+import { isLocalVoice } from "./local-voice";
 
 /**
  * The read-aloud player's rules that need no browser (M14 step 6a): which
@@ -167,6 +168,8 @@ export type NoteState = {
   ask?: number | null;
   /** The paragraph shown was paid for just now, in this listen. */
   justMade?: boolean;
+  /** One-time download progress (0–99) while Kokoro-82M caches in the browser. */
+  localProgress?: number | null;
 };
 
 /** The line the bar shows under its buttons. */
@@ -181,6 +184,10 @@ export function noteFor(s: NoteState): string {
     if (s.loading) return "Loading your audiobook…";
     if (ab.begins && !ab.begins.nearby && !s.bookStarted) return `Your audiobook begins further on (${ab.begins.label}): Play turns to it.`;
     return "Your audiobook: free to play.";
+  }
+  if (isLocalVoice(s.voice)) {
+    if (typeof s.localProgress === "number") return `Downloading local voice (once)… ${s.localProgress}%`;
+    return "Local neural voice: free to play.";
   }
   const made = madeSoFar(s.made ?? NOTHING_MADE);
   if (s.ask != null) return `Keep reading? The next paragraph costs ${usd(s.ask)}.${made}`;

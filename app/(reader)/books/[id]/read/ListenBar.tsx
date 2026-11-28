@@ -16,7 +16,7 @@ import styles from "./reader.module.css";
 export function ListenBar({ view, onClose, ref }: { view: ListenView; onClose: () => void; ref?: Ref<HTMLDivElement> }) {
   const playLabel = view.busy ? "Preparing…" : view.playing ? "Pause" : view.asking ? "Keep reading" : "Play";
   const costMatch = !view.asking && !view.hasError ? view.note.match(/\$[\d.]+/) : null;
-  const showNote = view.asking || view.hasError;
+  const showNote = view.asking || view.hasError || view.note.startsWith("Downloading");
 
   // data-word is written by the reader as it lights each word (Reader.tsx, recordLit), not by React: keep it out of this JSX, or two writers would fight.
   return (
