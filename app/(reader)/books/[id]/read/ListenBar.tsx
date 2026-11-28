@@ -2,6 +2,7 @@
 
 import type { Ref } from "react";
 import type { ListenView } from "@/components/player/PlayerProvider";
+import { Icon } from "@/components/shell/icons";
 import { SPEEDS } from "@/lib/player/session";
 import styles from "./reader.module.css";
 
@@ -73,13 +74,7 @@ export function ListenBar({ view, onClose, ref }: { view: ListenView; onClose: (
           disabled={!view.canSkip}
           onClick={view.back}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-          <span className={styles.listenSkipNum} aria-hidden="true">
-            15
-          </span>
+          <Icon name="back15" className={styles.listenSkipIcon} />
         </button>
         <button
           type="button"
@@ -110,13 +105,7 @@ export function ListenBar({ view, onClose, ref }: { view: ListenView; onClose: (
           disabled={!view.canSkip}
           onClick={view.forward}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />
-            <path d="M21 3v5h-5" />
-          </svg>
-          <span className={styles.listenSkipNum} aria-hidden="true">
-            15
-          </span>
+          <Icon name="forward15" className={styles.listenSkipIcon} />
         </button>
         <button
           type="button"
