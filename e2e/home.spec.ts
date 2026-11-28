@@ -248,21 +248,24 @@ test("each library filter shows exactly its titles, with the right count", async
     await page.goto(`/library?show=${old}`);
     await expect(page).toHaveURL(now);
   }
-  // On a phone, the Library tab offers the same filters as chips; inside Books, All or Has audio.
+  // On a phone, the Library tab switches between Books and Papers; Status pills filter All, Want to Read, Finished, and Has audio.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/library");
   const chips = page.getByRole("navigation", { name: "Filters" });
-  await expect(chips.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished", "Papers"]);
-  const inBooks = page.getByRole("navigation", { name: "Books", exact: true });
-  await expect(inBooks.getByRole("link")).toHaveText(["All", "Has audio"]);
-  await inBooks.getByRole("link", { name: "Has audio" }).click();
+  await expect(chips.getByRole("link")).toHaveText(["Books", "Papers"]);
+  const statusNav = page.getByRole("navigation", { name: "Status", exact: true });
+  await expect(statusNav.getByRole("link")).toHaveText(["All", "Want to Read", "Finished", "Has audio"]);
+  await statusNav.getByRole("link", { name: "Has audio" }).click();
   await expect(page).toHaveURL(/\/library\?audio=1$/);
-  await expect(inBooks.getByRole("link", { name: "Has audio" })).toHaveAttribute("aria-current", "page");
+  await expect(statusNav.getByRole("link", { name: "Has audio" })).toHaveAttribute("aria-current", "page");
   await expect(chips.getByRole("link", { name: "Books" })).toHaveAttribute("aria-current", "page");
-  // Has audio belongs to Books: Want to Read shows no such row.
-  await chips.getByRole("link", { name: "Want to Read" }).click();
-  await expect(page).toHaveURL(/\/library\?show=want$/);
-  await expect(inBooks).toHaveCount(0);
+  // Want to Read and Finished work as Status filters inside Books and Papers.
+  await statusNav.getByRole("link", { name: "Want to Read" }).click();
+  await expect(page).toHaveURL(/\/library\?status=want$/);
+  await expect(statusNav.getByRole("link", { name: "Want to Read" })).toHaveAttribute("aria-current", "page");
+  await chips.getByRole("link", { name: "Papers" }).click();
+  await expect(page).toHaveURL(/\/library\?show=papers$/);
+  await expect(statusNav.getByRole("link")).toHaveText(["All", "Want to Read", "Finished"]);
   // For the pull request: Books (All, Has audio), phone and desktop, light and dark.
   await mkdir("screenshots", { recursive: true });
   for (const [name, width, height] of [["phone", 390, 844], ["desktop", 1280, 800]] as const) {

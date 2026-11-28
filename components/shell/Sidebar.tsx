@@ -9,11 +9,9 @@ import { Icon, type IconName } from "./icons";
 import { NavLink } from "./NavLink";
 import styles from "./Shell.module.css";
 
-/** The library's filters (M14 D5; /library?show=…, lib/library/shelf.ts SHOWS). Books is every title; Has audio is inside it, on the page. */
+/** The library's main shelves (Books and Papers; Want to Read and Finished are status filters inside both). */
 export const LIBRARY_LINKS: { label: string; href: string; icon: IconName }[] = [
   { label: "Books", href: "/library", icon: "book" },
-  { label: "Want to Read", href: "/library?show=want", icon: "want" },
-  { label: "Finished", href: "/library?show=finished", icon: "finished" },
   // M41 R3: research papers only (Books still lists them too: a paper is a title like any other).
   { label: "Papers", href: "/library?show=papers", icon: "paper" },
 ];

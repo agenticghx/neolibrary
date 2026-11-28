@@ -27,9 +27,7 @@ test.describe("desktop sidebar", () => {
     const cases: [string | RegExp, RegExp, string][] = [
       ["Home", /:\d+\/$/, "Home"],
       ["Books", /\/library$/, "Your library"],
-      ["Want to Read", /\/library\?show=want$/, "Want to Read"],
-      ["Finished", /\/library\?show=finished$/, "Finished"],
-      // M41 R3: research papers, after Finished and before Import.
+      // M41 R3: research papers, after Books and before Import (Want to Read & Finished are Status filters inside both).
       ["Papers", /\/library\?show=papers$/, "Papers"],
       // M14 follow-up V3b (Samuel, #90): the Import page, from the Library list.
       ["Import", /\/import$/, "Import"],
@@ -46,9 +44,9 @@ test.describe("desktop sidebar", () => {
       await expect(sidebar(page).locator('[aria-current="page"]')).toHaveCount(1);
     }
 
-    // Import is the last item of the Library list, after Finished (M14 follow-up V3b).
+    // Import is the last item of the Library list (Books, Papers, Import).
     const libraryList = sidebar(page).getByRole("list", { name: "Library", exact: true });
-    await expect(libraryList.getByRole("link")).toHaveText(["Books", "Want to Read", "Finished", "Papers", "Import"]);
+    await expect(libraryList.getByRole("link")).toHaveText(["Books", "Papers", "Import"]);
     // With a book chosen for its audiobook (/import?book=…#audio-h), Import is still the current page.
     const importItem = libraryList.getByRole("link", { name: "Import", exact: true });
     await importItem.click();
