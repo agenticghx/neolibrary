@@ -11,6 +11,7 @@ type KokoroInstance = {
 type SpeakMessage = { type: "speak"; id: number; text: string; voice: string };
 
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
+const KOKORO_CDN = "https://esm.sh/kokoro-js@1.2.1";
 
 let ttsPromise: Promise<KokoroInstance> | null = null;
 let queue: Promise<void> = Promise.resolve();
@@ -18,7 +19,15 @@ let queue: Promise<void> = Promise.resolve();
 async function loadTts(): Promise<KokoroInstance> {
   if (ttsPromise) return ttsPromise;
   ttsPromise = (async () => {
-    const { KokoroTTS } = await import("kokoro-js");
+    const mod = (await import(/* webpackIgnore: true */ KOKORO_CDN)) as {
+      KokoroTTS: {
+        from_pretrained: (
+          id: string,
+          opts: { dtype: string; device: string; progress_callback: (info: { status?: string; progress?: number }) => void },
+        ) => Promise<KokoroInstance>;
+      };
+    };
+    const { KokoroTTS } = mod;
     const hasGpu = typeof navigator !== "undefined" && "gpu" in navigator;
     const progress_callback = (info: { status?: string; progress?: number }) => {
       if (info.status === "progress" && typeof info.progress === "number") {
